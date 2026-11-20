@@ -340,6 +340,33 @@ test.describe('Neo.menu.List submenu cache', () => {
 
         expect(root.activeSubMenu).not.toBe(firstSubmenu);
         expect(firstSubmenu.mounted).toBe(false)
+    });
+
+    test('items that replace the items rebuild the submenu of an item whose id they reuse', () => {
+        const
+            root     = createMenu({floating: true, isRoot: true}),
+            moved    = [],
+            moveMenu = (file, folders) => [{id: 'move', text: 'Move to', items: folders.map(folder => ({
+                handler: () => moved.push(`${file} to ${folder}`), id: folder, text: folder
+            }))}],
+            showMove = () => root.showSubMenu(root.getItemId(root.store.get('move')), root.store.get('move'));
+
+        menus.push(root);
+
+        root.items = moveMenu('Alpha', ['Images', 'Archive']);
+        showMove();
+
+        const alphaSubmenu = root.activeSubMenu;
+
+        root.items = moveMenu('Beta', ['Documents', 'Archive']);
+        showMove();
+
+        expect(alphaSubmenu.isDestroyed).toBe(true);
+        expect(root.activeSubMenu.store.items.map(record => record.text)).toEqual(['Documents', 'Archive']);
+
+        root.activeSubMenu.store.get('Archive').handler();
+
+        expect(moved).toEqual(['Beta to Archive'])
     })
 });
 

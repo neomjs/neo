@@ -65,7 +65,7 @@ const EXPECTED_CYCLE_TEXTS = [
 
 const EXPECTED_HERO_SENTENCE =
     "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a " +
-    "record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how " +
+    "record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how " +
     "a team gets an institution.";
 
 test.describe('Portal.view.home.parts.hero.Content', () => {

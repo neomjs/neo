@@ -322,7 +322,11 @@ test.describe('Neo.desktop.Container', () => {
 
         await taskbar.runClock();
 
-        expect((started + delay) % 60000, 'the wait ends on a full minute').toBeLessThan(50)
+        // The clock reads the time a moment after `started`, so its wait can end a millisecond before the minute
+        // as well as after it: measure the distance to the nearest full minute on either side
+        const offset = (started + delay) % 60000;
+
+        expect(Math.min(offset, 60000 - offset), 'the wait ends on a full minute').toBeLessThan(50)
     });
 
     test('a consumer adds its own items to the workspace and the taskbar by key', () => {

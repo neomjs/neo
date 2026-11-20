@@ -1,0 +1,77 @@
+.neo-examples-grid-edit-dialog {
+    box-sizing: border-box;
+    gap       : 12px;
+    height    : 100%;
+    padding   : 16px;
+
+    .neo-edit-dialog-header {
+        gap            : 12px;
+        justify-content: space-between;
+    }
+
+    .neo-edit-dialog-intro {
+        flex     : 1 1 320px;
+        min-width: 0;
+    }
+
+    .neo-edit-dialog-title {
+        font-size  : 20px;
+        font-weight: 600;
+        line-height: 1.25;
+        margin     : 0 0 4px;
+    }
+
+    .neo-edit-dialog-subtitle {
+        font-size  : 13px;
+        line-height: 1.45;
+        margin     : 0;
+        opacity    : 0.85;
+    }
+
+    .neo-edit-dialog-toolbar.neo-toolbar {
+        background: transparent;
+        border    : 0;
+        flex      : 0 1 auto;
+        flex-wrap : wrap;
+        gap       : 6px;
+        height    : auto;
+        max-width : 100%;
+        padding   : 0;
+    }
+
+    .neo-grid-container {
+        min-height: 0;
+        min-width : 0;
+    }
+
+    @media (max-width: 600px) {
+        gap    : 10px;
+        padding: 10px;
+
+        .neo-edit-dialog-title {
+            font-size: 17px;
+        }
+
+        .neo-edit-dialog-subtitle {
+            font-size  : 12px;
+            line-height: 1.35;
+        }
+
+        .neo-edit-dialog-toolbar.neo-toolbar .neo-button {
+            font-size: 11px;
+            padding  : 4px 7px;
+        }
+    }
+}
+
+.neo-edit-partner-dialog {
+    max-width: calc(100vw - 24px);
+
+    @media (max-width: 600px) {
+        .neo-textfield-label,
+        .neo-checkbox-label {
+            font-size: 13px;
+            width    : 106px !important;
+        }
+    }
+}

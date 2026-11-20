@@ -80,6 +80,22 @@ test.describe('Board, basic example: one store, two views', () => {
         await expect(badge('review')).toHaveText('2/3')
     });
 
+    test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+        const url   = '/examples/board/basic/index.html',
+              theme = () => page.locator('.board-example').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+        await page.emulateMedia({colorScheme: 'light'});
+        await page.goto(url);
+        await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+        await page.emulateMedia({colorScheme: 'dark'});
+        await page.goto(url);
+        await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+        await page.goto(`${url}?theme=neo-theme-light`);
+        await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
+    });
+
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         test(`a card dragged to another column moves its record, and the table on the same store shows the new status (${theme})`, async ({page, neuralLink}, testInfo) => {
             const {app, boardId, gridId, storeId, domOrder, records} = await open(page, neuralLink, theme),
@@ -322,5 +338,66 @@ test.describe('Board, basic example: one store, two views', () => {
         const doneRecords = await records('done');
 
         expect(doneRecords.at(-1)).toMatchObject({id: 'backlog-0', status: 'done'})
+    });
+
+    test('the card editor keeps WCAG contrast on Save in neo-light and on header icons and field outlines in cyberpunk', async ({page, neuralLink}) => {
+        const measureEditor = () => page.locator('.neo-board-card-editor').evaluate(editor => {
+            const parseRgb = value => (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number),
+                  lum      = ([r, g, b]) => [r, g, b]
+                      .map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 })
+                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
+                  ratio    = (a, b) => {
+                      const [l1, l2] = [lum(parseRgb(a)), lum(parseRgb(b))];
+                      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+                  },
+                  editorBg = getComputedStyle(editor).backgroundColor,
+                  header   = editor.querySelector('.neo-header-toolbar'),
+                  headerBg = getComputedStyle(header).backgroundColor,
+                  saveBtn  = editor.querySelector('.neo-board-card-editor-save'),
+                  saveText = editor.querySelector('.neo-board-card-editor-save .neo-button-text') || saveBtn;
+
+            document.activeElement?.blur?.();
+
+            return {
+                saveContrast : ratio(getComputedStyle(saveText).color, getComputedStyle(saveBtn).backgroundColor),
+                iconContrasts: [...editor.querySelectorAll('.neo-header-toolbar .neo-button-glyph')]
+                    .map(glyph => ratio(getComputedStyle(glyph).color, headerBg)),
+                fieldBorders : [...editor.querySelectorAll('.neo-textfield-input, .neo-selectfield-input')].map(input => {
+                    const style = getComputedStyle(input);
+                    return {
+                        contrast: ratio(style.borderTopColor, editorBg),
+                        style   : style.borderTopStyle,
+                        width   : parseFloat(style.borderTopWidth)
+                    }
+                })
+            }
+        });
+
+        const light = await open(page, neuralLink, 'neo-theme-neo-light');
+
+        await light.app.callMethod(light.boardId, 'openCardEditor', [1]);
+        await expect(page.locator('.neo-board-card-editor')).toBeVisible();
+        expect((await light.app.getComponent(`${light.boardId}__editor`, ['hidden'])).hidden).toBe(false);
+
+        const lightMetrics = await measureEditor();
+
+        expect(lightMetrics.saveContrast, 'neo-light Save label >= 4.5:1').toBeGreaterThanOrEqual(4.5);
+
+        const cyber = await open(page, neuralLink, 'neo-theme-cyberpunk');
+
+        await cyber.app.callMethod(cyber.boardId, 'openCardEditor', [1]);
+        await expect(page.locator('.neo-board-card-editor')).toBeVisible();
+        expect((await cyber.app.getComponent(`${cyber.boardId}__editor`, ['hidden'])).hidden).toBe(false);
+
+        const cyberMetrics = await measureEditor();
+
+        expect(cyberMetrics.iconContrasts.length).toBeGreaterThanOrEqual(2);
+        cyberMetrics.iconContrasts.forEach(contrast => expect(contrast, 'cyberpunk header icon >= 3:1').toBeGreaterThanOrEqual(3));
+        expect(cyberMetrics.fieldBorders.length).toBeGreaterThanOrEqual(7);
+        cyberMetrics.fieldBorders.forEach(border => {
+            expect(border.width, 'cyberpunk field border width').toBeGreaterThanOrEqual(1);
+            expect(border.style).not.toBe('none');
+            expect(border.contrast, 'cyberpunk unfocused field outline >= 3:1').toBeGreaterThanOrEqual(3)
+        })
     })
 });

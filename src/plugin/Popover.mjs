@@ -96,12 +96,12 @@ class Popover extends Plugin {
     }
 
     /**
-     * Create the popover and add it to the parent component of the owner
+     * Create the popover and add it to the parent component of the owner. CSS anchor positioning places it against
+     * the anchor its owner names ({@link #getAnchorName}), on the side its align class picks.
      * @protected
      */
     addPopover() {
         const me      = this,
-              {owner} = me,
               parent  = Neo.get(me.owner.parentId),
               popover = {
                   module: Container,
@@ -112,15 +112,32 @@ class Popover extends Plugin {
 
                   layout: 'base',
                   items : me.items || [],
+                  style : {positionAnchor: me.getAnchorName()},
 
                   vdom: {
                       // Possible Values are auto, manual.
-                      popover: 'auto',
-                      anchor : owner.id
+                      popover: 'auto'
                   }
               };
 
         parent.add(popover)
+    }
+
+    /**
+     * Triggered after the align config got changed: the popover takes the class of its new side
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAlign(value, oldValue) {
+        let popover = oldValue !== undefined && Neo.getComponent(this.popoverId),
+            cls;
+
+        if (popover) {
+            cls = popover.cls;
+            NeoArray.removeAdd(cls, oldValue, value);
+            popover.cls = cls
+        }
     }
 
     /**
@@ -132,6 +149,22 @@ class Popover extends Plugin {
      */
     beforeSetAlign(value, oldValue) {
         return this.testInputValue(value, oldValue, 'alignValues', 'align')
+    }
+
+    /**
+     * The CSS anchor name the owner carries and the popover is positioned against
+     * @returns {String}
+     */
+    getAnchorName() {
+        return '--' + this.popoverId
+    }
+
+    /**
+     * An owner can get its window after it was constructed. Mounted, it has one: the plugin takes it, which loads the
+     * stylesheet that places the popover (plugin.Base#afterSetWindowId)
+     */
+    onOwnerMounted() {
+        this.windowId = this.owner.windowId
     }
 
     /**
@@ -153,15 +186,16 @@ class Popover extends Plugin {
     }
 
     /**
+     * Makes the owner the popover's invoker (`popovertarget`) and its anchor (`anchor-name`)
      * @protected
      */
     preparePopoverTarget() {
-        const me         = this,
-              target     = me.owner,
-              targetVdom = target.vdom;
+        const me     = this,
+              target = me.owner;
 
         target.addCls(me.popovertargetCls);
-        targetVdom.popovertarget = me.popoverId
+        target.vdom.popovertarget = me.popoverId;
+        target.style = {...target.style, anchorName: me.getAnchorName()}
     }
 
     /**

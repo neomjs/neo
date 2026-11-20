@@ -81,8 +81,8 @@ class MainContainer extends Viewport {
                 name     : 'maxWidth'
             }, {
                 module   : NumberField,
-                labelText: 'timeout = 3000',
-                name     : 'timeout',
+                labelText: 'removeDelay = 3000',
+                name     : 'removeDelay',
                 maxValue : 99999
             }, {
                 module       : CheckBox,
@@ -114,20 +114,24 @@ class MainContainer extends Viewport {
             ]},
 
             /**
-             * @summary Keeps VDOM child ids out of HighlightJS's replacement markup with one escaped code leaf.
+             * @summary Prints the call a component runs, with its own appName and windowId, as one escaped code leaf,
+             * which keeps VDOM child ids out of HighlightJS's replacement markup.
              * @param {Object} data Toast form values.
              * @returns {String}
              */
             itemTpl: data => {
-                const config = {appName: data.appName, msg: data.msg, windowId: data.windowId};
+                const
+                    literal = value => Neo.isString(value) ? `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : String(value),
+                    entries = [['appName', 'this.appName'], ['windowId', 'this.windowId'], ['msg', literal(data.msg)]];
 
-                for (const key of ['title', 'iconCls', 'closable', 'position', 'slideDirection', 'maxWidth', 'minHeight', 'ui']) {
-                    if (data[key]) config[key] = data[key];
+                for (const key of ['title', 'iconCls', 'closable', 'position', 'slideDirection', 'maxWidth', 'minHeight', 'removeDelay', 'ui']) {
+                    data[key] && entries.push([key, literal(data[key])])
                 }
 
+                const width = Math.max(...entries.map(([key]) => key.length));
+
                 return StringUtil.escapeHtml(
-                    "import Toast from '../../../../node_modules/neo.mjs/src/component/Toast.mjs';\n\n" +
-                    'Neo.toast(' + JSON.stringify(config, null, 4) + ')'
+                    'Neo.toast({\n' + entries.map(([key, value]) => `    ${key.padEnd(width)}: ${value}`).join(',\n') + '\n})'
                 )
             }
         }]

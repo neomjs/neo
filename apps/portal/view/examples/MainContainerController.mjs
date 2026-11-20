@@ -41,6 +41,96 @@ class MainContainerController extends Component {
     routeGeneration = 0
 
     /**
+     * @summary Filters published catalog entries across titles, captions, component, group titles and `keywords`,
+     * updates `GroupIndex` per-group match counts, and renders grouped matches in `SearchResults` without changing URL history.
+     * @param {String} query
+     */
+    applyFindQuery(query) {
+        const me            = this,
+              view          = me.component,
+              terms         = Example.tokenizeSearchText(query),
+              searchResults = view.getSearchResults(),
+              stage         = view.getStage();
+
+        if (terms.length === 0) {
+            searchResults.clearResults();
+            me.getStateProvider().setData({matchCounts: null});
+            me.showOpenGroup();
+            return
+        }
+
+        const {catalogMode, familyDefinitions} = view,
+              groupTitles                      = Object.fromEntries(familyDefinitions.map(definition => [definition.family, definition.title])),
+              published                        = view.getCatalogStore().items.filter(record => Example.publishes(record, catalogMode)),
+              matched                          = published.filter(record => Example.matchesQuery(record, terms, groupTitles)),
+              matchCounts                      = new Map(),
+              resultGroups                     = [];
+
+        view.getGroupStore().forEach(group => {
+            const home  = matched.filter(record => record.family === group.family).length,
+                  cross = matched.filter(record => record.alsoIn?.includes(group.family)).length;
+
+            matchCounts.set(group.family, {
+                home,
+                cross,
+                total: home + cross
+            })
+        });
+
+        familyDefinitions.forEach(definition => {
+            const records = matched.filter(record => record.family === definition.family);
+
+            if (records.length > 0) {
+                resultGroups.push({definition, records})
+            }
+        });
+
+        me.getStateProvider().setData({matchCounts});
+        searchResults.showResults({
+            query       : query.trim(),
+            groups      : resultGroups,
+            totalMatches: matched.length,
+            catalogMode
+        });
+
+        view.getGroupIndex().activeFamily = null;
+        view.getSheet().activeFamily      = null;
+        stage.layout.activeIndex          = stage.indexOf(searchResults)
+    }
+
+    /**
+     * @summary Clears the shared find query and per-group match counts, optionally returning focus out of the find field.
+     * @param {Object} [opts={}]
+     * @param {Boolean} [opts.restoreFocus=false]
+     * @param {String|null} [opts.sourceFieldId=null]
+     */
+    clearFind({restoreFocus=false, sourceFieldId=null}={}) {
+        const me = this;
+
+        me.getStateProvider().setData({
+            findQuery  : '',
+            matchCounts: null
+        });
+
+        restoreFocus && me.component.restoreFocusAfterFind(sourceFieldId)
+    }
+
+    /**
+     * @summary Clears active filtering when clicking the SearchResults Clear button.
+     */
+    onClearFind() {
+        this.clearFind({restoreFocus: true})
+    }
+
+    /**
+     * @summary Updates shared `findQuery` state as the visitor types without modifying browser history.
+     * @param {Object} data
+     */
+    onFindFieldChange(data) {
+        this.getStateProvider().setData({findQuery: data.value || ''})
+    }
+
+    /**
      * @summary Publishes the groups once the canonical catalog has loaded, and again on every later load.
      */
     onComponentConstructed() {
@@ -72,7 +162,12 @@ class MainContainerController extends Component {
         const route = !legacyMode && params.itemId ? '/examples/' + params.itemId : null;
 
         me.openFamily = route && view.familyDefinitions.find(definition => definition.route === route)?.family || null;
-        me.showOpenGroup()
+
+        if (view.findQuery) {
+            me.clearFind()
+        } else {
+            me.showOpenGroup()
+        }
     }
 
     /**
@@ -104,10 +199,11 @@ class MainContainerController extends Component {
         familyDefinitions.forEach(definition => {
             const {family} = definition,
                   home     = published.filter(record => record.family === family),
-                  cross    = published.filter(record => record.alsoIn?.includes(family));
+                  cross    = published.filter(record => record.alsoIn?.includes(family)),
+                  tiles    = [...home, ...cross].filter(record => record.kind === 'component');
 
             if (home.length + cross.length > 0) {
-                groups.push({...definition, count: home.length, crossCount: cross.length})
+                groups.push({...definition, count: home.length, crossCount: cross.length, tileCount: tiles.length})
             }
         });
 
@@ -123,7 +219,11 @@ class MainContainerController extends Component {
             view.getGroupPage(group.family) || stage.add(view.createGroupPage(group))
         });
 
-        this.showOpenGroup()
+        if (Example.tokenizeSearchText(view.findQuery).length > 0) {
+            this.applyFindQuery(view.findQuery)
+        } else {
+            this.showOpenGroup()
+        }
     }
 
     /**

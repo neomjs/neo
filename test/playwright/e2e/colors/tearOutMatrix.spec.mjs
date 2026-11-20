@@ -116,6 +116,32 @@ async function crossRightEdge(page, press, popupPromise) {
 }
 
 /**
+ * @summary Records, in the main window, every delta that names the panel the drag will tear out, so a run whose pane
+ * comes back after the drop shows which update brought it back.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<String>} The id of the panel the drag handle belongs to.
+ */
+async function recordPanelDeltas(page) {
+    const panelId = await page.locator(itemHandle).first().evaluate((element, panel) => element.closest(panel).id, panels);
+
+    await page.evaluate(id => {
+        const records = window.tearOutPanelDeltas = [];
+
+        Neo.main.DeltaUpdates.on('update', ({deltas}) => {
+            const at = Math.round(performance.now());
+
+            [deltas].flat().forEach(delta => {
+                const text = JSON.stringify(delta);
+
+                text.includes(id) && records.push({action: delta.action, at, delta: text.slice(0, 240)})
+            })
+        })
+    }, panelId);
+
+    return panelId
+}
+
+/**
  * @summary AC of the slow crossing: the popup comes only once the proxy has crossed the right edge.
  * @param {import('@playwright/test').Page} page
  * @param {Object} crossing {@link crossRightEdge}'s result.
@@ -140,7 +166,8 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
     });
 
     test('row 1 probe — boundary-exit fires on a slow crossing, popup acquired MID-GESTURE, persists the drop terminal, Neo content renders (ratio-trace + instance-identity receipts pending)', async ({context, page}, testInfo) => {
-        const panelsBefore = await readUnion(page, panels);
+        const panelsBefore = await readUnion(page, panels),
+              panelId      = await recordPanelDeltas(page);
 
         // Diagnostic channels: the app worker's console surfaces re-entry/cleanup decisions
         // (`onDragBoundaryEntry` logs on the reattach path — the only popup-closing path).
@@ -170,7 +197,8 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         popup.on('console', message => popupConsole.push(`[${message.type()}] ${message.text()}`));
         popup.on('close', () => popupClosedAt = Date.now());
 
-        const beforeUp = Date.now();
+        const beforeUp = Date.now(),
+              upAt     = await page.evaluate(() => Math.round(performance.now()));
         await page.mouse.up();
 
         expect(popup.url(), 'the popup is URL-addressed (openWidgetInPopup contract)').toContain('/apps/');
@@ -191,6 +219,18 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
 
         expectFrameAtPaneSize({height: popupSize.outerHeight, width: popupSize.outerWidth}, arming.sourceRect, 'the popup');
         await expectContentFillsWindow(popup, panels, 'the popup');
+
+        // Deltas after pointer-up that name the torn-out panel: whatever returns the pane to this window is among them
+        const returnReceipt = {
+            afterUp: (await page.evaluate(() => window.tearOutPanelDeltas)).filter(record => record.at >= upAt)
+                .map(record => ({...record, at: record.at - upAt})),
+            panelId,
+            panes  : await page.locator(panels).count()
+        };
+
+        await testInfo.attach('return-receipt', {body: JSON.stringify(returnReceipt, null, 2), contentType: 'application/json'});
+        console.log('RETURN-RECEIPT ' + JSON.stringify(returnReceipt));
+
         await expectPanesRefill(page, panels, panelsBefore, 'the main window after the drop');
         await expectChartTextInside(page, 'the main window after the drop')
     });

@@ -6,6 +6,14 @@
             "apps"
         ],
         "component": "Dock Workspace",
+        "keywords": [
+            "drag",
+            "dock",
+            "popout",
+            "tear-out",
+            "ide",
+            "multi-window"
+        ],
         "feature": "A living-data workspace whose panes can leave the browser window",
         "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
         "scope": "Allow popups; the displayed work items and signals are demonstration data.",
@@ -45,7 +53,14 @@
         "family": "grid-table",
         "component": "Grid",
         "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
-        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell."
+        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell.",
+        "keywords": [
+            "virtual",
+            "scroll",
+            "performance",
+            "100000",
+            "benchmark"
+        ]
     },
     {
         "id": "grid-tree-big-data",
@@ -73,26 +88,26 @@
         "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
     },
     {
-        "id": "dock-choreography",
-        "family": "dashboard",
-        "component": "Dock Workspace",
-        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
-        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
+        "id": "devindex",
+        "family": "apps",
         "featured": true,
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
-        "image": "devmode/dock-choreography-14.jpg",
-        "name": "Dock Choreography Demo",
-        "sharedWorkers": true,
-        "sourceUrl": "examples/dashboard/choreography",
+        "image": "devmode/devindex-14.jpg",
+        "name": "GitHub Meritocracy Index",
+        "sourceUrl": "https://github.com/neomjs/devindex",
         "urls": {
-            "devmode": "examples/dashboard/choreography/index.html",
-            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
-            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
-            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+            "devmode": "https://neomjs.com/devindex/",
+            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
+            "dist_esm": "https://neomjs.com/devindex/",
+            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "feature": "GitHub contributor rankings in a buffered grid",
+        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
+        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
     },
     {
         "id": "shared-covid",
@@ -156,7 +171,15 @@
         "family": "scheduler",
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
-        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot."
+        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
+        "keywords": [
+            "date",
+            "drag",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource"
+        ]
     },
     {
         "id": "gantt-basic",
@@ -174,12 +197,20 @@
         "family": "gantt",
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
-        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan."
+        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan.",
+        "keywords": [
+            "date",
+            "drag",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "milestone"
+        ]
     },
     {
         "id": "board-basic",
         "featured": true,
-        "image": null,
+        "image": "devmode/board-basic-14.jpg",
         "name": "Sprint Board",
         "sourceUrl": "examples/board/basic",
         "urls": {
@@ -192,7 +223,15 @@
         "family": "board",
         "component": "Board",
         "feature": "A kanban board and a table over one store of cards",
-        "lookFor": "Drag a card to another column, and the table below the board shows its new status."
+        "lookFor": "Drag a card to another column, and the table below the board shows its new status.",
+        "keywords": [
+            "drag",
+            "drop",
+            "kanban",
+            "agile",
+            "cards",
+            "columns"
+        ]
     },
     {
         "id": "calendar",
@@ -210,7 +249,16 @@
         "family": "calendar",
         "component": "Calendar",
         "feature": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
-        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events."
+        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events.",
+        "keywords": [
+            "date",
+            "schedule",
+            "events",
+            "appointment",
+            "month",
+            "week",
+            "day"
+        ]
     },
     {
         "id": "webdesktop",
@@ -218,6 +266,13 @@
         "component": "Desktop",
         "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
         "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
+        "keywords": [
+            "desktop",
+            "window",
+            "drag",
+            "taskbar",
+            "launcher"
+        ],
         "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
         "featured": true,
         "environments": [
@@ -236,8 +291,30 @@
         "hiddenIn": []
     },
     {
-        "id": "grid-countries",
+        "id": "dock-choreography",
+        "family": "dashboard",
+        "component": "Dock Workspace",
+        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
+        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
         "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/dock-choreography-14.jpg",
+        "name": "Dock Choreography Demo",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/choreography",
+        "urls": {
+            "devmode": "examples/dashboard/choreography/index.html",
+            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
+            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "grid-countries",
+        "featured": false,
         "image": "devmode/grid-countries-14.jpg",
         "name": "Country Statistics Grid",
         "sourceUrl": "examples/grid/countries",
@@ -260,7 +337,7 @@
         "feature": "Image items on a 3D helix that you reshape live",
         "lookFor": "Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "featured": false,
-        "image": "devmode/helix.png",
+        "image": "devmode/helix-14.jpg",
         "name": "3D Helix",
         "sourceUrl": "examples/component/helix",
         "urls": {
@@ -272,37 +349,15 @@
         "hiddenIn": []
     },
     {
-        "id": "devindex",
-        "family": "apps",
-        "featured": false,
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
-        "image": "devmode/DevIndex.png",
-        "name": "GitHub Meritocracy Index",
-        "sourceUrl": "https://github.com/neomjs/devindex",
-        "urls": {
-            "devmode": "https://neomjs.com/devindex/",
-            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
-            "dist_esm": "https://neomjs.com/devindex/",
-            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
-        },
-        "hiddenIn": [],
-        "feature": "GitHub contributor rankings in a buffered grid",
-        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
-        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
-    },
-    {
         "id": "multi-window-covid-gallery",
         "family": "multi-window",
         "component": "Gallery",
         "feature": "Gallery controls move into a second window while still controlling the gallery",
         "lookFor": "Maximise Gallery Controls, change Translate X in the popup, then close it to return the controls.",
-        "scope": "Allow popups. Uses a static COVID data snapshot hosted on Pages.",
+        "scope": "Allow popups. Reads the World Bank file the country grid ships with.",
         "featured": false,
         "image": "devmode/mwCoronaGallery.png",
-        "name": "Multi Window Covid Gallery",
+        "name": "Multi Window Country Gallery",
         "sharedWorkers": true,
         "sourceUrl": "examples/component/multiWindowCoronaGallery",
         "urls": {
@@ -388,12 +443,19 @@
     },
     {
         "id": "tab-container",
+        "kind": "component",
         "family": "tabs",
         "feature": "Tab buttons whose text, icon, color and badge change live",
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
+        "keywords": [
+            "drag",
+            "reorder",
+            "tabs",
+            "strip"
+        ],
         "featured": false,
-        "image": "devmode/tabContainer.png",
-        "name": "tab.Container",
+        "image": "devmode/tiles/tab-container-14.jpg",
+        "name": "Tab container",
         "sourceUrl": "examples/tab/container",
         "urls": {
             "devmode": "examples/tab/container/index.html",
@@ -402,6 +464,24 @@
             "dist_prod": "dist/production/examples/tab/container/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "tab-browser",
+        "name": "Browser-Style Tabs",
+        "family": "tabs",
+        "component": "Tab container",
+        "feature": "Thirty tabs in one strip close, open, reorder by drag and overflow into a menu",
+        "lookFor": "Drag a tab to a new place, close one with its ×, open one with +, then pick a hidden tab from the menu at the strip's end.",
+        "scope": "All in one window; the tabs reset on reload.",
+        "image": "devmode/tab-browser-14.jpg",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/tab/browser",
+        "urls": {
+            "devmode": "examples/tab/browser/index.html",
+            "dist_dev": "dist/development/examples/tab/browser/index.html",
+            "dist_esm": "dist/esm/examples/tab/browser/index.html",
+            "dist_prod": "dist/production/examples/tab/browser/index.html"
+        }
     },
     {
         "id": "state-provider",
@@ -429,7 +509,7 @@
         "feature": "Dialogs that drag by their header and open further dialogs",
         "lookFor": "Press Create Dialog, drag the dialog by its header, then create a second one from inside it.",
         "featured": false,
-        "image": "devmode/dragdrop.png",
+        "image": "devmode/dialog-drag-drop-14.jpg",
         "name": "Dialog drag&drop",
         "sourceUrl": "examples/dialog",
         "urls": {
@@ -444,7 +524,8 @@
         "id": "colors-dashboard",
         "family": "multi-window",
         "alsoIn": [
-            "apps"
+            "apps",
+            "dashboard"
         ],
         "component": "Dashboard",
         "feature": "The dashboard's color grid keeps updating in its own window",
@@ -484,12 +565,12 @@
     {
         "id": "covid-helix",
         "family": "lists",
-        "feature": "COVID country statistics on a 3D helix, sorted by the figure you pick",
-        "lookFor": "Under Sort By, choose Deaths and watch the countries reorder along the helix.",
-        "scope": "Uses a static COVID data snapshot hosted on Pages.",
+        "feature": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick",
+        "lookFor": "Under Sort By, choose Life and watch the countries reorder along the helix.",
+        "scope": "Reads the World Bank file the country grid ships with.",
         "featured": false,
-        "image": "devmode/coronaHelix.png",
-        "name": "COVID-19 Helix",
+        "image": "devmode/covid-helix-14.jpg",
+        "name": "Country Helix",
         "sourceUrl": "examples/component/coronaHelix",
         "urls": {
             "devmode": "examples/component/coronaHelix/index.html",
@@ -502,12 +583,12 @@
     {
         "id": "covid-gallery",
         "family": "lists",
-        "feature": "COVID country statistics in a 3D gallery, sorted by the figure you pick",
-        "lookFor": "Under Sort By, choose Deaths, then raise Amount Rows in Gallery Controls.",
-        "scope": "Uses a static COVID data snapshot hosted on Pages.",
+        "feature": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick",
+        "lookFor": "Under Sort By, choose GDP, then raise Amount Rows in Gallery Controls.",
+        "scope": "Reads the World Bank file the country grid ships with.",
         "featured": false,
-        "image": "devmode/coronaGallery.png",
-        "name": "COVID-19 Gallery",
+        "image": "devmode/covid-gallery-14.jpg",
+        "name": "Country Gallery",
         "sourceUrl": "examples/component/coronaGallery",
         "urls": {
             "devmode": "examples/component/coronaGallery/index.html",
@@ -523,8 +604,8 @@
         "feature": "Image items in a 3D gallery that you reshape live",
         "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "featured": false,
-        "image": "devmode/gallery.png",
-        "name": "component.Gallery",
+        "image": "devmode/gallery-14.jpg",
+        "name": "Gallery",
         "sourceUrl": "examples/component/gallery",
         "urls": {
             "devmode": "examples/component/gallery/index.html",
@@ -535,13 +616,44 @@
         "hiddenIn": []
     },
     {
-        "id": "carousel",
+        "id": "list-reorder",
         "family": "lists",
-        "component": "Carousel",
-        "feature": "An automatically advancing carousel cycles through styled testimonial cards.",
-        "lookFor": "Watch the slides rotate every 5.5 seconds, then resize the carousel with the height and width fields.",
-        "image": null,
-        "name": "component.Carousel",
+        "feature": "A checklist and a wall of portraits, each reordered by drag and drop over its own store",
+        "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
+        "featured": false,
+        "image": "devmode/list-reorder-14.jpg",
+        "name": "Reorder by Drag",
+        "sourceUrl": "examples/list/reorder",
+        "urls": {
+            "devmode": "examples/list/reorder/index.html",
+            "dist_dev": "dist/development/examples/list/reorder/index.html",
+            "dist_esm": "dist/esm/examples/list/reorder/index.html",
+            "dist_prod": "dist/production/examples/list/reorder/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-animate",
+        "family": "lists",
+        "feature": "Fifteen portrait cards that sort, filter and search, every move animated",
+        "lookFor": "Press Lastname, type an a into Search, then turn on Is online and watch the cards slide into place.",
+        "featured": false,
+        "image": "devmode/list-animate-14.jpg",
+        "name": "Animated List",
+        "sourceUrl": "examples/list/animate",
+        "urls": {
+            "devmode": "examples/list/animate/index.html",
+            "dist_dev": "dist/development/examples/list/animate/index.html",
+            "dist_esm": "dist/esm/examples/list/animate/index.html",
+            "dist_prod": "dist/production/examples/list/animate/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "kind": "component",
+        "image": "devmode/tiles/component-carousel-14.jpg",
+        "name": "Carousel",
         "sourceUrl": "examples/component/carousel",
         "urls": {
             "devmode": "examples/component/carousel/index.html",
@@ -549,7 +661,11 @@
             "dist_esm": "dist/esm/examples/component/carousel/index.html",
             "dist_prod": "dist/production/examples/component/carousel/index.html"
         },
-        "hiddenIn": []
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Carousel",
+        "feature": "A carousel that advances through portraits on its own",
+        "lookFor": "Watch a portrait slide in every four seconds, then change the height and width in the panel."
     },
     {
         "id": "chip",
@@ -557,8 +673,9 @@
         "component": "Chip",
         "feature": "A compact chip combines an icon, editable text and an optional close action.",
         "lookFor": "Change the text or icon class, and toggle closable to show or hide the close button.",
-        "image": null,
-        "name": "component.Chip",
+        "kind": "component",
+        "image": "devmode/tiles/component-chip-14.jpg",
+        "name": "Chip",
         "sourceUrl": "examples/component/chip",
         "urls": {
             "devmode": "examples/component/chip/index.html",
@@ -574,8 +691,9 @@
         "component": "Circle",
         "feature": "A three-dimensional circle distributes items around a configurable radius.",
         "lookFor": "Change the item size, maximum item count and rotation, then press Expand, Collapse or Flip.",
-        "image": null,
-        "name": "component.Circle",
+        "kind": "component",
+        "image": "devmode/tiles/component-circle-14.jpg",
+        "name": "Circle",
         "sourceUrl": "examples/component/circle",
         "urls": {
             "devmode": "examples/component/circle/index.html",
@@ -591,8 +709,9 @@
         "component": "Clock",
         "feature": "A clock face renders a settable time at an adjustable size",
         "lookFor": "Change the time to 09:45 and compare the hands, then change size and fontSize to resize the face and its hands.",
-        "image": null,
-        "name": "component.Clock",
+        "kind": "component",
+        "image": "devmode/tiles/component-clock-14.jpg",
+        "name": "Clock",
         "sourceUrl": "examples/component/clock",
         "urls": {
             "devmode": "examples/component/clock/index.html",
@@ -603,31 +722,14 @@
         "hiddenIn": []
     },
     {
-        "id": "graph-scene",
-        "family": "charts",
-        "component": "GraphScene",
-        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
-        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
-        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
-        "image": null,
-        "name": "GraphScene",
-        "sourceUrl": "examples/component/graphScene",
-        "urls": {
-            "devmode": "examples/component/graphScene/index.html",
-            "dist_dev": "dist/development/examples/component/graphScene/index.html",
-            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
-            "dist_prod": "dist/production/examples/component/graphScene/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "magic-move-text",
         "family": "components",
         "component": "MagicMoveText",
         "feature": "Characters animate between changing strings while remaining inside one text component.",
         "lookFor": "Wait for automatic cycling or change autoCycle, then adjust the move and fade colors to follow the transition.",
-        "image": null,
-        "name": "MagicMoveText",
+        "kind": "component",
+        "image": "devmode/tiles/component-magicmovetext-14.jpg",
+        "name": "Magic move text",
         "sourceUrl": "examples/component/magicmovetext",
         "urls": {
             "devmode": "examples/component/magicmovetext/index.html",
@@ -642,8 +744,8 @@
         "family": "components",
         "component": "Markdown VDOM",
         "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
-        "lookFor": "Press Stream demo and watch headings, lists, code, a table and a quote render progressively.",
-        "image": null,
+        "lookFor": "The page opens streaming: headings, lists, code, a table and a quote render as the text arrives. Its last lines show a script tag and a javascript: link rendered as plain text.",
+        "image": "devmode/markdown-14.jpg",
         "name": "Markdown VDOM",
         "sourceUrl": "examples/component/markdown",
         "urls": {
@@ -655,85 +757,14 @@
         "hiddenIn": []
     },
     {
-        "id": "mwc-button",
-        "family": "components",
-        "component": "MWC Button",
-        "feature": "A Material button exposes dense, outlined, raised, icon and disabled states.",
-        "lookFor": "Toggle outlined and raised, change the label or icon, and compare the button states.",
-        "image": null,
-        "name": "MWC Button",
-        "sourceUrl": "examples/component/mwc/button",
-        "urls": {
-            "devmode": "examples/component/mwc/button/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/button/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/button/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/button/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-buttons",
-        "family": "components",
-        "component": "MWC Button",
-        "feature": "Two tabs compare standard, outlined, raised, unelevated, dense and icon button variants.",
-        "lookFor": "Switch between Tab 1 and Tab 2 and compare each button style.",
-        "image": null,
-        "name": "MWC Buttons",
-        "sourceUrl": "examples/component/mwc/buttons",
-        "urls": {
-            "devmode": "examples/component/mwc/buttons/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/buttons/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/buttons/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/buttons/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-text-field",
-        "family": "components",
-        "component": "MWC TextField",
-        "feature": "A Material text field exposes helper text, leading and trailing icons, outlined styling and validation.",
-        "lookFor": "Change the value and press check validity (the result is logged to the browser console), then toggle outlined or disabled in the configuration panel.",
-        "image": null,
-        "name": "MWC TextField",
-        "sourceUrl": "examples/component/mwc/textField",
-        "urls": {
-            "devmode": "examples/component/mwc/textField/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/textField/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/textField/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/textField/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
-        "id": "mwc-text-fields",
-        "family": "components",
-        "component": "MWC TextField",
-        "feature": "Filled and outlined text-field variants, on two tabs, show optional icons and helper text.",
-        "lookFor": "Switch between the Filled and Outlined tabs and compare the field decorations.",
-        "image": null,
-        "name": "MWC TextFields",
-        "sourceUrl": "examples/component/mwc/textFields",
-        "urls": {
-            "devmode": "examples/component/mwc/textFields/index.html",
-            "dist_dev": "dist/development/examples/component/mwc/textFields/index.html",
-            "dist_esm": "dist/esm/examples/component/mwc/textFields/index.html",
-            "dist_prod": "dist/production/examples/component/mwc/textFields/index.html"
-        },
-        "hiddenIn": [],
-        "scope": "Loads Google's Material Icons and Roboto fonts over the network; dev mode also loads the Material web components from unpkg."
-    },
-    {
         "id": "process",
         "family": "components",
         "component": "Process",
         "feature": "A process component connects ordered steps with configurable orientation, arrows and icons.",
-        "lookFor": "Toggle horizontal and change the arrow or icon color; the stages reflow without losing their order.",
-        "image": null,
-        "name": "component.Process",
+        "lookFor": "Toggle horizontal and change the arrow or icon color; the trip's four stages reflow without losing their order.",
+        "kind": "component",
+        "image": "devmode/tiles/component-process-14.jpg",
+        "name": "Process",
         "sourceUrl": "examples/component/process",
         "urls": {
             "devmode": "examples/component/process/index.html",
@@ -744,31 +775,14 @@
         "hiddenIn": []
     },
     {
-        "id": "process-real-world",
-        "family": "components",
-        "component": "Process",
-        "feature": "An electric-vehicle trip calculator turns staged battery and odometer inputs into remaining range and consumption.",
-        "lookFor": "Set the start and end battery percentages and odometer readings; the result fields update and the save button becomes available.",
-        "scope": "Loads the current Berlin temperature from the Open-Meteo public API; all other values are demonstration data.",
-        "image": null,
-        "name": "Process Real-World Example",
-        "sourceUrl": "examples/component/process/realWorldExample",
-        "urls": {
-            "devmode": "examples/component/process/realWorldExample/index.html",
-            "dist_dev": "dist/development/examples/component/process/realWorldExample/index.html",
-            "dist_esm": "dist/esm/examples/component/process/realWorldExample/index.html",
-            "dist_prod": "dist/production/examples/component/process/realWorldExample/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "progress",
         "family": "components",
         "component": "Progress",
         "feature": "A labelled progress bar exposes a percentage value and configurable dimensions.",
         "lookFor": "Change the value, label and size in the configuration panel and watch the bar and label update.",
-        "image": null,
-        "name": "component.Progress",
+        "kind": "component",
+        "image": "devmode/tiles/component-progress-14.jpg",
+        "name": "Progress bar",
         "sourceUrl": "examples/component/progress",
         "urls": {
             "devmode": "examples/component/progress/index.html",
@@ -783,9 +797,10 @@
         "family": "components",
         "component": "Splitter",
         "feature": "A draggable splitter resizes adjacent panels in either orientation.",
-        "lookFor": "Drag the divider, then toggle horizontal and live resize in the configuration panel.",
-        "image": null,
-        "name": "component.Splitter",
+        "lookFor": "Drag the bar between the folders and the inbox, then toggle horizontal and live resize in the configuration panel.",
+        "kind": "component",
+        "image": "devmode/tiles/component-splitter-14.jpg",
+        "name": "Splitter",
         "sourceUrl": "examples/component/splitter",
         "urls": {
             "devmode": "examples/component/splitter/index.html",
@@ -801,8 +816,9 @@
         "component": "StatusBadge",
         "feature": "Status badges support alert, error, info, neutral and success states with configurable labels and icons.",
         "lookFor": "Switch the state radio and toggle the state or side icons; the badge label and decoration update.",
-        "image": null,
-        "name": "component.StatusBadge",
+        "kind": "component",
+        "image": "devmode/tiles/component-statusbadge-14.jpg",
+        "name": "Status badge",
         "sourceUrl": "examples/component/statusbadge",
         "urls": {
             "devmode": "examples/component/statusbadge/index.html",
@@ -818,8 +834,9 @@
         "component": "Timer",
         "feature": "A circular countdown timer accepts a duration and animates a gradient progress ring.",
         "lookFor": "Enter 10s and press play; the card flips to the countdown and the ring drains as time passes.",
-        "image": null,
-        "name": "component.Timer",
+        "kind": "component",
+        "image": "devmode/tiles/component-timer-14.jpg",
+        "name": "Timer",
         "sourceUrl": "examples/component/timer",
         "urls": {
             "devmode": "examples/component/timer/index.html",
@@ -835,7 +852,7 @@
         "component": "Toast",
         "feature": "A live form previews toast configuration and launches a temporary notification.",
         "lookFor": "Enter a message and watch the code preview follow each field, choose a position and a ui, then press create toast.",
-        "image": null,
+        "image": "devmode/toast-14.jpg",
         "name": "component.Toast",
         "sourceUrl": "examples/component/toast",
         "urls": {
@@ -843,6 +860,23 @@
             "dist_dev": "dist/development/examples/component/toast/index.html",
             "dist_esm": "dist/esm/examples/component/toast/index.html",
             "dist_prod": "dist/production/examples/component/toast/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "popover",
+        "family": "dialogs",
+        "component": "Popover",
+        "feature": "A popover opens against the button that owns it, on the side its align value names, and flips when that side has no room.",
+        "lookFor": "Press Click Me, then pick another align value in the inspector and press the button again.",
+        "image": "devmode/popover-14.jpg",
+        "name": "plugin.Popover",
+        "sourceUrl": "examples/popover",
+        "urls": {
+            "devmode": "examples/popover/index.html",
+            "dist_dev": "dist/development/examples/popover/index.html",
+            "dist_esm": "dist/esm/examples/popover/index.html",
+            "dist_prod": "dist/production/examples/popover/index.html"
         },
         "hiddenIn": []
     },
@@ -870,8 +904,9 @@
         "component": "Monaco Editor",
         "feature": "A Monaco editor wrapper exposes themes, cursor behavior, read-only state, minimap and sizing options.",
         "lookFor": "Edit the sample function, then switch the editor theme and the cursor blinking mode, or toggle the minimap.",
-        "image": null,
-        "name": "Monaco Editor",
+        "kind": "component",
+        "image": "devmode/tiles/component-wrapper-monacoEditor-14.jpg",
+        "name": "Monaco editor",
         "sourceUrl": "examples/component/wrapper/monacoEditor",
         "urls": {
             "devmode": "examples/component/wrapper/monacoEditor/index.html",
@@ -900,13 +935,31 @@
         "hiddenIn": []
     },
     {
+        "id": "graph-scene",
+        "family": "charts",
+        "component": "GraphScene",
+        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
+        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
+        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
+        "image": "devmode/graph-scene-14.jpg",
+        "name": "GraphScene",
+        "sourceUrl": "examples/component/graphScene",
+        "urls": {
+            "devmode": "examples/component/graphScene/index.html",
+            "dist_dev": "dist/development/examples/component/graphScene/index.html",
+            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
+            "dist_prod": "dist/production/examples/component/graphScene/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "am-charts",
         "family": "charts",
         "component": "AmChart",
         "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
         "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
-        "image": null,
+        "image": "devmode/am-charts-14.jpg",
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {
@@ -914,6 +967,42 @@
             "dist_dev": "dist/development/examples/charts/index.html",
             "dist_esm": "dist/esm/examples/charts/index.html",
             "dist_prod": "dist/production/examples/charts/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "sparklines",
+        "family": "charts",
+        "component": "Sparkline",
+        "feature": "Six metric cards draw their last thirty readings as sparklines in the canvas worker, and a simulated feed extends them once a second.",
+        "lookFor": "Watch the lines move, then turn the pulse and the smooth updates off, stop the feed and press Restart.",
+        "scope": "The readings are simulated in the browser from fixed seeds.",
+        "image": "devmode/sparklines-14.jpg",
+        "name": "Sparklines",
+        "sourceUrl": "examples/component/sparkline",
+        "urls": {
+            "devmode": "examples/component/sparkline/index.html",
+            "dist_dev": "dist/development/examples/component/sparkline/index.html",
+            "dist_esm": "dist/esm/examples/component/sparkline/index.html",
+            "dist_prod": "dist/production/examples/component/sparkline/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mermaid",
+        "family": "charts",
+        "component": "Mermaid",
+        "feature": "Mermaid draws a flowchart, sequence, class or Gantt diagram from text, and draws it again on every edit and theme change.",
+        "lookFor": "Edit the source on the left, load each preset, and turn the dark theme on.",
+        "scope": "Mermaid ships with the engine and loads on first use.",
+        "image": "devmode/mermaid-14.jpg",
+        "name": "Mermaid Diagrams",
+        "sourceUrl": "examples/component/wrapper/mermaid",
+        "urls": {
+            "devmode": "examples/component/wrapper/mermaid/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/mermaid/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/mermaid/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/mermaid/index.html"
         },
         "hiddenIn": []
     },
@@ -932,6 +1021,40 @@
             "dist_dev": "dist/development/examples/videoMove/index.html",
             "dist_esm": "dist/esm/examples/videoMove/index.html",
             "dist_prod": "dist/production/examples/videoMove/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "context-menu-files",
+        "family": "buttons",
+        "component": "Context Menu",
+        "feature": "A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "lookFor": "Right-click a file to move, star, duplicate or delete it; right-click the free space below the files for a new one.",
+        "image": "devmode/context-menu-files-14.jpg",
+        "name": "Context Menu",
+        "sourceUrl": "examples/menu/contextFiles",
+        "urls": {
+            "devmode": "examples/menu/contextFiles/index.html",
+            "dist_dev": "dist/development/examples/menu/contextFiles/index.html",
+            "dist_esm": "dist/esm/examples/menu/contextFiles/index.html",
+            "dist_prod": "dist/production/examples/menu/contextFiles/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "breadcrumb",
+        "family": "buttons",
+        "component": "Breadcrumb",
+        "feature": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up.",
+        "lookFor": "Open grid under src, then press the neo crumb to return to the top; reload and the page keeps its folder.",
+        "image": "devmode/breadcrumb-14.jpg",
+        "name": "Breadcrumb Toolbar",
+        "sourceUrl": "examples/toolbar/breadcrumb",
+        "urls": {
+            "devmode": "examples/toolbar/breadcrumb/index.html",
+            "dist_dev": "dist/development/examples/toolbar/breadcrumb/index.html",
+            "dist_esm": "dist/esm/examples/toolbar/breadcrumb/index.html",
+            "dist_prod": "dist/production/examples/toolbar/breadcrumb/index.html"
         },
         "hiddenIn": []
     },
@@ -956,8 +1079,9 @@
     {
         "id": "date-selector",
         "featured": false,
-        "image": "devmode/dateSelector.png",
-        "name": "component.DateSelector",
+        "kind": "component",
+        "image": "devmode/tiles/component-dateSelector-14.jpg",
+        "name": "Date selector",
         "sourceUrl": "examples/component/dateSelector",
         "urls": {
             "devmode": "examples/component/dateSelector/index.html",
@@ -974,8 +1098,9 @@
     {
         "id": "date-field",
         "featured": false,
-        "image": "devmode/dateField.png",
-        "name": "form.field.Date",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-date-14.jpg",
+        "name": "Date field",
         "sourceUrl": "examples/form/field/date",
         "urls": {
             "devmode": "examples/form/field/date/index.html",
@@ -992,8 +1117,9 @@
     {
         "id": "combobox-field",
         "featured": false,
-        "image": "devmode/selectField.png",
-        "name": "form.field.ComboBox",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-combobox-14.jpg",
+        "name": "Combo box",
         "sourceUrl": "examples/form/field/combobox",
         "urls": {
             "devmode": "examples/form/field/combobox/index.html",
@@ -1097,8 +1223,8 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Cell, row and column selection",
-        "lookFor": "Switch between cell, row, column and combined selection, then change the grid height."
+        "feature": "Cell, row, column and crosshair selection modes",
+        "lookFor": "Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between Cell, Column, Row and combined crosshair models."
     },
     {
         "id": "grid-content-sized-rows",
@@ -1164,6 +1290,9 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "alsoIn": [
+            "buttons"
+        ],
         "component": "Grid",
         "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
         "lookFor": "Change page, sort a header or choose a country: the request line shows the parameters and only one page reaches the grid.",
@@ -1190,6 +1319,12 @@
         "id": "grid-locked-columns",
         "image": "devmode/grid-locked-columns-14.jpg",
         "name": "Pinned Grid Columns",
+        "keywords": [
+            "freeze",
+            "sticky",
+            "locked",
+            "pinned"
+        ],
         "sourceUrl": "examples/grid/pinnedColumns",
         "urls": {
             "devmode": "examples/grid/pinnedColumns/index.html",
@@ -1204,9 +1339,35 @@
         "lookFor": "Scroll sideways through 36 months: product, region and total stay; the arrow keys move the selection."
     },
     {
+        "id": "grid-cell-types",
+        "image": "devmode/grid-cell-types-14.jpg",
+        "name": "Built-in Cell Types",
+        "keywords": [
+            "columns",
+            "sparkline",
+            "currency",
+            "progress",
+            "avatar",
+            "flags"
+        ],
+        "sourceUrl": "examples/grid/cellTypes",
+        "urls": {
+            "devmode": "examples/grid/cellTypes/index.html",
+            "dist_dev": "dist/development/examples/grid/cellTypes/index.html",
+            "dist_esm": "dist/esm/examples/grid/cellTypes/index.html",
+            "dist_prod": "dist/production/examples/grid/cellTypes/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Fourteen built-in column types on one maintainer directory",
+        "lookFor": "Watch Pledged and Commits tick live, click +$250 on a row, and scroll across all 14 column types.",
+        "scope": "Public GitHub and LinkedIn profile data; pledges, goals, funded %, commits and tiers are generated locally."
+    },
+    {
         "id": "grid-nested-record-fields",
         "image": "devmode/grid-nested-record-fields-14.jpg",
-        "name": "Nested Grid Records",
+        "name": "Edit a Row in a Dialog",
         "sourceUrl": "examples/grid/nestedRecordFields",
         "urls": {
             "devmode": "examples/grid/nestedRecordFields/index.html",
@@ -1217,8 +1378,26 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Grid",
-        "feature": "Nested records and component cells",
-        "lookFor": "Open Edit to change nested user fields and watch modified-cell highlighting; compare header-only and full-column dragging."
+        "feature": "Modal form editing on a grid row",
+        "lookFor": "Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified cells; compare header-only and full-column dragging."
+    },
+    {
+        "id": "grid-streaming",
+        "image": "devmode/grid-streaming-14.jpg",
+        "name": "Streaming 50,000 Rows",
+        "sourceUrl": "examples/grid/streaming",
+        "urls": {
+            "devmode": "examples/grid/streaming/index.html",
+            "dist_dev": "dist/development/examples/grid/streaming/index.html",
+            "dist_esm": "dist/esm/examples/grid/streaming/index.html",
+            "dist_prod": "dist/production/examples/grid/streaming/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "50,000 NDJSON rows arriving in chunks with a live footer progress bar",
+        "lookFor": "Scroll, sort or select while batches arrive, then press Load again to empty the grid and stream from zero.",
+        "scope": "Generates and streams all 50,000 rows in-browser; no external backend is required."
     },
     {
         "id": "grid-tree",
@@ -1237,8 +1416,8 @@
             "tree"
         ],
         "component": "Grid",
-        "feature": "Hierarchical rows",
-        "lookFor": "Expand and collapse the sample file hierarchy in the Name column."
+        "feature": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children",
+        "lookFor": "Expand a team with its arrow or Right/Left keys and check that its items sum to the team and department totals."
     },
     {
         "id": "grid-value-banding",
@@ -1260,7 +1439,7 @@
     {
         "id": "table-container",
         "image": "devmode/table-container-14.jpg",
-        "name": "Table Configuration",
+        "name": "When to Use a Table",
         "sourceUrl": "examples/table/container",
         "urls": {
             "devmode": "examples/table/container/index.html",
@@ -1271,13 +1450,14 @@
         "hiddenIn": [],
         "family": "grid-table",
         "component": "Table",
-        "feature": "Selection modes and embedded controls",
-        "lookFor": "Switch selection models, toggle fit width or column dragging, and open a cell menu."
+        "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
+        "lookFor": "Compare 14 service tier specifications where columns size to their text and notes wrap. Sort, filter inline, resize or drag-reorder headers, and toggle Fit width."
     },
     {
         "id": "checkbox-field",
-        "image": null,
-        "name": "form.field.CheckBox",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-checkbox-14.jpg",
+        "name": "Checkbox",
         "sourceUrl": "examples/form/field/checkbox",
         "urls": {
             "devmode": "examples/form/field/checkbox/index.html",
@@ -1293,8 +1473,9 @@
     },
     {
         "id": "chip-field",
-        "image": null,
-        "name": "form.field.Chip",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-chip-14.jpg",
+        "name": "Chip field",
         "sourceUrl": "examples/form/field/chip",
         "urls": {
             "devmode": "examples/form/field/chip/index.html",
@@ -1310,8 +1491,9 @@
     },
     {
         "id": "color-field",
-        "image": null,
-        "name": "form.field.Color",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-color-14.jpg",
+        "name": "Color field",
         "sourceUrl": "examples/form/field/color",
         "urls": {
             "devmode": "examples/form/field/color/index.html",
@@ -1327,8 +1509,9 @@
     },
     {
         "id": "email-field",
-        "image": null,
-        "name": "form.field.Email",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-email-14.jpg",
+        "name": "Email field",
         "sourceUrl": "examples/form/field/email",
         "urls": {
             "devmode": "examples/form/field/email/index.html",
@@ -1344,8 +1527,9 @@
     },
     {
         "id": "fileupload-field",
-        "image": null,
-        "name": "form.field.FileUpload",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-fileupload-14.jpg",
+        "name": "File upload",
         "sourceUrl": "examples/form/field/fileupload",
         "urls": {
             "devmode": "examples/form/field/fileupload/index.html",
@@ -1362,8 +1546,9 @@
     },
     {
         "id": "number-field",
-        "image": null,
-        "name": "form.field.Number",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-number-14.jpg",
+        "name": "Number field",
         "sourceUrl": "examples/form/field/number",
         "urls": {
             "devmode": "examples/form/field/number/index.html",
@@ -1378,26 +1563,10 @@
         "lookFor": "Change the number, then use the clear trigger — the original 20 returns."
     },
     {
-        "id": "picker-field",
-        "image": null,
-        "name": "form.field.Picker",
-        "sourceUrl": "examples/form/field/picker",
-        "urls": {
-            "devmode": "examples/form/field/picker/index.html",
-            "dist_dev": "dist/development/examples/form/field/picker/index.html",
-            "dist_esm": "dist/esm/examples/form/field/picker/index.html",
-            "dist_prod": "dist/production/examples/form/field/picker/index.html"
-        },
-        "hiddenIn": [],
-        "family": "forms",
-        "component": "PickerField",
-        "feature": "A picker field which clears back to its original value",
-        "lookFor": "Open the picker, choose another entry, then clear the field — the original value returns."
-    },
-    {
         "id": "radio-field",
-        "image": null,
-        "name": "form.field.Radio",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-radio-14.jpg",
+        "name": "Radio button",
         "sourceUrl": "examples/form/field/radio",
         "urls": {
             "devmode": "examples/form/field/radio/index.html",
@@ -1413,8 +1582,9 @@
     },
     {
         "id": "select-field",
-        "image": null,
-        "name": "form.field.Select",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-select-14.jpg",
+        "name": "Select field",
         "sourceUrl": "examples/form/field/select",
         "urls": {
             "devmode": "examples/form/field/select/index.html",
@@ -1430,8 +1600,9 @@
     },
     {
         "id": "switch-field",
-        "image": null,
-        "name": "form.field.Switch",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-switch-14.jpg",
+        "name": "Switch",
         "sourceUrl": "examples/form/field/switch",
         "urls": {
             "devmode": "examples/form/field/switch/index.html",
@@ -1447,8 +1618,9 @@
     },
     {
         "id": "text-field",
-        "image": null,
-        "name": "form.field.Text",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-text-14.jpg",
+        "name": "Text field",
         "sourceUrl": "examples/form/field/text",
         "urls": {
             "devmode": "examples/form/field/text/index.html",
@@ -1464,8 +1636,9 @@
     },
     {
         "id": "textarea-field",
-        "image": null,
-        "name": "form.field.TextArea",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-textarea-14.jpg",
+        "name": "Text area",
         "sourceUrl": "examples/form/field/textarea",
         "urls": {
             "devmode": "examples/form/field/textarea/index.html",
@@ -1481,8 +1654,9 @@
     },
     {
         "id": "time-field",
-        "image": null,
-        "name": "form.field.Time",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-time-14.jpg",
+        "name": "Time field",
         "sourceUrl": "examples/form/field/time",
         "urls": {
             "devmode": "examples/form/field/time/index.html",
@@ -1498,8 +1672,9 @@
     },
     {
         "id": "url-field",
-        "image": null,
-        "name": "form.field.Url",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-url-14.jpg",
+        "name": "URL field",
         "sourceUrl": "examples/form/field/url",
         "urls": {
             "devmode": "examples/form/field/url/index.html",
@@ -1514,9 +1689,172 @@
         "lookFor": "Type an address over the placeholder and clear it with the trigger."
     },
     {
+        "id": "country-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-country-14.jpg",
+        "name": "Country field",
+        "sourceUrl": "examples/form/field/country",
+        "urls": {
+            "devmode": "examples/form/field/country/index.html",
+            "dist_dev": "dist/development/examples/form/field/country/index.html",
+            "dist_esm": "dist/esm/examples/form/field/country/index.html",
+            "dist_prod": "dist/production/examples/form/field/country/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "CountryField",
+        "feature": "A country field with flags, in its states beside a live configuration panel",
+        "lookFor": "Choose a country, then toggle showFlags in the panel."
+    },
+    {
+        "id": "currency-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-currency-14.jpg",
+        "name": "Currency field",
+        "sourceUrl": "examples/form/field/currency",
+        "urls": {
+            "devmode": "examples/form/field/currency/index.html",
+            "dist_dev": "dist/development/examples/form/field/currency/index.html",
+            "dist_esm": "dist/esm/examples/form/field/currency/index.html",
+            "dist_prod": "dist/production/examples/form/field/currency/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "CurrencyField",
+        "feature": "A currency field that formats its amount, in its states beside a live configuration panel",
+        "lookFor": "Type an amount above maxValue to see the failure state."
+    },
+    {
+        "id": "display-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-display-14.jpg",
+        "name": "Display field",
+        "sourceUrl": "examples/form/field/display",
+        "urls": {
+            "devmode": "examples/form/field/display/index.html",
+            "dist_dev": "dist/development/examples/form/field/display/index.html",
+            "dist_esm": "dist/esm/examples/form/field/display/index.html",
+            "dist_prod": "dist/production/examples/form/field/display/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "DisplayField",
+        "feature": "A field that shows a value without editing it, in its states beside a live configuration panel",
+        "lookFor": "Change the value in the panel and watch the field show it."
+    },
+    {
+        "id": "iban-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-iban-14.jpg",
+        "name": "IBAN field",
+        "sourceUrl": "examples/form/field/iban",
+        "urls": {
+            "devmode": "examples/form/field/iban/index.html",
+            "dist_dev": "dist/development/examples/form/field/iban/index.html",
+            "dist_esm": "dist/esm/examples/form/field/iban/index.html",
+            "dist_prod": "dist/production/examples/form/field/iban/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "IBANField",
+        "feature": "An IBAN field that validates its number, in its states beside a live configuration panel",
+        "lookFor": "Change one digit of the IBAN to see the failure state."
+    },
+    {
+        "id": "password-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-password-14.jpg",
+        "name": "Password field",
+        "sourceUrl": "examples/form/field/password",
+        "urls": {
+            "devmode": "examples/form/field/password/index.html",
+            "dist_dev": "dist/development/examples/form/field/password/index.html",
+            "dist_esm": "dist/esm/examples/form/field/password/index.html",
+            "dist_prod": "dist/production/examples/form/field/password/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "PasswordField",
+        "feature": "A password field, in its states beside a live configuration panel",
+        "lookFor": "Type a password that is too short to see the failure state."
+    },
+    {
+        "id": "phone-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-phone-14.jpg",
+        "name": "Phone field",
+        "sourceUrl": "examples/form/field/phone",
+        "urls": {
+            "devmode": "examples/form/field/phone/index.html",
+            "dist_dev": "dist/development/examples/form/field/phone/index.html",
+            "dist_esm": "dist/esm/examples/form/field/phone/index.html",
+            "dist_prod": "dist/production/examples/form/field/phone/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "PhoneField",
+        "feature": "A phone field that validates its number, in its states beside a live configuration panel",
+        "lookFor": "Type letters into the number to see the failure state."
+    },
+    {
+        "id": "range-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-range-14.jpg",
+        "name": "Range slider",
+        "sourceUrl": "examples/form/field/range",
+        "urls": {
+            "devmode": "examples/form/field/range/index.html",
+            "dist_dev": "dist/development/examples/form/field/range/index.html",
+            "dist_esm": "dist/esm/examples/form/field/range/index.html",
+            "dist_prod": "dist/production/examples/form/field/range/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "RangeField",
+        "feature": "A range slider, in its states beside a live configuration panel",
+        "lookFor": "Drag the slider, then change minValue and maxValue in the panel."
+    },
+    {
+        "id": "search-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-search-14.jpg",
+        "name": "Search field",
+        "sourceUrl": "examples/form/field/search",
+        "urls": {
+            "devmode": "examples/form/field/search/index.html",
+            "dist_dev": "dist/development/examples/form/field/search/index.html",
+            "dist_esm": "dist/esm/examples/form/field/search/index.html",
+            "dist_prod": "dist/production/examples/form/field/search/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "SearchField",
+        "feature": "A search field, in its states beside a live configuration panel",
+        "lookFor": "Type a term, then clear it with the trigger."
+    },
+    {
+        "id": "zipcode-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-zipcode-14.jpg",
+        "name": "ZIP code field",
+        "sourceUrl": "examples/form/field/zipcode",
+        "urls": {
+            "devmode": "examples/form/field/zipcode/index.html",
+            "dist_dev": "dist/development/examples/form/field/zipcode/index.html",
+            "dist_esm": "dist/esm/examples/form/field/zipcode/index.html",
+            "dist_prod": "dist/production/examples/form/field/zipcode/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "ZipCodeField",
+        "feature": "A ZIP code field that validates its format, in its states beside a live configuration panel",
+        "lookFor": "Delete a digit to see the failure state."
+    },
+    {
         "id": "copy-to-clipboard-trigger",
-        "image": null,
-        "name": "form.field.trigger.CopyToClipboard",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-trigger-copyToClipboard-14.jpg",
+        "name": "Copy-to-clipboard trigger",
         "sourceUrl": "examples/form/field/trigger/copyToClipboard",
         "urls": {
             "devmode": "examples/form/field/trigger/copyToClipboard/index.html",
@@ -1532,8 +1870,9 @@
     },
     {
         "id": "fieldset",
-        "image": null,
-        "name": "form.Fieldset",
+        "kind": "component",
+        "image": "devmode/tiles/form-fieldset-14.jpg",
+        "name": "Fieldset",
         "sourceUrl": "examples/form/fieldset",
         "urls": {
             "devmode": "examples/form/fieldset/index.html",
@@ -1548,9 +1887,26 @@
         "lookFor": "Adjust the inner number values and try the title field in the panel."
     },
     {
+        "id": "form-validation",
+        "image": null,
+        "name": "Sign-up validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "component": "Form Container",
+        "feature": "How does a form tell the user what is wrong? A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
+    },
+    {
         "id": "field-with-prefix",
         "image": null,
-        "name": "plugin.field.Prefix",
+        "name": "Input masks",
         "sourceUrl": "examples/fieldWithPrefix",
         "urls": {
             "devmode": "examples/fieldWithPrefix/index.html",
@@ -1561,30 +1917,14 @@
         "hiddenIn": [],
         "family": "forms",
         "component": "TextField",
-        "feature": "Input masks from the PrefixField plugin: a phone pattern and a digits-only date",
-        "lookFor": "Type into the phone field and watch the +1 (___) ___-___-____ mask carry your digits, then try the [0-9] date field."
-    },
-    {
-        "id": "fields-runtime-triggers",
-        "image": null,
-        "name": "form.field",
-        "sourceUrl": "examples/fields",
-        "urls": {
-            "devmode": "examples/fields/index.html",
-            "dist_dev": "dist/development/examples/fields/index.html",
-            "dist_esm": "dist/esm/examples/fields/index.html",
-            "dist_prod": "dist/production/examples/fields/index.html"
-        },
-        "hiddenIn": [],
-        "family": "forms",
-        "component": "PickerField",
-        "feature": "Adding and removing field triggers at runtime",
-        "lookFor": "Remove the triggers with the button, add one back, and click it on the field."
+        "feature": "Input masks from the PrefixField plugin: a phone number, a date, a MAC address, a code and a card number",
+        "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
     },
     {
         "id": "layout-form",
-        "image": null,
-        "name": "layout.Form",
+        "kind": "component",
+        "image": "devmode/tiles/layout-form-14.jpg",
+        "name": "Form layout",
         "sourceUrl": "examples/layout/form",
         "urls": {
             "devmode": "examples/layout/form/index.html",
@@ -1602,28 +1942,12 @@
         "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
     },
     {
-        "id": "date-selector-container",
-        "image": null,
-        "name": "date.SelectorContainer",
-        "sourceUrl": "examples/date/selectorContainer",
-        "urls": {
-            "devmode": "examples/date/selectorContainer/index.html",
-            "dist_dev": "dist/development/examples/date/selectorContainer/index.html",
-            "dist_esm": "dist/esm/examples/date/selectorContainer/index.html",
-            "dist_prod": "dist/production/examples/date/selectorContainer/index.html"
-        },
-        "hiddenIn": [],
-        "family": "forms",
-        "component": "SelectorContainer",
-        "feature": "The date SelectorContainer variant, standalone",
-        "lookFor": "Pick a date and jump months with the radios; compare it with the component variant."
-    },
-    {
         "id": "form-app",
-        "image": null,
-        "name": "Form App",
+        "image": "devmode/form-app-14.jpg",
+        "name": "Multi-Step Account Form",
         "environments": [
-            "Desktop"
+            "Desktop",
+            "Mobile"
         ],
         "sourceUrl": "apps/form",
         "urls": {
@@ -1638,8 +1962,8 @@
             "apps"
         ],
         "component": "Form",
-        "feature": "A complete form application: 15 pages behind a side navigation",
-        "lookFor": "Open pages from the side navigation and step through their fields."
+        "feature": "Each step validates before Next and names what is wrong; Create account checks every step and shows the object the form submits",
+        "lookFor": "Press Next on the empty first step, then open Review and press Create account."
     },
     {
         "id": "board-swimlanes",
@@ -1656,7 +1980,13 @@
         "family": "board",
         "component": "Board",
         "feature": "One row per team over the same five columns, each with its card count",
-        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change."
+        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change.",
+        "keywords": [
+            "kanban",
+            "swimlanes",
+            "drag",
+            "agile"
+        ]
     },
     {
         "id": "scheduler-big-data",
@@ -1673,7 +2003,15 @@
         "family": "scheduler",
         "component": "Scheduler",
         "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
-        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact."
+        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact.",
+        "keywords": [
+            "date",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource",
+            "scale"
+        ]
     },
     {
         "id": "gantt-big-data",
@@ -1690,7 +2028,15 @@
         "family": "gantt",
         "component": "Gantt",
         "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
-        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow."
+        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow.",
+        "keywords": [
+            "date",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "programme",
+            "scale"
+        ]
     },
     {
         "id": "timeline-basic",
@@ -1710,7 +2056,13 @@
         ],
         "component": "Timeline",
         "feature": "A plain grid mounting the timeline column with interval bars",
-        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change."
+        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change.",
+        "keywords": [
+            "date",
+            "calendar",
+            "gantt",
+            "bars"
+        ]
     },
     {
         "id": "dock-layouts",
@@ -1763,7 +2115,7 @@
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
         "scope": "Allow popups. The pane returns when its window closes.",
-        "image": null,
+        "image": "devmode/dock-tear-out-14.jpg",
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/tearOut",
         "urls": {
@@ -1814,10 +2166,20 @@
         "family": "apps",
         "component": "Grid",
         "name": "Live Finance Desk",
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/finance-14.jpg",
         "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
         "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
+        "keywords": [
+            "streaming",
+            "realtime",
+            "quotes",
+            "sparkline",
+            "market"
+        ],
         "scope": "Quotes and volumes are deterministic local simulation data.",
         "sourceUrl": "apps/finance",
         "urls": {
@@ -1831,14 +2193,26 @@
     {
         "id": "email",
         "family": "apps",
-        "alsoIn": ["multi-window", "functional"],
+        "alsoIn": [
+            "multi-window",
+            "functional"
+        ],
         "component": "Dashboard",
         "name": "Multi-Window Email Client",
         "sharedWorkers": true,
-        "environments": ["Desktop", "Mobile"],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "image": "devmode/email-14.jpg",
         "feature": "Buffered inbox and functional message reader that detaches into its own window",
         "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
+        "keywords": [
+            "inbox",
+            "mail",
+            "popout",
+            "compose"
+        ],
         "scope": "Allow popups for multi-window transfer; messages are local fixture data.",
         "sourceUrl": "apps/email",
         "urls": {
@@ -1848,5 +2222,238 @@
             "dist_prod": "dist/production/apps/email/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "button-base",
+        "kind": "component",
+        "image": "devmode/tiles/button-base-14.jpg",
+        "name": "Button",
+        "sourceUrl": "examples/button/base",
+        "urls": {
+            "devmode": "examples/button/base/index.html",
+            "dist_dev": "dist/development/examples/button/base/index.html",
+            "dist_esm": "dist/esm/examples/button/base/index.html",
+            "dist_prod": "dist/production/examples/button/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "component": "Button",
+        "feature": "A button with icon, badge, ripple and tooltip, each a live config",
+        "lookFor": "Move the icon or the badge, change the text, and toggle disabled in the panel."
+    },
+    {
+        "id": "menu-list",
+        "kind": "component",
+        "image": "devmode/tiles/menu-list-14.jpg",
+        "name": "Menu list",
+        "sourceUrl": "examples/menu/list",
+        "urls": {
+            "devmode": "examples/menu/list/index.html",
+            "dist_dev": "dist/development/examples/menu/list/index.html",
+            "dist_esm": "dist/esm/examples/menu/list/index.html",
+            "dist_prod": "dist/production/examples/menu/list/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "component": "MenuList",
+        "feature": "A menu list over a store",
+        "lookFor": "Move through the items with the arrow keys, and resize the menu in the panel."
+    },
+    {
+        "id": "list-base",
+        "kind": "component",
+        "image": "devmode/tiles/list-base-14.jpg",
+        "name": "List",
+        "sourceUrl": "examples/list/base",
+        "urls": {
+            "devmode": "examples/list/base/index.html",
+            "dist_dev": "dist/development/examples/list/base/index.html",
+            "dist_esm": "dist/esm/examples/list/base/index.html",
+            "dist_prod": "dist/production/examples/list/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "List",
+        "feature": "A list over a store, with selection, dragging and checkboxes as live configs",
+        "lookFor": "Select an item, then turn on useCheckBoxes or draggable in the panel."
+    },
+    {
+        "id": "chip-list",
+        "kind": "component",
+        "image": "devmode/tiles/list-chip-14.jpg",
+        "name": "Chip list",
+        "sourceUrl": "examples/list/chip",
+        "urls": {
+            "devmode": "examples/list/chip/index.html",
+            "dist_dev": "dist/development/examples/list/chip/index.html",
+            "dist_esm": "dist/esm/examples/list/chip/index.html",
+            "dist_prod": "dist/production/examples/list/chip/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "ChipList",
+        "feature": "A list of chips over a store, in a row or stacked",
+        "lookFor": "Select a chip, then toggle stacked in the panel."
+    },
+    {
+        "id": "color-list",
+        "kind": "component",
+        "image": "devmode/tiles/list-color-14.jpg",
+        "name": "Color list",
+        "sourceUrl": "examples/list/color",
+        "urls": {
+            "devmode": "examples/list/color/index.html",
+            "dist_dev": "dist/development/examples/list/color/index.html",
+            "dist_esm": "dist/esm/examples/list/color/index.html",
+            "dist_prod": "dist/production/examples/list/color/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "ColorList",
+        "feature": "A list of colors over a store",
+        "lookFor": "Select a color, then toggle disableSelection in the panel."
+    },
+    {
+        "id": "list-buffered",
+        "kind": "component",
+        "image": "devmode/tiles/list-buffered-14.jpg",
+        "name": "Buffered list",
+        "sourceUrl": "examples/list/buffered",
+        "urls": {
+            "devmode": "examples/list/buffered/index.html",
+            "dist_dev": "dist/development/examples/list/buffered/index.html",
+            "dist_esm": "dist/esm/examples/list/buffered/index.html",
+            "dist_prod": "dist/production/examples/list/buffered/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "Buffered",
+        "feature": "A list of 5,000 records that renders only the rows in view and recycles them as you scroll",
+        "lookFor": "Scroll through the records, then raise bufferRowRange or itemHeight in the panel."
+    },
+    {
+        "id": "list-circle",
+        "kind": "component",
+        "image": "devmode/tiles/list-circle-14.jpg",
+        "name": "Circle list",
+        "sourceUrl": "examples/list/circle",
+        "urls": {
+            "devmode": "examples/list/circle/index.html",
+            "dist_dev": "dist/development/examples/list/circle/index.html",
+            "dist_esm": "dist/esm/examples/list/circle/index.html",
+            "dist_prod": "dist/production/examples/list/circle/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "component": "CircleList",
+        "feature": "Groups as circles in a list, each showing its member count",
+        "lookFor": "Switch Sort to DESC, then rename a group in the panel."
+    },
+    {
+        "id": "functional-define-component",
+        "kind": "component",
+        "image": "devmode/tiles/functional-defineComponent-14.jpg",
+        "name": "Function component",
+        "sourceUrl": "examples/functional/defineComponent",
+        "urls": {
+            "devmode": "examples/functional/defineComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/defineComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/defineComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/defineComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "component": "defineComponent",
+        "feature": "A component written as a function with defineComponent(), its state in a hook",
+        "lookFor": "Click the greeting to switch the name, and change the greeting in the panel."
+    },
+    {
+        "id": "functional-host-component",
+        "kind": "component",
+        "image": "devmode/tiles/functional-hostComponent-14.jpg",
+        "name": "Hosting a class component",
+        "sourceUrl": "examples/functional/hostComponent",
+        "urls": {
+            "devmode": "examples/functional/hostComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/hostComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/hostComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/hostComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "component": "defineComponent",
+        "feature": "A function component that hosts a class-based Button and counts its clicks",
+        "lookFor": "Click the button and watch the function's count go up."
+    },
+    {
+        "id": "functional-nested-template",
+        "kind": "component",
+        "image": "devmode/tiles/functional-nestedTemplateComponent-14.jpg",
+        "name": "Nested templates",
+        "sourceUrl": "examples/functional/nestedTemplateComponent",
+        "urls": {
+            "devmode": "examples/functional/nestedTemplateComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/nestedTemplateComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/nestedTemplateComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/nestedTemplateComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "component": "defineComponent",
+        "feature": "A function component built from nested HTML templates",
+        "lookFor": "Click the card to toggle its status, and open its details with the button."
+    },
+    {
+        "id": "sitemap",
+        "kind": "component",
+        "image": "devmode/tiles/sitemap-14.jpg",
+        "name": "Sitemap",
+        "sourceUrl": "examples/sitemap",
+        "urls": {
+            "devmode": "examples/sitemap/index.html",
+            "dist_dev": "dist/development/examples/sitemap/index.html",
+            "dist_esm": "dist/esm/examples/sitemap/index.html",
+            "dist_prod": "dist/production/examples/sitemap/index.html"
+        },
+        "hiddenIn": [],
+        "family": "platform",
+        "component": "Sitemap",
+        "feature": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden",
+        "lookFor": "Resize the sitemap in the panel and follow an item's link."
+    },
+    {
+        "id": "layouts-side-by-side",
+        "name": "Layouts Side by Side",
+        "family": "layouts",
+        "component": "Container layouts",
+        "feature": "Seven layouts arrange the same six items at once, and three of them change as they run",
+        "lookFor": "Set align to start and pack to end, turn on flex, then press Next item: the three flex layouts move their items, the card and the cube step to the next one.",
+        "scope": "On a phone the frames stack in one column.",
+        "image": "devmode/layouts-side-by-side-14.jpg",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/layout/sideBySide",
+        "urls": {
+            "devmode": "examples/layout/sideBySide/index.html",
+            "dist_dev": "dist/development/examples/layout/sideBySide/index.html",
+            "dist_esm": "dist/esm/examples/layout/sideBySide/index.html",
+            "dist_prod": "dist/production/examples/layout/sideBySide/index.html"
+        }
+    },
+    {
+        "id": "layout-cube",
+        "name": "Cube Layout",
+        "family": "layouts",
+        "component": "Cube layout",
+        "feature": "A container's six items become the faces of a cube that turns in 3D",
+        "lookFor": "Press Top, then drag rotateY: the cube turns. Switch the layout to VBox, and the same six items stack in a column.",
+        "image": "devmode/layout-cube-14.jpg",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/layout/cube",
+        "urls": {
+            "devmode": "examples/layout/cube/index.html",
+            "dist_dev": "dist/development/examples/layout/cube/index.html",
+            "dist_esm": "dist/esm/examples/layout/cube/index.html",
+            "dist_prod": "dist/production/examples/layout/cube/index.html"
+        }
     }
 ]

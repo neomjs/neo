@@ -31,14 +31,14 @@
     --button-text-color                         : var(--sem-color-text-neutral-reversed);
     --button-text-color-hover                   : var(--sem-color-text-neutral-reversed);
     --button-text-color-active                  : var(--sem-color-text-neutral-reversed);
-    --button-text-color-disabled                : var(--sem-color-text-neutral-disabled);
+    --button-text-color-disabled                : var(--sem-color-text-disabled);
     --button-text-color-pressed                 : var(--sem-color-text-neutral-reversed);
 
     /* Icon Color */
     --button-glyph-color                        : var(--sem-color-text-neutral-reversed);
     --button-glyph-color-hover                  : var(--sem-color-text-neutral-reversed);
     --button-glyph-color-active                 : var(--sem-color-text-neutral-reversed);
-    --button-glyph-color-disabled               : var(--sem-color-text-neutral-disabled);
+    --button-glyph-color-disabled               : var(--sem-color-text-disabled);
     --button-glyph-color-pressed                : var(--sem-color-text-neutral-reversed);
     --button-glyph-margin                       : 1px 6px 0 0;
 
@@ -69,14 +69,14 @@
     --button-secondary-text-color               : var(--sem-color-text-neutral-default);
     --button-secondary-text-color-hover         : var(--sem-color-text-neutral-contrast);
     --button-secondary-text-color-active        : var(--sem-color-text-neutral-contrast);
-    --button-secondary-text-color-disabled      : var(--sem-color-text-neutral-disabled);
+    --button-secondary-text-color-disabled      : var(--sem-color-text-disabled);
     --button-secondary-text-color-pressed       : var(--sem-color-text-neutral-contrast);
 
     /* Icon Color */
     --button-secondary-glyph-color              : var(--sem-color-icon-neutral-default);
     --button-secondary-glyph-color-hover        : var(--sem-color-icon-neutral-contrast);
     --button-secondary-glyph-color-active       : var(--sem-color-icon-neutral-contrast);
-    --button-secondary-glyph-color-disabled     : var(--sem-color-icon-neutral-disabled);
+    --button-secondary-glyph-color-disabled     : var(--sem-color-text-disabled);
     --button-secondary-glyph-color-pressed      : var(--sem-color-icon-neutral-contrast);
 
     --button-secondary-background-image         : none;
@@ -105,14 +105,14 @@
     --button-ghost-text-color                   : var(--sem-color-text-neutral-default);
     --button-ghost-text-color-hover             : var(--sem-color-text-neutral-contrast);
     --button-ghost-text-color-active            : var(--sem-color-text-neutral-contrast);
-    --button-ghost-text-color-disabled          : var(--sem-color-text-neutral-disabled);
+    --button-ghost-text-color-disabled          : var(--sem-color-text-disabled);
     --button-ghost-text-color-pressed           : var(--sem-color-text-neutral-reversed);
 
     /* Icon Color */
     --button-ghost-glyph-color                  : var(--sem-color-icon-neutral-default);
     --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
-    --button-ghost-glyph-color-disabled         : var(--sem-color-icon-neutral-disabled);
+    --button-ghost-glyph-color-disabled         : var(--sem-color-text-disabled);
     --button-ghost-glyph-color-pressed          : var(--sem-color-text-neutral-reversed);
 
     --button-ghost-background-image             : none;
@@ -140,8 +140,8 @@
     /* Text color */
     --button-tertiary-text-color                : var(--sem-color-text-primary-default);
     --button-tertiary-text-color-hover          : var(--sem-color-text-primary-default);
-    --button-tertiary-text-color-active         : var(--sem-color-text-primary-contrast);
-    --button-tertiary-text-color-disabled       : var(--sem-color-text-neutral-disabled);
+    --button-tertiary-text-color-active         : var(--sem-color-text-neutral-contrast);
+    --button-tertiary-text-color-disabled       : var(--sem-color-text-disabled);
     --button-tertiary-text-color-pressed        : var(--sem-color-text-neutral-reversed);
 
     /* Icon color */

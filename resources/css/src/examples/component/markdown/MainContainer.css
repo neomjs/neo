@@ -1,0 +1,12 @@
+/* The markdown example: a toolbar above the document it streams. The document scrolls under the toolbar's edge and
+   ends with room to spare, so its last paragraph stays clear of the caption a card lays over the cover's lower part. */
+.neo-examples-markdown-viewport {
+    .neo-examples-markdown-toolbar {
+        border-bottom: 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+    }
+
+    .neo-examples-markdown-output {
+        overflow: auto;
+        padding : 1em 1em 6em;
+    }
+}

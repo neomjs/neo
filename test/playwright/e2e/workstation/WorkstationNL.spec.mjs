@@ -1021,7 +1021,7 @@ test.describe('Workstation — dense living-data composition', () => {
             .toBeCloseTo(restoredGeometry.dockHost.contentBlockSize * 0.17, 1);
         expect(restoredGeometry.overflowControls).toBe(1);
 
-        await expect(tourButton).toHaveText('Start dense tour');
+        await expect(tourButton).toHaveText('Start tour');
         await expect(themeToggle, 'one action-labelled theme toggle replaces two mode buttons').toHaveCount(1);
         await expect(themeToggle).toHaveText('Light mode');
 

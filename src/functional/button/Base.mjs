@@ -7,6 +7,13 @@ import NeoArray       from '../../util/Array.mjs';
  */
 class Button extends FunctionalBase {
     /**
+     * Valid WAI-ARIA `aria-current` token values (plus `null` to omit the attribute).
+     * @member {Array} ariaCurrentValues=['date','location','page','step','time','true',null]
+     * @protected
+     * @static
+     */
+    static ariaCurrentValues = ['date', 'location', 'page', 'step', 'time', 'true', null]
+    /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
      * @protected
@@ -32,6 +39,13 @@ class Button extends FunctionalBase {
          * @protected
          */
         ntype: 'functional-button',
+        /**
+         * WAI-ARIA `aria-current` token (`'page'`, `'step'`, `'location'`, `'date'`, `'time'`, `'true'`),
+         * `Boolean` shorthand (`true -> 'true'`, `false -> null`), or `null` to omit.
+         * @member {Boolean|String|null} ariaCurrent_=null
+         * @reactive
+         */
+        ariaCurrent_: null,
         /**
          * @member {String} badgePosition_='top-right'
          * @reactive
@@ -159,7 +173,7 @@ class Button extends FunctionalBase {
     createVdom(config, data) {
         const me = this,
               {
-                  badgePosition, badgeText, cls, editRoute, iconCls, iconColor, iconPosition,
+                  ariaCurrent, badgePosition, badgeText, cls, editRoute, iconCls, iconColor, iconPosition,
                   pressed, ripples, route, style, tag, text, url, urlTarget, useRippleEffect
               }  = config;
 
@@ -170,8 +184,7 @@ class Button extends FunctionalBase {
 
         const link     = !editRoute && route || url;
         const finalTag = link ? 'a' : tag;
-
-        return {
+        const vdom     = {
             tag   : finalTag,
             cls   : vdomCls,
             style,
@@ -217,7 +230,13 @@ class Button extends FunctionalBase {
                     }))
                 }
             ]
+        };
+
+        if (ariaCurrent) {
+            vdom['aria-current'] = ariaCurrent
         }
+
+        return vdom
     }
 
     /**
@@ -304,6 +323,25 @@ class Button extends FunctionalBase {
             me.menuList.destroy(true, false);
             me.menuList = null;
         }
+    }
+
+    /**
+     * @summary Normalizes boolean shorthand (`false -> null`, `true -> 'true'`) and validates `ariaCurrentValues`.
+     * @param {Boolean|String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetAriaCurrent(value, oldValue) {
+        if (value === false) {
+            return null
+        }
+
+        if (value === true) {
+            value = 'true'
+        }
+
+        return this.beforeSetEnumValue(value, oldValue, 'ariaCurrent', this.constructor.ariaCurrentValues)
     }
 
     /**

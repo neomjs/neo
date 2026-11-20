@@ -526,8 +526,7 @@ class Dialog extends Panel {
         if (animate) {
             me.animateHide()
         } else {
-            // The mask leaves with the dialog: destroy() retires the instance and its timers
-            me.syncModalMask(me.id, false);
+            // destroy() takes the mask along and retires the instance and its timers
             me.fire('close');
             me.destroy(true)
         }
@@ -584,6 +583,18 @@ class Dialog extends Panel {
         headers.unshift(me.headerToolbar);
 
         me.headers = headers
+    }
+
+    /**
+     * A modal dialog on the page releases its mask however it leaves: through close(), or destroyed by its owner.
+     * @param {...*} args Arguments to pass to the superclass destroy method.
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.mounted && me.modal && me.syncModalMask(me.id, false);
+
+        super.destroy(...args)
     }
 
     /**

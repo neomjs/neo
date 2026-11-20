@@ -1,13 +1,14 @@
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import path            from 'path';
-import {createRequire} from 'node:module';
-import {sanitizeInput} from '../util/sanitizer.mjs';
-import * as BuildId    from '../util/buildId.mjs';
+import chalk                     from 'chalk';
+import {spawnSync}               from 'child_process';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import path                      from 'path';
+import {createRequire}           from 'node:module';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
+import * as BuildId              from '../util/buildId.mjs';
 
 const __dirname   = path.resolve(),
       cwd         = process.cwd(),
@@ -81,7 +82,12 @@ if (programOpts.info) {
         }
     }
 
-    inquirer.prompt(questions).then(answers => {
+    assertInteractivePrompt({
+        command: 'npm run build-threads -- -n -e dev -t all',
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(answers => {
         const env       = answers.env     || programOpts.env     || 'all',
               threads   = answers.threads || programOpts.threads || 'all',
               insideNeo = programOpts.framework || false,

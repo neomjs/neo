@@ -83,7 +83,7 @@ class Carousel extends Component {
          */
         _vdom:
         {cn: [
-            {cls: ['neo-carousel'], cn: [
+            {cls: ['neo-carousel-body'], cn: [
                 {cls: ['neo-carousel-btn-bar'], cn: [
                     {tag: 'a', 'data-carouselaction': 'back',    cls: ['neo-carousel-btn', 'fa', 'fa-chevron-left']},
                     {tag: 'a', 'data-carouselaction': 'forward', cls: ['neo-carousel-btn', 'fa', 'fa-chevron-right']}

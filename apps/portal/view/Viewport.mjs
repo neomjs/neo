@@ -38,8 +38,9 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module: HeaderToolbar,
-            flex  : 'none'
+            module   : HeaderToolbar,
+            flex     : 'none',
+            reference: 'header-toolbar'
         }, {
             module   : Container,
             cls      : ['portal-main-content'],

@@ -6,8 +6,10 @@ import Model from '../../../src/data/Model.mjs';
  * `family`, `band`, `title`, `route`, `iconCls`, `sentence` and optional `tileHeading` come from
  * `Portal.view.examples.MainContainer#familyDefinitions`. `count` and `crossCount` follow the catalog and the
  * selected build (`Portal.view.examples.MainContainerController#publishGroups()`). `count` holds the group's home records
- * that publish a card, so every example counts once and the counts add up to the overview's headline. `crossCount` holds
- * the cards other groups lend it through `alsoIn`: shown on its page, not counted.
+ * that publish, cards and tiles alike, so every example counts once and the counts add up to the overview's headline.
+ * `crossCount` holds the ones other groups lend it through `alsoIn`: shown on its page, not counted. `tileCount` holds the
+ * tiles its page shows, its own and lent ones (`kind: 'component'`): the page heads its cards and its tiles only when it
+ * shows both.
  * @class Portal.model.ExampleGroup
  * @extends Neo.data.Model
  */
@@ -46,6 +48,10 @@ class ExampleGroup extends Model {
             name: 'sentence',
             type: 'String'
         }, {
+            name        : 'tileCount',
+            type        : 'Integer',
+            defaultValue: 0
+        }, {
             name: 'tileHeading',
             type: 'String'
         }, {
@@ -75,13 +81,13 @@ class ExampleGroup extends Model {
     }
 
     /**
-     * @summary A group's count in the banded index: its home records, or the examples it shows from other groups in
-     * parentheses when it has none.
+     * @summary A group's number in the banded index: its home records, and none for a group that owns none. What a
+     * group borrows from others is said in words by {@link #countLabel}, the entry's `aria-label` and its page's line.
      * @param {Object} record A group record or its raw row
      * @returns {String}
      */
-    static countText({count, crossCount}) {
-        return count > 0 ? String(count) : `(${crossCount})`
+    static countText({count}) {
+        return count > 0 ? String(count) : ''
     }
 }
 

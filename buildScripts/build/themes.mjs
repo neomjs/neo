@@ -1,14 +1,15 @@
-import autoprefixer    from 'autoprefixer';
-import chalk           from 'chalk';
-import cssnano         from 'cssnano';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import path            from 'path';
-import postcss         from 'postcss';
-import {sanitizeInput} from '../util/sanitizer.mjs';
-import {themeCssRoots} from '../util/themeCssRoots.mjs';
+import autoprefixer              from 'autoprefixer';
+import chalk                     from 'chalk';
+import cssnano                   from 'cssnano';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import path                      from 'path';
+import postcss                   from 'postcss';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
+import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
     __dirname        = path.resolve(),
@@ -86,7 +87,12 @@ if (programOpts.info) {
         }
     }
 
-    inquirer.prompt(questions).then(async answers => {
+    assertInteractivePrompt({
+        command: `npm run build-themes -- -n -e dev -t all`,
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(async answers => {
         const env         = answers.env      || programOpts.env    || 'all',
               themes      = answers.themes   || programOpts.themes || 'all',
               activeRoots = programOpts.framework ? [frameworkCssPath] : cssRoots,

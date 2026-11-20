@@ -1,15 +1,20 @@
-import {test, expect} from '@playwright/test';
-import fs             from 'node:fs';
-import os             from 'node:os';
-import path           from 'node:path';
+import {test, expect}  from '@playwright/test';
+import {spawnSync}     from 'node:child_process';
+import fs              from 'node:fs';
+import os              from 'node:os';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
 
 import {
+    WATCH_THEMES_HELP,
     handleThemeWatchEvent,
     inspectThemeWatcherAssets,
     reconcileThemeStructure,
     regenerateDevelopmentThemeMap,
     startThemeWatcher
 } from '../../../../../buildScripts/helpers/watchThemes.mjs';
+
+const WATCH_SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/helpers/watchThemes.mjs', import.meta.url));
 
 /**
  * @summary Pins watch-themes lifecycle reconciliation: low-latency content changes, exact
@@ -333,5 +338,18 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         );
 
         expect(calls).toEqual([])
+    });
+
+    test('--help scopes watch-themes to supervised interactive dev shells and names the unattended build command', () => {
+        const result = spawnSync(process.execPath, [WATCH_SCRIPT, '--help'], {
+            encoding: 'utf8',
+            stdio   : 'pipe',
+            timeout : 5000
+        });
+
+        expect(result.status).toBe(0);
+        expect(result.stdout.trim()).toBe(WATCH_THEMES_HELP);
+        expect(result.stdout).toContain('supervised interactive development shells');
+        expect(result.stdout).toContain('npm run build-themes -- -n -e dev -t all');
     })
 });

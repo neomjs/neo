@@ -162,5 +162,26 @@ test.describe('Grid cell editing in the locked bodies', () => {
         await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
 
         await escapeAndExpect(page, 'c3', recordId, 'r3c3')
+    });
+
+    test('an open edit survives two columns changing locked in one tick with its draft and focus', async ({page}) => {
+        const recordId = await editWithDraft(page, 'c0');
+
+        await driveGrid(page, 'unlockBothEnds');
+
+        await expect.poll(() => page.locator(`${GRID} .neo-grid-body`).count(), {
+            message: 'only the center body remains once both locked regions empty'
+        }).toBe(1);
+        await expect.poll(() => embodiment(page), {
+            message: 'the editor is embodied in c0 in the center body'
+        }).toEqual({count: 1, field: 'c0', recordId});
+        await expect(page.locator(INPUT), 'the draft survived').toHaveValue('draft');
+        await expect.poll(() => editingIn(page, 'c0', recordId), {
+            message: 'the editor keeps focus in c0'
+        }).toBe(true);
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'c0', recordId), 'nothing committed').toHaveText('r3c0')
     })
 });

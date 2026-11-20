@@ -47,6 +47,23 @@ const openCard = view => {
 const pageIds = (view, family) => view.getGroupPage(family).getList().store.items.map(record => record.id);
 
 /**
+ * @summary The ids of the tiles a group page shows, in their order on the page (by name).
+ * @param {Portal.view.examples.MainContainer} view
+ * @param {String} family
+ * @returns {String[]}
+ */
+const tileIds = (view, family) => view.getGroupPage(family).getTileList().store.items.map(record => record.id);
+
+/**
+ * @summary The catalog with every More components record hidden in Dev mode, so that a build switch withdraws a
+ * whole page: the real catalog has no group a build switch empties since its tiles publish in every build.
+ * @returns {Object[]}
+ */
+const devmodeEmptiesComponents = () => structuredClone(catalog).map(record =>
+    record.family === 'components' ? {...record, hiddenIn: ['devmode']} : record
+);
+
+/**
  * @summary Constructs the real section with an owned in-memory catalog and no network fetch.
  * @param {Object[]} [records=catalog]
  * @param {String} [catalogMode='dist_prod']
@@ -100,47 +117,80 @@ test.describe('Portal examples overview and group pages', () => {
               groupStore = view.getGroupStore(),
               published  = view.getCatalogStore().items.filter(record => Example.publishes(record, 'dist_prod'));
 
-        // Board still lacks a cover; Timeline was retired and its example moved to Grid & Table + Scheduler; Trees and Functional Components publish via alsoIn
+        // Timeline was retired and its example moved to Grid & Table + Scheduler; Trees publishes via alsoIn; every other group has a card or a tile
         expect(groupStore.items.map(group => group.route)).toEqual(publishedRoutes);
         expect(view.getGroupPages().map(page => page.family)).toEqual(groupStore.items.map(group => group.family));
-        expect(view.getCatalogStore().getCount()).toBe(100);
+        expect(view.getCatalogStore().getCount()).toBe(recordCount);
 
-        // every example counts once, in its home group: the counts add up to the records that publish
+        // every example counts once, in its home group: the counts add up to the records that publish, tiles included
         expect(groupStore.items.reduce((sum, group) => sum + group.count, 0)).toBe(published.length);
-        expect(published).toHaveLength(52);
-        expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual({
-            apps          : [6, 4], 'grid-table': [18, 0], tree: [0, 2], lists: [4, 0], charts: [1, 1],
-            calendar      : [1, 0], scheduler   : [2, 0], gantt: [2, 0], board: [1, 0],
-            dashboard     : [3, 0], tabs        : [1, 0], dialogs: [1, 0],
-            forms         : [3, 0], components  : [1, 0],
-            'multi-window': [6, 2], platform    : [1, 1], state: [1, 0], functional: [0, 1], 'drag-drop': [0, 2]
-        });
+        expect(published).toHaveLength(publishedCount);
+        expect(Object.fromEntries(groupStore.items.map(group => [group.family, [group.count, group.crossCount]]))).toEqual(groupCounts);
 
         expect(groupStore.get('apps').band).toBeNull();
         expect(groupStore.get('forms').tileHeading).toBe('Field types');
 
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
-        expect(pageIds(view, 'forms')).toEqual(['date-selector', 'date-field', 'combobox-field']);
+        // Forms & Fields shows the form app as its card, then tiles: its own and the form layout lent by Containers &
+        // Layouts, in the order of their names
+        expect(pageIds(view, 'forms')).toEqual(['form-app']);
+        expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
         expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data']);
         expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data']);
+        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes']);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
         expect(pageIds(view, 'functional')).toEqual(['email']);
-        expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop']);
+        expect(tileIds(view, 'functional')).toEqual(['functional-define-component', 'functional-host-component', 'functional-nested-template']);
+        expect(tileIds(view, 'buttons')).toEqual(['button-base', 'menu-list']);
+        expect(pageIds(view, 'drag-drop')).toEqual(['multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out']);
         expect(pageIds(view, 'apps')).toEqual([
-            'workstation', 'shared-covid', 'webdesktop', 'devindex', 'multi-window-drag-drop', 'colors-dashboard',
-            'covid-dashboard', 'portal', 'finance', 'email'
+            'workstation', 'devindex', 'shared-covid', 'webdesktop', 'multi-window-drag-drop', 'colors-dashboard',
+            'covid-dashboard', 'portal', 'form-app', 'finance', 'email'
         ]);
 
-        // every card of every page has a cover; the catalog keeps the records that wait for one
-        view.getGroupPages().forEach(page => page.getList().store.forEach(record => expect(record.image, record.id).toBeTruthy()));
-        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(48);
+        // every card and tile of every page has its image; the catalog keeps the records that wait for one
+        view.getGroupPages().forEach(page => page.getLists().forEach(list => list.store.forEach(record => expect(record.image, record.id).toBeTruthy())));
+        expect(view.getCatalogStore().items.filter(record => !record.image)).toHaveLength(uncoveredCount);
         expect(view.getCatalogStore().items.filter(record => record.image && !Example.publishes(record, 'dist_prod')).map(record => record.id))
             .toEqual([]);
         expect(view.getGroupPage('grid-table').getList().store.getSource()).toBe(view.getCatalogStore());
         expect(view.getGroupPage('grid-table').getList().store.model).toBe(view.getCatalogStore().model)
+    });
+
+    test('a component record is a tile: it counts as a live example, and its page\'s tileCount follows the build', () => {
+        // the clock's tile cannot open in the ESM build, liquid-glass's card cannot open in Dev mode, and here
+        // neither can the markdown card, so Dev mode shows tiles alone
+        const hiddenIn = {clock: ['dist_esm'], markdown: ['devmode']},
+              records  = structuredClone(catalog).map(record => hiddenIn[record.id] ? {...record, hiddenIn: hiddenIn[record.id]} : record),
+              view     = createView(records),
+              group    = () => view.getGroupStore().get('components'),
+              page     = view.getGroupPage('components'),
+              heading  = reference => page.down({reference}),
+              // two cards, markdown and liquid-glass, and the rest tiles
+              count    = groupCounts.components[0];
+
+        expect(view.getCatalogStore().get('liquid-glass').kind).toBe('demonstration');
+        expect(view.getCatalogStore().get('clock').kind).toBe('component');
+        expect([group().count, group().tileCount]).toEqual([count, count - 2]);
+
+        // the card shows under "Demonstrations", the tiles by name under the default tile heading
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'liquid-glass']);
+        expect(tileIds(view, 'components')).toEqual(['chip', 'circle', 'clock', 'magic-move-text', 'monaco-editor', 'process', 'progress', 'splitter', 'status-badge', 'timer']);
+        expect([heading('cards-heading').hidden, heading('tiles-heading').hidden, heading('tiles-heading').text]).toEqual([false, false, 'Components']);
+
+        // the same rule publishes a tile and a card: a build that cannot open the tile drops it from both counts
+        view.getController().onSelectBuild({id: 'dist_esm'});
+        expect([group().count, group().tileCount]).toEqual([count - 1, count - 3]);
+        expect(tileIds(view, 'components')).not.toContain('clock');
+
+        // a page that shows one kind heads neither
+        view.getController().onSelectBuild({id: 'devmode'});
+        expect([group().count, group().tileCount]).toEqual([count - 2, count - 2]);
+        expect(pageIds(view, 'components')).toEqual([]);
+        expect([heading('cards-heading').hidden, heading('tiles-heading').hidden]).toEqual([true, true])
     });
 
     test('the overview counts the published examples into its headline and renders the featured Start here list', () => {
@@ -149,14 +199,11 @@ test.describe('Portal examples overview and group pages', () => {
               intro    = overview.down({reference: 'overview-intro'}),
               list     = overview.getList();
 
-        expect(intro.vdom.cn[1].text).toBe('52 live examples in 19 groups');
-        expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe('All 19 groups');
+        expect(intro.vdom.cn[1].text).toBe(`${publishedCount} live examples in ${groupCount} groups`);
+        expect(overview.down({reference: 'overview-index-heading'}).vdom.cn[0].text).toBe(`All ${groupCount} groups`);
         expect(list.leadCard).toBe(true);
         expect(list.showGroup).toBe(true);
-        expect(list.store.items.map(record => record.id)).toEqual([
-            'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-            'grid-issues', 'scheduler-basic', 'gantt-basic', 'calendar', 'webdesktop', 'grid-countries'
-        ]);
+        expect(list.store.items.map(record => record.id)).toEqual(startHereIds);
 
         // the action opens its record in the selected build
         expect(overview.down({reference: 'overview-action-grid-big-data'}).url).toBe('https://neomjs.com/dist/production/examples/grid/bigData/index.html');
@@ -177,10 +224,16 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        expect(links(mobIx).map(link => link.cn[2].text)).toEqual(['6', '18', '(2)', '4', '1', '1', '2', '2', '1', '3', '1', '1', '3', '1', '6', '1', '1', '(1)', '(2)']);
+        // a group shows its home examples; one that only borrows shows no number, and its label still names what it borrows
+        expect(links(mobIx).map(link => link.cn[2].text))
+            .toEqual(Object.values(groupCounts).map(([count]) => count ? String(count) : ''));
+        expect(links(mobIx).filter(link => !link.cn[2].text).map(link => link.href))
+            .toEqual(publishedRoutes.filter((route, index) => Object.values(groupCounts)[index][0] === 0).map(route => '#' + route));
+        expect(links(mobIx).filter(link => !link.cn[2].text).every(link => link['aria-label'].endsWith('from other groups'))).toBe(true);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
-        expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
+        // the all-examples link, the unbanded list and one section per band: no note under them
+        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section']);
 
         expect(index.presentation).toBe('list');
         expect(index.vdom.cn[0].removeDom).toBe(false);
@@ -206,7 +259,7 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(crumb.hidden).toBe(false);
         expect(home.hidden).toBe(true);
-        expect(button.text).toBe('All 19 groups');
+        expect(button.text).toBe(`All ${groupCount} groups`);
 
         await view.getController().onExamplesRoute({itemId: 'grid'});
         expect(crumb.hidden).toBe(false);
@@ -241,7 +294,8 @@ test.describe('Portal examples overview and group pages', () => {
     });
 
     test('resolves group routes and all legacy modes', async () => {
-        const view       = createView(),
+        // without its form layout tile, Containers & Layouts is a defined group with no card or tile
+        const view       = createView(catalog.filter(record => record.family !== 'layouts')),
               controller = view.getController();
 
         await controller.onExamplesRoute();
@@ -254,8 +308,8 @@ test.describe('Portal examples overview and group pages', () => {
             expect(view.getGroupPage('grid-table').getList().catalogMode).toBe(mode.id)
         }
 
-        // The loop above ends in Dev mode, which publishes no More components page. Every group path defined on dev
-        // before the groups became data still resolves in production.
+        // The loop above ends in Dev mode. Every group path defined on dev before the groups became data still
+        // resolves in production.
         await controller.onExamplesRoute({itemId: 'dist_prod'});
 
         for (const [itemId, family] of [['grid', 'grid-table'], ['forms', 'forms'], ['multi-window', 'multi-window'], ['calendar', 'calendar'], ['components', 'components'], ['state', 'state']]) {
@@ -301,13 +355,13 @@ test.describe('Portal examples overview and group pages', () => {
     });
 
     test('a newly published group needs no additional page or controller entry', () => {
-        const view = createView([...catalog, {
+        // without its form layout tile, Containers & Layouts publishes through the test record alone
+        const view = createView([...catalog.filter(record => record.family !== 'layouts'), {
                   ...catalog[0], id: 'test-layouts-example', family: 'layouts', alsoIn: [], featured: false,
                   feature: 'A layout container', lookFor: 'Inspect it.'
-              }]),
-              insertAt = publishedRoutes.indexOf('/examples/dialogs');
+              }]);
 
-        expect(view.getGroupStore().items.map(group => group.route)).toEqual([...publishedRoutes.slice(0, insertAt), '/examples/layouts', ...publishedRoutes.slice(insertAt)]);
+        expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(pageIds(view, 'layouts')).toEqual(['test-layouts-example']);
         expect(view.getGroupStore().get('layouts').iconCls).toBe(view.familyDefinitions.find(item => item.family === 'layouts').iconCls)
     });
@@ -334,8 +388,9 @@ test.describe('Portal examples overview and group pages', () => {
 
         expect(published.map(family => family.route)).toEqual(view.getGroupStore().items.map(group => group.route));
         expect(published.map(family => family.route)).toEqual(publishedRoutes);
+        // the build lists a group's records in catalog order; its page shows the cards, then the tiles by name
         published.forEach(family => {
-            expect(family.records.map(record => record.id), family.route).toEqual(pageIds(view, family.family))
+            expect(family.records.map(record => record.id).sort(), family.route).toEqual([...pageIds(view, family.family), ...tileIds(view, family.family)].sort())
         })
     });
 
@@ -348,8 +403,8 @@ test.describe('Portal examples overview and group pages', () => {
                       ...catalog[0], id: 'test-layouts-' + index, family: 'layouts', alsoIn: [], featured: false,
                       feature: 'A layout container', lookFor: 'Inspect it.', image
                   })),
-                  insertAt = publishedRoutes.indexOf('/examples/dialogs'),
-                  view     = createView([...catalog, ...records]);
+                  // without its form layout tile, Containers & Layouts holds only the test records
+                  view = createView([...catalog.filter(record => record.family !== 'layouts'), ...records]);
 
             records.forEach(record => {
                 expect(view.getCatalogStore().get(record.id).family).toBe('layouts');
@@ -357,7 +412,7 @@ test.describe('Portal examples overview and group pages', () => {
             });
 
             expect(view.getGroupStore().items.map(group => group.route)).toEqual(
-                published ? [...publishedRoutes.slice(0, insertAt), '/examples/layouts', ...publishedRoutes.slice(insertAt)] : publishedRoutes
+                published ? publishedRoutes : publishedRoutes.filter(route => route !== '/examples/layouts')
             );
             expect(!!view.getGroupPage('layouts')).toBe(published);
             published && expect(pageIds(view, 'layouts')).toEqual(['test-layouts-0'])
@@ -373,7 +428,7 @@ test.describe('Portal examples overview and group pages', () => {
         store.fire('load');
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(pageIds(view, 'grid-table')).toEqual(coveredGridTableIds);
-        expect(pageIds(view, 'forms')).toHaveLength(3);
+        expect(tileIds(view, 'forms')).toHaveLength(formTileIds.length);
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
@@ -388,31 +443,31 @@ test.describe('Portal examples overview and group pages', () => {
     test('a record with alsoIn shows once in each of its groups and counts once, in its home group', () => {
         const view = createView();
 
-        expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop']);
+        expect(pageIds(view, 'dialogs')).toEqual(['dialog-drag-drop', 'toast', 'popover']);
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
-        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps']);
+        // the paging toolbar reaches Buttons through the grid that runs it on the simulated server
+        expect(pageIds(view, 'buttons')).toEqual(['context-menu-files', 'breadcrumb', 'grid-server-side']);
+        expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'am-charts', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
-        expect(view.getGroupStore().get('dialogs').count).toBe(1);
+        expect(view.getGroupStore().get('dialogs').count).toBe(3);
         expect(view.getGroupStore().get('drag-drop').count).toBe(0);
         expect(view.getGroupStore().get('tree').count).toBe(0);
         expect(view.getCatalogStore().items.filter(record => record.id === 'dialog-drag-drop')).toHaveLength(1);
-        expect(view.getCatalogStore().getCount()).toBe(100)
+        expect(view.getCatalogStore().getCount()).toBe(recordCount)
     });
 
     for (const mode of ['dist_prod', 'dist_esm', 'dist_dev', 'devmode']) {
         test(`the ${mode} build publishes the groups with a card it can open`, () => {
             const view = createView(catalog, mode);
 
-            // Dev mode hides liquid-glass, the one covered member of More components
-            expect(view.getGroupStore().items.map(group => group.route)).toEqual(
-                mode === 'devmode' ? publishedRoutes.filter(route => route !== '/examples/components') : publishedRoutes
-            )
+            // Dev mode hides liquid-glass, but More components keeps its tiles
+            expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes)
         })
     }
 
     test('a build selection republishes the groups, and an open group that loses its cards shows the overview until it publishes again', async () => {
-        const view       = createView(),
+        const view       = createView(devmodeEmptiesComponents()),
               controller = view.getController();
 
         await controller.onExamplesRoute({itemId: 'components'});
@@ -422,18 +477,19 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupStore().items.map(group => group.route)).not.toContain('/examples/components');
         expect(view.getGroupPage('components')).toBeNull();
         expect(openCard(view)).toBe('overview');
-        // the overview's headline follows the build: Dev mode cannot open liquid-glass
-        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text).toBe('51 live examples in 18 groups');
+        // the overview's headline follows the build: Dev mode opens none of the More components records
+        expect(view.down({reference: 'overview-intro'}).vdom.cn[1].text)
+            .toBe(`${publishedCount - groupCounts.components[0]} live examples in ${groupCount - 1} groups`);
 
         // the route still names the group: its page returns with its cards
         controller.onSelectBuild({id: 'dist_prod'});
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(publishedRoutes);
         expect(openCard(view)).toBe('components');
-        expect(pageIds(view, 'components')).toEqual(['liquid-glass'])
+        expect(pageIds(view, 'components')).toEqual(['markdown', 'liquid-glass'])
     });
 
     test('an open page stays open when a build switch removes or adds another page', async () => {
-        const view       = createView(),
+        const view       = createView(devmodeEmptiesComponents()),
               controller = view.getController(),
               stage      = view.getStage();
 
@@ -449,41 +505,178 @@ test.describe('Portal examples overview and group pages', () => {
         expect(openCard(view)).toBe('multi-window');
         expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
     });
+
+    test('findQuery filters published records across titles, captions, group titles and keywords, updates GroupIndex matchCounts, and restores the open page on clear', async () => {
+        const view          = createView(),
+              controller    = view.getController(),
+              stage         = view.getStage(),
+              searchResults = view.getSearchResults(),
+              matchedIds    = () => searchResults.getGroupsContainer().items.flatMap(group =>
+                  group.items.filter(item => item instanceof ExamplesList).flatMap(list => list.store.items.map(r => r.id))
+              );
+
+        await controller.onExamplesRoute({itemId: 'multi-window'});
+        expect(openCard(view)).toBe('multi-window');
+
+        controller.onFindFieldChange({value: 'drag'});
+        expect(stage.items[stage.layout.activeIndex]).toBe(searchResults);
+        expect(view.getSidebarFindField().value).toBe('drag');
+        expect(view.getMobileFindField().value).toBe('drag');
+
+        const dragIds = matchedIds();
+        expect(dragIds).toEqual(expect.arrayContaining([
+            'board-basic', 'board-swimlanes', 'multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+        ]));
+
+        const counts = view.getStateProvider().getData('matchCounts');
+        expect(counts).toBeInstanceOf(Map);
+        expect(counts.get('board')).toEqual({home: 2, cross: 0, total: 2});
+        expect(counts.get('drag-drop')).toEqual({home: 0, cross: 3, total: 3});
+        expect(counts.get('calendar')).toEqual({home: 0, cross: 0, total: 0});
+
+        const indexVdom = view.getGroupIndex().vdom,
+              findEntry = (node, id) => node.id === id ? node : (node.cn || []).map(c => findEntry(c, id)).find(Boolean),
+              dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
+              calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
+
+        expect(dragEntry['aria-label']).toBe('Drag & Drop, 3 matching examples from other groups');
+        expect(calEntry['aria-label']).toBe('Calendar, 0 matching examples');
+
+        controller.onFindFieldChange({value: 'date'});
+        const dateIds = matchedIds();
+        expect(dateIds).toEqual(expect.arrayContaining([
+            'calendar', 'scheduler-basic', 'scheduler-big-data', 'gantt-basic', 'gantt-big-data', 'date-field', 'date-selector'
+        ]));
+        const formsGroup = searchResults.getGroupsContainer().items.find(group =>
+            group.items[0].vdom.cn[0].href === '#/examples/forms'
+        );
+        expect(formsGroup.items[1].tiles).toBe(true);
+        expect(formsGroup.items[1].store.items.map(r => r.id)).toEqual(['date-field', 'date-selector']);
+
+        controller.onFindFieldChange({value: 'liquid'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+        controller.onSelectBuild({id: 'devmode'});
+        expect(matchedIds()).toEqual([]);
+        expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
+        controller.onSelectBuild({id: 'dist_prod'});
+        expect(matchedIds()).toEqual(['liquid-glass']);
+
+        controller.onClearFind();
+        expect(view.findQuery).toBe('');
+        expect(view.getStateProvider().getData('matchCounts')).toBeNull();
+        expect(searchResults.getGroupsContainer().items).toHaveLength(0);
+        expect(openCard(view)).toBe('multi-window');
+        expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
+    });
+
+    test('Example.tokenizeSearchText and matchesQuery normalize camelCase, comma numbers, alsoIn titles and keywords', () => {
+        expect(Example.tokenizeSearchText('100,000 × 200 TreeGrid')).toEqual(['100000', '200', 'tree', 'grid']);
+
+        const groupTitles = {'board': 'Task Board', 'drag-drop': 'Drag & Drop'},
+              record      = {
+                  name     : 'Sprint Board',
+                  family   : 'board',
+                  alsoIn   : ['drag-drop'],
+                  component: 'Neo.board.Container',
+                  feature  : 'Kanban cards',
+                  lookFor  : 'Move a card',
+                  keywords : ['swimlane']
+              };
+
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('drag'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('swim'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('board container'), groupTitles)).toBe(true);
+        expect(Example.matchesQuery(record, Example.tokenizeSearchText('calendar'), groupTitles)).toBe(false)
+    });
+
+    test('MainContainer registers and releases body-level "/" preventDefault as the view activates and deactivates', () => {
+        const events       = [],
+              originalMain = Neo.main;
+
+        Neo.main = {
+            ...originalMain,
+            DomEvents: {
+                ...originalMain?.DomEvents,
+                registerPreventDefaultKeys  : data => events.push({op: 'register',   id: data.id, keys: data.keys}),
+                unregisterPreventDefaultKeys: data => events.push({op: 'unregister', id: data.id, keys: data.keys})
+            }
+        };
+
+        try {
+            const view = createView();
+
+            view.mounted = true;
+            expect(events).toEqual([{op: 'register', id: 'document.body', keys: ['/']}]);
+            expect(view.isActiveView()).toBe(true);
+
+            view.wrapperCls = [...(view.wrapperCls || []), 'neo-inactive-item'];
+            expect(view.isActiveView()).toBe(false);
+            expect(events).toHaveLength(2);
+            expect(events[1]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']});
+
+            view.wrapperCls = [];
+            expect(view.isActiveView()).toBe(true);
+            expect(events).toHaveLength(3);
+            expect(events[2]).toEqual({op: 'register', id: 'document.body', keys: ['/']});
+
+            view.destroy();
+            exampleView = null;
+            expect(events).toHaveLength(4);
+            expect(events[3]).toEqual({op: 'unregister', id: 'document.body', keys: ['/']})
+        } finally {
+            Neo.main = originalMain
+        }
+    });
 });
 
 const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'), 'utf8')),
       modes   = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       // the 12 Start here demonstrations placed first in featured catalog order
       startHereIds = [
-          'workstation', 'grid-big-data', 'grid-tree-big-data', 'dock-choreography', 'shared-covid',
-          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'grid-countries'
+          'workstation', 'grid-big-data', 'grid-tree-big-data', 'devindex', 'shared-covid',
+          'grid-issues', 'scheduler-basic', 'gantt-basic', 'board-basic', 'calendar', 'webdesktop', 'dock-choreography'
       ],
       establishedTailIds = [
-          'helix', 'devindex', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
-          'multi-window-drag-drop', 'tab-container', 'state-provider', 'dialog-drag-drop',
-          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery'
+          'grid-countries', 'helix', 'multi-window-covid-gallery', 'offscreen-canvas', 'shared-offscreen-canvas',
+          'multi-window-drag-drop', 'tab-container', 'tab-browser', 'state-provider', 'dialog-drag-drop',
+          'colors-dashboard', 'covid-dashboard', 'covid-helix', 'covid-gallery', 'gallery', 'list-reorder', 'list-animate'
       ],
       componentExampleIds = [
-          'carousel', 'chip', 'circle', 'clock', 'graph-scene', 'magic-move-text',
-          'markdown', 'mwc-button', 'mwc-buttons', 'mwc-text-field', 'mwc-text-fields',
-          'process', 'process-real-world', 'progress', 'splitter', 'status-badge', 'timer',
-          'toast', 'video', 'monaco-editor', 'open-street-maps', 'am-charts',
-          'video-move'
+          'carousel', 'chip', 'circle', 'clock', 'magic-move-text',
+          'markdown', 'process', 'progress', 'splitter', 'status-badge', 'timer',
+          'toast', 'popover', 'video', 'monaco-editor', 'open-street-maps', 'graph-scene', 'am-charts',
+          'sparklines', 'mermaid', 'video-move', 'context-menu-files', 'breadcrumb'
       ],
       establishedMiddleIds = [
           'table-filtering', 'date-selector', 'date-field', 'combobox-field', 'portal', 'liquid-glass'
       ],
       newExampleIds = [
           'grid-animated-row-sorting', 'grid-cell-editing', 'grid-container', 'grid-content-sized-rows',
-          'grid-filtering', 'grid-export', 'grid-server-side', 'grid-header-groups', 'grid-locked-columns',
-          'grid-nested-record-fields', 'grid-tree', 'grid-value-banding', 'table-container'
+          'grid-filtering', 'grid-export', 'grid-server-side', 'grid-header-groups', 'grid-locked-columns', 'grid-cell-types',
+          'grid-nested-record-fields', 'grid-streaming', 'grid-tree', 'grid-value-banding', 'table-container'
       ],
       formExampleIds = [
           'checkbox-field', 'chip-field', 'color-field', 'email-field', 'fileupload-field',
-          'number-field', 'picker-field', 'radio-field', 'select-field', 'switch-field',
-          'text-field', 'textarea-field', 'time-field', 'url-field', 'copy-to-clipboard-trigger',
-          'fieldset', 'field-with-prefix', 'fields-runtime-triggers', 'layout-form',
-          'date-selector-container', 'form-app'
+          'number-field', 'radio-field', 'select-field', 'switch-field',
+          'text-field', 'textarea-field', 'time-field', 'url-field',
+          'country-field', 'currency-field', 'display-field', 'iban-field', 'password-field',
+          'phone-field', 'range-field', 'search-field', 'zipcode-field', 'copy-to-clipboard-trigger',
+          'fieldset', 'form-validation', 'field-with-prefix', 'layout-form', 'form-app'
+      ],
+      // the tile records of groups that had no record before the tiles, appended to the catalog
+      newTileIds = [
+          'button-base', 'menu-list', 'list-base', 'chip-list', 'color-list', 'list-buffered', 'list-circle',
+          'functional-define-component', 'functional-host-component', 'functional-nested-template', 'sitemap'
+      ],
+      // the Containers & Layouts cards, appended after the tiles
+      layoutExampleIds = ['layouts-side-by-side', 'layout-cube'],
+      // the Forms & Fields tiles in the order of their names, the form layout lent by Containers & Layouts among them
+      formTileIds = [
+          'checkbox-field', 'chip-field', 'color-field', 'combobox-field', 'copy-to-clipboard-trigger',
+          'country-field', 'currency-field', 'date-field', 'date-selector', 'display-field', 'email-field',
+          'fieldset', 'fileupload-field', 'layout-form', 'iban-field', 'number-field', 'password-field',
+          'phone-field', 'radio-field', 'range-field', 'search-field', 'select-field', 'switch-field',
+          'textarea-field', 'text-field', 'time-field', 'url-field', 'zipcode-field'
       ],
       multiWindowExampleIds = [
           'dock-layouts', 'dock-cross-window', 'dock-tear-out',
@@ -495,16 +688,47 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           'workstation', 'shared-covid', 'multi-window-covid-gallery', 'shared-offscreen-canvas',
           'multi-window-drag-drop', 'colors-dashboard'
       ],
-      // the Multi-Window page also shows dock-cross-window and Email, whose alsoIn names it
-      multiWindowPageIds    = [...coveredMultiWindowIds, 'dock-cross-window', 'email'],
-      // the 19 groups with a card a production build opens on this catalog, in definition order
+      // the Multi-Window page also shows dock-cross-window, dock-tear-out and Email, whose alsoIn names it
+      multiWindowPageIds    = [...coveredMultiWindowIds, 'dock-cross-window', 'dock-tear-out', 'email'],
+      // every group: each has a card or tile a production build opens on this catalog, in definition order
       publishedRoutes = [
           '/examples/apps', '/examples/grid', '/examples/tree', '/examples/lists', '/examples/charts',
           '/examples/calendar', '/examples/scheduler', '/examples/gantt', '/examples/board',
-          '/examples/dashboard', '/examples/tabs', '/examples/dialogs',
-          '/examples/forms', '/examples/components',
+          '/examples/dashboard', '/examples/tabs', '/examples/layouts', '/examples/dialogs',
+          '/examples/forms', '/examples/buttons', '/examples/components',
           '/examples/multi-window', '/examples/platform', '/examples/state', '/examples/functional', '/examples/drag-drop'
-      ];
+      ],
+      // The catalog's only count literals: a new covered example changes its group's row, a new record the record count.
+      // [home count, count from other groups] per group in a production build, in definition order.
+      // One group per line, so examples PRs on different groups never edit the same line.
+      groupCounts = {
+          apps          : [6, 5],
+          'grid-table'  : [20, 0],
+          tree          : [0, 2],
+          lists         : [12, 0],
+          charts        : [5, 1],
+          calendar      : [1, 0],
+          scheduler     : [2, 0],
+          gantt         : [2, 0],
+          board         : [2, 0],
+          dashboard     : [4, 1],
+          tabs          : [2, 0],
+          layouts       : [3, 0],
+          dialogs       : [3, 0],
+          forms         : [28, 1],
+          buttons       : [4, 1],
+          components    : [12, 0],
+          'multi-window': [6, 3],
+          platform      : [2, 1],
+          state         : [1, 0],
+          functional    : [3, 1],
+          'drag-drop'   : [0, 3]
+      },
+      recordCount    = 125,
+      publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
+      groupCount     = Object.keys(groupCounts).length,
+      // every record with a cover publishes in a production build, so the rest wait for one
+      uncoveredCount = recordCount - publishedCount;
 
 /**
  * @summary The canonical catalog survives the keyed Store and renders through the production List.
@@ -567,12 +791,12 @@ test.describe('Portal examples canonical catalog', () => {
         })
     }
 
-    test('loads 99 logical examples with unique stable string identities', () => {
+    test('loads every logical example with a unique, stable string identity', () => {
         const {store} = createList(),
               ids     = [];
 
-        expect(catalog).toHaveLength(100);
-        expect(store.getCount()).toBe(100);
+        expect(catalog).toHaveLength(recordCount);
+        expect(store.getCount()).toBe(recordCount);
 
         store.forEach(record => {
             expect(typeof record.id, record.name).toBe('string');
@@ -580,7 +804,7 @@ test.describe('Portal examples canonical catalog', () => {
             ids.push(record.id)
         });
 
-        expect(new Set(ids).size).toBe(100);
+        expect(new Set(ids).size).toBe(recordCount);
         expect(list.catalogMode).toBe('dist_prod')
     });
 
@@ -612,12 +836,17 @@ test.describe('Portal examples canonical catalog', () => {
     test('visual component records keep their captions and build destinations in their home groups', () => {
         const store = createView().getCatalogStore(),
               homes = {
-                  'am-charts'       : 'charts',
-                  carousel          : 'lists',
-                  'graph-scene'     : 'charts',
-                  'open-street-maps': 'charts',
-                  toast             : 'dialogs',
-                  'video-move'      : 'platform'
+                  'am-charts'         : 'charts',
+                  breadcrumb          : 'buttons',
+                  carousel            : 'lists',
+                  'context-menu-files': 'buttons',
+                  'graph-scene'       : 'charts',
+                  mermaid             : 'charts',
+                  'open-street-maps'  : 'charts',
+                  popover             : 'dialogs',
+                  sparklines          : 'charts',
+                  toast               : 'dialogs',
+                  'video-move'        : 'platform'
               };
 
         for (const id of componentExampleIds) {
@@ -677,8 +906,9 @@ test.describe('Portal examples canonical catalog', () => {
             'shared-offscreen-canvas': ['platform'],
             'multi-window-drag-drop' : ['apps', 'drag-drop'],
             'dialog-drag-drop'       : ['drag-drop'],
-            'colors-dashboard'       : ['apps'],
+            'colors-dashboard'       : ['apps', 'dashboard'],
             'grid-tree'              : ['tree'],
+            'grid-server-side'       : ['buttons'],
             'form-app'               : ['apps'],
             'layout-form'            : ['forms'],
             'timeline-basic'         : ['scheduler'],
@@ -708,7 +938,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(() => check([{...example, lookFor: ''}])).toThrow()
     });
 
-    test('the catalog holds the 19 Grid and Table identities and their page shows the 18 covered ones', () => {
+    test('the catalog holds the Grid and Table identities and their page shows the covered ones', () => {
         const view         = createView(),
               catalogStore = view.getCatalogStore(),
               store        = view.getGroupPage('grid-table').getList().store,
@@ -724,7 +954,7 @@ test.describe('Portal examples canonical catalog', () => {
         });
 
         expect(ids).toEqual([...coveredGridTableIds, 'timeline-basic']);
-        expect(counts).toEqual({Grid: 16, Table: 2, Timeline: 1});
+        expect(counts).toEqual({Grid: 18, Table: 2, Timeline: 1});
         expect(store.items.map(record => record.id)).toEqual(coveredGridTableIds);
         expect(store.getSource()).toBe(catalogStore)
     });
@@ -761,7 +991,7 @@ test.describe('Portal examples canonical catalog', () => {
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
                   ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'timeline-basic',
-                  ...multiWindowExampleIds, 'finance', 'email'
+                  ...multiWindowExampleIds, 'finance', 'email', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {
                   devmode  : ['portal', 'liquid-glass'],
@@ -781,7 +1011,7 @@ test.describe('Portal examples canonical catalog', () => {
         // the list hides what its store would filter out: a record without a cover publishes no card in any mode
         const uncovered = completeIds.filter(id => !store.get(id).image);
 
-        expect(uncovered).toHaveLength(48);
+        expect(uncovered).toHaveLength(uncoveredCount);
 
         cases.forEach(([mode, bigDataUrl, workstationUrl, choreographyUrl]) => {
             list.catalogMode = mode;

@@ -177,7 +177,8 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
 
             expect(buildDoorText).toContain(`${classCount} classes across ${namespaceCount} namespaces`);
             expect(buildDoorText).toContain('$ npx neo-app@latest');
-            expect(agentsDoorText).toContain('Fleet Manager');
+            expect(agentsDoorText).toContain('Agent Institution');
+            expect(agentsDoorText).not.toContain('Fleet Manager');
             expect(agentsDoorText).toContain('neo-agent-brain · neo-agent-institution');
             expect(studyDoorText).toContain('MX · Two Hemispheres · Gated RSI');
 

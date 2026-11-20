@@ -7,11 +7,11 @@
     --grid-header-button-border-right-hover-color: var(--cyber-cyan);
     --grid-header-button-box-shadow-hover        : 0 0 10px var(--cyber-cyan);
     --grid-header-button-color                   : var(--cyber-cyan);
-    --grid-header-button-color-hover             : var(--cyber-yellow);
+    --grid-header-button-color-hover             : var(--cyber-gold);
     --grid-header-button-font-size               : 11px;
     --grid-header-button-font-weight             : 600;
     --grid-header-button-glyph-color             : var(--cyber-cyan);
-    --grid-header-button-glyph-color-hover       : var(--cyber-yellow);
+    --grid-header-button-glyph-color-hover       : var(--cyber-gold);
     --grid-header-button-justify-content         : flex-end;
     --grid-header-button-padding                 : var(--button-padding);
     --grid-header-button-transition              : all 0.3s ease-out;

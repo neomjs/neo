@@ -1731,8 +1731,9 @@ class GridBody extends Component {
     }
 
     /**
-     * Lightweight update for column resizing, triggered by drag:move.
-     * Updates the width of the resized column's cells and the left position of all following cells.
+     * @summary Lightweight live column-resize pass (`drag:move`) that writes updated `width` and `left` geometry
+     * across active row VDOMs and ships them densely (`denseUpdate = true`) so concurrent row updates cannot skip
+     * non-merged rows.
      * @param {String} dataField The dataField of the resized column
      * @param {Number} newWidth The new width in pixels
      */
@@ -1793,6 +1794,7 @@ class GridBody extends Component {
         });
 
         me.updateDepth = 2;
+        me.denseUpdate = true;
         me.update()
     }
 

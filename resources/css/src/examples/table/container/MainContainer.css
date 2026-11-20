@@ -1,0 +1,109 @@
+.neo-examples-table-container {
+    .neo-workbench-stage-desc {
+        line-height: 1.45;
+        max-width  : 92ch;
+    }
+
+    .neo-example-container {
+        min-height: 0;
+        min-width : 0;
+
+        .neo-table-container {
+            border-radius: 6px;
+            flex         : 0 1 auto;
+            height       : auto;
+            max-height   : 100%;
+            max-width    : 100%;
+            min-height   : 0;
+            position     : relative;
+            width        : fit-content;
+
+            table {
+                border-collapse: separate;
+                border-spacing : 0;
+                width          : auto;
+            }
+
+            th {
+                min-width  : 0;
+                white-space: nowrap;
+
+                .neo-table-header-button {
+                    height : auto;
+                    padding: 8px 12px;
+                }
+            }
+
+            tr,
+            td {
+                height        : auto !important;
+                max-height    : none !important;
+                vertical-align: top;
+            }
+
+            td {
+                line-height: 1.4;
+                padding    : 8px 12px;
+
+                &.neo-table-spec-notes {
+                    line-height: 1.45;
+                    max-width  : 330px;
+                    min-width  : 220px;
+                    white-space: normal;
+                }
+            }
+
+            &.neo-table-fit-width {
+                width: 100%;
+
+                table {
+                    table-layout: fixed;
+                    width       : 100%;
+                }
+
+                td {
+                    overflow     : hidden;
+                    text-overflow: ellipsis;
+
+                    &.neo-table-spec-notes {
+                        max-width    : none;
+                        min-width    : 0;
+                        overflow     : visible;
+                        text-overflow: clip;
+                        white-space  : normal;
+                    }
+                }
+            }
+        }
+    }
+
+    @media (max-width: 600px) {
+        .neo-workbench-stage {
+            height    : 410px !important;
+            max-height: 49vh !important;
+        }
+
+        .neo-workbench-stage-header {
+            padding: 10px 12px;
+
+            .neo-workbench-stage-desc {
+                font-size  : 12px;
+                line-height: 1.35;
+            }
+        }
+
+        .neo-example-container {
+            padding: 10px !important;
+
+            .neo-table-container {
+                td:not(.neo-table-spec-notes) {
+                    white-space: nowrap;
+                }
+
+                td.neo-table-spec-notes {
+                    min-width: 300px;
+                }
+            }
+        }
+    }
+}

@@ -8,8 +8,8 @@
     --neo-board-gap                    : 12px;
     --neo-board-padding                : 12px;
     --neo-board-radius                 : 8px;
-    --neo-board-accent-color           : #0f9f8f;
-    --neo-board-focus-color            : #0f9f8f;
+    --neo-board-accent-color           : #0a7a6e;
+    --neo-board-focus-color            : #0a7a6e;
 
     --neo-board-column-width           : 280px;
     --neo-board-column-collapsed-width : 44px;
@@ -27,7 +27,7 @@
     --neo-board-card-border-color      : #d5dbe3;
     --neo-board-card-hover-border-color: #b5bfcc;
     --neo-board-card-selected-background  : #eefaf8;
-    --neo-board-card-selected-border-color: #0f9f8f;
+    --neo-board-card-selected-border-color: #0a7a6e;
     --neo-board-card-color             : #111827;
     --neo-board-card-muted-color       : #6b7280;
     --neo-board-card-shadow            : 0 1px 2px rgba(15, 23, 42, 0.08);

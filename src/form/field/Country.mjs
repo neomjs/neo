@@ -58,6 +58,12 @@ class Country extends ComboBox {
     }
 
     /**
+     * @type {Function|null}
+     * @private
+     */
+    #zipCodeDestroyCleanup = null
+
+    /**
      * Triggered after the triggers config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -99,15 +105,63 @@ class Country extends ComboBox {
     }
 
     /**
-     * Triggered after the zipCodeField config got changed
+     * @summary Links or unlinks `this` as `zipCodeField.countryField`.
      * @param {Neo.form.field.Base|null} value
      * @param {Neo.form.field.Base|null} oldValue
      * @protected
      */
     afterSetZipCodeField(value, oldValue) {
-        if (value && value instanceof Neo.form.field.Base) {
-            value.countryField = this
+        let me = this;
+
+        if (me.#zipCodeDestroyCleanup) {
+            me.#zipCodeDestroyCleanup();
+            me.#zipCodeDestroyCleanup = null
         }
+
+        if (oldValue && !oldValue.isDestroyed && oldValue.countryField === me) {
+            oldValue.countryField = null
+        }
+
+        if (value instanceof Neo.form.field.Base) {
+            if (value.isConfig?.('isDestroying')) {
+                me.#zipCodeDestroyCleanup = me.observeConfig(value, 'isDestroying', destroying => {
+                    if (destroying && me.zipCodeField === value) {
+                        me.zipCodeField = null
+                    }
+                })
+            }
+
+            value.countryField = me
+        }
+    }
+
+    /**
+     * @summary Resolves string component references to the target zip-code field instance.
+     * @param {Neo.form.field.Base|String|null} value
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    beforeSetZipCodeField(value) {
+        return this.resolveFieldReference(value, 'zipCodeField')
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me             = this,
+            {zipCodeField} = me;
+
+        if (me.#zipCodeDestroyCleanup) {
+            me.#zipCodeDestroyCleanup();
+            me.#zipCodeDestroyCleanup = null
+        }
+
+        if (zipCodeField && !zipCodeField.isDestroyed && zipCodeField.countryField === me) {
+            zipCodeField.countryField = null
+        }
+
+        super.destroy(...args)
     }
 
     /**

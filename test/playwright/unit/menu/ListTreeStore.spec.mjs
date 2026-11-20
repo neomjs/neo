@@ -56,17 +56,24 @@ const MenuModel = Neo.setupClass(MenuTreeModel);
 function createTreeStore(config={}) {
     return Neo.create(TreeStore, {
         model: MenuModel,
-        data : [
-            {id: 'file',      text: 'File',       isLeaf: false, collapsed: true},
-            {id: 'file-new',  text: 'New',        isLeaf: false, collapsed: true, parentId: 'file'},
-            {id: 'file-new-f',text: 'File…',      isLeaf: true,                   parentId: 'file-new'},
-            {id: 'file-open', text: 'Open',       isLeaf: true,                   parentId: 'file'},
-            {id: 'edit',      text: 'Edit',       isLeaf: false, collapsed: true},
-            {id: 'edit-copy', text: 'Copy',       isLeaf: true,                   parentId: 'edit'},
-            {id: 'about',     text: 'About',      isLeaf: true}
-        ],
+        data : treeData(),
         ...config
     })
+}
+
+/**
+ * @returns {Object[]} A fresh copy of the menu tree, per store
+ */
+function treeData() {
+    return [
+        {id: 'file',      text: 'File',       isLeaf: false, collapsed: true},
+        {id: 'file-new',  text: 'New',        isLeaf: false, collapsed: true, parentId: 'file'},
+        {id: 'file-new-f',text: 'File…',      isLeaf: true,                   parentId: 'file-new'},
+        {id: 'file-open', text: 'Open',       isLeaf: true,                   parentId: 'file'},
+        {id: 'edit',      text: 'Edit',       isLeaf: false, collapsed: true},
+        {id: 'edit-copy', text: 'Copy',       isLeaf: true,                   parentId: 'edit'},
+        {id: 'about',     text: 'About',      isLeaf: true}
+    ]
 }
 
 /**
@@ -198,6 +205,111 @@ test.describe('Neo.menu.List driven by a TreeStore', () => {
         expect(treeStore.isDestroyed).toBeFalsy();
         expect(treeStore.getCount()).toBe(3);
         expect(treeStore.getChildren('edit')).toHaveLength(1)
+    });
+
+    test('a tree store passed as a class or a config drives the same levels, and the root destroys what it built', () => {
+        const ClassFormStore = Neo.setupClass(class extends TreeStore {
+                  static config = {
+                      className: 'Test.Unit.Menu.ListTreeStore.ClassFormStore',
+                      model    : MenuModel,
+                      data     : treeData()
+                  }
+              }),
+              byClass  = createMenu({store: ClassFormStore}),
+              byConfig = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}});
+
+        menus.push(byClass, byConfig);
+
+        for (const root of [byClass, byConfig]) {
+            const {sourceStore} = root,
+                  file          = root.store.get('file');
+
+            expect(sourceStore instanceof TreeStore).toBe(true);
+            expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+            expect(root.hasChildren(file), 'a parent, not a leaf the click would close the menu on').toBe(true);
+
+            root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+            expect(root.activeSubMenu.sourceStore).toBe(sourceStore);
+            expect(root.activeSubMenu.store.items.map(item => item.id)).toEqual(['file-new', 'file-open']);
+
+            root.destroy();
+
+            expect(sourceStore.isDestroyed).toBe(true)
+        }
+    });
+
+    test('a live store replacement re-derives the root, retires the open cascade, and releases only a built source', () => {
+        const root  = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}}),
+              built = root.sourceStore,
+              file  = root.store.get('file');
+
+        menus.push(root);
+
+        root.showSubMenu(root.getItemId(root.store.getKey(file)), file);
+
+        const oldChild = root.activeSubMenu;
+
+        // A built source gives way to a borrowed one
+        root.store = treeStore;
+
+        expect(built.isDestroyed, 'the source the menu built').toBe(true);
+        expect(oldChild.isDestroyed, 'the submenu the old source drove').toBe(true);
+        expect(root.sourceStore).toBe(treeStore);
+        expect(root.store.items.map(item => item.id)).toEqual(['file', 'edit', 'about']);
+
+        treeStore.add({id: 'help', text: 'Help', isLeaf: true});
+
+        expect(root.store.items.map(item => item.id), 'the new source drives the root').toContain('help');
+
+        // A borrowed source gives way to a built one
+        root.store = {module: TreeStore, model: MenuModel, data: [{id: 'solo', text: 'Solo', isLeaf: true}]};
+
+        const second = root.sourceStore;
+
+        treeStore.add({id: 'late', text: 'Late', isLeaf: true});
+
+        expect(treeStore.isDestroyed, 'a borrowed source stays its owner\'s').toBeFalsy();
+        expect(root.store.items.map(item => item.id), 'the old source no longer reaches the root').toEqual(['solo']);
+
+        root.destroy();
+
+        expect(second.isDestroyed).toBe(true);
+        expect(treeStore.isDestroyed).toBeFalsy()
+    });
+
+    test('the store or tree source already in place, assigned again, keeps one set of listeners and its owner', () => {
+        const count = store => {
+                  const {listeners} = store.toJSON();
+                  return ['filter', 'mutate', 'recordChange', 'sort'].map(name => (listeners[name] || []).length)
+              },
+              pristine = count(treeStore),
+              owner    = createMenu({store: {module: TreeStore, model: MenuModel, data: treeData()}}),
+              borrower = createMenu({store: treeStore}),
+              built    = owner.sourceStore,
+              file     = owner.store.get('file');
+
+        menus.push(owner, borrower);
+
+        owner.showSubMenu(owner.getItemId(owner.store.getKey(file)), file);
+
+        const child  = owner.activeSubMenu,
+              levels = [owner.store, borrower.store],
+              before = [count(built), count(treeStore)];
+
+        owner.store    = built;
+        owner.store    = owner.store;
+        borrower.store = treeStore;
+
+        expect([owner.store, borrower.store], 'each level stays').toEqual(levels);
+        expect(owner.activeSubMenu, 'the open submenu stays').toBe(child);
+        expect([count(built), count(treeStore)], 'no listener is bound twice').toEqual(before);
+
+        owner.destroy();
+        borrower.destroy();
+
+        expect(built.isDestroyed, 'the menu still owns the source it built').toBe(true);
+        expect(count(treeStore), 'the borrowed source keeps none of the menu\'s listeners').toEqual(pristine)
     });
 
     test('showSubMenu opens a real child level and leaves the parent alive', () => {

@@ -1,0 +1,7 @@
+:root .neo-theme-cyberpunk { /* .neo-selectfield */
+    --selectfield-background  : var(--cyber-bg);
+    --selectfield-border-color: #5c7a99;
+    --selectfield-color       : var(--cyber-text);
+    --selectfield-error-color : var(--cyber-red);
+    --selectfield-focus-color : var(--cyber-cyan);
+}

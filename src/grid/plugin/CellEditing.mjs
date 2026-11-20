@@ -63,7 +63,8 @@ class CellEditing extends Plugin {
     /**
      * The active edit: the logical cell (`recordId`, `dataField`) and the `editor` field for it. `null` while nothing
      * is edited. {@link Neo.grid.Row#applyRendererOutput} reads it; only this plugin writes it. `held` counts the lock
-     * changes holding the editor out of every cell ({@link #holdEdit}), `blurOwed` marks the leave a lock change owes,
+     * changes holding the editor out of every cell ({@link #holdEdit}), `holdPromise` shares the active out-render
+     * barrier across overlapping holds, `blurOwed` marks the leave a lock change owes,
      * `windowMoveBlur` marks the leave an owner unmount owes, `pendingWindowFocus` remembers focus across an owner
      * unmount so {@link #onEditorMounted} restores it in the target window, and `wasEmbodied` says whether a cell has
      * shown the editor yet — a session born suspended has that still ahead of it. `refocus` says a scroll or a lock
@@ -333,10 +334,12 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Holds the editor out of every cell until the matching {@link #releaseEdit}. A column changing body shifts the
-     * cells beside it too, and a render that moves the editor between cells can lose its node, so a lock change
-     * renders it out first, and the body rendering the column embeds it anew. Removing the focused editor blurs it,
-     * and that one leave is owed to the lock change.
+     * @summary Holds the editor out of every cell until the matching {@link #releaseEdit}, sharing the active
+     * out-render promise across overlapping holds.
+     *
+     * A column changing body shifts the cells beside it too, and a render that moves the editor between cells can lose
+     * its node, so a lock change renders it out first, and the body rendering the column embeds it anew. Removing the
+     * focused editor blurs it, and that one leave is owed to the lock change.
      * @returns {Promise<void>} settles once the editor is out of the DOM
      */
     holdEdit() {
@@ -344,16 +347,20 @@ class CellEditing extends Plugin {
             {session} = me,
             editor;
 
-        // Only the first of overlapping lock changes renders the editor out
-        if (!session || session.held++) {
+        if (!session) {
             return Promise.resolve()
         }
 
-        editor           = session.editor;
-        session.blurOwed = editor.containsFocus;
+        // Only the first of overlapping lock changes renders the editor out; later callers await that same render
+        if (session.held++) {
+            return session.holdPromise || Promise.resolve()
+        }
 
-        // The Row the editor's parent names embeds it, whichever body its column is moving to
-        return editor.vnode ? me.repaintRow(editor.parent) : Promise.resolve()
+        editor              = session.editor;
+        session.blurOwed    = editor.containsFocus;
+        session.holdPromise = editor.vnode ? me.repaintRow(editor.parent) : Promise.resolve();
+
+        return session.holdPromise
     }
 
     /**
@@ -723,14 +730,17 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * Ends a {@link #holdEdit}: once the last lock change releases it, the body rendering the column embeds the
-     * editor again.
+     * @summary Ends a {@link #holdEdit}: once the last lock change releases it, clears `holdPromise` and re-embeds
+     * the editor.
      */
     releaseEdit() {
         let me        = this,
             {session} = me;
 
-        session?.held && !--session.held && me.repaint(session)
+        if (session?.held && !--session.held) {
+            session.holdPromise = null;
+            me.repaint(session)
+        }
     }
 
     /**
@@ -879,7 +889,7 @@ class CellEditing extends Plugin {
 
         me.lastDataField = dataField;
 
-        me.setSession({blurOwed: false, dataField, editor, held: 0, pendingWindowFocus: false, recordId, windowMoveBlur: false});
+        me.setSession({blurOwed: false, dataField, editor, held: 0, holdPromise: null, pendingWindowFocus: false, recordId, windowMoveBlur: false});
         me.session.wasEmbodied = me.isEmbodied(me.session);
         me.repaint(me.session);
 

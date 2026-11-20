@@ -1,0 +1,120 @@
+/* Seven frames over the same six items. The page reads its colours from the theme files under
+   theme-neo-light and theme-neo-dark; the six items keep one hue each in both themes. */
+.examples-layouts-side-by-side {
+    background-color: var(--examples-layouts-ground);
+    color           : var(--examples-layouts-ink);
+    font-family     : var(--neo-font-family);
+
+    code {
+        font-size: .95em;
+    }
+}
+
+.examples-layouts-header {
+    padding: 16px 20px 0;
+
+    h1 {
+        font-size  : 22px;
+        font-weight: 600;
+        margin     : 0 0 4px;
+    }
+
+    p {
+        color    : var(--examples-layouts-ink-dim);
+        font-size: 14px;
+        margin   : 0;
+        max-width: 80ch;
+    }
+}
+
+.examples-layouts-side-by-side .examples-layouts-toolbar {
+    gap    : 8px 20px;
+    padding: 12px 20px;
+}
+
+.examples-layouts-group {
+    gap: 4px;
+}
+
+.examples-layouts-group-label {
+    color       : var(--examples-layouts-ink-dim);
+    font-family : monospace;
+    font-size   : 13px;
+    margin-right: 4px;
+}
+
+/* The frames sit in a grid layout too: as many columns of at least 280px as the page holds. A frame clips its
+   overflow, which lets the grid squeeze its row into the page's height, so each row takes its full content height */
+.examples-layouts-frames {
+    align-content        : start;
+    gap                  : 14px;
+    grid-auto-rows       : max-content;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    min-height           : 0;
+    overflow-y           : auto;
+    padding              : 4px 20px 20px;
+}
+
+.examples-layouts-frame {
+    background-color: var(--examples-layouts-panel);
+    border          : 1px solid var(--examples-layouts-border);
+    border-radius   : 8px;
+    padding         : 10px 12px 12px;
+}
+
+.examples-layouts-frame-title {
+    font-family: monospace;
+    font-size  : 16px;
+    font-weight: 600;
+    margin     : 0;
+}
+
+.examples-layouts-frame-text {
+    color     : var(--examples-layouts-ink-dim);
+    font-size : 13px;
+    margin    : 2px 0 8px;
+    min-height: 2.6em;
+}
+
+.examples-layouts-stage {
+    background-color: var(--examples-layouts-stage);
+    border-radius   : 6px;
+    gap             : 6px;
+    min-height      : 260px;
+    overflow        : hidden;
+    padding         : 6px;
+}
+
+.examples-layouts-grid-stage {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+/* White text on each hue measures at least 5:1 */
+.examples-layouts-item-1 {--examples-layouts-item-color: #1d4ed8;}
+.examples-layouts-item-2 {--examples-layouts-item-color: #6d28d9;}
+.examples-layouts-item-3 {--examples-layouts-item-color: #be185d;}
+.examples-layouts-item-4 {--examples-layouts-item-color: #c2410c;}
+.examples-layouts-item-5 {--examples-layouts-item-color: #047857;}
+.examples-layouts-item-6 {--examples-layouts-item-color: #0e7490;}
+
+.examples-layouts-side-by-side .examples-layouts-item {
+    align-items     : center;
+    background-color: var(--examples-layouts-item-color);
+    border-radius   : 4px;
+    color           : #fff;
+    display         : flex;
+    font-size       : 18px;
+    font-weight     : 600;
+    justify-content : center;
+    min-height      : 28px;
+    min-width       : 32px;
+    padding         : 2px 10px;
+}
+
+/* A cube face's `background` shorthand clears the colour, so the face takes it back */
+.examples-layouts-cube .neo-face.examples-layouts-item {
+    background-color: var(--examples-layouts-item-color);
+    border-radius   : 0;
+    font-size       : 40px;
+    opacity         : .92;
+}

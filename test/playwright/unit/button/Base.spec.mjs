@@ -18,6 +18,7 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Button             from '../../../../src/button/Base.mjs';
 import SplitButton        from '../../../../src/button/Split.mjs';
+import Store              from '../../../../src/data/Store.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
@@ -406,6 +407,121 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         button.destroy();
         plain.destroy()
+    });
+
+    test('a menu change while its list loads builds one list from the latest menu, and a click meanwhile shows it (#21535)', async () => {
+        const button     = Neo.create(Button, {appName, menu: [{text: 'Blog'}, {text: 'Medium'}]}),
+              created    = [],
+              origCreate = Neo.create,
+              {align}    = Neo.main.DomAccess;
+
+        // An opened floating list aligns itself in the main thread, which this harness does not run
+        Neo.main.DomAccess.align = async () => {};
+        Neo.create = (...args) => {
+            const instance = origCreate(...args);
+            args[0]?.parentComponent === button && created.push(instance);
+            return instance
+        };
+
+        try {
+            // The click lands first, then the menu changes before the list module has loaded
+            const toggled = button.toggleMenu();
+
+            button.menu = [{text: 'Medium'}];
+            await toggled;
+
+            expect(created, 'a superseded menu builds no list of its own').toHaveLength(1);
+            expect(button.menuList.hidden, 'the click opens the list the button holds').toBe(false);
+            expect(button.menuList.store.items.map(record => record.text)).toEqual(['Medium'])
+        } finally {
+            Neo.create               = origCreate;
+            Neo.main.DomAccess.align = align;
+            button.destroy()
+        }
+    });
+
+    test('a later menu replaces the list it built before instead of orphaning it (#21535)', async () => {
+        const button = Neo.create(Button, {appName, menu: [{text: 'Blog'}]});
+
+        await button.menuListReady;
+
+        const first = button.menuList;
+
+        button.menu = [{text: 'Medium'}];
+        await button.menuListReady;
+
+        expect(first.isDestroyed, 'the earlier list goes with its menu').toBe(true);
+        expect(button.menuList.store.items.map(record => record.text)).toEqual(['Medium']);
+
+        button.destroy()
+    });
+
+    test('a menu cleared while its list loads builds nothing, and a click waiting on it settles without opening one (#21535)', async () => {
+        const button     = Neo.create(Button, {appName, menu: [{text: 'Blog'}]}),
+              created    = [],
+              origCreate = Neo.create;
+
+        Neo.create = (...args) => {
+            const instance = origCreate(...args);
+            args[0]?.parentComponent === button && created.push(instance);
+            return instance
+        };
+
+        try {
+            const toggled = button.toggleMenu();
+
+            button.menu = null;
+            await toggled;
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(created, 'the build in flight lands nothing').toHaveLength(0);
+            expect(button.menuList).toBe(null)
+        } finally {
+            Neo.create = origCreate;
+            button.destroy()
+        }
+    });
+
+    test('clearing the menu takes an open list with it (#21535)', async () => {
+        const button  = Neo.create(Button, {appName, menu: [{text: 'Blog'}]}),
+              {align} = Neo.main.DomAccess;
+
+        Neo.main.DomAccess.align = async () => {};
+
+        try {
+            await button.toggleMenu();
+
+            const open = button.menuList;
+
+            expect(open.hidden).toBe(false);
+
+            button.menu = null;
+
+            expect(open.isDestroyed).toBe(true);
+            expect(button.menuList).toBe(null)
+        } finally {
+            Neo.main.DomAccess.align = align;
+            button.destroy()
+        }
+    });
+
+    test('a replacement menu over the same store retires the first list and keeps the store (#21535)', async () => {
+        const store  = Neo.create(Store, {data: [{id: 1, text: 'Blog'}, {id: 2, text: 'Medium'}], model: {fields: [{name: 'id'}, {name: 'text'}]}}),
+              button = Neo.create(Button, {appName, menu: {store}});
+
+        await button.menuListReady;
+
+        const first = button.menuList;
+
+        button.menu = {cls: ['neo-test-replacement-menu'], store};
+        await button.menuListReady;
+
+        expect(first.isDestroyed, 'the first list is retired').toBe(true);
+        expect(store.isDestroyed, 'a store the replacement shares survives the retired list').toBeFalsy();
+        expect(button.menuList.store).toBe(store);
+        expect(button.menuList.store.items.map(record => record.text)).toEqual(['Blog', 'Medium']);
+
+        button.destroy()
     });
 
     test('an unknown size is refused, and the button keeps the size it has', async () => {

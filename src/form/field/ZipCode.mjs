@@ -41,10 +41,10 @@ class ZipCode extends Text {
          */
         countryField_: null,
         /**
-         * The data.Model field inside the related country field which provides the country code (e.g. 'DE')
-         * @member {String} countryKeyProperty='id'
+         * The data.Model field inside the related country field which provides the country code (e.g. 'de' or 'DE')
+         * @member {String} countryKeyProperty='code'
          */
-        countryKeyProperty: "id",
+        countryKeyProperty: 'code',
         /**
          * data passes inputPattern, maxLength, minLength & valueLength properties
          * @member {Function} errorTextInputPattern=data=>'Not a valid zip code'
@@ -53,7 +53,23 @@ class ZipCode extends Text {
     }
 
     /**
-     * Triggered after the countryCode config got changed
+     * @type {Boolean}
+     * @private
+     */
+    #applyingDerivedCountryCode = false
+    /**
+     * @type {Function[]}
+     * @private
+     */
+    #countryFieldCleanups = []
+    /**
+     * @type {Boolean}
+     * @private
+     */
+    #hasDerivedCountryCode = false
+
+    /**
+     * @summary Assigns `inputPattern` from `ZipCode.countryCodes` and re-validates while preserving `clean` state.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -61,56 +77,142 @@ class ZipCode extends Text {
     afterSetCountryCode(value, oldValue) {
         let me = this;
 
+        if (!me.#applyingDerivedCountryCode && (oldValue !== undefined || value !== null)) {
+            me.#hasDerivedCountryCode = false
+        }
+
         me.inputPattern = ZipCode.countryCodes[value] || null;
 
-        oldValue !== undefined && me.value && !me.clean && me.validate(false)
+        oldValue !== undefined && me.validate(me.clean)
     }
 
     /**
-     * Triggered after the countryField config got changed
+     * @summary Tracks `countryField` value, `change`, and destruction lifecycle, clearing derived `countryCode` on unbind.
      * @param {Neo.form.field.Base|null} value
      * @param {Neo.form.field.Base|null} oldValue
      * @protected
      */
     afterSetCountryField(value, oldValue) {
-        if (value) {
-            let me = this;
+        let me = this;
 
+        me.#detachCountryField(oldValue);
+
+        if (value) {
             value.on({
                 change: me.onCountryFieldChange,
                 scope : me
             });
 
-            value.value && me.onCountryFieldChange({
+            if (value.isConfig?.('value')) {
+                me.#countryFieldCleanups.push(me.observeConfig(value, 'value', newValue => {
+                    me.onCountryFieldChange({
+                        component: value,
+                        record   : value.record,
+                        value    : newValue
+                    })
+                }))
+            }
+
+            if (value.isConfig?.('isDestroying')) {
+                me.#countryFieldCleanups.push(me.observeConfig(value, 'isDestroying', destroying => {
+                    if (destroying && me.countryField === value) {
+                        me.countryField = null
+                    }
+                }))
+            }
+
+            me.onCountryFieldChange({
                 component: value,
                 record   : value.record,
                 value    : value.value
             })
+        } else if (oldValue && me.#hasDerivedCountryCode) {
+            me.#hasDerivedCountryCode = false;
+            me.countryCode = null
         }
     }
 
     /**
-     * Triggered before the countryField config gets changed
-     * @param {Neo.form.field.Base|String|null} value
-     * @param {Neo.form.field.Base|String|null} oldValue
-     * @returns {Neo.form.field.Base|null}
-     * @protected
+     * @param {Neo.form.field.Base|null} field
+     * @private
      */
-    beforeSetCountryField(value, oldValue) {
+    #detachCountryField(field) {
         let me = this;
 
+        while (me.#countryFieldCleanups.length > 0) {
+            me.#countryFieldCleanups.pop()()
+        }
+
+        field && !field.isDestroyed && field.un('change', me.onCountryFieldChange, me)
+    }
+
+    /**
+     * @summary Normalizes ISO country codes to trimmed uppercase strings (`'de'` -> `'DE'`).
+     * @param {String|null} value
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetCountryCode(value) {
         if (Neo.isString(value)) {
-            return me.up().getReference(value)
+            return value.trim().toUpperCase() || null
         }
 
         return value
     }
 
     /**
+     * @summary Resolves string component references to the target country field instance.
+     * @param {Neo.form.field.Base|String|null} value
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    beforeSetCountryField(value) {
+        return this.resolveFieldReference(value, 'countryField')
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.#detachCountryField(this.countryField);
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Extracts the selected ISO country code from a `Country` / `ComboBox` record or string `change` payload.
      * @param {Object} data
      */
     onCountryFieldChange(data) {
-        this.countryCode = data.record?.[this.countryKeyProperty] || null
+        let me      = this,
+            keyProp = me.countryKeyProperty,
+            raw     = data?.record ?? data?.value,
+            code    = null;
+
+        if (Neo.isRecord(raw) || Neo.isObject(raw)) {
+            code = raw[keyProp] ?? (keyProp === 'code' && Neo.isString(raw.id) ? raw.id : null)
+        } else if (Neo.isString(raw)) {
+            let trimmed = raw.trim(),
+                store   = data?.component?.store;
+
+            if (trimmed) {
+                if (store) {
+                    let lower  = trimmed.toLowerCase(),
+                        record = store.get(lower) || store.get(trimmed) || store.get(trimmed.toUpperCase())
+                            || store.find(data.component.displayField || 'name', lower)[0];
+
+                    code = record
+                        ? record[keyProp] ?? (keyProp === 'code' && Neo.isString(record.id) ? record.id : null)
+                        : null
+                } else {
+                    code = trimmed
+                }
+            }
+        }
+
+        me.#applyingDerivedCountryCode = true;
+        me.#hasDerivedCountryCode      = true;
+        me.countryCode                 = code;
+        me.#applyingDerivedCountryCode = false
     }
 }
 
