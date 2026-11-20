@@ -415,12 +415,12 @@ class ViewportController extends Controller {
         }
 
         if (Neo.isNumber(activeIndex)) {
-            let headerCanvas = me.getReference('header-canvas'),
-                refs         = ['home-button', 'learn-button', 'news-header-button', 'services-button', 'examples-button'],
-                activeBtn    = me.getReference(refs[activeIndex]);
+            let headerToolbar = me.getReference('header-toolbar'),
+                refs          = ['home-button', 'learn-button', 'news-header-button', 'services-button', 'examples-button'],
+                activeBtn     = me.getReference(refs[activeIndex]);
 
-            if (headerCanvas) {
-                headerCanvas.activeId = activeBtn?.id || null
+            if (headerToolbar) {
+                headerToolbar.activeId = activeBtn?.id || null
             }
         }
     }
