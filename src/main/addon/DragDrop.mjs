@@ -4,6 +4,8 @@ import DomEvents from '../DomEvents.mjs';
 import Resize    from '../draggable/Resize.mjs';
 import Rectangle from '../../util/Rectangle.mjs';
 
+let nextGestureId = 0;
+
 /**
  * @class Neo.main.addon.DragDrop
  * @extends Neo.main.addon.Base
@@ -53,6 +55,12 @@ class DragDrop extends Base {
          * @protected
          */
         dragCancelled: false,
+        /**
+         * The current physical gesture in this window. A delayed popup admission must still match it.
+         * @member {Number|null} gestureId=null
+         * @protected
+         */
+        gestureId: null,
         /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
@@ -353,7 +361,7 @@ class DragDrop extends Base {
     cancelDrag(data) {
         let me = this;
 
-        if (me.dragZoneId && !me.dragCancelled) {
+        if (me.dragZoneId && !me.dragCancelled && (data?.gestureId == null || data.gestureId === me.gestureId)) {
             me.dragCancelled = true;
             me.dragResize?.cancel();
 
@@ -419,6 +427,7 @@ class DragDrop extends Base {
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragZoneId            : null,
+            gestureId             : null,
             dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
@@ -574,6 +583,7 @@ class DragDrop extends Base {
             clientY      : event.detail.clientY,
             dragCancelled: false,
             dragProxyRect: rect,
+            gestureId    : ++nextGestureId,
             offsetX      : event.detail.clientX - rect.left,
             offsetY      : event.detail.clientY - rect.top
         });
@@ -591,6 +601,7 @@ class DragDrop extends Base {
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             dragZoneId: me.dragZoneId,
+            gestureId : me.gestureId,
             type      : 'drag:start'
         })
     }
@@ -858,6 +869,7 @@ class DragDrop extends Base {
      * @param {String}               [data.dragElementRootId] refreshes the zone registry
      * @param {String}               [data.dragZoneId]       the registry value for the root id
      * @param {String|null}          data.scrollContainerId
+     * @param {Number}               [data.gestureId] Apply only to the named source gesture
      * @param {Number}               data.scrollFactorLeft
      * @param {Number}               data.scrollFactorTop
      * @returns {Object} return the boundaryContainerRect
@@ -867,6 +879,10 @@ class DragDrop extends Base {
             {boundaryContainerId} = data,
             node, rects;
 
+        if (data.gestureId != null && (data.gestureId !== me.gestureId || me.dragCancelled)) {
+            return {boundaryContainerRect: null}
+        }
+        delete data.gestureId;
         delete data.appName;
         delete data.windowId;
 
@@ -938,9 +954,13 @@ class DragDrop extends Base {
      * @param {Number} data.popupHeight
      * @param {String} data.popupName
      * @param {Number} data.popupWidth
+     * @param {Number} [data.gestureId] The source gesture to which the native admission belongs
+     * @returns {Boolean} Whether the native drag was engaged
      */
-    startWindowDrag({popupHeight, popupName, popupWidth}) {
-        Object.assign(this, {isWindowDragging: true, popupHeight, popupName, popupWidth})
+    startWindowDrag({gestureId, popupHeight, popupName, popupWidth}) {
+        if (gestureId != null && (gestureId !== this.gestureId || this.dragCancelled)) return false;
+        Object.assign(this, {isWindowDragging: true, popupHeight, popupName, popupWidth});
+        return true
     }
 }
 

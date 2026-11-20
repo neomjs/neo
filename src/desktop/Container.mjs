@@ -126,6 +126,12 @@ class Container extends BaseContainer {
          */
         taskStore_: null,
         /**
+         * Child viewport URL for app windows that can leave this desktop during a header drag.
+         * An app can override it through its `appWindowConfigs` entry.
+         * @member {String|null} tearOutUrl=null
+         */
+        tearOutUrl: null,
+        /**
          * The class of the app windows, or an async loader of it: `Neo.desktop.AppWindow` by default, loaded on the
          * first open (`Neo.desktop.WindowManager#windowClass`)
          * @member {Neo.dialog.Base|Function} windowClass=() => import('./AppWindow.mjs')
@@ -226,6 +232,7 @@ class Container extends BaseContainer {
                 parentComponent      : me,
                 record,
                 resizablePluginConfig: {boundaryContainerId: workspaceId},
+                tearOutUrl           : me.tearOutUrl,
                 windowId             : me.windowId,
                 ...appConfig
             };

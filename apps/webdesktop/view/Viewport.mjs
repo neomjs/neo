@@ -46,11 +46,12 @@ class Viewport extends BaseViewport {
             bind  : {hidden: data => Boolean(data.account)},
             flex  : 1
         }, {
-            module   : Desktop,
-            bind     : {appStore: 'stores.apps', hidden: data => !data.account},
-            flex     : 1,
-            reference: 'desktop',
-            items    : {
+            module    : Desktop,
+            bind      : {appStore: 'stores.apps', hidden: data => !data.account},
+            flex      : 1,
+            reference : 'desktop',
+            tearOutUrl: './index.html',
+            items     : {
                 workspace: {
                     items: {
                         empty: {

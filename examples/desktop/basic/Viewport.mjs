@@ -10,7 +10,8 @@ import Viewport      from '../../../src/container/Viewport.mjs';
  * @description The launcher, the start menu and the window manager share the one apps store the view root's state
  * provider holds. Double-click an icon to open its app; minimize it and click its task to restore it; open a second
  * app and click the first one's window to bring it to the front. The launcher keeps the icons' order across reloads.
- * Each app opens its own view at its own size (`appWindowConfigs`), loaded on the app's first open.
+ * Each app opens its own view at its own size (`appWindowConfigs`), loaded on the app's first open. A shared worker
+ * keeps the original app alive when dragging its window out of the desktop and back.
  * @class Neo.examples.desktop.basic.Viewport
  * @extends Neo.container.Viewport
  */
@@ -51,6 +52,7 @@ class DesktopViewport extends Viewport {
          */
         items: [{
             module          : Desktop,
+            tearOutUrl      : './index.html',
             appWindowConfigs: {
                 calculator: {height: 460, width: 320, view: () => import('./Calculator.mjs')},
                 music     : {height: 480, width: 720, view: () => import('./Music.mjs')},
@@ -74,6 +76,7 @@ class DesktopViewport extends Viewport {
                     vdom  : {cn: [
                         {tag: 'h2', text: 'Neo Desktop'},
                         {tag: 'p',  text: 'A web desktop built from Neo.mjs. Its launcher, windows and taskbar are the engine\'s src/desktop, and all of it runs in a web worker, off the main thread.'},
+                        {tag: 'p',  text: 'Drag a window by its title more than halfway past the desktop edge to pop it out. Drag back before releasing to keep it here.'},
                         {tag: 'a',  href: 'https://github.com/neomjs/neo/tree/dev/src/desktop', target: '_blank', text: 'src/desktop on GitHub'}
                     ]}
                 }

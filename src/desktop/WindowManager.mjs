@@ -190,13 +190,18 @@ class WindowManager extends Base {
     }
 
     /**
-     * Draws an app's window above every other window of this manager
+     * Focuses the app's popup when detached, or draws its window above the others on this desktop.
      * @param {String} appId
      */
     bringToFront(appId) {
         let me     = this,
             stack  = me.#stack,
-            index  = stack.indexOf(me.#created.get(appId));
+            window = me.#created.get(appId),
+            index  = stack.indexOf(window);
+
+        if (window?.focusTornOutWindow?.()) {
+            return
+        }
 
         if (index > -1 && index < stack.length - 1) {
             stack.push(...stack.splice(index, 1));
