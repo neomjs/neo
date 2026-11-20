@@ -88,6 +88,20 @@ class CellEditing extends Plugin {
     }
 
     /**
+     * @summary Propagates `windowId` changes to cached column editor instances.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        Object.values(this.editors).forEach(editor => {
+            editor.windowId = value
+        })
+    }
+
+    /**
      * @param {args} args
      */
     destroy(...args) {

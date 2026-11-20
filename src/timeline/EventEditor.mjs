@@ -1,9 +1,12 @@
 import Button        from '../button/Base.mjs';
+import Container     from '../container/Base.mjs';
+import DateField     from '../form/field/Date.mjs';
 import Dialog        from '../dialog/Base.mjs';
 import FormContainer from '../form/Container.mjs';
 import NumberField   from '../form/field/Number.mjs';
 import SelectField   from '../form/field/Select.mjs';
 import TextField     from '../form/field/Text.mjs';
+import TimeField     from '../form/field/Time.mjs';
 import Toolbar       from '../toolbar/Base.mjs';
 import TimeAxis      from './TimeAxis.mjs';
 import Events        from './store/Events.mjs';
@@ -203,6 +206,45 @@ class EventEditor extends Dialog {
     }
 
     /**
+     * @summary Builds the row that edits one bound of the bar: a `Neo.form.field.Date` and a `Neo.form.field.Time`
+     * in the owner's timeline clock, the time list stepping by the axis' `snapMinutes`.
+     * @param {String} name Record field the pair writes
+     * @param {String} label `'Start'` or `'End'`
+     * @returns {Object} Container config
+     */
+    createDateTimeItem(name, label) {
+        const me = this;
+
+        return {
+            module: Container,
+            cls   : ['neo-timeline-event-editor-datetime'],
+            id    : `${me.id}__datetime__${name}`,
+            layout: {ntype: 'hbox', align: 'end'},
+            items : [{
+                module   : DateField,
+                clearable: false,
+                flex     : 1,
+                id       : `${me.id}__field__${name}`,
+                labelText: label,
+                name,
+                required : true
+            }, {
+                module   : TimeField,
+                clearable: false,
+                hideLabel: true,
+                id       : `${me.id}__field__${name}__time`,
+                labelText: `${label} time`,
+                maxValue : '23:59',
+                minValue : '00:00',
+                name     : `${name}__time`,
+                required : true,
+                stepSize : 60 * (me.owner?.timeAxis?.snapMinutes || 15),
+                width    : 120
+            }]
+        }
+    }
+
+    /**
      * @summary Builds the inner `Neo.form.Container`, standard timeline fields (`title`, `startDate`, `endDate`,
      * `percentDone`, `resourceId`), and the Cancel/Save footer toolbar.
      */
@@ -223,22 +265,8 @@ class EventEditor extends Dialog {
                     name     : titleField,
                     required : true
                 },
-                {
-                    module   : TextField,
-                    clearable: false,
-                    id       : `${me.id}__field__${startDateField}`,
-                    labelText: 'Start date',
-                    name     : startDateField,
-                    required : true
-                },
-                {
-                    module   : TextField,
-                    clearable: false,
-                    id       : `${me.id}__field__${endDateField}`,
-                    labelText: 'End date',
-                    name     : endDateField,
-                    required : true
-                },
+                me.createDateTimeItem(startDateField, 'Start'),
+                me.createDateTimeItem(endDateField,   'End'),
                 {
                     module        : NumberField,
                     clearable     : false,
@@ -273,8 +301,9 @@ class EventEditor extends Dialog {
             windowId
         });
 
-        me.form.items.forEach(field => {
-            me.fieldMap.set(field.name, field)
+        // A date and time pair sits in its own row container
+        me.form.items.forEach(item => {
+            (item.name ? [item] : item.items).forEach(field => me.fieldMap.set(field.name, field))
         });
 
         // Register canonical aliases when owner field names are customized
@@ -405,9 +434,9 @@ class EventEditor extends Dialog {
             }
         }
 
-        if (startInput && !me.isSameFieldValue(startInput.value, me.initialValues[startDateField])) {
+        if (startInput && !me.isSameFieldValue(me.getDateTimeValue(startDateField), me.initialValues[startDateField])) {
             const
-                nextStart   = startDate instanceof Date ? startDate : me.parseDateValue(startInput.value),
+                nextStart   = startDate instanceof Date ? startDate : me.parseDateValue(me.getDateTimeValue(startDateField)),
                 rawPrev     = record[startDateField],
                 prevStartMs = rawPrev instanceof Date ? rawPrev.getTime() : new Date(rawPrev).getTime();
 
@@ -416,9 +445,9 @@ class EventEditor extends Dialog {
             }
         }
 
-        if (endInput && !me.isSameFieldValue(endInput.value, me.initialValues[endDateField])) {
+        if (endInput && !me.isSameFieldValue(me.getDateTimeValue(endDateField), me.initialValues[endDateField])) {
             const
-                nextEnd   = endDate instanceof Date ? endDate : me.parseDateValue(endInput.value),
+                nextEnd   = endDate instanceof Date ? endDate : me.parseDateValue(me.getDateTimeValue(endDateField)),
                 rawPrev   = record[endDateField],
                 prevEndMs = rawPrev instanceof Date ? rawPrev.getTime() : new Date(rawPrev).getTime();
 
@@ -452,6 +481,21 @@ class EventEditor extends Dialog {
     }
 
     /**
+     * @summary Joins one bound's date and time fields into `'YYYY-MM-DDTHH:mm'` in the owner's timeline clock.
+     * @param {String} name `'startDate'`, `'endDate'`, or the owner's configured field name
+     * @returns {String} `''` while the date or the time is empty; an unreadable time is empty, never midnight
+     */
+    getDateTimeValue(name) {
+        const
+            me    = this,
+            field = me.resolveDateField(name),
+            date  = field && me.getField(field)?.value,
+            time  = field && me.getField(`${field}__time`)?.value;
+
+        return date && time ? `${date}T${time}` : ''
+    }
+
+    /**
      * @summary Resolves the `endDateField` name from {@link #owner}.
      * @returns {String}
      */
@@ -474,7 +518,7 @@ class EventEditor extends Dialog {
      * @returns {*}
      */
     getFieldValue(name) {
-        return this.getField(name)?.value
+        return this.resolveDateField(name) ? this.getDateTimeValue(name) : this.getField(name)?.value
     }
 
     /**
@@ -670,6 +714,22 @@ class EventEditor extends Dialog {
     }
 
     /**
+     * @summary Returns the record field a date name addresses, accepting the canonical `startDate` and `endDate`.
+     * @param {String} name
+     * @returns {String|null} `null` when `name` is not a bound of the bar
+     */
+    resolveDateField(name) {
+        const
+            me    = this,
+            start = me.getStartDateField(),
+            end   = me.getEndDateField();
+
+        if (name === start || name === 'startDate') return start;
+        if (name === end   || name === 'endDate')   return end;
+        return null
+    }
+
+    /**
      * @summary Validates and commits changed fields through the owner hook or the record.
      * @returns {Object|Boolean|null}
      */
@@ -679,7 +739,6 @@ class EventEditor extends Dialog {
             {owner, record} = me,
             startDateField  = me.getStartDateField(),
             endDateField    = me.getEndDateField(),
-            startInput      = me.getField(startDateField),
             endInput        = me.getField(endDateField);
 
         if (!record) {
@@ -688,20 +747,10 @@ class EventEditor extends Dialog {
         }
 
         const
-            startDate = me.parseDateValue(startInput?.value),
-            endDate   = me.parseDateValue(endInput?.value);
+            startDate = me.parseDateValue(me.getDateTimeValue(startDateField)),
+            endDate   = me.parseDateValue(me.getDateTimeValue(endDateField));
 
-        if (!startDate || Number.isNaN(startDate.getTime())) {
-            if (startInput) {
-                startInput.error = 'Invalid start date'
-            }
-            return false
-        }
-
-        if (!endDate || Number.isNaN(endDate.getTime())) {
-            if (endInput) {
-                endInput.error = 'Invalid end date'
-            }
+        if (!me.validateBound(startDateField, startDate, 'start') || !me.validateBound(endDateField, endDate, 'end')) {
             return false
         }
 
@@ -741,7 +790,24 @@ class EventEditor extends Dialog {
     }
 
     /**
-     * @summary Sets the value of form field `name`.
+     * @summary Splits a `Date`, timestamp or date string, read in the owner's timeline clock, into one bound's
+     * date and time fields.
+     * @param {String} name `'startDate'`, `'endDate'`, or the owner's configured field name
+     * @param {Date|Number|String|null} value
+     */
+    setDateTimeValue(name, value) {
+        const
+            me           = this,
+            field        = me.resolveDateField(name),
+            instant      = value == null || value === '' ? null : me.parseDateValue(value),
+            [date, time] = instant && !Number.isNaN(instant.getTime()) ? me.formatLocalDateTime(instant).split('T') : [];
+
+        me.getField(field).value              = date || null;
+        me.getField(`${field}__time`).value = time ? time.slice(0, 5) : null
+    }
+
+    /**
+     * @summary Sets the value of form field `name`; a bound of the bar takes a `Date` or a date string.
      * @param {String} name
      * @param {*} value
      */
@@ -750,15 +816,10 @@ class EventEditor extends Dialog {
             me    = this,
             field = me.getField(name);
 
-        if (field) {
-            if (
-                (name === 'startDate' || name === 'endDate' || name === me.getStartDateField() || name === me.getEndDateField()) &&
-                value instanceof Date
-            ) {
-                field.value = me.formatLocalDateTime(value)
-            } else {
-                field.value = value
-            }
+        if (me.resolveDateField(name)) {
+            me.setDateTimeValue(name, value)
+        } else if (field) {
+            field.value = value
         }
     }
 
@@ -812,7 +873,13 @@ class EventEditor extends Dialog {
             })
         }
 
-        const uniqueFields = new Set(me.form?.items || []);
+        for (const name of [startDateField, endDateField]) {
+            me.setDateTimeValue(name, record ? record[name] : null);
+            me.initialValues[name] = me.getDateTimeValue(name)
+        }
+
+        // The date and time rows have no name of their own and are filled above
+        const uniqueFields = new Set((me.form?.items || []).filter(item => item.name));
 
         uniqueFields.forEach(field => {
             const name = field.name, rawValue = record ? record[name] : null;
@@ -833,6 +900,34 @@ class EventEditor extends Dialog {
         me.initialValues.startDate   = me.initialValues[startDateField];
         me.initialValues.endDate     = me.initialValues[endDateField];
         me.initialValues.percentDone = me.initialValues[percentDoneField]
+    }
+
+    /**
+     * @summary Whether one bound reads as a date. When it does not, the field the person has to fix carries the
+     * error: the time field once its date is set, the date field otherwise.
+     * @param {String} field The bound's date field name
+     * @param {Date|null} value The bound as {@link #parseDateValue} read it
+     * @param {String} label `'start'` or `'end'`
+     * @returns {Boolean}
+     * @protected
+     */
+    validateBound(field, value, label) {
+        if (value && !Number.isNaN(value.getTime())) {
+            return true
+        }
+
+        const
+            me        = this,
+            dateInput = me.getField(field),
+            timeInput = me.getField(`${field}__time`);
+
+        if (dateInput?.value && timeInput) {
+            timeInput.error = `Invalid ${label} time`
+        } else if (dateInput) {
+            dateInput.error = `Invalid ${label} date`
+        }
+
+        return false
     }
 }
 

@@ -1,13 +1,13 @@
-import fs                      from 'fs-extra';
-import path                    from 'path';
-import {fileURLToPath}         from 'node:url';
-import * as Terser             from 'terser';
-import {BROWSER_BUNDLES}       from '../util/browserBundles.mjs';
-import {createEsmBuildPlan}    from '../util/esmBuildGraph.mjs';
-import {minifyHtml}            from '../util/minifyHtml.mjs';
+import fs                                                from 'fs-extra';
+import path                                              from 'path';
+import {fileURLToPath}                                   from 'node:url';
+import * as Terser                                       from 'terser';
+import {copyBrowserBundles}                              from '../util/browserBundles.mjs';
+import {createEsmBuildPlan}                              from '../util/esmBuildGraph.mjs';
+import {minifyHtml}                                      from '../util/minifyHtml.mjs';
 import {canvasModulePackageRoots, mainAddonPackageRoots} from '../util/declaredPackageRoots.mjs';
-import {processFileContent}    from '../util/astTemplateProcessor.mjs';
-import * as BuildId            from '../util/buildId.mjs';
+import {processFileContent}                              from '../util/astTemplateProcessor.mjs';
+import * as BuildId                                      from '../util/buildId.mjs';
 
 import {
     esmOutputRoot,
@@ -128,13 +128,10 @@ emitFiles().then(() => {
 
     // These bundles belong to the engine supplying this build, not the consumer's cwd.
     // Their relative imports survive the source-tree flattening unchanged.
-    for (const name of BROWSER_BUNDLES) {
-        const bundlePath = fileURLToPath(new URL(`../../dist/${name}.mjs`, import.meta.url));
-
-        if (fs.existsSync(bundlePath)) {
-            fs.copySync(bundlePath, path.resolve(root, outputBasePath, `dist/${name}.mjs`))
-        }
-    }
+    copyBrowserBundles(
+        fileURLToPath(new URL('../../dist', import.meta.url)),
+        path.resolve(root, outputBasePath, 'dist')
+    );
 
     if (failures.length > 0) {
         console.error(`\ndist/esm: ${failures.length} file(s) failed to build:`);

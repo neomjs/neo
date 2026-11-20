@@ -157,11 +157,13 @@ const PRIORITIES = new Map([
     ['guides/uibuildingblocks/DockLayoutsFeatures'    , 0.8],
     ['guides/uibuildingblocks/DockLayoutsPanes'       , 0.8],
     ['guides/uibuildingblocks/DockLayoutsWindows'     , 0.8],
+    ['guides/uibuildingblocks/WebDesktops'            , 0.8],
     ['guides/testing/DockLayoutsTesting'              , 0.8],
     ['tutorials/DockLayoutsFirstLayout'               , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
     ['guides/datahandling/Tables'                     , 0.8],
     ['guides/datahandling/UsingStores'                , 0.8],
+    ['guides/datahandling/Timeline'                   , 0.8],
     ['guides/userinteraction/Forms'                   , 0.8],
 
     // Internal evidence surfaces (hidden tree entries): registered explicitly at the floor so
@@ -962,9 +964,9 @@ export async function getLlmsTxt(options={}) {
 
     let content = `# Neo.mjs: An Agent Institution
 
-> Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.
+> Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
 > Behind it stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
-> Its Institution (github.com/neomjs/neo-agent-institution) is the Fleet Manager: it starts the agent harnesses over the Brain's Fleet transport, and agents reach it through the Neural Link like any Neo app.
+> Agent Institution (github.com/neomjs/neo-agent-institution) starts the agent harnesses over the Brain's Fleet transport, and agents reach it through the Neural Link like any Neo app.
 > Its Brain (github.com/neomjs/neo-agent-brain) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
 > Its Body (github.com/neomjs/neo, /src) is the production multi-threaded application engine: App Worker, VDom Worker, Data Worker, Canvas Worker, SharedWorker, JSON VDOM blueprints, object permanence, and zero-build ES modules.
 > The Neural Link is the possession interface between them. Agents inspect semantic runtime state, mutate UI and data in live apps, hot-patch behavior, and verify changes inside running software.

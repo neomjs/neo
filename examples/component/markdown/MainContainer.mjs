@@ -76,7 +76,10 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: Toolbar,
+            cls   : ['neo-examples-markdown-toolbar'],
             flex  : 'none',
+            // The row wraps, so every button stays on a phone's screen
+            layout: {ntype: 'flexbox', align: 'center', direction: 'row', pack: 'start', wrap: 'wrap'},
             items : [{
                 module : Button,
                 handler: 'up.onStreamButtonClick',
@@ -100,9 +103,9 @@ class MainContainer extends Viewport {
             }]
         }, {
             module   : MarkdownVdom,
+            cls      : ['neo-examples-markdown-output'],
             flex     : 1,
-            reference: 'markdown-output',
-            style    : {overflow: 'auto', padding: '1em'}
+            reference: 'markdown-output'
         }]
     }
 
@@ -113,6 +116,18 @@ class MainContainer extends Viewport {
      * @protected
      */
     streamRun = 0
+
+    /**
+     * The page opens streaming: the first mount starts the stream demo, so the proof needs no click.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        value && !this.streamRun && this.onStreamButtonClick()
+    }
 
     /**
      * Streams the canonical source into the component in fixed-size chunks, simulating an

@@ -1,0 +1,61 @@
+.neo-chipfield {
+    height: auto;
+
+    /* Chips grow the input row; the inline label's outline spans that row, as with a character count */
+    &.label-inline {
+        display              : grid;
+        grid-template-areas  : "input" "error";
+        grid-template-columns: minmax(0, 1fr);
+
+        > .neo-label-wrapper {
+            grid-area: input;
+            height   : 100%;
+        }
+
+        > .neo-input-wrapper {grid-area: input;}
+        > .neo-textfield-error-wrapper {grid-area: error;}
+    }
+
+    .neo-input-wrapper {
+        align-items: center;
+        gap        : 4px;
+        overflow   : visible;
+        padding    : 2px 4px;
+
+        /* The chips and the input wrap here; the triggers stay at the wrapper's start and end */
+        .neo-chipfield-flow {
+            align-items: center;
+            display    : flex;
+            flex       : 1 1 auto;
+            flex-wrap  : wrap;
+            gap        : 4px;
+            min-width  : 0;
+        }
+
+        .neo-chip-field-values {
+            background: none;
+            border    : 0;
+            display   : flex;
+            flex-flow : row wrap;
+            gap       : 4px;
+            overflow  : visible;
+
+            &:empty {
+                display: none;
+            }
+
+            .neo-list-item {
+                padding: 0;
+            }
+        }
+
+        /* The 80 px basis wraps the input under the chips; a flow narrower than that shrinks it */
+        .neo-textfield-input {
+            flex      : 1 1 80px;
+            min-height: var(--textfield-input-height);
+            min-width : 0;
+            padding   : var(--textfield-input-padding);
+            width     : auto;
+        }
+    }
+}

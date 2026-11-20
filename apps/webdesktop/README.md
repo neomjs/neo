@@ -22,7 +22,7 @@ Permissions are state, navigation is data, and visibility is one filter.
 | State  | `view/ViewportStateProvider.mjs`              | Holds the signed-in `account` and its `permissions`, and writes `permissions` into the apps store's filter. |
 | Data   | `store/Apps.mjs`                              | One `Neo.data.TreeStore` with every app and group. Each app names the permission it needs; groups name none. |
 | Filter | `store/Apps.mjs`                              | `{property: 'permission', operator: 'included', value: <granted keys>, includeEmptyValues: false}` |
-| Views  | `view/Launcher.mjs`, the start button's menu  | Bound to the apps store. They render what it keeps and never read a permission. |
+| Views  | `Neo.desktop.Launcher`, the start menu        | Bound to the apps store. They render what it keeps and never read a permission. |
 
 Signing in is one write (`view/ViewportController.mjs`):
 
@@ -44,47 +44,46 @@ Two details make it correct:
 Hiding UI is not authorization. The backend must check every permission on its own endpoints; this filter only
 decides what the UI offers.
 
-## Windows
+## The desktop
 
-Double-click an icon, or press Enter on it, and the app opens in a window that grows out of the icon. The window is
-a `Neo.dialog.Base`, created on first use through a lazy `import()` and kept afterwards (`view/ViewportController.mjs`):
+The signed-in screen is the engine's `Neo.desktop.Container`: the launcher, the taskbar with its start menu and the
+open apps, and the app windows. The [Web Desktops guide](../../learn/guides/uibuildingblocks/WebDesktops.md) explains
+that shell: its windows and their order, the icon arrangement, and its layout on phones and touch devices. The demo
+hands it the apps store and adds its own parts by key (`view/Viewport.mjs`):
 
 ```javascript
-Neo.create(AppWindow, {
-    animateTargetId    : launcher.getItemId(launcher.store.get(record.id)),
-    appName,
-    boundaryContainerId: me.getReference('workspace').id,
-    stateProvider      : {data: {app: record}, parent: me.getStateProvider()},
-    windowId
-})
+{
+    module       : Desktop,
+    bind         : {appStore: 'stores.apps', hidden: data => !data.account},
+    items        : {workspace: {items: {permissions: {module: PermissionPanel, weight: 30}}}},
+    taskbarConfig: {module: Taskbar},
+    appWindowConfigs: {
+        mail: {height: 520, width: 880, view: () => import('./apps/Mail.mjs')}
+        // one entry per app
+    }
+}
 ```
 
-A floating dialog sits outside the component tree, so its state provider names the desktop's as its parent: the
-window binds `app` from its own provider and `account` from the parent. The taskbar lists the open windows from a
-`tasks` store. When the permission filter drops an app, its window closes, minimized or not.
+What the demo adds to the shell:
 
-## Arranging icons
-
-Drag an icon before or after another icon of its group, or press Ctrl+Shift+Left or Right (Cmd+Shift on macOS). The
-launcher is draggable through `Neo.draggable.list.SortZone`: during the drag only the view previews the new order,
-and a drop writes the apps' `order` field once (`store.updateRows()`). The apps store sorts by `order`, so the launcher
-and the start menu follow. The filter never touches `order`, so a permission change keeps the remaining icons in place.
-Each account's arrangement is saved to `localStorage` and applied when it signs in.
-
-## Phones and touch
-
-Below 600px the taskbar shows icons only, keeping each control's accessible name, the permission panel becomes a sheet
-over the workspace, and every window fills the area above the taskbar. A touch device (`Neo.config.hasTouchEvents`)
-has no double-click, so a single tap opens an app there.
+- **Each app's view** lives under `view/apps/` and loads on the app's first open. The desktop names itself the
+  window's parent, so a view reaches the demo's state provider: Settings binds the account, the theme and the
+  permissions, and Documents and the Recycle Bin share the provider's `documents` and `recycleBin` stores, so a delete
+  or a restore moves a file between two windows.
+- **Each account keeps its own icon arrangement.** A sign-in hands the launcher the account's `arrangementKey` before
+  the grants, so the grants never show in another account's order.
+- **A sign-out** calls the window manager's `reset()` before the account changes.
+- **Below 600px** the permission panel becomes a sheet over the workspace.
 
 ## Files
 
 | File | Responsibility |
 |---|---|
 | `resources/data/accounts.json` | The "backend": demo accounts and their permission keys, read through a store `url`. |
-| `store/Apps.mjs`, `model/App.mjs` | The navigation tree and its permission filter. |
+| `store/Apps.mjs`, `model/App.mjs` | The navigation tree's catalog and its permission filter, over the engine's `Neo.desktop.store.Apps` and `Neo.desktop.model.App`. |
 | `store/Permissions.mjs`, `view/PermissionList.mjs` | The panel that simulates the backend changing permissions. |
 | `view/SignIn.mjs`, `view/AccountList.mjs` | The lock screen. |
-| `view/Desktop.mjs`, `view/Launcher.mjs`, `view/Taskbar.mjs` | The signed-in desktop. |
-| `view/AppWindow.mjs`, `view/AppView.mjs` | An app's window and its content. |
-| `store/Tasks.mjs`, `view/TaskList.mjs` | The open windows in the taskbar. |
+| `view/Viewport.mjs`, `view/Taskbar.mjs` | The sign-in screen and the engine's `Neo.desktop.Container`, with the demo's panel, note and taskbar items. |
+| `view/apps/*.mjs` | Each app's view, with its data. `GlassGrid` puts their grids on the window glass. |
+| `store/Files.mjs`, `model/File.mjs`, `resources/data/files.json` | The shared files of Documents and the Recycle Bin. |
+| `resources/data/help.md` | The Help app's guide. |

@@ -1,6 +1,5 @@
-import {execFileSync}  from 'node:child_process';
-import {fileURLToPath} from 'node:url';
-import {expect, test}  from '../../fixtures.mjs';
+import {ensureDocsOutput} from '../../util/docsOutput.mjs';
+import {expect, test}     from '../../fixtures.mjs';
 
 /**
  * @summary Exercises mixin selection against the actual generated Docs data and the live App worker.
@@ -8,12 +7,7 @@ import {expect, test}  from '../../fixtures.mjs';
 test.describe('Docs mixin members', () => {
     test.use({viewport: {width: 1400, height: 950}});
 
-    test.beforeAll(() => {
-        execFileSync(process.execPath, ['buildScripts/docs/generateDocsJson.mjs'], {
-            cwd    : fileURLToPath(new URL('../../../../', import.meta.url)),
-            timeout: 60000
-        })
-    });
+    test.beforeAll(ensureDocsOutput);
 
     test('keeps app source routes independent of the active navigation tab and search', async ({page, neuralLink}) => {
         let structureRequests = 0;
@@ -113,7 +107,7 @@ test.describe('Docs mixin members', () => {
             }
         }, sourceId);
         await page.route('**/docs/app/view/MainContainer.mjs', async route => {
-            const response = await route.fetch();
+            const response = await route.fetch({maxRetries: 2});
             await page.waitForFunction(() => !window.__docsPublication || window.__docsPublication.mountHeld);
             await route.fulfill({response})
         });

@@ -1,12 +1,12 @@
 import {expect, test} from '../../fixtures.mjs';
 
 const DESKTOP    = '/apps/webdesktop/index.html',
-      ICON       = '.webdesktop-launcher .neo-list-item:not(.neo-list-header)',
+      ICON       = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
       MENU_ITEM  = '.neo-menu-list .neo-list-item',
       PERMISSION = '.webdesktop-permission-list .neo-list-item',
       PANEL      = '.webdesktop-permission-panel',
-      TASK       = '.webdesktop-task-list .neo-list-item',
-      WINDOW     = '.neo-dialog.webdesktop-window';
+      TASK       = '.neo-desktop-task-list .neo-list-item',
+      WINDOW     = '.neo-dialog.neo-desktop-app-window';
 
 /**
  * @summary The web desktop on a phone and on a touch-capable computer, driven through the real main → app event path.

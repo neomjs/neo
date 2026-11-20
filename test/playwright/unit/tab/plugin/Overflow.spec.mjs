@@ -223,6 +223,74 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'the latch must reset in finally so the header keeps responding').toBe(false)
     });
 
+    test('a measure without layout (getLayoutRect answers one object, not a list) skips the pass quietly', async () => {
+        // A server-side render has no layout: its DomAccess stand-in answers every call with an empty object,
+        // which Neo.component.Base#getLayoutRect hands back as a single Rectangle. The plugin projects while it
+        // is constructed, so console.error is captured before createPlugin.
+        const errors  = [],
+              idle    = [],
+              orig    = console.error,
+              measure = [],
+              syncs   = [];
+
+        console.error = (...args) => { errors.push(args) };
+
+        let plugin;
+
+        try {
+            plugin = createPlugin(async ids => { measure.push(ids); return {} }, name => { idle.push(name) });
+            plugin.syncControl = () => { syncs.push(true) }; // no live overflow menu: its store would outlive this test
+            await plugin.whenProjectionIdle();
+            await plugin.project(true);
+            await plugin.project(false);
+            await plugin.whenProjectionIdle()
+        } finally {
+            console.error = orig
+        }
+
+        expect(errors, 'a measure without layout is not a defect').toEqual([]);
+        expect(measure.every(ids => ids[0] === 'b1'), 'every pass leaves at the natural-width measure').toBe(true);
+        expect(plugin.measuring, 'the finally still releases the latch').toBe(false);
+        expect(idle.at(-1), 'the pass settles: the idle event still fires').toBe('overflowProjectionIdle');
+        expect(plugin.owner.items.map(button => button.hidden), 'no tab button is withheld').toEqual([undefined, undefined]);
+        expect(syncs, 'no split is applied (applySplit always ends in syncControl)').toEqual([]);
+        plugin.destroy()
+    });
+
+    test('a measure without layout still switches the withheld-action measure reveal off before it skips', async () => {
+        const reveals = [],
+              errors  = [],
+              orig    = console.error;
+
+        console.error = (...args) => { errors.push(args) };
+
+        let plugin;
+
+        try {
+            // The natural-width measure answers a list, so the pass reaches the strip measure, which has no layout.
+            plugin = createPlugin(async ids => ids[0] === 'b1' ? ids.map(() => ({height: 20, width: 50, x: 0, y: 0})) : {});
+            plugin.syncControl = () => {};
+            await plugin.whenProjectionIdle();
+
+            Object.assign(plugin.owner, {
+                showOnHover                     : true,
+                getActionItems                  : () => [{id: 'a1', cls: ['neo-toolbar-action-context-inactive']}],
+                setContextualActionMeasureReveal: async value => { reveals.push(value) }
+            });
+
+            await plugin.project(true);
+            await plugin.whenProjectionIdle()
+        } finally {
+            console.error = orig
+        }
+
+        expect(errors).toEqual([]);
+        expect(reveals, 'the reveal is switched on for the measure and off again').toEqual([true, false]);
+        expect(plugin.measuringWithheldActions).toBe(false);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
     test('a getLayoutRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
         // getLayoutRect is invoked as `owner.getLayoutRect(...)`, so `this` is the exact owner object project()
         // holds — flip its `mounted` there (a regular function, not an arrow) to simulate an unmount landing

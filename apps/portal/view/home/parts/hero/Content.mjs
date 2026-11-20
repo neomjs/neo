@@ -88,7 +88,7 @@ class Content extends BaseContainer {
 
             text: [
                 'Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a ',
-                'record anyone can read. Start with one coding agent\'s record on your codebase; the Fleet Manager is how ',
+                'record anyone can read. Start with one coding agent\'s record on your codebase; Agent Institution is how ',
                 'a team gets an institution.'
             ].join('')
         }, {
@@ -100,7 +100,8 @@ class Content extends BaseContainer {
                 cls   : ['get-started-button'],
                 flex  : 'none',
                 route : '/learn/gettingstarted/Setup',
-                text  : 'Get started'
+                text  : 'Get started',
+                ui    : 'primary'
             }, {
                 module: Button,
                 cls   : ['neo-github'],

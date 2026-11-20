@@ -134,6 +134,62 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
         }
     });
 
+    test('dereferences symlinked engine browser bundles so emitted dist/esm/dist files stay regular files', async () => {
+        workspace = createWorkspace({declareExtraRoot: true});
+        external  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-esm-worktree-'));
+
+        const realDist     = path.join(external, 'real-engine/dist'),
+              worktreeRoot = path.join(external, 'worktree');
+
+        fs.copySync(path.join(engineRoot, 'buildScripts'), path.join(worktreeRoot, 'buildScripts'));
+        fs.symlinkSync(path.join(engineRoot, 'node_modules'), path.join(worktreeRoot, 'node_modules'), 'dir');
+        fs.symlinkSync(path.join(engineRoot, 'src'), path.join(worktreeRoot, 'src'), 'dir');
+
+        for (const name of ['marked', 'parse5']) {
+            const realBundle = path.join(realDist, `${name}.mjs`),
+                  linkBundle = path.join(worktreeRoot, 'dist', `${name}.mjs`);
+
+            fs.copySync(path.join(engineRoot, `dist/${name}.mjs`), realBundle, {dereference: true});
+            fs.ensureDirSync(path.dirname(linkBundle));
+            fs.symlinkSync(path.relative(path.dirname(linkBundle), realBundle), linkBundle);
+
+            expect(fs.lstatSync(linkBundle).isSymbolicLink()).toBe(true);
+            expect(fs.existsSync(linkBundle)).toBe(true)
+        }
+
+        for (const file of ['src/component/Markdown.mjs', 'src/app/content/Component.mjs']) {
+            const source    = fs.readFileSync(path.join(engineRoot, file), 'utf8'),
+                  statement = source.match(/^import\s+\{marked\}.*$/m)?.[0];
+
+            expect(statement).toBeTruthy();
+            fs.outputFileSync(path.join(workspace, 'node_modules/neo.mjs', file),
+                `${statement}\nexport const render = input => marked.parse(input);\n`)
+        }
+
+        const {status, stdout, stderr} = spawnSync(
+            'node',
+            [path.join(worktreeRoot, 'buildScripts/build/esmodules.mjs')],
+            {cwd: workspace, encoding: 'utf8'}
+        );
+
+        expect(status, `${stdout || ''}${stderr || ''}`).toBe(0);
+
+        for (const name of ['marked', 'parse5']) {
+            const emittedBundle = path.join(workspace, `dist/esm/dist/${name}.mjs`);
+
+            expect(fs.lstatSync(emittedBundle).isSymbolicLink()).toBe(false);
+            expect(fs.lstatSync(emittedBundle).isFile()).toBe(true);
+            expect(fs.readFileSync(emittedBundle))
+                .toEqual(fs.readFileSync(path.join(engineRoot, `dist/${name}.mjs`)))
+        }
+
+        for (const file of ['src/component/Markdown.mjs', 'src/app/content/Component.mjs']) {
+            const {render} = await import(pathToFileURL(path.join(workspace, 'dist/esm', file)).href);
+
+            expect(render('**worktree**')).toBe('<p><strong>worktree</strong></p>\n')
+        }
+    });
+
     test('a configured workspace builds a tree whose every import resolves', () => {
         workspace = createWorkspace({declareExtraRoot: true});
 

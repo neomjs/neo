@@ -1,0 +1,5 @@
+:root .neo-theme-dark { /* .neo-grid-footer-toolbar */
+    --grid-footer-toolbar-background-color: #323232;
+    --grid-footer-toolbar-color           : #bbb;
+    --grid-footer-toolbar-padding         : 4px 10px;
+}

@@ -351,6 +351,30 @@ test.describe('Neo.board.SelectionModel & keyboard / ARIA contract', () => {
         expect(board.cardEditor.record.id).toBe('p1')
     });
 
+    test('Enter on a button in the board belongs to the button: a lane or column toggle or a card menu activates no card (#21391)', () => {
+        store = createStore();
+        board = createBoard({store});
+
+        const
+            sm          = board.selectionModel,
+            activations = [],
+            // The shape `Neo.main.DomEvents#getTargetData` gives a key event's path
+            onButton    = cls => ({path: [{cls: [cls], tagName: 'button'}, {cls: ['neo-board'], tagName: 'div'}]});
+
+        board.on('cardActivate', ({record}) => activations.push(record.id));
+        sm.focusedKey = 'b2';
+
+        ['neo-board-lane-collapse', 'neo-board-column-collapse', 'neo-board-card-menu-button'].forEach(cls => {
+            expect(sm.onKeyDownEnter(onButton(cls)), cls).toBeNull()
+        });
+
+        expect(activations).toEqual([]);
+
+        // On the focused card itself, Enter still activates it
+        sm.onKeyDownEnter({path: [{cls: ['neo-board-card'], id: board.getCard('b2').id, tagName: 'div'}]});
+        expect(activations).toEqual(['b2'])
+    });
+
     test('filtering retains selected canonical records while focus uses visible membership', async () => {
         store = createStore();
         board = createBoard({store});

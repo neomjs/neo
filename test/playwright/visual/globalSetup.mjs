@@ -7,7 +7,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 
 /**
  * The rebuild-before-baseline invariant, enforced mechanically: the dist theme CSS is a
- * gitignored BUILD artifact — merged SCSS is invisible to every rendered surface until the
+ * gitignored BUILD artifact — a merged theme source is invisible to every rendered surface until the
  * theme build runs, so a golden captured over stale artifacts is a poisoned baseline that
  * silently locks in the WRONG pixels. A stale tree fails the whole visual run loudly;
  * capturing anyway is never an option.
@@ -38,8 +38,8 @@ const THEME_GUIDANCE =
     '  fresh for the rest of the session, so this failure stops recurring';
 
 export default function globalSetup() {
-    const newestScss = newestMtime(path.join(repoRoot, 'resources/scss'), '.scss'),
-          newestCss  = newestMtime(path.join(repoRoot, 'dist/development/css'), '.css');
+    const newestSource = newestMtime(path.join(repoRoot, 'resources/css'), '.css'),
+          newestCss    = newestMtime(path.join(repoRoot, 'dist/development/css'), '.css');
 
     if (newestCss === 0) {
         throw new Error(
@@ -49,9 +49,9 @@ export default function globalSetup() {
         )
     }
 
-    if (newestScss > newestCss) {
+    if (newestSource > newestCss) {
         throw new Error(
-            'visual harness: the built theme CSS is OLDER than the newest SCSS source — a baseline over ' +
+            'visual harness: the built theme CSS is OLDER than the newest theme source — a baseline over ' +
             'stale artifacts is a poisoned golden:\n' + THEME_GUIDANCE
         )
     }

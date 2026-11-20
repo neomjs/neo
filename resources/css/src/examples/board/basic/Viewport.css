@@ -1,0 +1,58 @@
+/* The sprint board example's chrome: a toolbar over the board and the card table below it. It reads the board's
+   own tokens, so each theme that styles the board styles the example too. Its columns are narrower than the theme's,
+   so all five fit a 1440px screen. */
+.board-example {
+    --neo-board-column-width: 264px;
+
+    background: var(--neo-board-background);
+
+    .board-example-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-board-column-background);
+        border-bottom: 1px solid var(--neo-board-column-border-color);
+        gap          : 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+    }
+
+    .board-example-title {
+        color         : var(--neo-board-card-color);
+        font-size     : 19px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .board-example-subtitle {
+        color    : var(--neo-board-card-muted-color);
+        font-size: 13px;
+    }
+
+    /* The table takes the board's palette, so both views read as one desk */
+    .board-example-list {
+        --grid-container-border-color              : var(--neo-board-column-border-color);
+        --grid-container-cell-background-color     : var(--neo-board-column-background);
+        --grid-container-cell-background-color-even: var(--neo-board-background);
+        --grid-container-color                     : var(--neo-board-card-color);
+        --grid-header-button-background-color      : var(--neo-board-badge-background);
+        --grid-header-button-background-color-hover: var(--neo-board-column-border-color);
+        --grid-header-button-color                 : var(--neo-board-badge-color);
+        --grid-header-button-color-hover           : var(--neo-board-card-color);
+        --grid-header-button-glyph-color           : var(--neo-board-badge-color);
+        --grid-header-button-glyph-color-hover     : var(--neo-board-card-color);
+
+        background: var(--neo-board-column-background);
+        border-top: 1px solid var(--neo-board-column-border-color);
+
+        /* One line per record: a long title clips at its cell instead of doubling the row */
+        .neo-grid-cell {
+            white-space: nowrap;
+        }
+    }
+
+    .board-example-list-title {
+        color      : var(--neo-board-card-color);
+        font-size  : 14px;
+        font-weight: 600;
+        padding    : 14px 16px 10px;
+    }
+}

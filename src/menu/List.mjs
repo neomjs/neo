@@ -1,7 +1,9 @@
-import BaseList  from '../list/Base.mjs';
-import ListModel from '../selection/menu/ListModel.mjs';
-import Store     from './Store.mjs';
-import TreeStore from '../data/TreeStore.mjs';
+import BaseList        from '../list/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import DataStore       from '../data/Store.mjs';
+import ListModel       from '../selection/menu/ListModel.mjs';
+import Store           from './Store.mjs';
+import TreeStore       from '../data/TreeStore.mjs';
 
 /**
  * A floating root menu forms one interaction island with its exact align target and every mounted
@@ -191,13 +193,18 @@ class List extends BaseList {
     /**
      * The hierarchy source, when this menu is driven by a `Neo.data.TreeStore`.
      *
-     * The tree store is the single source of truth and is shared by every level of the cascade; it is
-     * never owned by a level and never destroyed by one. Each level renders the flat `store` derived
-     * from it. Null for the classic nested-`items` API.
+     * The tree store is the single source of truth and is shared by every level of the cascade. One handed in as
+     * an instance stays its owner's; one the root built from a class or config is the root's, and only the root
+     * destroys it. Each level renders the flat `store` derived from it. Null for the classic nested-`items` API.
      * @member {Neo.data.TreeStore|null} sourceStore=null
      * @protected
      */
     sourceStore = null
+    /**
+     * True when this menu built its `sourceStore` from a class or config, so destroy() takes it along.
+     * @member {Boolean} #ownsSourceStore=false
+     */
+    #ownsSourceStore = false
 
     /**
      * @param {Object} config
@@ -242,10 +249,16 @@ class List extends BaseList {
      * @protected
      */
     afterSetItems(value, oldValue) {
-        let {store} = this;
+        let me      = this,
+            {store} = me;
 
-        oldValue && store.clear(); // we can not use remove() here, since items are no records => often no id
-        value    && store.add(value)
+        if (oldValue) {
+            // A submenu is built once from its item's nested items, so items that replace them need their own
+            me.destroySubMenus();
+            store.clear() // we can not use remove() here, since items are no records => often no id
+        }
+
+        value && store.add(value)
     }
 
     /**
@@ -291,6 +304,18 @@ class List extends BaseList {
     }
 
     /**
+     * Triggered after the store config got changed. A tree store that replaces another after construction fills
+     * this level and gets its listeners here; onConstructed() does it for the first one.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @protected
+     */
+    afterSetStore(value, oldValue) {
+        super.afterSetStore(value, oldValue);
+        this.isConstructed && this.#bindSource()
+    }
+
+    /**
      * Triggered after the theme config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -325,14 +350,32 @@ class List extends BaseList {
      *
      * Instead the tree store is kept as `sourceStore` and this level receives its own flat store
      * holding exactly the records it renders. `syncLevelRecords()` fills it once the configs are applied.
+     * A class or config is built first, so a tree store is recognised however it arrives. A store that replaces
+     * another after construction first retires the cascade the old source drove; the current store or tree source
+     * assigned again changes nothing.
      * @param {Object|Neo.data.Store|Neo.data.TreeStore} value
      * @param {Object|Neo.data.Store} oldValue
-     * @returns {Neo.data.Store}
+     * @returns {Neo.data.Store|undefined} Nothing for a store or source that is already in place
      * @protected
      */
     beforeSetStore(value, oldValue) {
+        let me    = this,
+            built = !!value && Neo.typeOf(value) !== 'NeoInstance';
+
+        if (me.isConstructed) {
+            // Assigned again: the level, its source's listeners and who owns that source stay as they are
+            if (value && (value === oldValue || value === me.sourceStore)) {
+                return
+            }
+
+            me.#releaseSource()
+        }
+
+        built && (value = ClassSystemUtil.beforeSetInstance(value, DataStore));
+
         if (value instanceof TreeStore) {
-            this.sourceStore = value;
+            me.sourceStore      = value;
+            me.#ownsSourceStore = built;
 
             // The level store reuses the tree store's model CLASS, so its records keep every field the
             // hierarchy declares (isLeaf, parentId, depth) next to the menu fields. Re-adding records
@@ -342,6 +385,56 @@ class List extends BaseList {
         }
 
         return super.beforeSetStore(value, oldValue)
+    }
+
+    /**
+     * Fills this level from its tree source and listens to it, if it has one.
+     * @private
+     */
+    #bindSource() {
+        let me            = this,
+            {sourceStore} = me;
+
+        if (sourceStore) {
+            me.syncLevelRecords();
+
+            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
+            // (`scope` among them), so the two calls can never share one literal.
+            sourceStore.on({
+                filter      : me.onSourceStoreFilter,
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            })
+        }
+    }
+
+    /**
+     * Retires what a tree source drove: the submenus derived from it and this level's listeners. A source this
+     * menu built goes with them; one handed in stays its owner's.
+     * @private
+     */
+    #releaseSource() {
+        let me            = this,
+            {sourceStore} = me;
+
+        if (sourceStore) {
+            sourceStore.un({
+                filter      : me.onSourceStoreFilter,
+                mutate      : me.onSourceStoreMutate,
+                recordChange: me.onSourceStoreRecordChange,
+                sort        : me.onSourceStoreSort,
+                scope       : me
+            });
+
+            me.destroySubMenus();
+
+            me.#ownsSourceStore && sourceStore.destroy();
+
+            me.sourceStore      = null;
+            me.#ownsSourceStore = false
+        }
     }
 
     /**
@@ -454,29 +547,26 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me              = this,
-            {activeSubMenu} = me,
-            subMenuMap      = me.subMenuMap || {};
+        let me = this;
 
         me.syncOutsidePointerListener(false);
-        activeSubMenu?.unmount();
-
-        // The tree store outlives every level, so a level that stops rendering must stop listening.
-        // Its own object literal — on() and un() both consume keys from what they are handed.
-        me.sourceStore?.un({
-            filter      : me.onSourceStoreFilter,
-            mutate      : me.onSourceStoreMutate,
-            recordChange: me.onSourceStoreRecordChange,
-            sort        : me.onSourceStoreSort,
-            scope       : me
-        });
-
-        Object.entries(subMenuMap).forEach(([key, value]) => {
-            value.destroy();
-            subMenuMap[key] = null
-        });
+        me.#releaseSource();
+        // The submenus of the classic nested-items API; a tree source's went with it
+        me.destroySubMenus();
 
         super.destroy(...args)
+    }
+
+    /**
+     * Hides the open submenu and destroys every cached one, so the next `showSubMenu()` builds from the current records
+     * @protected
+     */
+    destroySubMenus() {
+        let me = this;
+
+        me.hideSubMenu(false);
+        Object.values(me.subMenuMap || {}).forEach(menu => menu.destroy());
+        me.subMenuMap = null
     }
 
     /**
@@ -749,22 +839,7 @@ class List extends BaseList {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        if (me.sourceStore) {
-            me.syncLevelRecords();
-
-            // Its own object: Observable#on() and #un() CONSUME keys from what they are handed
-            // (`scope` among them), so the two calls can never share one literal.
-            me.sourceStore.on({
-                filter      : me.onSourceStoreFilter,
-                mutate      : me.onSourceStoreMutate,
-                recordChange: me.onSourceStoreRecordChange,
-                sort        : me.onSourceStoreSort,
-                scope       : me
-            })
-        }
+        this.#bindSource()
     }
 
     /**

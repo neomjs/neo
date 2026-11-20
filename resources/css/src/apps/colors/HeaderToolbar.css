@@ -1,0 +1,39 @@
+.colors-header-toolbar.neo-toolbar {
+    > * {
+        &:not(:last-child) {
+            margin-right: .5em;
+        }
+    }
+
+    .neo-checkboxfield {
+        margin-left: 1em;
+    }
+
+    .colors-data-source {
+        font-size  : 13px;
+        margin-left: .5em;
+        opacity    : .75;
+    }
+
+    @media (max-width: 600px) {
+        .header-spacer {
+            display: none;
+        }
+
+        .neo-checkboxfield {
+            display: none;
+        }
+
+        .neo-button {
+            .neo-button-glyph {
+                margin-right: 0;
+            }
+
+            .neo-button-text {
+                &:nth-child(2) {
+                    display: none;
+                }
+            }
+        }
+    }
+}

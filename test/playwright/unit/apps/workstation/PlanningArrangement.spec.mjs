@@ -102,6 +102,34 @@ test('the Workstation declares a planning arrangement beside the shipped one', (
     }
 });
 
+test('the arrangement switch shows only when the workspace declares both of its arrangements', async () => {
+    class OneArrangementWorkspace extends Workspace {
+        static config = {
+            className   : 'Test.Unit.Workstation.PlanningArrangement.OneArrangementWorkspace',
+            perspectives: {shipped: initialDocument}
+        }
+    }
+
+    const Single    = Neo.setupClass(OneArrangementWorkspace),
+          engine    = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          single    = Neo.create(Single,    {windowId: Neo.config.windowId}),
+          reference = (workspace, name) => workspace.down({reference: name});
+
+    try {
+        // Bindings settle after the providers run their formulas
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(single.declaredPerspectives()).toEqual(['shipped']);
+        expect(reference(engine, 'arrangement-switch').hidden).toBe(false);
+        expect(reference(engine, 'arrangement-operations').pressed, 'the active arrangement is pressed').toBe(true);
+        expect(reference(engine, 'arrangement-planning').pressed).toBe(false);
+        expect(reference(single, 'arrangement-switch').hidden, 'one declared arrangement leaves nothing to switch to').toBe(true)
+    } finally {
+        engine.destroy();
+        single.destroy()
+    }
+});
+
 test('the planning panes borrow the root provider\'s stores rather than holding their own', () => {
     const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId});
 

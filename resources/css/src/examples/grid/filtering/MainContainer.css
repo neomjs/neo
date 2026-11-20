@@ -1,0 +1,126 @@
+/* Keep the example's palette on each theme carrier, including proxies mounted outside its viewport. */
+.neo-examples-grid-filtering,
+.neo-examples-grid-filtering [class*=neo-theme-],
+body:has(.neo-examples-grid-filtering) .neo-dragproxy,
+body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*=neo-theme-] {
+    --grid-container-border-color: var(--grid-filtering-border);
+    --grid-container-cell-background-color: var(--grid-filtering-surface);
+    --grid-container-cell-background-color-even: var(--grid-filtering-alternate);
+    --grid-container-color: var(--grid-filtering-text);
+    --grid-container-font-size: 13px;
+    --grid-cell-background-color-hover: var(--grid-filtering-hover);
+    --grid-header-button-background-color: var(--grid-filtering-header);
+    --grid-header-button-background-color-hover: var(--grid-filtering-hover);
+    --grid-header-button-background-image: none;
+    --grid-header-button-border-right-color: var(--grid-filtering-border);
+    --grid-header-button-color: var(--grid-filtering-text);
+    --grid-header-button-color-hover: var(--grid-filtering-accent);
+    --grid-header-button-filtered-color: var(--grid-filtering-accent);
+    --grid-header-button-font-size: 12px;
+    --grid-header-button-font-weight: 600;
+    --grid-header-button-glyph-color: var(--grid-filtering-muted);
+    --grid-header-button-glyph-color-hover: var(--grid-filtering-accent);
+    --grid-rowmodel-selected-cell-background-color: var(--grid-filtering-hover);
+    --grid-rowmodel-selected-cell-color: var(--grid-filtering-title);
+    --textfield-border-color: var(--grid-filtering-border);
+    --textfield-border-color-active: var(--grid-filtering-accent);
+    --textfield-border-color-hovered: var(--grid-filtering-accent);
+    --textfield-input-background-color: var(--grid-filtering-surface);
+    --textfield-input-color: var(--grid-filtering-title);
+    --textfield-input-placeholder-color: var(--grid-filtering-muted);
+}
+.neo-examples-grid-filtering .neo-grid-row .neo-grid-cell,
+.neo-examples-grid-filtering [class*=neo-theme-] .neo-grid-row .neo-grid-cell,
+body:has(.neo-examples-grid-filtering) .neo-dragproxy .neo-grid-row .neo-grid-cell,
+body:has(.neo-examples-grid-filtering) .neo-dragproxy [class*=neo-theme-] .neo-grid-row .neo-grid-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+.neo-examples-grid-filtering.neo-viewport {
+    background-color: var(--grid-filtering-background);
+    color           : var(--grid-filtering-text);
+    font-family     : var(--neo-font-family);
+
+    .grid-filtering-toolbar {
+        background-color: var(--grid-filtering-background);
+        gap             : 20px;
+        padding         : 24px;
+
+        .neo-button {
+            border       : 1px solid var(--grid-filtering-border);
+            border-radius: 8px;
+            color        : var(--grid-filtering-title);
+        }
+    }
+
+    .grid-filtering-title {
+        color         : var(--grid-filtering-title);
+        font-size     : 24px;
+        font-weight   : 700;
+        letter-spacing: -0.025em;
+        line-height   : 1.2;
+    }
+
+    .grid-filtering-instruction {
+        color      : var(--grid-filtering-muted);
+        font-size  : 13px;
+        line-height: 1.5;
+        margin-top : 6px;
+    }
+
+    /* The count leads the controls: it is the answer every filter changes. */
+    .grid-filtering-count {
+        color               : var(--grid-filtering-accent);
+        font-size           : 14px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 700;
+        white-space         : nowrap;
+    }
+
+    .neo-grid-container {
+        background-color: var(--grid-filtering-surface);
+        box-shadow      : 0 -1px 0 var(--grid-filtering-border);
+    }
+
+    /* Every header holds a filter field, which needs more than the default 29px */
+    .neo-grid-header-button {
+        height: 42px;
+    }
+
+    /* The operator toggles inside the headers take the palette instead of the theme's primary blue */
+    .neo-grid-header-button .neo-button {
+        --button-background-color      : var(--grid-filtering-surface);
+        --button-background-color-hover: var(--grid-filtering-hover);
+        --button-background-image      : none;
+        --button-border                : 1px solid var(--grid-filtering-border);
+        --button-border-hover          : 1px solid var(--grid-filtering-accent);
+        --button-border-radius         : 6px;
+        --button-text-color            : var(--grid-filtering-accent);
+        --button-text-color-hover      : var(--grid-filtering-accent);
+    }
+
+    @media (max-width: 700px) {
+        .grid-filtering-toolbar {
+            gap    : 12px;
+            padding: 18px 16px;
+
+            /* Icon buttons keep the count and both controls on one row; the text stays their accessible name */
+            .neo-button-text {
+                clip       : rect(0 0 0 0);
+                height     : 1px;
+                overflow   : hidden;
+                position   : absolute;
+                white-space: nowrap;
+                width      : 1px;
+            }
+
+            .neo-button-glyph {
+                margin: 0;
+            }
+        }
+
+        .grid-filtering-title {
+            font-size: 20px;
+        }
+    }
+}

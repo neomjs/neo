@@ -59,7 +59,7 @@ async function boot(page, port, {cycle, after}) {
     page.on('console', message => message.worker() && lines.push(message.text()));
 
     await page.route('**/examples/button/base/neo-config.json*', async route => {
-        const response = await route.fetch(),
+        const response = await route.fetch({maxRetries: 2}),
               config   = await response.json();
 
         await route.fulfill({response, json: {...config, neuralLinkUrl: `ws://127.0.0.1:${port}`, useAiClient: true}})

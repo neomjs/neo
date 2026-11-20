@@ -247,9 +247,16 @@ class DomAccess extends Base {
      * @param {String} data.id
      * @param {String|HTMLElement|{x:Number,y:Number,width:Number,height:Number}} [data.target]
      * @param {String|HTMLElement} [data.constrainTo]
+     * @param {Boolean} [data.exposeGap] Writes the gap to the target on the subject, see {@link #writeGap}
      * @returns {Promise<void>}
      */
     async align(data) {
+        // A subject that left the DOM before the call landed, like a tooltip hidden before its first paint, has
+        // nothing to align
+        if (!this.getElement(data.id)) {
+            return
+        }
+
         const
             me             = this,
             {constrainTo}  = data,
@@ -323,6 +330,8 @@ class DomAccess extends Base {
             previousPosition && subject.classList.remove(`neo-aligned-${previousPosition}`);
             subject.classList.add(positionCls)
         }
+
+        data.exposeGap && me.writeGap(subject, Rectangle.gapBetween(align.target, result));
 
         // Register an alignment to be kept in sync
         me.addAligned(data)
@@ -409,7 +418,7 @@ class DomAccess extends Base {
                 // Modality is an explicit contract: :focus-visible cannot survive the async worker→main
                 // programmatic focus (and a tabindex=-1 node has no reliable user-agent ring to fall back on).
                 // The class is applied immediately before focus() so class + focus land atomically (no flash).
-                // 'pointer' suppresses the accidental ring (resources/scss/src/Global.scss); the first keydown
+                // 'pointer' suppresses the accidental ring (resources/css/src/Global.css); the first keydown
                 // without an intervening blur swaps it to the intentional keyboard ring; both self-clear on blur.
                 if (modality === 'pointer') {
                     node.classList.add('neo-focus-pointer');
@@ -1269,6 +1278,7 @@ class DomAccess extends Base {
         constrainToElement && _alignResizeObserver.unobserve(constrainToElement);
 
         subject.classList.remove(`neo-aligned-${align.result?.position}`);
+        align.exposeGap && me.writeGap(subject, null);
 
         me._aligns.delete(align.id)
     }
@@ -1647,29 +1657,27 @@ class DomAccess extends Base {
     }
 
     /**
-     * @param {Object} data
-     * @param {String} data.id
+     * @summary Keeps the one modal mask just below the topmost modal element on the page.
+     * @description `id` holds the mask while it is in the document, displayed and `modal`. Otherwise the mask goes
+     * below the topmost other displayed `.neo-modal`, or leaves the document. `id` is never that other: a dialog that
+     * stops being modal, or departs, can still be in the document, since its removal and this call land in no fixed
+     * order.
+     * @param {Object}  data
+     * @param {String}  data.id
      * @param {Boolean} data.modal
      */
-    syncModalMask({ id, modal }) {
-        const el = id && this.getElement(id);
+    syncModalMask({id, modal}) {
+        const
+            el        = id && this.getElement(id),
+            displayed = node => node.ownerDocument.contains(node) &&
+                node.ownerDocument.defaultView.getComputedStyle(node).getPropertyValue('display') !== 'none',
+            holder    = el && modal && displayed(el) ? el :
+                [...document.querySelectorAll('.neo-modal')].findLast(node => node.id !== id && displayed(node));
 
-        // If we are visible and modal, the mask needs to be just below this element.
-        if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
-            document.body.insertBefore(this.modalMask, el)
-        }
-        // Otherwise, the mask needs to be below the next topmost modal dialog if possible, or hidden
-        else {
-            const
-                modals       = document.querySelectorAll('.neo-modal'),
-                topmostModal = modals[modals.length - 1];
-
-            // Move the mask under the next topmost modal now modal "id" is gone.
-            if (topmostModal) {
-                this.syncModalMask({ id: topmostModal.id, modal: true })
-            } else {
-                this._modalMask?.remove()
-            }
+        if (holder) {
+            document.body.insertBefore(this.modalMask, holder)
+        } else {
+            this._modalMask?.remove()
         }
     }
 
@@ -1795,6 +1803,29 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
+        })
+    }
+
+    /**
+     * @summary Writes the gap between an aligned subject and its target ({@link Neo.util.Rectangle.gapBetween}) as
+     * the custom properties `--neo-align-gap-{height|left|top|width}` on the subject, or removes them once the boxes
+     * touch. The offsets are in px relative to the subject's padding box, the containing block of what bridges the
+     * gap in CSS, like a hoverable tooltip's hit area: measured from the border box, a border would leave its width of
+     * the gap uncovered. Every alignment writes them, a resync of a resize or scroll included, so the bridge follows
+     * each realign Main makes alone.
+     * @param {HTMLElement} subject
+     * @param {{height: Number, left: Number, top: Number, width: Number}|null} gap In px, relative to the border box
+     * @protected
+     */
+    writeGap(subject, gap) {
+        let style  = gap && subject.ownerDocument.defaultView.getComputedStyle(subject),
+            border = side => parseFloat(style.getPropertyValue(`border-${side}-width`)) || 0,
+            values = gap && {...gap, left: gap.left - border('left'), top: gap.top - border('top')};
+
+        ['height', 'left', 'top', 'width'].forEach(key => {
+            let name = `--neo-align-gap-${key}`;
+
+            values ? subject.style.setProperty(name, `${values[key]}px`) : subject.style.removeProperty(name)
         })
     }
 }

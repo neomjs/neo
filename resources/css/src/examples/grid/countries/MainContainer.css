@@ -1,0 +1,143 @@
+/* Keep the example's palette on each theme carrier, including proxies mounted outside its viewport. */
+.neo-examples-grid-countries,
+.neo-examples-grid-countries [class*=neo-theme-],
+body:has(.neo-examples-grid-countries) .neo-dragproxy,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] {
+    --grid-container-border-color: var(--countries-border);
+    --grid-container-cell-background-color: var(--countries-surface);
+    --grid-container-cell-background-color-even: var(--countries-alternate);
+    --grid-container-color: var(--countries-text);
+    --grid-container-font-size: 13px;
+    --grid-cell-background-color-hover: var(--countries-hover);
+    --grid-header-button-background-color: var(--countries-header);
+    --grid-header-button-background-color-hover: var(--countries-hover);
+    --grid-header-button-background-image: none;
+    --grid-header-button-border-right-color: var(--countries-border);
+    --grid-header-button-color: var(--countries-text);
+    --grid-header-button-color-hover: var(--countries-accent);
+    --grid-header-button-font-size: 12px;
+    --grid-header-button-font-weight: 600;
+    --grid-header-button-glyph-color: var(--countries-muted);
+    --grid-header-button-glyph-color-hover: var(--countries-accent);
+    --grid-rowmodel-selected-cell-background-color: var(--countries-hover);
+    --grid-rowmodel-selected-cell-color: var(--countries-title);
+}
+.neo-examples-grid-countries .neo-grid-header-group-row .neo-grid-header-group-cell,
+.neo-examples-grid-countries [class*=neo-theme-] .neo-grid-header-group-row .neo-grid-header-group-cell,
+body:has(.neo-examples-grid-countries) .neo-dragproxy .neo-grid-header-group-row .neo-grid-header-group-cell,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-grid-header-group-row .neo-grid-header-group-cell {
+    color: var(--countries-accent);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+.neo-examples-grid-countries,
+.neo-examples-grid-countries [class*=neo-theme-],
+body:has(.neo-examples-grid-countries) .neo-dragproxy,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] {
+    /* One class deeper than the selected row's cell color, so a tint keeps its meaning on a selected row */
+}
+.neo-examples-grid-countries .neo-grid-body .neo-grid-row .neo-grid-cell,
+.neo-examples-grid-countries [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell,
+body:has(.neo-examples-grid-countries) .neo-dragproxy .neo-grid-body .neo-grid-row .neo-grid-cell,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell {
+    font-variant-numeric: tabular-nums;
+}
+.neo-examples-grid-countries .neo-grid-body .neo-grid-row .neo-grid-cell.countries-up,
+.neo-examples-grid-countries [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell.countries-up,
+body:has(.neo-examples-grid-countries) .neo-dragproxy .neo-grid-body .neo-grid-row .neo-grid-cell.countries-up,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell.countries-up {
+    color: var(--countries-up);
+    font-weight: 600;
+}
+.neo-examples-grid-countries .neo-grid-body .neo-grid-row .neo-grid-cell.countries-down,
+.neo-examples-grid-countries [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell.countries-down,
+body:has(.neo-examples-grid-countries) .neo-dragproxy .neo-grid-body .neo-grid-row .neo-grid-cell.countries-down,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell.countries-down {
+    color: var(--countries-down);
+    font-weight: 600;
+}
+.neo-examples-grid-countries .neo-grid-body .neo-grid-row .neo-grid-cell.countries-missing,
+.neo-examples-grid-countries [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell.countries-missing,
+body:has(.neo-examples-grid-countries) .neo-dragproxy .neo-grid-body .neo-grid-row .neo-grid-cell.countries-missing,
+body:has(.neo-examples-grid-countries) .neo-dragproxy [class*=neo-theme-] .neo-grid-body .neo-grid-row .neo-grid-cell.countries-missing {
+    color: var(--countries-muted);
+}
+
+.neo-examples-grid-countries.neo-viewport {
+    background-color: var(--countries-background);
+    color           : var(--countries-text);
+    font-family     : var(--neo-font-family);
+
+    .countries-toolbar {
+        background-color: var(--countries-background);
+        gap             : 20px;
+        padding         : 24px;
+
+        .neo-button {
+            border       : 1px solid var(--countries-border);
+            border-radius: 8px;
+            color        : var(--countries-title);
+        }
+    }
+
+    .countries-title {
+        color         : var(--countries-title);
+        font-size     : 24px;
+        font-weight   : 700;
+        letter-spacing: -0.025em;
+        line-height   : 1.2;
+    }
+
+    .countries-instruction {
+        color      : var(--countries-muted);
+        font-size  : 13px;
+        line-height: 1.5;
+        margin-top : 6px;
+    }
+
+    .countries-source {
+        color      : var(--countries-muted);
+        font-size  : 11px;
+        line-height: 1.5;
+        margin-top : 2px;
+
+        a {
+            color: var(--countries-accent);
+        }
+    }
+
+    .neo-grid-container {
+        background-color: var(--countries-surface);
+        box-shadow      : 0 -1px 0 var(--countries-border);
+    }
+
+    /* A styled scrollbar is drawn even where the platform overlays them (macOS), so the first frame shows that the
+       figures scroll. It fills the 17px track the engine reserves below the body. */
+    .neo-grid-horizontal-scrollbar {
+        &::-webkit-scrollbar {
+            height: 16px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background-color: var(--countries-header);
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-clip : padding-box;
+            background-color: var(--countries-muted);
+            border          : 4px solid transparent;
+            border-radius   : 8px;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .countries-toolbar {
+            gap    : 12px;
+            padding: 18px 16px;
+        }
+
+        .countries-title {
+            font-size: 20px;
+        }
+    }
+}

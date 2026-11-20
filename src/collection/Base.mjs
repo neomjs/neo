@@ -1033,6 +1033,29 @@ class Collection extends Base {
     }
 
     /**
+     * @summary Resolves the key a lookup by `value` reaches, e.g. for the id fragment a list item renders.
+     *
+     * A collection declares no key type, so it reads one from its first item ({@link #getKeyType}): an
+     * integer-keyed collection parses the value, and every other keeps it as received. `Neo.data.Store`
+     * overrides this with the type its key field declares.
+     * @param {*} value The key as it was received
+     * @returns {*|undefined} The canonical key, or `undefined` for an absent value or one an integer-keyed
+     * collection cannot parse
+     */
+    getCanonicalKey(value) {
+        if (value === null || value === undefined) {
+            return undefined
+        }
+
+        if (this.getKeyType() === 'int') {
+            let key = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+            return Number.isFinite(key) ? key : undefined
+        }
+
+        return value
+    }
+
+    /**
      * Returns the config value of this.count
      * @returns {Number}
      * @deprecated Use `this.count` directly instead.
@@ -1197,7 +1220,7 @@ class Collection extends Base {
      */
     indexOf(key) {
         let me = this;
-        return me._items.indexOf(me.isItem(key) ? key : me.get(key));
+        return me.isItem(key) ? me._items.indexOf(key) : me.indexOfKey(key);
     }
 
     /**
@@ -1232,7 +1255,14 @@ class Collection extends Base {
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOfKey(key) {
-        return this._items.indexOf(this.get(key));
+        let me   = this,
+            item = me.map.get(key) ?? (me.trackInternalId ? me.internalIdMap?.get(key) : undefined);
+
+        if (item === undefined && me.getCanonicalKey) {
+            item = me.map.get(me.getCanonicalKey(key))
+        }
+
+        return item !== undefined ? me._items.indexOf(item) : -1
     }
 
     /**
@@ -1568,7 +1598,7 @@ class Collection extends Base {
             removedItems       = [],
             removeCountAtIndex = Neo.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
-            internalId, i, item, key, len, toAddMap;
+            internalId, i, item, key, len;
 
         if (!Neo.isNumber(index) && removeCountAtIndex) {
             Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used')
@@ -1577,26 +1607,20 @@ class Collection extends Base {
         toAddArray = toAddArray && !Array.isArray(toAddArray) ? [toAddArray] : toAddArray;
 
         if (toRemoveArray && (len = toRemoveArray.length) > 0) {
-            if (toAddArray && toAddArray.length > 0) {
-                toAddMap = toAddArray.map(e => me.getKey(e))
-            }
-
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
                 key  = me.isItem(item) ? me.getKey(item) : item;
 
                 if (map.has(key)) {
-                    if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
-                        const removedItem = items.splice(me.indexOfKey(key), 1)[0];
-                        removedItems.push(removedItem);
-                        map.delete(key);
+                    const removedItem = items.splice(items.indexOf(map.get(key)), 1)[0];
+                    removedItems.push(removedItem);
+                    map.delete(key);
 
-                        if (me.trackInternalId) {
-                            internalId = me.getInternalKey(removedItem);
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(removedItem);
 
-                            if (internalId) {
-                                me.internalIdMap.delete(internalId)
-                            }
+                        if (internalId) {
+                            me.internalIdMap.delete(internalId)
                         }
                     }
                 }

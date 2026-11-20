@@ -38,8 +38,9 @@ class Viewport extends BaseViewport {
          * @member {Object[]} items
          */
         items: [{
-            module: HeaderToolbar,
-            flex  : 'none'
+            module   : HeaderToolbar,
+            flex     : 'none',
+            reference: 'header-toolbar'
         }, {
             module   : Container,
             cls      : ['portal-main-content'],
@@ -52,7 +53,7 @@ class Viewport extends BaseViewport {
                 {module: () => import('./learn/MainContainer.mjs')},
                 {module: () => import('./news/TabContainer.mjs')},
                 {module: () => import('./services/Container.mjs')},
-                {module: () => import('./examples/TabContainer.mjs')},
+                {module: () => import('./examples/MainContainer.mjs')},
                 {module: () => import('./about/Container.mjs')},
                 {module: () => import('../../../docs/app/view/MainContainer.mjs')}
             ]

@@ -1,0 +1,145 @@
+.year-plan-toolbar.neo-toolbar {
+    align-items  : center;
+    background   : var(--plan-header-bg);
+    border-bottom: 1px solid var(--plan-border);
+    box-sizing   : border-box;
+    flex-wrap    : wrap;
+    gap          : 8px 12px;
+    max-width    : 100%;
+    min-height   : 64px;
+    padding      : 10px 20px;
+
+    .year-plan-spacer {
+        min-width: 0;
+    }
+
+    .year-plan-title {
+        color         : var(--plan-title);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .year-plan-counts {
+        background   : var(--plan-badge-bg);
+        border       : 1px solid var(--plan-badge-border);
+        border-radius: 999px;
+        color        : var(--plan-badge-text);
+        font-size    : 12px;
+        font-variant-numeric: tabular-nums;
+        font-weight  : 600;
+        padding      : 3px 10px;
+    }
+
+    .year-plan-hint {
+        color    : var(--plan-muted);
+        font-size: 13px;
+    }
+
+    .year-plan-legend {
+        align-items: center;
+        color      : var(--plan-muted);
+        display    : inline-flex;
+        font-size  : 12px;
+        gap        : 10px;
+        margin-right: 4px;
+    }
+
+    .year-plan-legend-item {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 5px;
+    }
+
+    .year-plan-legend-item::before {
+        border-radius: 3px;
+        content      : '';
+        display      : inline-block;
+        height       : 9px;
+        width        : 9px;
+    }
+
+    .year-plan-legend-delivery::before {
+        background: var(--neo-scheduler-bar-emerald-border);
+    }
+
+    .year-plan-legend-review::before {
+        background: var(--neo-scheduler-bar-amber-border);
+    }
+
+    .year-plan-legend-oncall::before {
+        background: var(--neo-scheduler-bar-violet-border);
+    }
+
+    .year-plan-zoom {
+        --button-background-color-hover: var(--plan-hover-bg);
+        --button-border-hover          : 1px solid var(--plan-border);
+        --button-text-color            : var(--plan-muted);
+        --button-text-color-active     : var(--plan-title);
+        --button-text-color-hover      : var(--plan-title);
+        background   : var(--plan-control-bg);
+        border       : 1px solid var(--plan-border);
+        border-radius: 0;
+        color        : var(--plan-muted);
+        margin-right : -1px;
+        min-height   : 32px;
+        min-width    : 52px;
+        padding      : 0 11px;
+
+        &.pressed {
+            --button-background-color-hover: var(--plan-selected-bg);
+            --button-text-color            : var(--plan-selected-text);
+            --button-text-color-active     : var(--plan-selected-text);
+            --button-text-color-hover      : var(--plan-selected-text);
+            background: var(--plan-selected-bg);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--plan-focus);
+            outline-offset: 2px;
+        }
+    }
+
+    .year-plan-zoom-first {
+        border-radius: 6px 0 0 6px;
+    }
+
+    .year-plan-zoom-last {
+        border-radius: 0 6px 6px 0;
+        margin-right : 0;
+    }
+}
+
+@media (max-width: 767px) {
+    .year-plan-toolbar.neo-toolbar {
+        gap       : 6px 8px;
+        min-height: auto;
+        padding   : 8px 12px;
+
+        .year-plan-title {
+            font-size: 14px;
+        }
+
+        .year-plan-counts {
+            font-size: 11px;
+            padding  : 2px 8px;
+        }
+
+        .year-plan-hint {
+            flex       : 0 0 100% !important;
+            font-size  : 11px;
+            white-space: normal;
+        }
+
+        .year-plan-spacer,
+        .year-plan-legend {
+            display: none;
+        }
+
+        .year-plan-zoom {
+            min-height: 26px;
+            min-width : 42px;
+            padding   : 0 8px;
+        }
+    }
+}

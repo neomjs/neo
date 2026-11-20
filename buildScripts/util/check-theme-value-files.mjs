@@ -51,7 +51,7 @@ import isEntryModule   from './isEntryModule.mjs';
 const
     dirname      = path.dirname(fileURLToPath(import.meta.url)),
     repoRoot     = path.resolve(dirname, '../..'),
-    themeRoot    = path.join(repoRoot, 'resources/scss'),
+    themeRoot    = path.join(repoRoot, 'resources/css'),
     baselinePath = path.join(dirname, 'check-theme-value-files-baseline.json');
 
 /**
@@ -59,15 +59,15 @@ const
  * `paths:` filter takes, so the sibling alignment spec can hold the mirror to what is actually read.
  *
  * The `theme-*` segment is the collector's own filter, not a convenience: `themeRoot` holds
- * `resources/scss/src` too and this guard never opens it. Writing the wider root here would demand a
+ * `resources/css/src` too and this guard never opens it. Writing the wider root here would demand a
  * wider mirror than the guard needs. The baseline is a member because it is an INPUT to the verdict
  * — a run that did not re-trigger on a baseline edit would let a file be blessed by editing the
  * record of what exists, with nothing re-reading reality. Every member must be TRACKED.
  * @type {String[]}
  */
 export const SCAN_SURFACE = Object.freeze([
-    `${path.relative(repoRoot, themeRoot)}/theme-*/**/*.scss`,
-    path.relative(repoRoot, baselinePath)
+    `${path.relative(repoRoot, themeRoot).replaceAll('\\', '/')}/theme-*/**/*.css`,
+    path.relative(repoRoot, baselinePath).replaceAll('\\', '/')
 ]);
 
 /**
@@ -83,7 +83,7 @@ export const SCAN_SURFACE = Object.freeze([
  * Depth is structural and shape-agnostic: the file's own `:root .neo-theme-*` wrapper opens depth
  * 1, so ANY block opened at depth ≥ 1 is a nested rule regardless of how its selector is written.
  * Comments and strings are stripped first so a brace inside either cannot move the count. `@`-rules
- * stay allowed — `@include` composes values rather than deciding which elements receive them.
+ * stay allowed — a media or supports condition decides when a value applies, not which elements receive it.
  *
  * **The depth-0 block is checked too, and that is not symmetry — it closes a real escape.** Treating
  * depth 0 as "the file's own wrapper" is a convention no code enforces: nothing stops a file having a
@@ -103,11 +103,7 @@ export function findSelectorBlocks(file) {
         source = fs.readFileSync(file, 'utf8')
             // Comments and strings first, so a brace inside either cannot move the depth.
             .replace(/\/\*[\s\S]*?\*\//g, '')
-            .replace(/\/\/[^\n]*/g, '')
-            .replace(/(['"])(?:\\.|(?!\1).)*\1/g, '')
-            // SCSS interpolation is not a block. `--button-border: #{$w} #{$s};` carries two `#{`
-            // openers, and counting them made an already-clean file report 34 selectors.
-            .replace(/#\{[^{}]*\}/g, '');
+            .replace(/(['"])(?:\\.|(?!\1).)*\1/g, '');
 
     let depth  = 0,
         line   = 1,
@@ -160,20 +156,20 @@ export function findSelectorBlocks(file) {
 }
 
 /**
- * @summary Every `resources/scss/theme-*` SCSS file, repo-relative.
+ * @summary Every `resources/css/theme-*` stylesheet, repo-relative.
  * @returns {String[]}
  */
 export function collectThemeFiles() {
     const walk = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => {
         const full = path.join(dir, entry.name);
 
-        return entry.isDirectory() ? walk(full) : entry.name.endsWith('.scss') ? [full] : []
+        return entry.isDirectory() ? walk(full) : entry.name.endsWith('.css') ? [full] : []
     });
 
     return fs.readdirSync(themeRoot, {withFileTypes: true})
         .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-'))
         .flatMap(entry => walk(path.join(themeRoot, entry.name)))
-        .map(file => path.relative(repoRoot, file))
+        .map(file => path.relative(repoRoot, file).replaceAll('\\', '/'))
         .sort()
 }
 
@@ -217,7 +213,7 @@ export function collectThemeValueFileFailures() {
             failures.push(
                 `[new-selector] ${file} declares ${blocks.length} rule(s) that are not variables; a ` +
                 `theme file answers "what value", never "which elements". Move the selector to ` +
-                `resources/scss/src and add tokens: ` +
+                `resources/css/src and add tokens: ` +
                 blocks.map(block => `${file}:${block.line} (${block.kind}) ${block.text.trim()}`).join(' | ')
             );
             continue

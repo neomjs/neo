@@ -1,0 +1,59 @@
+/* The Mermaid example: a toolbar above the source and the diagram, side by side, stacked on a phone. Colours
+   come from the theme's own tokens, so both follow neo-light and neo-dark. */
+.neo-examples-mermaid {
+    background: var(--neo-background-color);
+    color     : var(--neo-color);
+
+    .neo-examples-mermaid-toolbar {
+        border-bottom: 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+        column-gap   : 8px;
+        padding      : 8px 16px;
+        row-gap      : 8px;
+    }
+
+    .neo-examples-mermaid-title {
+        font-size   : 15px;
+        font-weight : 600;
+        margin-right: 8px;
+    }
+
+    .neo-examples-mermaid-body {
+        display              : grid;
+        gap                  : 16px;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        min-height           : 0;
+        overflow             : auto;
+        padding              : 16px;
+
+        .neo-textarea textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size  : 13px;
+            height     : 100%;
+            min-height : 240px;
+        }
+    }
+
+    .neo-mermaid {
+        align-items    : center;
+        border         : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
+        border-radius  : 8px;
+        display        : flex;
+        justify-content: center;
+        min-height     : 240px;
+        overflow       : auto;
+        padding        : 16px;
+
+        /* the whole diagram fits its box: a tall flowchart shrinks to the height, a wide one to the width */
+        svg {
+            max-height: 100%;
+            max-width : 100%;
+        }
+    }
+}
+
+@media (max-width: 700px) {
+    .neo-examples-mermaid .neo-examples-mermaid-body {
+        grid-auto-rows       : max-content;
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

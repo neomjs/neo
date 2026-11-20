@@ -132,6 +132,7 @@ Every future docking leaf classifies each new piece of state into exactly one ro
 | the committed perspective name — carried in the accepted write's descriptor (`workspaceKey`, the before-name, the after-name), retained by the history row, handed to `project(context)` on replay, published as `dock.perspective.active` | **Worker-owned shared truth** | the workspace container(s) in the App Worker | serializable only as JSON-only origin metadata on a snapshot |
 | `dock.perspective.pending` — the in-flight request, written by the request lifecycle under the serial | **Per-window runtime interaction state** | the window's workspace host | never persisted |
 | `dock.perspective.modified` — departure of the committed document from the selected declared perspective's lowered document, under the declared exclusion set | **Worker-owned shared truth**, derived at the post-commit publication point | the workspace container(s) in the App Worker | never persisted; recomputed at publication |
+| `dock.declaredPerspectives` — the declared perspective names in declaration order, the set a switch may offer (amendment, 2026-11-17 — #21265) | **Worker-owned shared truth**, derived from the declaration | the workspace container(s) in the App Worker | never persisted; published once at provider seed, because a declaration does not change |
 
 The committed document stays a class field on the host: its reactive hook would fire inside adoption and on compensation, so publication belongs to the post-commit point, not to a config.
 

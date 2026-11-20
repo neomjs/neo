@@ -80,6 +80,22 @@ test.describe('Board, basic example: one store, two views', () => {
         await expect(badge('review')).toHaveText('2/3')
     });
 
+    test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+        const url   = '/examples/board/basic/index.html',
+              theme = () => page.locator('.board-example').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+        await page.emulateMedia({colorScheme: 'light'});
+        await page.goto(url);
+        await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+        await page.emulateMedia({colorScheme: 'dark'});
+        await page.goto(url);
+        await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+        await page.goto(`${url}?theme=neo-theme-light`);
+        await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
+    });
+
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         test(`a card dragged to another column moves its record, and the table on the same store shows the new status (${theme})`, async ({page, neuralLink}, testInfo) => {
             const {app, boardId, gridId, storeId, domOrder, records} = await open(page, neuralLink, theme),
@@ -113,6 +129,91 @@ test.describe('Board, basic example: one store, two views', () => {
             await testInfo.attach(`board-basic-${theme}`, {body: await page.screenshot(), contentType: 'image/png'})
         })
     }
+
+    for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
+        test(`at 1440 × 900 all five columns are in view on first paint, the table below them (${theme})`, async ({page, neuralLink}, testInfo) => {
+            await page.setViewportSize({height: 900, width: 1440});
+
+            const {boardId} = await open(page, neuralLink, theme);
+
+            for (const status of STATUSES) {
+                const id                    = `${boardId}__col__${status}`,
+                      {height, width, x, y} = await page.locator(`[id="${id}"]`).boundingBox(),
+                      // Whatever the pointer would hit at the column's two edges, below its header
+                      edges                 = await page.evaluate(({id, points}) => points.map(([px, py]) =>
+                          !!document.elementFromPoint(px, py)?.closest(`[id="${id}"]`)), {id, points: [[x + 2, y + 24], [x + width - 2, y + 24]]});
+
+                expect(x, `${status}: starts in view`).toBeGreaterThanOrEqual(0);
+                expect(x + width, `${status}: ends in view`).toBeLessThanOrEqual(1440);
+                expect(edges, `${status}: nothing covers either edge`).toEqual([true, true]);
+                expect(height, `${status}: a column, not a strip`).toBeGreaterThan(300)
+            }
+
+            await testInfo.attach(`board-basic-1440-${theme}`, {body: await page.screenshot(), contentType: 'image/png'})
+        })
+    }
+
+    test('at 390 × 844 the first screen shows the board, its first column whole, and the table below it', async ({page, neuralLink}, testInfo) => {
+        await page.setViewportSize({height: 844, width: 390});
+
+        const {boardId, gridId} = await open(page, neuralLink),
+              first             = await page.locator(`[id="${boardId}__col__backlog"]`).boundingBox(),
+              table             = await page.locator(`[id="${gridId}"]`).boundingBox();
+
+        expect(first.x, 'the first column starts in view').toBeGreaterThanOrEqual(0);
+        expect(first.x + first.width, 'and ends in view').toBeLessThanOrEqual(390);
+        expect(first.y, 'at the top of the first screen').toBeLessThan(844 / 2);
+        expect(table.y, 'the table starts below the board').toBeGreaterThanOrEqual(first.y + first.height - 1);
+
+        await testInfo.attach('board-basic-390', {body: await page.screenshot(), contentType: 'image/png'})
+    });
+
+    test('with swimlanes, every lane header reads toggle, title and count from its start and keeps them in view, also on a board narrower than its columns', async ({page, neuralLink}) => {
+        const {app, boardId, storeId} = await open(page, neuralLink),
+              lanes                   = ['Alpha', 'Beta', 'Gamma'],
+              board                   = page.locator(`[id="${boardId}"]`),
+              // Per lane, against the board's padding box (a scrollbar excluded): where the toggle starts, whether
+              // toggle, title and count follow in that order, and whether all three lie inside the box
+              headers = () => board.evaluate(node => {
+                  const left  = node.getBoundingClientRect().left + node.clientLeft,
+                        right = left + node.clientWidth,
+                        box   = (lane, part) => lane.querySelector(`.neo-board-lane-${part}`).getBoundingClientRect();
+
+                  return [...node.querySelectorAll('.neo-board-lane')].map(lane => {
+                      const [toggle, title, count] = ['collapse', 'title', 'count'].map(part => box(lane, part));
+
+                      return {
+                          start : Math.round(toggle.left - left),
+                          order : toggle.right <= title.left && title.right <= count.left,
+                          inView: [toggle, title, count].every(rect => rect.left >= left - 1 && rect.right <= right + 1)
+                      }
+                  })
+              }),
+              // Board padding 12, lane border 1, header padding 12
+              expected = lanes.map(() => ({start: 25, order: true, inView: true}));
+
+        await app.callMethod(storeId, 'setData', [STATUSES.flatMap(status => lanes.map((lane, i) => ({
+            id: `${status}-${lane}`, status, lane, order: i * 1000, title: `${lane} ${status}`, description: 'Short task', tags: [], assignees: []
+        })))]);
+        // Alpha stays whole and sets the scroll range; Beta stays open but narrows to one column; Gamma folds
+        await app.setProperties(boardId, {laneField: 'lane', lanes: lanes.map(value => ({value, collapsed: value === 'Gamma'}))});
+        await expect(page.locator(`[id="${boardId}__col__done__Beta"]`)).toHaveCount(1);
+
+        for (const status of STATUSES.slice(1)) {
+            await app.setProperties(`${boardId}__col__${status}__Beta`, {collapsed: true})
+        }
+
+        await expect.poll(headers, '1920 wide, the columns fit').toEqual(expected);
+
+        for (const [width, height] of [[1280, 720], [390, 844]]) {
+            await page.setViewportSize({height, width});
+            await expect.poll(() => board.evaluate(node => node.scrollWidth > node.clientWidth), `${width} wide: the columns overflow the board`).toBe(true);
+            await expect.poll(headers, `${width} wide, at rest`).toEqual(expected);
+
+            await board.evaluate(node => {node.scrollLeft = node.scrollWidth});
+            await expect.poll(headers, `${width} wide, scrolled to the end`).toEqual(expected)
+        }
+    });
 
     test('record.set({status, order}) moves the same card instance to the head of another column', async ({page, neuralLink}) => {
         const {boardId, domOrder, push, records} = await open(page, neuralLink),
@@ -237,5 +338,66 @@ test.describe('Board, basic example: one store, two views', () => {
         const doneRecords = await records('done');
 
         expect(doneRecords.at(-1)).toMatchObject({id: 'backlog-0', status: 'done'})
+    });
+
+    test('the card editor keeps WCAG contrast on Save in neo-light and on header icons and field outlines in cyberpunk', async ({page, neuralLink}) => {
+        const measureEditor = () => page.locator('.neo-board-card-editor').evaluate(editor => {
+            const parseRgb = value => (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number),
+                  lum      = ([r, g, b]) => [r, g, b]
+                      .map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 })
+                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
+                  ratio    = (a, b) => {
+                      const [l1, l2] = [lum(parseRgb(a)), lum(parseRgb(b))];
+                      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+                  },
+                  editorBg = getComputedStyle(editor).backgroundColor,
+                  header   = editor.querySelector('.neo-header-toolbar'),
+                  headerBg = getComputedStyle(header).backgroundColor,
+                  saveBtn  = editor.querySelector('.neo-board-card-editor-save'),
+                  saveText = editor.querySelector('.neo-board-card-editor-save .neo-button-text') || saveBtn;
+
+            document.activeElement?.blur?.();
+
+            return {
+                saveContrast : ratio(getComputedStyle(saveText).color, getComputedStyle(saveBtn).backgroundColor),
+                iconContrasts: [...editor.querySelectorAll('.neo-header-toolbar .neo-button-glyph')]
+                    .map(glyph => ratio(getComputedStyle(glyph).color, headerBg)),
+                fieldBorders : [...editor.querySelectorAll('.neo-textfield-input, .neo-selectfield-input')].map(input => {
+                    const style = getComputedStyle(input);
+                    return {
+                        contrast: ratio(style.borderTopColor, editorBg),
+                        style   : style.borderTopStyle,
+                        width   : parseFloat(style.borderTopWidth)
+                    }
+                })
+            }
+        });
+
+        const light = await open(page, neuralLink, 'neo-theme-neo-light');
+
+        await light.app.callMethod(light.boardId, 'openCardEditor', [1]);
+        await expect(page.locator('.neo-board-card-editor')).toBeVisible();
+        expect((await light.app.getComponent(`${light.boardId}__editor`, ['hidden'])).hidden).toBe(false);
+
+        const lightMetrics = await measureEditor();
+
+        expect(lightMetrics.saveContrast, 'neo-light Save label >= 4.5:1').toBeGreaterThanOrEqual(4.5);
+
+        const cyber = await open(page, neuralLink, 'neo-theme-cyberpunk');
+
+        await cyber.app.callMethod(cyber.boardId, 'openCardEditor', [1]);
+        await expect(page.locator('.neo-board-card-editor')).toBeVisible();
+        expect((await cyber.app.getComponent(`${cyber.boardId}__editor`, ['hidden'])).hidden).toBe(false);
+
+        const cyberMetrics = await measureEditor();
+
+        expect(cyberMetrics.iconContrasts.length).toBeGreaterThanOrEqual(2);
+        cyberMetrics.iconContrasts.forEach(contrast => expect(contrast, 'cyberpunk header icon >= 3:1').toBeGreaterThanOrEqual(3));
+        expect(cyberMetrics.fieldBorders.length).toBeGreaterThanOrEqual(7);
+        cyberMetrics.fieldBorders.forEach(border => {
+            expect(border.width, 'cyberpunk field border width').toBeGreaterThanOrEqual(1);
+            expect(border.style).not.toBe('none');
+            expect(border.contrast, 'cyberpunk unfocused field outline >= 3:1').toBeGreaterThanOrEqual(3)
+        })
     })
 });

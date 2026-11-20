@@ -1,0 +1,12 @@
+.covid-attribution-component {
+    margin: 30px;
+
+    a {
+        color: #ddd;
+    }
+
+    li {
+        line-height  : 25px;
+        margin-bottom: 15px;
+    }
+}

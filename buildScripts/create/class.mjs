@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 
-import chalk           from 'chalk';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import isEntryModule   from '../util/isEntryModule.mjs';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import {fileURLToPath}           from 'url';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import isEntryModule             from '../util/isEntryModule.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 const
     __dirname      = fileURLToPath(new URL('../', import.meta.url)),
@@ -47,7 +48,7 @@ program
     .option('-M, --createModel <value>',         'Create a matching data.Model when generating a data.Store? Pick "yes" or "no"',             sanitizeInput)
     .option('-p, --createStateProvider <value>', 'Create a matching state.Provider when generating a view? Pick "yes" or "no"',               sanitizeInput)
     .option('-m, --createStore <value>',         'Create a matching data.Store when generating a data.Model? Pick "yes" or "no"',             sanitizeInput)
-    .option('-r, --scss <value>',                'The scss class',                                                                            sanitizeInput)
+    .option('-r, --scss <value>',                'The css class',                                                                          sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -98,6 +99,15 @@ if (programOpts.info) {
         }
     }
 
+    assertInteractivePrompt({
+        command: 'npm run create-class -- -c MyApp.view.MainContainer -b container.Base -n no -C no -p no',
+        missing: [
+            !programOpts.className && 'className (-c)',
+            !programOpts.baseClass && 'baseClass (-b)',
+            !programOpts.singleton && 'singleton (-n)'
+        ].filter(Boolean)
+    });
+
     let answers = {},
         answer;
 
@@ -144,7 +154,7 @@ if (programOpts.info) {
         });
     }
 
-    answer = await inquirer.prompt(questions);
+    answer = questions.length ? await inquirer.prompt(questions) : {};
 
     Object.assign(answers, answer);
 
@@ -283,6 +293,11 @@ if (programOpts.info) {
             let createModel = programOpts.createModel;
 
             if (!createModel && !isDrop) {
+                assertInteractivePrompt({
+                    command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -M no`,
+                    missing: ['createModel (-M)']
+                });
+
                 answer = await inquirer.prompt({
                     type   : 'select',
                     name   : 'createModel',
@@ -316,6 +331,27 @@ if (programOpts.info) {
         }
     }
 
+    const isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples'),
+          needsStorePrompt    = baseClass === 'data.Model' && !isDrop,
+          needsViewCompanions = isViewBaseClass(baseClass) && !isDrop && !isFrameworkSrc;
+
+    if (needsStorePrompt && !programOpts.createStore) {
+        assertInteractivePrompt({
+            command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -m no`,
+            missing: ['createStore (-m)']
+        });
+    }
+
+    if (needsViewCompanions) {
+        assertInteractivePrompt({
+            command: `npm run create-class -- -c ${className} -b ${baseClass} -n ${singleton} -C no -p no`,
+            missing: [
+                !programOpts.createController    && 'createController (-C)',
+                !programOpts.createStateProvider && 'createStateProvider (-p)'
+            ].filter(Boolean)
+        });
+    }
+
     createClass({
         baseClass,
         className,
@@ -332,7 +368,7 @@ if (programOpts.info) {
     if (baseClass === 'data.Model') {
         let createStore = programOpts.createStore;
 
-        if (!createStore && !isDrop) {
+        if (!createStore && needsStorePrompt) {
             answer = await inquirer.prompt({
                 type   : 'select',
                 name   : 'createStore',
@@ -379,10 +415,9 @@ if (programOpts.info) {
 
     if (isViewBaseClass(baseClass)) {
         let createController    = programOpts.createController,
-            createStateProvider = programOpts.createStateProvider,
-            isFrameworkSrc      = root === 'Neo' && !className.startsWith('Neo.examples');
+            createStateProvider = programOpts.createStateProvider;
 
-        if (!createController && !isDrop && !isFrameworkSrc) {
+        if (!createController && needsViewCompanions) {
             answer = await inquirer.prompt({
                 type   : 'select',
                 name   : 'createController',
@@ -419,7 +454,7 @@ if (programOpts.info) {
             }
         }
 
-        if (!createStateProvider && !isDrop && !isFrameworkSrc) {
+        if (!createStateProvider && needsViewCompanions) {
             answer = await inquirer.prompt({
                 type   : 'select',
                 name   : 'createStateProvider',

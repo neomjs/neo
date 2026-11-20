@@ -613,11 +613,12 @@ jobs:
               return
             }
 
-            // Count the contributor's public merged PRs once. Failure leaves the existing one-claim rule in force.
-            let claimLimit = 1;
+            // Count the contributor's public merged PRs once. Failure leaves the existing one-claim rule and the
+            // first-time greeting in force.
+            let claimLimit = 1, welcomeBack = false;
             try {
-              const {claimLimit: limitForStanding} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
-              if (typeof limitForStanding !== 'function') throw new Error('claim limit export unavailable');
+              const {claimLimit: limitForStanding, standing} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              if (typeof limitForStanding !== 'function' || typeof standing !== 'function') throw new Error('claim limit export unavailable');
               const {data} = await github.rest.search.issuesAndPullRequests({
                 q: `org:neomjs is:public is:pr is:merged author:${comment.user.login}`,
                 per_page: 1
@@ -627,7 +628,8 @@ jobs:
               }
               const resolved = limitForStanding(data.total_count);
               if (![1, 2].includes(resolved)) throw new Error('claim limit is invalid');
-              claimLimit = resolved
+              claimLimit  = resolved;
+              welcomeBack = standing(data.total_count).rung !== null
             } catch (error) {
               core.warning(`Could not resolve contributor standing; using one-claim limit: ${error.message}`)
             }
@@ -673,7 +675,8 @@ jobs:
               heldByClaimant,
               issue,
               openPullRequests,
-              repoUrl   : `https://github.com/${owner}/${repo}`
+              repoUrl   : `https://github.com/${owner}/${repo}`,
+              welcomeBack
             });
 
             if (!decision) {

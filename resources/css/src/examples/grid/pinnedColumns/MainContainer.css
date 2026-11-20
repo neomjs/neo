@@ -1,0 +1,106 @@
+/* Keep the example's palette on each theme carrier, including proxies mounted outside its viewport. */
+.neo-examples-grid-pinned-columns,
+.neo-examples-grid-pinned-columns [class*=neo-theme-],
+body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy,
+body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*=neo-theme-] {
+    --grid-container-border-color: var(--pinned-columns-border);
+    --grid-container-cell-background-color: var(--pinned-columns-surface);
+    --grid-container-cell-background-color-even: var(--pinned-columns-alternate);
+    --grid-container-color: var(--pinned-columns-text);
+    --grid-container-font-size: 13px;
+    --grid-cell-background-color-hover: var(--pinned-columns-hover);
+    --grid-header-button-background-color: var(--pinned-columns-header);
+    --grid-header-button-background-color-hover: var(--pinned-columns-hover);
+    --grid-header-button-background-image: none;
+    --grid-header-button-border-right-color: var(--pinned-columns-border);
+    --grid-header-button-color: var(--pinned-columns-text);
+    --grid-header-button-color-hover: var(--pinned-columns-accent);
+    --grid-header-button-font-size: 12px;
+    --grid-header-button-font-weight: 600;
+    --grid-header-button-glyph-color: var(--pinned-columns-muted);
+    --grid-header-button-glyph-color-hover: var(--pinned-columns-accent);
+    --grid-rowmodel-selected-cell-background-color: var(--pinned-columns-hover);
+    --grid-rowmodel-selected-cell-color: var(--pinned-columns-title);
+}
+.neo-examples-grid-pinned-columns .neo-grid-header-group-row .neo-grid-header-group-cell,
+.neo-examples-grid-pinned-columns [class*=neo-theme-] .neo-grid-header-group-row .neo-grid-header-group-cell,
+body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy .neo-grid-header-group-row .neo-grid-header-group-cell,
+body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*=neo-theme-] .neo-grid-header-group-row .neo-grid-header-group-cell {
+    color: var(--pinned-columns-accent);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+.neo-examples-grid-pinned-columns .neo-grid-row .neo-grid-cell,
+.neo-examples-grid-pinned-columns [class*=neo-theme-] .neo-grid-row .neo-grid-cell,
+body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy .neo-grid-row .neo-grid-cell,
+body:has(.neo-examples-grid-pinned-columns) .neo-dragproxy [class*=neo-theme-] .neo-grid-row .neo-grid-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+.neo-examples-grid-pinned-columns.neo-viewport {
+    background-color: var(--pinned-columns-background);
+    color           : var(--pinned-columns-text);
+    font-family     : var(--neo-font-family);
+
+    .pinned-columns-toolbar {
+        background-color: var(--pinned-columns-background);
+        gap             : 20px;
+        padding         : 24px;
+
+        .neo-button {
+            border       : 1px solid var(--pinned-columns-border);
+            border-radius: 8px;
+            color        : var(--pinned-columns-title);
+        }
+    }
+
+    .pinned-columns-title {
+        color         : var(--pinned-columns-title);
+        font-size     : 24px;
+        font-weight   : 700;
+        letter-spacing: -0.025em;
+        line-height   : 1.2;
+    }
+
+    .pinned-columns-instruction {
+        color      : var(--pinned-columns-muted);
+        font-size  : 13px;
+        line-height: 1.5;
+        margin-top : 6px;
+    }
+
+    .neo-grid-container {
+        background-color: var(--pinned-columns-surface);
+        box-shadow      : 0 -1px 0 var(--pinned-columns-border);
+    }
+
+    /* A styled scrollbar is drawn even where the platform overlays them (macOS), so the first frame shows that the
+       centre scrolls. It fills the 17px track the engine reserves below the body. */
+    .neo-grid-horizontal-scrollbar {
+        &::-webkit-scrollbar {
+            height: 16px;
+        }
+
+        &::-webkit-scrollbar-track {
+            background-color: var(--pinned-columns-header);
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-clip : padding-box;
+            background-color: var(--pinned-columns-muted);
+            border          : 4px solid transparent;
+            border-radius   : 8px;
+        }
+    }
+
+    @media (max-width: 700px) {
+        .pinned-columns-toolbar {
+            gap    : 12px;
+            padding: 18px 16px;
+        }
+
+        .pinned-columns-title {
+            font-size: 20px;
+        }
+    }
+}

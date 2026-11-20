@@ -13,8 +13,8 @@ import Base from '../core/Base.mjs';
  * Heights are keyed by record id, so they survive a sort or a filter of their store, and a new store starts without
  * any. A row whose height is not known yet uses the {@link #estimate}. A row can also carry an extra height
  * ({@link #setExtraHeights}), room below its cells for something that is not a cell. It adds to the row's
- * height, known or estimated, but never to {@link #measuredMean}. The geometry catches up lazily, on the next
- * read, in one of two passes:
+ * height, known or estimated, but never to {@link #measuredMean}, and the row renders without it
+ * ({@link #extraHeightAt}). The geometry catches up lazily, on the next read, in one of two passes:
  *
  * - **The full pass** follows a sort, filter, load or mutation of the store, or a new estimate: any height can
  *   now belong to any row. It resolves the record id of every row once, about 10 ms for 100k rows, and skips
@@ -213,7 +213,22 @@ class RowGeometry extends Base {
     }
 
     /**
-     * The height in px of the row at the given index.
+     * @summary The extra height in px of the row at the given index: room below its cells, inside its slot.
+     * {@link #heightAt} includes it, so the row renders at `heightAt(index) - extraHeightAt(index)`, and the
+     * extra starts that far below {@link #offsetAt}. It reads the record at the index in the store's current
+     * order, as the full pass does: `store.items`, never `getAt()`.
+     * @param {Number} index
+     * @returns {Number} `0` for a row without an extra height, or an index out of range
+     */
+    extraHeightAt(index) {
+        let extras = this.#extraHeights,
+            item   = extras.size > 0 ? this.store?.items[index] : undefined;
+
+        return item ? extras.get(this.getRecordId(item)) ?? 0 : 0
+    }
+
+    /**
+     * The height in px of the row at the given index, its extra height included.
      * @param {Number} index
      * @returns {Number}
      */

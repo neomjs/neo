@@ -243,10 +243,12 @@ test.describe('e2e CI selection — the engine tier and the local-only specs', (
         expect(split(), 'every shard computes the same split').toEqual(split());
     });
 
-    test('a file the table does not list yet counts as its median, and a shard that is not N/M is refused', () => {
-        const durations = {'a.spec.mjs': 10, 'b.spec.mjs': 20, 'c.spec.mjs': 90};
+    test('a file the table does not list yet plans at its 90th percentile, and a shard that is not N/M is refused', () => {
+        // Twenty files of 5 s to 100 s: the median is 55 s, the 90th percentile 95 s, the maximum 100 s
+        const durations = Object.fromEntries(Array.from({length: 20}, (_, index) => [`f${index}.spec.mjs`, (index + 1) * 5]));
 
-        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(20);
+        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations}).seconds).toBe(95);
+        expect(balancedShard({paths: ['new.spec.mjs'], shard: '1/1', durations: {}}).seconds, 'an empty table plans nothing').toBe(0);
 
         for (const shard of ['0/10', '11/10', '1/0', '3', 'a/b', '']) {
             expect(() => balancedShard({paths: [], shard, durations})).toThrow(`Shard '${shard}' is not N/M`);
@@ -439,6 +441,29 @@ test.describe('e2e CI selection — the selection on this tree', () => {
         // A log without timestamps, such as a local run's, falls back to the printed durations
         expect(engineDurations([ok(1, 'core/Boot.spec.mjs', '3ms'), ok(2, 'core/Boot.spec.mjs', '1.2s'), ok(3, 'grid/Heavy.spec.mjs', '1.9m')].join('\n')))
             .toEqual({'test/playwright/e2e/core/Boot.spec.mjs': 1.2, 'test/playwright/e2e/grid/Heavy.spec.mjs': 114})
+    });
+
+    test('several runs keep each file at its costliest run, never their sum', () => {
+        const ok   = (file, duration) => `  ✓  1 [chromium] › test/playwright/e2e/${file}:12:5 › a title (${duration})`,
+              fast = [ok('portal/Catalog.spec.mjs', '28s'), ok('core/Boot.spec.mjs', '5s')].join('\n'),
+              slow = [ok('portal/Catalog.spec.mjs', '1.4m'), ok('core/Boot.spec.mjs', '4s')].join('\n'),
+              most = {'test/playwright/e2e/core/Boot.spec.mjs': 5, 'test/playwright/e2e/portal/Catalog.spec.mjs': 84},
+              dir  = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-e2e-durations-')),
+              logs = [fast, slow].map((text, index) => {
+                  const file = path.join(dir, `run-${index}.log`);
+
+                  fs.writeFileSync(file, text);
+                  return file
+              });
+
+        expect(engineDurations(fast, slow)).toEqual(most);
+        // Control: one text is one run, so two runs pasted together add up
+        expect(engineDurations(`${fast}\n${slow}`)['test/playwright/e2e/portal/Catalog.spec.mjs']).toBe(112);
+        // The CLI takes one log file per run
+        expect(JSON.parse(execFileSync(process.execPath, ['buildScripts/util/e2eCiSelection.mjs', '--engine-durations', ...logs], {cwd: root}).toString()))
+            .toEqual(most);
+
+        fs.rmSync(dir, {recursive: true, force: true})
     });
 
     test('the classifier reads a full selection as its reasons, and a selected one as the engine tier\'s files and matrix', () => {

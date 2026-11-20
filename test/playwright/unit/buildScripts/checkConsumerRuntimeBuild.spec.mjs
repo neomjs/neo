@@ -113,6 +113,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
           APP_MARKED       = './node_modules/neo.mjs/dist/marked.mjs',
           ENGINE_RENDERER  = './node_modules/neo.mjs/src/canvas/Header.mjs',
           GRAPH_SCENE      = './node_modules/neo.mjs/src/canvas/GraphScene.mjs',
+          ROUND_TABLE      = './node_modules/neo.mjs/src/canvas/RoundTable.mjs',
           PROBE_RENDERER   = './apps/probe/canvas/ProbeRenderer.mjs',
           PACKAGE_RENDERER = './node_modules/neo-fixture-renderer/src/canvas/FixtureRenderer.mjs',
           PLAIN_RENDERER   = './node_modules/neo-fixture-plain/src/canvas/PlainRenderer.mjs',
@@ -361,7 +362,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
     test('a Canvas compile reaching the engine renderers, the consumer renderer and the declared package renderer passes, concatenated or not', () => {
         expect(collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [`${ENGINE_RENDERER} + 1 modules`, GRAPH_SCENE, ROUND_TABLE, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         )).toEqual([])
     });
@@ -372,14 +373,15 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
             CANVAS_EXPECTATIONS
         );
 
-        expect(failures).toHaveLength(2);
+        expect(failures).toHaveLength(3);
         expect(failures[0]).toContain('src/canvas/Header.mjs is absent, expected present');
-        expect(failures[1]).toContain('src/canvas/GraphScene.mjs is absent, expected present')
+        expect(failures[1]).toContain('src/canvas/GraphScene.mjs is absent, expected present');
+        expect(failures[2]).toContain('src/canvas/RoundTable.mjs is absent, expected present')
     });
 
     test('a Canvas compile without the graph-scene renderer fails on it alone', () => {
         const failures = collectConsumerBuildFailures(
-            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
+            {mode: 'production/canvas', moduleNames: [ENGINE_RENDERER, ROUND_TABLE, PROBE_RENDERER, PACKAGE_RENDERER], errors: []},
             CANVAS_EXPECTATIONS
         );
 
@@ -388,7 +390,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
     });
 
     test('a Canvas compile fails without the declared package renderer, and with an undeclared one', () => {
-        const engine = [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER],
+        const engine = [ENGINE_RENDERER, GRAPH_SCENE, ROUND_TABLE, PROBE_RENDERER],
               absent = collectConsumerBuildFailures({mode: 'development/canvas', moduleNames: engine, errors: []}, CANVAS_EXPECTATIONS),
               leaked = collectConsumerBuildFailures(
                   {mode: 'development/canvas', moduleNames: [...engine, PACKAGE_RENDERER, PLAIN_RENDERER], errors: []},
@@ -531,7 +533,7 @@ test.describe('check-consumer-runtime-build — rule logic', () => {
 
         const canvasFailures = collectConsumerBuildFailures({
             mode       : 'production/canvas',
-            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, PROBE_RENDERER, PACKAGE_RENDERER, `${adapterLeak} + 1 modules`],
+            moduleNames: [ENGINE_RENDERER, GRAPH_SCENE, ROUND_TABLE, PROBE_RENDERER, PACKAGE_RENDERER, `${adapterLeak} + 1 modules`],
             errors     : []
         }, CANVAS_EXPECTATIONS);
         expect(canvasFailures).toHaveLength(2);

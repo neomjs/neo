@@ -1,33 +1,34 @@
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {spawnSync}               from 'child_process';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 const
-    __dirname         = path.resolve(),
-    cwd               = process.cwd(),
-    nodeCmd           = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
-    requireJson       = path => JSON.parse(fs.readFileSync((path))),
-    packageJson       = requireJson(path.join(__dirname, 'package.json')),
-    insideNeo         = packageJson.name.includes('neo.mjs'),
-    neoPath           = insideNeo ? './' : './node_modules/neo.mjs/',
-    addonChoices      = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-    program           = new Command(),
-    programName       = `${packageJson.name} create-app`,
-    questions         = [],
-    frameworkScssPath = path.resolve(cwd, neoPath, 'resources/scss'),
-    workspaceScssPath = path.resolve(cwd, 'resources/scss'),
-    scssFolders       = [
-        ...(fs.existsSync(frameworkScssPath) ? fs.readdirSync(frameworkScssPath) : []),
-        ...(!insideNeo && fs.existsSync(workspaceScssPath) ? fs.readdirSync(workspaceScssPath) : [])
+    __dirname        = path.resolve(),
+    cwd              = process.cwd(),
+    nodeCmd          = os.platform().startsWith('win') ? 'node.exe' : 'node', // node binary based on OS
+    requireJson      = path => JSON.parse(fs.readFileSync((path))),
+    packageJson      = requireJson(path.join(__dirname, 'package.json')),
+    insideNeo        = packageJson.name.includes('neo.mjs'),
+    neoPath          = insideNeo ? './' : './node_modules/neo.mjs/',
+    addonChoices     = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+    program          = new Command(),
+    programName      = `${packageJson.name} create-app`,
+    questions        = [],
+    frameworkCssPath = path.resolve(cwd, neoPath, 'resources/css'),
+    workspaceCssPath = path.resolve(cwd, 'resources/css'),
+    cssFolders       = [
+        ...(fs.existsSync(frameworkCssPath) ? fs.readdirSync(frameworkCssPath) : []),
+        ...(!insideNeo && fs.existsSync(workspaceCssPath) ? fs.readdirSync(workspaceCssPath) : [])
     ],
     themeFolders      = [...new Set(
-        scssFolders.filter(folder => folder.includes('theme')).map(folder => `neo-${folder}`)
+        cssFolders.filter(folder => folder.includes('theme')).map(folder => `neo-${folder}`)
     )];
 
 program
@@ -100,7 +101,12 @@ if (programOpts.info) {
         });
     }
 
-    inquirer.prompt(questions).then(answers => {
+    assertInteractivePrompt({
+        command: 'npm run create-app -- -a MyApp -t all -u no',
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(answers => {
         let appName          = programOpts.appName          || answers.appName,
             mainThreadAddons = programOpts.mainThreadAddons || ['DragDrop', 'Navigator', 'Stylesheet'],
             themes           = programOpts.themes           || answers.themes,

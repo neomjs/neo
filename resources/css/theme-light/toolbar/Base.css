@@ -1,0 +1,10 @@
+:root .neo-theme-light { /* .neo-toolbar */
+    --toolbar-background-color: #fff;
+    --toolbar-padding         : 5px;
+
+    /* A toolbar's buttons: the medium size, which is the theme's default, whatever an ancestor raises a button to */
+    --toolbar-button-font-size: var(--button-size-medium-font-size);
+    --toolbar-button-height   : var(--button-size-medium-height);
+    --toolbar-button-min-width: auto;
+    --toolbar-button-padding  : var(--button-size-medium-padding);
+}

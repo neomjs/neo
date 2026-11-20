@@ -76,6 +76,82 @@ test('runner restores modified, deleted and added source while keeping head spec
     }
 });
 
+test('runner keeps the base pass alive when a change edits the lockfile alongside a unit spec', () => {
+    // CI installs node_modules at the merge commit, so the install record matches the head lock. The base pass then
+    // restores the parent's lockfile next to that head install, and a config guarded by assertInstallMatchesLock
+    // refuses to load. The fixture models exactly that pair: install record and head lock agree, the parent's lock
+    // does not.
+    const root  = mkdtempSync(path.join(tmpdir(), 'neo-red-on-base-lock-')),
+          git   = (...args) => execFileSync('git', args, {cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe']}),
+          write = (file, contents) => {
+              mkdirSync(path.dirname(path.join(root, file)), {recursive: true});
+              writeFileSync(path.join(root, file), contents)
+          },
+          clean = () => rmSync(root, {recursive: true, force: true});
+
+    try {
+        git('init', '-q');
+        git('config', 'user.name', 'Runner fixture');
+        git('config', 'user.email', 'fixture@example.invalid');
+        copyFileSync(path.resolve('package-lock.json'), path.join(root, 'package-lock.json'));
+        for (const file of ['check-installed-dependencies.mjs', 'isEntryModule.mjs']) {
+            write(`buildScripts/util/${file}`, readFileSync(path.resolve('buildScripts/util', file)))
+        }
+        write('test/playwright/playwright.config.unit.mjs', `import {assertInstallMatchesLock} from '../../buildScripts/util/check-installed-dependencies.mjs';
+assertInstallMatchesLock();
+export default { testDir: './unit', projects: [{name: 'unit-engine'}], timeout: 10000 };`);
+        for (const file of ['runRedOnBase.mjs', 'compareRedOnBase.mjs']) {
+            copyFileSync(path.resolve('test/playwright', file), path.join(root, 'test/playwright', file))
+        }
+        write('.gitignore', 'node_modules\ntest/playwright/test-results/\nsummary.md\n');
+        write('package.json', '{"type":"module"}');
+        write('source.mjs', 'export const value = 1;\n');
+        write('test/playwright/unit/demo.spec.mjs', `import {test, expect} from '@playwright/test';
+    import {value} from '../../../source.mjs';
+    test('existing', () => expect(typeof value).toBe('number'));
+`);
+        git('add', '.');
+        git('commit', '-qm', 'base');
+
+        // The head install: a real directory holding the install record CI would have written at the head commit,
+        // plus a junction so the spec's `@playwright/test` import resolves to the real module.
+        const lock        = JSON.parse(readFileSync(path.join(root, 'package-lock.json'), 'utf8')),
+              installed   = JSON.parse(readFileSync(path.resolve('node_modules/.package-lock.json'), 'utf8')),
+              [bumpedKey] = Object.entries(lock.packages)
+                  .filter(([key, pkg]) => key.startsWith('node_modules/') && pkg.version && !pkg.link && installed.packages[key])
+                  .map(([key]) => key);
+        expect(bumpedKey, 'the real install must contain a bumpable package').toBeTruthy();
+        lock.packages[bumpedKey].version += '-redbase';
+        installed.packages[bumpedKey].version += '-redbase';
+        write('package-lock.json', JSON.stringify(lock, null, 2));
+        mkdirSync(path.join(root, 'node_modules/@playwright'), {recursive: true});
+        symlinkSync(path.resolve('node_modules/@playwright/test'), path.join(root, 'node_modules/@playwright/test'), 'junction');
+        writeFileSync(path.join(root, 'node_modules/.package-lock.json'), JSON.stringify(installed));
+
+        write('source.mjs', 'export const value = 2;\n');
+        write('test/playwright/unit/demo.spec.mjs', `import {test, expect} from '@playwright/test';
+    import {value} from '../../../source.mjs';
+    test('existing', () => expect(typeof value).toBe('number'));
+    test('requires source fix', () => expect(value).toBe(2));
+`);
+        git('add', '.');
+        git('commit', '-qm', 'head');
+
+        const result = spawnSync(process.execPath, ['test/playwright/runRedOnBase.mjs'], {
+            cwd: root, encoding: 'utf8', env: {...process.env, GITHUB_STEP_SUMMARY: path.join(root, 'summary.md')}
+        });
+        expect(result.status, result.stderr).toBe(0);
+        const rows = JSON.parse(readFileSync(path.join(root, 'test/playwright/test-results/red-on-base/comparison.json'), 'utf8'));
+        // The runner leaves package.json and package-lock.json at the head, so the base pass loads with the head lock
+        // against the head install, and the worktree lock is the head's, not the parent's.
+        expect(rows.find(row => row.titlePath.at(-1) === 'requires source fix')).toMatchObject({classification: 'fails-without-change', isNew: true});
+        expect(existsSync(path.join(root, 'test/playwright/test-results/red-on-base/base.json'))).toBe(true);
+        expect(readFileSync(path.join(root, 'package-lock.json'), 'utf8')).toContain('-redbase');
+    } finally {
+        clean()
+    }
+});
+
 test('runner skips a test-only change with an explicit reason and no report runs', () => {
     const {root, git, write} = fixture();
     try {

@@ -14,7 +14,7 @@ test.describe('Neo boot on an insecure HTTP origin', () => {
 
             url.hostname = new URL(baseURL).hostname;
 
-            const response = await route.fetch({url: url.href});
+            const response = await route.fetch({url: url.href, maxRetries: 2});
             await route.fulfill({response})
         });
 
@@ -26,14 +26,14 @@ test.describe('Neo boot on an insecure HTTP origin', () => {
 
             const cryptoCapabilities = await page.evaluate(() => ({
                 getRandomValues: typeof crypto.getRandomValues,
-                isSecureContext : isSecureContext,
-                randomUUID      : typeof crypto.randomUUID
+                isSecureContext,
+                randomUUID     : typeof crypto.randomUUID
             }));
 
             expect(cryptoCapabilities).toEqual({
                 getRandomValues: 'function',
-                isSecureContext : false,
-                randomUUID      : 'undefined'
+                isSecureContext: false,
+                randomUUID     : 'undefined'
             });
 
             await expect(page.locator('#component-test-viewport')).toBeAttached();

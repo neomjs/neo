@@ -1,0 +1,28 @@
+.neo-examples-treebigdata-maincontainer {
+    gap    : 12px;
+    padding: 0 1rem 1rem;
+
+    /* The open Settings panel overlays the right edge */
+    &.neo-controls-expanded {
+        padding-right: calc(235px + 1rem);
+    }
+
+    .neo-examples-treebigdata-header {
+        /* The menu button floats over the header's right end */
+        padding: 1rem 3rem 0 0;
+    }
+
+    .neo-examples-treebigdata-title {
+        font-size  : 20px;
+        font-weight: 600;
+        line-height: 1.25;
+        margin     : 0 0 4px;
+    }
+
+    .neo-examples-treebigdata-instruction {
+        font-size  : 13px;
+        line-height: 1.45;
+        margin     : 0;
+        opacity    : .85;
+    }
+}

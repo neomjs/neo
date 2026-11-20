@@ -270,7 +270,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
     });
 
     test('every defined family names its search intent within the title limit', async () => {
-        const source      = await fs.readFile(path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'), 'utf-8'),
+        const source      = await fs.readFile(path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'), 'utf-8'),
               definitions = extractExampleFamilyDefinitions(source).filter(item => item.family);
 
         expect(definitions.map(item => item.family).sort()).toEqual(Object.keys(EXAMPLE_FAMILY_SEO).sort());
@@ -289,9 +289,9 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
     });
 
     test('a group publishes through alsoIn, and a record counts only where production can open it', async () => {
-        const examplesTabContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
-              examplesPath             = path.join(tempDir, 'examples.json'),
-              urls                     = {dist_prod: 'dist/production/examples/dialog/index.html'};
+        const examplesMainContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'),
+              examplesPath              = path.join(tempDir, 'examples.json'),
+              urls                      = {dist_prod: 'dist/production/examples/dialog/index.html'};
 
         await fs.writeJSON(examplesPath, [
             {id: 'dialog-drag-drop', family: 'dialogs', alsoIn: ['drag-drop'], image: 'devmode/dialog.png', urls, feature: 'Draggable dialogs'},
@@ -299,31 +299,30 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
             {id: 'tree-dev-only', family: 'tree', image: 'devmode/tree.png', urls: {devmode: 'examples/tree/index.html'}, feature: 'No production build'}
         ]);
 
-        const published = await getPublishedExampleFamilies({examplesPath, examplesTabContainerPath, root: tempDir});
+        const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
 
         // Definition order, with the alsoIn member counted in both groups; neither tree record is one production opens
-        expect(published.map(item => item.route)).toEqual(['/examples/drag-drop', '/examples/dialogs']);
+        expect(published.map(item => item.route)).toEqual(['/examples/dialogs', '/examples/drag-drop']);
         expect(published.map(item => item.records.map(record => record.id))).toEqual([['dialog-drag-drop'], ['dialog-drag-drop']])
     });
 
-    test('extracts familyDefinitions from TabContainer.mjs, refuses unreadable AST shapes, and emits only covered families', async () => {
-        const examplesTabContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs');
-        const tabContainerSource       = await fs.readFile(examplesTabContainerPath, 'utf-8');
-        const definitions              = extractExampleFamilyDefinitions(tabContainerSource);
+    test('extracts familyDefinitions from MainContainer.mjs, refuses unreadable AST shapes, and emits only covered families', async () => {
+        const examplesMainContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs');
+        const mainContainerSource       = await fs.readFile(examplesMainContainerPath, 'utf-8');
+        const definitions               = extractExampleFamilyDefinitions(mainContainerSource);
 
         expect(definitions.length).toBeGreaterThan(1);
         expect(definitions[0]).toEqual({
-            family: null,
-            route : '/examples',
-            title : 'Featured'
+            family: 'apps',
+            route : '/examples/apps',
+            title : 'Apps'
         });
 
-        const nonFeatured    = definitions.slice(1);
-        const familyRouteIds = nonFeatured.map(item => item.route);
+        const familyRouteIds = definitions.map(item => item.route);
 
-        expect(new Set(familyRouteIds).size).toBe(nonFeatured.length);
+        expect(new Set(familyRouteIds).size).toBe(definitions.length);
 
-        for (const item of nonFeatured) {
+        for (const item of definitions) {
             expect(typeof item.family).toBe('string');
             expect(item.family.length).toBeGreaterThan(0);
             expect(typeof item.title).toBe('string');
@@ -332,7 +331,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         }
 
         expect(() => extractExampleFamilyDefinitions('')).toThrow(/non-empty string/);
-        expect(() => extractExampleFamilyDefinitions('class TabContainer {}')).toThrow(/no definitions found/);
+        expect(() => extractExampleFamilyDefinitions('class MainContainer {}')).toThrow(/no definitions found/);
         expect(() => extractExampleFamilyDefinitions('const config = {familyDefinitions: SOME_IDENTIFIER};')).toThrow(/ArrayExpression/);
         expect(() => extractExampleFamilyDefinitions('const config = {familyDefinitions: [{family: "grid-table", route: "/examples/grid"}]};')).toThrow(/Incomplete familyDefinitions entry/);
 
@@ -381,10 +380,10 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
 
         await expect(getPublishedExampleFamilies({examplesPath, root: tempDir})).rejects.toThrow();
 
-        const published = await getPublishedExampleFamilies({examplesPath, examplesTabContainerPath, root: tempDir});
+        const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
         expect(published.map(item => item.route)).toEqual(['/examples/grid']);
 
-        const familyRoutes = await collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, root: tempDir});
+        const familyRoutes = await collectExampleFamilyRoutes({examplesPath, examplesMainContainerPath, root: tempDir});
         expect(familyRoutes).toEqual([
             {
                 category: 'example-family',
@@ -397,7 +396,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         const seoJson = await getSeoJson({
             blogIndexPath   : path.join(tempDir, 'no-blog.json'),
             examplesPath,
-            examplesTabContainerPath,
+            examplesMainContainerPath,
             learnDir        : path.join(tempDir, 'no-learn'),
             releaseNotesRoot: path.join(tempDir, 'no-notes'),
             releasesPath    : path.join(tempDir, 'no-releases.json'),
@@ -422,7 +421,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
             baseUrl       : 'https://neomjs.com/',
             corpusRoot,
             examplesPath,
-            examplesTabContainerPath,
+            examplesMainContainerPath,
             includeLastmod: false,
             releaseNotesRoot
         };
@@ -1139,8 +1138,8 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(hasReliableGitHistory(noGitRoot)).toBe(false);
 
         await fs.copy(
-            path.resolve(process.cwd(), 'apps/portal/view/examples/TabContainer.mjs'),
-            path.join(noGitRoot, 'apps/portal/view/examples/TabContainer.mjs')
+            path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'),
+            path.join(noGitRoot, 'apps/portal/view/examples/MainContainer.mjs')
         );
         await fs.outputFile(
             path.join(noGitRoot, 'learn/benefits/Introduction.md'),

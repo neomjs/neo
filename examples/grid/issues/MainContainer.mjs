@@ -146,7 +146,7 @@ class MainContainer extends Viewport {
 
     /**
      * @summary Switches the grid between content-sized and fixed rows; fixed rows show one line of each title and
-     * summary, cut with an ellipsis (MainContainer.scss).
+     * summary, cut with an ellipsis (MainContainer.css).
      * @param {Object} data
      * @param {Boolean} data.value
      */

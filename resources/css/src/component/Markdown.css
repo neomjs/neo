@@ -1,0 +1,224 @@
+.neo-markdown-component {
+    background-color: var(--markdown-bg);
+    border-radius: 8px;
+    color: var(--markdown-text-color);
+    letter-spacing: 1px;
+    margin: 0 auto;
+    max-width: 1200px;
+    overflow: unset;
+    padding: 0 3rem;
+    width: -webkit-fill-available;
+}
+
+@media (max-width: 600px) {
+    .neo-markdown-component {
+        overflow-x: hidden;
+        padding: 1rem 1rem 0;
+    }
+}
+
+.neo-markdown-component a {
+    color: var(--markdown-link-color);
+}
+
+.neo-markdown-component blockquote {
+    background-color: var(--markdown-blockquote-bg);
+    border-left: 4px solid var(--markdown-blockquote-border);
+    font-style: italic;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 5px 5px 5px 15px;
+}
+
+.neo-markdown-component details {
+    interpolate-size: allow-keywords;
+    margin: 1em 0 1em 0;
+}
+
+.neo-markdown-component details::details-content {
+    block-size: 0;
+    content-visibility: auto;
+    opacity: 0;
+    overflow: hidden;
+    transition: block-size 300ms ease-out, content-visibility 300ms allow-discrete, opacity 300ms ease-out;
+}
+
+.neo-markdown-component details[open] {
+    margin-bottom: 2em;
+}
+
+.neo-markdown-component details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+}
+
+.neo-markdown-component details summary {
+    align-items: center;
+    color: var(--markdown-details-summary-color);
+    cursor: pointer;
+    display: flex;
+    font-weight: bold;
+    list-style: none;
+}
+
+.neo-markdown-component details[open] summary::before {
+    transform: rotate(45deg);
+}
+
+.neo-markdown-component details summary::before {
+    color: var(--markdown-details-icon-color);
+    content: "\f055";
+    font-family: var(--fa-style-family, "Font Awesome 7 Free");
+    font-size: 1em;
+    font-weight: var(--fa-style, 900);
+    margin: 0.4em 0.4em 0.4em 0;
+    transition: transform 300ms ease-out;
+}
+
+.neo-markdown-component h1.neo-h1 {
+    color: var(--markdown-h1-color);
+}
+
+.neo-markdown-component h1.neo-h1 code {
+    font-family: inherit !important;
+    font-size: 0.8em !important;
+    font-weight: inherit !important;
+}
+
+.neo-markdown-component h2.neo-h2 code,
+.neo-markdown-component h3.neo-h3 code {
+    font-family: inherit !important;
+    font-size: 1em !important;
+    font-weight: inherit !important;
+}
+
+.neo-markdown-component hr {
+    border: 0;
+    border-top: 1px solid var(--markdown-hr-border);
+    margin: 2rem 0;
+}
+
+.neo-markdown-component .lab {
+    box-shadow: var(--markdown-lab-shadow);
+    font-size: 1em;
+    margin-bottom: 1em;
+    padding: 2px 16px;
+    transition: 0.3s;
+}
+
+.neo-markdown-component .lab:hover {
+    /* On mouse-over, add a deeper shadow */
+    box-shadow: var(--markdown-lab-shadow-hover);
+}
+
+.neo-markdown-component li::marker {
+    color: var(--markdown-list-marker-color);
+}
+
+.neo-markdown-component p {
+    margin: 0.5em 0 0.7em 0;
+}
+
+.neo-markdown-component pre code.language-text:not(.hljs) {
+    background-color: var(--markdown-code-bg);
+    border: thin solid var(--markdown-code-border);
+    display: block;
+    font-size: 13px;
+    overflow-x: auto;
+    padding: 12px;
+    white-space: pre;
+}
+
+.neo-markdown-component pre.hljs {
+    border: thin solid var(--markdown-pre-border);
+    border-radius: 4px;
+    letter-spacing: 0;
+    overflow-x: scroll;
+    padding: 12px;
+}
+
+.neo-markdown-component summary::-webkit-details-marker {
+    display: none;
+}
+
+.neo-markdown-component .neo-frontmatter-table,
+.neo-markdown-component > table,
+.neo-markdown-component .neo-markdown-table-wrapper > table {
+    border: 1px solid var(--markdown-table-border);
+    border-collapse: separate;
+    border-radius: 4px;
+    border-spacing: 0;
+    margin: 1em 0;
+    overflow: hidden;
+    width: 100%;
+}
+
+.neo-markdown-component .neo-frontmatter-table th, .neo-markdown-component .neo-frontmatter-table td,
+.neo-markdown-component > table th,
+.neo-markdown-component > table td,
+.neo-markdown-component .neo-markdown-table-wrapper > table th,
+.neo-markdown-component .neo-markdown-table-wrapper > table td {
+    border-bottom: 1px solid var(--markdown-table-border);
+    border-right: 1px solid var(--markdown-table-border);
+    max-width: 48ch;
+    overflow-wrap: anywhere;
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.neo-markdown-component .neo-frontmatter-table th:last-child,
+.neo-markdown-component .neo-frontmatter-table td:last-child,
+.neo-markdown-component > table th:last-child,
+.neo-markdown-component > table td:last-child,
+.neo-markdown-component .neo-markdown-table-wrapper > table th:last-child,
+.neo-markdown-component .neo-markdown-table-wrapper > table td:last-child {
+    border-right: none;
+}
+
+.neo-markdown-component .neo-frontmatter-table tr:last-child td,
+.neo-markdown-component > table tr:last-child td,
+.neo-markdown-component .neo-markdown-table-wrapper > table tr:last-child td {
+    border-bottom: none;
+}
+
+.neo-markdown-component .neo-frontmatter-table th,
+.neo-markdown-component > table th,
+.neo-markdown-component .neo-markdown-table-wrapper > table th {
+    background-color: var(--markdown-table-header-bg);
+    font-weight: bold;
+}
+
+.neo-markdown-component .neo-markdown-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.neo-markdown-component .neo-markdown-table-wrapper > table {
+    margin: 1em 0;
+    min-width: 100%;
+    width: max-content;
+}
+
+.neo-markdown-component .neo-frontmatter-table {
+    margin-bottom: 20px;
+    width: fit-content;
+}
+
+.neo-markdown-component .neo-frontmatter-table td {
+    padding: 4px 10px;
+}
+
+.neo-markdown-component .neo-frontmatter-table td:first-child {
+    font-weight: bold;
+}
+
+.neo-markdown-component .neo-markdown-image-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    text-align: center;
+}
+
+.neo-markdown-component .neo-markdown-image-wrapper img {
+    max-width: initial;
+}

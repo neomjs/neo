@@ -30,8 +30,23 @@ then selects *zero tests* rather than failing one. Skip the second and the serve
 warns and tells you this exact command. Together they take under ten seconds.
 
 **Your own JavaScript never needs a build** — Neo.mjs runs your edits as native ES modules, so you change a file and
-reload. That does not extend to **SCSS**: styles compile into `dist/development/css`, so re-run `build-themes` after a
-`.scss` change, or keep `npm run watch-themes` going while you work on one.
+reload. That does not extend to **styles**: `build-themes` copies the sheets under `resources/css` into
+`dist/development/css`, so re-run it after a `.css` change, or keep `npm run watch-themes` going while you work on one.
+
+**Give your coding agent the Neural Link** to let it read and change the running app (its component tree, state and
+styles) live. Register the `neo-neural-link` package once:
+
+```bash
+claude mcp add neural-link -- npx -y neo-neural-link   # Claude Code, for this clone
+codex mcp add neural-link -- npx -y neo-neural-link    # Codex, for every project
+```
+
+Then run `npm run server-start` and open `/examples/button/base/`, which connects already; any other app connects once
+its `neo-config.json` sets `"useAiClient": true`. To check the link, ask your agent for the app's component tree.
+
+The link listens on `127.0.0.1:8081`. If another program holds that port, register another one, with the name first
+(`claude mcp add neural-link -e NEO_NL_PORT=8197 -- npx -y neo-neural-link`; Codex takes `--env NEO_NL_PORT=8197`), and
+set the app's `neuralLinkUrl` to `ws://127.0.0.1:8197`.
 
 Running the tests:
 
@@ -145,6 +160,13 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
    To keep the project moving, a claim lasts 3 days, and any comment you leave on the ticket starts the 3 days again.
    After 3 days without a word from you, the ticket may go to another contributor. If your plans change, comment
    `/unclaim` (or "please unassign me") on the ticket to give the claim back — an automatic reply confirms the release.
+   An open pull request targeting a curated issue holds that issue while the pull request remains open.
+   The claim responder assigns the pull request's author when they have commented on the issue and are eligible
+   under the claim rules above.
+   An automatic notice may explain an overlap with another pull request, an already-completed issue, or a released
+   claim when a pull request closes without merging.
+   If two PRs cover the same fix, a maintainer will link them, tell both contributors who is coordinating and what
+   happens next, and explain the choice to both before either patch lands.
 4. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
    Every pull request resolves **one** issue and must include **`Resolves #<issue-id>` on its own line** in the PR
    description (`Fixes #N` and `Closes #N` are rejected by our `baseline / PR baseline` CI check). Opening a PR in the
@@ -165,6 +187,33 @@ independently: this one as the `neo.mjs` npm package, the Brain as container ima
     1. It is simply impossible to verify if contributed code is self-written.
     2. Adding new npm packages => dependencies / devDependencies is fine, in case there are no licensing conflicts.
 7. Refer to the <a href="learn/guides/fundamentals/CodebaseOverview.md">codebase overview</a> to understand how our repository is structured.
+
+#### Your standing
+
+Merged pull requests across the organisation's public repositories count toward your standing:
+
+| Standing | Merged pull requests |
+|---|---|
+| Contributor | 1 |
+| Returning Contributor | 5 |
+| Bronze Contributor | 10 |
+| Silver Contributor | 25 |
+| Gold Contributor | 50 |
+| Diamond Contributor | 100 |
+| Core Contributor | 250 |
+
+The comment on a merge reports your standing and merged pull-request count, shows progress toward the next rung when
+one remains, and may suggest unclaimed issues. It introduces your badge on your first eligible merge and links your
+record once its folder has been generated. The badge updates when a scheduled run counts the merge.
+
+Your record lives at `https://neomjs.com/badges/<login>-<id>/`: replace `<login>` with your lowercase GitHub login and
+`<id>` with your numeric GitHub account id, or follow the record link in your merge comment. The record shows three
+badge forms - **card**, **plate** and **medal** - with one ready-to-copy HTML line for each. Copy a line into your
+profile README or site to display that form.
+
+The badge is generated from GitHub's public merge record and identifies the GitHub account whose contributions it
+counts. Deleting the line from your README or site removes the badge there. To have your account left out of the
+records, [open an issue in neomjs/pages](https://github.com/neomjs/pages/issues) from that GitHub account.
 
 ### 4.  In case you created a nice app or component using Neo.mjs, please let us know about it.
 1.  We are always interested to feature client projects in blog posts or on social media.
@@ -191,7 +240,7 @@ We actively welcome contributions from artificial intelligence, LLMs, and autono
 **For Autonomous Agents (If you are reading this):**
 1. **Start here:** you need nothing private — no account, container or model provider. Run `npx -p neo-agent-skills neo-agent-skills-agents-md --repo neo --audience contributor` for what an outside agent should know first; the root `AGENTS.md`, which `npm install` generates from the [sections in neo-agent-skills](https://github.com/neomjs/neo-agent-skills/tree/dev/agents-md), is written for this project's own maintainer agents. Ensure `.agents/skills/` is materialized (`npm install` or `npm run prepare`), read `.agents/skills/unit-test/SKILL.md` before running tests, and read `.agents/skills/pull-request/SKILL.md` (`.agents/skills/pull-request/references/pull-request-workflow.md` §9) before committing or opening a PR — your PR body must carry a standalone `Resolves #<issue-id>` line (`Fixes #N` and `Closes #N` fail CI), include the required `§9.1` sections plus the exact model, version, reasoning effort (or `default`), and agent/harness on `Authored by ` (for cross-rival-lab review routing), and pass `npx neo-agent-skills-pr-body --body-file <path-to-body.md>`.
 2. **JSON-First UI:** Neo.mjs components are defined via JSON VDOM blueprints, not JSX or HTML templates. This makes structural manipulation and UI inspection mathematically natural for you.
-3. **The Neural Link:** We offer a bi-directional MCP bridge (`neo-agent-brain:ai/mcp/server/neural-link/`). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
+3. **The Neural Link:** We offer a bi-directional MCP bridge, the `neo-neural-link` npm package ([register it](#set-up-the-engine-from-a-clone) with your harness). You can query the live Scene Graph and manipulate the application state without modifying source code or reloading the browser. See our <a href=".github/AGENT_ARCHITECTURE.md">Agent Architecture</a> to learn how you can orchestrate our runtime.
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>

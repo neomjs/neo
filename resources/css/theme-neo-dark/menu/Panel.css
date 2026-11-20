@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-dark) { /* .neo-menu */
+    --menu-border-color: var(--sem-color-border-default);
+}

@@ -25,7 +25,7 @@ import * as core             from '../../../../../../src/core/_export.mjs';
 import Instance              from '../../../../../../src/manager/Instance.mjs';
 import MenuList              from '../../../../../../src/menu/List.mjs';
 import Apps                  from '../../../../../../apps/webdesktop/store/Apps.mjs';
-import Launcher              from '../../../../../../apps/webdesktop/view/Launcher.mjs';
+import Launcher              from '../../../../../../src/desktop/Launcher.mjs';
 import PermissionList        from '../../../../../../apps/webdesktop/view/PermissionList.mjs';
 import Permissions           from '../../../../../../apps/webdesktop/store/Permissions.mjs';
 import Taskbar               from '../../../../../../apps/webdesktop/view/Taskbar.mjs';
@@ -94,7 +94,8 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
 
         instances.push(naive);
 
-        expect(naive.getCount()).toBe(16)
+        // Every node of the catalog: 5 groups and 10 apps
+        expect(naive.getCount()).toBe(15)
     });
 
     test('the launcher renders the kept projection: groups as headers, apps as items', () => {
@@ -102,7 +103,7 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
 
         instances.push(launcher);
 
-        provider.setData('permissions', ['view-photos', 'view-videos']);
+        provider.setData('permissions', ['view-photos', 'view-music']);
 
         const items = launcher.vdom.cn;
 
@@ -183,93 +184,16 @@ test.describe('WebDesktop.view.ViewportStateProvider', () => {
         provider.setData('permissions', []);
 
         expect(root.activeSubMenu).toBeNull()
-    })
-});
+    });
 
-test.describe('WebDesktop launcher arrangement', () => {
-    const
-        realAddon       = Neo.main.addon.DragDrop,
-        realApplyDeltas = Neo.applyDeltas;
+    // The arrangement survives the grants: the engine's launcher spec runs the order rules on a generic filter
+    test('a permission change keeps the order of the remaining icons', () => {
+        const launcher = Neo.create(Launcher, {appName, store: apps}),
+              rendered = () => launcher.vdom.cn.map(item => apps.get(launcher.getItemRecordId(item.id)).id);
 
-    let apps, focused, launcher, provider;
-
-    /**
-     * @param {String} id
-     * @returns {Object} The path node of an icon, as the main thread reports it
-     */
-    const icon = (id, left=0) => ({cls: ['neo-list-item'], id: launcher.getItemId(apps.get(id)), rect: {height: 100, left, top: 0, width: 100}});
-
-    /**
-     * @returns {String[]} The rendered launcher, by record id
-     */
-    const rendered = () => launcher.vdom.cn.map(item => apps.get(launcher.getItemRecordId(item.id)).id);
-
-    test.beforeEach(async () => {
-        Neo.main.addon.DragDrop = {
-            registerZone       : async () => {},
-            setConfigs         : async () => ({boundaryContainerRect: {bottom: 600, left: 0, right: 800, top: 0}}),
-            setDragProxyElement: async () => {},
-            unregisterZone     : async () => {}
-        };
-
-        Neo.applyDeltas = async () => {};
-
-        focused  = [];
-        provider = Neo.create(ViewportStateProvider, {stores: {apps: Apps}});
-        apps     = provider.getStore('apps');
-        launcher = Neo.create(Launcher, {appName, bind: null, store: apps});
-
-        launcher.focus      = id => focused.push(id);
-        launcher.getDomRect = async () => ({height: 100, left: 0, top: 0, width: 100});
+        instances.push(launcher);
 
         provider.setData('permissions', ['view-mail', 'view-messages', 'view-calendar']);
-
-        await expect.poll(() => launcher.dragZone).toBeTruthy();
-        launcher.dragZone.timeout = () => Promise.resolve()
-    });
-
-    test.afterEach(() => {
-        launcher.destroy();
-        provider.destroy();
-        Neo.applyDeltas         = realApplyDeltas;
-        Neo.main.addon.DragDrop = realAddon
-    });
-
-    test('a drop writes the apps\' order, and the launcher renders the store\'s sort', async () => {
-        const zone = launcher.dragZone;
-
-        await zone.onDragStart({clientX: 50, clientY: 50, path: [icon('mail'), {cls: [], id: launcher.id}], targetPath: []});
-        zone.onDragMove({clientX: 290, clientY: 50, targetPath: [icon('calendar', 200), {cls: [], id: launcher.id}]});
-
-        // The preview lives in the vdom only
-        expect(rendered()).toEqual(['communication', 'messages', 'calendar', 'mail']);
-        expect(apps.get('mail').order).toBe(0);
-
-        await zone.onDragEnd({});
-
-        expect(['mail', 'messages', 'calendar'].map(id => apps.get(id).order)).toEqual([2, 0, 1]);
-        expect(apps.items.map(record => record.id)).toEqual(['communication', 'messages', 'calendar', 'mail']);
-        expect(rendered()).toEqual(apps.items.map(record => record.id))
-    });
-
-    test('Ctrl+Shift+Right moves the focused app one place and keeps the focus on it; a bare arrow moves nothing', async () => {
-        const path = [icon('mail'), {cls: [], id: launcher.id}];
-
-        await launcher.moveFocusedApp({path}, 1);
-
-        expect(apps.get('mail').order).toBe(0);
-
-        await launcher.moveFocusedApp({ctrlKey: true, path, shiftKey: true}, 1);
-
-        expect(rendered()).toEqual(['communication', 'messages', 'mail', 'calendar']);
-        expect(focused).toEqual([launcher.getItemId(apps.get('mail'))]);
-
-        await launcher.moveFocusedApp({metaKey: true, path, shiftKey: true}, -1);
-
-        expect(rendered()).toEqual(['communication', 'mail', 'messages', 'calendar'])
-    });
-
-    test('a permission change keeps the order of the remaining icons', () => {
         apps.arrange({communication: ['calendar', 'messages', 'mail']});
 
         expect(rendered()).toEqual(['communication', 'calendar', 'messages', 'mail']);
@@ -281,36 +205,5 @@ test.describe('WebDesktop launcher arrangement', () => {
         provider.setData('permissions', ['view-mail', 'view-messages', 'view-calendar']);
 
         expect(rendered()).toEqual(['communication', 'calendar', 'messages', 'mail'])
-    });
-
-    test('the click\'s pointer decides: a finger or pen tap opens an app, a mouse click selects, on one touch device', () => {
-        const opened    = [],
-              realTouch = Neo.config.hasTouchEvents,
-              node      = icon('mail'),
-              click     = pointerType => launcher.onItemClick(node, {path: [node, {cls: [], id: launcher.id}], pointerType});
-
-        launcher.on('openApp', ({record}) => opened.push(record.id));
-
-        try {
-            // A touch-capable computer, used with a mouse, a finger and a pen
-            Neo.config.hasTouchEvents = true;
-
-            click('mouse');
-            expect(opened, 'a mouse click only selects').toEqual([]);
-
-            click('touch');
-            click('pen');
-            expect(opened).toEqual(['mail', 'mail']);
-
-            // A browser that reports no pointer on a click: the device decides
-            opened.length = 0;
-            click(undefined);
-            Neo.config.hasTouchEvents = false;
-            click(undefined);
-
-            expect(opened).toEqual(['mail'])
-        } finally {
-            Neo.config.hasTouchEvents = realTouch
-        }
     })
 });

@@ -33,12 +33,12 @@ test.describe('buildScripts/create/app.mjs & appMinimal.mjs theme discovery (#53
         fs.symlinkSync(path.join(engineRoot, 'buildScripts/util'), path.join(engineDir, 'buildScripts/util'), 'dir');
         fs.cpSync(path.join(engineRoot, 'resources/lib'), path.join(engineDir, 'resources/lib'), {recursive: true});
 
-        fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/scss/theme-neo-dark'),  {recursive: true});
-        fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/scss/theme-neo-light'), {recursive: true});
+        fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/css/theme-neo-dark'),  {recursive: true});
+        fs.mkdirSync(path.join(root, 'node_modules/neo.mjs/resources/css/theme-neo-light'), {recursive: true});
 
-        // Workspace custom theme + overlapping theme in resources/scss
-        fs.mkdirSync(path.join(root, 'resources/scss/theme-neo-dark'),  {recursive: true});
-        fs.mkdirSync(path.join(root, 'resources/scss/theme-workspace'), {recursive: true});
+        // Workspace custom theme + overlapping theme in resources/css
+        fs.mkdirSync(path.join(root, 'resources/css/theme-neo-dark'),  {recursive: true});
+        fs.mkdirSync(path.join(root, 'resources/css/theme-workspace'), {recursive: true});
 
         // Workspace myApps.json
         fs.mkdirSync(path.join(root, 'buildScripts'), {recursive: true});

@@ -401,15 +401,15 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
 }
 
 /**
- * @summary Extracts the `familyDefinitions` config array from `apps/portal/view/examples/TabContainer.mjs`
- * via AST parsing so `TabContainer.mjs` remains the single source of truth without booting the UI runtime.
+ * @summary Extracts the `familyDefinitions` config array from `apps/portal/view/examples/MainContainer.mjs`
+ * via AST parsing so `MainContainer.mjs` remains the single source of truth without booting the UI runtime.
  * Throws when `familyDefinitions` is missing, non-array, or contains non-literal/incomplete entries.
  * @param {String} [source='']
  * @returns {Array<{family: String|null, title: String, route: String}>}
  */
 export function extractExampleFamilyDefinitions(source='') {
     if (!source || typeof source !== 'string') {
-        throw new Error('Failed to extract familyDefinitions from TabContainer.mjs: source must be a non-empty string.');
+        throw new Error('Failed to extract familyDefinitions from MainContainer.mjs: source must be a non-empty string.');
     }
 
     const ast           = acorn.parse(source, {ecmaVersion: 'latest', sourceType: 'module'});
@@ -430,25 +430,25 @@ export function extractExampleFamilyDefinitions(source='') {
             foundProperty = true;
 
             if (node.value?.type !== 'ArrayExpression') {
-                throw new Error('Invalid familyDefinitions in TabContainer.mjs: expected an ArrayExpression.');
+                throw new Error('Invalid familyDefinitions in MainContainer.mjs: expected an ArrayExpression.');
             }
 
             for (const element of node.value.elements) {
                 if (element?.type !== 'ObjectExpression') {
-                    throw new Error('Invalid familyDefinitions entry in TabContainer.mjs: expected an ObjectExpression.');
+                    throw new Error('Invalid familyDefinitions entry in MainContainer.mjs: expected an ObjectExpression.');
                 }
 
                 const entry = {};
 
                 for (const prop of element.properties) {
                     if (prop?.type !== 'Property') {
-                        throw new Error('Invalid familyDefinitions property in TabContainer.mjs: expected a Property.');
+                        throw new Error('Invalid familyDefinitions property in MainContainer.mjs: expected a Property.');
                     }
 
                     const propKey = prop.key?.name ?? prop.key?.value;
 
                     if (!propKey || prop.value?.type !== 'Literal') {
-                        throw new Error(`Invalid familyDefinitions property "${propKey || 'unknown'}" in TabContainer.mjs: expected a Literal value.`);
+                        throw new Error(`Invalid familyDefinitions property "${propKey || 'unknown'}" in MainContainer.mjs: expected a Literal value.`);
                     }
 
                     entry[propKey] = prop.value.value;
@@ -459,7 +459,7 @@ export function extractExampleFamilyDefinitions(source='') {
                 const hasValidTitle  = typeof entry.title === 'string' && entry.title.length > 0;
 
                 if (!hasValidFamily || !hasValidRoute || !hasValidTitle) {
-                    throw new Error('Incomplete familyDefinitions entry in TabContainer.mjs: each entry requires literal family, route, and title.');
+                    throw new Error('Incomplete familyDefinitions entry in MainContainer.mjs: each entry requires literal family, route, and title.');
                 }
 
                 definitions.push({
@@ -484,7 +484,7 @@ export function extractExampleFamilyDefinitions(source='') {
     walk(ast);
 
     if (!foundProperty || definitions.length === 0) {
-        throw new Error('Failed to extract familyDefinitions from TabContainer.mjs: no definitions found.');
+        throw new Error('Failed to extract familyDefinitions from MainContainer.mjs: no definitions found.');
     }
 
     return definitions;
@@ -499,7 +499,7 @@ export function extractExampleFamilyDefinitions(source='') {
  */
 export const EXAMPLE_FAMILY_SEO = {
     apps          : {subject: 'JavaScript web app',              title: 'JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs'},
-    board         : {subject: 'JavaScript kanban board',         title: 'JavaScript Kanban Board — Columns, Swimlanes & Cards | Neo.mjs'},
+    board         : {subject: 'JavaScript task and kanban board', title: 'JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs'},
     buttons       : {subject: 'JavaScript button and menu',      title: 'JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs'},
     calendar      : {subject: 'JavaScript calendar',             title: 'MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs'},
     charts        : {subject: 'JavaScript chart and canvas',     title: 'JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs'},
@@ -517,9 +517,8 @@ export const EXAMPLE_FAMILY_SEO = {
     platform      : {subject: 'JavaScript web worker',           title: 'JavaScript Web Worker Examples — Workers & Platform | Neo.mjs'},
     scheduler     : {subject: 'JavaScript resource scheduler',   title: 'MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs'},
     state         : {subject: 'JavaScript state management',     title: 'JavaScript State Management Examples — Reactive Stores | Neo.mjs'},
-    tabs          : {subject: 'JavaScript tab container',        title: 'JavaScript Tab Container — Tab Bars on Any Side | Neo.mjs'},
-    timeline      : {subject: 'JavaScript timeline',             title: 'JavaScript Timeline Examples — Events on a Time Axis | Neo.mjs'},
-    tree          : {subject: 'JavaScript tree',                 title: 'JavaScript Tree Examples — Tree List & Accordion | Neo.mjs'}
+    tabs          : {subject: 'JavaScript tabs',                 title: 'JavaScript Tabs — Reorderable Tab Bars & Overflow | Neo.mjs'},
+    tree          : {subject: 'JavaScript tree and tree grid',   title: 'JavaScript Trees — Tree Grids, Lists & Accordions | Neo.mjs'}
 };
 
 /**
@@ -566,16 +565,16 @@ function formatExampleFamilyDescription(subject='', records=[]) {
 }
 
 /**
- * @summary Returns the ordered example groups (`family !== null`) from `apps/portal/view/examples/TabContainer.mjs`
+ * @summary Returns the ordered example groups (`family !== null`) from `apps/portal/view/examples/MainContainer.mjs`
  * that have at least one member in `apps/portal/resources/data/examples.json` publishing a card in production, each
  * with those members: a group publishes its search route once its overview has a card to show there.
  *
  * A member is a record whose home `family` is the group or whose `alsoIn` names it. A card publishes in production
  * when the record names a cover and production can open it, the rule of `Portal.model.Example.publishes()` for
- * `dist_prod`, which this build script cannot import. `TabContainerController.spec.mjs` holds the two to one result.
+ * `dist_prod`, which this build script cannot import. `MainContainerController.spec.mjs` holds the two to one result.
  * @param {Object} [options={}]
  * @param {String} [options.examplesPath]
- * @param {String} [options.examplesTabContainerPath]
+ * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: String|null, title: String, route: String}>} [options.familyDefinitions]
  * @param {String} [options.root=ROOT_DIR]
  * @returns {Promise<Array<{family: String, filePath: String, records: Object[], route: String, title: String}>>}
@@ -584,7 +583,7 @@ export async function getPublishedExampleFamilies(options={}) {
     const {
         root                     = ROOT_DIR,
         examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
-        examplesTabContainerPath = path.resolve(root, 'apps/portal/view/examples/TabContainer.mjs'),
+        examplesMainContainerPath = path.resolve(root, 'apps/portal/view/examples/MainContainer.mjs'),
         familyDefinitions
     } = options;
 
@@ -594,7 +593,7 @@ export async function getPublishedExampleFamilies(options={}) {
 
     const definitions = Array.isArray(familyDefinitions)
         ? familyDefinitions
-        : extractExampleFamilyDefinitions(await fs.readFile(examplesTabContainerPath, 'utf-8'));
+        : extractExampleFamilyDefinitions(await fs.readFile(examplesMainContainerPath, 'utf-8'));
 
     const examplesRaw = await fs.readJSON(examplesPath);
     const records     = (Array.isArray(examplesRaw) ? examplesRaw : Array.isArray(examplesRaw?.data) ? examplesRaw.data : [])
@@ -612,7 +611,7 @@ export async function getPublishedExampleFamilies(options={}) {
 
 /**
  * @summary Collects populated `/examples/<family>` overview routes from
- * `apps/portal/view/examples/TabContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
+ * `apps/portal/view/examples/MainContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
  * @param {Object} [options={}]
  * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
  */
@@ -807,7 +806,7 @@ export async function resolveLearnTreeLeaves(options={}) {
  * @param {String} [options.basePath='/learn']
  * @param {String} [options.blogIndexPath]
  * @param {String} [options.examplesPath]
- * @param {String} [options.examplesTabContainerPath]
+ * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: (String|null), title: String, route: String, iconCls: (String|undefined)}>} [options.familyDefinitions]
  * @param {String} [options.learnDir]
  * @param {String} [options.releaseNotesRoot]
@@ -825,7 +824,7 @@ export async function getSeoJson(options={}) {
         treeFilePath             = path.join(learnDir, 'tree.json'),
         blogIndexPath            = path.resolve(root, 'apps/portal/resources/data/blog.json'),
         examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
-        examplesTabContainerPath,
+        examplesMainContainerPath,
         familyDefinitions,
         releasesPath             = path.resolve(root, 'apps/portal/resources/data/releases.json'),
         releaseNotesRoot         = path.resolve(root, '.github/RELEASE_NOTES'),
@@ -1059,7 +1058,7 @@ export async function getSeoJson(options={}) {
     const [publishedFamilies, standaloneRoutes] = await Promise.all([
         getPublishedExampleFamilies({
             examplesPath,
-            examplesTabContainerPath,
+            examplesMainContainerPath,
             familyDefinitions,
             root
         }),

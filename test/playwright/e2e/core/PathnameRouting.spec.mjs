@@ -18,7 +18,7 @@ const card = {
  */
 async function servePathnameMode(page) {
     await page.route('**/apps/route/neo-config.json*', async route => {
-        const response = await route.fetch();
+        const response = await route.fetch({maxRetries: 2});
 
         await route.fulfill({response, json: {
             ...await response.json(),
@@ -30,7 +30,7 @@ async function servePathnameMode(page) {
     });
 
     await page.route(/\/apps\/route\/(home|section1|section2)(\?[^#]*)?$/, async route => {
-        const response = await route.fetch({url: new URL('/apps/route/index.html', route.request().url()).href}),
+        const response = await route.fetch({url: new URL('/apps/route/index.html', route.request().url()).href, maxRetries: 2}),
               html     = (await response.text()).replace('<head>', '<head>\n    <base href="/apps/route/">');
 
         await route.fulfill({response, body: html})

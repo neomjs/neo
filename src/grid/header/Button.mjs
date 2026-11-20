@@ -8,12 +8,20 @@ import TextField  from '../../form/field/Text.mjs';
  */
 class Button extends BaseButton {
     /**
-     * Valid values for align
-     * @member {String[]} cellAlignValues: ['left','center','right']
+     * Valid values for cellAlign
+     * @member {String[]} cellAlignValues=['left','center','right']
      * @protected
      * @static
      */
     static cellAlignValues = ['left', 'center', 'right']
+
+    /**
+     * Valid values for headerAlign
+     * @member {String[]} headerAlignValues=['auto','left','center','right']
+     * @protected
+     * @static
+     */
+    static headerAlignValues = ['auto', 'left', 'center', 'right']
 
     static config = {
         /**
@@ -36,6 +44,14 @@ class Button extends BaseButton {
          * @reactive
          */
         cellAlign_: 'left',
+        /**
+         * Alignment of this header's label. Valid values are auto, left, center, right.
+         * auto takes the value of cellAlign, so a right-aligned numeric column's header label
+         * sits over its digits without repeating the column's alignment config.
+         * @member {String} headerAlign_='left'
+         * @reactive
+         */
+        headerAlign_: 'left',
         /**
          * Enables the optional value-filter surface on this header.
          * @member {Boolean} columnMenu_=false
@@ -153,7 +169,7 @@ class Button extends BaseButton {
 
     /**
      * @summary Marks the header root and describes it as filtered. With a menu, the menu keeps its trigger shown;
-     * without one, the header shows its own mark (Button.scss).
+     * without one, the header shows its own mark (Button.css).
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -467,6 +483,29 @@ class Button extends BaseButton {
     }
 
     /**
+     * Triggered after the cellAlign config got changed.
+     * When headerAlign is 'auto', the header label follows the new cellAlign.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCellAlign(value, oldValue) {
+        if (oldValue !== undefined && this.headerAlign === 'auto') {
+            this.updateHeaderAlignCls()
+        }
+    }
+
+    /**
+     * Triggered after the headerAlign config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetHeaderAlign(value, oldValue) {
+        this.updateHeaderAlignCls()
+    }
+
+    /**
      * Triggered before the cellAlign config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -474,6 +513,39 @@ class Button extends BaseButton {
      */
     beforeSetCellAlign(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues')
+    }
+
+    /**
+     * Triggered before the headerAlign config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetHeaderAlign(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'headerAlign', 'headerAlignValues')
+    }
+
+    /**
+     * @summary Applies or removes the CSS classes that position the header label.
+     * The effective alignment is cellAlign when headerAlign is 'auto', otherwise headerAlign.
+     * 'left' sets no class (the button's default layout already places the label at the left edge).
+     * @protected
+     */
+    updateHeaderAlignCls() {
+        const
+            effective = this.headerAlign === 'auto' ? this.cellAlign : this.headerAlign,
+            {cls}     = this;
+
+        NeoArray.remove(cls, 'neo-header-align-center');
+        NeoArray.remove(cls, 'neo-header-align-right');
+
+        if (effective === 'center') {
+            NeoArray.add(cls, 'neo-header-align-center')
+        } else if (effective === 'right') {
+            NeoArray.add(cls, 'neo-header-align-right')
+        }
+
+        this.cls = cls
     }
 
     /**
@@ -620,6 +692,7 @@ class Button extends BaseButton {
         return {
             ...super.toJSON(),
             cellAlign           : me.cellAlign,
+            headerAlign         : me.headerAlign,
             columnMenu          : me.columnMenu,
             dataField           : me.dataField,
             defaultSortDirection: me.defaultSortDirection,

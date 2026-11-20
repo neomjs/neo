@@ -1,0 +1,280 @@
+/* the import order matters */
+
+
+:where(.neo-theme-neo-light) {
+    --black                        : #000000;
+    --borderradius-0               : 0px;
+    --borderradius-4               : 4px;
+    --borderradius-8               : 8px;
+    --core-fontfamily-mono         : 'Source Code Pro', monospace;
+    --core-fontfamily-sans         : 'Source Sans 3', sans-serif;
+    --core-fontfamily-serif        : 'Source Serif Pro', serif;
+    --core-fontsize-body           : 16px;
+    --core-fontsize-h1             : 2.5rem;
+    --core-fontsize-h2             : 1.75rem;
+    --core-fontsize-h3             : 1.25rem;
+    --core-fontsize-label          : 1rem;
+    --core-fontsize-small          : 0.75rem;
+    --core-fontweight-bold         : 700;
+    --core-fontweight-medium       : 500;
+    --core-fontweight-regular      : 400;
+    --core-fontweight-semibold     : 600;
+    --core-lineheight-headline     : 1.2;
+    --core-lineheight-paragraph    : 1.5;
+    --core-textdecoration-underline: underline;
+    --gray-100                     : #F0F2F0;
+    --gray-200                     : #D3D7D2;
+    --gray-300                     : #B6BDB4;
+    --gray-400                     : #99A295;
+    --gray-50                      : #fafafa;
+    --gray-500                     : #7C8877;
+    --gray-600                     : #606A5D;
+    --gray-700                     : #454B42;
+    --gray-800                     : #292D28;
+    --gray-900                     : #0E0F0D;
+    --green-100                    : hsl(157.9411764706, 91.0714285714%, 126.0784313725%);
+    --green-200                    : hsl(157.9411764706, 91.0714285714%, 106.0784313725%);
+    --green-300                    : rgb(54.2927170868%, 97.8641456583%, 81.8452380952%);
+    --green-400                    : rgb(35.1855742297%, 96.9712885154%, 74.255952381%);
+    --green-50                     : hsl(157.9411764706, 91.0714285714%, 141.0784313725%);
+    --green-500                    : #29F5AA;
+    --green-600                    : rgb(4.1141456583%, 88.0427170868%, 57.1866246499%);
+    --green-700                    : rgb(3.2212885154%, 68.9355742297%, 44.7759103641%);
+    --green-800                    : rgb(1.4355742297%, 30.7212885154%, 19.9544817927%);
+    --green-900                    : hsl(157.9411764706, 91.0714285714%, -3.9215686275%);
+    --height-16                    : 16px;
+    --height-2                     : 2px;
+    --height-24                    : 24px;
+    --height-32                    : 32px;
+    --height-4                     : 4px;
+    --height-48                    : 48px;
+    --height-56                    : 56px;
+    --height-8                     : 8px;
+    --purple-100                   : #D6E1FF;
+    --purple-200                   : #9EB1FF;
+    --purple-300                   : #5472E4;
+    --purple-400                   : #3E63DD;
+    --purple-500                   : #435DB1;
+    --purple-600                   : #304384;
+    --purple-700                   : #253974;
+    --purple-800                   : #1D2E62;
+    --purple-900                   : #182449;
+    --spacing-12                   : 12px;
+    --spacing-16                   : 16px;
+    --spacing-2                    : 2px;
+    --spacing-20                   : 20px;
+    --spacing-24                   : 24px;
+    --spacing-32                   : 32px;
+    --spacing-4                    : 4px;
+    --spacing-40                   : 40px;
+    --spacing-48                   : 48px;
+    --spacing-64                   : 64px;
+    --spacing-8                    : 8px;
+    --spacing-80                   : 80px;
+    --spacing-96                   : 96px;
+    --Transparent                  : rgba(255,255,255,0);
+    --white                        : #FFFFFF;
+}
+
+
+:where(.neo-theme-neo-light) {
+    --sem-borderradius-large                                                 : var(--borderradius-8);
+    --sem-borderradius-medium                                                : var(--borderradius-4);
+    --sem-borderradius-none                                                  : var(--borderradius-0);
+    --sem-borderwidth-focus                                                  : 3px;
+    --sem-color-bg-neutral-active                                            : var(--gray-900);
+    --sem-color-bg-neutral-contrast                                          : var(--gray-900);
+    --sem-color-bg-neutral-default                                           : var(--gray-50);
+    --sem-color-bg-neutral-disabled                                          : var(--gray-200);
+    --sem-color-bg-neutral-highlighted                                       : var(--white);
+    --sem-color-bg-neutral-hover                                             : var(--gray-900);
+    --sem-color-bg-primary-active                                            : var(--green-600);
+    --sem-color-bg-primary-background                                        : var(--green-50);
+    --sem-color-bg-primary-default                                           : var(--green-400);
+    --sem-color-bg-primary-disabled                                          : var(--gray-200);
+    --sem-color-bg-primary-hover                                             : var(--green-500);
+    --sem-color-border-contrast                                              : var(--black);
+    --sem-color-border-default                                               : var(--gray-200);
+    --sem-color-border-focus                                                 : var(--purple-400);
+    --sem-color-border-subtle                                                : var(--gray-100);
+    --sem-color-fg-neutral-contrast                                          : var(--black);
+    --sem-color-fg-neutral-default                                           : var(--gray-900);
+    --sem-color-fg-neutral-disabled                                          : var(--gray-300);
+    --sem-color-fg-neutral-inverted                                          : var(--white);
+    --sem-color-fg-neutral-subdued                                           : var(--gray-700);
+    --sem-color-fg-primary-base                                              : var(--green-500);
+    --sem-color-fg-primary-faded                                             : var(--green-600);
+    --sem-color-fg-primary-highlighted                                       : var(--green-400);
+    --sem-color-surface-disabled                                             : var(--gray-200);
+    --sem-color-surface-neutral-active                                       : rgba(0, 0, 0, .1);
+    --sem-color-surface-neutral-default                                      : var(--gray-50);
+    --sem-color-surface-neutral-highlighted                                  : var(--white);
+    --sem-color-surface-neutral-hover                                        : rgba(0, 0, 0, .05);
+    --sem-color-surface-primary-active                                       : var(--purple-700);
+    --sem-color-surface-primary-background                                   : var(--purple-100);
+    --sem-color-surface-primary-default                                      : var(--purple-400);
+    --sem-color-surface-primary-hover                                        : var(--purple-500);
+    --sem-color-text-disabled                                                : var(--gray-300);
+    --sem-color-text-neutral-contrast                                        : var(--black);
+    --sem-color-text-neutral-default                                         : var(--gray-900);
+    --sem-color-text-neutral-reversed                                        : var(--white);
+    --sem-color-text-neutral-subdued                                         : var(--gray-700);
+    --sem-color-text-primary-default                                         : var(--purple-400);
+    --sem-color-icon-neutral-contrast                                        : var(--black);
+    --sem-color-icon-neutral-default                                         : var(--gray-900);
+    --sem-color-icon-neutral-reversed                                        : var(--white);
+    --sem-color-icon-neutral-subdued                                         : var(--gray-700);
+    --sem-color-icon-primary-default                                         : var(--purple-400);
+    --sem-height-large                                                       : var(--height-32);
+    --sem-height-medium                                                      : var(--height-16);
+    --sem-height-small                                                       : var(--height-8);
+    --sem-height-xlarge                                                      : var(--height-48);
+    --sem-height-xsmall                                                      : var(--height-4);
+    --sem-height-xxlarge                                                     : var(--height-56);
+    --sem-height-xxsmall                                                     : var(--height-2);
+    --sem-spacing-large                                                      : var(--spacing-20);
+    --sem-spacing-medium                                                     : var(--spacing-16);
+    --sem-spacing-small                                                      : var(--spacing-12);
+    --sem-spacing-xlarge                                                     : var(--spacing-24);
+    --sem-spacing-xsmall                                                     : var(--spacing-8);
+    --sem-spacing-xxlarge                                                    : var(--spacing-32);
+    --sem-spacing-xxsmall                                                    : var(--spacing-4);
+    --sem-spacing-xxxlarge                                                   : var(--spacing-40);
+    --sem-spacing-xxxsmall                                                   : var(--spacing-2);
+    --sem-typo-body-fontFamily                                               : var(--core-fontfamily-sans);
+    --sem-typo-body-fontSize                                                 : var(--core-fontsize-body);
+    --sem-typo-body-fontWeight                                               : var(--core-fontweight-regular);
+    --sem-typo-body-letterSpacing                                            : 0;
+    --sem-typo-body-lineHeight                                               : var(--core-lineheight-paragraph);
+    --sem-typo-body-paragraphIndent                                          : 0;
+    --sem-typo-body-paragraphSpacing                                         : 0;
+    --sem-typo-body-textDecoration                                           : none;
+    --sem-typo-h1-fontFamily                                                 : var(--core-fontfamily-sans);
+    --sem-typo-h1-fontSize                                                   : var(--core-fontsize-h1);
+    --sem-typo-h1-fontWeight                                                 : var(--core-fontweight-bold);
+    --sem-typo-h1-letterSpacing                                              : -0.02em;
+    --sem-typo-h1-lineHeight                                                 : var(--core-lineheight-headline);
+    --sem-typo-h1-textDecoration                                             : none;
+    --sem-typo-h2-fontFamily                                                 : var(--core-fontfamily-sans);
+    --sem-typo-h2-fontSize                                                   : var(--core-fontsize-h2);
+    --sem-typo-h2-fontWeight                                                 : var(--core-fontweight-semibold);
+    --sem-typo-h2-lineHeight                                                 : var(--core-lineheight-headline);
+    --sem-typo-label-medium-fontFamily                                       : var(--core-fontfamily-sans);
+    --sem-typo-label-medium-fontSize                                         : var(--core-fontsize-body);
+    --sem-typo-label-medium-fontWeight                                       : var(--core-fontweight-medium);
+    --sem-typo-label-regular-fontFamily                                      : var(--core-fontfamily-sans);
+    --sem-typo-label-regular-fontSize                                        : var(--core-fontsize-body);
+    --sem-typo-label-regular-fontWeight                                      : var(--core-fontweight-regular);
+    --sem-typo-label-small-fontFamily                                        : var(--core-fontfamily-sans);
+    --sem-typo-label-small-fontSize                                          : var(--core-fontsize-small);
+    --sem-typo-label-small-fontWeight                                        : var(--core-fontweight-regular);
+}
+
+
+:where(.neo-theme-neo-light) {
+    --cmp-breadcrumb-arrow                      : var(--sem-color-fg-neutral-default);
+    --cmp-breadcrumb-currentpage                : var(--sem-color-fg-primary-base);
+    --cmp-breadcrumb-gap                        : var(--sem-spacing-xxsmall);
+    --cmp-breadcrumb-pagelevel                  : var(--sem-color-fg-neutral-default);
+    --cmp-button-borderradius                   : var(--sem-borderradius-large);
+    --cmp-button-borderwidth                    : 1px;
+    --cmp-button-gap                            : var(--sem-spacing-xxsmall);
+    --cmp-button-ghost-surface-active           : var(--sem-color-surface-neutral-active);
+    --cmp-button-ghost-surface-default          : transparent;
+    --cmp-button-ghost-surface-disabled         : var(--sem-color-surface-disabled);
+    --cmp-button-ghost-surface-hover            : var(--sem-color-surface-neutral-hover);
+    --cmp-button-ghost-surface-loading          : var(--sem-color-bg-neutral-hover);
+    --cmp-button-ghost-text-default             : var(--sem-color-fg-neutral-contrast);
+    --cmp-button-ghost-text-disabled            : var(--sem-color-fg-neutral-disabled);
+    --cmp-button-height                         : var(--height-48);
+    --cmp-button-primary-surface-active         : var(--sem-color-surface-primary-active);
+    --cmp-button-primary-surface-default        : var(--sem-color-surface-primary-default);
+    --cmp-button-primary-surface-disabled       : var(--sem-color-bg-primary-disabled);
+    --cmp-button-primary-surface-hover          : var(--sem-color-surface-primary-hover);
+    --cmp-button-primary-text-default           : var(--sem-color-text-neutral-reversed);
+    --cmp-button-primary-text-disabled          : var(--sem-color-text-disabled);
+    --cmp-button-secondary-border-default       : var(--sem-color-border-default);
+    --cmp-button-secondary-border-disabled      : var(--sem-color-border-subtle);
+    --cmp-button-secondary-surface-active       : var(--sem-color-surface-neutral-active);
+    --cmp-button-secondary-surface-default      : transparent;
+    --cmp-button-secondary-surface-disabled     : var(--sem-color-surface-disabled);
+    --cmp-button-secondary-surface-hover        : var(--sem-color-surface-neutral-hover);
+    --cmp-button-secondary-surface-loading      : var(--sem-color-bg-neutral-default);
+    --cmp-button-secondary-text-default         : var(--sem-color-text-neutral-default);
+    --cmp-button-secondary-text-disabled        : var(--sem-color-text-disabled);
+    --cmp-button-spacinghorizontal              : var(--sem-spacing-medium);
+    --cmp-button-tertiary-default               : var(--sem-color-fg-neutral-contrast);
+    --cmp-button-tertiary-disabled              : var(--sem-color-fg-neutral-disabled);
+    --cmp-list-borderradius                     : var(--sem-borderradius-large);
+    --cmp-list-chapter-bg-active                : var(--sem-color-bg-neutral-active);
+    --cmp-list-chapter-bg-default               : transparent;
+    --cmp-list-chapter-bg-hover                 : var(--sem-color-bg-neutral-hover);
+    --cmp-list-chapter-bg-selected              : var(--sem-color-bg-primary-background);
+    --cmp-list-chapter-fg-default               : var(--sem-color-fg-neutral-default);
+    --cmp-list-chapter-fg-disabled              : var(--sem-color-fg-neutral-disabled);
+    --cmp-list-chapter-gap                      : var(--sem-spacing-small);
+    --cmp-list-chapter-height                   : var(--sem-height-xlarge);
+    --cmp-list-gap                              : var(--sem-spacing-xsmall);
+    --cmp-list-item-borderradius                : var(--sem-borderradius-large);
+    --cmp-list-item-gap                         : var(--sem-spacing-small);
+    --cmp-list-item-height                      : var(--sem-height-xlarge);
+    --cmp-list-item-spacex                      : var(--sem-spacing-medium);
+    --cmp-list-item-surface-active              : var(--sem-color-surface-primary-background);
+    --cmp-list-item-surface-default             : #fff;
+    --cmp-list-item-surface-hover               : var(--sem-color-surface-neutral-hover);
+    --cmp-list-item-surface-selected            : var(--sem-color-surface-primary-background);
+    --cmp-list-item-text-default                : var(--sem-color-fg-neutral-default);
+    --cmp-list-item-text-disabled               : var(--sem-color-fg-neutral-disabled);
+    --cmp-list-item-text-selected               : var(--sem-color-text-primary-default);
+    --cmp-list-spacex                           : var(--sem-spacing-xsmall);
+    --cmp-list-spacey                           : var(--sem-spacing-xsmall);
+    --cmp-tab-borderradius                      : var(--sem-borderradius-large);
+    --cmp-tab-gap                               : var(--sem-spacing-xsmall);
+    --cmp-tab-height                            : var(--sem-height-xlarge);
+    --cmp-tab-spacinghorizontal                 : var(--sem-spacing-medium);
+    --cmp-tab-strip-height                      : 3px;
+    --cmp-tab-strip-selected                    : var(--sem-color-fg-neutral-contrast);
+    --cmp-tab-strip-unselected                  : transparent;
+    --cmp-tab-unselected-bg-active              : var(--sem-color-surface-neutral-active);
+    --cmp-tab-unselected-bg-default             : transparent;
+    --cmp-tab-unselected-bg-hover               : var(--sem-color-surface-neutral-hover);
+    --cmp-tooltip-bg                            : var(--sem-color-bg-neutral-contrast);
+    --cmp-tooltip-borderradius                  : var(--sem-borderradius-medium);
+    --cmp-tooltip-fg                            : var(--sem-color-fg-neutral-inverted);
+    --cmp-tooltip-height                        : var(--height-24);
+    --cmp-tooltip-spacinghorizontal             : var(--sem-spacing-xsmall);
+}
+
+:where(.neo-theme-neo-light) {
+    --neo-background-color: #fafafa;
+    --neo-color           : #000;
+    /* The platform-level light/dark hint for THIS theme, declared rather than derived from the
+       theme's name: `theme-cyberpunk` is dark and named neither. Read by `Main.windowOpen` to
+       stage a popup's blank document in the right scheme instead of flashing the UA default. */
+    --neo-color-scheme    : light;
+    --neo-disabled-opacity: 0.5;
+    --neo-font-family     : 'Source Sans 3', sans-serif;
+    --neo-font-smoothing  : antialiased;
+
+    /* Global element typography — the VALUES for the structural rules in resources/css/src/Global.css
+       (#18232). One token per property, deliberately: a shared token would compute to `unset` on the
+       property whose type it does not match. The contract lives at the top of that file. */
+    --global-heading-letter-spacing: -0.02em;
+    --global-paragraph-color       : var(--sem-color-fg-neutral-contrast);
+    --global-code-background-color : #E6EDF7;
+    --global-code-border           : 1px solid var(--sem-color-border-subtle);
+    --global-code-font-family      : var(--core-fontfamily-mono);
+    --global-code-border-radius    : 4px;
+    --global-code-font-size        : 14px;
+    --global-code-padding          : 2px 0.3em;
+    /* Declared, although the old block left heading-code colour to the general `code` rule: the
+       structural `h1..h6 code` selector (0,1,2) now OUTWEIGHS `code:not(.hljs)` (0,1,1), so leaving
+       this undeclared would `revert` heading code to the UA colour instead of inheriting the
+       contrast token it renders with today. The old cascade is reproduced by stating it. */
+    --global-heading-code-color    : var(--sem-color-fg-neutral-contrast);
+    --global-heading-code-margin   : 0 0.15em;
+    --global-heading-code-padding  : 0 0.3em;
+    --global-mark-background-color : var(--green-50);
+    --global-mark-color            : black;
+    --global-mark-padding          : 0.1em 0.2em;
+}

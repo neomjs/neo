@@ -1,0 +1,11 @@
+:root .neo-theme-cyberpunk { /* .neo-dialog */
+    --dialog-border-color                        : var(--cyber-cyan);
+    --dialog-box-shadow                          : var(--cyber-glow), 0 12px 32px rgba(0, 0, 0, .75);
+    --dialog-footer-button-border-radius         : var(--button-border-radius);
+    --dialog-footer-button-height                : var(--button-height);
+    --dialog-footer-button-margin-left           : 0;
+    --dialog-header-button-background-color-hover: var(--button-background-color-hover);
+    --dialog-header-color                        : var(--cyber-cyan);
+    --dialog-icon-color                          : var(--cyber-cyan);
+    --dialog-icon-color-hover                    : var(--button-glyph-color-hover);
+}

@@ -1,0 +1,7 @@
+:where(.neo-theme-neo-dark) {
+    --selectfield-background  : #303030;
+    --selectfield-border-color: #777;
+    --selectfield-color       : #eee;
+    --selectfield-error-color : var(--red-500);
+    --selectfield-focus-color : #90caf9;
+}

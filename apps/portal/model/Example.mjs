@@ -18,12 +18,15 @@ class Example extends Model {
          * List.catalogMode selects the key. A missing target hides the example in that mode.
          * `sourceUrl` is the common source link; optional `sourceUrls` overrides it by mode.
          * `hiddenIn` lists curated mode exclusions (empty by default); `hidden` hides every mode.
-         * `family` names the record's home group, one id of `Portal.view.examples.TabContainer#familyDefinitions`;
+         * `family` names the record's home group, one id of `Portal.view.examples.MainContainer#familyDefinitions`;
          * `alsoIn` lists the other groups that show it (empty by default). `component` names its renderer.
          * `featured` independently marks a showcase record and defaults to false; it does not assign a family.
          * `feature` states what the example demonstrates and `lookFor` gives a concrete action.
          * Optional `scope` qualifies external dependencies or limits of that demonstration.
          * `image` names an existing published cover; a record without one stays in the catalog and gets no card.
+         * `kind` is `'demonstration'` (the default, a card) or `'component'`: one component in the workbench, shown as
+         * a tile whose `image` is its crop. Both kinds publish under the same rule.
+         * Optional `keywords` adds cross-cutting search terms read alongside titles, captions, component and group names.
          * Relative destinations resolve against List.baseUrl or List.sourceBaseUrl; HTTP links
          * remain explicit, including external apps whose mode routes differ from Engine paths.
          *
@@ -73,6 +76,14 @@ class Example extends Model {
             name: 'image',
             type: 'String'
         }, {
+            name        : 'keywords',
+            type        : 'Array',
+            defaultValue: []
+        }, {
+            name        : 'kind',
+            type        : 'String',
+            defaultValue: 'demonstration'
+        }, {
             name: 'lookFor',
             type: 'String'
         }, {
@@ -108,6 +119,45 @@ class Example extends Model {
     }
 
     /**
+     * @summary The address a record opens in a build mode: its explicit external link, or its path below `baseUrl`.
+     * @param {Object} record A catalog record or its raw row
+     * @param {String} mode A build mode id, e.g. 'dist_prod'
+     * @param {String} [baseUrl='https://neomjs.com/']
+     * @returns {String|null} null when the mode cannot open the record
+     */
+    static href(record, mode, baseUrl='https://neomjs.com/') {
+        const url = record.urls?.[mode];
+
+        return !url ? null : url.startsWith('http') ? url : baseUrl + url
+    }
+
+    /**
+     * @summary Whether a record matches every normalized search term across its title, captions, component,
+     * group titles (`family` + `alsoIn`) and `keywords`.
+     * @param {Object} record A catalog record or its raw row
+     * @param {String[]} queryTerms Lower-cased normalized search terms (see {@link #tokenizeSearchText})
+     * @param {Object} [groupTitles={}] Map from group `family` id to display title
+     * @returns {Boolean}
+     */
+    static matchesQuery(record, queryTerms, groupTitles={}) {
+        if (!queryTerms?.length) {
+            return true
+        }
+
+        const tokens = [
+            record.name,
+            record.feature,
+            record.lookFor,
+            record.component,
+            groupTitles[record.family],
+            ...(record.alsoIn || []).map(family => groupTitles[family]),
+            ...(record.keywords || [])
+        ].flatMap(value => Example.tokenizeSearchText(value));
+
+        return queryTerms.every(term => tokens.some(token => token.startsWith(term)))
+    }
+
+    /**
      * @summary Whether a record publishes a card in a build mode: it names a cover, and the mode can open it.
      *
      * The one rule the group stores, the tab publication and `Portal.view.examples.List` read. A build script cannot
@@ -119,6 +169,25 @@ class Example extends Model {
      */
     static publishes(record, mode) {
         return !!record.image && !record.hidden && !record.hiddenIn?.includes(mode) && !!record.urls?.[mode]
+    }
+
+    /**
+     * @summary Splits free text or camelCase identifiers into lower-case alphanumeric search tokens.
+     * @param {String|Number|null|undefined} value
+     * @returns {String[]}
+     */
+    static tokenizeSearchText(value) {
+        if (value == null) {
+            return []
+        }
+
+        return String(value)
+            .replace(/(\d),(\d)/g, '$1$2')
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean)
     }
 }
 

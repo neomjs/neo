@@ -192,6 +192,53 @@ test.describe('Neo.dashboard.Container — popup admission', () => {
 });
 
 /**
+ * @summary A three-item dashboard in window 1 and an empty popup container in a window of its own, wired so that
+ * `onWindowConnect` reads the popup as the dashboard's `return-widget` vessel.
+ * @param {String} popupWindowId
+ * @returns {Object} The scene's instances, `refs(owner)` for an owner's vdom child references, and `dispose()`.
+ */
+function createReturnScene(popupWindowId) {
+    const
+        dashboard = Neo.create(Container, {
+            appName,
+            dragResortable: false,
+            popupUrl      : 'popup.html',
+            windowId      : 1,
+            items         : [{module: Component}, {module: Component, reference: 'return-widget'}, {module: Component}]
+        }),
+        popup             = Neo.create(BaseContainer, {appName, items: [], windowId: popupWindowId}),
+        originalItems     = [...dashboard.items],
+        popupApp          = {...Neo.apps[1], mainView: popup, windowId: popupWindowId},
+        previousGetByPath = Neo.Main.getByPath,
+        vessel            = installWindowVessel();
+
+    Neo.apps[popupWindowId] = popupApp;
+    Neo.appsByName[appName].push(popupApp);
+    Neo.Main.getByPath = async () => `https://fixture.invalid/popup.html?dashboardId=${dashboard.id}&name=return-widget`;
+
+    return {
+        dashboard,
+        originalItems,
+        popup,
+        refs  : owner => owner.getVdomItemsRoot().cn.map(node => node.componentId),
+        widget: originalItems[1],
+        dispose() {
+            const instances = new Set([...originalItems, ...dashboard.items, ...popup.items]);
+
+            dashboard.removeAll(false, true);
+            popup.removeAll(false, true);
+            instances.forEach(item => !item.isDestroyed && item.destroy(true, true));
+            dashboard.destroy();
+            popup.destroy();
+            delete Neo.apps[popupWindowId];
+            Neo.appsByName[appName] = Neo.appsByName[appName].filter(app => app !== popupApp);
+            Neo.Main.getByPath = previousGetByPath;
+            vessel.restore()
+        }
+    }
+}
+
+/**
  * @summary A physical popup close restores the original widget once, whether the held drag retained
  * its source slot or an ordinary popup move removed it. Real container mutations preserve the
  * ownership and VDOM-reference boundaries that a stubbed insert cannot exercise.
@@ -200,26 +247,10 @@ test.describe('Neo.dashboard.Container — popup return ownership', () => {
     for (const {held, replaceAdmission} of [{held: true}, {held: false}, {held: true, replaceAdmission: true}]) {
         test(`${held ? 'held tear-out' : 'ordinary popup'} ${replaceAdmission ? 'preserves a newer admission' : 'returns once across repeated disconnects'}`, async () => {
             const
-                dashboard = Neo.create(Container, {
-                    appName,
-                    dragResortable: false,
-                    popupUrl      : 'popup.html',
-                    windowId      : 1,
-                    items         : [{module: Component}, {module: Component, reference: 'return-widget'}, {module: Component}]
-                }),
                 popupWindowId = `dashboard-return-${held}`,
-                popup = Neo.create(BaseContainer, {appName, items: [], windowId: popupWindowId}),
-                originalItems = [...dashboard.items],
-                widget = originalItems[1],
-                popupApp = {...Neo.apps[1], mainView: popup, windowId: popupWindowId},
-                previousGetByPath = Neo.Main.getByPath,
-                vessel = installWindowVessel(),
-                starts = [],
-                refs = owner => owner.getVdomItemsRoot().cn.map(node => node.componentId);
-
-            Neo.apps[popupWindowId] = popupApp;
-            Neo.appsByName[appName].push(popupApp);
-            Neo.Main.getByPath = async () => `https://fixture.invalid/popup.html?dashboardId=${dashboard.id}&name=return-widget`;
+                scene         = createReturnScene(popupWindowId),
+                {dashboard, originalItems, popup, refs, widget} = scene,
+                starts        = [];
 
             try {
                 const proxyRect = {height: 530, width: 640, x: 40, y: 50};
@@ -242,10 +273,8 @@ test.describe('Neo.dashboard.Container — popup return ownership', () => {
                 expect(dashboard.items.filter(item => item === widget)).toHaveLength(held ? 1 : 0);
                 expect(refs(dashboard).filter(id => id === widget.id)).toHaveLength(held ? 1 : 0);
 
-                if (held) {
-                    dashboard.onWindowDragTerminalDrop({draggedItem: widget, sortZone: null});
-                    dashboard.onDragEnd({})
-                }
+                // A gesture that ends without a terminal drop keeps the hold until the popup closes
+                held && dashboard.onDragEnd({});
 
                 let   popupUpdates = 0;
                 const updatePopup  = popup.update;
@@ -309,18 +338,69 @@ test.describe('Neo.dashboard.Container — popup return ownership', () => {
                 expect(dashboard.items).toEqual(originalItems);
                 expect(refs(dashboard)).toEqual(originalItems.map(item => item.id))
             } finally {
-                const instances = new Set([...originalItems, ...dashboard.items, ...popup.items]);
-
-                dashboard.removeAll(false, true);
-                popup.removeAll(false, true);
-                instances.forEach(item => !item.isDestroyed && item.destroy(true, true));
-                dashboard.destroy();
-                popup.destroy();
-                delete Neo.apps[popupWindowId];
-                Neo.appsByName[appName] = Neo.appsByName[appName].filter(app => app !== popupApp);
-                Neo.Main.getByPath = previousGetByPath;
-                vessel.restore()
+                scene.dispose()
             }
         })
     }
+});
+
+/**
+ * @summary A terminal drop makes the popup the widget's only home: the dashboard keeps no copy that a later update of
+ * its own could render into its window again, and `detachedItems` keeps the slot the popup's close returns to.
+ * Both orders of the popup's connect and the drop end the same way.
+ */
+test.describe('Neo.dashboard.Container — a terminal drop ends the hold', () => {
+    const proxyRect = () => ({height: 530, width: 640, x: 40, y: 50});
+
+    test('a popup that connected mid-gesture keeps the widget alone after the drop', async () => {
+        const
+            popupWindowId = 'dashboard-drop-after-connect',
+            scene         = createReturnScene(popupWindowId),
+            {dashboard, originalItems, popup, refs, widget} = scene;
+
+        try {
+            await dashboard.onDragBoundaryExit({draggedItem: widget, proxyRect: proxyRect(), sortZone: {startWindowDrag() {}}});
+            await dashboard.onWindowConnect({appName, windowId: popupWindowId});
+
+            expect(dashboard.items, 'mid-gesture the dashboard holds the slot').toContain(widget);
+
+            const popupFlex = widget.wrapperStyle.flex;
+
+            dashboard.onWindowDragTerminalDrop({draggedItem: widget, sortZone: null});
+
+            expect(dashboard.items).not.toContain(widget);
+            expect(refs(dashboard)).not.toContain(widget.id);
+            expect(widget.parent).toBe(popup);
+            expect(widget.wrapperStyle.flex, 'the popup layout keeps its child attributes').toBe(popupFlex);
+            expect(dashboard.detachedItems.get('return-widget').index).toBe(1);
+
+            dashboard.onDragEnd({});
+            await dashboard.onWindowDisconnect({appName, windowId: popupWindowId});
+
+            expect(dashboard.items, 'the popup closing returns the widget to its slot').toEqual(originalItems)
+        } finally {
+            scene.dispose()
+        }
+    });
+
+    test('a popup that connects after the drop takes the widget out of the dashboard', async () => {
+        const
+            popupWindowId = 'dashboard-connect-after-drop',
+            scene         = createReturnScene(popupWindowId),
+            {dashboard, popup, refs, widget} = scene;
+
+        try {
+            await dashboard.onDragBoundaryExit({draggedItem: widget, proxyRect: proxyRect(), sortZone: {startWindowDrag() {}}});
+            dashboard.onWindowDragTerminalDrop({draggedItem: widget, sortZone: null});
+
+            // The sort zone's drag end, which fires dragEnd, is still running: the connect lands inside it
+            await dashboard.onWindowConnect({appName, windowId: popupWindowId});
+
+            expect(dashboard.items).not.toContain(widget);
+            expect(refs(dashboard)).not.toContain(widget.id);
+            expect(widget.parent).toBe(popup)
+        } finally {
+            scene.dispose()
+        }
+    })
 });

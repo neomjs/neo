@@ -1,0 +1,49 @@
+/* Neo.board.CardEditor: the board's shared modal card editor dialog. */
+.neo-board-card-editor {
+    background   : var(--neo-board-editor-background, var(--neo-board-column-background));
+    border       : 1px solid var(--neo-board-editor-border-color, var(--neo-board-column-border-color));
+    border-radius: var(--neo-board-radius);
+    box-shadow   : var(--neo-board-editor-shadow, var(--neo-board-card-shadow));
+    color        : var(--neo-board-color);
+    font-family  : var(--neo-board-font-family);
+    font-size    : var(--neo-board-font-size);
+    max-width    : 92vw;
+    width        : var(--neo-board-editor-width, 440px);
+
+    .neo-board-card-editor-form {
+        box-sizing    : border-box;
+        display       : flex;
+        flex-direction: column;
+        gap           : 10px;
+        padding       : 14px 16px;
+    }
+
+    .neo-board-card-editor-footer {
+        border-top     : 1px solid var(--neo-board-editor-border-color, var(--neo-board-column-border-color));
+        display        : flex;
+        gap            : 8px;
+        justify-content: flex-end;
+        padding        : 10px 16px;
+    }
+
+    .neo-board-card-editor-save {
+        --button-text-color       : var(--neo-board-background);
+        --button-text-color-active: var(--neo-board-background);
+        --button-text-color-hover : var(--neo-board-background);
+        background                : var(--neo-board-accent-color);
+        border-color              : var(--neo-board-accent-color);
+        border-radius             : 6px;
+        color                     : var(--neo-board-background);
+        font-weight               : 600;
+    }
+
+    .neo-board-card-editor-cancel {
+        --button-text-color       : var(--neo-board-color);
+        --button-text-color-active: var(--neo-board-color);
+        --button-text-color-hover : var(--neo-board-color);
+        background                : var(--neo-board-badge-background);
+        border-color              : var(--neo-board-card-border-color);
+        border-radius             : 6px;
+        color                     : var(--neo-board-color);
+    }
+}

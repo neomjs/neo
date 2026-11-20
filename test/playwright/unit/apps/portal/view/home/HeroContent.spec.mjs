@@ -65,7 +65,7 @@ const EXPECTED_CYCLE_TEXTS = [
 
 const EXPECTED_HERO_SENTENCE =
     "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a " +
-    "record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how " +
+    "record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how " +
     "a team gets an institution.";
 
 test.describe('Portal.view.home.parts.hero.Content', () => {
@@ -75,6 +75,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
         expect(HeroContent.config.initialHoldDelay).toBe(5300);
         expect(getStartedConfig.route).toBe('/learn/gettingstarted/Setup');
         expect(getStartedConfig.text).toBe('Get started');
+        expect(getStartedConfig.ui).toBe('primary');
 
         const hero = Neo.create(HeroContent, {appName});
 
@@ -83,6 +84,7 @@ test.describe('Portal.view.home.parts.hero.Content', () => {
 
             const getStartedButton = hero.items[3].items[0];
             expect(getStartedButton.route).toBe('/learn/gettingstarted/Setup');
+            expect(getStartedButton.cls).toContain('neo-button-primary');
             expect(getStartedButton.vdom.tag).toBe('a');
             expect(getStartedButton.vdom.href).toBe('#/learn/gettingstarted/Setup');
         } finally {

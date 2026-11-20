@@ -1,21 +1,11 @@
 import Plugin from './Base.mjs';
 
 /**
+ * @summary Input-mask plugin for `Neo.form.field.Text` backed by `Neo.main.addon.PrefixField`.
+ * Delegates live DOM keystroke/paste/caret masking to the Main Thread addon while keeping App-Worker config
+ * reactivity and programmatic `owner.value` formatting synchronous in the worker.
  * @class Neo.plugin.PrefixField
  * @extends Neo.plugin.Base
- *
- * @example
- *
- *     {
- *         module   : TextField,
- *         labelText: 'Credit Card',
- *         plugins  : [{
- *             module : PrefixPlugin, // import PrefixPlugin from '../../src/plugin/PrefixField.mjs';
- *             pattern: 'dd/mm/yyyy',
- *             slots  : 'dmy',        // characters allowed to replace
- *             accept : /\d/          // either '[A-Z]' or regex or undefined
- *         }]
- *     }
  */
 class PrefixField extends Plugin {
     static config = {
@@ -30,69 +20,57 @@ class PrefixField extends Plugin {
          */
         ntype: 'plugin-prefixfield',
         /**
-         * Custom cls added to the inputEl
          * @member {String} inputCls='neo-prefixfield-input'
          */
         inputCls: 'neo-prefixfield-input',
         /**
-         * Custom cls added to the inputEl
-         * @member {String} inputCls='neo-prefixfield-input'
+         * @member {String} labelCls='neo-prefixfield-label'
          */
         labelCls: 'neo-prefixfield-label',
         /**
-         * Custom cls to add to the owner component
          * @member {String} ownerCls='neo-prefixfield'
          */
         ownerCls: 'neo-prefixfield',
         /**
-         * regex to calculate if entered value is acceptable
-         * Preset to numbers only
-         *
-         * @member {regex|null} accept
+         * Character class or RegExp deciding accepted input characters (defaults to digits `/\d/`).
+         * @member {RegExp|String|null} accept_=null
+         * @reactive
          */
         accept_: null,
         /**
-         * @member {String} pattern=null
+         * Mask template string (e.g. `'dd/mm/yyyy'`).
+         * @member {String|null} pattern_=null
+         * @reactive
          */
         pattern_: null,
         /**
-         * Only add a String. A Set will be automatically created
-         * @member {String|Set|null} slots=null
+         * Characters in `pattern` treated as fillable input slots (converted to a `Set`).
+         * @member {String|Set|null} slots_=null
+         * @reactive
          */
         slots_: null
     }
 
     /**
-     * First accepted place to enter a value
-     * @member {Number} first
+     * @member {Number|null} first=null
      * @protected
      */
     first = null
     /**
-     * Array of numbers, which shows the previous entry point
-     * @member {Array[]} prev
+     * @member {Number[]|null} prev=null
      * @protected
      */
     prev = null
     /**
-     * Position of the cursor inside input element
-     * @member {Object} selection
+     * @member {Function|null} priorBeforeSetValue=null
      * @protected
      */
-    selection = null
-
+    priorBeforeSetValue = null
     /**
-     * State if selection should be updated
-     * @member {Boolean} ignoreSelection
+     * @member {String} rawSlots='_'
      * @protected
      */
-    ignoreSelection = false
-    /**
-     * State if last entry was the back button
-     * @member {Boolean} back
-     * @protected
-     */
-    back = false
+    rawSlots = '_'
 
     /**
      * @param {Object} config
@@ -102,12 +80,12 @@ class PrefixField extends Plugin {
 
         super.construct(config);
 
-        me.addListeners();
-        me.addCss();
+        me.bindOwnerValueHook();
+        me.addCss()
     }
 
     /**
-     * Add a custom cls to the owner component
+     * Adds mask classes to the owner field and its input/label VDOM nodes.
      */
     addCss() {
         const me      = this,
@@ -115,178 +93,251 @@ class PrefixField extends Plugin {
               inputEl = owner.getInputEl(),
               labelEl = owner.getLabelEl();
 
-        owner    .addCls(me.ownerCls);
-        inputEl.cls.push(me.inputCls);
-        labelEl.cls.push(me.labelCls)
+        owner.addCls(me.ownerCls);
+        inputEl && !inputEl.cls.includes(me.inputCls) && inputEl.cls.push(me.inputCls);
+        labelEl && !labelEl.cls.includes(me.labelCls) && labelEl.cls.push(me.labelCls)
     }
 
     /**
-     * Add listeners
-     * @protected
-     */
-    addListeners() {
-        let me      = this,
-            {owner} = me;
-
-        owner.addDomListeners([
-            {keydown        : me.onFieldKeyDown        , scope: me},
-            {focusin        : me.onFieldFocus          , scope: me},
-            {focusout       : me.onFieldBlur           , scope: me},
-            {selectionchange: me.onFieldSelectionChange, scope: me}
-        ]);
-
-        me.owner.on('mounted', () => {
-            Neo.currentWorker.insertThemeFiles(owner.windowId, me.__proto__)
-        }, me, {once: true})
-    }
-
-
-    /**
-     * After setting accept format output
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {RegExp|String|null} value
+     * @param {RegExp|String|null} oldValue
      * @protected
      */
     afterSetAccept(value, oldValue) {
-        this.owner.value && this.format()
+        let me = this;
+
+        if (oldValue !== undefined) {
+            me.formatOwnerValue();
+            me.syncMainAddon()
+        }
     }
 
     /**
-     * After setting pattern recalc other values and set placeholder
-     * @param {Set} value
-     * @param {Set} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetPattern(value, oldValue) {
-        this.owner.placeholderText = value;
-        this.recalcFirstAndPref()
+        let me = this;
+
+        me.owner.placeholderText = value;
+        me.recalcFirstAndPref();
+
+        if (oldValue !== undefined) {
+            me.syncMainAddon()
+        }
     }
 
     /**
-     * After setting slots recalc other values
      * @param {Set} value
      * @param {Set} oldValue
      * @protected
      */
     afterSetSlots(value, oldValue) {
-        this.recalcFirstAndPref()
+        let me = this;
+
+        me.recalcFirstAndPref();
+
+        if (oldValue !== undefined) {
+            me.syncMainAddon()
+        }
     }
 
     /**
-     * Before the new value for slots will be set we create a Set from the string
-     * @param {String} value
-     * @return {Set}
+     * @summary Unregisters `InputMask` from `oldValue` and re-registers when moving while mounted.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        const me      = this,
+              {owner} = me;
+
+        if (oldValue && oldValue !== value && owner) {
+            const elId = owner.getInputElId();
+
+            Neo.currentWorker?.getAddon?.('PrefixField', oldValue)?.then(addon => {
+                addon?.unregister?.({id: elId, windowId: oldValue})
+            })
+        }
+
+        if (value && oldValue !== undefined && oldValue !== value && owner?.mounted && !me.isDestroyed) {
+            me.onOwnerMounted()
+        }
+    }
+
+    /**
+     * @param {String|Set|null} value
+     * @returns {Set}
      * @protected
      */
     beforeSetSlots(value) {
-        return new Set(value || "_")
+        const chars = value instanceof Set ? [...value].join('') : (value || '_');
+
+        this.rawSlots = chars || '_';
+        return new Set(this.rawSlots)
     }
 
     /**
-     * Remove unwanted entries and limit length
+     * Wraps `owner.beforeSetValue` so programmatic value writes format atomically before `change` fires.
+     * @protected
+     */
+    bindOwnerValueHook() {
+        const me      = this,
+              {owner} = me;
+
+        me.priorBeforeSetValue = Object.hasOwn(owner, 'beforeSetValue') ? owner.beforeSetValue : null;
+
+        owner.beforeSetValue = function(value, oldValue) {
+            const baseFn     = me.priorBeforeSetValue || owner.__proto__.beforeSetValue,
+                  normalized = baseFn ? baseFn.call(owner, value, oldValue) : value;
+
+            if (Neo.isString(normalized) && normalized !== '' && me.pattern) {
+                return me.clean(normalized).join('')
+            }
+
+            return normalized
+        };
+
+        if (Neo.isString(owner.value) && owner.value !== '' && me.pattern) {
+            me.formatOwnerValue()
+        }
+    }
+
+    /**
+     * Strips unaccepted characters and maps accepted input into `pattern` slots, preserving `RegExp` flags.
      * @param {String} input
-     * @returns {any[]}
+     * @returns {String[]}
      * @protected
      */
     clean(input) {
-        const me     = this,
-              accept = new RegExp(this.accept || "\\d", "g");
+        const me = this;
 
-        input = input.match(accept) || [];
-        input = Array.from(me.pattern, c =>
-            input[0] === c || me.slots.has(c) ? input.shift() || c : c
-        );
-
-        return input.slice(0, me.pattern.length)
-    }
-
-    /**
-     * Calculate position and output correct String to Field
-     * @protected
-     */
-    format() {
-        let me                = this,
-            el                = me.owner,
-            {prev, selection} = me,
-            clean             = me.clean.bind(me),
-            value             = el.value || '';
-
-        const [i, j] = [selection.start, selection.end].map(i => {
-            i = me.clean(value.slice(0, i)).findIndex(c => me.slots.has(c));
-            return i < 0 ? prev[prev.length - 1] : me.back ? prev[i - 1] || me.first : i
-        });
-
-        el.value = clean(value).join``;
-        me.ignoreSelection = true;
-
-        Neo.main.DomAccess.selectNode({id: el.getInputElId(), start: i, end: j, windowId: this.owner.windowId});
-        me.ignoreSelection = false;
-
-        me.back = false
-    }
-
-    /**
-     * Event
-     * @param {Object} data
-     * @returns {false|string}
-     * @protected
-     */
-    onFieldBlur(data) {
-        let {owner, pattern} = this;
-
-        return owner.value === pattern && (owner.value = '')
-    }
-
-    /**
-     * Event
-     * @param {Object} data
-     * @protected
-     */
-    onFieldFocus(data) {
-        this.format()
-    }
-
-    /**
-     * Event
-     * @param {Object} data
-     * @protected
-     */
-    onFieldKeyDown(data) {
-        this.back = data.key === "Backspace"
-    }
-
-    /**
-     * Event
-     * @param {Object} data
-     * @protected
-     */
-    onFieldSelectionChange(data) {
-        let sel  = this.selection,
-            dSel = data.selection;
-
-        // Do not run, if ignore state or same start and end data
-        if (this.ignoreSelection || (dSel.start === sel.start && dSel.end === sel.end)) {
-            return
+        if (!me.pattern) {
+            return [...String(input || '')]
         }
 
-        this.selection = dSel;
-        this.format()
+        const rawAccept = me.accept,
+              source    = rawAccept instanceof RegExp ? rawAccept.source : (rawAccept || '\\d'),
+              baseFlags = rawAccept instanceof RegExp ? rawAccept.flags  : '',
+              flags     = baseFlags.includes('g') ? baseFlags : `${baseFlags}g`,
+              accept    = new RegExp(source, flags);
+
+        let matches = String(input || '').match(accept) || [];
+
+        return Array.from(me.pattern, char =>
+            matches[0] === char || me.slots.has(char) ? matches.shift() || char : char
+        ).slice(0, me.pattern.length)
     }
 
     /**
-     * Calc values for first and prev
+     * @param {Array} args
+     */
+    destroy(...args) {
+        const me      = this,
+              {owner} = me;
+
+        if (owner && !owner.isDestroyed) {
+            if (me.priorBeforeSetValue) {
+                owner.beforeSetValue = me.priorBeforeSetValue
+            } else {
+                delete owner.beforeSetValue
+            }
+        }
+
+        const windowId = me.windowId || owner?.windowId;
+
+        if (owner && windowId) {
+            const elId = owner.getInputElId();
+
+            Neo.currentWorker?.getAddon?.('PrefixField', windowId)?.then(addon => {
+                addon?.unregister?.({id: elId, windowId})
+            })
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
+     * Re-applies `clean()` to an existing non-empty `owner.value`.
+     * @protected
+     */
+    formatOwnerValue() {
+        const {owner, pattern} = this;
+
+        if (pattern && Neo.isString(owner?.value) && owner.value !== '') {
+            owner.value = this.clean(owner.value).join('')
+        }
+    }
+
+    /**
+     * @returns {Object}
+     * @protected
+     */
+    getAddonPayload() {
+        const me        = this,
+              {owner}   = me,
+              rawAccept = me.accept;
+
+        return {
+            acceptFlags : rawAccept instanceof RegExp ? rawAccept.flags  : null,
+            acceptSource: rawAccept instanceof RegExp ? rawAccept.source : (rawAccept ?? null),
+            id          : owner.getInputElId(),
+            pattern     : me.pattern,
+            slots       : me.rawSlots,
+            windowId    : owner.windowId
+        }
+    }
+
+    /**
+     * Registers or re-registers the Main-Thread mask controller whenever the owner mounts.
+     */
+    async onOwnerMounted() {
+        const me      = this,
+              {owner} = me;
+
+        if (!owner || !owner.windowId || me.isDestroyed) return;
+
+        const addon = await Neo.currentWorker.getAddon('PrefixField', owner.windowId);
+
+        if (!me.isDestroyed && owner.mounted) {
+            await addon?.register?.(me.getAddonPayload())
+        }
+    }
+
+    /**
      * @protected
      */
     recalcFirstAndPref() {
-        let me               = this,
-            {pattern, slots} = me;
+        const me               = this,
+              {pattern, slots} = me;
 
-        me.prev = (j => Array.from(pattern, (c, i) => slots.has(c) ? j = i + 1 : j))(0);
-        me.first = [...pattern].findIndex(c => slots.has(c));
+        if (!pattern || !slots) return;
 
-        me.selection = {start: me.first, end: me.first};
+        me.prev  = (j => Array.from(pattern, (char, idx) => slots.has(char) ? j = idx + 1 : j))(0);
+        me.first = [...pattern].findIndex(char => slots.has(char));
 
-        me.owner.value && me.format()
+        me.formatOwnerValue()
+    }
+
+    /**
+     * Pushes live `accept`/`pattern`/`slots` changes to the Main-Thread addon when mounted.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async syncMainAddon() {
+        const me      = this,
+              {owner} = me;
+
+        if (!owner?.mounted || !owner.windowId || me.isDestroyed) return;
+
+        const addon = await Neo.currentWorker.getAddon('PrefixField', owner.windowId);
+
+        if (!me.isDestroyed && owner.mounted) {
+            await addon?.setConfigs?.(me.getAddonPayload())
+        }
     }
 }
 

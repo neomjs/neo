@@ -180,15 +180,37 @@ class MainContainer extends Container {
     }
 
     /**
+     * The latest side panel transition. A fold or an expand finishes only while it is still the latest: a fold's
+     * delayed removal must not undo an expand that started before it ran.
+     * @member {Number} #sideBarTransition=0
+     */
+    #sideBarTransition = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
+        this.createItemsContent()
+    }
+
+    /**
+     * @summary A calendar created folded starts where a fold ends: its side panel out of the DOM, shifted left by its
+     * width, so expanding it animates in like after a fold.
+     */
+    onConstructed() {
+        super.onConstructed();
 
         let me = this;
 
-        me.createItemsContent();
-        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true)
+        if (!me.sideBarExpanded) {
+            let sideBar = me.items[1].items[0],
+                style   = {...sideBar.style, marginLeft: `-${me.sideBarWidth}px`};
+
+            sideBar._style          = style; // silent update
+            sideBar._vdom.style     = style; // silent update
+            sideBar._vdom.removeDom = true
+        }
     }
 
     /**
@@ -274,9 +296,11 @@ class MainContainer extends Container {
      */
     afterSetSideBarExpanded(value, oldValue) {
         if (oldValue !== undefined) {
-            let me      = this,
-                sideBar = me.items[1].items[0],
-                style   = sideBar.style || {};
+            let me         = this,
+                sideBar    = me.items[1].items[0],
+                style      = sideBar.style || {},
+                transition = ++me.#sideBarTransition,
+                isLatest   = () => transition === me.#sideBarTransition;
 
             if (value) {
                 me.updateDepth = -1;
@@ -285,11 +309,15 @@ class MainContainer extends Container {
                 delete sideBar.vdom.removeDom;
 
                 me.promiseUpdate().then(() => {
+                    if (!isLatest()) return;
+
                     sideBar.mounted = true;
 
                     me.timeout(50).then(() => {
-                        style.marginLeft = '0px';
-                        sideBar.style = style
+                        if (isLatest()) {
+                            style.marginLeft = '0px';
+                            sideBar.style = style
+                        }
                     })
                 })
             } else {
@@ -299,6 +327,8 @@ class MainContainer extends Container {
 
                 sideBar.promiseUpdate().then(() => {
                     me.timeout(400).then(() => {
+                        if (!isLatest()) return;
+
                         sideBar.vdom.removeDom = true;
                         sideBar.update();
 
@@ -346,6 +376,7 @@ class MainContainer extends Container {
                 me.items[0].items[1].add({
                     handler: me.toggleSettings.bind(me),
                     iconCls: 'fa fa-cog',
+                    size   : 'small',
                     style  : {marginLeft: '10px'}
                 })
             })
@@ -453,17 +484,20 @@ class MainContainer extends Container {
             width : me.sideBarWidth,
             items : [{
                 handler: me.toggleSidebar.bind(me),
-                iconCls: 'fa fa-bars'
+                iconCls: 'fa fa-bars',
+                size   : 'small'
             }, '->', {
                 handler: me.onPreviousIntervalButtonClick.bind(me),
                 iconCls: 'fa fa-chevron-left',
+                size   : 'small'
             }, {
                 handler: me.onTodayButtonClick.bind(me),
-                height : 24,
+                size   : 'small',
                 text   : 'Today'
             }, {
                 handler: me.onNextIntervalButtonClick.bind(me),
-                iconCls: 'fa fa-chevron-right'
+                iconCls: 'fa fa-chevron-right',
+                size   : 'small'
             }]
         }, {
             module: Toolbar,
@@ -566,8 +600,8 @@ class MainContainer extends Container {
         me.views.forEach((view, index) => {
             buttons.push({
                 handler    : me.changeActiveView.bind(me, view),
-                height     : 24,
                 pressed    : activeIndex === index,
+                size       : 'small',
                 text       : Neo.capitalize(view),
                 toggleGroup: 'mainViews',
                 value      : view

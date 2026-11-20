@@ -33,7 +33,7 @@ test.describe('Portal Connect', () => {
             await expect(root.locator('a[href^="mailto:"], form')).toHaveCount(0);
             await expect(page).toHaveTitle('Connect with Neo.mjs');
             await expect(page.locator('meta[name="description"]')).toHaveAttribute('content',
-                "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; the Fleet Manager is how a team gets an institution.");
+                "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.");
 
             const links = root.getByRole('link');
             expect(await links.evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual([
@@ -110,7 +110,7 @@ test.describe('Portal Connect', () => {
             await expect(page).toHaveURL(/#\/examples$/);
             let examples;
             await expect.poll(async () => {
-                const matches = await app.queryComponent({className: 'Portal.view.examples.TabContainer'}, ['id']);
+                const matches = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id']);
                 examples = Array.isArray(matches) ? matches[0] : matches;
                 return examples?.id
             }).toBeTruthy();

@@ -124,7 +124,8 @@ function renderedGeometry(row) {
 }
 
 /**
- * Every row a body renders sits where the geometry puts its index
+ * Every row a body renders sits where the geometry puts its index, at its height without its extra: the extra is
+ * room below the row, inside its slot
  * @param {Neo.grid.Body} body
  * @param {Neo.grid.RowGeometry} geometry
  */
@@ -135,7 +136,7 @@ function expectRowsOnGeometry(body, geometry) {
 
     rows.forEach(row => {
         expect(renderedGeometry(row), `row ${row.rowIndex}`).toEqual({
-            height: geometry.heightAt(row.rowIndex),
+            height: geometry.heightAt(row.rowIndex) - geometry.extraHeightAt(row.rowIndex),
             offset: geometry.offsetAt(row.rowIndex)
         })
     })
@@ -261,7 +262,7 @@ test.describe('Neo.grid.RowGeometry', () => {
         expect(geometry.totalHeight).toBe(290)
     });
 
-    test('a lazy store keeps its records raw through a full pass', () => {
+    test('a lazy store keeps its records raw through a full pass and an extra read', () => {
         let lazy = Neo.create(Store, {
                 autoInitRecords: false,
                 data           : Array.from({length: 50}, (item, index) => ({id: index, name: `Row ${index}`})),
@@ -270,9 +271,11 @@ test.describe('Neo.grid.RowGeometry', () => {
             other = Neo.create(RowGeometry, {estimate: rowHeight, getRecordId: record => lazy.getKey(record), store: lazy});
 
         other.setHeights(new Map([[7, 90]]));
+        other.setExtraHeights(new Map([[9, 30]]));
 
         expect(other.offsetAt(8)).toBe(7 * 40 + 90);
-        // getAt() hydrates the record it reads: the full pass reads `items`
+        expect(other.extraHeightAt(9)).toBe(30);
+        // getAt() hydrates the record it reads: the full pass and the extra read both read `items`
         expect(lazy.items.filter(item => RecordFactory.isRecord(item))).toEqual([]);
 
         other.destroy();
@@ -417,6 +420,22 @@ test.describe('Neo.grid.RowGeometry', () => {
 
         geometry.store = store;
         other.destroy()
+    });
+
+    test('the extra of a row reads by its index and follows its record', () => {
+        geometry.setExtraHeights(new Map([[1, 100], [3, 20]]));
+
+        expect([-1, 0, 1, 2, 3, 4, 5].map(index => geometry.extraHeightAt(index))).toEqual([0, 0, 100, 0, 20, 0, 0]);
+
+        store.sort({direction: 'DESC', property: 'id'});
+
+        // ids 4, 3, 2, 1, 0
+        expect([0, 1, 2, 3, 4].map(index => geometry.extraHeightAt(index))).toEqual([0, 20, 0, 100, 0]);
+
+        store.filters = [{property: 'id', operator: '<', value: 3}];
+
+        // ids 2, 1, 0
+        expect([0, 1, 2].map(index => geometry.extraHeightAt(index))).toEqual([0, 100, 0])
     });
 
     test('a store listener bound before the geometry already reads the new order', () => {
@@ -659,7 +678,7 @@ test.describe('Grid content-sized rows', () => {
         }
     });
 
-    test('the start, center and end bodies of a view share each row height', async () => {
+    test('the start, center and end bodies of a view share each row height, and none renders the extra', async () => {
         let locked = await createGrid({
                 columns         : [
                     {dataField: 'id',   locked: 'start', text: 'ID',   width: 100},
@@ -675,12 +694,14 @@ test.describe('Grid content-sized rows', () => {
         expect(view.bodies.length).toBe(3);
 
         view.setRowHeights(heightsOf(locked, {1: 90, 4: 15}));
+        view.setRowExtraHeights(heightsOf(locked, {1: 50}));
         await view.promiseUpdate();
 
-        expect(geometry.heightAt(1)).toBe(90);
+        expect(geometry.heightAt(1)).toBe(140);
 
         view.bodies.forEach(body => {
             expect(body.rowGeometry).toBe(geometry);
+            expect(renderedGeometry(body.items.find(row => row.rowIndex === 1)).height).toBe(90);
             expectRowsOnGeometry(body, geometry)
         });
 
@@ -757,6 +778,41 @@ test.describe('Grid content-sized rows', () => {
         expectRowsOnGeometry(body, geometry);
         expect(body.vdom.height).toBe(`${75 + 20 + 100 + rowHeight}px`);
         expect(verticalScrollbar.vdom.cn[0].height).toBe(body.vdom.height)
+    });
+
+    test('a row renders at its height without the extra, which stays room below it in its slot', async () => {
+        let {body, view} = grid,
+            geometry     = view.rowGeometry,
+            rowAt        = index => body.items.find(row => row.rowIndex === index);
+
+        view.setRowHeights(heightsOf(grid, {0: 32}));
+        view.setRowExtraHeights(heightsOf(grid, {0: 300}));
+        await view.promiseUpdate();
+
+        expect(renderedGeometry(rowAt(0))).toEqual({height: 32, offset: 0});
+        expect(renderedGeometry(rowAt(1))).toEqual({height: rowHeight, offset: 332});
+        expect(geometry.heightAt(0)).toBe(332);
+        expectRowsOnGeometry(body, geometry)
+    });
+
+    test('a row stays current while only its extra changes, and the rows below it move', async () => {
+        let {body, view} = grid,
+            geometry     = view.rowGeometry,
+            rowAt        = index => body.items.find(row => row.rowIndex === index);
+
+        view.setRowHeights(heightsOf(grid, {0: 32}));
+        view.setRowExtraHeights(heightsOf(grid, {0: 300}));
+        await view.promiseUpdate();
+
+        expect([0, 1].map(index => rowAt(index).hasStaleGeometry())).toEqual([false, false]);
+
+        // Straight on the geometry, so no render catches up: the row keeps its own height and offset
+        geometry.setExtraHeights(heightsOf(grid, {0: 200}));
+        expect([0, 1].map(index => rowAt(index).hasStaleGeometry())).toEqual([false, true]);
+
+        // The measured height is the row's own
+        geometry.setHeights(heightsOf(grid, {0: 50}));
+        expect(rowAt(0).hasStaleGeometry()).toBe(true)
     });
 
     test('a height change moves the rows without re-rendering their cells', async () => {

@@ -1,0 +1,16 @@
+.neo-examples-process-trip {
+    max-height: 100%;
+    overflow  : auto;
+
+    .neo-examples-process-heading {
+        text-align: center;
+    }
+}
+
+/* A phone's stage is about 210px tall: a smaller heading leaves the first stage of the trip in view */
+@media (max-width: 600px) {
+    .neo-examples-process-trip .neo-examples-process-heading h1 {
+        font-size: 1.2em;
+        margin   : .3em 0;
+    }
+}
