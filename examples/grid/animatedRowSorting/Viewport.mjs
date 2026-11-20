@@ -99,6 +99,40 @@ class Viewport extends BaseViewport {
     }
 
     /**
+     * @member {Number|null} intervalId=null
+     * @protected
+     */
+    intervalId = null
+
+    /**
+     * @member {Boolean} isPaused=false
+     */
+    isPaused = false
+
+    /**
+     * @summary Cleans up the background update timer and destroys the viewport.
+     */
+    destroy() {
+        clearInterval(this.intervalId);
+        super.destroy()
+    }
+
+    /**
+     * @summary Starts the 1500ms leaderboard update timer after viewport construction.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.intervalId = setInterval(() => {
+            if (!me.isPaused && !me.isDestroyed) {
+                me.getReference('grid').store.updateRankings()
+            }
+        }, 1500)
+    }
+
+    /**
      * @param {Object} data
      */
     onFirstnameFieldChange(data) {
@@ -111,8 +145,7 @@ class Viewport extends BaseViewport {
      */
     onPauseButtonClick(data) {
         let me          = this,
-            store       = me.getReference('grid').store,
-            isPaused    = store.togglePause(),
+            isPaused    = me.togglePause(),
             pauseButton = me.getReference('pauseButton');
 
         pauseButton.set({
@@ -129,6 +162,15 @@ class Viewport extends BaseViewport {
         this.getReference('grid').view.bodies.forEach(body => {
             body.getPlugin('grid-animate-rows').transitionDuration = data.value
         })
+    }
+
+    /**
+     * @summary Toggles automatic leaderboard updates between paused and active.
+     * @returns {Boolean} The current paused state
+     */
+    togglePause() {
+        this.isPaused = !this.isPaused;
+        return this.isPaused
     }
 }
 

@@ -3,7 +3,7 @@ import Store from '../../../src/data/Store.mjs';
 
 /**
  * @summary Store for the Global Code Sprint Leaderboard in the animated row sorting example.
- * Dynamically updates participant progress on a 1500ms timer to showcase smooth row gliding animations.
+ * Provides candidate records and re-sorts the leaderboard when rankings are updated.
  * @class Neo.examples.grid.animatedRowSorting.MainStore
  * @extends Neo.data.Store
  */
@@ -69,42 +69,10 @@ class MainStore extends Store {
     }
 
     /**
-     * @member {Number|null} intervalId=null
-     * @protected
-     */
-    intervalId = null
-
-    /**
-     * @member {Boolean} isPaused=false
-     */
-    isPaused = false
-
-    /**
      * @member {Boolean} #isFirstTick=true
      * @private
      */
     #isFirstTick = true
-
-    /**
-     * @summary Cleans up the background update timer and destroys the store.
-     */
-    destroy() {
-        clearInterval(this.intervalId);
-        super.destroy()
-    }
-
-    /**
-     * @summary Starts the 1500ms leaderboard update timer after store construction.
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (!me.id.endsWith('-all')) {
-            me.intervalId = setInterval(me.updateRankings.bind(me), 1500)
-        }
-    }
 
     /**
      * @param {Object[]} value
@@ -122,29 +90,6 @@ class MainStore extends Store {
     }
 
     /**
-     * @summary Pauses the automatic leaderboard updates.
-     */
-    pauseUpdates() {
-        this.isPaused = true
-    }
-
-    /**
-     * @summary Resumes the automatic leaderboard updates.
-     */
-    resumeUpdates() {
-        this.isPaused = false
-    }
-
-    /**
-     * @summary Toggles the automatic leaderboard updates between paused and active.
-     * @returns {Boolean} The current paused state
-     */
-    togglePause() {
-        this.isPaused = !this.isPaused;
-        return this.isPaused
-    }
-
-    /**
      * @summary Periodically updates candidate scores and re-sorts the leaderboard.
      * On the first tick (1.5s), the third-place candidate is boosted to the top position to ensure an overtake within 5s.
      * On subsequent ticks, 2 random candidates in the top 12 are updated, resetting to 38-55
@@ -153,7 +98,7 @@ class MainStore extends Store {
     updateRankings() {
         let me = this;
 
-        if (me.isPaused || me.isDestroyed) {
+        if (me.isDestroyed) {
             return
         }
 
