@@ -223,7 +223,8 @@ class MainContainer extends Container {
 
     /**
      * @summary The build control the overview and every group page show: one button whose menu selects the build,
-     * labelled as the setting it is, "Examples open in:" and the selected build.
+     * labelled as the setting it is, "Examples open in:" and the selected build. On a phone (`size: 'x-small'`) the
+     * label drops "Examples", so the control keeps its place beside the heading instead of taking a row of its own.
      * @returns {Object}
      */
     createBuildControl() {
@@ -231,7 +232,7 @@ class MainContainer extends Container {
 
         return {
             module      : Button,
-            bind        : {text: data => `Examples open in: ${me.buildModes.find(mode => mode.id === data.catalogMode).text}`},
+            bind        : {text: data => `${data.size === 'x-small' ? 'Open' : 'Examples open'} in: ${me.buildModes.find(mode => mode.id === data.catalogMode).text}`},
             cls         : ['portal-examples-build-control'],
             iconCls     : 'fa fa-chevron-down',
             iconPosition: 'right',

@@ -98,12 +98,12 @@ async function openGroup(page, name) {
  * @returns {Promise<void>}
  */
 async function selectBuild(page, label) {
-    const control = page.getByRole('button', {name: /^Examples open in: /}).locator('visible=true');
+    const control = page.getByRole('button', {name: /^(Examples open|Open) in: /}).locator('visible=true');
 
     await control.click();
     await page.locator('.neo-menu-list:visible .neo-list-item').filter({hasText: label}).click();
     await expect(page.locator('.neo-menu-list:visible')).toHaveCount(0);
-    await expect(control).toHaveText(`Examples open in: ${label}`)
+    await expect(control).toHaveText(new RegExp(`^(Examples open|Open) in: ${label}$`))
 }
 
 /**
@@ -269,12 +269,16 @@ test.describe('Portal examples section', () => {
             await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
 
-            // the build control is a setting beside the page's action, not a second action
-            expect(await page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => ({
+            // the build control is a setting beside the page's action, not a second action, and it keeps its place in
+            // the heading's row: a row of its own would push the first card down. Its phone label waits for the
+            // viewport to measure its size.
+            await expect.poll(() => page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => ({
+                besideHeading: node.getBoundingClientRect().top < node.closest('.portal-examples-overview-start')
+                    .querySelector('.portal-examples-overview-heading').getBoundingClientRect().bottom,
                 height: node.getBoundingClientRect().height,
                 label : node.textContent.trim(),
                 weight: getComputedStyle(node.querySelector('.neo-button-text')).fontWeight
-            }))).toEqual({height: 36, label: 'Examples open in: Production build', weight: '400'});
+            }))).toEqual({besideHeading: true, height: 36, label: `${isPhone ? 'Open' : 'Examples open'} in: Production build`, weight: '400'});
 
             if (isPhone) {
                 const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
