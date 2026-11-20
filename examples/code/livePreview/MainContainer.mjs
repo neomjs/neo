@@ -69,9 +69,11 @@ class MainContainer extends Viewport {
             }, {
                 module   : Button,
                 handler  : 'up.onThemeButtonClick',
-                iconCls  : 'fas fa-moon',
+                iconCls  : 'fa-solid fa-moon',
                 reference: 'theme-button',
-                text     : 'Dark theme'
+                text     : 'Dark theme',
+                tooltip  : 'Switch between the light and dark theme',
+                ui       : 'ghost'
             }]
         }, {
             module   : LivePreview,
@@ -87,16 +89,24 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @summary Switches the page between neo-light and neo-dark. The theme travels down the component tree, so
-     * the editor follows it through its own theme map.
+     * @summary Switches the page between neo-light and neo-dark, revealed from the click as in the other renewed
+     * examples. The theme travels down the component tree, so the editor follows it through its own theme map.
      * @param {Object} data
+     * @param {Number} [data.clientX]
+     * @param {Number} [data.clientY]
      * @param {Neo.button.Base} data.component
      */
-    onThemeButtonClick({component}) {
+    async onThemeButtonClick(data) {
         let toDark = this.getTheme() !== 'neo-theme-neo-dark';
 
-        component.set({
-            iconCls: toDark ? 'fas fa-sun'   : 'fas fa-moon',
+        await Neo.main.DomAccess.startViewTransition({
+            delay   : 100,
+            reveal  : {x: data?.clientX, y: data?.clientY},
+            windowId: this.windowId
+        }).catch(() => {});
+
+        data.component.set({
+            iconCls: toDark ? 'fa-solid fa-sun'  : 'fa-solid fa-moon',
             text   : toDark ? 'Light theme' : 'Dark theme'
         });
 
