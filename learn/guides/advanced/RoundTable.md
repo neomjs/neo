@@ -368,7 +368,7 @@ The Portal's record is written by a build script from a repository's merged pull
 GH_TOKEN=$(gh auth token) node buildScripts/docs/recordWeek.mjs
 ```
 
-The file is a dated snapshot. Its caption names its window, so the page stays true at any age, and a count never stands without its dates: when the strip's caption runs out of room, it gives up its last parts first and its window never.
+The file is a dated snapshot. Its caption names its window, so the page stays true at any age, and a count never stands without its dates: when the strip's caption runs out of room, it shortens its count's unit first, then gives up its parts from the end, and its window never.
 
 Two things to know before you write a record of your own:
 
