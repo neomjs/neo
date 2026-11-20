@@ -199,9 +199,13 @@ test.describe('Portal.view.HeaderToolbar & ViewportController — single-row pho
               discordBtn  = toolbar.getReference('discord-header-button'),
               examplesBtn = toolbar.getReference('examples-button');
 
+        expect(homeBtn.ariaLabel).toBe('Neo.mjs Home');
         expect(homeBtn.getVdomRoot()['aria-label']).toBe('Neo.mjs Home');
+        expect(themeBtn.ariaLabel).toBe('Switch Theme');
         expect(themeBtn.getVdomRoot()['aria-label']).toBe('Switch Theme');
+        expect(githubBtn.ariaLabel).toBe('GitHub');
         expect(githubBtn.getVdomRoot()['aria-label']).toBe('GitHub');
+        expect(discordBtn.ariaLabel).toBe('Join Discord');
         expect(discordBtn.getVdomRoot()['aria-label']).toBe('Join Discord');
 
         host.stateProvider.setData({size: 'x-small'});

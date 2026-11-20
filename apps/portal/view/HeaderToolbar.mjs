@@ -21,6 +21,8 @@ class HeaderToolbar extends BaseHeaderToolbar {
          * @member {Object[]} items
          */
         items: [{
+            ariaLabel: 'Neo.mjs Home',
+            // Keep `x-small` (`Viewport#getSize` <= 640px) aligned with `@media (max-width: 640px)` in HeaderToolbar.css
             bind     : {text: data => data.size === 'x-small' ? null : 'Neo.mjs'},
             cls      : ['logo'],
             iconCls  : 'neo-logo-blue',
@@ -56,6 +58,7 @@ class HeaderToolbar extends BaseHeaderToolbar {
             },
 
             items: [{
+                ariaLabel: 'Switch Theme',
                 handler  : 'onSwitchTheme',
                 iconCls  : 'fa-solid fa-moon',
                 reference: 'theme-switch-button',
@@ -64,6 +67,7 @@ class HeaderToolbar extends BaseHeaderToolbar {
                     showDelay: 0
                 }
             }, {
+                ariaLabel: 'GitHub',
                 iconCls  : 'fa-brands fa-github',
                 reference: 'github-header-button',
                 url      : 'https://github.com/neomjs/neo',
@@ -72,6 +76,7 @@ class HeaderToolbar extends BaseHeaderToolbar {
                     showDelay: 0
                 }
             }, {
+                ariaLabel: 'Join Discord',
                 iconCls  : 'fa-brands fa-discord',
                 reference: 'discord-header-button',
                 url      : 'https://discord.gg/6p8paPq',
@@ -81,29 +86,6 @@ class HeaderToolbar extends BaseHeaderToolbar {
                 }
             }]
         }]
-    }
-
-    /**
-     * @summary Assigns accessible `aria-label` attributes to the header's icon buttons.
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        const labels = {
-            'discord-header-button': 'Join Discord',
-            'github-header-button' : 'GitHub',
-            'home-button'          : 'Neo.mjs Home',
-            'theme-switch-button'  : 'Switch Theme'
-        };
-
-        Object.entries(labels).forEach(([reference, label]) => {
-            const button = this.getReference(reference);
-
-            if (button) {
-                button.getVdomRoot()['aria-label'] = label;
-                button.update()
-            }
-        })
     }
 }
 

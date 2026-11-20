@@ -40,6 +40,7 @@
         }
     }
 
+    /* Must stay aligned with `Viewport#getSize` (`x-small` <= 640px) and `HeaderToolbar` `home-button` text bind */
     @media (max-width: 640px) {
         --button-min-width     : 32px;
         --button-padding       : 0 5px;
