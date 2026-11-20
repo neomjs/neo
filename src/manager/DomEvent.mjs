@@ -909,6 +909,8 @@ class DomEvent extends Base {
     }
 
     /**
+     * @summary Suppresses delegated `mouseenter` and `mouseleave` transitions whose `fromElementId` / `toElementId`
+     * remains on or inside `delegationTargetId` (including child↔delegate transitions).
      * @param {Neo.component.Base} component
      * @param {Object} data
      * @param {String} delegationTargetId
@@ -919,7 +921,7 @@ class DomEvent extends Base {
         let targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId,
             delegationVdom;
 
-        if (targetId && targetId !== delegationTargetId) {
+        if (targetId) {
             delegationVdom = VDomUtil.find(component.vdom, delegationTargetId);
 
             // delegationVdom can be undefined when dragging a proxy over the node.

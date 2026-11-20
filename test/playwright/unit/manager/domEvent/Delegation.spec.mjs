@@ -521,4 +521,49 @@ test.describe('Neo.manager.DomEvent Delegation Verification', () => {
             owner.destroy()
         }
     });
+
+    test('verifyMouseEnterLeave suppresses internal child-to-delegate and delegate-to-child crossings (#21605)', () => {
+        const owner = Neo.create(Component, {
+            appName,
+            id  : 'mouse-boundary-owner',
+            vdom: {
+                id: 'mouse-boundary-owner',
+                cn: [{
+                    id  : 'multi-window-pill',
+                    cls : ['neo-multi-window'],
+                    data: {neoTooltip: 'Multi-window live example'},
+                    cn  : [
+                        {id: 'multi-window-icon',  tag: 'i'},
+                        {id: 'multi-window-label', tag: 'span', text: 'Multi-window'}
+                    ]
+                }, {
+                    id: 'outside-sibling'
+                }]
+            }
+        });
+
+        const {verifyMouseEnterLeave} = DomEvent.constructor;
+
+        try {
+            // Entering from outside -> allowed
+            expect(verifyMouseEnterLeave(owner, {fromElementId: 'outside-sibling'}, 'multi-window-pill', 'mouseenter')).toBe(true);
+            expect(verifyMouseEnterLeave(owner, {fromElementId: null}, 'multi-window-pill', 'mouseenter')).toBe(true);
+
+            // Moving from delegated root into its own child -> internal, suppressed
+            expect(verifyMouseEnterLeave(owner, {fromElementId: 'multi-window-pill'}, 'multi-window-pill', 'mouseenter')).toBe(false);
+            // Moving between children inside delegated root -> internal, suppressed
+            expect(verifyMouseEnterLeave(owner, {fromElementId: 'multi-window-icon'}, 'multi-window-pill', 'mouseenter')).toBe(false);
+
+            // Moving from child back onto delegated root's own padding -> internal, suppressed
+            expect(verifyMouseEnterLeave(owner, {toElementId: 'multi-window-pill'}, 'multi-window-pill', 'mouseleave')).toBe(false);
+            // Moving between children on mouseleave -> internal, suppressed
+            expect(verifyMouseEnterLeave(owner, {toElementId: 'multi-window-label'}, 'multi-window-pill', 'mouseleave')).toBe(false);
+
+            // Leaving to outside sibling or viewport edge (null) -> allowed
+            expect(verifyMouseEnterLeave(owner, {toElementId: 'outside-sibling'}, 'multi-window-pill', 'mouseleave')).toBe(true);
+            expect(verifyMouseEnterLeave(owner, {toElementId: null}, 'multi-window-pill', 'mouseleave')).toBe(true)
+        } finally {
+            owner.destroy()
+        }
+    });
 });
