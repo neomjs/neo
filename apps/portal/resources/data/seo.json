@@ -1101,19 +1101,19 @@
     },
     "/examples/scheduler": {
         "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
-        "description": "Explore 2 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
+        "description": "Explore 3 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
     "/examples/gantt": {
         "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
-        "description": "Explore 2 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
+        "description": "Explore 3 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
-        "description": "Explore 2 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
+        "description": "Explore 3 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
@@ -1829,7 +1829,7 @@
         "title": "Grid: Animated Row Sorting — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Animated sorting and filtering. Sort a header or filter Firstname, then adjust the transition duration to watch the rows move.",
         "schemaType": "WebPage",
-        "lastmod": "2026-10-20"
+        "lastmod": "2026-11-20"
     },
     "/examples/grid/bigData/index.html": {
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
@@ -2064,6 +2064,18 @@
         "description": "300 people and 15,600 seeded bookings across a 52-week timeline. Scroll down through 300 people, then sideways through the year: buffered rows and...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-18"
+    },
+    "/examples/scheduler/meridian/index.html": {
+        "title": "Meridian Observatory — Observation Planning | Neo.mjs",
+        "description": "Book a telescope to catch a dip in starlight. Hold ARC-17 over North and South at 22:12. Compare the predicted samples and the mosaic’s finish time, then...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-20"
+    },
+    "/examples/scheduler/nonWorkingTime/index.html": {
+        "title": "Weekends and holidays in the plan · Neo Scheduler | Neo.mjs",
+        "description": "Live runnable Weekends and holidays in the plan · Neo Scheduler example in Neo.mjs, the multi-threaded JavaScript application engine running UI components...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-20"
     },
     "/examples/serverside/toolbarItems/index.html": {
         "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",

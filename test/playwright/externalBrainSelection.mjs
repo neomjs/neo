@@ -123,6 +123,8 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/YieldedMoveCoalescingNL.spec.mjs',
     'scheduler/BasicNL.spec.mjs',
     'scheduler/BigDataNL.spec.mjs',
+    'scheduler/MeridianPointer.spec.mjs',
+    'scheduler/MeridianSequence.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',
     'workstation/DockSplitterZoneIdNL.spec.mjs',
     'workstation/VesselClosesMidFirstRenderNL.spec.mjs',
