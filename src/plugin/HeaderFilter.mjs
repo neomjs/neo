@@ -34,10 +34,11 @@ class HeaderFilter extends Plugin {
     }
 
     /**
-     * @summary Follows the header's current Grid/Table container without adding a source ownership API.
+     * @summary Follows the header's current Grid/Table container without adding a source ownership API. A grid
+     * header names its grid, a subclass with its own ntype included; any other owner is found by ntype.
      * @param {Neo.component.Base|null} [container]
      */
-    bindContainer(container=this.owner.up('grid-container') || this.owner.up('table-container')) {
+    bindContainer(container=this.owner.getGridContainer?.() || this.owner.up('grid-container') || this.owner.up('table-container')) {
         if (this.isDestroyed) return;
         if (container !== this.#container) {
             this.#containerCleanup?.();

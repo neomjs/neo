@@ -113,7 +113,7 @@ class Menu extends Plugin {
             owner.addDomListeners(me.#domListeners)
         }
         me.#releaseField = me.observeConfig(owner, 'dataField', () => me.bindStore(me.#store));
-        const grid = owner.up('grid-container');
+        const grid = owner.getGridContainer();
         if (grid) {
             me.#releaseStore = me.observeConfig(grid, 'store', store => me.bindStore(store));
             me.bindStore(grid.store)
