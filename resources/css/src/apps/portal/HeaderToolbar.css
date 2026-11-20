@@ -42,8 +42,8 @@
 
     /* Must stay aligned with `Viewport#getSize` (`x-small` <= 640px) and `HeaderToolbar` `home-button` text bind */
     @media (max-width: 640px) {
-        --button-min-width     : 32px;
-        --button-padding       : 0 5px;
+        --button-min-width     : 30px;
+        --button-padding       : 0 4px;
         --button-text-font-size: 13px;
 
         .neo-button.neo-button-ghost {
@@ -54,7 +54,7 @@
             &.no-text {
                 margin-left: 0;
                 padding    : 0;
-                width      : 32px;
+                width      : 30px;
 
                 .neo-button-glyph {
                     font-size: 18px;
@@ -65,7 +65,7 @@
             &.logo {
                 margin-left: 0;
                 padding    : 0;
-                width      : 32px;
+                width      : 30px;
 
                 .neo-button-glyph.neo-logo-blue {
                     height    : 22px;
@@ -83,7 +83,7 @@
 
         .portal-header-actions {
             gap        : 2px;
-            margin-left: 4px;
+            margin-left: 2px;
         }
     }
 
