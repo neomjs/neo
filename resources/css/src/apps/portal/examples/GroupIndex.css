@@ -84,6 +84,13 @@
     .portal-examples-group-index-top {
         margin-bottom: 4px;
     }
+
+    .portal-examples-group-index-note {
+        color    : var(--portal-examples-text-muted);
+        font-size: 13px;
+        margin   : 10px 0 0;
+        padding  : 0 8px;
+    }
 }
 
 /* Mobile-only overview presentation sets Apps above the five banded sections. */
@@ -92,7 +99,8 @@
     gap                  : 16px 28px;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 
-    .portal-examples-group-index-top {
+    .portal-examples-group-index-top,
+    .portal-examples-group-index-note {
         grid-column: 1 / -1;
     }
 
