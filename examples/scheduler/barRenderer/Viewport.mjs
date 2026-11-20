@@ -196,7 +196,7 @@ function renderJobBar(barDescriptor, {vdom}) {
 
     vdom.cls.push('print-bar-rich', `print-bar-${status}`);
     vdom.data.status = status;
-    vdom['aria-label'] = `${title} — ${status.replace('-', ' ')}, ${pct}% complete, ${bar.customer} (${bar.quantity})`;
+    vdom['aria-label'] = `${vdom['aria-label'] || title} — ${status.replace('-', ' ')}, ${pct}% complete, ${bar.customer} (${bar.quantity})`;
 
     if (labelNode) {
         labelNode.cls.push('print-bar-body');
@@ -297,7 +297,7 @@ class PrintShopViewport extends Viewport {
                 flex : 1
             }, {
                 module   : Button,
-                cls      : ['print-plain-switch', 'is-off'],
+                cls      : ['print-plain-switch'],
                 handler  : 'up.onTogglePlainBars',
                 pressed  : false,
                 reference: 'plain-switch',
@@ -379,11 +379,10 @@ class PrintShopViewport extends Viewport {
     #isCompact = null
 
     /**
-     * @summary Observes scheduler body width, initializes switch ARIA attributes, and computes derived status counts.
+     * @summary Observes scheduler body width and computes initial derived status counts.
      */
     onConstructed() {
         super.onConstructed();
-        this.syncSwitchAria();
         this.updateSummaryLabel();
 
         const body = this.getReference('scheduler')?.body;
@@ -415,9 +414,7 @@ class PrintShopViewport extends Viewport {
             toggle    = me.getReference('plain-switch');
 
         if (toggle) {
-            toggle.pressed = value;
-            toggle.cls     = ['print-plain-switch', value ? 'is-on' : 'is-off'];
-            me.syncSwitchAria()
+            toggle.pressed = value
         }
 
         legendBar?.toggleCls('is-plain', value);
@@ -434,19 +431,6 @@ class PrintShopViewport extends Viewport {
      */
     onTogglePlainBars() {
         this.plainBars = !this.plainBars
-    }
-
-    /**
-     * @summary Keeps `role="switch"` and `aria-checked` synchronized on the toolbar switch button.
-     */
-    syncSwitchAria() {
-        const toggle = this.getReference('plain-switch');
-
-        if (toggle) {
-            toggle.vdom.role           = 'switch';
-            toggle.vdom['aria-checked'] = String(Boolean(this.plainBars));
-            toggle.update()
-        }
     }
 
     /**

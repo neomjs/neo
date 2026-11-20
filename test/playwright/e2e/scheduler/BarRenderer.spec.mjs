@@ -215,9 +215,19 @@ test.describe('Scheduler barRenderer example', () => {
         });
 
         const plainSwitch = page.locator('.print-plain-switch');
-        await expect(plainSwitch).toHaveAttribute('aria-checked', 'false');
+        await expect(plainSwitch).toHaveAttribute('aria-pressed', 'false');
+        await expect(plainSwitch).not.toHaveAttribute('aria-checked');
+        await expect(plainSwitch).not.toHaveAttribute('role');
+        await expect(plainSwitch).toHaveClass(/neo-button/);
+        await expect(plainSwitch).toHaveClass(/icon-left/);
+        await expect(plainSwitch).not.toHaveClass(/\bpressed\b/);
+
         await plainSwitch.click();
-        await expect(plainSwitch).toHaveAttribute('aria-checked', 'true');
+        await expect(plainSwitch).toHaveAttribute('aria-pressed', 'true');
+        await expect(plainSwitch).not.toHaveAttribute('aria-checked');
+        await expect(plainSwitch).toHaveClass(/neo-button/);
+        await expect(plainSwitch).toHaveClass(/icon-left/);
+        await expect(plainSwitch).toHaveClass(/\bpressed\b/);
 
         await expect(page.locator('.neo-timeline-bar.print-bar-rich')).toHaveCount(0);
         await expect(page.locator('.print-bar-late-flag')).toHaveCount(0);
@@ -230,7 +240,10 @@ test.describe('Scheduler barRenderer example', () => {
 
         // Toggle Plain bars back OFF -> restores status classes, Late glyph, and second line without reload
         await plainSwitch.click();
-        await expect(plainSwitch).toHaveAttribute('aria-checked', 'false');
+        await expect(plainSwitch).toHaveAttribute('aria-pressed', 'false');
+        await expect(plainSwitch).toHaveClass(/neo-button/);
+        await expect(plainSwitch).toHaveClass(/icon-left/);
+        await expect(plainSwitch).not.toHaveClass(/\bpressed\b/);
         await expect(job1Bar).toHaveClass(/print-bar-late/);
         await expect(job1Bar.locator('.print-bar-late-flag')).toHaveText('▲ Late');
         await expect(job1Bar.locator('.print-bar-meta')).toHaveText('Kunsthalle · 4,000 · 62%');

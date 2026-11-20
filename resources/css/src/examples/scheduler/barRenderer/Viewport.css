@@ -86,7 +86,7 @@
                 width        : 10px;
             }
 
-            &.is-on {
+            &.pressed {
                 background  : var(--print-switch-active-surface);
                 border-color: var(--print-switch-track-on);
 
