@@ -1,0 +1,42 @@
+:where(.neo-theme-neo-dark) {
+    --print-header-bg            : #0f172a;
+    --print-subbar-bg            : #111c33;
+    --print-border               : rgba(148, 163, 184, 0.18);
+    --print-title                : #f8fafc;
+    --print-muted                : #cbd5e1;
+    --print-focus                : #38bdf8;
+    --print-badge-bg             : rgba(56, 189, 248, 0.12);
+    --print-badge-border         : rgba(56, 189, 248, 0.32);
+    --print-badge-text           : #bae6fd;
+
+    --print-switch-surface       : #17253d;
+    --print-switch-hover-bg      : #1e3150;
+    --print-switch-active-surface: #16334a;
+    --print-switch-border        : rgba(148, 163, 184, 0.32);
+    --print-switch-track-off     : #0b1324;
+    --print-switch-track-border  : rgba(148, 163, 184, 0.42);
+    --print-switch-track-on      : #38bdf8;
+    --print-switch-thumb         : #cbd5e1;
+    --print-switch-thumb-on      : #082f49;
+
+    --print-bar-text             : #f8fafc;
+    --print-bar-meta             : #e2e8f0;
+
+    --print-on-time-bg           : #0d241e;
+    --print-on-time-fill         : #144938;
+    --print-on-time-border       : #34d399;
+
+    --print-at-risk-bg           : #291c09;
+    --print-at-risk-fill         : #4d320d;
+    --print-at-risk-border       : #fbbf24;
+    --print-risk-flag-bg         : #451a03;
+    --print-risk-flag-border     : #fcd34d;
+    --print-risk-flag-text       : #fef3c7;
+
+    --print-late-bg              : #2f1118;
+    --print-late-fill            : #571725;
+    --print-late-border          : #fb7185;
+    --print-late-flag-bg         : #4c0519;
+    --print-late-flag-border     : #fda4af;
+    --print-late-flag-text       : #fff1f2;
+}
