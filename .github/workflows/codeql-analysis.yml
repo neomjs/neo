@@ -20,6 +20,11 @@ on:
   schedule:
     - cron: '24 9 * * 3'
 
+# Only a new PR head cancels (`synchronize`): a `reopened` run can share its head, and a cancelled sibling
+# stays red there (see file-size-guard.yml). `dev` pushes, scheduled runs and re-runs never cancel.
+concurrency:
+  group: codeql-${{ github.event_name == 'pull_request' && github.run_attempt == '1' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event.action == 'synchronize' }}
 
 jobs:
   analyze:
