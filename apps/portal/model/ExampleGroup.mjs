@@ -7,7 +7,8 @@ import Model from '../../../src/data/Model.mjs';
  * `Portal.view.examples.MainContainer#familyDefinitions`. `count` and `crossCount` follow the catalog and the
  * selected build (`Portal.view.examples.MainContainerController#publishGroups()`). `count` holds the group's home records
  * that publish, cards and tiles alike, so every example counts once and the counts add up to the overview's headline.
- * `crossCount` holds the ones other groups lend it through `alsoIn`: shown on its page, not counted. `tileCount` holds the
+ * `crossCount` holds the ones other groups lend it through `alsoIn`: they show on its page and in its number
+ * (`countText`, `countLabel`: `count + crossCount`), never in the overview's headline. `tileCount` holds the
  * tiles its page shows, its own and lent ones (`kind: 'component'`): the page heads its cards and its tiles only when it
  * shows both.
  * @class Portal.model.ExampleGroup
