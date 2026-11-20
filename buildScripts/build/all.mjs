@@ -224,7 +224,7 @@ if (programOpts.info) {
                 steps.push([`threads ${target}`, nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', target, ...cpArgs.slice(2), '--no-stamp']])
             });
 
-            (env === 'all' || env === 'esm') && steps.push(['esmodules', nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp']])
+            (env === 'all' || env === 'esm') && steps.push(['esmodules', nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp', '--no-docs-output']])
         }
 
         hasDocs && parsedocs === 'yes' && steps.push(['docs json', npmCmd, ['run', 'generate-docs-json']]);
@@ -234,6 +234,11 @@ if (programOpts.info) {
         if (failed) {
             console.error(chalk.red(`${failed.label} failed`));
             process.exit(failed.status)
+        }
+
+        // `dist/esm` takes its copy of the docs JSON only now, once `generate-docs-json` has stopped writing it
+        if (threads === 'yes' && (env === 'all' || env === 'esm') && fs.existsSync(path.join(cwd, 'docs/output'))) {
+            fs.copySync(path.join(cwd, 'docs/output'), path.join(cwd, esmOutputRoot, 'docs/output'))
         }
 
         if (threads === 'yes' && (env === 'all' || env === 'prod')) {

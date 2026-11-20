@@ -154,6 +154,17 @@ test.describe('buildScripts: a build publishes its id only once it succeeded', (
         expect(published()).toEqual(['previous', 'previous', 'run1'])
     });
 
+    test('build-all copies the docs JSON into dist/esm after its steps, never inside them', () => {
+        fs.mkdirSync(path.join(workspace, 'docs/output'), {recursive: true});
+        fs.writeFileSync(path.join(workspace, 'docs/output/all.json'), '[]');
+
+        const {status, steps} = run('buildScripts/build/all.mjs', buildAllArgs);
+
+        expect(status).toBe(0);
+        expect(steps, 'esmodules.mjs runs beside generate-docs-json and leaves the copy to build-all').toMatch(/esmodules\.mjs --no-stamp --no-docs-output/);
+        expect(fs.readFileSync(path.join(workspace, 'dist/esm/docs/output/all.json'), 'utf8')).toBe('[]')
+    });
+
     for (const step of ['esmodules.mjs', 'seo/copy.mjs']) {
         test(`a build-all whose ${step} step fails publishes nothing`, () => {
             expect(run('buildScripts/build/all.mjs', buildAllArgs, step).status).toBe(7);
