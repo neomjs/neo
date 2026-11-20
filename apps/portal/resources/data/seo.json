@@ -1143,7 +1143,7 @@
     },
     "/examples/forms": {
         "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
-        "description": "Explore 29 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
+        "description": "Explore 31 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-20"
     },
