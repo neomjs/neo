@@ -334,7 +334,8 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * @summary Holds the editor out of every cell until the matching {@link #releaseEdit}, sharing the active out-render promise across overlapping holds.
+     * @summary Holds the editor out of every cell until the matching {@link #releaseEdit}, sharing the active
+     * out-render promise across overlapping holds.
      *
      * A column changing body shifts the cells beside it too, and a render that moves the editor between cells can lose
      * its node, so a lock change renders it out first, and the body rendering the column embeds it anew. Removing the
@@ -729,7 +730,8 @@ class CellEditing extends Plugin {
     }
 
     /**
-     * @summary Ends a {@link #holdEdit}: once the last lock change releases it, clears `holdPromise` and re-embeds the editor.
+     * @summary Ends a {@link #holdEdit}: once the last lock change releases it, clears `holdPromise` and re-embeds
+     * the editor.
      */
     releaseEdit() {
         let me        = this,
