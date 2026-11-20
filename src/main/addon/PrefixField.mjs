@@ -1,7 +1,8 @@
 import Base from './Base.mjs';
 
 /**
- * Experimental
+ * @summary Main-thread input mask controller for `Neo.plugin.PrefixField`.
+ * Formats `<input>.value` and updates caret selection synchronously on Main ahead of bubble-phase `DomEvents`.
  * @class Neo.main.addon.PrefixField
  * @extends Neo.main.addon.Base
  */
@@ -13,126 +14,322 @@ class PrefixField extends Base {
          */
         className: 'Neo.main.addon.PrefixField',
         /**
-         * regex to calculate if entered value is acceptable
-         * Preset to numbers only
-         *
-         * @member {regex|null} accept
-         */
-        accept_: null,
-        /**
-         * @member {String} pattern=null
-         */
-        pattern_: null,
-        /**
-         * Remote method access for other workers
          * @member {Object} remote
          * @protected
          */
         remote: {
             app: [
-                'initialize',
-                'destroy',
-                'updateAccept',
-                'updatePattern',
-                'updateSlots',
+                'register',
+                'setConfigs',
+                'unregister'
             ]
-        },
-        /**
-         * Only add a String. A Set will be automatically created
-         * @member {String|Set|null} slots=null
-         */
-        slots_: null
-    }
-
-    elIds = new Map()
-
-    prev
-
-    back = false
-
-    destroy() {
-
+        }
     }
 
     /**
-     *
-     * @param {Object} data
-     * @param {String} data.elId
-     * @param {String} data.pattern
-     * @param {String} data.slots
-     * @param {String} data.accept
+     * Per-input state keyed by DOM element id.
+     * @member {Map<String, Object>} fields=new Map()
+     * @protected
      */
-    initialize(data) {
-        const me = this;
+    fields = new Map()
 
-        me.elId     = data.elId;
+    /**
+     * @param {Object} state
+     * @param {String} input
+     * @returns {String[]}
+     * @protected
+     */
+    clean(state, input) {
+        if (!state.pattern) {
+            return [...String(input || '')]
+        }
 
-        const el      = me.el = document.getElementById(data.elId),
-              pattern = me.pattern = data.pattern,
-              slots = me.slots = new Set(data.slots || "_");
+        const accept  = new RegExp(state.accept.source, state.accept.flags);
+        let   matches = String(input || '').match(accept) || [];
 
-        me.accept = data.accept;
-        me.prev   = (j => Array.from(pattern, (c, i) => slots.has(c) ? j = i + 1 : j))(0);
-        me.first  = [...pattern].findIndex(c => slots.has(c));
-
-        me.addListeners();
-        me.addCss();
+        return Array.from(state.pattern, char =>
+            matches[0] === char || state.slots.has(char) ? matches.shift() || char : char
+        ).slice(0, state.pattern.length)
     }
 
-    addCss() {
-        this.el.classList.add('tiny-prefix-field-input');
+    /**
+     * @param {String|null} acceptSource
+     * @param {String|null} acceptFlags
+     * @returns {RegExp}
+     * @protected
+     */
+    compileAccept(acceptSource, acceptFlags) {
+        const source = acceptSource || '\\d',
+              flags  = acceptFlags || '';
+
+        return new RegExp(source, flags.includes('g') ? flags : `${flags}g`)
     }
 
-    addListeners() {
-        const me       = this,
-              el       = me.el,
-              formatFn = me.format.bind(me);
+    /**
+     * @param {Object} state
+     * @param {String} value
+     * @param {Number} start
+     * @param {Number} end
+     * @returns {Number[]}
+     * @protected
+     */
+    computeSelection(state, value, start, end) {
+        const {first, prev, slots} = state;
 
-        el.addEventListener("keypress", me.onKeyDown.bind(me));
-        el.addEventListener("input", formatFn);
-        el.addEventListener("focusin", formatFn);
-        el.addEventListener("focusout", me.onBlur.bind(me));
+        return [start, end].map(pos => {
+            const nextSlot = this.clean(state, value.slice(0, pos)).findIndex(char => slots.has(char));
+            return nextSlot < 0 ? (prev[prev.length - 1] ?? value.length) : state.back ? (prev[nextSlot - 1] || first) : nextSlot
+        })
     }
 
-    onBlur() {
-        const pattern = this.pattern,
-              el      = this.el;
+    /**
+     * @param {Object} args
+     */
+    destroy(...args) {
+        for (const id of [...this.fields.keys()]) {
+            this.unregister({id})
+        }
 
-        return el.value === pattern && (el.value = "");
+        super.destroy(...args)
     }
 
-    onKeyDown(event) {
-        this.back = (event.key === "Backspace");
+    /**
+     * Dispatches a bubbling `input` event while suppressing re-entrant formatting so `DomEvents` syncs App Worker state.
+     * @param {Object} state
+     * @protected
+     */
+    dispatchSyncInput(state) {
+        state.formatting = true;
+        try {
+            state.el.dispatchEvent(new Event('input', {bubbles: true}))
+        } finally {
+            state.formatting = false
+        }
     }
 
-    clean(input) {
-        const el      = this.el,
-              accept  = new RegExp(this.accept || "\\d", "g"),
-              pattern = this.pattern,
-              slots   = this.slots;
+    /**
+     * @param {Object}  state
+     * @param {Boolean} [notifyWorker=false]
+     * @protected
+     */
+    formatElement(state, notifyWorker=false) {
+        if (state.formatting || !state.pattern) return;
 
-        input = input.match(accept) || [];
+        const {el}   = state,
+              before = el.value || '',
+              start  = el.selectionStart ?? before.length,
+              end    = el.selectionEnd   ?? start,
+              [i, j] = this.computeSelection(state, before, start, end),
+              after  = this.clean(state, before).join('');
 
-        return Array.from(pattern, c =>
-            input[0] === c || slots.has(c) ? input.shift() || c : c
-        );
+        state.formatting = true;
+        try {
+            el.value = after;
+            el.setSelectionRange(i, j)
+        } finally {
+            state.formatting = false;
+            state.back       = false
+        }
+
+        if (notifyWorker && after !== before) {
+            this.dispatchSyncInput(state)
+        }
     }
 
-    format() {
-        const me    = this,
-              el    = this.el,
-              prev  = this.prev,
-              clean = this.clean.bind(this);
-        console.log(el.selectionStart, el.selectionEnd);
-        const [i, j] = [el.selectionStart, el.selectionEnd].map(i => {
-            i = clean(el.value.slice(0, i)).findIndex(c => me.slots.has(c));
-            return i < 0 ? prev[prev.length - 1] : me.back ? prev[i - 1] || me.first : i;
+    /**
+     * @param {Object} state
+     * @protected
+     */
+    onClick(state) {
+        if (state.formatting || !state.pattern) return;
+
+        const {el, first, slots} = state;
+
+        if (el.selectionStart === el.selectionEnd) {
+            const firstUnfilled = this.clean(state, el.value).findIndex(char => slots.has(char));
+
+            if (firstUnfilled >= 0 && (el.selectionStart < first || el.selectionStart > firstUnfilled)) {
+                el.setSelectionRange(firstUnfilled, firstUnfilled)
+            }
+        }
+    }
+
+    /**
+     * @param {Object} state
+     * @protected
+     */
+    onFocusIn(state) {
+        this.formatElement(state, true)
+    }
+
+    /**
+     * @param {Object} state
+     * @protected
+     */
+    onFocusOut(state) {
+        if (state.formatting || !state.pattern) return;
+
+        const {el, pattern} = state;
+
+        if (el.value === pattern) {
+            state.formatting = true;
+            el.value         = '';
+            state.formatting = false;
+            this.dispatchSyncInput(state)
+        }
+    }
+
+    /**
+     * @param {Object} state
+     * @protected
+     */
+    onInput(state) {
+        this.formatElement(state, false)
+    }
+
+    /**
+     * @param {Object}        state
+     * @param {KeyboardEvent} event
+     * @protected
+     */
+    onKeyDown(state, event) {
+        state.back = event.key === 'Backspace'
+    }
+
+    /**
+     * @param {Object} state
+     * @param {Object} config
+     * @protected
+     */
+    recalcState(state, {acceptFlags, acceptSource, pattern, slots}) {
+        if (pattern !== undefined) {
+            state.pattern = pattern
+        }
+
+        if (slots !== undefined || !state.slots) {
+            state.slots = new Set(slots || '_')
+        }
+
+        if (acceptSource !== undefined || acceptFlags !== undefined || !state.accept) {
+            state.accept = this.compileAccept(acceptSource, acceptFlags)
+        }
+
+        if (state.pattern) {
+            state.prev  = (j => Array.from(state.pattern, (char, idx) => state.slots.has(char) ? j = idx + 1 : j))(0);
+            const first = [...state.pattern].findIndex(char => state.slots.has(char));
+            state.first = first < 0 ? 0 : first
+        } else {
+            state.prev  = [];
+            state.first = 0
+        }
+    }
+
+    /**
+     * @param {Object}      data
+     * @param {String}      data.id
+     * @param {String|null} [data.acceptFlags=null]
+     * @param {String|null} [data.acceptSource=null]
+     * @param {String|null} [data.pattern=null]
+     * @param {String|null} [data.slots=null]
+     * @returns {Boolean}
+     */
+    register(data) {
+        const me = this,
+              el = globalThis.document?.getElementById(data.id);
+
+        if (!el) {
+            return false
+        }
+
+        if (me.fields.has(data.id)) {
+            me.unregister({id: data.id})
+        }
+
+        const state = {
+            accept    : null,
+            back      : false,
+            el,
+            first     : 0,
+            formatting: false,
+            id        : data.id,
+            listeners : null,
+            pattern   : null,
+            prev      : [],
+            slots     : null
+        };
+
+        me.recalcState(state, data);
+
+        const listeners = {
+            click   : me.onClick.bind(me, state),
+            focusin : me.onFocusIn.bind(me, state),
+            focusout: me.onFocusOut.bind(me, state),
+            input   : me.onInput.bind(me, state),
+            keydown : me.onKeyDown.bind(me, state)
+        };
+
+        state.listeners = listeners;
+
+        Object.entries(listeners).forEach(([type, fn]) => {
+            el.addEventListener(type, fn)
         });
 
-        el.value = clean(el.value).join``;
-        el.setSelectionRange(i, j);
+        el.dataset.neoPrefixReady = 'true';
+        me.fields.set(data.id, state);
 
-        this.back = false;
+        if (el.value || document.activeElement === el) {
+            me.formatElement(state, true)
+        }
+
+        return true
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @returns {Boolean}
+     */
+    setConfigs(data) {
+        const me    = this,
+              state = me.fields.get(data.id);
+
+        if (!state) {
+            return me.register(data)
+        }
+
+        me.recalcState(state, data);
+
+        if (state.el.value || document.activeElement === state.el) {
+            me.formatElement(state, true)
+        }
+
+        return true
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @returns {Boolean}
+     */
+    unregister({id}) {
+        const state = this.fields.get(id);
+
+        if (!state) {
+            return false
+        }
+
+        const {el, listeners} = state;
+
+        if (el && listeners) {
+            Object.entries(listeners).forEach(([type, fn]) => {
+                el.removeEventListener(type, fn)
+            });
+
+            delete el.dataset.neoPrefixReady
+        }
+
+        this.fields.delete(id);
+        return true
     }
 }
 

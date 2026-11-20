@@ -556,8 +556,6 @@ class Text extends Field {
 
         me.getInputEl().value = me.getInputElValue(value);
 
-        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
-
         NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
         me.cls = cls;
 
@@ -963,7 +961,7 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the value config got changed
+     * @summary Syncs the input, the validation and the value-derived classes (`neo-is-dirty`, `neo-empty-required`).
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -984,6 +982,7 @@ class Text extends Field {
 
         cls = me.cls;
         NeoArray.toggle(cls, 'neo-is-dirty', me.isDirty);
+        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
         me.cls = cls;
 
         me.silentVdomUpdate = false;

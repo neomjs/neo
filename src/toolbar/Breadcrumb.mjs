@@ -4,6 +4,7 @@ import Store           from '../data/Store.mjs';
 import Toolbar         from './Base.mjs';
 
 /**
+ * @summary Renders hierarchical route trails inside a WAI-ARIA `<nav>` landmark with `aria-current="page"` on the active crumb.
  * @class Neo.toolbar.Breadcrumb
  * @extends Neo.toolbar.Base
  */
@@ -25,6 +26,12 @@ class Breadcrumb extends Toolbar {
          */
         activeKey_: null,
         /**
+         * Accessible label applied to the `<nav>` landmark root (`null` omits `aria-label`).
+         * @member {String|null} ariaLabel_='Breadcrumb'
+         * @reactive
+         */
+        ariaLabel_: 'Breadcrumb',
+        /**
          * @member {String[]} baseCls=['neo-breadcrumb-toolbar','neo-toolbar']
          */
         baseCls: ['neo-breadcrumb-toolbar', 'neo-toolbar'],
@@ -40,9 +47,20 @@ class Breadcrumb extends Toolbar {
          * @member {Neo.data.Store|Object} store_=null
          * @reactive
          */
-        store_: null
+        store_: null,
+        /**
+         * @member {String} tag='nav'
+         * @reactive
+         */
+        tag: 'nav'
     }
 
+    /**
+     * True while adopting an already-populated Store instance whose initial `load` microtask already settled.
+     * @type {Boolean}
+     * @private
+     */
+    #adoptLoadedStore = false
     /**
      * @member {Object} defaultStoreConfig
      */
@@ -91,26 +109,47 @@ class Breadcrumb extends Toolbar {
         let me = this,
             route;
 
-        if (value !== null && me.store.getCount?.() > 0) {
+        if (value !== null && me.store?.getCount?.() > 0) {
             me.updateItems();
 
             route = me.store.get(value)?.route;
 
             route && Neo.Main.setRoute({value: route})
+        } else if (value === null && oldValue !== undefined && me.items?.length > 0) {
+            me.updateItems()
         }
     }
 
     /**
+     * Syncs `aria-label` on the `<nav>` landmark root.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAriaLabel(value, oldValue) {
+        this.changeVdomRootKey('aria-label', value)
+    }
+
+    /**
      * Triggered after the store config got changed
-     * @param {Neo.data.Store|Object} value
-     * @param {Neo.data.Store|Object} oldValue
+     * @param {Neo.data.Store|Object|null} value
+     * @param {Neo.data.Store|Object|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
-        value.on({
-            load : this.onStoreLoad,
-            scope: this
-        })
+        let me = this;
+
+        if (value) {
+            value.on({
+                load : me.onStoreLoad,
+                scope: me
+            });
+
+            if (oldValue !== undefined && me.#adoptLoadedStore) {
+                me.#adoptLoadedStore = false;
+                me.onStoreLoad()
+            }
+        }
     }
 
     /**
@@ -121,7 +160,8 @@ class Breadcrumb extends Toolbar {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue?.destroy();
+        oldValue && oldValue !== value && oldValue.destroy?.();
+        this.#adoptLoadedStore = Neo.typeOf(value) === 'NeoInstance' && value.getCount?.() > 0;
         return ClassSystemUtil.beforeSetInstance(value, null, this.defaultStoreConfig)
     }
 
@@ -143,10 +183,25 @@ class Breadcrumb extends Toolbar {
         let items    = [],
             parentId = this.activeKey,
             {store}  = this,
-            item;
+            item, seen;
 
-        while (parentId !== null) {
+        if (!store || parentId === null || parentId === undefined) {
+            return items
+        }
+
+        seen = new Set();
+
+        while (parentId !== null && parentId !== undefined) {
+            if (seen.has(parentId)) {
+                break
+            }
+
+            seen.add(parentId);
             item = store.get(parentId);
+
+            if (!item) {
+                break
+            }
 
             items.unshift(item);
 
@@ -169,7 +224,7 @@ class Breadcrumb extends Toolbar {
             hashString += '/'
         }
 
-        activeKey = hashString && store.findFirst({route: hashString})?.[store.keyProperty] || null;
+        activeKey = (hashString && store?.findFirst({route: hashString})?.[store.keyProperty]) ?? null;
 
         if (activeKey !== null) {
             this.activeKey = activeKey
@@ -184,7 +239,7 @@ class Breadcrumb extends Toolbar {
     }
 
     /**
-     *
+     * Reconciles reused and newly added route buttons in one dense Depth-2 VDOM pass.
      */
     updateItems() {
         let me        = this,
@@ -193,7 +248,7 @@ class Breadcrumb extends Toolbar {
             i         = 0,
             len       = pathItems.length,
             newItems  = [],
-            config, item
+            config, item;
 
         me.silentVdomUpdate = true;
 
@@ -201,10 +256,11 @@ class Breadcrumb extends Toolbar {
             item = pathItems[i];
 
             config = {
-                disabled: i === len - 1,
-                hidden  : false,
-                route   : item.route,
-                text    : item.name
+                ariaCurrent: i === len - 1 ? 'page' : null,
+                disabled   : i === len - 1,
+                hidden     : false,
+                route      : item.route,
+                text       : item.name
             };
 
             if (items[i]) {
@@ -218,13 +274,20 @@ class Breadcrumb extends Toolbar {
 
         for (; i < len; i++) {
             items[i].setSilent({
-                hidden: true
+                ariaCurrent: null,
+                hidden     : true
             })
         }
 
         newItems.length > 0 && me.add(newItems);
 
         me.silentVdomUpdate = false;
+
+        if (me.updateDepth !== -1) {
+            me.updateDepth = 2
+        }
+
+        me.denseUpdate = true;
 
         me.update()
     }

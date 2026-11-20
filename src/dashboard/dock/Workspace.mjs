@@ -529,7 +529,7 @@ class Workspace extends Container {
     scheduledProjection = null
 
     /**
-     * The newest projection {@link #refreshDockWorkspace} parked because its window had departed, as
+     * The newest projection {@link #refreshDockWorkspace} parked because its host is headless or its window had departed, as
      * `{document, refreshOptions, tabInsertDescriptor}`; the next mount runs it (see {@link #afterSetMounted}).
      * @member {Object|null} departedProjection=null
      * @protected
@@ -2632,7 +2632,8 @@ class Workspace extends Container {
     }
 
     /**
-     * Re-projects a committed document through the identity-preserving reconciler: the outgoing
+     * @summary Re-projects a committed document through the identity-preserving reconciler.
+     * The outgoing
      * geometry is FLIP-snapshotted FIRST, then the consumer's chrome hook runs (so chrome mutation
      * can never alter the captured first rects), the staged shell is projected with hidden
      * placeholders, the reconciler hands every surviving pane and tab button into it, and the FLIP
@@ -2682,10 +2683,9 @@ class Workspace extends Container {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
         }
 
-        // A departed window renders nothing a projection could land in, and the warm reload that adopts this
-        // Workspace into the next window would move the host mid-transaction, leaving a staged shell hidden over
-        // the panes it took. The newest such projection waits for the next mount.
-        if (Neo.currentWorker?.isWindowDeparted?.(host.windowId)) {
+        // A departed window or an unmounted headless host renders nothing a projection could land in;
+        // parking the newest snapshot lets the next mount project once without stranding promiseUpdate().
+        if (Neo.currentWorker?.isWindowDeparted?.(host.windowId) || (!host.mounted && !host.windowId && !host.parent && (!Neo.config.unitTestMode || Neo.config.allowVdomUpdatesInTests))) {
             me.departedProjection = {document, refreshOptions, tabInsertDescriptor};
             return
         }
