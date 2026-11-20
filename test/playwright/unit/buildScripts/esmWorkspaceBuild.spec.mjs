@@ -149,7 +149,7 @@ test.describe('esmodules.mjs — a greenfield workspace build', () => {
             const realBundle = path.join(realDist, `${name}.mjs`),
                   linkBundle = path.join(worktreeRoot, 'dist', `${name}.mjs`);
 
-            fs.copySync(path.join(engineRoot, `dist/${name}.mjs`), realBundle);
+            fs.copySync(path.join(engineRoot, `dist/${name}.mjs`), realBundle, {dereference: true});
             fs.ensureDirSync(path.dirname(linkBundle));
             fs.symlinkSync(path.relative(path.dirname(linkBundle), realBundle), linkBundle);
 
