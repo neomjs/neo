@@ -36,8 +36,8 @@ class Monitor extends Component {
               [label, title, sub] = feeds[value];
 
         screen.cls   = ['air-screen', 'air-' + value];
-        const image = {titles: 'night-edition', film: 'night-service'}[value];
-        screen.style = image ? {backgroundImage: `url("${Neo.config.resourcesPath}examples/onAir/${image}.jpg")`} : {};
+        const image = {titles: 'onAir/night-edition.jpg', film: 'onAir/night-service.jpg'}[value];
+        screen.style = image ? {backgroundImage: `url("${Neo.config.resourcesPath}examples/${image}")`} : {};
         screen.cn = [
             {cls: ['air-screen-art'], 'aria-hidden': 'true'},
             {cls: ['air-feed-label'], text: label},
