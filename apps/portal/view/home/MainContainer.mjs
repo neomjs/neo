@@ -40,11 +40,6 @@ class MainContainer extends Container {
                 this.items.forEach(item => {
                     item[item.id === id ? 'activate' : 'deactivate']?.()
                 })
-            },
-            scroll(event) {
-                if (event.target.cls.includes('portal-home-maincontainer')) {
-                    this.toggleCls('hide-sidebar', event.scrollTop > 80)
-                }
             }
         }],
         /**

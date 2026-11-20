@@ -1,6 +1,5 @@
 import Controller        from '../../../src/controller/Component.mjs';
 import CubeLayout        from '../../../src/layout/Cube.mjs';
-import NeoArray          from '../../../src/util/Array.mjs';
 import SeoService        from '../service/Seo.mjs';
 
 /**
@@ -386,33 +385,11 @@ class ViewportController extends Controller {
     }
 
     /**
-     *
+     * @summary Syncs the header toolbar's active section button with `activeIndex`.
      */
-    async updateHeaderToolbar() {
-        let me                  = this,
-            {activeIndex, size} = me;
-
-        if (Neo.isNumber(activeIndex) && size) {
-            let headerSocialIcons = me.getReference('header-social-icons'),
-                {cls}             = headerSocialIcons,
-                vertical          = size === 'x-small',
-                hidden            = activeIndex !== 0 && vertical;
-
-            NeoArray.toggle(cls, 'hide-sidebar', hidden);
-
-            if (!hidden) {
-                NeoArray.toggle(cls, 'separate-bar', vertical)
-            }
-
-            headerSocialIcons.cls = cls;
-
-
-            if (hidden && vertical) {
-                await me.timeout(200)
-            }
-
-            headerSocialIcons.hidden = hidden
-        }
+    updateHeaderToolbar() {
+        let me            = this,
+            {activeIndex} = me;
 
         if (Neo.isNumber(activeIndex)) {
             let headerToolbar = me.getReference('header-toolbar'),

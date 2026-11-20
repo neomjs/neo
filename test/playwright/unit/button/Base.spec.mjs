@@ -537,4 +537,54 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         button.destroy()
     });
+
+    test('ariaLabel_ projects aria-label onto Button and SplitButton native roots, survives tag transitions, and omits when cleared', async () => {
+        const button = Neo.create(Button, {
+            appName,
+            iconCls: 'fa-solid fa-moon'
+        });
+
+        let {vnode} = await button.initVnode();
+        button.mounted = true;
+
+        expect(button.ariaLabel).toBeNull();
+        expect(button.getVdomRoot()['aria-label']).toBeUndefined();
+        expect(vnode.attributes?.['aria-label']).toBeUndefined();
+
+        ({vnode} = await button.set({ariaLabel: 'Switch Theme'}));
+        expect(button.ariaLabel).toBe('Switch Theme');
+        expect(button.getVdomRoot()['aria-label']).toBe('Switch Theme');
+        expect(vnode.attributes['aria-label']).toBe('Switch Theme');
+        expect(button.toJSON().ariaLabel).toBe('Switch Theme');
+
+        ({vnode} = await button.set({url: 'https://github.com/neomjs/neo'}));
+        expect(vnode.nodeName).toBe('a');
+        expect(vnode.attributes['aria-label']).toBe('Switch Theme');
+
+        ({vnode} = await button.set({ariaLabel: ''}));
+        expect(button.getVdomRoot()['aria-label']).toBeUndefined();
+        expect(vnode.attributes?.['aria-label']).toBeUndefined();
+
+        ({vnode} = await button.set({ariaLabel: 'GitHub'}));
+        expect(vnode.attributes['aria-label']).toBe('GitHub');
+
+        ({vnode} = await button.set({ariaLabel: null, url: null}));
+        expect(vnode.nodeName).toBe('button');
+        expect(button.getVdomRoot()['aria-label']).toBeUndefined();
+        expect(vnode.attributes?.['aria-label']).toBeUndefined();
+
+        const split = Neo.create(SplitButton, {
+            appName,
+            ariaLabel: 'Primary action',
+            iconCls  : 'fa fa-play'
+        });
+        const splitVnode = (await split.initVnode()).vnode;
+
+        expect(splitVnode.attributes?.['aria-label']).toBeUndefined();
+        expect(splitVnode.childNodes[0].attributes['aria-label']).toBe('Primary action');
+        expect(splitVnode.childNodes[1].attributes?.['aria-label']).toBeUndefined();
+
+        split.destroy();
+        button.destroy()
+    });
 });
