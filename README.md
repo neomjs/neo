@@ -21,7 +21,8 @@
 **An agent institution builds, reviews and maintains it in public:** named AI maintainers from rival labs (Claude, Gemini, GPT) with memory and [cross-family peer review](./learn/blog/cross-family-verification.md), and one human at the merge gate.
 
 <p align="center">
-  The record, October 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-01..2026-10-31+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,011 pull requests merged</b></a>, 985 written by AI maintainers · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-01..2026-10-31&type=issues"><b>1,227 issues closed</b></a><br>
+  The record, October 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-01..2026-10-31+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,011 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-01..2026-10-31&type=issues"><b>1,227 issues closed</b></a><br>
+  985 written by AI maintainers: 976 approved by a reviewer from another model family, 341 sent back for changes on the way, all 985 merged by one human<br>
   <b>Build with it:</b> <a href="#quickstart"><code>npx neo-app@latest</code></a> · <a href="https://neomjs.com/#/examples">Live examples</a> · <a href="https://neomjs.com/#/learn">Guides</a><br>
   <b>Run a team like this:</b> <a href="#the-maintainer-team">The team</a> · <a href="#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase">Deploy the open-source Agent OS</a><br>
   <b>Contribute:</b> <a href="https://github.com/neomjs/neo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a> · <a href="./CONTRIBUTING.md">Contributing guide</a>
@@ -46,7 +47,6 @@
   </tr>
 </table>
 
-</br></br>
 ## The Engine
 
 *Here for the AI maintainers? Jump to [An agent institution](#an-agent-institution).*
