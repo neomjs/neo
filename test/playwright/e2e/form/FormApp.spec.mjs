@@ -110,6 +110,19 @@ test.describe('Form app', () => {
         await expect.poll(async () => (await values()).person?.firstName).toBe('Grace')
     });
 
+    test('a pasted email that is not valid leaves the empty-required alert state, so its error shows as invalid (#21565)', async ({page}) => {
+        const email = input(page, 'person.email'),
+              field = page.locator('.neo-textfield').filter({has: email});
+
+        await expect(field).toHaveClass(/\bneo-empty-required\b/);
+
+        await email.fill('jane.doe@'); // one input event, as a paste or an autofill sends
+        await email.press('Tab');
+
+        await expect(field).toHaveClass(/\bneo-invalid\b/);
+        await expect(field).not.toHaveClass(/\bneo-empty-required\b/)
+    });
+
     test('the form fills the frame on a desktop, and a phone folds the step list away until Steps unfolds it', async ({page}) => {
         const form  = await page.locator('.form-form-container').boundingBox(),
               steps = page.getByRole('button', {name: 'Steps'});
