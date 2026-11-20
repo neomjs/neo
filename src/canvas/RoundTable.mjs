@@ -730,7 +730,8 @@ class RoundTable extends Base {
 
             RoundTable.locate(spot, item, clock, data, place, span);
 
-            if (spot[2] > 0 && !spot[3]) {
+            // a chord ends with its item's merge: one that followed the fall would hang off whatever it passes
+            if (spot[2] > 0 && !spot[3] && clock < data.merged[item]) {
                 const
                     p      = (clock - reviews.at[r]) / span.chord,
                     reach  = Math.min(1, p / 0.45),
@@ -986,7 +987,7 @@ class RoundTable extends Base {
 
                 let x = strip.x + day * (strip.dayW + strip.dayGap);
 
-                ctx.globalAlpha = (day * DAY <= clock ? 0.9 : 0.45) * alpha;
+                ctx.globalAlpha = (day * DAY <= clock ? 0.9 : 0.6) * alpha;
                 ctx.fillStyle   = palette.inkDim;
                 ctx.fillText(words.days[day], x, y);
                 x += words.dayWidths[day] + 7;
