@@ -8,6 +8,13 @@ import NeoArray  from '../util/Array.mjs';
  */
 class EffectButton extends Component {
     /**
+     * Valid WAI-ARIA `aria-current` token values (plus `null` to omit the attribute).
+     * @member {Array} ariaCurrentValues=['date','location','page','step','time','true',null]
+     * @protected
+     * @static
+     */
+    static ariaCurrentValues = ['date', 'location', 'page', 'step', 'time', 'true', null]
+    /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
      * @protected
@@ -33,6 +40,13 @@ class EffectButton extends Component {
          * @protected
          */
         ntype: 'effect-button',
+        /**
+         * WAI-ARIA `aria-current` token (`'page'`, `'step'`, `'location'`, `'date'`, `'time'`, `'true'`),
+         * `Boolean` shorthand (`true -> 'true'`, `false -> null`), or `null` to omit.
+         * @member {Boolean|String|null} ariaCurrent_=null
+         * @reactive
+         */
+        ariaCurrent_: null,
         /**
          * @member {String} badgePosition_='top-right'
          * @reactive
@@ -240,6 +254,10 @@ class EffectButton extends Component {
                 cn    : me.getVdomChildren()
             };
 
+        if (me.ariaCurrent) {
+            vdomConfig['aria-current'] = me.ariaCurrent
+        }
+
         // A Boolean marks a toggle and renders aria-pressed, null marks a plain button.
         // aria-pressed is only valid for the button role, so a link root omits it.
         if (tag === 'button' && Neo.isBoolean(me.pressed)) {
@@ -335,6 +353,25 @@ class EffectButton extends Component {
         }
 
         return iconCls
+    }
+
+    /**
+     * @summary Normalizes boolean shorthand (`false -> null`, `true -> 'true'`) and validates `ariaCurrentValues`.
+     * @param {Boolean|String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetAriaCurrent(value, oldValue) {
+        if (value === false) {
+            return null
+        }
+
+        if (value === true) {
+            value = 'true'
+        }
+
+        return this.beforeSetEnumValue(value, oldValue, 'ariaCurrent', 'ariaCurrentValues')
     }
 
     /**

@@ -17,6 +17,13 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  */
 class Button extends Component {
     /**
+     * Valid WAI-ARIA `aria-current` token values (plus `null` to omit the attribute).
+     * @member {Array} ariaCurrentValues=['date','location','page','step','time','true',null]
+     * @protected
+     * @static
+     */
+    static ariaCurrentValues = ['date', 'location', 'page', 'step', 'time', 'true', null]
+    /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
      * @protected
@@ -49,6 +56,13 @@ class Button extends Component {
          * @protected
          */
         ntype: 'button',
+        /**
+         * WAI-ARIA `aria-current` token for the button or route link (`'page'`, `'step'`, `'location'`,
+         * `'date'`, `'time'`, `'true'`), `Boolean` shorthand (`true -> 'true'`, `false -> null`), or `null` to omit.
+         * @member {Boolean|String|null} ariaCurrent_=null
+         * @reactive
+         */
+        ariaCurrent_: null,
         /**
          * @member {String} badgePosition_='top-right'
          * @reactive
@@ -249,6 +263,18 @@ class Button extends Component {
     }
 
 
+
+    /**
+     * @summary Projects `aria-current` onto the button's VDOM root, omitting the attribute when `null`.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAriaCurrent(value, oldValue) {
+        if (oldValue !== undefined || value) {
+            this.changeVdomRootKey('aria-current', value)
+        }
+    }
 
     /**
      * Triggered after the badgePosition config got changed
@@ -566,6 +592,25 @@ class Button extends Component {
     }
 
     /**
+     * @summary Normalizes boolean shorthand (`false -> null`, `true -> 'true'`) and validates `ariaCurrentValues`.
+     * @param {Boolean|String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetAriaCurrent(value, oldValue) {
+        if (value === false) {
+            return null
+        }
+
+        if (value === true) {
+            value = 'true'
+        }
+
+        return this.beforeSetEnumValue(value, oldValue, 'ariaCurrent', 'ariaCurrentValues')
+    }
+
+    /**
      * Triggered before the badgePosition config gets changed
      * @param {String} value    The new value of the badgePosition config.
      * @param {String} oldValue The old value of the badgePosition config.
@@ -716,6 +761,7 @@ class Button extends Component {
 
         return {
             ...super.toJSON(),
+            ariaCurrent  : me.ariaCurrent,
             badgePosition: me.badgePosition,
             badgeText    : me.badgeText,
             handler      : Neo.isString(handler) ? handler : (Neo.isFunction(handler) ? 'function' : null),
