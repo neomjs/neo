@@ -2059,6 +2059,25 @@
         ]
     },
     {
+        "id": "meridian-observatory",
+        "name": "Meridian Observatory",
+        "family": "scheduler",
+        "alsoIn": ["gantt", "board"],
+        "component": "Scheduler, Gantt and Task Board",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "lookFor": "Hold ARC-17 over North and South at 22:12. Compare the predicted samples and the mosaic’s finish time, then release to book or press Escape.",
+        "scope": "The forecast and the sampled light curve both use a simulated observing night.",
+        "keywords": ["astronomy", "telescope", "resource scheduling", "dependencies", "clearance"],
+        "image": "devmode/meridian-observatory-14.jpg",
+        "sourceUrl": "examples/scheduler/meridian",
+        "urls": {
+            "devmode": "examples/scheduler/meridian/index.html",
+            "dist_dev": "dist/development/examples/scheduler/meridian/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/meridian/index.html",
+            "dist_prod": "dist/production/examples/scheduler/meridian/index.html"
+        }
+    },
+    {
         "id": "timeline-basic",
         "image": null,
         "name": "Resource Timeline",
