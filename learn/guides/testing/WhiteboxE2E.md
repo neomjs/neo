@@ -39,7 +39,7 @@ The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_R
 
 ## Hosted CI
 
-The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included.
+The engine tier (the `e2e-engine` jobs of `.github/workflows/test.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included. To measure specs on demand, dispatch Engine Tests with `suite: e2e`, `specs` and `repeatEach`.
 
 No CI test job provisions a Brain. The specs that need one run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: the Bridge's own sessions, imports of Brain services, and the window specs the off-socket adapter cannot run yet. Run the ones your change reaches before you hand it off. `LOCAL_ONLY` in `e2eCiSelection.mjs` names each one with its reason, and the tier refuses to start while a Neural Link spec is in neither `ADAPTER_ELIGIBLE_SPECS` nor `LOCAL_ONLY`, so a new spec is never silently left out of CI.
 
