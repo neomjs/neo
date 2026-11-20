@@ -50,9 +50,11 @@ function readBoard(page) {
                     track = rowAt('.neo-timeline-cell', top)[0];
 
                 return {
-                    bars : track ? [...track.querySelectorAll('.neo-timeline-bar')].filter(visible).map(bar => bar.dataset.eventId) : [],
-                    hours: parseFloat(rowAt('.neo-grid-cell[data-field="hours"]', top)[0]?.textContent),
-                    name : cell.textContent.trim()
+                    bars  : track ? [...track.querySelectorAll('.neo-timeline-bar')].filter(visible).map(bar => bar.dataset.eventId) : [],
+                    hours : parseFloat(rowAt('.neo-grid-cell[data-field="hours"]', top)[0]?.textContent),
+                    name  : cell.textContent.trim(),
+                    region: rowAt('.neo-grid-cell[data-field="region"]', top)[0]?.textContent.trim(),
+                    skill : rowAt('.neo-grid-cell[data-field="skill"]', top)[0]?.textContent.trim()
                 }
             })
         }
@@ -112,6 +114,23 @@ test.describe('Scheduler resource columns example (#21619)', () => {
 
         expect(rows.indexOf(elifAfter), 'Elif moved up the list').toBeLessThan(before.rows.indexOf(elif));
         expect(elifAfter.bars, 'Elif\'s row keeps the same bars after the sort').toEqual(elif.bars);
+
+        // Every other column sorts its rows too, and Elif's row still carries Elif's jobs
+        for (const [text, field] of [['Skill', 'skill'], ['Region', 'region'], ['Technician', 'name']]) {
+            const header = page.locator('.neo-grid-header-button', {hasText: text});
+
+            // A header that lost its sort keeps its direction class beside neo-sort-hidden, so wait on the rows
+            await header.click();
+            await expect.poll(async () => {
+                const values = (await readBoard(page)).rows.map(row => row[field]),
+                      steps  = values.slice(1).map((value, i) => values[i].localeCompare(value));
+
+                return steps.every(step => step <= 0) || steps.every(step => step >= 0)
+            }, {message: `${text} sorts the rows`}).toBe(true);
+
+            (await readBoard(page)).rows.find(row => row.name === 'Elif Yilmaz')?.bars.forEach(id => expect(id).toMatch(/^job-5-/))
+        }
+
         expect(errors).toEqual([])
     });
 
