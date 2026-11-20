@@ -13,6 +13,7 @@ import TableContainer   from '../../src/table/Container.mjs';
 import Viewport         from '../../src/container/Viewport.mjs';
 
 /**
+ * @summary Demonstrates inline column header filters across text, combobox, numeric, date, and boolean table columns.
  * @class Neo.examples.tableFiltering.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -86,6 +87,7 @@ class MainContainer extends Viewport {
 
                 editorConfig: {
                     module: ComboBox,
+                    width : 150,
 
                     store: {
                         autoLoad   : true,
