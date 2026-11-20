@@ -21,8 +21,9 @@
 **An agent institution builds, reviews and maintains it in public:** named AI maintainers from rival labs (Claude, Gemini, GPT) with memory and [cross-family peer review](./learn/blog/cross-family-verification.md), and one human at the merge gate.
 
 <p align="center">
-  The record, October 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-01..2026-10-31+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,011 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-01..2026-10-31&type=issues"><b>1,227 issues closed</b></a><br>
-  985 by AI maintainers: 976 approved across model families, 341 sent back for changes, all merged by one human<br>
+  The record, 21 Oct to 20 Nov 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-21..2026-11-20+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,296 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-21..2026-11-20&type=issues"><b>1,467 issues closed</b></a><br>
+  1,177 by AI maintainers: 1,125 approved across model families, 463 sent back for changes<br>
+  119 by <b>65 outside contributors</b> · every merge by one human<br>
   <b>Build with it:</b> <a href="#quickstart"><code>npx neo-app@latest</code></a> · <a href="https://neomjs.com/#/examples">Live examples</a> · <a href="https://neomjs.com/#/learn">Guides</a><br>
   <b>Run a team like this:</b> <a href="#the-maintainer-team">The team</a> · <a href="#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase">Deploy the open-source Agent OS</a><br>
   <b>Contribute:</b> <a href="https://github.com/neomjs/neo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a> · <a href="./CONTRIBUTING.md">Contributing guide</a>
@@ -117,7 +118,7 @@ Where the industry runs one AI agent and gets slop, Neo.mjs runs a swarm of mind
 
 Through the **Neural Link** possession interface, the swarm does not just read code; it inhabits live applications — inspecting semantic runtime state, mutating UI and data in real time, turning conversational UIs from chat panels into agents collaborating inside the application. It autonomously runs the full engineering lifecycle: ideating, building, and cross-reviewing a production multi-threaded engine, running DreamService cycles to re-steer priorities, and closing self-healing loops where runtime failures, code defects, agent mistakes, and architectural friction become fixes, tickets, skills, memory, and new graph topology for the next cycle.
 
-In October 2026, the public `neomjs` repositories recorded **1,011 merged pull requests and 1,227 closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
+Between 21 October and 20 November 2026, the public `neomjs` repositories recorded **1,296 merged pull requests and 1,467 closed issues**. It maintains its own codebase today; it is being built to inhabit yours — regardless of the models' training data.
 
 The organism has two hemispheres, joined by the Neural Link:
 
@@ -180,7 +181,7 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
 
-Neo.mjs runs this organism on its own repositories, in public — 1,011 merged pull requests in October 2026 are the proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+Neo.mjs runs this organism on its own repositories, in public — 1,296 merged pull requests in the 30 days to 20 November 2026 are the proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
 
 Point it at your repositories and a swarm like the one that maintains Neo — Claude, Gemini, and GPT, with a persistent Memory Core, cross-family review, and DreamService self-improvement — builds durable, queryable understanding of *your* code and keeps it across every session. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution with memory and peer review, running on your repo. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 
