@@ -22,7 +22,8 @@ class Overview extends Container {
          */
         className: 'Portal.view.examples.Overview',
         /**
-         * The build control's config, from `Portal.view.examples.MainContainer#createBuildControl()`.
+         * The build control's config, from `Portal.view.examples.MainContainer#createBuildControl()`. The overview
+         * shows it beside its heading, and a copy under its featured cards that only a phone displays.
          * @member {Object|null} buildControl=null
          */
         buildControl: null,
@@ -145,6 +146,11 @@ class Overview extends Container {
                     {property: 'catalogMode', fields: ['hidden', 'hiddenIn', 'image', 'urls'], value: catalogMode, filterBy: ({item, value}) => !Example.publishes(item, value)}
                 ]
             }
+        }, {
+            // The control's place on a phone: under the featured cards, off the first screen (Overview.css)
+            ...Neo.clone(me.buildControl, true),
+            cls : ['portal-examples-build-control', 'portal-examples-overview-build-foot'],
+            flex: 'none'
         }, {
             module: Container,
             cls   : ['portal-examples-overview-mobile-index'],

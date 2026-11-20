@@ -269,16 +269,26 @@ test.describe('Portal examples section', () => {
             await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
             await expect.poll(() => links.locator('.portal-examples-group-index-title').allTextContents()).toEqual(GROUPS);
 
-            // the build control is a setting beside the page's action, not a second action, and it keeps its place in
-            // the heading's row: a row of its own would push the first card down. Its phone label waits for the
-            // viewport to measure its size.
-            await expect.poll(() => page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => ({
-                besideHeading: node.getBoundingClientRect().top < node.closest('.portal-examples-overview-start')
-                    .querySelector('.portal-examples-overview-heading').getBoundingClientRect().bottom,
-                height: node.getBoundingClientRect().height,
-                label : node.textContent.trim(),
-                weight: getComputedStyle(node.querySelector('.neo-button-text')).fontWeight
-            }))).toEqual({besideHeading: true, height: 36, label: `${isPhone ? 'Open' : 'Examples open'} in: Production build`, weight: '400'});
+            // the build control is a setting, not a second action: beside the heading on a desktop, and under the featured
+            // cards on a phone, off its first screen. Its phone label waits for the viewport to measure its size.
+            await expect.poll(() => page.locator('.portal-examples-build-control').locator('visible=true').evaluate(node => {
+                const control  = node.getBoundingClientRect(),
+                      overview = node.closest('.portal-examples-overview'),
+                      cards    = overview.querySelector('.portal-examples-overview-cards').getBoundingClientRect(),
+                      heading  = overview.querySelector('.portal-examples-overview-start .portal-examples-overview-heading').getBoundingClientRect();
+
+                return {
+                    height: control.height,
+                    label : node.textContent.trim(),
+                    place : control.top < heading.bottom ? 'beside the heading' : control.top >= cards.bottom ? 'under the cards' : 'between',
+                    weight: getComputedStyle(node.querySelector('.neo-button-text')).fontWeight
+                }
+            })).toEqual({
+                height: 36,
+                label : `${isPhone ? 'Open' : 'Examples open'} in: Production build`,
+                place : isPhone ? 'under the cards' : 'beside the heading',
+                weight: '400'
+            });
 
             if (isPhone) {
                 const indexBox = await page.locator(MOBILE_IX).evaluate(node => ({height: node.getBoundingClientRect().height}));
