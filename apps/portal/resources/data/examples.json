@@ -1339,6 +1339,32 @@
         "lookFor": "Scroll sideways through 36 months: product, region and total stay; the arrow keys move the selection."
     },
     {
+        "id": "grid-cell-types",
+        "image": "devmode/grid-cell-types-14.jpg",
+        "name": "Built-in Cell Types",
+        "keywords": [
+            "columns",
+            "sparkline",
+            "currency",
+            "progress",
+            "avatar",
+            "flags"
+        ],
+        "sourceUrl": "examples/grid/cellTypes",
+        "urls": {
+            "devmode": "examples/grid/cellTypes/index.html",
+            "dist_dev": "dist/development/examples/grid/cellTypes/index.html",
+            "dist_esm": "dist/esm/examples/grid/cellTypes/index.html",
+            "dist_prod": "dist/production/examples/grid/cellTypes/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "component": "Grid",
+        "feature": "Fourteen built-in column types on one maintainer directory",
+        "lookFor": "Watch Pledged and Commits tick live, click +$250 on a row, and scroll across all 14 column types.",
+        "scope": "Public GitHub and LinkedIn profile data; pledges, goals, funded %, commits and tiers are generated locally."
+    },
+    {
         "id": "grid-nested-record-fields",
         "image": "devmode/grid-nested-record-fields-14.jpg",
         "name": "Edit a Row in a Dialog",

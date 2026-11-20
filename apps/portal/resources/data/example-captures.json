@@ -189,6 +189,31 @@
       "region": {"x":0,"y":0,"width":640,"height":360}
     },
     {
+      "id": "grid-cell-types",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Dark-theme maintainer directory from its seeded opening state showing index, GitHub user avatars, country flags, and 8-year sparklines.",
+      "ready": [
+        {"selector": ".neo-grid-cell[data-field='login']", "text": "tobiu"},
+        {"selector": ".neo-sparkline-wrapper[data-drawn='true']"},
+        {"selector": ".cell-types-theme-button", "text": "Dark theme"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".cell-types-reset-button", "text": "Reset"},
+        {"kind": "click", "selector": ".cell-types-feed-button", "text": "Pause feed"},
+        {"kind": "click", "selector": ".cell-types-theme-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".cell-types-theme-button", "text": "Light theme"}
+      ],
+      "after": [
+        {"selector": ".cell-types-theme-button", "text": "Light theme"},
+        {"selector": ".cell-types-title", "text": "Built-in cell types"},
+        {"selector": ".neo-grid-cell[data-field='login']", "text": "tobiu", "inRegion": true},
+        {"selector": ".neo-grid-cell[data-field='countryCode'] img.neo-country-flag", "inRegion": true},
+        {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "grid-nested-record-fields",
       "viewport": {"width":1280,"height":720},
       "theme": "dark",
