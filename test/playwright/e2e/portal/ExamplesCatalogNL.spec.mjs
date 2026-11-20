@@ -152,6 +152,7 @@ async function expectCardLayout(list, width) {
               caption = node.querySelector('.neo-item-bottom-position'),
               copy    = caption.getBoundingClientRect(),
               image   = node.querySelector('.preview-image').getBoundingClientRect(),
+              feature = node.querySelector('.portal-example-feature'),
               more    = node.querySelector('.portal-example-more'),
               shown   = [
                   node.querySelector('.portal-example-group-badge'),
@@ -178,7 +179,9 @@ async function expectCardLayout(list, width) {
             // a group card has no action line to keep closed
             closed      : !more || more.getBoundingClientRect().height < 1,
             opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
-            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio
+            noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio,
+            // the proof line shows whole at rest, or ends in an ellipsis
+            featureWhole: !feature || feature.scrollHeight <= feature.clientHeight + 1
         }
     }));
 
@@ -210,6 +213,7 @@ async function expectCardLayout(list, width) {
 /**
  * @summary Measures the caption's text colors against the actual composited paint of scrim and cover behind them.
  * The first sampled row is where the title starts, the place the scrim has to hold against a white cover.
+ * Below the text the scrim must paint its opaque surface: a cover that shows through fails.
  * @param {Object} caption Caption locator.
  * @param {Object} testInfo Playwright evidence writer.
  * @param {String} name Attachment name.
@@ -243,6 +247,19 @@ async function expectCaptionContrast(caption, testInfo, name) {
         })
     }));
     expect(Math.min(...contrasts), 'ordinary caption text contrasts with the rendered surface').toBeGreaterThanOrEqual(4.5);
+    // the text region is opaque: inside the bottom padding the caption paints its surface, never the cover
+    const surface = await caption.evaluate(node => {
+        const probe = document.body.appendChild(document.createElement('i'));
+        probe.style.color = getComputedStyle(node).getPropertyValue('--portal-examples-list-surface');
+        const color = getComputedStyle(probe).color, values = color.match(/[\d.]+/g).map(Number);
+        probe.remove();
+        return color.startsWith('color(') ? values.slice(0, 3).map(value => value * 255) : values.slice(0, 3)
+    });
+    [0.12, 0.5, 0.88].forEach(fraction => {
+        const offset = ((decoded.height - 4) * decoded.width + Math.floor(decoded.width * fraction)) * decoded.channels;
+        expect([...decoded.pixels.subarray(offset, offset + 3)].every((value, index) => Math.abs(value - surface[index]) <= 2),
+            'the caption paints its surface behind the text, not the cover').toBe(true)
+    });
     await testInfo.attach(name, {body: screenshot, contentType: 'image/png'})
 }
 
@@ -558,7 +575,12 @@ test.describe('Portal examples section', () => {
                 await expect(featured.locator('.neo-list-item').first()).toBeVisible();
                 await expect(featured.locator('.neo-list-item')).toHaveCount((await readOverviewList(app)).properties.store.count);
                 await page.evaluate(() => document.fonts.ready);
-                await expectCardLayout(featured, viewport.width);
+                const startHere = await expectCardLayout(featured, viewport.width);
+
+                if (viewport.width > 600) {
+                    // a desktop card never opens its proof line: what rests on the card is all a visitor reads
+                    expect(startHere.filter(card => !card.featureWhole).map(card => card.title), 'every Start here proof line reads whole at rest').toEqual([])
+                }
                 await expect(featured.locator('.neo-title').nth(0)).toHaveText('Workstation');
                 await expect(featured.locator('.portal-example-group-badge').nth(0)).toHaveText('Multi-Window');
                 await expect(featured.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
