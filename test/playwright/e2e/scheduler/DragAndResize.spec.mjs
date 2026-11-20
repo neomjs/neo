@@ -11,7 +11,7 @@ const
     ];
 
 /**
- * Resolves the dedicated App Worker for the current page.
+ * @summary Resolves the dedicated App Worker for the current page.
  * @param {import('@playwright/test').Page} page
  * @returns {import('@playwright/test').Worker}
  */
@@ -26,7 +26,7 @@ function getAppWorker(page) {
 }
 
 /**
- * Reads an event record and active scheduler state directly from the App Worker.
+ * @summary Reads an event record and active scheduler state directly from the App Worker.
  * @param {import('@playwright/test').Page} page
  * @param {String} eventId
  * @returns {Promise<{endDate: String, minimumDuration: Number, resourceId: String, snapMinutes: Number, startDate: String, title: String, vanCount: Number}>}
@@ -82,6 +82,24 @@ test.describe('Scheduler dragAndResize example', () => {
             vanCount       : 10
         });
 
+        // Drag Stop 9 right +132 px (preview Moving), return to start, and release -> status restores Ready
+        const stop9 = page.locator('.neo-timeline-bar[data-event-id="stop-9"]');
+        await expect(stop9).toBeVisible();
+        const
+            stop9Box = await stop9.boundingBox(),
+            s9X      = stop9Box.x + stop9Box.width / 2,
+            s9Y      = stop9Box.y + stop9Box.height / 2;
+
+        await page.mouse.move(s9X, s9Y);
+        await page.mouse.down();
+        await page.mouse.move(s9X + 132, s9Y, {steps: 10});
+        await expect(page.locator('.depot-status-pill')).toHaveText('Moving');
+        await expect(page.locator('.depot-status-text')).toHaveText('Stop 9 → Van 3, 09:30 to 10:45');
+        await page.mouse.move(s9X, s9Y, {steps: 10});
+        await page.mouse.up();
+        await expect(page.locator('.depot-status-pill')).toHaveText('Ready');
+        await expect(page.locator('.depot-status-text')).toContainText('Drag Stop 14 onto Van 3');
+
         // AC-2 & AC-4: Drag Stop 14 from Van 4 (07:15–07:45) onto Van 3 near ~10:17 (snaps to 10:15 on 15-min grid)
         const stop14  = page.locator('.neo-timeline-bar[data-event-id="stop-14"]');
         const van3Row = page.locator('.neo-scheduler .neo-grid-row').filter({hasText: 'Van 3'}).first();
@@ -109,6 +127,7 @@ test.describe('Scheduler dragAndResize example', () => {
         await expect(proxy).toBeVisible();
         await expect(page.locator('.depot-status-pill')).toHaveText('Moving');
         await expect(page.locator('.depot-status-text')).toHaveText('Stop 14 → Van 3, 10:15 to 10:45');
+        await expect.poll(() => stop14.evaluate(el => getComputedStyle(el).borderTopStyle)).toBe('dashed');
 
         await page.mouse.up();
         await expect(proxy).toHaveCount(0);
@@ -118,6 +137,21 @@ test.describe('Scheduler dragAndResize example', () => {
             resourceId: 'van-3',
             startDate : '2026-11-20T10:15:00.000Z'
         });
+        await expect(page.locator('.depot-status-pill')).toHaveText('Moved');
+        await expect(page.locator('.depot-status-text')).toHaveText('Stop 14 → Van 3, 10:15 to 10:45');
+
+        // Pull right edge of already-30-min Stop 14 inward -> clamps at 30m (no change) and restores Moved on release
+        const
+            clampBox  = await stop14.boundingBox(),
+            clampEdge = await stop14.locator('.neo-resizable-end').boundingBox(),
+            cx        = clampEdge.x + clampEdge.width / 2,
+            cy        = clampBox.y + clampBox.height * 0.75;
+
+        await page.mouse.move(cx, cy);
+        await page.mouse.down();
+        await page.mouse.move(cx - 60, cy, {steps: 8});
+        await expect(page.locator('.depot-status-pill')).toHaveText('Resizing');
+        await page.mouse.up();
         await expect(page.locator('.depot-status-pill')).toHaveText('Moved');
         await expect(page.locator('.depot-status-text')).toHaveText('Stop 14 → Van 3, 10:15 to 10:45');
 

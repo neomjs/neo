@@ -22,6 +22,12 @@ const
         freight: 'neo-scheduler-bar-violet',
         parcel : 'neo-scheduler-bar-emerald'
     },
+    dayFormatter = new Intl.DateTimeFormat('en-GB', {
+        day     : 'numeric',
+        month   : 'short',
+        timeZone: 'UTC',
+        weekday : 'short'
+    }),
     timeFormatter = new Intl.DateTimeFormat('en-GB', {
         hour     : '2-digit',
         hourCycle: 'h23',
@@ -41,8 +47,6 @@ const VANS = [
     {id: 'van-9',  name: 'Van 9',  zone: 'Campus',    label: 'Van 9 · Campus'},
     {id: 'van-10', name: 'Van 10', zone: 'South',     label: 'Van 10 · South'}
 ];
-
-const VAN_NAME_BY_ID = new Map(VANS.map(van => [van.id, van.name]));
 
 const STOPS = [
     // Van 1 (4 stops)
@@ -237,7 +241,7 @@ class DepotViewport extends Viewport {
             editable                        : false,
             enableResizingAcrossOppositeEdge: false,
             flex                            : 1,
-            majorFormatter                  : () => 'Fri 20 Nov · 07:00–19:00 UTC',
+            majorFormatter                  : tick => `${dayFormatter.format(tick.date)} · 07:00–19:00 UTC`,
             majorTickStep                   : 1,
             majorTickUnit                   : 'day',
             minimumDuration                 : MIN_DURATION,
@@ -281,13 +285,7 @@ class DepotViewport extends Viewport {
     }
 
     /**
-     * DOM id of the origin bar ghosted while a pointer drag or resize is in flight.
-     * @member {String|null} #activeDragBarId
-     * @private
-     */
-    #activeDragBarId = null
-    /**
-     * Last committed status summary restored if an active pointer gesture is aborted with `Escape`.
+     * @summary Last committed status summary restored when a pointer gesture cancels or ends without mutating the record.
      * @member {Object} #lastCommittedStatus
      * @private
      */
@@ -299,7 +297,7 @@ class DepotViewport extends Viewport {
     }
 
     /**
-     * Wires live drag-preview, end, and cancel listeners onto the Scheduler's `eventDragZone` once constructed.
+     * @summary Wires live drag-preview, end, and cancel listeners onto the Scheduler's `eventDragZone` once constructed.
      */
     onConstructed() {
         super.onConstructed();
@@ -315,24 +313,7 @@ class DepotViewport extends Viewport {
     }
 
     /**
-     * Removes the temporary ghost marker from the origin timeline bar once a pointer gesture ends or cancels.
-     */
-    clearOriginBar() {
-        const barId = this.#activeDragBarId;
-
-        if (!barId) {
-            return
-        }
-
-        this.#activeDragBarId = null;
-        Neo.applyDeltas(this.windowId, [{
-            id : barId,
-            cls: {add: [], remove: ['depot-bar-origin']}
-        }]).catch(() => null)
-    }
-
-    /**
-     * Formats `[startDate, endDate]` and `resourceId` into `"Stop 14 → Van 3, 10:15 to 10:45"`.
+     * @summary Formats `[startDate, endDate]` and `resourceId` into `"Stop 14 → Van 3, 10:15 to 10:45"`.
      * @param {Neo.data.Model} record
      * @param {Date|String|Number} startDate
      * @param {Date|String|Number} endDate
@@ -343,7 +324,7 @@ class DepotViewport extends Viewport {
         const
             start           = startDate instanceof Date ? startDate : new Date(startDate),
             end             = endDate   instanceof Date ? endDate   : new Date(endDate),
-            vanName         = VAN_NAME_BY_ID.get(resourceId) || resourceId,
+            vanName         = this.getReference('scheduler')?.store.get(resourceId)?.name || resourceId,
             durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000),
             summary         = `${record.title} → ${vanName}, ${timeFormatter.format(start)} to ${timeFormatter.format(end)}`;
 
@@ -351,25 +332,23 @@ class DepotViewport extends Viewport {
     }
 
     /**
-     * Restores the last committed status line when `Escape` aborts an in-flight drag or resize.
+     * @summary Restores the last committed status line when `Escape` aborts an in-flight drag or resize.
      */
     onGestureCancel() {
+        this.onGestureEnd()
+    }
+
+    /**
+     * @summary Clears resize preview state and restores the last committed status unless `eventChange` supersedes it.
+     */
+    onGestureEnd() {
         const {meta, pill, pillCls, text} = this.#lastCommittedStatus;
-        this.clearOriginBar();
         this.toggleCls('depot-is-resizing', false);
         this.updateStatusDisplay({meta, pill, pillCls, text})
     }
 
     /**
-     * Cleans up origin-bar ghosting and resize preview state when a pointer gesture releases.
-     */
-    onGestureEnd() {
-        this.clearOriginBar();
-        this.toggleCls('depot-is-resizing', false)
-    }
-
-    /**
-     * Previews the snapped target van, start/end window, and clamped duration live during pointer movement.
+     * @summary Previews the snapped target van, start/end window, and clamped duration live during pointer movement.
      * @param {Object} data
      */
     onGestureMove(data) {
@@ -379,16 +358,6 @@ class DepotViewport extends Viewport {
 
         if (!record || !data?.startDate || !data?.endDate) {
             return
-        }
-
-        const barId = zone.dragElement?.id;
-        if (barId && barId !== this.#activeDragBarId) {
-            this.clearOriginBar();
-            this.#activeDragBarId = barId;
-            Neo.applyDeltas(this.windowId, [{
-                id : barId,
-                cls: {add: ['depot-bar-origin'], remove: []}
-            }]).catch(() => null)
         }
 
         const
@@ -406,7 +375,7 @@ class DepotViewport extends Viewport {
     }
 
     /**
-     * Switches `timeAxis.snapMinutes` across `5`, `15`, `30`, and `60` minutes and updates toolbar pressed states.
+     * @summary Switches `timeAxis.snapMinutes` across `5`, `15`, `30`, and `60` minutes and updates toolbar pressed states.
      * @param {Object} data
      */
     onSelectSnap({component}) {
@@ -430,30 +399,28 @@ class DepotViewport extends Viewport {
     }
 
     /**
-     * Writes the committed move or resize outcome (`"Stop 14 → Van 3, 10:15 to 10:45"`) to the status bar.
+     * @summary Writes the committed move or resize outcome (`"Stop 14 → Van 3, 10:15 to 10:45"`) to the status bar.
      * @param {Object} payload
      */
-    onStopChange({action, endDate, record, resourceId, source, startDate}) {
+    onStopChange({action, endDate, record, resourceId, startDate}) {
         const
             snapMinutes                = this.getReference('scheduler').timeAxis.snapMinutes,
             {durationMinutes, summary} = this.formatGestureSummary(record, startDate, endDate, resourceId),
             isResize                   = action === 'resize',
-            via                        = source === 'keyboard' ? 'keyboard · ' : '',
             committed                  = {
-                meta   : `${via}${durationMinutes} min · ${snapMinutes}-min grid · ${MIN_DURATION}-min min`,
+                meta   : `${durationMinutes} min · ${snapMinutes}-min grid · ${MIN_DURATION}-min min`,
                 pill   : isResize ? 'Resized' : 'Moved',
                 pillCls: isResize ? 'is-resized' : 'is-moved',
                 text   : summary
             };
 
         this.#lastCommittedStatus = committed;
-        this.clearOriginBar();
         this.toggleCls('depot-is-resizing', false);
         this.updateStatusDisplay(committed)
     }
 
     /**
-     * Updates the status bar pill, summary text, and grid metadata in one pass.
+     * @summary Updates the status bar pill, summary text, and grid metadata in one pass.
      * @param {{meta: String, pill: String, pillCls: String, text: String}} state
      */
     updateStatusDisplay({meta, pill, pillCls, text}) {

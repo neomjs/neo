@@ -195,16 +195,11 @@
             font-variant-numeric: tabular-nums;
             font-weight         : 600;
             padding             : 0 6px;
-            transition          : box-shadow 120ms ease, filter 120ms ease, opacity 120ms ease, transform 120ms ease;
-
-            &.depot-bar-origin {
-                border-style: dashed;
-                opacity     : .38;
-            }
+            transition          : box-shadow var(--motion-fast) var(--ease-out-soft), filter var(--motion-fast) var(--ease-out-soft), opacity var(--motion-fast) var(--ease-out-soft), transform var(--motion-fast) var(--ease-out-soft);
 
             .neo-timeline-bar-handle {
                 cursor    : ew-resize;
-                transition: background-color 120ms ease;
+                transition: background-color var(--motion-fast) var(--ease-out-soft);
                 width     : 8px;
             }
 
@@ -233,6 +228,11 @@
 
         &.neo-is-dragging {
             cursor: grabbing;
+
+            .neo-timeline-bar:focus {
+                border-style: dashed;
+                opacity     : .38;
+            }
         }
     }
 }
