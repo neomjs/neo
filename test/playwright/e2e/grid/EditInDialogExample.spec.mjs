@@ -113,5 +113,24 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(dialog).toBeHidden();
         await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('chioma');
         await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveClass(/neo-is-modified/)
+    });
+
+    test('Escape while the dialog still opens hands focus back to the Edit button (#21753)', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(URL);
+
+        const editBtn = page.locator('.neo-grid-row').first().locator('.neo-button', {hasText: 'Edit'}),
+              dialog  = page.locator('.neo-dialog');
+
+        await expect(editBtn).toBeVisible({timeout: 30000});
+
+        // The first field takes focus as the dialog mounts, before its open animation ends: Escape at once
+        await editBtn.focus();
+        await page.keyboard.press('Enter');
+        await expect(dialog.locator('input.neo-textfield-input').first()).toBeFocused({timeout: 10000});
+        await page.keyboard.press('Escape');
+
+        await expect(dialog).toBeHidden();
+        await expect(editBtn).toBeFocused()
     })
 });
