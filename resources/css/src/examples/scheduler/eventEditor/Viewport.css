@@ -1,5 +1,8 @@
 /* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
 .dp-viewport.neo-viewport {
+    /* One gridline per hour: 60 minutes at the axis' 2.45 px per minute */
+    --neo-timeline-gridline-step: 147px;
+
     .dp-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--neo-timeline-header-background);
@@ -20,19 +23,16 @@
 
     .dp-hint {
         align-items: center;
-        color      : var(--neo-timeline-header-muted-color);
+        color      : var(--neo-timeline-header-color);
         display    : inline-flex;
         flex-wrap  : wrap;
-        font-size  : 13px;
-        gap        : 6px 12px;
+        font-size  : 14px;
+        gap        : 4px 8px;
     }
 
     /* The rule the editor enforces, stated before anyone opens it */
     .dp-minimum {
-        border       : 1px solid var(--neo-timeline-border-color);
-        border-radius: 999px;
-        color        : var(--neo-timeline-header-color);
-        padding      : 2px 10px;
+        font-weight: 600;
     }
 
     .dp-hint-narrow {
@@ -49,9 +49,12 @@
         }
     }
 
+    /* Holds its line while empty, so the first save does not push the plan down on a phone */
     .dp-status {
         color               : var(--neo-timeline-header-color);
-        font-size           : 13px;
+        font-size           : 14px;
         font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+        min-height          : 1.4em;
     }
 }

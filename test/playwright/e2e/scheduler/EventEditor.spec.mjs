@@ -4,7 +4,7 @@ const
     EXAMPLE_URL = '/examples/scheduler/eventEditor/index.html',
     EDITOR      = '.neo-timeline-event-editor',
     MINIMUM     = 'The end must be at least 30 minutes after the start',
-    PX          = 2.35, // the axis' pxPerMinute
+    PX          = 2.45, // the axis' pxPerMinute
     THEMES      = [
         'neo-theme-neo-light',
         'neo-theme-neo-dark',
