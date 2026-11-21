@@ -63,6 +63,17 @@ const
         }, {message: 'the column rests at its end'}).toBe(true);
 
         return blanks
+    },
+    // The toolbar shows its theme switcher in view, and nothing in it runs past the screen's edge
+    switcherInView = async (page, width) => {
+        const switcher = page.locator('.desk-toolbar .neo-theme-switcher');
+
+        await expect(switcher, 'the theme switcher is in the toolbar').toBeVisible();
+
+        const box = await switcher.boundingBox();
+
+        expect(box.x + box.width, 'and ends in view').toBeLessThanOrEqual(width);
+        expect(await page.locator('.desk-toolbar').evaluate(el => el.scrollWidth <= el.clientWidth), 'the toolbar does not overflow').toBe(true)
     };
 
 test.describe('Board, big data example: 10,000 tickets in windowed columns', () => {
@@ -123,6 +134,26 @@ test.describe('Board, big data example: 10,000 tickets in windowed columns', () 
         expect(errors).toEqual([])
     });
 
+    test('a collapsed column takes its cards out of the DOM and out of the counter, and brings them back', async ({page}) => {
+        const {body, cards, column, counter, errors} = await open(page),
+              before                                 = await cards(),
+              collapse                               = column('new').locator('.neo-board-column-collapse'),
+              // The counter names what the DOM holds
+              inSync   = async () => await counter.innerText() === `10,000 cards · ${await cards()} in the DOM`;
+
+        await collapse.click();
+        await expect(column('new'), 'New collapses').toHaveClass(/neo-board-column-collapsed/);
+        await expect(body('new').locator('.neo-board-card'), 'its cards leave the DOM').toHaveCount(0);
+        expect(await cards(), 'the board holds fewer cards').toBeLessThan(before);
+        await expect.poll(inSync, {message: 'the counter drops them too'}).toBe(true);
+
+        await collapse.click();
+        await expect(column('new'), 'New opens again').not.toHaveClass(/neo-board-column-collapsed/);
+        await expect.poll(cards, {message: 'its cards come back'}).toBe(before);
+        await expect.poll(inSync, {message: 'and so does the counter'}).toBe(true);
+        expect(errors).toEqual([])
+    });
+
     for (const theme of THEMES) {
         test(`at 1440 × 900 the five columns are in view (${theme})`, async ({page}, testInfo) => {
             const {column, errors} = await open(page, theme);
@@ -134,6 +165,7 @@ test.describe('Board, big data example: 10,000 tickets in windowed columns', () 
                 expect(x + width, `${stage}: ends in view`).toBeLessThanOrEqual(1440)
             }
 
+            await switcherInView(page, 1440);
             expect(errors).toEqual([]);
             await testInfo.attach(`board-big-data-1440-${theme}`, {body: await page.screenshot(), contentType: 'image/png'})
         })
@@ -149,6 +181,7 @@ test.describe('Board, big data example: 10,000 tickets in windowed columns', () 
         expect(first.x, 'New starts in view').toBeGreaterThanOrEqual(0);
         expect(first.x + first.width, 'and ends in view').toBeLessThanOrEqual(390);
         expect(first.y, 'below the counter').toBeGreaterThan(line.y + line.height);
+        await switcherInView(page, 390);
         expect(errors).toEqual([]);
 
         await testInfo.attach('board-big-data-390', {body: await page.screenshot(), contentType: 'image/png'})
