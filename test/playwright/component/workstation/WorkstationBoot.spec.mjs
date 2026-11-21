@@ -384,6 +384,9 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                     if (!held.request && Array.isArray(options.id) && options.id.length > 0
                         && options.id.every(itemId => String(itemId).startsWith('neo-tab-header-button'))) {
                         held.request = options.id;
+                        // The strip that asked, pinned now: Reset may move its headers before the answer comes
+                        held.toolbar = Neo.getComponent(options.id[0])?.parent;
+                        held.plugin  = held.toolbar?.getPlugin?.('tab-overflow');
 
                         const answer = await read.call(this, options);
 
@@ -413,9 +416,8 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
             // The read is still unanswered: the strip that asked for it is idle again, and once the refresh
             // settles, its answer arriving late moves no header and writes no cache.
             const strip = () => probe.evaluate(async () => {
-                const held    = globalThis.__heldOverflowRead,
-                      toolbar = globalThis.Neo.getComponent(held.request[0])?.parent,
-                      plugin  = toolbar?.getPlugin?.('tab-overflow');
+                const held              = globalThis.__heldOverflowRead,
+                      {plugin, toolbar} = held;
 
                 await held.workspace.refreshPromise;
 

@@ -1241,8 +1241,23 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary Whether this plugin still owns `button`'s plugin-installed cap: the ledger names it, and no
+     * other live Overflow plugin holds the strip the button sits in now.
+     * @param {Neo.tab.header.Button|null} button
+     * @returns {Boolean}
+     * @protected
+     */
+    ownsCap(button) {
+        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== this) return false;
+
+        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
+
+        return !currentPlugin || currentPlugin === this || currentPlugin.isDestroying || currentPlugin.isDestroyed
+    }
+
+    /**
      * Restores a plugin-installed cap on a departed or retiring button unless another live
-     * Overflow plugin now owns the button or its cap.
+     * Overflow plugin now owns the button or its cap ({@link #ownsCap}).
      * @param {String} buttonId
      * @param {{maxSize: String, value: *}} cap
      * @protected
@@ -1253,15 +1268,7 @@ class Overflow extends Plugin {
                 || me.getTabButtons().find(item => item.id === buttonId)
                 || Neo.getComponent(buttonId);
 
-        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== me) {
-            return
-        }
-
-        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
-
-        if (currentPlugin && currentPlugin !== me && !currentPlugin.isDestroying && !currentPlugin.isDestroyed) {
-            return
-        }
+        if (!me.ownsCap(button)) return;
 
         button.removeCls?.('neo-tab-overflow-capped');
         button[cap.maxSize] = cap.value;
@@ -1393,8 +1400,9 @@ class Overflow extends Plugin {
 
     /**
      * @summary Hands the strip back as the last committed split left it, after the caller's supersession
-     * stopped a pass mid-measure: the withheld-action reveal closes, the caps the measure lifted return, and
-     * the headers it restored hide again ({@link #restoreOpenMenuPartition}).
+     * stopped a pass mid-measure: the withheld-action reveal closes, the caps the measure lifted return while
+     * this plugin still owns them ({@link #ownsCap}), and the headers it restored hide again
+     * ({@link #restoreOpenMenuPartition}). A header that moved strips mid-pass keeps its new strip's cap.
      *
      * Nothing here waits: the channel that left a read unanswered must not hold the rollback too.
      * @param {Boolean} measurable The pass had restored headers or caps for its measure.
@@ -1411,7 +1419,7 @@ class Overflow extends Plugin {
         }
 
         if (measurable && !owner.isDestroyed) {
-            liftedCaps.forEach(([button, maxSize, value]) => {button[maxSize] = value});
+            liftedCaps.forEach(([button, maxSize, value]) => {me.ownsCap(button) && (button[maxSize] = value)});
             me.restoreOpenMenuPartition()
         }
     }

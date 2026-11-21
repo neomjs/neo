@@ -382,7 +382,12 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
     });
 
-    test('a superseded caller releases a pass whose read never answers: the latch clears and the strip is handed back', async () => {
+    /**
+     * @summary A pass held on a read that never answers, over a strip whose last split withheld `b2` and
+     * capped `b1` at 72 below its caller's 192.
+     * @returns {Promise<Object>} {buttons, controller, pass, plugin}
+     */
+    const holdCappedPass = async () => {
         const
             makeButton = (id, hidden) => ({
                 hidden,
@@ -409,10 +414,17 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         buttons[0].maxWidth        = 72;                          // the split capped b1 below its caller's 192
         plugin.appliedCaps         = new Map([['b1', {maxSize: 'maxWidth', value: 192}]]);
         plugin.appliedCapButtons   = new Map([['b1', new WeakRef(buttons[0])]]);
+        Overflow.buttonCaps.set(buttons[0], {cap: plugin.appliedCaps.get('b1'), plugin});
 
         const pass = plugin.project(true, {signal: controller.signal});
 
         await new Promise(resolve => setTimeout(resolve, 0));
+
+        return {buttons, controller, pass, plugin}
+    };
+
+    test('a superseded caller releases a pass whose read never answers: the latch clears and the strip is handed back', async () => {
+        const {buttons, controller, pass, plugin} = await holdCappedPass();
 
         expect(plugin.measuring, 'the pass waits on the read').toBe(true);
         expect(buttons[1].hidden, 'the measure restored the withheld header').toBe(false);
@@ -425,6 +437,25 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(buttons[1].hidden, 'the strip is handed back as the last split left it').toBe(true);
         expect(buttons[1].vdom.removeDom).toBe(true);
         expect(buttons[0].maxWidth, 'and so is the cap').toBe(72);
+        plugin.destroy()
+    });
+
+    test('an aborted pass hands back no cap that another strip\'s plugin owns by then', async () => {
+        const {buttons, controller, pass, plugin} = await holdCappedPass(),
+              successor                           = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        expect(buttons[0].maxWidth, 'the measure lifted the cap').toBe(192);
+
+        // The header moved to another strip mid-pass, whose split capped it at 54 and took the ledger entry
+        Overflow.buttonCaps.set(buttons[0], {cap: {maxSize: 'maxWidth', value: 192}, plugin: successor});
+        buttons[0].maxWidth = 54;
+
+        controller.abort();
+        await pass;
+
+        expect(buttons[0].maxWidth, 'the successor\'s cap stands').toBe(54);
+        expect(buttons[1].hidden, 'the strip is still handed back').toBe(true);
+        successor.destroy();
         plugin.destroy()
     });
 
