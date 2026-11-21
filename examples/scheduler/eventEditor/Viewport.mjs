@@ -99,6 +99,7 @@ class PracticeViewport extends Viewport {
                     cn : [
                         {tag: 'span', cls: ['dp-hint-wide'],   text: 'Double-click an appointment, or Tab to it and press Enter.'},
                         {tag: 'span', cls: ['dp-hint-narrow'], text: 'Double-click an appointment to edit it.'},
+                        {tag: 'span', cls: ['dp-hint-narrow'], text: 'Scroll sideways for the rest of the day.'},
                         {tag: 'span', cls: ['dp-minimum'],     text: 'Appointments last at least 30 minutes.'}
                     ]
                 }
@@ -140,7 +141,7 @@ class PracticeViewport extends Viewport {
             timeAxis: {
                 end        : `${DAY}T17:00:00Z`,
                 now        : '2026-10-01T00:00:00Z',
-                pxPerMinute: 2.45, // 08:00 to 17:00 fills 1440 px beside the rooms; the stylesheet's gridline step follows it
+                pxPerMinute: 2.45, // 08:00 to 17:00 fills 1440 px beside the rooms
                 snapMinutes: 15,
                 start      : `${DAY}T08:00:00Z`,
                 tickStep   : 1,

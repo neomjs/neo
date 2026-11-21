@@ -170,6 +170,9 @@ test.describe('Scheduler event editor example (#21615)', () => {
         await page.setViewportSize({width: 390, height: 844});
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
 
+        // About two hours fit the phone, and the hint says the plan scrolls
+        await expect(page.locator('.dp-hint-narrow', {hasText: 'Scroll sideways'})).toBeVisible();
+
         // Filling, 08:00–09:00, starts at the plan's left edge beside the room names
         await bar(page, 'appt-11').dblclick();
         await expect(page.locator(EDITOR)).toBeVisible();
