@@ -110,9 +110,11 @@ test('seven columns stand beside a chart that keeps at least half of 1440 px', a
     await expect.poll(() => lockedHeaders(page)).toEqual(COLUMNS);
     expect(await inGantt(page, gantt => gantt.timelineColumn.effectiveViewportWidth)).toBeGreaterThanOrEqual(720);
 
-    // The renderers: an owner badge with initials, and a progress bar beside its number
+    // The renderers: an owner badge with initials, the first and last day of five, and a progress bar beside its number
     const shortlist = page.locator('.neo-grid-row').filter({has: page.locator('.neo-grid-tree-cell', {hasText: 'Shortlist the headliners'})});
     await expect(shortlist.locator('.tc-badge')).toHaveText('ML');
+    await expect(shortlist.locator('[data-field="startDate"]')).toHaveText('26 Apr');
+    await expect(shortlist.locator('[data-field="endDate"]')).toHaveText('30 Apr');
     await expect(shortlist.locator('.tc-done-value')).toHaveText('100%');
     expect(await measureLinks(page)).toBe('on bars')
 });

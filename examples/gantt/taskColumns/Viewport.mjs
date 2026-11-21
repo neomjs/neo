@@ -61,86 +61,8 @@ const
     ],
     // A narrow column of numbers or dates: right-aligned under a right-aligned header
     NUMBER = {cellAlign: 'right', cls: ['tc-compact'], columnMenu: false, headerAlign: 'auto'},
-    format = date => new Date(date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'}),
-    iso    = day => new Date(START + day * DAY_MS).toISOString(),
     // Every column but the task tree leaves the locked side below this width, and returns above it
     LOOSE  = ['outline', 'owner', 'startDate', 'endDate', 'days', 'percentDone'];
-
-/**
- * @summary Schedules every task after the tasks it follows, in any phase, and not before its earliest day; numbers
- * it in outline order, and rolls each phase up to its tasks: its span, and its progress weighted by days.
- * @returns {{tasks: Object[], dependencies: Object[]}} Task and finish-to-start link records for the stores.
- */
-function buildPlan() {
-    const
-        byId   = new Map(PHASES.flatMap(phase => phase.tasks.map(task => [task[0], task]))),
-        starts = new Map(),
-        start  = id => {
-            if (!starts.has(id)) {
-                const [, , , , , follows, earliest=0] = byId.get(id);
-                starts.set(id, Math.max(earliest, ...follows.map(key => start(key) + byId.get(key)[3])))
-            }
-            return starts.get(id)
-        },
-        tasks        = [],
-        dependencies = [];
-
-    PHASES.forEach((phase, phaseIndex) => {
-        let done = 0, total = 0;
-
-        const rows = phase.tasks.map(([id, title, owner, days, percentDone, follows], index) => {
-            const first = start(id);
-
-            done  += days * percentDone;
-            total += days;
-            follows.forEach(fromId => dependencies.push({id: `${fromId}-${id}`, fromId, toId: id, type: 'FS', lag: 0, lagUnit: 'hour'}));
-
-            return {
-                id, parentId: phase.id, isLeaf: true, outline: `${phaseIndex + 1}.${index + 1}`, owner, percentDone, title,
-                startDate: iso(first), endDate: iso(first + days)
-            }
-        });
-
-        tasks.push({
-            id       : phase.id, parentId: null, isLeaf: false, collapsed: false, outline: String(phaseIndex + 1),
-            owner    : phase.owner, percentDone: Math.round(done / total), title: phase.title,
-            startDate: rows.map(row => row.startDate).sort()[0],
-            endDate  : rows.map(row => row.endDate).sort().at(-1)
-        }, ...rows)
-    });
-
-    return {tasks, dependencies}
-}
-
-/**
- * @summary The owner's initials in a badge of their own colour, beside their name.
- * @param {Object} data
- * @param {String} data.value The owner's key in `OWNERS`
- * @returns {Object}
- */
-function ownerRenderer({value}) {
-    const name = OWNERS[value];
-
-    return {cls: ['tc-owner'], cn: [
-        {tag: 'span', cls: ['tc-badge', `tc-badge-${value}`], 'aria-hidden': true, text: name.split(' ').map(part => part[0]).join('')},
-        {tag: 'span', cls: ['tc-owner-name'], text: name}
-    ]}
-}
-
-/**
- * @summary Percent done as a short bar and its number. A finished task's bar takes the finished colour.
- * @param {Object} data
- * @param {Number} data.value
- * @returns {Object}
- */
-function doneRenderer({value}) {
-    return {cls: value >= 100 ? ['tc-done', 'tc-done-complete'] : ['tc-done'], cn: [
-        {cls: ['tc-done-track'], 'aria-hidden': true, cn: [{cls: ['tc-done-fill'], style: {width: `${value}%`}}]},
-        {tag: 'span', cls: ['tc-done-value'], text: `${value}%`}
-    ]}
-}
-
-const plan = buildPlan();
 
 /**
  * @summary A festival's production plan: the table beside the bars carries an outline number, the task tree,
@@ -165,6 +87,8 @@ class TaskColumnsViewport extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * The stores get the plan from the static builders below: JavaScript defines a class's static methods
+         * before it evaluates its static fields, and each viewport deep-clones its items.
          * @member {Object[]} items
          */
         items: [{
@@ -177,18 +101,17 @@ class TaskColumnsViewport extends Viewport {
             reference      : 'gantt',
             flex           : 1,
             rowHeight      : 36,
-            store          : {module: TaskStore,       model: TaskModel, data: plan.tasks},
-            dependencyStore: {module: DependencyStore, data: plan.dependencies},
+            store          : {module: TaskStore,       model: TaskModel, data: this.buildTasks()},
+            dependencyStore: {module: DependencyStore, data: this.buildDependencies()},
             taskColumns    : [
                 // The narrow columns go without a column menu, whose trigger takes 30 px, and with a compact header
                 {dataField: 'outline',     text: '#',      width: 44,  ...NUMBER},
                 {dataField: 'title',       text: 'Task',   width: 208, type: 'tree'},
-                {dataField: 'owner',       text: 'Owner',  width: 144, renderer: ownerRenderer},
-                {dataField: 'startDate',   text: 'Start',  width: 68,  ...NUMBER, renderer: ({value}) => format(value)},
-                // A finish date names the task's last day: the record's end is the midnight after it
-                {dataField: 'endDate',     text: 'Finish', width: 68,  ...NUMBER, renderer: ({value}) => format(new Date(value) - DAY_MS)},
+                {dataField: 'owner',       text: 'Owner',  width: 144, renderer: 'up.ownerRenderer'},
+                {dataField: 'startDate',   text: 'Start',  width: 68,  ...NUMBER, renderer: 'up.startRenderer'},
+                {dataField: 'endDate',     text: 'Finish', width: 68,  ...NUMBER, renderer: 'up.finishRenderer'},
                 {dataField: 'days',        text: 'Days',   width: 66,  ...NUMBER},
-                {dataField: 'percentDone', text: 'Done',   width: 112, renderer: doneRenderer}
+                {dataField: 'percentDone', text: 'Done',   width: 112, renderer: 'up.doneRenderer'}
             ],
             responsiveLockPolicy: {breakpoints: [
                 {maxWidth: 1100,                    columns: Object.fromEntries(LOOSE.map(key => [key, null]))},
@@ -196,11 +119,120 @@ class TaskColumnsViewport extends Viewport {
             ]},
             majorTickStep : 1,
             majorTickUnit : 'week',
-            majorFormatter: tick => `Week of ${format(tick.date)}`,
+            majorFormatter: tick => `Week of ${tick.date.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'})}`,
             minorFormatter: tick => tick.date.toLocaleDateString('en-GB', {day: 'numeric', timeZone: 'UTC'}),
             // The now line marks the day the progress was reported
             timeAxis      : {start: '2027-04-26', end: '2027-07-05', now: '2027-05-17', timeZone: 'UTC', tickUnit: 'day', tickStep: 1, pxPerMinute: 0.02, snapMinutes: 1440}
         }]
+    }
+
+    /**
+     * @summary One finish-to-start link for every task a task follows, across phases.
+     * @returns {Object[]} The dependency store's records
+     */
+    static buildDependencies() {
+        return PHASES.flatMap(phase => phase.tasks.flatMap(([toId, , , , , follows]) =>
+            follows.map(fromId => ({id: `${fromId}-${toId}`, fromId, toId, type: 'FS', lag: 0, lagUnit: 'hour'}))
+        ))
+    }
+
+    /**
+     * @summary Schedules every task after the tasks it follows, in any phase, and not before its earliest day;
+     * numbers it in outline order, and rolls each phase up to its tasks: its span, and its progress weighted by days.
+     * @returns {Object[]} The task store's records: each phase, then its tasks
+     */
+    static buildTasks() {
+        const
+            byId   = new Map(PHASES.flatMap(phase => phase.tasks.map(task => [task[0], task]))),
+            starts = new Map(),
+            iso    = day => new Date(START + day * DAY_MS).toISOString(),
+            start  = id => {
+                if (!starts.has(id)) {
+                    const [, , , , , follows, earliest=0] = byId.get(id);
+                    starts.set(id, Math.max(earliest, ...follows.map(key => start(key) + byId.get(key)[3])))
+                }
+                return starts.get(id)
+            };
+
+        return PHASES.flatMap((phase, phaseIndex) => {
+            let done = 0, total = 0;
+
+            const rows = phase.tasks.map(([id, title, owner, days, percentDone], index) => {
+                const first = start(id);
+
+                done  += days * percentDone;
+                total += days;
+
+                return {
+                    id, parentId: phase.id, isLeaf: true, outline: `${phaseIndex + 1}.${index + 1}`, owner, percentDone, title,
+                    startDate: iso(first), endDate: iso(first + days)
+                }
+            });
+
+            return [{
+                id       : phase.id, parentId: null, isLeaf: false, collapsed: false, outline: String(phaseIndex + 1),
+                owner    : phase.owner, percentDone: Math.round(done / total), title: phase.title,
+                startDate: rows.map(row => row.startDate).sort()[0],
+                endDate  : rows.map(row => row.endDate).sort().at(-1)
+            }, ...rows]
+        })
+    }
+
+    /**
+     * @summary Percent done as a short bar and its number. A finished task's bar takes the finished colour.
+     * @param {Object} data
+     * @param {Number} data.value
+     * @returns {Object}
+     */
+    doneRenderer({value}) {
+        return {cls: value >= 100 ? ['tc-done', 'tc-done-complete'] : ['tc-done'], cn: [
+            {cls: ['tc-done-track'], 'aria-hidden': true, cn: [{cls: ['tc-done-fill'], style: {width: `${value}%`}}]},
+            {tag: 'span', cls: ['tc-done-value'], text: `${value}%`}
+        ]}
+    }
+
+    /**
+     * @summary A finish date names the task's last day: the record's end is the midnight after it.
+     * @param {Object} data
+     * @param {Date} data.value The task's end
+     * @returns {String} e.g. `21 May`
+     */
+    finishRenderer({value}) {
+        return this.formatDay(new Date(value) - DAY_MS)
+    }
+
+    /**
+     * @summary A day as its date and short month.
+     * @param {Date|Number|String} date
+     * @returns {String} e.g. `17 May`
+     */
+    formatDay(date) {
+        return new Date(date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'})
+    }
+
+    /**
+     * @summary The owner's initials in a badge of their own colour, beside their name.
+     * @param {Object} data
+     * @param {String} data.value The owner's key in `OWNERS`
+     * @returns {Object}
+     */
+    ownerRenderer({value}) {
+        const name = OWNERS[value];
+
+        return {cls: ['tc-owner'], cn: [
+            {tag: 'span', cls: ['tc-badge', `tc-badge-${value}`], 'aria-hidden': true, text: name.split(' ').map(part => part[0]).join('')},
+            {tag: 'span', cls: ['tc-owner-name'], text: name}
+        ]}
+    }
+
+    /**
+     * @summary A start date as its day and short month.
+     * @param {Object} data
+     * @param {Date} data.value The task's start
+     * @returns {String} e.g. `17 May`
+     */
+    startRenderer({value}) {
+        return this.formatDay(value)
     }
 }
 
