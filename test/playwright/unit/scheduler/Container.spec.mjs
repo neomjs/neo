@@ -643,7 +643,9 @@ test.describe('Neo.scheduler.Container', () => {
 
             expect(editor.save(), 'the editor keeps its draft').toBe(false);
             expect(record.endDate.toISOString(), 'the record keeps its end').toBe('2026-11-09T11:00:00.000Z');
-            expect(editor.getField('endDate').error).toBe(message)
+            // Only the end's time changed, so its time field carries the refusal
+            expect(editor.getField('endDate__time').error).toBe(message);
+            expect(editor.getField('endDate').error).toBeFalsy()
         });
 
         test('an event already at the minimum gets the same refusal', () => {
@@ -653,17 +655,19 @@ test.describe('Neo.scheduler.Container', () => {
 
             expect(editor.save()).toBe(false);
             expect(record.endDate.toISOString()).toBe('2026-11-09T12:30:00.000Z');
-            expect(editor.getField('endDate').error).toBe(message)
+            expect(editor.getField('endDate__time').error).toBe(message);
+            expect(editor.getField('endDate').error).toBeFalsy()
         });
 
-        test('a start moved within the minimum of the end is refused on the Start field', () => {
+        test('a start moved within the minimum of the end is refused on the Start time field', () => {
             const record = events.get('long'), editor = scheduler.openEventEditor('long');
 
             editor.setFieldValue('startDate', '2026-11-09T10:45');
 
             expect(editor.save()).toBe(false);
             expect(record.startDate.toISOString()).toBe('2026-11-09T08:00:00.000Z');
-            expect(editor.getField('startDate').error).toBe(message)
+            expect(editor.getField('startDate__time').error).toBe(message);
+            expect(editor.getField('startDate').error).toBeFalsy()
         });
 
         test('a range at the minimum saves, and a gesture below it is still clamped', () => {

@@ -443,6 +443,25 @@ class EventEditor extends Dialog {
     }
 
     /**
+     * @summary The field of one bound that a refused save marks: its time field when only its time changed since
+     * the editor opened, else its date field. As in {@link #validateBound}, the field the person has to fix carries
+     * the error.
+     * @param {String} name `'startDate'`, `'endDate'`, or the owner's configured field name
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    getBoundErrorField(name) {
+        const
+            me           = this,
+            field        = me.resolveDateField(name),
+            dateInput    = me.getField(field),
+            timeInput    = me.getField(`${field}__time`),
+            [date, time] = (me.initialValues[field] || '').split('T');
+
+        return timeInput && dateInput?.value === date && timeInput.value !== time ? timeInput : dateInput
+    }
+
+    /**
      * @summary Computes the delta object between the form's current field values and the bound record.
      * @param {Object} [parsedDates={}]
      * @param {Date} [parsedDates.startDate]
@@ -781,8 +800,7 @@ class EventEditor extends Dialog {
             me              = this,
             {owner, record} = me,
             startDateField  = me.getStartDateField(),
-            endDateField    = me.getEndDateField(),
-            endInput        = me.getField(endDateField);
+            endDateField    = me.getEndDateField();
 
         if (!record) {
             me.hide();
@@ -798,6 +816,8 @@ class EventEditor extends Dialog {
         }
 
         if (endDate.getTime() < startDate.getTime()) {
+            const endInput = me.getBoundErrorField(endDateField);
+
             if (endInput) {
                 endInput.error = 'End date must not precede start date'
             }
@@ -819,7 +839,7 @@ class EventEditor extends Dialog {
         if (typeof owner?.commitTimelineEdit === 'function') {
             result = owner.commitTimelineEdit(record, changes, {source: 'editor'});
             if (result === false || result?.status === 'refused') {
-                const field = me.getField(keys[0]);
+                const field = me.resolveDateField(keys[0]) ? me.getBoundErrorField(keys[0]) : me.getField(keys[0]);
                 if (field) field.error = result?.message || 'The edit could not be saved.';
                 return false
             }
