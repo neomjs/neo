@@ -1733,7 +1733,8 @@ class GridBody extends Component {
     /**
      * @summary Lightweight live column-resize pass (`drag:move`) that writes updated `width` and `left` geometry
      * across active row VDOMs and ships them densely (`denseUpdate = true`) so concurrent row updates cannot skip
-     * non-merged rows.
+     * non-merged rows. It moves the `columnPositions` entries in place, which the collection does not announce, so it
+     * fires `cellPositionsChange` for anything else drawn from them.
      * @param {String} dataField The dataField of the resized column
      * @param {Number} newWidth The new width in pixels
      */
@@ -1795,7 +1796,9 @@ class GridBody extends Component {
 
         me.updateDepth = 2;
         me.denseUpdate = true;
-        me.update()
+        me.update();
+
+        me.fire('cellPositionsChange', {dataField, width: newWidth})
     }
 
     /**

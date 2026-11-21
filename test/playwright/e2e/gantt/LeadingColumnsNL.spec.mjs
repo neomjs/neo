@@ -4,6 +4,8 @@ const
     EXAMPLE_URL = '/examples/gantt/basic/index.html',
     // `gantt/basic` draws 172.8 px a day from Mon 9 Nov; its task column is 220 px wide
     DAY_PX      = 172.8,
+    // Both links of `gantt/basic`
+    LINKS       = ['survey-design', 'design-materials'],
     TASK_WIDTH  = 220;
 
 /**
@@ -42,12 +44,15 @@ async function unlockTaskColumn(page) {
  * @summary Measures every rendered link against the bars it joins: it must leave its source bar's right edge
  * and reach its target bar's left edge, at the bars' mid height.
  * @param {import('@playwright/test').Page} page
+ * @param {String[]} [ids=[]] Links that must be measured: a missing path or bar fails instead of being skipped
  * @returns {Promise<String>} `on bars`, or what missed
  */
-function measureLinks(page) {
-    return page.evaluate(() => {
+function measureLinks(page, ids=[]) {
+    return page.evaluate(ids => {
         const off     = [];
         let   checked = 0;
+
+        ids = new Set(ids);
 
         for (const path of document.querySelectorAll('path[data-dependency-id]')) {
             const
@@ -62,6 +67,7 @@ function measureLinks(page) {
                 last  = path.getPointAtLength(path.getTotalLength()).matrixTransform(matrix);
 
             checked++;
+            ids.delete(path.dataset.dependencyId);
 
             if (Math.abs(first.x - source.right) > 2 || Math.abs(last.x - target.left) > 2 ||
                 Math.abs(first.y - (source.top + source.height / 2)) >= 0.25 ||
@@ -70,8 +76,9 @@ function measureLinks(page) {
             }
         }
 
-        return checked > 0 && off.length === 0 ? 'on bars' : `checked ${checked}, off: ${off.join(', ')}`
-    })
+        return checked > 0 && off.length === 0 && ids.size === 0 ? 'on bars' :
+            `checked ${checked}, off: ${off.join(', ')}, unmeasured: ${[...ids].join(', ')}`
+    }, ids)
 }
 
 /**
@@ -101,6 +108,39 @@ test('links stay on their bars with a column scrolling before the timeline', asy
     // Past the task column, the timeline fills the region: the links move with their bars
     await scrollAxisTo(page, 100);
     await expect.poll(() => measureLinks(page)).toBe('on bars')
+});
+
+test('links stay on their bars while the column before the timeline is being resized', async ({page}) => {
+    await unlockTaskColumn(page);
+    await expect.poll(() => measureLinks(page, LINKS)).toBe('on bars');
+
+    // Pinned by id: a drag proxy clones the button
+    const
+        taskId = await page.evaluate(() => [...document.querySelectorAll('.neo-grid-header-button')].find(button => button.innerText.trim() === 'Task').id),
+        task   = page.locator(`[id="${taskId}"]`),
+        box    = await task.boundingBox(),
+        x      = box.x + box.width - 3,
+        y      = box.y + box.height / 2,
+        handle = task.locator('.neo-resizable-right');
+
+    await expect(async () => {
+        await page.mouse.move(x - 30, y);
+        await page.mouse.move(x, y, {steps: 4});
+        await expect(handle).toHaveCount(1, {timeout: 250})
+    }).toPass();
+
+    const hb = await handle.boundingBox();
+
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(hb.x + hb.width / 2 + 137, hb.y + hb.height / 2, {steps: 12});
+
+    // The pointer is still down: the live resize has moved the timeline, and the links must have followed it
+    await expect.poll(() => inGantt(page, gantt => gantt.body.columnPositions.get(gantt.timelineDataField)?.x)).toBeGreaterThan(TASK_WIDTH + 100);
+    await expect.poll(() => measureLinks(page, LINKS)).toBe('on bars');
+
+    await page.mouse.up();
+    await expect.poll(() => measureLinks(page, LINKS)).toBe('on bars')
 });
 
 test('the bar and the day under the timeline\'s left edge render when the column before it is wider than the buffer', async ({page}) => {

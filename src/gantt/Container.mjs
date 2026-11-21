@@ -351,11 +351,11 @@ class Container extends SchedulerContainer {
             if (this.dependencyLayer) this.dependencyLayer.scrollLeft = value || 0
         }))
         if (body) {
-            const listeners = {isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
-                // A column moving before or after the timeline moves the axis: the second event carries the geometry
-                onPositions = ({addedItems}) => {
-                    if (addedItems?.length && this.dependencyLayer) this.dependencyLayer.axisLeft = this.timelineColumn?.axisLeft || 0
-                };
+            // A column moving before or after the timeline moves the axis: the rebuild's second event carries the
+            // geometry, and a live column resize moves it in place
+            const syncAxisLeft = () => {if (this.dependencyLayer) this.dependencyLayer.axisLeft = this.timelineColumn?.axisLeft || 0},
+                listeners      = {cellPositionsChange: syncAxisLeft, isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
+                onPositions    = ({addedItems}) => {if (addedItems?.length) syncAxisLeft()};
             body.on(listeners);
             body.columnPositions.on('mutate', onPositions);
             this.#cleanups.push(() => body.isDestroyed || (body.un(listeners), body.columnPositions.un('mutate', onPositions)))
