@@ -121,6 +121,11 @@
     },
     {
         "file": "src/main/addon/EventSimulator.mjs",
+        "name": "class:DriveAbort",
+        "count": 1
+    },
+    {
+        "file": "src/main/addon/EventSimulator.mjs",
         "name": "interpolatePoint",
         "count": 1
     },
