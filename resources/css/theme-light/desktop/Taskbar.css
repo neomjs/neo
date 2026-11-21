@@ -1,0 +1,15 @@
+:where(.neo-theme-light) { /* .neo-desktop-taskbar and its start menu: the toolbar's white, the menu's blue edge, the badge's blue */
+    --desktop-start-button-color                    : var(--button-badge-color, #fff);
+    --desktop-start-menu-background-color           : var(--menu-list-background-color, #fff);
+    --desktop-start-menu-border-color               : var(--menu-list-border-color, #1c60a0);
+    --desktop-start-menu-color                      : var(--neo-color, #000);
+    --desktop-start-menu-icon-color                 : var(--menu-list-item-icon-color, #1c60a0);
+    --desktop-start-menu-item-background-color-hover: rgba(28, 96, 160, .08);
+    --desktop-start-menu-shadow                     : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, .4));
+    --desktop-taskbar-accent-color                  : var(--button-badge-background-color, #1c60a0);
+    --desktop-taskbar-background-color              : var(--toolbar-background-color, #fff);
+    --desktop-taskbar-border-color                  : var(--panel-border-color, #ddd);
+    --desktop-taskbar-color                         : #2b2b2b;
+    --desktop-taskbar-item-background-color-active  : rgba(28, 96, 160, .12);
+    --desktop-taskbar-item-background-color-hover   : rgba(0, 0, 0, .05);
+}
