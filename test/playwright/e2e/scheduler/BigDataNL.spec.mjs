@@ -74,8 +74,9 @@ test('renders 300 resources and 15,600 seeded bookings with bounded DOM bars acr
         }
     });
     await expect.poll(async () => (await page.locator('.neo-timeline-header-major').innerText())).toContain('Apr');
-    await expect(page.locator('.neo-scheduler .neo-timeline-bar[aria-label*="2026-04-"]').first()).toBeVisible();
-    await expect(page.locator('.neo-scheduler .neo-timeline-bar[aria-label*="2026-01-"]')).toHaveCount(0);
+    // A bar's accessible name reads its dates in the locale, e.g. "Design review (Apr 6 – 8)".
+    await expect(page.locator('.neo-scheduler .neo-timeline-bar[aria-label*="Apr "]').first()).toBeVisible();
+    await expect(page.locator('.neo-scheduler .neo-timeline-bar[aria-label*="Jan "]')).toHaveCount(0);
 
     const afterHorizontalBars = await page.locator('.neo-scheduler .neo-timeline-bar').count();
     expect(afterHorizontalBars).toBeGreaterThan(0);

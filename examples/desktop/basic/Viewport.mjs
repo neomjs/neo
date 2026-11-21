@@ -1,7 +1,8 @@
 import Apps          from '../../../src/desktop/store/Apps.mjs';
 import Component     from '../../../src/component/Base.mjs';
-import Desktop      from '../../../src/desktop/Container.mjs';
+import Desktop       from '../../../src/desktop/Container.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
@@ -56,8 +57,9 @@ class DesktopViewport extends Viewport {
                 music     : {height: 480, width: 720, view: () => import('./Music.mjs')},
                 notes     : {height: 400, width: 460, view: () => import('./Notes.mjs')}
             },
-            bind            : {appStore: 'stores.apps'},
-            launcherConfig  : {arrangementKey: 'neo-examples-desktop-basic'},
+            bind          : {appStore: 'stores.apps'},
+            launcherConfig: {arrangementKey: 'neo-examples-desktop-basic'},
+            taskbarConfig : {items: {'theme-switcher': {module: ThemeSwitcher, showText: false, weight: 90}}},
             // The screen says what it is: the product's name on the wallpaper, and a card beside the launcher
             items: {workspace: {items: {
                 brand: {

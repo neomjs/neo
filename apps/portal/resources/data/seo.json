@@ -1059,13 +1059,13 @@
     },
     "/news/releases/14.0.0": {
         "title": "Neo.mjs v14.0.0 Release Notes",
-        "description": "Release Type: Pending the operator. Planned as a major: Engine 14 — The Front Door (ROADMAP). Stability: Pending the operator. It is set at the cut...",
+        "description": "Release Type: Pending the operator. The version is 14.0.0, fixed by the generated-app check on 2026-11-21 (#20874): Engine 14 — The Front Door (ROADMAP)...",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-20"
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
-        "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
+        "description": "Explore 12 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1083,7 +1083,7 @@
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
-        "description": "Explore 12 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
+        "description": "Explore 13 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1101,19 +1101,19 @@
     },
     "/examples/scheduler": {
         "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
-        "description": "Explore 6 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
+        "description": "Explore 11 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
     "/examples/gantt": {
         "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
-        "description": "Explore 5 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
+        "description": "Explore 8 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
-        "description": "Explore 5 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
+        "description": "Explore 8 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1161,7 +1161,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 9 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 10 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1276,6 +1276,24 @@
     "/examples/board/cardDesigns/index.html": {
         "title": "Card designs · Editorial calendar · Neo Board — Live Demo | Neo.mjs",
         "description": "The same articles as compact, standard and detailed cards, built from five card items. Switch between the three designs: the cards re-draw in place and keep...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/cardEditor/index.html": {
+        "title": "Hiring pipeline · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "description": "A card's title edited in place, its stage, tags and owner in the card editor. Rename a candidate on the card itself. Open the card and move it to Interview...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/columns/index.html": {
+        "title": "Arrange the columns · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "description": "Columns reordered by drag, folded to a strip, or locked in place. Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/multiSelect/index.html": {
+        "title": "Bug triage · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Cards selected by click, Shift and a modifier key, dragged together into another column. Click a report, Shift-click one further down, then drag the...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
@@ -1837,6 +1855,24 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
+    "/examples/gantt/dependencies/index.html": {
+        "title": "Link tasks by drag · Neo Gantt — JavaScript UI Demo | Neo.mjs",
+        "description": "Dependencies drawn from one task's handle to another, in four link types. Hover a task and drag from its finish handle onto another task. Then move the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/gantt/taskColumns/index.html": {
+        "title": "Festival production plan · Neo Gantt columns — Live Demo | Neo.mjs",
+        "description": "Seven task columns: outline number, tree, owner, dates, days and a progress bar. Collapse a phase: its rows fold in the table and in the chart together...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/gantt/taskEditor/index.html": {
+        "title": "Website relaunch · Neo Gantt task editor — Live Demo | Neo.mjs",
+        "description": "A task's editor: title, start, end and percent done, and a plan that follows the change. Double-click a task and move its end a week out: its successors...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
     "/examples/gantt/workingTime/index.html": {
         "title": "Durations in working days · Neo Gantt — JavaScript UI Demo | Neo.mjs",
         "description": "Tasks that skip weekends and holidays when they compute their end. Switch working days off: every task that crosses a weekend ends earlier, and its...",
@@ -2017,6 +2053,12 @@
         "schemaType": "WebPage",
         "lastmod": "2025-07-11"
     },
+    "/examples/list/onAir/index.html": {
+        "title": "On Air at Eight — Live Broadcast Desk | Neo.mjs",
+        "description": "Direct a live TV opening from a sortable rundown that drives the program feed and the presenter’s next cue. Drag Night Service ahead of the late guest, then...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
     "/examples/list/reorder/index.html": {
         "title": "Reorder by Drag — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A checklist and a wall of portraits, each reordered by drag and drop over its own store. Drag Freeze the release branch below Write the release notes, then...",
@@ -2101,6 +2143,18 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
+    "/examples/scheduler/eventEditor/index.html": {
+        "title": "Edit a booking in a form · Neo Scheduler — Live Demo | Neo.mjs",
+        "description": "A booking's editor: title, room, start and end, with a minimum length. Double-click an appointment, or focus it and press Enter. Shorten it below 30...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/liveUpdates/index.html": {
+        "title": "Gate operations · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
+        "description": "Flights arrive, slip and leave on a simulated feed while you scroll and drag. Watch a delayed flight slide along its gate. Scroll, or drag a flight, while...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
     "/examples/scheduler/meridian/index.html": {
         "title": "Meridian Observatory — Observation Planning | Neo.mjs",
         "description": "Book a telescope to catch a dip in starlight. Hold ARC-17 over North and South at 22:12. Compare the predicted samples and the mosaic’s finish time, then...",
@@ -2112,6 +2166,24 @@
         "description": "Non-working days and dates shaded across the timeline and its header. Switch the working week to Sunday to Thursday: the shaded days move. Find the holiday...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-20"
+    },
+    "/examples/scheduler/resourceColumns/index.html": {
+        "title": "A table beside the timeline · Neo Scheduler — Live Demo | Neo.mjs",
+        "description": "Four locked resource columns: name, skill, region and booked hours, each sortable. Sort by booked hours to find who has room. Scroll the timeline: the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/timeZones/index.html": {
+        "title": "Support rota in three time zones · Neo Scheduler | Neo.mjs",
+        "description": "The same shifts read in Berlin, New York or Tokyo time. Switch the zone: every shift moves on the axis and the day boundary moves with it. The stored times...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/zoom/index.html": {
+        "title": "Zoom from hours to a week · Neo Scheduler — Live Demo | Neo.mjs",
+        "description": "Three zoom levels over the same bookings, each with its own time axis and snap. Switch from Hours to Week and back: the axis changes its units and the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
     },
     "/examples/serverside/toolbarItems/index.html": {
         "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",

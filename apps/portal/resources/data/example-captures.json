@@ -565,6 +565,16 @@
       "region": {"x": 320, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "on-air-at-eight",
+      "viewport": {"width": 694, "height": 800},
+      "theme": "default",
+      "state": "The director’s opening desk with the show titles on the program monitor and the rundown ready to reorder.",
+      "ready": [{"selector": ".air-desk"}, {"selector": ".air-list .neo-list-item"}],
+      "steps": [],
+      "after": [{"selector": ".air-titles .air-feed-title", "text": "Night Edition", "inRegion": true}, {"selector": ".air-list .neo-list-item", "text": "Night Service", "inRegion": true}],
+      "region": {"selector": ".air-layout", "anchor": "top-left", "offsetY": -10, "width": 640, "height": 360}
+    },
+    {
       "id": "meridian-observatory",
       "viewport": {"width": 640, "height": 900},
       "theme": "default",
@@ -1100,6 +1110,215 @@
         {"selector": "input[name='address.city']", "inRegion": true}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-event-editor",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Crown preparation is open over the day and the form shows the minimum-length refusal.",
+      "ready": [
+        {"selector": ".neo-timeline-bar[data-event-id=\"appt-13\"]"}
+      ],
+      "steps": [
+        {"kind": "dblclick", "selector": ".neo-timeline-bar[data-event-id=\"appt-13\"]"},
+        {"kind": "fill", "selector": ".neo-timeline-event-editor [id$=\"__field__endDate__time__input\"]", "value": "10:45"},
+        {"kind": "press", "selector": ".neo-timeline-event-editor [id$=\"__field__endDate__time__input\"]", "key": "Tab"},
+        {"kind": "click", "selector": ".neo-timeline-event-editor button", "text": "Save"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".neo-timeline-event-editor input[name=\"title\"]", "value": "Crown preparation", "inRegion": true},
+        {"selector": ".neo-timeline-event-editor .neo-textfield-error", "text": "at least 30 minutes", "inRegion": true}
+      ],
+      "region": {"selector": ".neo-timeline-event-editor", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-zoom",
+      "viewport": {"width": 640, "height": 720},
+      "theme": "dark",
+      "state": "Week scale shows the venue bookings as short bars across days.",
+      "ready": [
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".venue-level", "text": "Week"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".venue-level[aria-pressed=\"true\"]", "text": "Week", "inRegion": true},
+        {"selector": ".neo-timeline-tick-major", "text": "Dec 7"},
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-resource-columns",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The resource table is sorted by booked hours next to the schedule.",
+      "ready": [
+        {"selector": ".neo-grid-header-button", "text": "Booked"},
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".neo-grid-header-button", "text": "Booked"},
+        {"kind": "click", "selector": ".neo-grid-header-button", "text": "Booked"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".neo-grid-header-button.neo-sort-desc", "text": "Booked", "inRegion": true},
+        {"selector": ".neo-grid-cell[data-field=\"hours\"]", "text": "40 h", "inRegion": true},
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-time-zones",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The rota axis and clock readout show Tokyo time.",
+      "ready": [
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".tz-zone:not(:first-child)", "text": "Tokyo"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".neo-timeline-tick-major", "text": "Tokyo"},
+        {"selector": ".tz-clock-axis .tz-clock-city", "text": "Tokyo"},
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-live-updates",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The simulated gate feed is paused with a fresh update on a flight bar.",
+      "ready": [
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "steps": [
+        {"kind": "wait", "selector": ".neo-timeline-bar.is-feed-fresh .gate-bar-delta"},
+        {"kind": "click", "selector": ".gate-pause-btn"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".gate-viewport.is-paused"},
+        {"selector": ".gate-sim-badge", "text": "Simulated feed", "inRegion": true},
+        {"selector": ".neo-timeline-bar.is-feed-fresh .gate-bar-delta", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-dependencies",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The launch plan includes dependency arrows and the four-type legend.",
+      "ready": [
+        {"selector": ".neo-gantt-dependency-arrow"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".launch-legend-item", "count": 4},
+        {"selector": ".neo-gantt-dependency-arrow"},
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-task-editor",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The wireframes task editor is open over the linked plan.",
+      "ready": [
+        {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
+      ],
+      "steps": [
+        {"kind": "dblclick", "selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".neo-timeline-event-editor input[name=\"title\"]", "value": "Sketch the wireframes", "inRegion": true},
+        {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
+      ],
+      "region": {"selector": ".neo-timeline-event-editor", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-task-columns",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Owner badges and completion bars sit in the locked table beside the chart.",
+      "ready": [
+        {"selector": ".neo-timeline-bar[data-event-id=\"survey\"]"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".tc-badge", "text": "ML", "inRegion": true},
+        {"selector": ".tc-done-value", "text": "100%", "inRegion": true},
+        {"selector": ".neo-timeline-bar[data-event-id=\"survey\"]"}
+      ],
+      "region": {"x": 220, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "board-card-editor",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "Bruno Okafor's card editor is open over the hiring pipeline.",
+      "ready": [
+        {"selector": "[id$=\"__card__c-02\"] .neo-board-card-menu-button"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": "[id$=\"__card__c-02\"] .neo-board-card-menu-button"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".neo-board-card-editor"},
+        {"selector": "[id$=\"__card__c-02\"]", "text": "Bruno Okafor"}
+      ],
+      "region": {"selector": ".neo-board-card-editor", "anchor": "center", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-multi-select",
+      "viewport": {"width": 920, "height": 800},
+      "theme": "dark",
+      "state": "The first five Inbox reports are selected and the toolbar counts five.",
+      "ready": [
+        {"selector": "[id$=\"__card__1042\"]"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": "[id$=\"__card__1042\"]"},
+        {"kind": "press", "selector": "[id$=\"__card__1042\"]", "key": "Shift+ArrowDown"},
+        {"kind": "press", "selector": "[id$=\"__card__1043\"]", "key": "Shift+ArrowDown"},
+        {"kind": "press", "selector": "[id$=\"__card__1044\"]", "key": "Shift+ArrowDown"},
+        {"kind": "press", "selector": "[id$=\"__card__1045\"]", "key": "Shift+ArrowDown"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".triage-selection-count", "text": "5 selected", "inRegion": true},
+        {"selector": ".neo-board-card.neo-selected", "count": 5}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "board-columns",
+      "viewport": {"width": 1280, "height": 800},
+      "theme": "dark",
+      "state": "Archive is folded to a strip and Delivered shows the locked column.",
+      "ready": [
+        {"selector": ".neo-board-column-collapsed[id$=\"__col__archive\"]"},
+        {"selector": ".neo-board-column-locked[id$=\"__col__delivered\"]"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": "[id$=\"__col__archive\"] .neo-board-column-title", "text": "Archive", "inRegion": true},
+        {"selector": "[id$=\"__col__delivered\"] .neo-board-column-lock", "inRegion": true}
+      ],
+      "region": {"x": 640, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "live-preview",

@@ -1,0 +1,10 @@
+:where(.neo-theme-light) {
+    --launch-header-bg : var(--neo-background-color);
+    --launch-border    : var(--grid-container-border-color, #ddd);
+    --launch-title     : #163a5f;
+    --launch-muted     : #4d4d4d;
+    --launch-control   : var(--button-background-color, #ffffff);
+    --launch-hover     : #eef4fa;
+    --launch-focus     : var(--button-text-color, #1c60a0);
+    --launch-legend-bar: #c3cfdc;
+}

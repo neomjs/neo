@@ -118,10 +118,11 @@ test.describe('Portal home hero: the round table stands around the statement (Ne
         })
     });
 
-    test('under reduced motion the scene shows the end state and draws no further frame', async ({neuralLink, page}) => {
+    test('the visible header and round table follow live motion changes without reloading', async ({neuralLink, page}) => {
         await page.emulateMedia({reducedMotion: 'reduce'});
 
-        const {read} = await openHero(page, neuralLink, {height: 900, width: 1440});
+        const {read} = await openHero(page, neuralLink, {height: 900, width: 1440}),
+              header = page.locator('.app-header-canvas');
 
         let stats, frames = -1;
 
@@ -136,6 +137,21 @@ test.describe('Portal home hero: the round table stands around the statement (Ne
 
             frames = now;
             return same
-        }, {intervals: [300, 300, 300, 500], timeout: 10000}).toBe(true)
+        }, {intervals: [300, 300, 300, 500], timeout: 10000}).toBe(true);
+
+        await page.emulateMedia({reducedMotion: 'no-preference'});
+        await expect.poll(async () => {
+            const next = await read();
+            return !next.still && next.frames > frames
+        }).toBe(true);
+        const moving = await header.screenshot();
+        await expect.poll(async () => moving.equals(await header.screenshot())).toBe(false);
+
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await expect.poll(async () => (await read()).still).toBe(true);
+        await expect.poll(async () => {
+            const first = await header.screenshot();
+            return first.equals(await header.screenshot())
+        }).toBe(true)
     })
 });

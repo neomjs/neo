@@ -2,6 +2,7 @@ import Button                  from '../../../src/button/Base.mjs';
 import CheckBox                from '../../../src/form/field/CheckBox.mjs';
 import Container               from '../../../src/container/Base.mjs';
 import MainContainerController from './MainContainerController.mjs';
+import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                 from '../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 // Layouts resolve by ntype once their classes are loaded
@@ -174,6 +175,9 @@ class MainContainer extends Viewport {
                     handler: 'onNextClick',
                     iconCls: 'fa fa-forward-step',
                     text   : 'Next item'
+                }, '->', {
+                    module: ThemeSwitcher,
+                    flex  : 'none'
                 }
             ]
         }, {

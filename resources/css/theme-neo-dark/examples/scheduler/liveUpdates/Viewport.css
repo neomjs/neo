@@ -1,0 +1,59 @@
+:where(.neo-theme-neo-dark) {
+    --gate-header-bg           : #0f172a;
+    --gate-subbar-bg           : #111c33;
+    --gate-border              : rgba(148, 163, 184, 0.18);
+    --gate-title               : #f8fafc;
+    --gate-muted               : #cbd5e1;
+    --gate-focus               : #38bdf8;
+
+    --gate-sim-bg              : rgba(16, 185, 129, 0.14);
+    --gate-sim-border          : rgba(52, 211, 153, 0.36);
+    --gate-sim-text            : #a7f3d0;
+    --gate-sim-dot             : #34d399;
+    --gate-sim-dot-ring        : rgba(52, 211, 153, 0.24);
+    --gate-sim-dot-paused      : #fbbf24;
+    --gate-sim-dot-paused-ring : rgba(251, 191, 36, 0.24);
+
+    --gate-counter-bg          : rgba(56, 189, 248, 0.12);
+    --gate-counter-border      : rgba(56, 189, 248, 0.32);
+    --gate-counter-text        : #bae6fd;
+
+    --gate-btn-bg              : #17253d;
+    --gate-btn-hover-bg        : #1e3150;
+    --gate-btn-border          : rgba(148, 163, 184, 0.34);
+    --gate-btn-glyph           : #7dd3fc;
+    --gate-btn-pressed-bg      : #422006;
+    --gate-btn-pressed-border  : #fbbf24;
+    --gate-btn-pressed-glyph   : #fde68a;
+
+    --gate-kind-live-bg        : rgba(16, 185, 129, 0.16);
+    --gate-kind-live-border    : rgba(52, 211, 153, 0.38);
+    --gate-kind-live-text      : #d1fae5;
+    --gate-kind-info-bg        : rgba(56, 189, 248, 0.15);
+    --gate-kind-info-border    : rgba(56, 189, 248, 0.36);
+    --gate-kind-info-text      : #e0f2fe;
+
+    --gate-bar-text            : #f8fafc;
+    --gate-bar-meta            : #cbd5e1;
+
+    --gate-pier-a-bg           : #0e263f;
+    --gate-pier-a-border       : #38bdf8;
+    --gate-pier-b-bg           : #211b42;
+    --gate-pier-b-border       : #a78bfa;
+    --gate-pier-c-bg           : #0d2b25;
+    --gate-pier-c-border       : #34d399;
+
+    --gate-fresh-bg            : #3b2006;
+    --gate-fresh-border        : #fbbf24;
+    --gate-fresh-ring          : rgba(251, 191, 36, 0.48);
+    --gate-fresh-glow          : rgba(245, 158, 11, 0.34);
+    --gate-fresh-delta-bg      : #78350f;
+    --gate-fresh-delta-border  : #fcd34d;
+    --gate-fresh-delta-text    : #fef3c7;
+
+    --gate-fading-bg           : #23190c;
+    --gate-fading-border       : #d97706;
+    --gate-fading-ring         : rgba(217, 119, 6, 0.22);
+    --gate-fading-delta-bg     : #3d2408;
+    --gate-fading-delta-text   : #fde68a;
+}

@@ -1,8 +1,10 @@
-import Button    from '../../../src/button/Base.mjs';
-import Viewport  from '../../../src/container/Viewport.mjs';
-import Label     from '../../../src/component/Label.mjs';
-import Scheduler from '../../../src/scheduler/Container.mjs';
-import Toolbar   from '../../../src/toolbar/Base.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import Scheduler     from '../../../src/scheduler/Container.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
 
 const rooms = [
     {id: 'r-1', name: 'Recording studio'},
@@ -54,13 +56,25 @@ class StudioViewport extends Viewport {
             module: Toolbar,
             cls   : ['studio-toolbar'],
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [
                 {module: Label, cls: ['studio-title'], text: 'Studio bookings'},
                 {module: Label, cls: ['studio-date'], text: 'Monday, 9 November · UTC'},
                 '->',
                 {module: Label, cls: ['studio-save-status'], reference: 'save-status', text: ''},
-                {module: Button, cls: ['studio-zoom', 'studio-zoom-first'], reference: 'zoom-hour', text: 'Hour', pressed: false, handler: 'up.onHour'},
-                {module: Button, cls: ['studio-zoom', 'studio-zoom-last'], reference: 'zoom-day', text: 'Day', pressed: true, handler: 'up.onDay'}
+                {
+                    module: Container,
+                    cls   : ['studio-zoom-group'],
+                    flex  : 'none',
+                    layout: {ntype: 'hbox', align: 'center'},
+                    role  : 'group',
+                    vdom  : {'aria-label': 'Time scale', cn: []},
+                    items : [
+                        {module: Button, cls: ['studio-zoom', 'studio-zoom-first'], reference: 'zoom-hour', text: 'Hour', pressed: false, handler: 'up.onHour'},
+                        {module: Button, cls: ['studio-zoom', 'studio-zoom-last'], reference: 'zoom-day', text: 'Day', pressed: true, handler: 'up.onDay'}
+                    ]
+                },
+                {module: ThemeSwitcher}
             ]
         }, {
             module             : Scheduler,

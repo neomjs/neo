@@ -19,6 +19,10 @@ import Tooltip        from '../../../../src/tooltip/Base.mjs';
 
 let hosts = 0;
 
+// A departure hides within retargetWindow (20-40ms): short intervals see it promptly,
+// and the ceiling leaves room for event-loop stalls under CI load
+const departurePoll = {timeout: 500, intervals: [10, 20, 50]};
+
 /**
  * @summary A tooltip as a prototype host whose own data properties shadow the reactive configs, as in
  * `DelayTimers.spec.mjs`: a mount records a show, an unmount a hide. Main aligns a mounted tooltip right after, as
@@ -80,7 +84,7 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: 'page'}});
 
-        await expect.poll(() => host.mounted, {message: 'no hide delay by default', timeout: 150}).toBe(false)
+        await expect.poll(() => host.mounted, {...departurePoll, message: 'no hide delay by default'}).toBe(false)
     });
 
     test('a target left for another of its targets retargets the shown tooltip without mounting it again', async () => {
@@ -117,7 +121,7 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
             expect(tooltip.mounted, 'onto the hit area that spans the gap').toBe(true);
 
             tooltip.onMouseLeave({path: [{id: tooltip.id}], relatedTarget: {id: 'page'}});
-            await expect.poll(() => tooltip.mounted, {timeout: 150}).toBe(false)
+            await expect.poll(() => tooltip.mounted, departurePoll).toBe(false)
         } finally {
             tooltip.destroy()
         }
@@ -142,7 +146,7 @@ test.describe('Neo.tooltip.Base — where the pointer goes decides when a toolti
         await showOn(host, 'target-1');
         host.onDelegateMouseLeave({currentTarget: 'target-1', relatedTarget: {id: host.id}});
 
-        await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
+        await expect.poll(() => host.mounted, departurePoll).toBe(false)
     });
 
     test('an explicit hideDelay still delays a departure, past the retarget window', async () => {
@@ -414,7 +418,7 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
         // The listener a hoverable target added stays on the shared tooltip
         host.onMouseEnter({path: [{id: host.id}]});
 
-        await expect.poll(() => host.mounted, {timeout: 150}).toBe(false)
+        await expect.poll(() => host.mounted, departurePoll).toBe(false)
     });
 
     test('a non-component [data-neo-tooltip] VDOM target stays across child return and hides on departure', async () => {
@@ -457,7 +461,7 @@ test.describe('Neo.tooltip.Base — one visible tooltip per window, and a warm s
 
             // Leaving the [data-neo-tooltip] target for empty space hides it within retargetWindow
             tooltip.onDelegateMouseLeave({currentTarget: 'data-tooltip-pill', relatedTarget: {id: 'page'}});
-            await expect.poll(() => tooltip.mounted, {timeout: 150}).toBe(false);
+            await expect.poll(() => tooltip.mounted, departurePoll).toBe(false);
             expect(tooltip.activeTargetId).toBe(null)
         } finally {
             tooltip.destroy();

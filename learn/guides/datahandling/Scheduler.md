@@ -128,7 +128,7 @@ User interactions with timeline bars are managed declaratively on `Neo.scheduler
 - **`minimumDuration`:** Defines the smallest duration in minutes (default: `15`) allowed during interactive resize gestures, preventing invalid zero or negative duration records.
 - **`enableResizingAcrossOppositeEdge`:** When `true` (the default), dragging a start handle past the end handle automatically flips the endpoints while preserving `minimumDuration`.
 - **Built-in Dialog Editor (`editable`):** Enabled by default (`editable: true`). Double-clicking a bar or pressing Enter opens `Neo.timeline.EventEditor`, allowing modal edits to title, start date, end date, and resource assignment.
-- **Listening to Changes:** Attach an `eventChange` listener to respond to committed changes:
+- **Listening to Changes:** Attach an `eventChange` listener to respond to committed changes. Its `changeSource` identifies the edit origin (`keyboard`, `drag`, `resize`, `editor`, or the caller's `meta.source`, defaulting to `api`); `source` remains the scheduler's component id:
 
 ```javascript
 listeners: {

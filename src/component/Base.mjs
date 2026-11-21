@@ -134,7 +134,7 @@ class Component extends Abstract {
          */
         floating_: false,
         /**
-         * A floating component that mounts moves focus into its first focusable item: a popup takes the caret
+         * A floating component that mounts takes focus ({@link #focusOnArrival}): a popup takes the caret
          * with it. False mounts it without taking focus, for a surface that only previews content, like a submenu
          * shown because the pointer rests on its parent item.
          * @member {Boolean} focusOnMount=true
@@ -841,8 +841,7 @@ class Component extends Abstract {
                 if (me.floating && !me.isDestroyed) {
                     me.alignTo();
 
-                    // Focus will be pushed into the first input field or other focusable item
-                    me.focusOnMount && me.focus(me.id, true)
+                    me.focusOnMount && me.focusOnArrival()
                 }
 
                 // Mounted, a shared-tooltip target knows its root, which may lie outside the main view
@@ -1498,6 +1497,15 @@ class Component extends Abstract {
      */
     focus(id=this.id, children=false, preventScroll, modality, restoreFrom) {
         Neo.main.DomAccess.focus({children, id, modality, preventScroll, restoreFrom, windowId: this.windowId})
+    }
+
+    /**
+     * @summary Takes focus into this floating component as it mounts with {@link #focusOnMount}: to its first
+     * focusable item. The counterpart of {@link #revertFocusOnDeparture}.
+     * @protected
+     */
+    focusOnArrival() {
+        this.focus(this.id, true)
     }
 
     /**

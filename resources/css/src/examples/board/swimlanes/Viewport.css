@@ -27,4 +27,18 @@
         color    : var(--neo-board-card-muted-color);
         font-size: 13px;
     }
+
+    @media (max-width: 720px) {
+        .board-swimlanes-example-toolbar.neo-toolbar {
+            align-items: center;
+            min-height : auto;
+            padding    : 8px 14px;
+        }
+
+        .board-swimlanes-example-hint {
+            font-size: 12px;
+            order    : 2;
+            width    : 100%;
+        }
+    }
 }

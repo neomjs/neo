@@ -1,0 +1,6 @@
+:where(.neo-theme-light) {
+    --te-header-bg: var(--neo-background-color);
+    --te-border   : var(--grid-container-border-color, #ddd);
+    --te-title    : #163a5f;
+    --te-muted    : #4d4d4d;
+}

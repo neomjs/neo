@@ -1,0 +1,59 @@
+:where(.neo-theme-neo-light) {
+    --gate-header-bg           : #f8fafc;
+    --gate-subbar-bg           : #f1f5f9;
+    --gate-border              : rgba(15, 23, 42, 0.12);
+    --gate-title               : #0f172a;
+    --gate-muted               : #334155;
+    --gate-focus               : #0284c7;
+
+    --gate-sim-bg              : #ecfdf5;
+    --gate-sim-border          : #6ee7b7;
+    --gate-sim-text            : #065f46;
+    --gate-sim-dot             : #059669;
+    --gate-sim-dot-ring        : rgba(5, 150, 105, 0.2);
+    --gate-sim-dot-paused      : #d97706;
+    --gate-sim-dot-paused-ring : rgba(217, 119, 6, 0.2);
+
+    --gate-counter-bg          : #e0f2fe;
+    --gate-counter-border      : #7dd3fc;
+    --gate-counter-text        : #0c4a6e;
+
+    --gate-btn-bg              : #ffffff;
+    --gate-btn-hover-bg        : #e2e8f0;
+    --gate-btn-border          : #94a3b8;
+    --gate-btn-glyph           : #0284c7;
+    --gate-btn-pressed-bg      : #fef3c7;
+    --gate-btn-pressed-border  : #d97706;
+    --gate-btn-pressed-glyph   : #92400e;
+
+    --gate-kind-live-bg        : #d1fae5;
+    --gate-kind-live-border    : #34d399;
+    --gate-kind-live-text      : #064e3b;
+    --gate-kind-info-bg        : #e0f2fe;
+    --gate-kind-info-border    : #38bdf8;
+    --gate-kind-info-text      : #0c4a6e;
+
+    --gate-bar-text            : #0f172a;
+    --gate-bar-meta            : #334155;
+
+    --gate-pier-a-bg           : #e0f2fe;
+    --gate-pier-a-border       : #0284c7;
+    --gate-pier-b-bg           : #ede9fe;
+    --gate-pier-b-border       : #7c3aed;
+    --gate-pier-c-bg           : #d1fae5;
+    --gate-pier-c-border       : #059669;
+
+    --gate-fresh-bg            : #fef3c7;
+    --gate-fresh-border        : #d97706;
+    --gate-fresh-ring          : rgba(217, 119, 6, 0.42);
+    --gate-fresh-glow          : rgba(245, 158, 11, 0.24);
+    --gate-fresh-delta-bg      : #92400e;
+    --gate-fresh-delta-border  : #78350f;
+    --gate-fresh-delta-text    : #ffffff;
+
+    --gate-fading-bg           : #fffbeb;
+    --gate-fading-border       : #b45309;
+    --gate-fading-ring         : rgba(180, 83, 9, 0.18);
+    --gate-fading-delta-bg     : #fef3c7;
+    --gate-fading-delta-text   : #78350f;
+}

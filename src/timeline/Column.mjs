@@ -5,6 +5,11 @@ import IntervalPacker  from './util/IntervalPacker.mjs';
 import TimeAxis        from './TimeAxis.mjs';
 import TimeAxisHeader  from './TimeAxisHeader.mjs';
 
+const
+    dayMs         = 86_400_000,
+    barDayFormat  = {month: 'short', day: 'numeric'},
+    barTimeFormat = {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'};
+
 /**
  * @summary Grid column rendering viewport-clipped timeline bars.
  * @description Projects either event-store records or inline row records and packs overlapping events into lanes.
@@ -69,6 +74,12 @@ class Column extends BaseColumn {
          * @reactive
          */
         highlightedRecordIds_: [],
+        /**
+         * Locale of the dates in each bar's accessible name.
+         * @member {String} locale_=Neo.config.locale
+         * @reactive
+         */
+        locale_: Neo.config.locale,
         /**
          * Default column `dataField` identifier.
          * @member {String} dataField='timeline'
@@ -278,6 +289,22 @@ class Column extends BaseColumn {
     #projectedMinPx = 0
 
     /**
+     * The {@link #axisLeft} the last projected window was measured from.
+     * @member {Number} #projectedAxisLeft=0
+     * @private
+     */
+    #projectedAxisLeft = 0
+
+    /**
+     * @summary The center-content x in pixels where this column starts: the width of the columns before it in its
+     * scrolling region. The time axis has scrolled `scrollLeft - axisLeft` pixels.
+     * @returns {Number}
+     */
+    get axisLeft() {
+        return this.parent?.body?.columnPositions?.get(this.dataField)?.x || 0
+    }
+
+    /**
      * @summary Returns the horizontal space available to the timeline after accounting for locked grid bodies.
      * @returns {Number}
      */
@@ -368,6 +395,18 @@ class Column extends BaseColumn {
         );
 
         if (oldValue !== undefined) {
+            this.refreshMountedRows()
+        }
+    }
+
+    /**
+     * @summary Re-renders mounted rows so each bar's accessible name uses the new `locale`.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined && this.isConstructed) {
             this.refreshMountedRows()
         }
     }
@@ -539,8 +578,16 @@ class Column extends BaseColumn {
         me.recordProjectedWindow();
 
         if (body) {
+            // `passSizeToBody()` clears the positions, then adds them: only the second event carries the geometry
+            const onPositions = ({addedItems}) => {
+                if (addedItems?.length && me.axisLeft !== me.#projectedAxisLeft) me.refreshMountedRows()
+            };
+
+            body.columnPositions.on('mutate', onPositions);
+
             me.#gridCleanups.push(
-                me.observeConfig(body, 'containerWidth', () => me.refreshMountedRows())
+                me.observeConfig(body, 'containerWidth', () => me.refreshMountedRows()),
+                () => body.isDestroyed || body.columnPositions.un('mutate', onPositions)
             )
         }
 
@@ -666,7 +713,7 @@ class Column extends BaseColumn {
             role        : 'button',
             tabIndex    : 0,
             'aria-label': title
-                ? `${title} (${(me.timeAxis || TimeAxis).dayKey(startDate)} – ${(me.timeAxis || TimeAxis).dayKey(endDate)})`
+                ? `${title} (${me.formatBarDates(startDate, endDate)})`
                 : `${barKey}`,
             data        : {
                 eventId   : String(barKey),
@@ -754,6 +801,7 @@ class Column extends BaseColumn {
             bars                       = me.getRowBars(record, visibleStart, visibleEnd),
             barNodes                   = bars.map(barDescriptor => me.buildBarVdom(barDescriptor, data)),
             nowOffset                  = timeAxis.getNowOffset(),
+            tickSize                   = timeAxis.getTickSize(),
             cn                         = [...barNodes, ...nonWorkingNodes];
 
         if (nowOffset !== null && nowOffset >= timeAxis.dateToOffset(visibleStart) && nowOffset <= timeAxis.dateToOffset(visibleEnd)) {
@@ -773,6 +821,9 @@ class Column extends BaseColumn {
                 id   : trackId,
                 cls  : ['neo-timeline-track'],
                 style: {
+                    // One gridline per tick: ticks start at the axis' start, as the gradient does. Month ticks
+                    // differ in length, so they keep the theme's step
+                    ...(tickSize ? {'--neo-timeline-gridline-step': `${tickSize}px`} : null),
                     '--neo-timeline-track-x': `${me.parent?.body?.columnPositions?.get(me.dataField)?.x ?? 0}px`,
                     height                  : '100%',
                     position                : 'relative',
@@ -802,6 +853,31 @@ class Column extends BaseColumn {
         super.destroy(...args);
         if (axis && this.#ownedAxes.has(axis)) axis.destroy();
         if (store && this.#ownedStores.has(store)) store.destroy()
+    }
+
+    /**
+     * @summary Formats a bar's dates for its accessible name, in `locale` and the axis zone.
+     * @description A bar that starts and ends at midnight names its days up to the last day it covers, since
+     * `endDate` is exclusive. Any other bar adds hours and minutes and reads up to `endDate` itself. A bar without
+     * length names a single moment.
+     * @param {Date} startDate
+     * @param {Date} endDate
+     * @returns {String}
+     */
+    formatBarDates(startDate, endDate) {
+        const
+            me                           = this,
+            axis                         = me.timeAxis || TimeAxis,
+            {formatWall, lastWallMoment} = TimeAxisHeader,
+            wall                         = axis.wallTime(startDate),
+            wallEnd                      = axis.wallTime(endDate),
+            hasLength                    = +endDate > +startDate;
+
+        if (+wall % dayMs === 0 && +wallEnd % dayMs === 0) {
+            return formatWall(me.locale, barDayFormat, wall, hasLength ? lastWallMoment(axis, {endDate}) : undefined)
+        }
+
+        return formatWall(me.locale, barTimeFormat, wall, hasLength ? wallEnd : undefined)
     }
 
     /**
@@ -1003,8 +1079,8 @@ class Column extends BaseColumn {
     }
 
     /**
-     * @summary Computes the horizontally buffered `{visibleStart, visibleEnd, minPx, maxPx}` window.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @summary Computes the horizontally buffered `{visibleStart, visibleEnd, minPx, maxPx}` window in axis pixels.
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.effectiveViewportWidth]
      * @returns {{visibleStart: Date, visibleEnd: Date, minPx: Number, maxPx: Number}}
      */
@@ -1013,7 +1089,7 @@ class Column extends BaseColumn {
             axis      = this.timeAxis,
             totalSize = axis?.totalSize || 0,
             buffer    = Math.max(0, this.bufferPx || 0),
-            left      = Math.max(0, Number(scrollLeft) || 0),
+            left      = Math.max(0, (Number(scrollLeft) || 0) - this.axisLeft),
             width     = Math.max(1, Number(viewportWidth) || 0),
             minPx     = Math.max(0, left - buffer),
             maxPx     = Math.min(totalSize, left + width + buffer);
@@ -1030,7 +1106,7 @@ class Column extends BaseColumn {
      * @summary Returns `true` when the visible viewport `[scrollLeft, scrollLeft + viewportWidth]`
      * extends outside the last projected `[#projectedMinPx, #projectedMaxPx]` window.
      * @description Delegates to {@link Neo.timeline.TimeAxis.needsReprojection}.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.effectiveViewportWidth]
      * @returns {Boolean}
      */
@@ -1040,7 +1116,7 @@ class Column extends BaseColumn {
             hasProjectedWindow: this.#hasProjectedWindow,
             projectedMaxPx    : this.#projectedMaxPx,
             projectedMinPx    : this.#projectedMinPx,
-            scrollLeft,
+            scrollLeft        : (Number(scrollLeft) || 0) - this.axisLeft,
             timeAxis          : this.timeAxis,
             viewportWidth
         })
@@ -1089,6 +1165,7 @@ class Column extends BaseColumn {
         }
 
         const {minPx, maxPx} = this.getVisibleDateRange();
+        this.#projectedAxisLeft  = this.axisLeft;
         this.#projectedMinPx     = minPx;
         this.#projectedMaxPx     = maxPx;
         this.#hasProjectedWindow = true
