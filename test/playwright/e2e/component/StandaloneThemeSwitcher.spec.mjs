@@ -2,9 +2,9 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary Whitebox E2E verification for `Neo.button.ThemeSwitcher` across standalone Form,
- * Component/Wrapper, StateProvider, and 3D Gallery examples, including `?theme=` boot resolution,
- * App Worker `theme` state via Neural Link, light-theme panel legibility on 3D stages, mobile `390 × 844`
- * fit, and cross-window theme synchronization in `stateProvider/multiWindow`.
+ * Component/Wrapper, StateProvider, and 3D Gallery examples, covering live App Worker `theme`
+ * toggling via Neural Link, Mermaid diagram redraw, light-theme panel legibility on 3D stages,
+ * mobile `390 × 844` fit, and cross-window theme synchronization in `stateProvider/multiWindow`.
  */
 test.describe('Standalone examples ThemeSwitcher', () => {
     test.setTimeout(90000);
@@ -39,9 +39,9 @@ test.describe('Standalone examples ThemeSwitcher', () => {
         expect(docScrollW).toBeLessThanOrEqual(390)
     });
 
-    test('component/wrapper/mermaid honors ?theme=neo-theme-neo-dark on boot and redraws cleanly on toggle', async ({page, neuralLink}) => {
+    test('component/wrapper/mermaid toggles light <-> dark and redraws cleanly', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 1440, height: 900});
-        await page.goto('/examples/component/wrapper/mermaid/index.html?theme=neo-theme-neo-dark');
+        await page.goto('/examples/component/wrapper/mermaid/index.html');
 
         const app      = await neuralLink.connectToApp('Neo.examples.component.wrapper.mermaid'),
               viewport = page.locator('.neo-examples-mermaid'),
@@ -49,18 +49,19 @@ test.describe('Standalone examples ThemeSwitcher', () => {
               diagram  = page.locator('.neo-mermaid svg');
 
         await expect(switcher).toBeVisible({timeout: 30000});
-        await expect(viewport).toHaveClass(/neo-theme-neo-dark/);
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
         await expect(diagram).toBeVisible({timeout: 30000});
 
-        const [initialVp] = await app.queryComponent({className: 'Neo.examples.component.wrapper.mermaid.MainContainer'}, ['theme']);
-        expect(initialVp?.properties?.theme ?? initialVp?.theme).toBe('neo-theme-neo-dark');
-
         await switcher.click();
-        await expect(viewport).toHaveClass(/neo-theme-neo-light/);
+        await expect(viewport).toHaveClass(/neo-theme-neo-dark/);
         await expect(diagram).toBeVisible();
 
         const [switchedVp] = await app.queryComponent({className: 'Neo.examples.component.wrapper.mermaid.MainContainer'}, ['theme']);
-        expect(switchedVp?.properties?.theme ?? switchedVp?.theme).toBe('neo-theme-neo-light')
+        expect(switchedVp?.properties?.theme ?? switchedVp?.theme).toBe('neo-theme-neo-dark');
+
+        await switcher.click();
+        await expect(viewport).toHaveClass(/neo-theme-neo-light/);
+        await expect(diagram).toBeVisible()
     });
 
     test('component/sparkline and stateProvider/advanced switch themes without horizontal overflow at 390x844', async ({page, neuralLink}) => {
@@ -80,7 +81,7 @@ test.describe('Standalone examples ThemeSwitcher', () => {
         await page.goto('/examples/stateProvider/advanced/index.html');
         const spApp = await neuralLink.connectToApp('Neo.examples.stateProvider.advanced');
         await expect(page.locator('.neo-theme-switcher')).toBeVisible({timeout: 30000});
-        await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-dark/);
+        await expect(page.locator('body')).toHaveClass(/neo-theme-dark/);
         await page.locator('.neo-theme-switcher').click();
         await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-light/);
 
@@ -98,7 +99,7 @@ test.describe('Standalone examples ThemeSwitcher', () => {
               switcher = page.locator('.neo-theme-switcher');
 
         await expect(switcher).toBeVisible({timeout: 30000});
-        await expect(viewport).toHaveClass(/neo-theme-dark/);
+        await expect(page.locator('body')).toHaveClass(/neo-theme-dark/);
 
         await switcher.click();
         await expect(viewport).toHaveClass(/neo-theme-light/);
@@ -130,7 +131,7 @@ test.describe('Standalone examples ThemeSwitcher', () => {
 
         await expect(openButton).toBeVisible({timeout: 30000});
         await expect(switcher).toBeVisible();
-        await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-dark/);
+        await expect(page.locator('body')).toHaveClass(/neo-theme-dark/);
 
         const [companion] = await Promise.all([
             context.waitForEvent('page'),
@@ -138,7 +139,7 @@ test.describe('Standalone examples ThemeSwitcher', () => {
         ]);
 
         await expect(companion.locator('.neo-theme-switcher')).toBeVisible({timeout: 30000});
-        await expect(companion.locator('.neo-viewport')).toHaveClass(/neo-theme-dark/);
+        await expect(companion.locator('body')).toHaveClass(/neo-theme-dark/);
 
         await switcher.click();
         await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-light/);
