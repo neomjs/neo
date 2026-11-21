@@ -999,7 +999,8 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(seoJson['/news/releases/13.3.1']).toEqual({
             title      : 'Neo.mjs v13.3.1 Release Notes',
             description: 'Release notes and changelog for Neo.mjs v13.3.1.',
-            schemaType : 'TechArticle'
+            schemaType : 'TechArticle',
+            robots     : 'noindex, follow'
         });
         expect(seoJson['/news/releases/13.0.0']).toEqual({
             title      : 'Release 13.0.0 - Neo.mjs',
@@ -1234,7 +1235,7 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/13.4.0</loc>\n    <lastmod>2026-11-09</lastmod>\n    <priority>0.9</priority>');
     });
 
-    test('prunes /home, /apps/portal/index.html, hidden/redirect learn leaves, and < maxReleaseMajor - 1 releases while stamping robots noindex, follow', async () => {
+    test('prunes aliases and hidden/redirect learn leaves while keeping a release history below 25 indexable', async () => {
         const isolatedRoot = path.join(tempDir, 'pruned-root');
         const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
         const releasesPath = path.join(isolatedRoot, 'apps/portal/resources/data/releases.json');
@@ -1287,20 +1288,16 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(coreXml).toContain('<loc>https://neomjs.com/learn/benefits/Introduction</loc>');
         expect(coreXml).not.toContain('/learn/guides/specificfeatures/MultiWindow');
         expect(coreXml).not.toContain('/learn/agentos/decisions/0020-agent-harness-concept');
-        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/13.4.0</loc>');
-        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/12.1.0</loc>');
-        expect(coreXml).not.toContain('/news/releases/11.18.0');
-        expect(coreXml).not.toContain('/news/releases/8.0.0');
+        for (const version of ['13.4.0', '12.1.0', '11.18.0', '8.0.0']) {
+            expect(coreXml).toContain(`<loc>https://neomjs.com/news/releases/${version}</loc>`);
+            expect(seoJson[`/news/releases/${version}`]?.robots).toBeUndefined();
+        }
 
         expect(llmsTxt).toContain('- [Home](https://neomjs.com/)');
 
         expect(seoJson['/learn/benefits/Introduction']?.robots).toBeUndefined();
         expect(seoJson['/learn/guides/specificfeatures/MultiWindow']?.robots).toBe('noindex, follow');
         expect(seoJson['/learn/agentos/decisions/0020-agent-harness-concept']?.robots).toBe('noindex, follow');
-        expect(seoJson['/news/releases/13.4.0']?.robots).toBeUndefined();
-        expect(seoJson['/news/releases/12.1.0']?.robots).toBeUndefined();
-        expect(seoJson['/news/releases/11.18.0']?.robots).toBe('noindex, follow');
-        expect(seoJson['/news/releases/8.0.0']?.robots).toBe('noindex, follow');
 
         // Verify live tracked apps/portal/resources/data/seo.json invariants
         const liveSeoJson = await fs.readJSON(path.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'));
@@ -1310,6 +1307,52 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         for (const adr of ['0020-agent-harness-concept', '0032-institution-cockpit-render-model', '0034-electron-shell-architecture', '0037-fleet-manager-outward-door-topology', '0038-fm-client-topology']) {
             expect(liveSeoJson[`/learn/agentos/decisions/${adr}`]?.robots).toBe('noindex, follow');
         }
+    });
+
+    test('indexes the latest 25 distinct release versions across majors and keeps the full LLM listing', async () => {
+        const versions = [
+            '14.0.0',
+            ...Array.from({length: 6}, (_, i) => `13.${5 - i}.0`),
+            '12.1.0', '12.0.0',
+            ...Array.from({length: 17}, (_, i) => `11.${27 - i}.0`)
+        ];
+        const releasesPath = path.join(tempDir, 'apps/portal/resources/data/releases.json');
+
+        await fs.outputJson(path.join(tempDir, 'apps/portal/resources/data/blog.json'), {data: []});
+        await fs.outputJson(path.join(tempDir, 'learn/tree.json'), {data: []});
+        await Promise.all(versions.map(version => {
+            const notesDir = version.startsWith('14.') ? releaseNotesRoot : path.join(releaseNotesRoot, 'chunk-1');
+
+            return fs.outputFile(path.join(notesDir, `v${version}.md`), `# Neo.mjs v${version} Release Notes\n`);
+        }));
+        await fs.outputFile(path.join(releaseNotesRoot, 'chunk-2/13.0.0.md'), '# Neo.mjs v13.0.0 Release Notes\n');
+        await createReleaseIndex({outputFile: releasesPath, releaseNotesRoot});
+        const releaseIndex = await fs.readJson(releasesPath);
+
+        releaseIndex.push({id: '99.0.0', isLeaf: true});
+        await fs.writeJson(releasesPath, releaseIndex);
+
+        const baseUrl            = 'https://neomjs.com';
+        const options            = {baseUrl, corpusRoot, releaseNotesRoot, releasesPath, root: tempDir};
+        const seoJson            = await getSeoJson(options);
+        const [coreXml, llmsTxt] = await Promise.all([
+            getSitemapXml({...options, seoJson}),
+            getLlmsTxt(options)
+        ]);
+
+        const expectedVersions  = versions.slice(0, 25).sort();
+        const coreVersions      = Array.from(coreXml.matchAll(/<loc>https:\/\/neomjs\.com\/news\/releases\/([^<]+)<\/loc>/g), ([, version]) => version).sort();
+        const indexableVersions = Object.entries(seoJson)
+            .filter(([route, metadata]) => route.startsWith('/news/releases/') && metadata.robots === undefined)
+            .map(([route]) => route.split('/').at(-1))
+            .sort();
+
+        expect.soft(coreVersions).toEqual(expectedVersions);
+        expect.soft(indexableVersions).toEqual(expectedVersions);
+        expect.soft(seoJson['/news/releases/11.11.0']?.robots).toBe('noindex, follow');
+        expect.soft(seoJson['/news/releases/99.0.0']?.robots).toBe('noindex, follow');
+        expect(llmsTxt).toContain('- [v11.12.0](https://neomjs.com/raw/news/releases/11.12.0.md)');
+        expect(llmsTxt).toContain('- [v11.11.0](https://neomjs.com/raw/news/releases/11.11.0.md)');
     });
 });
 
