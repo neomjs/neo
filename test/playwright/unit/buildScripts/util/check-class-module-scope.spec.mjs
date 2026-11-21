@@ -18,6 +18,26 @@ test.describe('check-class-module-scope — logic stays where an override can re
             await import('../../../../../buildScripts/util/check-class-module-scope.mjs'));
     });
 
+    test('reports classes beside the primary class at their declaration lines', () => {
+        const file = 'src/Switcher.mjs';
+
+        for (const [source, name, line] of [
+            ['class HelperMenu {}\nexport default class Switcher {}', 'HelperMenu', 1],
+            ['class Primary {}\nclass Helper {}\nexport default Neo.setupClass(Primary)', 'Helper', 2],
+            ['export class Helper {}\nclass Primary {}\nexport default Primary', 'Helper', 1],
+            ['class First {}\nclass Second {}', 'Second', 2]
+        ]) {
+            const findings = findModuleScopeFunctions(source, file),
+                  {added}  = diffAgainstBaseline(findings, []);
+
+            expect(findings).toEqual([{file, name: `class:${name}`, line}]);
+            expect(describeAddedHelpers(added, findings)).toEqual([
+                `  ${file}:${line} declares extra class ${name}. Move it to its own file.`
+            ]);
+            expect(diffAgainstBaseline([], added).burnedDown).toEqual(added)
+        }
+    });
+
     test('FIRES: a function declaration beside a class', () => {
         const findings = findModuleScopeFunctions(
             `import Base from '../core/Base.mjs';
@@ -262,6 +282,13 @@ class Base {}
 
             expect(clean.status, 'a baselined helper passes from the same path').toBe(0);
             expect(clean.stdout).toContain('OK');
+
+            fsMod.appendFileSync(pathMod.join(fixture, 'src', 'Probe.mjs'), 'class Extra {}\n');
+
+            const extraClass = run();
+
+            expect(extraClass.status).toBe(1);
+            expect(extraClass.stderr).toContain('src/Probe.mjs:5 declares extra class Extra');
 
             // NEGATIVE control, and the reason this arm exists: revert the entry predicate to the
             // `file://` string form and the guard stops running at all — exit 0, no output, nothing
