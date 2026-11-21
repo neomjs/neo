@@ -1,18 +1,18 @@
-import MenuList from '../menu/List.mjs';
+import List from './List.mjs';
 
 /**
  * @summary Presents the host's current theme as a radio selection using the standard menu's navigation and dismissal.
- * @class Neo.button.ThemeSwitcherMenu
+ * @class Neo.menu.ThemeSwitcher
  * @extends Neo.menu.List
  * @private
  */
-class ThemeSwitcherMenu extends MenuList {
+class ThemeSwitcher extends List {
     static config = {
         /**
-         * @member {String} className='Neo.button.ThemeSwitcherMenu'
+         * @member {String} className='Neo.menu.ThemeSwitcher'
          * @protected
          */
-        className: 'Neo.button.ThemeSwitcherMenu',
+        className: 'Neo.menu.ThemeSwitcher',
         /**
          * @member {String} role='menu'
          * @protected
@@ -98,4 +98,4 @@ class ThemeSwitcherMenu extends MenuList {
     }
 }
 
-export default Neo.setupClass(ThemeSwitcherMenu);
+export default Neo.setupClass(ThemeSwitcher);

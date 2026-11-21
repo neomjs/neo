@@ -1,5 +1,5 @@
 import Button            from './Base.mjs';
-import ThemeSwitcherMenu from './ThemeSwitcherMenu.mjs';
+import ThemeSwitcherMenu from '../menu/ThemeSwitcher.mjs';
 import {isDescriptor}    from '../core/ConfigSymbols.mjs';
 
 /**
