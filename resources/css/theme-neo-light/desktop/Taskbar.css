@@ -1,4 +1,5 @@
 :where(.neo-theme-neo-light) { /* .neo-desktop-taskbar and its start menu: light glass */
+    --desktop-start-button-color                    : #fff;
     --desktop-start-menu-background-color           : rgba(255, 255, 255, .88);
     --desktop-start-menu-border-color               : rgba(15, 23, 42, .08);
     --desktop-start-menu-color                      : #0f172a;

@@ -1,0 +1,8 @@
+:where(.neo-theme-cyberpunk) { /* .neo-desktop-launcher: the --cyber-* ink on its ground, cyan for focus */
+    --desktop-launcher-color                       : var(--cyber-text);
+    --desktop-launcher-focus-color                 : var(--cyber-cyan);
+    --desktop-launcher-header-color                : color-mix(in srgb, var(--cyber-text) 70%, var(--cyber-bg));
+    --desktop-launcher-item-background-color-active: color-mix(in srgb, var(--cyber-cyan) 16%, transparent);
+    --desktop-launcher-item-background-color-hover : color-mix(in srgb, var(--cyber-cyan) 8%, transparent);
+    --desktop-launcher-label-shadow                : 0 1px 2px rgba(0, 0, 0, .8);
+}
