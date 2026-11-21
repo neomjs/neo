@@ -13,8 +13,8 @@ const ARROW_STUB_PX = 12;
  * @description Renders directed task dependencies (`FS`, `SS`, `FF`, `SF`) inside a single `<svg>` element layered over
  * the center timeline track, from `axisLeft`, where the timeline starts in its scrolling region. Only dependencies
  * whose source and target tasks are currently expanded in `taskStore` and whose horizontal span intersects the axis
- * window `[scrollLeft - axisLeft - bufferPx, scrollLeft - axisLeft + viewportWidth + bufferPx]` are projected into
- * `<path class="neo-gantt-dependency-arrow">` descriptors.
+ * window `[left - bufferPx, left + viewportWidth + bufferPx]`, `left` being `max(0, scrollLeft - axisLeft)`, are
+ * projected into `<path class="neo-gantt-dependency-arrow">` descriptors.
  *
  * The layer replaces the visible arrows and their marker definitions together as one SVG fragment.
  * It escapes record-derived attributes and skips the DOM update when the fragment and its bounds are unchanged.
@@ -431,7 +431,8 @@ class DependencyLayer extends Component {
             depCount   = depStore.getCount(),
             rowHeight  = Math.max(1, me.rowHeight || 48),
             totalWidth = Math.max(1, axis.totalSize || 1),
-            axisScroll = (me.scrollLeft || 0) - (me.axisLeft || 0),
+            // Clamped as the scroll guard clamps it, so both read the same visible axis
+            axisScroll = Math.max(0, (me.scrollLeft || 0) - (me.axisLeft || 0)),
             minPx      = Math.max(0, axisScroll - (me.bufferPx || 0)),
             maxPx      = Math.min(totalWidth, axisScroll + Math.max(1, me.viewportWidth || 1200) + (me.bufferPx || 0)),
             indexById  = new Map(),
