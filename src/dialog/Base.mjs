@@ -495,8 +495,13 @@ class Dialog extends Panel {
 
         await me.timeout(200);
 
-        // Remove the animation class
-        await Neo.applyDeltas(me.windowId, {id, cls: {remove: ['animated-hiding-showing']}});
+        // Remove the animation class. The measured height was only its end point: a dialog whose height nothing
+        // declares follows its content again, so a message its form shows below a field has room.
+        await Neo.applyDeltas(me.windowId, {
+            id,
+            cls: {remove: ['animated-hiding-showing']},
+            ...!(me.height || style?.height || me.wrapperStyle?.height) && {style: {height: null}}
+        });
 
         // show() holds this as a mount flight, which lands on the latest hidden: a hide() during the animation wins
         if (!me._hidden) {
@@ -614,6 +619,17 @@ class Dialog extends Panel {
             dialog: me,
             ...data
         })
+    }
+
+    /**
+     * @summary A dialog opens on its first field, so a form takes input at once: the window controls of its header
+     * come first in the DOM. Without a field, it takes focus as every floating component does.
+     * @protected
+     */
+    focusOnArrival() {
+        const field = this.down({ntype: 'basefield', disabled: false, hidden: false});
+
+        field ? field.focus(field.id, true) : super.focusOnArrival()
     }
 
     /**
