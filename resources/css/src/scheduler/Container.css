@@ -1,4 +1,28 @@
 /* Neo.scheduler.Container: resource-by-time scheduler on the multi-body grid. */
+
+/* The column headers beside the timeline take the timeline header's surface, so the header reads as one bar in every
+   theme. Selected by the Gantt's root as well: it extends the scheduler under its own base class. */
+:is(.neo-scheduler, .neo-gantt) .neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header) {
+    --grid-header-button-border-hover-color      : transparent;
+    --grid-header-button-border-right-color      : var(--neo-timeline-border-color);
+    --grid-header-button-border-right-hover-color: var(--neo-timeline-border-color);
+    /* A hover tints the surface, whether it is a colour or a gradient */
+    --grid-header-button-box-shadow-hover        : inset 0 0 0 100vmax color-mix(in srgb, var(--neo-timeline-header-color) 8%, transparent);
+    --grid-header-button-color                   : var(--neo-timeline-header-color);
+    --grid-header-button-color-hover             : var(--neo-timeline-header-color);
+    --grid-header-button-glyph-color             : var(--neo-timeline-header-muted-color);
+    --grid-header-button-glyph-color-hover       : var(--neo-timeline-header-color);
+    --grid-header-button-justify-content         : start;
+
+    /* A colour in some themes and a gradient in others: the shorthand takes both, as the timeline header's does */
+    background: var(--neo-timeline-header-background);
+
+    /* A button's hover drops its background image with `!important`; a gradient surface stays under the tint */
+    &:hover {
+        background-image: var(--neo-timeline-header-background) !important;
+    }
+}
+
 .neo-scheduler {
     .neo-grid-header-toolbar {
         align-items: stretch;

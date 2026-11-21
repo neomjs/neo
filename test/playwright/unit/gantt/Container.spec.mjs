@@ -630,4 +630,105 @@ test.describe('Neo.gantt.Container', () => {
         dependencyStore.destroy();
         taskStore.destroy()
     });
+
+    test('toggling useWorkingTime reschedules durations and tight successors through the writer, preserves hand-placed float, and honors schedule services', () => {
+        const
+            taskStore = Neo.create(TaskStore, {
+                data: [
+                    {id: 'prep',    parentId: null, isLeaf: true, title: 'Prep',     startDate: '2026-11-04T00:00:00Z', endDate: '2026-11-05T00:00:00Z', duration: 1, durationUnit: 'day'},
+                    {id: 'plumb',   parentId: null, isLeaf: true, title: 'Plumbing', startDate: '2026-11-05T00:00:00Z', endDate: '2026-11-12T00:00:00Z', duration: 5, durationUnit: 'day'},
+                    {id: 'drywall', parentId: null, isLeaf: true, title: 'Drywall',  startDate: '2026-11-13T00:00:00Z', endDate: '2026-11-17T00:00:00Z', duration: 2, durationUnit: 'day'}
+                ]
+            }),
+            dependencyStore = Neo.create(DependencyStore, {
+                data: [
+                    {id: 'd1', fromId: 'prep',  toId: 'plumb',   type: 'FS', lag: 0, lagUnit: 'day'},
+                    {id: 'd2', fromId: 'plumb', toId: 'drywall', type: 'FS', lag: 0, lagUnit: 'day'}
+                ]
+            });
+
+        gantt = Neo.create(GanttContainer, {
+            appName,
+            dependencyStore,
+            store         : taskStore,
+            useWorkingTime: true,
+            timeAxis      : {
+                end            : '2026-11-25',
+                nonWorkingDates: ['2026-11-12'],
+                nonWorkingDays : [0, 6],
+                start          : '2026-11-02',
+                tickStep       : 1,
+                tickUnit       : 'day',
+                timeZone       : 'UTC'
+            }
+        });
+
+        const events = [];
+        gantt.on('taskChange', payload => events.push(payload));
+
+        // 1. Switch working time OFF: weekend-crossing `plumb` ends earlier and tight successor `drywall` moves up
+        gantt.useWorkingTime = false;
+
+        expect(events).toHaveLength(1);
+        expect(events[0].action).toBe('workingTime');
+        expect(Object.keys(events[0].changesById).sort()).toEqual(['drywall', 'plumb']);
+        expect(taskStore.get('plumb').startDate.toISOString()).toBe('2026-11-05T00:00:00.000Z');
+        expect(taskStore.get('plumb').endDate.toISOString()).toBe('2026-11-10T00:00:00.000Z');
+        expect(taskStore.get('plumb').duration).toBe(5);
+        expect(taskStore.get('drywall').startDate.toISOString()).toBe('2026-11-10T00:00:00.000Z');
+        expect(taskStore.get('drywall').endDate.toISOString()).toBe('2026-11-12T00:00:00.000Z');
+
+        // Symmetrical undo check via `previousById`
+        for (const [id, prev] of Object.entries(events[0].previousById)) {
+            expect(Object.keys(prev)).toEqual(Object.keys(events[0].changesById[id]))
+        }
+
+        // 2. Hand-place `plumb` onto Saturday 2026-11-07 while `useWorkingTime` is false (`prevStart > prevReqStart`)
+        gantt.moveTask('plumb', {
+            startDate: '2026-11-07T00:00:00Z',
+            endDate  : '2026-11-12T00:00:00Z'
+        });
+        expect(taskStore.get('plumb').startDate.toISOString()).toBe('2026-11-07T00:00:00.000Z');
+        expect(taskStore.get('drywall').startDate.toISOString()).toBe('2026-11-12T00:00:00.000Z');
+
+        // 3. Switch working time ON: hand-placed `plumb` keeps its manual offset (snapped forward off Saturday to Monday 2026-11-09)
+        // rather than snapping back to `prep.endDate` (`2026-11-05`), while tight `drywall` cascades to `2026-11-17..2026-11-19`
+        events.length = 0;
+        gantt.useWorkingTime = true;
+
+        expect(events).toHaveLength(1);
+        expect(taskStore.get('plumb').startDate.toISOString()).toBe('2026-11-09T00:00:00.000Z');
+        expect(taskStore.get('plumb').endDate.toISOString()).toBe('2026-11-17T00:00:00.000Z');
+        expect(taskStore.get('drywall').startDate.toISOString()).toBe('2026-11-17T00:00:00.000Z');
+        expect(taskStore.get('drywall').endDate.toISOString()).toBe('2026-11-19T00:00:00.000Z');
+
+        // 4. Switch working time OFF again: hand-placed `2026-11-09` start is preserved; `drywall` moves up to `2026-11-14`
+        gantt.useWorkingTime = false;
+        expect(taskStore.get('plumb').startDate.toISOString()).toBe('2026-11-09T00:00:00.000Z');
+        expect(taskStore.get('plumb').endDate.toISOString()).toBe('2026-11-14T00:00:00.000Z');
+        expect(taskStore.get('drywall').startDate.toISOString()).toBe('2026-11-14T00:00:00.000Z');
+        expect(taskStore.get('drywall').endDate.toISOString()).toBe('2026-11-16T00:00:00.000Z');
+
+        // 5. External schedule service intercepts calendar-switch proposals
+        const refusedResults = [], serviceCalls = [];
+        gantt.on('scheduleResult', payload => refusedResults.push(payload));
+        gantt.schedule = {
+            store          : taskStore,
+            dependencyStore,
+            moveTask(key, proposal) {
+                serviceCalls.push(key);
+                return {status: 'refused', message: 'Frozen schedule', proposal}
+            }
+        };
+
+        events.length = 0;
+        gantt.useWorkingTime = true;
+        expect(serviceCalls).toEqual(['plumb', 'drywall']);
+        expect(refusedResults).toHaveLength(2);
+        expect(events).toHaveLength(0);
+        expect(taskStore.get('plumb').endDate.toISOString()).toBe('2026-11-14T00:00:00.000Z');
+
+        dependencyStore.destroy();
+        taskStore.destroy()
+    });
 });

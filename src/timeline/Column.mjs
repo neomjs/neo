@@ -5,6 +5,11 @@ import IntervalPacker  from './util/IntervalPacker.mjs';
 import TimeAxis        from './TimeAxis.mjs';
 import TimeAxisHeader  from './TimeAxisHeader.mjs';
 
+const
+    dayMs         = 86_400_000,
+    barDayFormat  = {month: 'short', day: 'numeric'},
+    barTimeFormat = {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'};
+
 /**
  * @summary Grid column rendering viewport-clipped timeline bars.
  * @description Projects either event-store records or inline row records and packs overlapping events into lanes.
@@ -69,6 +74,12 @@ class Column extends BaseColumn {
          * @reactive
          */
         highlightedRecordIds_: [],
+        /**
+         * Locale of the dates in each bar's accessible name.
+         * @member {String} locale_=Neo.config.locale
+         * @reactive
+         */
+        locale_: Neo.config.locale,
         /**
          * Default column `dataField` identifier.
          * @member {String} dataField='timeline'
@@ -389,6 +400,18 @@ class Column extends BaseColumn {
     }
 
     /**
+     * @summary Re-renders mounted rows so each bar's accessible name uses the new `locale`.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined && this.isConstructed) {
+            this.refreshMountedRows()
+        }
+    }
+
+    /**
      * @summary Subscribes to `eventStore` load/filter/recordChange events and refreshes mounted rows.
      * @param {Neo.timeline.store.Events|null} value
      * @param {Neo.timeline.store.Events|null} oldValue
@@ -690,7 +713,7 @@ class Column extends BaseColumn {
             role        : 'button',
             tabIndex    : 0,
             'aria-label': title
-                ? `${title} (${(me.timeAxis || TimeAxis).dayKey(startDate)} – ${(me.timeAxis || TimeAxis).dayKey(endDate)})`
+                ? `${title} (${me.formatBarDates(startDate, endDate)})`
                 : `${barKey}`,
             data        : {
                 eventId   : String(barKey),
@@ -826,6 +849,31 @@ class Column extends BaseColumn {
         super.destroy(...args);
         if (axis && this.#ownedAxes.has(axis)) axis.destroy();
         if (store && this.#ownedStores.has(store)) store.destroy()
+    }
+
+    /**
+     * @summary Formats a bar's dates for its accessible name, in `locale` and the axis zone.
+     * @description A bar that starts and ends at midnight names its days up to the last day it covers, since
+     * `endDate` is exclusive. Any other bar adds hours and minutes and reads up to `endDate` itself. A bar without
+     * length names a single moment.
+     * @param {Date} startDate
+     * @param {Date} endDate
+     * @returns {String}
+     */
+    formatBarDates(startDate, endDate) {
+        const
+            me                           = this,
+            axis                         = me.timeAxis || TimeAxis,
+            {formatWall, lastWallMoment} = TimeAxisHeader,
+            wall                         = axis.wallTime(startDate),
+            wallEnd                      = axis.wallTime(endDate),
+            hasLength                    = +endDate > +startDate;
+
+        if (+wall % dayMs === 0 && +wallEnd % dayMs === 0) {
+            return formatWall(me.locale, barDayFormat, wall, hasLength ? lastWallMoment(axis, {endDate}) : undefined)
+        }
+
+        return formatWall(me.locale, barTimeFormat, wall, hasLength ? wallEnd : undefined)
     }
 
     /**

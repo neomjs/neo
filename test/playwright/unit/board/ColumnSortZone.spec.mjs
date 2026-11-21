@@ -229,7 +229,7 @@ test.describe('Neo.board.ColumnSortZone & Column#locked', () => {
         expect(zone.dragComponent ?? null).toBeNull()
     });
 
-    test('reorders unlocked columns on drop, sets dragElement to the header vdom, preserves column and card instances, and fires one columnMove event', async () => {
+    test('reorders unlocked columns on drop, drags the whole column, preserves column and card instances, and fires one columnMove event', async () => {
         store = createStore();
 
         const
@@ -243,7 +243,12 @@ test.describe('Neo.board.ColumnSortZone & Column#locked', () => {
         await zone.onDragStart({clientX: 10, clientY: 20, path: headerPath('backlog')});
 
         expect(zone.dragComponent).toBe(board.getColumn('backlog'));
-        expect(zone.dragElement.id).toBe(board.getColumn('backlog').header.id);
+        const treeIds = [];
+        (function collect(node) { node.id && treeIds.push(node.id); node.cn?.forEach(collect) })(zone.dragElement);
+
+        expect(zone.dragElement.id, 'the drag element is the whole column').toBe(board.getColumn('backlog').id);
+        expect(treeIds, 'with its header and its card').toEqual(expect.arrayContaining([board.getColumn('backlog').header.id, board.getCard('c1').id]));
+        expect(treeIds, 'and no other column\'s card').not.toContain(board.getCard('c2').id);
 
         // Drag backlog (index 0, x=0) past in-progress (index 1, x=300) and review (index 2, x=600)
         await zone.onDragMove({clientX: 200, clientY: 20});

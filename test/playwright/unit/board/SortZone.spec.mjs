@@ -256,6 +256,7 @@ test.describe('Neo.board.SortZone', () => {
         // A card's rect follows the DOM: a node the zone moved sits where its delta put it and pushes the cards at
         // and after that index down
         rectFor = id => {
+            if (id === board.id) return new Rectangle(0, 0, 1200, 600);
             const columnIndex = board.items.findIndex(column => column.id === id || column.body.id === id);
 
             if (columnIndex > -1) {
@@ -461,7 +462,7 @@ test.describe('Neo.board.SortZone', () => {
             expect.soft(deltas).toEqual([]);
             expect.soft(zone.activeColumn).toBe(board.getColumn('backlog'));
 
-            await zone.onDragCancel({});
+            await zone.onDragCancel({clientX, clientY});
             expectNothingPinned()
         })
     });
@@ -529,6 +530,84 @@ test.describe('Neo.board.SortZone', () => {
         expect(keys(board.getColumn('backlog'))).toEqual(['c2', 'c1'])
     });
 
+    test('a multi-card release below the board restores its preview without writing the last column', async () => {
+        store = createStore();
+        const zone = await startZone(), events = recordChanges(store), moves = [];
+        board.selectionModel.setSelection(['c1', 'c2']);
+        board.on('cardMove', () => moves.push('one'));
+        board.on('cardsMove', () => moves.push('many'));
+
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        expect(zone.activeColumn).toBe(board.getColumn('in-progress'));
+        await zone.onDragEnd({clientX: 1000, clientY: 740});
+
+        expect(events).toEqual([]);
+        expect(moves).toEqual([]);
+        expect(keys(board.getColumn('backlog'))).toEqual(['c1', 'c2']);
+        expect(deltas.at(-1).parentId).toBe(root('backlog'));
+        expectNothingPinned()
+    });
+
+    test('moving below another column keeps the placeholder in the same column and slot', async () => {
+        store = createStore();
+        const zone = await startZone();
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        const count = deltas.length;
+        expect(zone.currentIndex).toBe(1);
+        await zone.onDragMove({clientX: 1000, clientY: 740});
+        expect(zone.activeColumn).toBe(board.getColumn('in-progress'));
+        expect(zone.currentIndex).toBe(1);
+        expect(deltas).toHaveLength(count);
+        await zone.onDragCancel({clientX: 1000, clientY: 740})
+    });
+
+    test('releasing in a board gutter commits the pictured slot without sorting at the release height', async () => {
+        store = createStore();
+        const zone = await startZone(), events = recordChanges(store);
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        const gap = {clientX: 290, clientY: 500};
+        await zone.onDragMove(gap);
+        expect(zone.activeColumn).toBe(board.getColumn('in-progress'));
+        expect(zone.currentIndex).toBe(1);
+        await zone.onDragEnd(gap);
+        expect(keys(board.getColumn('in-progress'))).toEqual(['c3', 'c1', 'c4', 'c5']);
+        expect(events).toEqual([{id: 'c1', names: ['order', 'status']}]);
+        expectNothingPinned()
+    });
+
+    test('the release uses the current board viewport, and an ended gesture takes no new measurement', async () => {
+        store = createStore();
+        const zone = await startZone(), events = recordChanges(store), point = {clientX: 400, clientY: 160};
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove(point);
+
+        // The scrollable columns can extend beyond the visible board.
+        board.getDomRect = async ids => ids.map(id => id === board.id ? new Rectangle(0, 0, 300, 600) : rectFor(id));
+        await zone.onDragEnd(point);
+        expect(events).toEqual([]);
+        expectNothingPinned();
+
+        board.getDomRect = () => {throw new Error('release without a live card measured the board')};
+        await zone.onDragEnd(point)
+    });
+
+    test('an in-board gutter cannot commit to a column scrolled out of view', async () => {
+        store = createStore();
+        const zone = await startZone(), events = recordChanges(store);
+
+        await drag(zone, 'c1', 100, 70);
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        board.getDomRect = async ids => ids.map(id => id === board.id ? new Rectangle(0, 0, 300, 600) : rectFor(id));
+        await zone.onDragEnd({clientX: 290, clientY: 500});
+
+        expect(events).toEqual([]);
+        expect(keys(board.getColumn('backlog'))).toEqual(['c1', 'c2']);
+        expectNothingPinned()
+    });
+
     test('an empty column takes the card at index 0 with order 1000', async () => {
         store = createStore();
 
@@ -536,7 +615,7 @@ test.describe('Neo.board.SortZone', () => {
 
         await drag(zone, 'c1', 100, 70);
         await zone.onDragMove({clientX: 700, clientY: 300});
-        await zone.onDragEnd({});
+        await zone.onDragEnd({clientX: 700, clientY: 300});
 
         expect(store.get('c1').order).toBe(1000);
         expect(keys(board.getColumn('review'))).toEqual(['c1'])
