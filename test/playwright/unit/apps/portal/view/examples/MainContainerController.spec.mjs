@@ -138,9 +138,19 @@ test.describe('Portal examples overview and group pages', () => {
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
-        expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data', 'meridian-observatory']);
-        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data', 'meridian-observatory']);
-        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes', 'meridian-observatory']);
+        expect(pageIds(view, 'scheduler')).toEqual([
+            'scheduler-basic', 'scheduler-big-data', 'scheduler-drag-and-resize', 'scheduler-non-working-time',
+            'scheduler-bar-renderer', 'scheduler-event-editor', 'scheduler-zoom', 'scheduler-resource-columns',
+            'scheduler-time-zones', 'scheduler-live-updates', 'meridian-observatory'
+        ]);
+        expect(pageIds(view, 'gantt')).toEqual([
+            'gantt-basic', 'gantt-big-data', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
+            'gantt-task-editor', 'gantt-task-columns', 'meridian-observatory'
+        ]);
+        expect(pageIds(view, 'board')).toEqual([
+            'board-basic', 'board-swimlanes', 'board-big-data', 'board-wip-limits', 'board-card-designs', 'board-card-editor',
+            'board-multi-select', 'board-columns', 'meridian-observatory'
+        ]);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
         expect(pageIds(view, 'functional')).toEqual(['live-preview', 'email']);
         expect(tileIds(view, 'functional')).toEqual(['functional-define-component', 'functional-host-component', 'functional-nested-template']);
@@ -528,12 +538,13 @@ test.describe('Portal examples overview and group pages', () => {
 
         const dragIds = matchedIds();
         expect(dragIds).toEqual(expect.arrayContaining([
-            'board-basic', 'board-swimlanes', 'multi-window-drag-drop', 'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+            'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
+            'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
         ]));
 
         const counts = view.getStateProvider().getData('matchCounts');
         expect(counts).toBeInstanceOf(Map);
-        expect(counts.get('board')).toEqual({home: 2, cross: 0, total: 2});
+        expect(counts.get('board')).toEqual({home: 5, cross: 0, total: 5});
         expect(counts.get('drag-drop')).toEqual({home: 0, cross: 3, total: 3});
         expect(counts.get('calendar')).toEqual({home: 0, cross: 0, total: 0});
 
@@ -717,9 +728,9 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           lists         : [12, 1],
           charts        : [5, 1],
           calendar      : [1, 0],
-          scheduler     : [3, 0],
-          gantt         : [2, 1],
-          board         : [2, 1],
+          scheduler     : [11, 0],
+          gantt         : [7, 1],
+          board         : [8, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
           layouts       : [3, 0],
@@ -733,7 +744,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 128,
+      recordCount    = 147,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1002,7 +1013,12 @@ test.describe('Portal examples canonical catalog', () => {
         const {store}     = createList(),
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
-                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'meridian-observatory', 'timeline-basic',
+                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data',
+                  'scheduler-drag-and-resize', 'scheduler-non-working-time', 'scheduler-bar-renderer',
+                  'scheduler-event-editor', 'scheduler-zoom', 'scheduler-resource-columns', 'scheduler-time-zones',
+                  'scheduler-live-updates', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
+                  'gantt-task-editor', 'gantt-task-columns', 'board-big-data', 'board-wip-limits', 'board-card-designs',
+                  'board-card-editor', 'board-multi-select', 'board-columns', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', 'on-air-at-eight', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {
