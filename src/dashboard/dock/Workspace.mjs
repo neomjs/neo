@@ -2692,7 +2692,8 @@ class Workspace extends Container {
 
         if (!host.mounted) {
             try {
-                await host.promiseUpdate()
+                await host.promiseUpdate();
+                cycle?.stamp('hostMounted')
             } catch (error) {
                 if (error === Neo.isDestroyed || me.isDestroyed || host.isDestroyed) {
                     return
@@ -2713,6 +2714,8 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
+        cycle?.stamp('captured');
+
         if (me.isDestroyed || superseded()) {
             return
         }
@@ -2720,6 +2723,7 @@ class Workspace extends Container {
         me.beforeRefreshDockWorkspace(document, refreshOptions);
 
         await me.releaseStaleRevealPanes(document);
+        cycle?.stamp('released');
 
         if (me.isDestroyed || superseded()) {
             return
