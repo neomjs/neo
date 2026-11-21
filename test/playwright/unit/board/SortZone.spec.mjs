@@ -654,6 +654,28 @@ test.describe('Neo.board.SortZone', () => {
         expect(ids('in-progress').slice(150, 154)).toEqual(['p150', 'p151', 'b0', 'p152'])
     });
 
+    test('a card held at the end of a sliced column stays rendered when the window moves back', async () => {
+        store = slicedStore();
+
+        const zone = await startZone({columns: slicedColumns}), column = board.getColumn('backlog');
+
+        column.setWindowStart(296);
+        expect(keys(column), 'control: the window ends at b299').toEqual(['b296', 'b297', 'b298', 'b299']);
+
+        await drag(zone, 'b299', 100, 370);
+        // A scroll slides the window back, as moving the held card up a column scrolled to its end does
+        column.setWindowStart(290);
+
+        expect(column.body.items.includes(board.getCard('b299')), 'the held card stays in its column\'s body').toBe(true);
+        expect(keys(column), 'the window moves only as far as the held card needs').toEqual(['b296', 'b297', 'b298', 'b299']);
+
+        await zone.onDragCancel({});
+
+        // Released, the window follows the scroll again
+        column.setWindowStart(290);
+        expect(keys(column)).toEqual(['b290', 'b291', 'b292', 'b293'])
+    });
+
     test('a window that moved under the drag cannot pass a real move off as a drop where the card started', async () => {
         store = slicedStore();
 
