@@ -1,0 +1,611 @@
+{
+  "before": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+  "after": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+  "baseOverlays": [
+    ".github/workflows/classify-test-scope.yml",
+    "apps/portal/resources/data/example-captures.json",
+    "apps/portal/resources/data/examples.json",
+    "apps/portal/resources/data/seo.json",
+    "buildScripts/docs/captureExamples.mjs",
+    "buildScripts/util/e2eCiSelection.mjs",
+    "buildScripts/util/e2eSpecReach.mjs",
+    "src/dashboard/dock/Workspace.mjs",
+    "src/dashboard/dock/projection/Cycle.mjs",
+    "test/playwright/component/workstation/WorkstationBoot.spec.mjs",
+    "test/playwright/e2e/portal/ExamplesCatalogNL.spec.mjs",
+    "test/playwright/unit/apps/portal/view/examples/MainContainerController.spec.mjs",
+    "test/playwright/unit/buildScripts/docs/CaptureExamples.spec.mjs",
+    "test/playwright/unit/buildScripts/util/E2eCiSelection.spec.mjs",
+    "test/playwright/unit/buildScripts/util/WorkflowScopeClassifier.spec.mjs",
+    "test/playwright/unit/dashboard/DockProjectionCycle.spec.mjs"
+  ],
+  "geometry": "Cards retained their natural viewport coordinates and sizes. The capture only expanded the document vertically to include the complete group.",
+  "report": [
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+      "group": "scheduler",
+      "size": "desktop",
+      "input": [
+        1440,
+        900
+      ],
+      "png": [
+        1440,
+        900
+      ],
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "a-scheduler-desktop.png",
+      "volume": 0
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+      "group": "scheduler",
+      "size": "phone",
+      "input": [
+        390,
+        844
+      ],
+      "png": [
+        390,
+        985
+      ],
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "a-scheduler-phone.png",
+      "volume": 141
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+      "group": "gantt",
+      "size": "desktop",
+      "input": [
+        1440,
+        900
+      ],
+      "png": [
+        1440,
+        900
+      ],
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "a-gantt-desktop.png",
+      "volume": 0
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+      "group": "gantt",
+      "size": "phone",
+      "input": [
+        390,
+        844
+      ],
+      "png": [
+        390,
+        963
+      ],
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "a-gantt-phone.png",
+      "volume": 119
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+      "group": "board",
+      "size": "desktop",
+      "input": [
+        1440,
+        900
+      ],
+      "png": [
+        1440,
+        900
+      ],
+      "cards": [
+        {
+          "id": "board-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-swimlanes",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-swimlanes-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "a-board-desktop.png",
+      "volume": 0
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "d1eabd4fb57f40d7c4982f83547278f4b7ea22d5",
+      "group": "board",
+      "size": "phone",
+      "input": [
+        390,
+        844
+      ],
+      "png": [
+        390,
+        985
+      ],
+      "cards": [
+        {
+          "id": "board-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-swimlanes",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-swimlanes-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "a-board-phone.png",
+      "volume": 141
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+      "group": "scheduler",
+      "size": "desktop",
+      "input": [
+        1440,
+        900
+      ],
+      "png": [
+        1440,
+        1269
+      ],
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-event-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-time-zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-live-updates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "b-scheduler-desktop.png",
+      "volume": 369
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+      "group": "scheduler",
+      "size": "phone",
+      "input": [
+        390,
+        844
+      ],
+      "png": [
+        390,
+        2692
+      ],
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-event-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-time-zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "scheduler-live-updates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "b-scheduler-phone.png",
+      "volume": 1848
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+      "group": "gantt",
+      "size": "desktop",
+      "input": [
+        1440,
+        900
+      ],
+      "png": [
+        1440,
+        1053
+      ],
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-dependencies",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-task-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-task-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "b-gantt-desktop.png",
+      "volume": 153
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+      "group": "gantt",
+      "size": "phone",
+      "input": [
+        390,
+        844
+      ],
+      "png": [
+        390,
+        2030
+      ],
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-dependencies",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-task-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "gantt-task-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "b-gantt-phone.png",
+      "volume": 1186
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+      "group": "board",
+      "size": "desktop",
+      "input": [
+        1440,
+        900
+      ],
+      "png": [
+        1440,
+        1053
+      ],
+      "cards": [
+        {
+          "id": "board-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-swimlanes",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-swimlanes-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-wip-limits",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-wip-limits-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-card-designs",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-designs-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-card-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-editor-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-multi-select",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-multi-select-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-columns-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "b-board-desktop.png",
+      "volume": 153
+    },
+    {
+      "out": "/private/tmp/neo-21613-whole-pairs-EbCSBy",
+      "source": "efcb62ea7d9ee1fe7f1c0c957b32bd8fd390a1fa",
+      "group": "board",
+      "size": "phone",
+      "input": [
+        390,
+        844
+      ],
+      "png": [
+        390,
+        2266
+      ],
+      "cards": [
+        {
+          "id": "board-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-swimlanes",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-swimlanes-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-big-data-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-wip-limits",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-wip-limits-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-card-designs",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-designs-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-card-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-editor-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-multi-select",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-multi-select-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "board-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-columns-14.jpg",
+          "width": 1280
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280
+        }
+      ],
+      "frame": "b-board-phone.png",
+      "volume": 1422
+    }
+  ]
+}
