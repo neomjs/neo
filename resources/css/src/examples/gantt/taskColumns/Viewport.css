@@ -1,0 +1,101 @@
+.task-columns-viewport.neo-viewport {
+    /* One gridline a day (0.02 px a minute), set on the track: the themed grid view resets it to 120 px */
+    .neo-timeline-track { --neo-timeline-gridline-step: 28.8px; }
+
+    .tc-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--tc-header-bg);
+        border-bottom: 1px solid var(--tc-border);
+        flex-wrap    : wrap;
+        gap          : 4px 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+
+        .tc-title    { color: var(--tc-title); font-size: 18px; font-weight: 700; }
+        .tc-subtitle { color: var(--tc-muted); font-size: 12px; }
+    }
+
+    .neo-grid-cell.neo-right { font-variant-numeric: tabular-nums; }
+
+    /* A narrow header keeps the place of its sort arrow, with less room around both */
+    .neo-grid-header-button.tc-compact {
+        padding-inline: 6px;
+
+        .neo-button-glyph { margin: 0 2px; }
+    }
+
+    .tc-owner {
+        align-items: center;
+        display    : flex;
+        gap        : 8px;
+        min-width  : 0;
+    }
+
+    .tc-owner-name {
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    /* Each owner keeps one hue in every theme; the theme sets how light and how strong it is */
+    .tc-badge {
+        background    : oklch(var(--tc-badge-l) var(--tc-badge-c) var(--tc-hue));
+        border-radius : 50%;
+        color         : oklch(var(--tc-badge-ink-l) var(--tc-badge-ink-c) var(--tc-hue));
+        flex          : none;
+        font-size     : 11px;
+        font-weight   : 700;
+        height        : 24px;
+        letter-spacing: .02em;
+        line-height   : 24px;
+        text-align    : center;
+        width         : 24px;
+    }
+
+    .tc-badge-aisha { --tc-hue: 75; }
+    .tc-badge-ines  { --tc-hue: 20; }
+    .tc-badge-jonas { --tc-hue: 195; }
+    .tc-badge-kofi  { --tc-hue: 145; }
+    .tc-badge-mei   { --tc-hue: 305; }
+    .tc-badge-tomas { --tc-hue: 255; }
+
+    .tc-done {
+        align-items: center;
+        display    : flex;
+        flex       : 1;
+        gap        : 10px;
+    }
+
+    .tc-done-track {
+        background   : var(--tc-done-track);
+        border-radius: 3px;
+        flex         : 1;
+        height       : 6px;
+        overflow     : hidden;
+    }
+
+    .tc-done-fill                    { background: var(--tc-done-fill); height: 100%; }
+    .tc-done-complete .tc-done-fill  { background: var(--tc-done-complete); }
+
+    .tc-done-value {
+        flex                : none;
+        font-variant-numeric: tabular-nums;
+        min-width           : 36px;
+        text-align          : right;
+    }
+
+    /* A bar too short for a few letters of its title shows its shape only: the task column carries the name */
+    .neo-timeline-bar { container-type: inline-size; }
+
+    @container (max-width: 60px) {
+        .neo-timeline-bar-label { visibility: hidden; }
+    }
+}
+
+@media (max-width: 600px) {
+    .task-columns-viewport.neo-viewport .tc-toolbar.neo-toolbar {
+        padding: 10px 16px;
+
+        .tc-subtitle { display: none; }
+    }
+}
