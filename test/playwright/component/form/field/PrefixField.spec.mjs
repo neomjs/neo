@@ -190,16 +190,25 @@ test.describe('examples/fieldWithPrefix Input masks workbench', () => {
               acceptCombo = inspector.locator('.neo-combobox'),
               patternIn   = inspector.locator('.neo-textfield').filter({hasText: 'pattern'}).locator('input');
 
+        const readPhoneMask = () => phoneInput.evaluate(el => {
+            const mask = Neo.main.addon.PrefixField.fields.get(el.id);
+
+            return {accept: mask?.accept?.source, pattern: mask?.pattern}
+        });
+
         await acceptCombo.locator('.fa-caret-down').click();
         await page.locator('.neo-picker-container .neo-list-item').filter({hasText: '[A-H]'}).click();
+        await expect.poll(readPhoneMask).toEqual({accept: '[A-H]', pattern: '+1 (___) ___-____'});
 
         await phoneInput.click();
         await phoneInput.pressSequentially('12ABC99', {delay: 0});
         await expect(phoneInput).toHaveValue('+1 (ABC) ___-____');
 
         await patternIn.fill('AB-___');
+        await expect.poll(readPhoneMask).toEqual({accept: '[A-H]', pattern: 'AB-___'});
         await page.getByRole('button', {name: /reset/i}).click();
         await expect(phoneInput).toHaveValue('');
+        await expect.poll(readPhoneMask).toEqual({accept: '\\d', pattern: '+1 (___) ___-____'});
 
         await phoneInput.click();
         await phoneInput.pressSequentially('5552345678', {delay: 0});
