@@ -56,6 +56,9 @@ const MODULE_PATH = /(['"`])((?:\.{1,2}\/|(?:apps|examples|src|test)\/)[^'"`$\s]
 // interpolation, such as `examples/grid/${name}`, which can name any entry beneath it.
 const APP_REFERENCE = /((?:test\/playwright\/component\/)?\b(?:apps|docs|examples)\/[\w-]+(?:\/[\w-]+)*)(\/\$\{)?/g;
 
+// A computed route without an example prefix can visit any example, even when other routes are known.
+const UNBOUNDED_EXAMPLE_REFERENCE = /\bexamples\/\$\{/;
+
 // The theme builder converts these mirrored paths to Neo class namespaces.
 const EXAMPLE_CSS    = /^resources\/css\/(?:src|theme-[^/]+)\/(examples\/.+)\.css$/,
       RUNTIME_SOURCE = /^(?:apps|docs|examples|src|test\/playwright\/component\/apps)\/.*\.(?:m?js|html)$|^(?:apps|examples)\/.*\/neo-config\.json$/;
@@ -104,8 +107,8 @@ export function entryOf(reference, tracked) {
  * @summary Maps every e2e spec to what it can reach in the committed tree.
  *
  * A spec's own closure holds the spec and the `test/playwright/` helpers it reaches through module paths. Every app
- * or example that closure names adds that entry's full closure. A spec that names neither is listed in `unnamed`:
- * the map cannot place it, so no change can rule it out.
+ * or example that closure names adds that entry's full closure. A spec with no known entry or an unbounded example
+ * route is listed in `unnamed`, since its known entries cannot rule out a change.
  * @param {Object} [options]
  * @param {String} [options.root=process.cwd()] The repository root.
  * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, tracked: Set<String>, unnamed: String[], exampleCssOwner: Function}}
@@ -206,7 +209,8 @@ export function specReach({root = process.cwd()} = {}) {
           unnamed = [];
 
     for (const spec of files.filter(file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'))) {
-        const own = new Set([spec]), queue = [spec], entries = new Set();
+        const own              = new Set([spec]), queue = [spec], entries = new Set();
+        let   unboundedExample = false;
 
         while (queue.length) {
             for (const next of edgesOf(queue.pop())) {
@@ -215,14 +219,20 @@ export function specReach({root = process.cwd()} = {}) {
         }
 
         for (const file of own) {
-            for (const [, reference, interpolated] of text(file).matchAll(APP_REFERENCE)) {
+            const source = text(file);
+
+            unboundedExample ||= UNBOUNDED_EXAMPLE_REFERENCE.test(source);
+
+            for (const [, reference, interpolated] of source.matchAll(APP_REFERENCE)) {
                 const beneath = interpolated ? files.filter(path => path.startsWith(`${reference}/`) && path.endsWith('/app.mjs')) : [];
 
                 (beneath.length ? beneath : [entryOf(reference, tracked)]).forEach(entry => entry && entries.add(entry))
             }
         }
 
-        entries.size || unnamed.push(spec);
+        if (!entries.size || unboundedExample) {
+            unnamed.push(spec)
+        }
 
         const reach = new Set(own);
 

@@ -455,6 +455,24 @@ test.describe('e2e CI selection — verified example styles', () => {
         })
     });
 
+    for (const viaHelper of [false, true]) {
+        test(`a computed example route keeps a spec with a known app in the selection via ${viaHelper ? 'a helper' : 'the spec'}`, () => {
+            const helper     = 'test/playwright/exampleNavigation.mjs',
+                  literal    = "await page.goto('/examples/scheduler/adjacent/index.html');",
+                  navigation = 'await page.goto(`/examples/${example}/index.html`);',
+                  extra      = viaHelper
+                      ? {[adjacent]: `import '../../exampleNavigation.mjs';\n${literal}`, [helper]: navigation}
+                      : {[adjacent]: `${literal}\n${navigation}`};
+
+            withTree(root => {
+                const {full, specs} = selectSpecs({changed: [css], exampleCss: [css], root});
+
+                expect(full).toBe(false);
+                expect(specs.get(adjacent)).toBe('the map cannot place it')
+            }, extra)
+        });
+    }
+
     test('ownership needs a deployed class and an executed owning spec', () => {
         const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
 
