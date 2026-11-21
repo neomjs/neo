@@ -99,6 +99,12 @@ test.describe('Board, big data example: 10,000 tickets in windowed columns', () 
         await expect(badge('triage'), 'Triage one more').toHaveText('1501');
         await expect(page.locator('.neo-dragproxy'), 'the proxy leaves with the drop').toHaveCount(0);
 
+        // New stays filled where it was scrolled to: the window it held for the drag returns to the scroll position
+        const newBox = await body('new').boundingBox();
+
+        await expect.poll(() => page.evaluate(({x, y, h}) => [.2, .5, .8].every(f => !!document.elementFromPoint(x, y + h * f)?.closest('.neo-board-card')),
+            {x: newBox.x + newBox.width / 2, y: newBox.y, h: newBox.height}), {message: 'no blank stretch in New after the drop'}).toBe(true);
+
         const inDom = await cards();
 
         expect(inDom, 'after the drop').toBeLessThanOrEqual(MAX_DOM);
