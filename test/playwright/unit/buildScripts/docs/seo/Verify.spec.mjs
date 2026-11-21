@@ -6,6 +6,7 @@ import verifySeoArtifacts, {
     CONTENT_SIGNAL_DIRECTIVE,
     LLMS_TXT_MAX_BYTES,
     extractLocUrls,
+    findDisallowedCorpusLessPortalFiles,
     validateLlmsTxtContent,
     validateRobotsTxt,
     validateSitemapIndexXml,
@@ -641,5 +642,18 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
             ].join('\n')
         );
         await expect(verifySeoArtifacts(duplicateSourceTitleBundle)).rejects.toThrow(/share duplicate source HTML <title> "Neo Button"/);
+    });
+
+    test('flags stray corpus-derived sitemap*.xml and llms*.txt files under apps/portal (#21808)', async () => {
+        expect(await findDisallowedCorpusLessPortalFiles(rootDir)).toEqual([]);
+
+        await fs.outputFile(path.join(rootDir, 'apps/portal/robots.txt'), 'User-agent: *\nAllow: /\n');
+        await fs.outputFile(path.join(rootDir, 'apps/portal/sitemap.xml'), '<urlset></urlset>');
+        await fs.outputFile(path.join(rootDir, 'apps/portal/llms.txt'), '# Neo.mjs');
+
+        expect(await findDisallowedCorpusLessPortalFiles(rootDir)).toEqual([
+            'apps/portal/llms.txt',
+            'apps/portal/sitemap.xml'
+        ]);
     });
 });
