@@ -332,9 +332,13 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs',
     return /neo\.mjs/i.test(cleanTitle) ? cleanTitle : `${cleanTitle}${suffix}`;
 }
 
+/** @summary A block opening with a bold page-metadata field (`**Release Type:**`) is a page's header, not its summary. */
+const PAGE_METADATA_FIELD = /^\*\*(?:release type|stability|breaking changes|upgrade path|pre-?requisites?|target audience)(?::\*\*|\*\*:)/i;
+
 /**
  * @summary Extracts a route-specific `title` and `description` from a Markdown document, honoring explicit
  * YAML frontmatter `seoTitle` and `seoDescription` overrides before falling back to `<h1>` and body prose.
+ * Body prose starts after any `PAGE_METADATA_FIELD` blocks, and a leading `TL;DR:` label is dropped.
  * @param {String} rawContent
  * @param {Object} [options={}]
  * @param {String} [options.basePath=DEFAULT_BASE_PATH]
@@ -398,7 +402,8 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
             /^!\[/.test(block) ||
             /^\*(?:Written by|Cover of)\b/i.test(block) ||
             /^\*\*\[▶/.test(block) ||
-            /^todo:/i.test(block)
+            /^todo:/i.test(block) ||
+            PAGE_METADATA_FIELD.test(block)
         ) {
             continue;
         }
@@ -421,7 +426,7 @@ export function extractMarkdownSeoMetadata(rawContent='', options={}) {
             continue;
         }
 
-        description = truncateDescription(cleaned, 160);
+        description = truncateDescription(cleaned.replace(/^tl;dr:\s*/i, ''), 160);
         break;
     }
 
