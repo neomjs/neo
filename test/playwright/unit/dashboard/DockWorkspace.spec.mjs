@@ -4127,6 +4127,61 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
     });
 
+    test('a newer commit supersedes the refresh in flight, never a queued one, and the obsolete catalog releases no pane', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            reconcile = DockProjectionReconciler.reconcileProjection,
+            release   = workspace.releaseDeclaredPanes,
+            released  = [],
+            signals   = [],
+            commit    = sizes => {
+                const {document} = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes});
+
+                workspace.onDockZoneDocumentChange(document, {operation: 'resizeSplit'});
+                return document
+            };
+
+        let answerFirst;
+
+        workspace.releaseDeclaredPanes = function (document) {
+            released.push(document);
+            return release.call(this, document)
+        };
+
+        // The first refresh's reconcile holds, as one whose overflow read has not answered; the others land
+        DockProjectionReconciler.reconcileProjection = ({signal}) => {
+            signals.push(signal);
+
+            return signals.length === 1
+                ? new Promise(resolve => {answerFirst = () => resolve({landedInPlace: true})})
+                : {landedInPlace: true}
+        };
+
+        try {
+            commit([0.5, 0.5]);
+
+            for (let tick = 0; tick < 50 && !answerFirst; tick++) {
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
+
+            const second = commit([0.6, 0.4]),
+                  third  = commit([0.7, 0.3]);
+
+            expect(signals[0].aborted, 'the refresh in flight is superseded').toBe(true);
+
+            answerFirst();
+            await workspace.refreshPromise;
+
+            expect(signals.length, 'every committed document still reconciles').toBe(3);
+            expect(signals[1].aborted, 'a refresh queued behind the first starts with its own signal').toBe(false);
+            expect(signals[2].aborted).toBe(false);
+            expect(released, 'the superseded catalog releases no pane').toEqual([second, third])
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+    });
+
     test('locking a railed item admits in-place reconciliation, and the refresh pays no staged shell', async () => {
         const document = createEdgeDocument();
 

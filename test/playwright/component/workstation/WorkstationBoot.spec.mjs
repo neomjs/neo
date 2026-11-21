@@ -106,6 +106,61 @@ const tearOutFeed = async page => {
 };
 
 /**
+ * @summary Makes the two-workspace topology durable, ends the worker, and cold-boots a fresh context from the saved
+ * storage: the vessel workspace is retained and disconnected, and Reset is the compact toolbar's recovery path.
+ *
+ * The warm windows go first, the root last, with the carrier read before it goes. A new page in the warm context
+ * could still reach the SharedWorker the closing windows leave behind and adopt its live root instead of hydrating
+ * (`ViewportController#decide`), so the cold page opens in a new context restored from the auto-saved storage.
+ * @param {Object} fixtures `{baseURL, browser, page, context}` of the calling test.
+ * @returns {Promise<{carrier: Object, cold: import('@playwright/test').Page, coldContext: import('@playwright/test').BrowserContext}>}
+ *     The caller closes `coldContext`.
+ */
+const bootColdWithRetainedFeed = async ({baseURL, browser, page, context}) => {
+    await page.goto(APP);
+    await page.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
+
+    const popup   = await tearOutFeed(page),
+          carrier = (await readBoot(page)).carrier;
+
+    expect(carrier?.groupId, 'the root carries its Group identity').toBeTruthy();
+
+    // The teardown may only start once the durable record holds the vessel workspace: read back
+    // the collection the library wrote, under this Group's key, until its active topology lists it.
+    await expect.poll(async () => {
+        const collection = await readPersistedTopology(page, carrier.groupId);
+        return Object.keys(collection?.topologies?.[collection.activeLayoutId]?.workspaces ?? {})
+    }, {message: 'the saved topology carries the vessel workspace', timeout: 30000}).toContain(FEED_KEY);
+
+    const storageState = await context.storageState({indexedDB: true}),
+          viewport     = page.viewportSize();
+
+    await popup.close();
+    await page.close();
+
+    const coldContext = await browser.newContext({baseURL, storageState, viewport});
+
+    try {
+        const cold = await coldContext.newPage();
+
+        await cold.addInitScript(({key, identity}) => {
+            if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(identity))
+        }, {key: 'neo-topology-identity', identity: carrier});
+        await cold.goto(APP);
+        await cold.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
+
+        await expect(cold.locator('.workstation-topologybar').getByRole('button'))
+            .toHaveText(['Reset to default', 'Undo', 'Redo']);
+        expect(await cold.locator(FEED_PANE).count(), 'the pane is not in the root while its workspace is a window').toBe(0);
+
+        return {carrier, cold, coldContext}
+    } catch (error) {
+        await coldContext.close();
+        throw error
+    }
+};
+
+/**
  * What one Workstation window can say about its own boot, read from the DOM and the main thread: the
  * identity it carries across its reloads, its window generation, and the ids of its Viewport and dock
  * host — the App worker's component ids, so they name the instances behind the elements.
@@ -262,48 +317,9 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
         // default 30 s budget before them, so the budget cut the last wait short
         test.setTimeout(150000);
 
-        await page.goto(APP);
-        await page.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
-
-        // Make the two-workspace topology durable under this root's Group identity, then end the worker:
-        // the vessel window first, the root last, and the carrier read before it goes.
-        const popup   = await tearOutFeed(page),
-              carrier = (await readBoot(page)).carrier;
-
-        expect(carrier?.groupId, 'the root carries its Group identity').toBeTruthy();
-
-        // The teardown may only start once the durable record holds the vessel workspace: read back
-        // the collection the library wrote, under this Group's key, until its active topology lists it.
-        await expect.poll(async () => {
-            const collection = await readPersistedTopology(page, carrier.groupId);
-            return Object.keys(collection?.topologies?.[collection.activeLayoutId]?.workspaces ?? {})
-        }, {message: 'the saved topology carries the vessel workspace', timeout: 30000}).toContain(FEED_KEY);
-
-        // A cold boot is a new context restored from the storage the auto-save wrote. A new page in this
-        // context could still reach the SharedWorker the closing windows leave behind and adopt its live
-        // root instead of hydrating (`ViewportController#decide`).
-        const storageState = await context.storageState({indexedDB: true}),
-              viewport     = page.viewportSize();
-
-        await popup.close();
-        await page.close();
-
-        const coldContext = await browser.newContext({baseURL, storageState, viewport});
+        const {carrier, cold, coldContext} = await bootColdWithRetainedFeed({baseURL, browser, page, context});
 
         try {
-            // The same carrier hydrates the saved topology, the vessel workspace retained and disconnected.
-            // Reset is the compact toolbar's cold recovery path.
-            const cold = await coldContext.newPage();
-
-            await cold.addInitScript(({key, identity}) => {
-                if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify(identity))
-            }, {key: 'neo-topology-identity', identity: carrier});
-            await cold.goto(APP);
-            await cold.waitForSelector(DOCK_HOST, {state: 'attached', timeout: 60000});
-
-            await expect(cold.locator('.workstation-topologybar').getByRole('button'))
-                .toHaveText(['Reset to default', 'Undo', 'Redo']);
-            expect(await cold.locator(FEED_PANE).count(), 'the pane is not in the root while its workspace is a window').toBe(0);
             await cold.getByRole('button', {name: 'Reset to default', exact: true}).click();
 
             // The saved document first, then the render, so a stall in either fails at its own step
@@ -332,6 +348,100 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 throw error
             }
         } finally {
+            await coldContext.close()
+        }
+    });
+
+    test('a cold-boot Reset renders its pane while an older projection\'s overflow read is still unanswered', async ({baseURL, browser, page, context}) => {
+        // A re-projection of the hydrated document reaches its overflow recapture, and the natural-width read it
+        // awaits does not answer until the test lets it. Reset's projection must not queue behind that read.
+        test.setTimeout(150000);
+
+        const {cold, coldContext} = await bootColdWithRetainedFeed({baseURL, browser, page, context});
+        let probe;
+
+        try {
+            const hostId = await cold.locator(DOCK_HOST).getAttribute('id');
+
+            probe = await attachPageSharedAppWorker({browser, page: cold});
+
+            await probe.evaluate(async id => {
+                const {Neo} = globalThis,
+                      api   = Neo.main.DomAccess,
+                      read  = api.getLayoutRect,
+                      held  = globalThis.__heldOverflowRead = {release: null, request: null};
+
+                let workspace = Neo.getComponent(id);
+
+                while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
+
+                await workspace.refreshPromise;
+
+                held.workspace = workspace;
+
+                // A recapture's first read asks for its strip's tab headers; the answer comes, and is held
+                api.getLayoutRect = async function (options) {
+                    if (!held.request && Array.isArray(options.id) && options.id.length > 0
+                        && options.id.every(itemId => String(itemId).startsWith('neo-tab-header-button'))) {
+                        held.request = options.id;
+
+                        const answer = await read.call(this, options);
+
+                        await new Promise(resolve => {held.release = resolve});
+                        return answer
+                    }
+
+                    return read.call(this, options)
+                };
+
+                held.restore = () => {
+                    api.getLayoutRect = read;
+                    held.release?.()
+                };
+
+                workspace.projectDockZoneDocument(workspace.dockModel).catch(() => {})
+            }, hostId);
+
+            await expect.poll(() => probe.evaluate(() => typeof globalThis.__heldOverflowRead.release === 'function'),
+                {message: 'the older projection waits on its overflow read', timeout: 10000}).toBe(true);
+
+            await cold.getByRole('button', {name: 'Reset to default', exact: true}).click();
+
+            await expect(cold.locator(FEED_PANE).first(), 'Reset renders its pane while the older read is still unanswered')
+                .toBeVisible({timeout: 60000});
+
+            // The read is still unanswered: the strip that asked for it is idle again, and once the refresh
+            // settles, its answer arriving late moves no header and writes no cache.
+            const strip = () => probe.evaluate(async () => {
+                const held    = globalThis.__heldOverflowRead,
+                      toolbar = globalThis.Neo.getComponent(held.request[0])?.parent,
+                      plugin  = toolbar?.getPlugin?.('tab-overflow');
+
+                await held.workspace.refreshPromise;
+
+                return {
+                    busy   : Boolean(plugin && (plugin.measuring || plugin.projectQueued)),
+                    hidden : plugin?.appliedHiddenIds ?? null,
+                    headers: (toolbar?.items || []).map(button => [button.id, Boolean(button.hidden), button.maxWidth ?? null]),
+                    widths : plugin?.naturalWidths ?? null
+                }
+            });
+
+            await expect.poll(async () => (await strip()).busy,
+                {message: 'the strip whose read is held is idle again', timeout: 10000}).toBe(false);
+
+            const before = await strip();
+
+            await probe.evaluate(() => globalThis.__heldOverflowRead.release());
+            await cold.waitForTimeout(500);
+
+            expect(await strip(), 'the late answer writes nothing').toEqual(before)
+        } finally {
+            if (probe) {
+                await probe.evaluate(() => globalThis.__heldOverflowRead?.restore?.()).catch(() => {});
+                await probe.close()
+            }
+
             await coldContext.close()
         }
     });

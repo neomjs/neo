@@ -491,6 +491,62 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
         }
     })
 
+    test('the overflow recaptures a projection starts carry its supersession signal, staged and in place', async () => {
+        const
+            model = createSplitModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+            },
+            resolveComponentRef = (_reference, _item, itemId) => panes[itemId],
+            host       = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {resolveComponentRef})]}),
+            plugin     = host.items[0].items.find(item => item.dockNodeId === 'alpha-tabs').getTabBar().getPlugin('tab-overflow'),
+            proto      = Object.getPrototypeOf(plugin),
+            project    = proto.project,
+            controller = new AbortController(),
+            calls      = [],
+            next       = createThreeChildSplitModel(),
+            recaptures = () => calls.filter(call => call.recapture === true);
+
+        proto.project = function (recapture, options) {
+            calls.push({recapture, signal: options?.signal});
+            return project.call(this, recapture, options)
+        };
+
+        try {
+            const staged = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig  : DockLayoutAdapter.project(next, {resolveComponentRef}),
+                placeholders: new Map(),
+                resolveItem : itemId => panes[itemId],
+                signal      : controller.signal
+            });
+
+            expect(staged.landedInPlace).toBe(false);
+            expect(recaptures().length, 'the staged path recaptures its strips').toBeGreaterThan(0);
+            expect(recaptures().every(call => call.signal === controller.signal)).toBe(true);
+
+            calls.length = 0;
+
+            const inPlace = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig    : DockLayoutAdapter.project(next, {resolveComponentRef}),
+                placeholders  : new Map(),
+                resolveItem   : itemId => panes[itemId],
+                retainTopology: true,
+                signal        : controller.signal
+            });
+
+            expect(inPlace.landedInPlace).toBe(true);
+            expect(recaptures().length, 'the in-place path recaptures its strips').toBeGreaterThan(0);
+            expect(recaptures().every(call => call.signal === controller.signal)).toBe(true)
+        } finally {
+            proto.project = project;
+            host.destroy()
+        }
+    })
+
     test('normalizes an absent-item config to the inserted live component exactly once', async () => {
         const
             model = createRootTabsModel(),

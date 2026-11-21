@@ -548,6 +548,16 @@ class Workspace extends Container {
     projectionCycle = null
 
     /**
+     * The running refresh's supersession: {@link #refreshDockWorkspace} binds a fresh one at entry, whichever path
+     * started it, and {@link #projectDockZoneDocument} aborts it before chaining a newer committed document. The
+     * reconciler hands its signal to the overflow recaptures it starts, so a read that never answers cannot hold
+     * the newer projection behind it.
+     * @member {AbortController|null} projectionAbort=null
+     * @protected
+     */
+    projectionAbort = null
+
+    /**
      * @summary The Group-owned native lifecycle; this view contributes effects, not native state.
      * @member {Neo.manager.transaction.NativeLifecycle|null} nativeWindows=null
      * @protected
@@ -2500,6 +2510,10 @@ class Workspace extends Container {
         // commit as the newer one and stands down — a `null` document, the clear, included.
         me.scheduledProjection = {document};
 
+        // The refresh in flight now projects a document this commit replaced: its overflow recaptures stop
+        // waiting on their reads, so this projection never queues behind a read that may not answer.
+        me.projectionAbort?.abort();
+
         me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle));
         return me.refreshPromise
     }
@@ -2677,6 +2691,7 @@ class Workspace extends Container {
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions,
+            projectionAbort    = me.projectionAbort = new AbortController(),
             superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
@@ -2771,6 +2786,7 @@ class Workspace extends Container {
             ),
             retainTopology: forcedRetainTopology ?? retainTopology,
             shellIndex    : me.dockShellIndex,
+            signal        : projectionAbort.signal,
             waitForOverflowProjection
         };
 
@@ -2792,6 +2808,14 @@ class Workspace extends Container {
         // over a shell the committed document does not describe would animate the recovery itself,
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
+
+        // A newer committed document is queued behind this one. Its refresh releases panes and runs the
+        // presentation against the catalog that is current then, so this obsolete catalog cannot retire a
+        // pane the newer document restarts. The landed document still adopts: it is in the host.
+        if (projectionAbort.signal.aborted || superseded()) {
+            cycle?.adopt(result);
+            return
+        }
 
         me.releaseDeclaredPanes(document);
 

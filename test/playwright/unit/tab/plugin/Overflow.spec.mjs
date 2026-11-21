@@ -382,6 +382,97 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
     });
 
+    test('a superseded caller releases a pass whose read never answers: the latch clears and the strip is handed back', async () => {
+        const
+            makeButton = (id, hidden) => ({
+                hidden,
+                id,
+                setSilent(values) { Object.assign(this, values) },
+                show() {
+                    this.hidden = false;
+                    delete this.vdom.removeDom
+                },
+                vdom: hidden ? {removeDom: true} : {}
+            }),
+            buttons    = [makeButton('b1', false), makeButton('b2', true)],
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        plugin.owner.items         = buttons;
+        plugin.owner.promiseUpdate = async () => {};
+        plugin.owner.update        = () => {};
+        plugin.owner.getLayoutRect = () => new Promise(() => {}); // a read that never answers
+        plugin.appliedHiddenIds    = ['b2'];                      // the last committed split withheld b2
+        plugin.naturalWidths       = null;                        // uncached, so the measure restores it
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(plugin.measuring, 'the pass waits on the read').toBe(true);
+        expect(buttons[1].hidden, 'the measure restored the withheld header').toBe(false);
+
+        controller.abort();
+        await pass;
+
+        expect(plugin.measuring, 'the latch clears although the read never answered').toBe(false);
+        expect(buttons[1].hidden, 'the strip is handed back as the last split left it').toBe(true);
+        expect(buttons[1].vdom.removeDom).toBe(true);
+        plugin.destroy()
+    });
+
+    test('a read that answers after its caller was superseded writes no cache and no split', async () => {
+        let answer;
+
+        const
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController(),
+            splits     = [];
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        const cache = plugin.naturalWidths;
+
+        plugin.applySplit          = (...args) => {splits.push(args)};
+        plugin.owner.getLayoutRect = ids => new Promise(resolve => {
+            // A narrow strip and wide headers: applied, this answer would withhold a header
+            answer = () => resolve(ids[0] === 'tab-overflow-test-owner' ? [{width: 5}] : [{width: 100}, {width: 100}])
+        });
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        controller.abort();
+        await pass;
+
+        answer();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(splits, 'the late answer applies no split').toEqual([]);
+        expect(plugin.naturalWidths, 'the late answer writes no cache').toBe(cache);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
+    test('a caller superseded before its recapture starts measures nothing', async () => {
+        const
+            reads      = [],
+            plugin     = createPlugin(async ids => {reads.push(ids); return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]}),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        reads.length = 0;
+        controller.abort();
+        await plugin.project(true, {signal: controller.signal});
+
+        expect(reads, 'no read starts for a superseded caller').toEqual([]);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
     test('the repartition lifecycle is published on the owner as one start/idle pair per transaction — a coalesced rerun keeps it open, a thrown measure still closes it', async () => {
         let release,
             callCount = 0;
