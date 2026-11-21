@@ -417,10 +417,14 @@ function durationOf(durations) {
 /**
  * @summary One shard of a tier's selection, balanced by measured time rather than by test count.
  * @description Playwright's own `--shard` gives each shard the same number of tests, and a test costs anything from
- * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file,
- * longest first, joins the shard with
- * the least time so far: equal times fall to the lower shard and equal files to path order, so every shard of a run
- * computes the same split and every selected file runs in exactly one of them.
+ * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file joins
+ * the shard with the least time so far: equal times fall to the lower shard and equal files to path order, so every
+ * shard of a run computes the same split and every selected file runs in exactly one of them.
+ *
+ * Files the table does not list yet are dealt first, then the measured files longest-first on top. The unlisted ones
+ * all plan at the same fallback ({@link durationOf}'s 90th percentile), so sorted among the measured files they would
+ * land ahead of every file below it and leave the shard holding the longest measured spec the least fallback headroom;
+ * dealt first, K of them split `floor(K/M)..ceil(K/M)` per shard, and the measured load stays spread.
  * @param {Object}   options
  * @param {String[]} options.paths The selection to split, relative to the repository root.
  * @param {String}   options.shard `N/M`, the shard to return.
@@ -433,7 +437,8 @@ export function balancedShard({paths, shard, durations}) {
           seconds        = durationOf(durations),
           shards         = Array.from({length: total}, () => ({paths: [], seconds: 0}));
 
-    for (const path of paths.toSorted((a, b) => seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
+    // Unmeasured files (`!(path in durations)`) sort ahead of measured ones, so the pass deals them first
+    for (const path of paths.toSorted((a, b) => (a in durations) - (b in durations) || seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
         const lightest = shards.reduce((min, candidate) => candidate.seconds < min.seconds ? candidate : min);
 
         lightest.paths.push(path);
