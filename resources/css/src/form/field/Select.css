@@ -10,6 +10,22 @@
         user-select: none;
     }
 
+    /* labelPosition: 'left'. The label's width comes from labelWidth; an error takes the select's column below it */
+    &.label-left {
+        align-items          : center;
+        display              : grid;
+        grid-template-columns: auto minmax(0, 1fr);
+
+        .neo-selectfield-label {
+            margin: 0;
+        }
+
+        .neo-selectfield-input,
+        .neo-selectfield-error {
+            grid-column: 2;
+        }
+    }
+
     .neo-selectfield-input {
         --selectfield-divider-color: var(--selectfield-border-color);
         background-color           : var(--selectfield-background);
