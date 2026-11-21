@@ -1,10 +1,4 @@
 .site-viewport.neo-viewport {
-    --neo-timeline-gridline-step: 68px;
-
-    &.site-is-compact {
-        --neo-timeline-gridline-step: 26px;
-    }
-
     .site-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--site-header-bg);

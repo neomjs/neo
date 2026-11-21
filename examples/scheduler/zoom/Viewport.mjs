@@ -318,8 +318,7 @@ class VenueViewport extends Viewport {
     }
 
     /**
-     * @summary Zooms to the pressed button's level, marks it as the active one, and sets the body's gridlines to the
-     * level's ticks: a day at Week, otherwise two or six hours, which both measure 180px.
+     * @summary Zooms to the pressed button's level and marks it as the active one.
      * @param {Object} data
      * @param {Neo.button.Base} data.component
      */
@@ -327,7 +326,6 @@ class VenueViewport extends Viewport {
         const preset = component.reference.split('-').pop();
 
         LEVELS.forEach(level => this.getReference(`level-${level.preset}`).pressed = level.preset === preset);
-        this.toggleCls('venue-at-week', preset === 'week');
         this.getReference('scheduler').zoomTo(preset)
     }
 }

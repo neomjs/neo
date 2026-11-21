@@ -1,13 +1,5 @@
 /* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
 .venue-viewport.neo-viewport {
-    /* The body's gridlines follow the level's minor ticks: two hours at Hours and six at Days both measure 180px */
-    --neo-timeline-gridline-step: 180px;
-
-    /* A day at Week */
-    &.venue-at-week {
-        --neo-timeline-gridline-step: 216px;
-    }
-
     .venue-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--neo-timeline-header-background);

@@ -801,6 +801,7 @@ class Column extends BaseColumn {
             bars                       = me.getRowBars(record, visibleStart, visibleEnd),
             barNodes                   = bars.map(barDescriptor => me.buildBarVdom(barDescriptor, data)),
             nowOffset                  = timeAxis.getNowOffset(),
+            tickSize                   = timeAxis.getTickSize(),
             cn                         = [...barNodes, ...nonWorkingNodes];
 
         if (nowOffset !== null && nowOffset >= timeAxis.dateToOffset(visibleStart) && nowOffset <= timeAxis.dateToOffset(visibleEnd)) {
@@ -820,6 +821,9 @@ class Column extends BaseColumn {
                 id   : trackId,
                 cls  : ['neo-timeline-track'],
                 style: {
+                    // One gridline per tick: ticks start at the axis' start, as the gradient does. Month ticks
+                    // differ in length, so they keep the theme's step
+                    ...(tickSize ? {'--neo-timeline-gridline-step': `${tickSize}px`} : null),
                     '--neo-timeline-track-x': `${me.parent?.body?.columnPositions?.get(me.dataField)?.x ?? 0}px`,
                     height                  : '100%',
                     position                : 'relative',

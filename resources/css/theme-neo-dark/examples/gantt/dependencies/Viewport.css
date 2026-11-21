@@ -1,0 +1,10 @@
+:where(.neo-theme-neo-dark) {
+    --launch-header-bg : #171e2c;
+    --launch-border    : #38465b;
+    --launch-title     : #f1f5fb;
+    --launch-muted     : #b0bed0;
+    --launch-control   : #253145;
+    --launch-hover     : #34445c;
+    --launch-focus     : #a9c7ff;
+    --launch-legend-bar: #4a5b75;
+}
