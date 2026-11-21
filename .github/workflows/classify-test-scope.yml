@@ -552,6 +552,13 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Materialize the route parser for example CSS selection
+        id: route-parser
+        if: ${{ inputs.select_e2e && github.event_name == 'pull_request' && contains(steps.scope.outputs.e2e_example_css, '/examples/') }}
+        # The selector falls back to the full tier if its locked parser is unavailable.
+        continue-on-error: true
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Select the e2e specs the change reaches
         id: select
         if: ${{ inputs.select_e2e && github.event_name == 'pull_request' && steps.scope.outputs.e2e_files != '' && steps.scope.outputs.e2e_files != '[]' }}

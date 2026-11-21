@@ -94,6 +94,7 @@ function measure(page, band) {
             timelineEdge  : {
                 bottom     : rect(timelineHeader).bottom,
                 borderWidth: parseFloat(timelineStyle.borderBottomWidth),
+                color      : timelineStyle.boxShadow.match(/rgba?\([^)]*\)/)?.[0] ?? null,
                 insetEdge  : hasBottomInset(timelineStyle.boxShadow)
             },
             plainEdges     : plainHeaders.map(button => {
@@ -102,6 +103,7 @@ function measure(page, band) {
                 return {
                     bottom     : rect(button).bottom,
                     borderWidth: parseFloat(style.borderBottomWidth),
+                    color      : style.borderBottomColor,
                     visible    : style.borderBottomStyle === 'solid' && isVisibleColor(style.borderBottomColor)
                 }
             }),
@@ -143,17 +145,22 @@ for (const {family, url, now, band, headerBottom} of CASES) {
             result.plainEdges.forEach(edge => {
                 expect(edge.borderWidth, 'plain/tree header button carries a 1px bottom border').toBe(1);
                 expect(edge.visible, 'plain/tree header button bottom border is coloured').toBe(true);
-                expect(Math.abs(edge.bottom - result.timelineEdge.bottom), 'plain/tree and timeline bottom edges share one y').toBeLessThanOrEqual(0.5)
+                expect(Math.abs(edge.bottom - result.timelineEdge.bottom), 'plain/tree and timeline bottom edges share one y').toBeLessThanOrEqual(0.5);
+                expect(edge.color, 'plain/tree and timeline bottom edges share one colour').toBe(result.timelineEdge.color)
             });
 
-            // Hovering either header item must keep its bottom edge visible at the same y
+            // Hovering either header item must keep its bottom edge visible at the same y, in the same colour
             await page.locator('.neo-timeline-header').hover();
             const hoveredTimeline = await measure(page, null);
             expect(hoveredTimeline.timelineEdge.insetEdge, 'hovering timeline header preserves its bottom inset edge').toBe(true);
+            hoveredTimeline.plainEdges.forEach(edge => expect(hoveredTimeline.timelineEdge.color, 'a hovered timeline header keeps the edge colour').toBe(edge.color));
 
             await page.locator('.neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header)').first().hover();
             const hoveredPlain = await measure(page, null);
-            hoveredPlain.plainEdges.forEach(edge => expect(edge.visible, 'hovering plain/tree header preserves its bottom border').toBe(true));
+            hoveredPlain.plainEdges.forEach(edge => {
+                expect(edge.visible, 'hovering plain/tree header preserves its bottom border').toBe(true);
+                expect(edge.color, 'a hovered plain/tree header keeps the edge colour').toBe(hoveredPlain.timelineEdge.color)
+            });
 
             expect(Math.abs(result.tickDelta), 'a header tick stands where the body draws its offset').toBeLessThanOrEqual(0.5);
             band && expect(Math.abs(result.bandDelta), 'a header band stands over its row band').toBeLessThanOrEqual(0.5);

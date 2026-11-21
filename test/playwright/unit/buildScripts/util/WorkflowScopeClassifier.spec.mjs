@@ -258,8 +258,13 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
               guarded    = classifier.jobs.classify.steps.filter(step => String(step.if).includes('inputs.select_e2e'));
 
         expect(call.inputs.select_e2e).toEqual(expect.objectContaining({type: 'boolean', default: false}));
-        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'select']);
+        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'route-parser', 'select']);
         guarded.forEach(step => expect(String(step.if)).toContain("github.event_name == 'pull_request'"));
+        const parser = guarded.find(step => step.id === 'route-parser');
+
+        expect(parser.if).toContain("contains(steps.scope.outputs.e2e_example_css, '/examples/')");
+        expect(parser.run).toContain('npm ci --ignore-scripts');
+        expect(parser['continue-on-error']).toBe(true);
         expect(guarded.at(-1).env).toEqual({
             E2E_FILES      : '${{ steps.scope.outputs.e2e_files }}',
             E2E_EXAMPLE_CSS: '${{ steps.scope.outputs.e2e_example_css }}'

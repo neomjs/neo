@@ -1,7 +1,8 @@
 /* Neo.timeline.TimeAxisHeader: two-tier horizontal time scale inside Neo.grid.header.Toolbar.
    Renders only viewport-visible major and minor ticks positioned at their exact TimeAxis offsets.
    `overflow: clip` instead of `hidden` keeps the scrolled toolbar the sticky labels' scroll container. */
-/* Draw the header seam inside the header items when a timeline column is present so `.neo-timeline-now` crosses it (#21679). */
+/* Draw the header seam inside the header items when a timeline column is present so `.neo-timeline-now` crosses it (#21679).
+   Every item draws it in the grid's border colour: it stands in for the one line grid/header/Toolbar.css draws elsewhere. */
 .neo-grid-container:has(.neo-timeline-header) .neo-grid-header-toolbar {
     border-bottom: 0;
 
@@ -17,7 +18,7 @@
     border-bottom : 0;
     /* The button's transparent left border would start every tick, band and the now line 1px right of the body */
     border-left   : 0;
-    box-shadow    : inset 0 -1px var(--neo-timeline-border-color);
+    box-shadow    : inset 0 -1px var(--grid-container-border-color);
     box-sizing    : border-box;
     color         : var(--neo-timeline-header-color);
     cursor        : default;
@@ -40,7 +41,7 @@
     &:hover {
         background-color: var(--neo-timeline-header-background);
         border-color    : transparent;
-        box-shadow      : inset 0 -1px var(--neo-timeline-border-color);
+        box-shadow      : inset 0 -1px var(--grid-container-border-color);
 
         &:not(:last-child) {
             border-right-color: var(--grid-header-button-border-right-color);
