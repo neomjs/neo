@@ -700,6 +700,21 @@
       "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
+      "id": "gantt-working-time",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The kitchen renovation with its working calendar active and the five-day plumbing task crossing a shaded weekend.",
+      "ready": [{"selector": ".kitchen-title", "text": "Kitchen renovation"}, {"selector": ".kitchen-bar-hero"}],
+      "steps": [],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-gantt"},
+        {"selector": ".kitchen-mode-pill.is-working", "text": "Working calendar active"},
+        {"selector": ".kitchen-bar-hero", "inRegion": true},
+        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-07\"]", "inRegion": true}
+      ],
+      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
       "id": "board-wip-limits",
       "viewport": {"width": 640, "height": 800},
       "theme": "dark",

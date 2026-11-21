@@ -1107,7 +1107,7 @@
     },
     "/examples/gantt": {
         "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
-        "description": "Explore 4 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
+        "description": "Explore 5 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1834,6 +1834,12 @@
     "/examples/gantt/bigData/index.html": {
         "title": "A project of 2,000 tasks · Neo Gantt — JavaScript UI Demo | Neo.mjs",
         "description": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies. Expand a phase and scroll: the tree, the bars and the links keep...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/gantt/workingTime/index.html": {
+        "title": "Durations in working days · Neo Gantt — JavaScript UI Demo | Neo.mjs",
+        "description": "Tasks that skip weekends and holidays when they compute their end. Switch working days off: every task that crosses a weekend ends earlier, and its...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },

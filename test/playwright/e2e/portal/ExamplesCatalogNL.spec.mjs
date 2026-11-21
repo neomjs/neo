@@ -377,7 +377,7 @@ test.describe('Portal examples section', () => {
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText(headlineOf(published));
 
-        for (const [name, count] of [['Scheduler', 6], ['Gantt', 4], ['Task Board', 5]]) {
+        for (const [name, count] of [['Scheduler', 6], ['Gantt', 5], ['Task Board', 5]]) {
             await expect(page.locator(SIDEBAR).getByRole('link', {
                 name : `${name}, ${count} live examples`,
                 exact: true

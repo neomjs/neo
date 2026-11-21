@@ -2123,6 +2123,22 @@
         "lookFor": "Switch to the wider scale: the bars shrink and every link still meets its tasks."
     },
     {
+        "id": "gantt-working-time",
+        "image": "devmode/gantt-working-time-14.jpg",
+        "name": "Durations in working days",
+        "sourceUrl": "examples/gantt/workingTime",
+        "urls": {
+            "devmode": "examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "lookFor": "Switch working days off: every task that crosses a weekend ends earlier, and its successors move up."
+    },
+    {
         "id": "board-wip-limits",
         "image": "devmode/board-wip-limits-14.jpg",
         "name": "Work-in-progress limits",
