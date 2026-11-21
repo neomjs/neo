@@ -1,8 +1,5 @@
 /* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
 .dp-viewport.neo-viewport {
-    /* One gridline per hour: 60 minutes at the axis' 2.45 px per minute */
-    --neo-timeline-gridline-step: 147px;
-
     .dp-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--neo-timeline-header-background);
