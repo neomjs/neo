@@ -483,3 +483,103 @@ test.describe('Neo.timeline.Column', () => {
         axis.destroy();
     });
 });
+
+test.describe('Neo.timeline.Column bar accessible name', () => {
+    const
+        dayFormat  = {month: 'short', day: 'numeric'},
+        timeFormat = {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'};
+
+    // formatRange() puts thin spaces around its dash, so expected ranges are built with Intl as well
+    function format(locale, options, start, end) {
+        const formatter = new Intl.DateTimeFormat(locale, {...options, timeZone: 'UTC'});
+        return end ? formatter.formatRange(new Date(start), new Date(end)) : formatter.format(new Date(start))
+    }
+
+    function ariaLabel({endDate, locale='en-US', startDate, timeZone='UTC', title}) {
+        const axis = Neo.create(TimeAxis, {
+            timeZone,
+            start      : new Date('2026-11-08T00:00:00Z'),
+            end        : new Date('2026-11-20T00:00:00Z'),
+            pxPerMinute: 0.05,
+            tickUnit   : 'day'
+        });
+
+        const col = Neo.create(TimelineColumn, {
+            appName,
+            locale,
+            timeAxis     : axis,
+            viewportWidth: 1200
+        });
+
+        const cellVdom = col.cellRenderer({
+            record: {id: 'r-1', title, startDate: new Date(startDate), endDate: new Date(endDate)},
+            row   : {id: 'test-row-1'}
+        });
+
+        const bar = cellVdom.cn[0].cn[0];
+
+        col.destroy();
+        axis.destroy();
+
+        return bar['aria-label']
+    }
+
+    test('a bar from midnight to midnight names the days it covers, not the exclusive end', () => {
+        expect(ariaLabel({
+            title    : 'Survey the site',
+            startDate: '2026-11-09T00:00:00Z',
+            endDate  : '2026-11-10T00:00:00Z'
+        })).toBe('Survey the site (Nov 9)');
+
+        expect(ariaLabel({
+            title    : 'Pour the slab',
+            startDate: '2026-11-12T00:00:00Z',
+            endDate  : '2026-11-14T00:00:00Z'
+        })).toBe(`Pour the slab (${format('en-US', dayFormat, '2026-11-12T00:00:00Z', '2026-11-13T00:00:00Z')})`);
+    });
+
+    test('a bar within a day names its date once and reads up to its end time', () => {
+        const label = ariaLabel({
+            title    : 'Live tracking',
+            startDate: '2026-11-10T08:00:00Z',
+            endDate  : '2026-11-10T13:00:00Z'
+        });
+
+        expect(label).toBe(`Live tracking (${format('en-US', timeFormat, '2026-11-10T08:00:00Z', '2026-11-10T13:00:00Z')})`);
+        expect(label).toContain('13:00');
+        expect(label).not.toContain('12:59');
+    });
+
+    test('a bar without length names one date or one moment', () => {
+        expect(ariaLabel({
+            title    : 'Inspection',
+            startDate: '2026-11-16T00:00:00Z',
+            endDate  : '2026-11-16T00:00:00Z'
+        })).toBe('Inspection (Nov 16)');
+
+        expect(ariaLabel({
+            title    : 'Handover',
+            startDate: '2026-11-17T14:00:00Z',
+            endDate  : '2026-11-17T14:00:00Z'
+        })).toBe('Handover (Nov 17, 14:00)');
+    });
+
+    test('the dates follow the column locale', () => {
+        expect(ariaLabel({
+            locale   : 'de-DE',
+            title    : 'Survey the site',
+            startDate: '2026-11-09T00:00:00Z',
+            endDate  : '2026-11-10T00:00:00Z'
+        })).toBe('Survey the site (9. Nov.)');
+    });
+
+    test('the dates are read in the axis zone', () => {
+        // Midnight to midnight on Nov 10 in Auckland (UTC+13)
+        expect(ariaLabel({
+            timeZone : 'Pacific/Auckland',
+            title    : 'Survey the site',
+            startDate: '2026-11-09T11:00:00Z',
+            endDate  : '2026-11-10T11:00:00Z'
+        })).toBe('Survey the site (Nov 10)');
+    });
+});
