@@ -1113,7 +1113,7 @@
     },
     {
       "id": "scheduler-event-editor",
-      "viewport": {"width": 1280, "height": 720},
+      "viewport": {"width": 640, "height": 360},
       "theme": "dark",
       "state": "Crown preparation is open over the day and the form shows the minimum-length refusal.",
       "ready": [
@@ -1130,7 +1130,7 @@
         {"selector": ".neo-timeline-event-editor input[name=\"title\"]", "value": "Crown preparation", "inRegion": true},
         {"selector": ".neo-timeline-event-editor .neo-textfield-error", "text": "at least 30 minutes", "inRegion": true}
       ],
-      "region": {"selector": ".neo-timeline-event-editor", "anchor": "center", "width": 640, "height": 360}
+      "region": "viewport"
     },
     {
       "id": "scheduler-zoom",
@@ -1248,24 +1248,27 @@
     },
     {
       "id": "gantt-task-columns",
-      "viewport": {"width": 1280, "height": 720},
+      "viewport": {"width": 960, "height": 540},
       "theme": "dark",
-      "state": "Owner badges and completion bars sit in the locked table beside the chart.",
+      "state": "The Festival production plan shows named tasks, owner badges and completion bars beside the chart.",
       "ready": [
-        {"selector": ".neo-timeline-bar[data-event-id=\"survey\"]"}
+        {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]"}
       ],
       "steps": [],
       "after": [
         {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".tc-title", "text": "Festival production plan", "inRegion": true},
+        {"selector": ".neo-grid-header-button", "text": "Task", "inRegion": true},
+        {"selector": ".neo-grid-tree-cell", "text": "Shortlist the headliners", "inRegion": true},
         {"selector": ".tc-badge", "text": "ML", "inRegion": true},
         {"selector": ".tc-done-value", "text": "100%", "inRegion": true},
-        {"selector": ".neo-timeline-bar[data-event-id=\"survey\"]"}
+        {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]", "inRegion": true}
       ],
-      "region": {"x": 220, "y": 0, "width": 640, "height": 360}
+      "region": "viewport"
     },
     {
       "id": "board-card-editor",
-      "viewport": {"width": 1280, "height": 720},
+      "viewport": {"width": 800, "height": 450},
       "theme": "dark",
       "state": "Bruno Okafor's card editor is open over the hiring pipeline.",
       "ready": [
@@ -1276,10 +1279,12 @@
       ],
       "after": [
         {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
-        {"selector": ".neo-board-card-editor"},
+        {"selector": ".neo-board-card-editor:not(.animated-hiding-showing):not([style*=\"height:\"])", "inRegion": true},
+        {"selector": ".neo-board-card-editor input[name=\"title\"]", "value": "Bruno Okafor", "inRegion": true},
+        {"selector": ".neo-board-card-editor button", "text": "Save", "inRegion": true},
         {"selector": "[id$=\"__card__c-02\"]", "text": "Bruno Okafor"}
       ],
-      "region": {"selector": ".neo-board-card-editor", "anchor": "center", "width": 640, "height": 360}
+      "region": "viewport"
     },
     {
       "id": "board-multi-select",

@@ -150,13 +150,19 @@ export function validateCaptureRecipes(manifest, catalog) {
             })
         }
         const region = recipe.region;
-        keys(region, region?.selector !== undefined ? ['selector', 'anchor', 'offsetX', 'offsetY', 'width', 'height'] : ['x', 'y', 'width', 'height'], `${field}.region`);
-        insist(region.width === WIDTH && region.height === HEIGHT, `${field}.region`, 'capture region must be640x360 CSS pixels');
-        if (region.selector !== undefined) {
-            text(region.selector, `${field}.region.selector`);
-            insist(['top-left', 'center'].includes(region.anchor), `${field}.region.anchor`, 'expected top-left or center');
-            for (const name of ['offsetX', 'offsetY']) if (region[name] !== undefined) insist(Number.isFinite(region[name]), `${field}.region.${name}`, 'expected a finite number')
-        } else for (const axis of ['x', 'y']) insist(Number.isFinite(region[axis]) && region[axis] >= 0, `${field}.region.${axis}`, 'expected a nonnegative coordinate');
+        if (region === 'viewport') {
+            const {width, height} = recipe.viewport;
+            insist(width >= WIDTH && width <= WIDTH * DPR && width * HEIGHT === height * WIDTH,
+                `${field}.viewport`, 'full viewport requires a 16:9 frame 640 to 1280 CSS pixels wide')
+        } else {
+            keys(region, region?.selector !== undefined ? ['selector', 'anchor', 'offsetX', 'offsetY', 'width', 'height'] : ['x', 'y', 'width', 'height'], `${field}.region`);
+            insist(region.width === WIDTH && region.height === HEIGHT, `${field}.region`, 'capture region must be 640x360 CSS pixels');
+            if (region.selector !== undefined) {
+                text(region.selector, `${field}.region.selector`);
+                insist(['top-left', 'center'].includes(region.anchor), `${field}.region.anchor`, 'expected top-left or center');
+                for (const name of ['offsetX', 'offsetY']) if (region[name] !== undefined) insist(Number.isFinite(region[name]), `${field}.region.${name}`, 'expected a finite number')
+            } else for (const axis of ['x', 'y']) insist(Number.isFinite(region[axis]) && region[axis] >= 0, `${field}.region.${axis}`, 'expected a nonnegative coordinate')
+        }
         return {...structuredClone(recipe), family: record.family, url: record.urls.devmode, name: record.name || record.id}
     });
     for (const record of catalog) if (manifest.families.includes(record.family) && record.kind !== 'component' && record.image && !/^https?:\/\//i.test(record.urls?.devmode || '')) insist(ids.has(record.id), `catalog.${record.id}.image`, 'covered record has no recipe in this family');
@@ -379,8 +385,10 @@ function jpegSize(bytes) {
 async function capture(browser, recipe, manifest, baseUrl, output) {
     const url = new URL(recipe.url, baseUrl);
     insist(url.origin === baseUrl.origin && ['http:', 'https:'].includes(url.protocol), recipe.id, 'canonical devmode URL must resolve on the base origin');
-    const context = await browser.newContext({viewport: recipe.viewport, deviceScaleFactor: DPR, ...(recipe.theme === 'dark' ? {colorScheme: 'dark'} : {})}),
-        row       = {id: recipe.id, name: recipe.name, url: url.href, viewport: recipe.viewport, deviceScaleFactor: DPR, theme: recipe.theme, state: recipe.state, dependencies: recipe.dependencies ?? [], ready: recipe.ready, steps: recipe.steps, after: recipe.after, requestedRegion: recipe.region};
+    const fullViewport      = recipe.region === 'viewport',
+          deviceScaleFactor = fullViewport ? WIDTH * DPR / recipe.viewport.width : DPR,
+          context           = await browser.newContext({viewport: recipe.viewport, deviceScaleFactor, ...(recipe.theme === 'dark' ? {colorScheme: 'dark'} : {})}),
+          row               = {id: recipe.id, name: recipe.name, url: url.href, viewport: recipe.viewport, deviceScaleFactor, theme: recipe.theme, state: recipe.state, dependencies: recipe.dependencies ?? [], ready: recipe.ready, steps: recipe.steps, after: recipe.after, requestedRegion: recipe.region};
     try {
         const page = await context.newPage(), errors = [];
         page.setDefaultTimeout(15000);
@@ -389,15 +397,18 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
         await assertions(page, recipe.ready);
         row.steps = await actions(page, recipe.steps);
         await assertions(page, recipe.after);
-        row.region = await captureRegion(page, recipe.region, recipe.viewport);
+        row.region = fullViewport ? {x: 0, y: 0, ...recipe.viewport} : await captureRegion(page, recipe.region, recipe.viewport);
         await paintReady(page, row.region);
         row.actualDevicePixelRatio = await page.evaluate(() => window.devicePixelRatio);
-        insist(row.actualDevicePixelRatio === DPR, recipe.id, 'unexpected device pixel ratio');
+        insist(Math.abs(row.actualDevicePixelRatio - deviceScaleFactor) < 1e-6, recipe.id, 'unexpected device pixel ratio');
+        // A full screenshot keeps Chromium's backdrop sampling intact around blurred modal masks.
+        const frame = fullViewport ? {} : {clip: row.region};
         for (const quality of QUALITIES) {
             await assertions(page, recipe.after, row.region);
             insist(!errors.length, recipe.id, `page errors: ${errors.join('; ')}`);
-            const bytes = await page.screenshot({type: 'jpeg', quality, clip: row.region, scale: 'device', animations: 'disabled', caret: 'hide'}), size = jpegSize(bytes);
-            insist(size.width === 1280 && size.height === 720, recipe.id, 'JPEG must be1280x720');
+            const bytes = await page.screenshot({type: 'jpeg', quality, ...frame, scale: 'device', animations: 'disabled', caret: 'hide'}),
+                  size  = jpegSize(bytes);
+            insist(size.width === WIDTH * DPR && size.height === HEIGHT * DPR, recipe.id, 'JPEG must be 1280x720');
             if (bytes.length > MAX_BYTES) continue;
             const relative = `devmode/${recipe.id}-${manifest.suffix}.jpg`, file = path.join(output, relative);
             await fs.writeFile(file, bytes, {flag: 'wx'});
