@@ -56,6 +56,13 @@ const MODULE_PATH = /(['"`])((?:\.{1,2}\/|(?:apps|examples|src|test)\/)[^'"`$\s]
 // interpolation, such as `examples/grid/${name}`, which can name any entry beneath it.
 const APP_REFERENCE = /((?:test\/playwright\/component\/)?\b(?:apps|docs|examples)\/[\w-]+(?:\/[\w-]+)*)(\/\$\{)?/g;
 
+// A computed route without an example prefix can visit any example, even when other routes are known.
+const UNBOUNDED_EXAMPLE_REFERENCE = /\bexamples\/\$\{/;
+
+// The theme builder converts these mirrored paths to Neo class namespaces.
+const EXAMPLE_CSS    = /^resources\/css\/(?:src|theme-[^/]+)\/(examples\/.+)\.css$/,
+      RUNTIME_SOURCE = /^(?:apps|docs|examples|src|test\/playwright\/component\/apps)\/.*\.(?:m?js|html)$|^(?:apps|examples)\/.*\/neo-config\.json$/;
+
 /**
  * @summary Every tracked `.mjs` file a module names by path.
  * @param {Object}      options
@@ -100,20 +107,22 @@ export function entryOf(reference, tracked) {
  * @summary Maps every e2e spec to what it can reach in the committed tree.
  *
  * A spec's own closure holds the spec and the `test/playwright/` helpers it reaches through module paths. Every app
- * or example that closure names adds that entry's full closure. A spec that names neither is listed in `unnamed`:
- * the map cannot place it, so no change can rule it out.
+ * or example that closure names adds that entry's full closure. A spec with no known entry or an unbounded example
+ * route is listed in `unnamed`, since its known entries cannot rule out a change.
  * @param {Object} [options]
  * @param {String} [options.root=process.cwd()] The repository root.
- * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, tracked: Set<String>, unnamed: String[]}}
+ * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, tracked: Set<String>, unnamed: String[], exampleCssOwner: Function}}
  */
 export function specReach({root = process.cwd()} = {}) {
-    const files   = execFileSync('git', ['-C', root, 'ls-files'], {encoding: 'utf8'}).trim().split('\n'),
-          tracked = new Set(files),
-          sources = new Map(),
-          text    = file => sources.get(file) ?? sources.set(file, readFileSync(join(root, file), 'utf8')).get(file),
-          edges   = new Map(),
-          edgesOf = file => edges.get(file) ?? edges.set(file, moduleEdges({file, text: text(file), tracked})).get(file),
-          closures = new Map();
+    const files     = execFileSync('git', ['-C', root, 'ls-files'], {encoding: 'utf8'}).trim().split('\n'),
+          tracked   = new Set(files),
+          sources   = new Map(),
+          text      = file => sources.get(file) ?? sources.set(file, readFileSync(join(root, file), 'utf8')).get(file),
+          edges     = new Map(),
+          edgesOf   = file => edges.get(file) ?? edges.set(file, moduleEdges({file, text: text(file), tracked})).get(file),
+          closures  = new Map(),
+          cssOwners = new Map();
+    let hasCssImports;
 
     // Every module an entry reaches, the entry included
     const closureOf = entry => {
@@ -132,11 +141,76 @@ export function specReach({root = process.cwd()} = {}) {
         return closures.get(entry)
     };
 
+    /**
+     * @summary Resolves a tracked stylesheet's sole standalone example using its mirrored, mounted class.
+     * @param {String} file The changed stylesheet path in the merge tree.
+     * @returns {String|null} The owning app entry, when the available source proves ownership.
+     */
+    const exampleCssOwner = file => {
+        const [, stem] = EXAMPLE_CSS.exec(file) || [];
+
+        if (!stem || !tracked.has(file)) {
+            return null
+        }
+
+        if (cssOwners.has(stem)) {
+            return cssOwners.get(stem)
+        }
+
+        const module = `${stem}.mjs`,
+              entry  = entryOf(stem, tracked);
+
+        cssOwners.set(stem, null);
+
+        if (!entry || !tracked.has(module)) {
+            return null
+        }
+
+        try {
+            const namespace = `Neo.${stem.replaceAll('/', '.')}`,
+                  source    = text(module),
+                  names     = [...source.matchAll(/\bclassName\s*:\s*(['"])([^'"\r\n]+)\1/g)];
+
+            if (!source.includes('Neo.setupClass(') || !names.some(([, , name]) => name === namespace) ||
+                !closureOf(entry).has(module)) {
+                return null
+            }
+
+            // An import can apply this sheet through another namespace. Keep that wiring on the full tier.
+            hasCssImports ??= files.some(path => path.startsWith('resources/css/') && path.endsWith('.css') && /@import\b/i.test(text(path)));
+
+            if (hasCssImports) {
+                return null
+            }
+
+            for (const path of files) {
+                if (!RUNTIME_SOURCE.test(path) || entryOf(path, tracked) === entry) {
+                    continue
+                }
+
+                const content = text(path);
+
+                // A foreign import can get the namespace from a helper in the example's entry.
+                if (content.includes(namespace) || content.includes(`${stem}.css`) ||
+                    (path.endsWith('.mjs') && edgesOf(path).some(edge => entryOf(edge, tracked) === entry))) {
+                    return null
+                }
+            }
+
+            cssOwners.set(stem, entry);
+            return entry
+        } catch {
+            // A missing or unreadable source cannot witness local ownership.
+            return null
+        }
+    };
+
     const specs   = new Map(),
           unnamed = [];
 
     for (const spec of files.filter(file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'))) {
-        const own = new Set([spec]), queue = [spec], entries = new Set();
+        const own              = new Set([spec]), queue = [spec], entries = new Set();
+        let   unboundedExample = false;
 
         while (queue.length) {
             for (const next of edgesOf(queue.pop())) {
@@ -145,14 +219,20 @@ export function specReach({root = process.cwd()} = {}) {
         }
 
         for (const file of own) {
-            for (const [, reference, interpolated] of text(file).matchAll(APP_REFERENCE)) {
+            const source = text(file);
+
+            unboundedExample ||= UNBOUNDED_EXAMPLE_REFERENCE.test(source);
+
+            for (const [, reference, interpolated] of source.matchAll(APP_REFERENCE)) {
                 const beneath = interpolated ? files.filter(path => path.startsWith(`${reference}/`) && path.endsWith('/app.mjs')) : [];
 
                 (beneath.length ? beneath : [entryOf(reference, tracked)]).forEach(entry => entry && entries.add(entry))
             }
         }
 
-        entries.size || unnamed.push(spec);
+        if (!entries.size || unboundedExample) {
+            unnamed.push(spec)
+        }
 
         const reach = new Set(own);
 
@@ -163,5 +243,5 @@ export function specReach({root = process.cwd()} = {}) {
         specs.set(spec, {entries: [...entries].sort(), reach})
     }
 
-    return {specs, tracked, unnamed}
+    return {specs, tracked, unnamed, exampleCssOwner}
 }

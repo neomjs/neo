@@ -35,9 +35,10 @@ class DragDrop extends Base {
             eventOpts = {delegate: '.neo-event', scope: me};
 
         me.owner.addDomListeners([
-            {'drag:end'  : me.onEventDragEnd,   ...eventOpts},
-            {'drag:move' : me.onEventDragMove,  ...eventOpts},
-            {'drag:start': me.onEventDragStart, ...eventOpts}
+            {'drag:cancel': me.onEventDragCancel, ...eventOpts},
+            {'drag:end'   : me.onEventDragEnd,    ...eventOpts},
+            {'drag:move'  : me.onEventDragMove,   ...eventOpts},
+            {'drag:start' : me.onEventDragStart,  ...eventOpts}
         ])
     }
 
@@ -46,8 +47,10 @@ class DragDrop extends Base {
      * @param {...*} args
      */
     destroy(...args) {
-        let {owner} = this;
+        let me      = this,
+            {owner} = me;
 
+        owner?.eventDragZone?.un('dragCancel', me.onZoneDragCancel, me);
         owner?.eventDragZone?.destroy();
 
         if (owner) {
@@ -84,12 +87,38 @@ class DragDrop extends Base {
                 owner,
                 windowId,
                 ...config
-            })
+            });
+            eventDragZone.on('dragCancel', me.onZoneDragCancel, me)
         } else {
             eventDragZone.set(config)
         }
 
         return eventDragZone
+    }
+
+    /**
+     * @summary Cancels an active month event drag without mutating `eventRecord`, restoring body cursor classes and resetting `isDragging`.
+     * @param {Object} [data]
+     */
+    onEventDragCancel(data) {
+        let me              = this,
+            {owner}         = me,
+            {eventDragZone} = owner;
+
+        if (me.isDragging) {
+            me.isDragging = false;
+
+            if (eventDragZone && (!data?.dragZoneId || Neo.get(data.dragZoneId) !== eventDragZone)) {
+                eventDragZone.dragEnd({...data, cancelled: true})
+            }
+        }
+    }
+
+    /**
+     * @summary Resets `isDragging` when `EventDragZone#onDragCancel` handles an Escape cancel outside `.neo-event`.
+     */
+    onZoneDragCancel() {
+        this.isDragging = false
     }
 
     /**

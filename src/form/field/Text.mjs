@@ -1268,7 +1268,8 @@ class Text extends Field {
      * What the input's vdom says for an input value. `value` is trimmed, the DOM is not: a space typed at either end
      * is in the input and in the vnode, and a vdom holding the trimmed spelling would make every render write it back
      * over the input, with whatever was typed while that render was on its way. So while the DOM's last report is such
-     * a spelling, the vdom keeps the report. An adjustor's correction or a value set in code is written as before.
+     * a spelling, the vdom keeps the report. A native empty string likewise stays in the vnode when the model uses
+     * null for empty. Explicit value writes and renderer corrections still reach the input.
      * @param {*} value
      * @returns {*}
      * @protected
@@ -1281,7 +1282,9 @@ class Text extends Field {
             return reportedInputValue
         }
 
-        return me.containsFocus ? value : me.inputValueRenderer(value)
+        const renderedValue = me.containsFocus ? value : me.inputValueRenderer(value);
+
+        return value === null && renderedValue === null && reportedInputValue === '' ? '' : renderedValue
     }
 
     /**

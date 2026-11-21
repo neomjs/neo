@@ -300,11 +300,8 @@ class Resizable extends Plugin {
             isDragging           : false
         });
 
-        if (me.ownerOpacity === undefined) {
-            delete style.opacity
-        } else {
-            style.opacity = me.ownerOpacity
-        }
+        // null, not delete: a single-node owner keeps a deleted key's last value (see Neo.component.Base#style_)
+        style.opacity = me.ownerOpacity ?? null;
 
         me.owner[me.styleConfig] = style;
 

@@ -559,6 +559,8 @@ class Overflow extends Plugin {
 
         tabContainer?.un('activeIndexChange', me.onActiveIndexChange, me);
         tabContainer?.un('moveTo',            me.onTabSetChange,      me);
+        me.tabPressSortZone?.un('dragCancel', me.releaseTabPress,     me);
+        me.tabPressSortZone = null;
 
         // The DOM listeners belong here for the same reason and were missed for a different one:
         // `manager.DomEvent` is not `Observable`, so a duplicate produces no console warning, and
@@ -579,12 +581,13 @@ class Overflow extends Plugin {
             tab = {delegate: '.neo-tab-header-button', scope: me};
 
         return [
-            {resize      : me.onResize,          scope: me},
-            {click       : me.releaseTabPress,   ...tab},
-            {'drag:end'  : me.releaseTabPress,   ...tab},
-            {'drag:start': me.onTabDragStart,    ...tab},
-            {mousedown   : me.onTabPointerDown,  ...tab},
-            {mouseleave  : me.onTabPointerLeave, ...tab}
+            {resize       : me.onResize,          scope: me},
+            {click        : me.releaseTabPress,   ...tab},
+            {'drag:cancel': me.releaseTabPress,   ...tab},
+            {'drag:end'   : me.releaseTabPress,   ...tab},
+            {'drag:start' : me.onTabDragStart,    ...tab},
+            {mousedown    : me.onTabPointerDown,  ...tab},
+            {mouseleave   : me.onTabPointerLeave, ...tab}
         ]
     }
 
@@ -1443,11 +1446,22 @@ class Overflow extends Plugin {
     }
 
     /**
-     * The press became a drag: the drag's release ends it, not a leave of its tab.
+     * @summary Marks the active tab press as dragging and binds `sortZone#dragCancel` so Escape or `drag:cancel` releases it.
      * @protected
      */
     onTabDragStart() {
-        this.tabPress && (this.tabPress.dragging = true)
+        let me         = this,
+            {sortZone} = me.owner;
+
+        if (me.tabPress) {
+            me.tabPress.dragging = true;
+
+            if (sortZone && me.tabPressSortZone !== sortZone) {
+                me.tabPressSortZone?.un('dragCancel', me.releaseTabPress, me);
+                me.tabPressSortZone = sortZone;
+                sortZone.on('dragCancel', me.releaseTabPress, me)
+            }
+        }
     }
 
     /**
@@ -1766,6 +1780,8 @@ class Overflow extends Plugin {
         me.resolveProjectionIdle();
         me.sortDragZone?.un('dragEnd', me.onSortDragEnd, me);
         me.sortDragZone           = null;
+        me.tabPressSortZone?.un('dragCancel', me.releaseTabPress, me);
+        me.tabPressSortZone       = null;
         me.menuProjectionQueued   = false;
         me.menuRecaptureQueued    = false;
         me.observedMenuList       = null;

@@ -128,7 +128,8 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
     });
 
     test('a collapsed lane row shows the header with the count, hides its columns, and is excluded from SortZone#columnRects', async () => {
-        const realGetDomRect = Container.prototype.getDomRect;
+        const realGetAttributes = Neo.main.DomAccess.getAttributes,
+              realGetDomRect    = Container.prototype.getDomRect;
 
         try {
             store = createStore();
@@ -163,9 +164,10 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
                 await Promise.resolve()
             }
 
-            Container.prototype.getDomRect = ids => Promise.resolve(ids.map((id, index) => new Rectangle(index * 300, 0, 280, 240)));
-            board.sortZone.dragStart       = async () => {};
-            board.sortZone.dragEnd         = () => {};
+            Container.prototype.getDomRect   = ids => Promise.resolve(ids.map((id, index) => new Rectangle(index * 300, 0, 280, 240)));
+            Neo.main.DomAccess.getAttributes = () => Promise.resolve({scrollTop: 0});
+            board.sortZone.dragStart         = async () => {};
+            board.sortZone.dragEnd           = () => {};
 
             const
                 card = board.getCard('c1'),
@@ -197,7 +199,8 @@ test.describe('Neo.board.LaneRow & Board swimlanes', () => {
             expect(atlas.collapsed).toBe(false);
             expect(beacon.collapsed).toBe(true)
         } finally {
-            Container.prototype.getDomRect = realGetDomRect
+            Neo.main.DomAccess.getAttributes = realGetAttributes;
+            Container.prototype.getDomRect   = realGetDomRect
         }
     });
 

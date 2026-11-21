@@ -519,33 +519,41 @@ export function engineDurations(...runs) {
  *
  * Otherwise the selection is:
  * - each spec whose reach holds a changed file, or whose app fetches it (its data, its `index.html`);
+ * - the executed specs of a stylesheet's verified standalone example;
  * - each changed spec;
  * - the specs the map cannot place, which run with every selection.
  *
  * Only a pull request selects: a `dev` push runs every tier it admits in full.
  * @param {Object}   options
  * @param {String[]} options.changed The changed files the E2E impact boundary admits, relative to the repository root.
+ * @param {String[]} [options.exampleCss=[]] Stylesheets with a verified added or modified PR file record.
  * @param {String}   [options.root=process.cwd()]
  * @param {Object}   [options.map] `specReach()`'s result for `root`, computed when omitted.
  * @returns {{full: Boolean, reasons: String[], specs: Map<String, String>}} Whether the whole population runs and why,
  *          or else each selected spec with its reason.
  */
-export function selectSpecs({changed, root = process.cwd(), map = specReach({root})}) {
-    const reasons = [],
-          specs   = new Map(),
-          isSpec  = file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'),
-          select  = (spec, why) => specs.has(spec) || specs.set(spec, why);
+export function selectSpecs({changed, exampleCss = [], root = process.cwd(), map = specReach({root})}) {
+    const reasons       = [],
+          specs         = new Map(),
+          cssCandidates = new Set(Array.isArray(exampleCss) ? exampleCss : []),
+          executed      = cssCandidates.size ? new Set(enginePaths(root)) : null,
+          isSpec        = file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'),
+          select        = (spec, why) => specs.has(spec) || specs.set(spec, why);
 
     if (changed.length && changed.every(isSpec)) {
         return {full: true, reasons: ['every changed file is an e2e spec'], specs}
     }
 
     for (const file of changed) {
-        const reached = [...map.specs].filter(([, {reach}]) => reach.has(file)).map(([spec]) => spec),
+        const owner      = cssCandidates.has(file) ? map.exampleCssOwner?.(file) : null,
+              ownerSpecs = owner ? [...map.specs].filter(([spec, {entries}]) => executed.has(spec) && entries.includes(owner)) : [],
+              reached    = [...map.specs].filter(([, {reach}]) => reach.has(file)).map(([spec]) => spec),
               // The app that fetches a non-module file of its own, such as its data or its index.html
-              app     = /^(apps|examples)\//.test(file) && !file.endsWith('.mjs') ? entryOf(file.replace(/\.[^/.]+$/, ''), map.tracked) : null;
+              app        = /^(apps|examples)\//.test(file) && !file.endsWith('.mjs') ? entryOf(file.replace(/\.[^/.]+$/, ''), map.tracked) : null;
 
-        if (FOUNDATION.some(rule => rule.test(file))) {
+        if (ownerSpecs.length) {
+            ownerSpecs.forEach(([spec]) => select(spec, `owns example stylesheet ${file}`))
+        } else if (FOUNDATION.some(rule => rule.test(file))) {
             reasons.push(`${file}: foundation`)
         } else if (!map.tracked.has(file)) {
             reasons.push(`${file}: not in the tree`)
@@ -608,11 +616,12 @@ export function tierSelection({specs, root = process.cwd(), durations = {engine:
  * (`run_e2e=false`).
  * @param {Object}   options
  * @param {String[]} options.changed The changed files the E2E impact boundary admits.
+ * @param {String[]} [options.exampleCss] Stylesheets with a verified added or modified PR file record.
  * @param {String}   [options.root=process.cwd()]
  * @returns {String}
  */
-export function selectionOutput({changed, root = process.cwd()}) {
-    const {full, reasons, specs} = selectSpecs({changed, root}),
+export function selectionOutput({changed, exampleCss, root = process.cwd()}) {
+    const {full, reasons, specs} = selectSpecs({changed, exampleCss, root}),
           short                  = path => `\`${path.replace(SPEC_DIR, '')}\``,
           lines                  = [`e2e_selection=${full ? 'full' : 'selected'}`];
 
@@ -672,7 +681,10 @@ if (isEntryModule(import.meta.url)) {
         process.stdout.write(JSON.stringify(engineDurations(...(logs.length ? logs : [0]).map(log => readFileSync(log, 'utf8'))), null, 4) + '\n')
     } else if (mode === '--select') {
         // The changed files the E2E impact boundary admits, as JSON, because a path list is not shell-safe
-        process.stdout.write(selectionOutput({changed: JSON.parse(process.env.E2E_FILES || '[]')}))
+        process.stdout.write(selectionOutput({
+            changed   : JSON.parse(process.env.E2E_FILES || '[]'),
+            exampleCss: JSON.parse(process.env.E2E_EXAMPLE_CSS || '[]')
+        }))
     } else {
         console.error('usage: e2eCiSelection.mjs --coverage-line | --paths | --summary | --engine-paths | --engine-durations [run.log ...] | --select');
         process.exit(2)
