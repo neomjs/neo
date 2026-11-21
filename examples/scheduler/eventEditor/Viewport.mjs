@@ -5,6 +5,7 @@ import Label             from '../../../src/component/Label.mjs';
 import Model             from '../../../src/data/Model.mjs';
 import Scheduler         from '../../../src/scheduler/Container.mjs';
 import Store             from '../../../src/data/Store.mjs';
+import ThemeSwitcher     from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar           from '../../../src/toolbar/Base.mjs';
 import Viewport          from '../../../src/container/Viewport.mjs';
 
@@ -108,6 +109,8 @@ class PracticeViewport extends Viewport {
                 cls      : ['dp-status'],
                 reference: 'status',
                 text     : ''
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module      : Scheduler,
