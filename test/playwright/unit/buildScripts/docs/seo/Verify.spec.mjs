@@ -1,17 +1,21 @@
-import {test, expect} from '@playwright/test';
-import fs             from 'fs-extra';
-import os             from 'os';
-import path           from 'path';
+import {test, expect}  from '@playwright/test';
+import fs              from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
+import {fileURLToPath} from 'url';
 import verifySeoArtifacts, {
     CONTENT_SIGNAL_DIRECTIVE,
     LLMS_TXT_MAX_BYTES,
     extractLocUrls,
     findDisallowedCorpusLessPortalFiles,
     validateLlmsTxtContent,
+    validatePortalIndexJsonLd,
     validateRobotsTxt,
     validateSitemapIndexXml,
     validateUrlsetXml
 } from '../../../../../../buildScripts/docs/seo/verify.mjs';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..');
 
 /**
  * @summary Verifies pre-write cross-artifact validation across `seo.json`, `sitemap*.xml`,
@@ -713,5 +717,50 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
             'apps/portal/llms.txt',
             'apps/portal/sitemap.xml'
         ]);
+    });
+
+    test('validates apps/portal/index.html neo-organism JSON-LD and rejects #/ hash-fragment URLs (#21815)', async () => {
+        const portalHtml = await fs.readFile(path.join(REPO_ROOT, 'apps/portal/index.html'), 'utf-8');
+
+        expect(validatePortalIndexJsonLd(portalHtml)).toEqual([]);
+
+        const scriptMatch = portalHtml.match(
+            /<script\b[^>]*type=["']application\/ld\+json["'][^>]*data-schema-name=["']neo-organism["'][^>]*>([\s\S]*?)<\/script>/i
+        );
+        expect(scriptMatch).not.toBeNull();
+
+        const schemaGraph    = JSON.parse(scriptMatch[1])['@graph'];
+        const neuralLinkNode = schemaGraph.find(node => node['@id'] === 'https://neomjs.com/#neural-link');
+
+        expect(neuralLinkNode?.url).toBe('https://neomjs.com/learn/agentos/NeuralLink');
+
+        expect(validatePortalIndexJsonLd(
+            '<script type="application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script>'
+        )).toEqual([
+            'apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "https://neomjs.com/#/learn/agentos/NeuralLink".'
+        ]);
+
+        expect(validatePortalIndexJsonLd([
+            '<script type = "application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script>',
+            '<script type=application/ld+json>{"url":"https://neomjs.com/#/examples/grid"}</script>'
+        ].join('\n'))).toEqual([
+            'apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "https://neomjs.com/#/learn/agentos/NeuralLink".',
+            'apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "https://neomjs.com/#/examples/grid".'
+        ]);
+
+        expect(validatePortalIndexJsonLd([
+            '<script type="application/json" data-type="application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script>',
+            '<!-- <script type="application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script> -->'
+        ].join('\n'))).toEqual([]);
+
+        expect(validatePortalIndexJsonLd('<script type="application/ld+json">{broken</script>')).toEqual([
+            expect.stringMatching(/^apps\/portal\/index\.html contains invalid application\/ld\+json JSON:/)
+        ]);
+
+        await fs.outputFile(
+            path.join(rootDir, 'apps/portal/index.html'),
+            '<!DOCTYPE html><html><head><script type="application/ld+json">{"url":"https://neomjs.com/#/examples/grid"}</script></head></html>'
+        );
+        await expect(verifySeoArtifacts(buildValidBundle())).rejects.toThrow(/must not contain "#\/" hash-fragment URL/);
     });
 });
