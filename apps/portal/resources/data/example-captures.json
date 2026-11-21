@@ -618,6 +618,126 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "scheduler-drag-and-resize",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The depot’s dispatch day after Stop 1 moves one 15-minute slot. The status line names the new time and van.",
+      "ready": [
+        {"selector": ".depot-status-pill", "text": "Ready"},
+        {"selector": ".neo-timeline-bar[data-event-id=\"stop-1\"]"}
+      ],
+      "steps": [
+        {"kind": "press", "selector": ".neo-timeline-bar[data-event-id=\"stop-1\"]", "key": "ArrowRight"}
+      ],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-scheduler"},
+        {"selector": ".depot-title", "text": "Depot dispatch", "inRegion": true},
+        {"selector": ".depot-status-pill.is-moved", "text": "Moved", "inRegion": true},
+        {"selector": ".depot-status-text", "text": "Stop 1 → Van 1, 07:30 to 08:30", "inRegion": true},
+        {"selector": ".neo-timeline-bar[data-event-id=\"stop-1\"]", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-non-working-time",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The three-week site plan, with both shaded weekends and the holiday in the middle week.",
+      "ready": [
+        {"selector": ".site-title", "text": "Northgate site plan"},
+        {"selector": ".neo-timeline-bar"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-scheduler"},
+        {"selector": ".site-title", "text": "Northgate site plan", "inRegion": true},
+        {"selector": ".site-legend-holiday", "text": "Armistice Day · Wed 11 Nov", "inRegion": true},
+        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-07\"]", "inRegion": true},
+        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-11\"]", "inRegion": true},
+        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-14\"]", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "scheduler-bar-renderer",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The press schedule with the three job states, their legend, and progress and status drawn inside the bars.",
+      "ready": [
+        {"selector": ".print-legend-bar"},
+        {"selector": ".neo-timeline-bar[data-event-id=\"job-1\"]"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-scheduler"},
+        {"selector": ".print-legend-pill.is-on-time", "text": "✓ On time", "inRegion": true},
+        {"selector": ".print-legend-pill.is-at-risk", "text": "◆ At risk", "inRegion": true},
+        {"selector": ".print-legend-pill.is-late", "text": "▲ Late", "inRegion": true},
+        {"selector": "[data-event-id=\"job-1\"] .print-bar-late-flag", "inRegion": true},
+        {"selector": "[data-event-id=\"job-6\"] .print-bar-ok-mark", "inRegion": true},
+        {"selector": "[data-event-id=\"job-11\"] .print-bar-risk-flag", "inRegion": true}
+      ],
+      "region": {"selector": ".print-legend-bar", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "gantt-zoom",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The house build in Month view, with the first schedule links and March’s weekly ticks.",
+      "ready": [
+        {"selector": ".zoom-level", "text": "Month"},
+        {"selector": ".neo-gantt-dependency-arrow"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".zoom-level", "text": "Month"}
+      ],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-gantt"},
+        {"selector": ".zoom-level[aria-pressed=\"true\"]", "text": "Month"},
+        {"selector": ".neo-timeline-tick-major .neo-timeline-tick-label", "text": "March 2027", "inRegion": true},
+        {"selector": ".neo-gantt-dependency-arrow", "inRegion": true}
+      ],
+      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
+    },
+    {
+      "id": "board-wip-limits",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The repair workshop with the bench over its limit at 4/3 and Testing at its limit.",
+      "ready": [
+        {"selector": ".workshop-title", "text": "Precision repair workshop"},
+        {"selector": ".neo-board-column-wip-exceeded .workshop-wip-over-banner", "text": "Over limit by 1"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-board"},
+        {"selector": ".workshop-title", "text": "Precision repair workshop", "inRegion": true},
+        {"selector": ".neo-board-column-wip-exceeded .neo-board-column-count", "text": "4/3", "inRegion": true},
+        {"selector": ".neo-board-column-wip-exceeded .workshop-wip-over-banner", "text": "Over limit by 1", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
+      "id": "board-card-designs",
+      "viewport": {"width": 640, "height": 800},
+      "theme": "dark",
+      "state": "The editorial board in Detailed mode, with the article’s standfirst, tags, progress and avatars visible.",
+      "ready": [
+        {"selector": ".editorial-seg-btn[aria-pressed=\"true\"]", "text": "Detailed"},
+        {"selector": ".neo-board-card-title", "text": "North Sea tidal batteries"}
+      ],
+      "steps": [],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .neo-board"},
+        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-title", "text": "North Sea tidal batteries", "inRegion": true},
+        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-text", "text": "Wilhelmshaven", "inRegion": true},
+        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-tag", "count": 2, "inRegion": true},
+        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-progress", "inRegion": true},
+        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-avatar", "text": "ML", "inRegion": true}
+      ],
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+    },
+    {
       "id": "dock-layouts",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",

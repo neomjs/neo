@@ -138,9 +138,14 @@ test.describe('Portal examples overview and group pages', () => {
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
-        expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data', 'meridian-observatory']);
-        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data', 'meridian-observatory']);
-        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes', 'meridian-observatory']);
+        expect(pageIds(view, 'scheduler')).toEqual([
+            'scheduler-basic', 'scheduler-big-data', 'scheduler-drag-and-resize', 'scheduler-non-working-time',
+            'scheduler-bar-renderer', 'meridian-observatory'
+        ]);
+        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data', 'gantt-zoom', 'meridian-observatory']);
+        expect(pageIds(view, 'board')).toEqual([
+            'board-basic', 'board-swimlanes', 'board-wip-limits', 'board-card-designs', 'meridian-observatory'
+        ]);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
         expect(pageIds(view, 'functional')).toEqual(['live-preview', 'email']);
         expect(tileIds(view, 'functional')).toEqual(['functional-define-component', 'functional-host-component', 'functional-nested-template']);
@@ -717,9 +722,9 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           lists         : [12, 0],
           charts        : [5, 1],
           calendar      : [1, 0],
-          scheduler     : [3, 0],
-          gantt         : [2, 1],
-          board         : [2, 1],
+          scheduler     : [6, 0],
+          gantt         : [3, 1],
+          board         : [4, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
           layouts       : [3, 0],
@@ -733,7 +738,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 127,
+      recordCount    = 133,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1001,7 +1006,9 @@ test.describe('Portal examples canonical catalog', () => {
         const {store}     = createList(),
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
-                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'meridian-observatory', 'timeline-basic',
+                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data',
+                  'scheduler-drag-and-resize', 'scheduler-non-working-time', 'scheduler-bar-renderer',
+                  'gantt-zoom', 'board-wip-limits', 'board-card-designs', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {

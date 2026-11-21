@@ -2059,6 +2059,102 @@
         ]
     },
     {
+        "id": "scheduler-drag-and-resize",
+        "image": "devmode/scheduler-drag-and-resize-14.jpg",
+        "name": "Re-plan a day by drag",
+        "sourceUrl": "examples/scheduler/dragAndResize",
+        "urls": {
+            "devmode": "examples/scheduler/dragAndResize/index.html",
+            "dist_dev": "dist/development/examples/scheduler/dragAndResize/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/dragAndResize/index.html",
+            "dist_prod": "dist/production/examples/scheduler/dragAndResize/index.html"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "lookFor": "Drag a stop onto another van, then pull its right edge: it lands on the 15-minute grid. Switch the grid to 30 minutes and try again."
+    },
+    {
+        "id": "scheduler-non-working-time",
+        "image": "devmode/scheduler-non-working-time-14.jpg",
+        "name": "Weekends and holidays in the plan",
+        "sourceUrl": "examples/scheduler/nonWorkingTime",
+        "urls": {
+            "devmode": "examples/scheduler/nonWorkingTime/index.html",
+            "dist_dev": "dist/development/examples/scheduler/nonWorkingTime/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/nonWorkingTime/index.html",
+            "dist_prod": "dist/production/examples/scheduler/nonWorkingTime/index.html"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "lookFor": "Switch the working week to Sunday to Thursday: the shaded days move. Find the holiday in the second week."
+    },
+    {
+        "id": "scheduler-bar-renderer",
+        "image": "devmode/scheduler-bar-renderer-14.jpg",
+        "name": "Bars that say more",
+        "sourceUrl": "examples/scheduler/barRenderer",
+        "urls": {
+            "devmode": "examples/scheduler/barRenderer/index.html",
+            "dist_dev": "dist/development/examples/scheduler/barRenderer/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/barRenderer/index.html",
+            "dist_prod": "dist/production/examples/scheduler/barRenderer/index.html"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "lookFor": "Find the late jobs by colour and glyph. Switch to plain bars and back to see what the renderer adds."
+    },
+    {
+        "id": "gantt-zoom",
+        "image": "devmode/gantt-zoom-14.jpg",
+        "name": "Zoom a plan in and out",
+        "sourceUrl": "examples/gantt/zoom",
+        "urls": {
+            "devmode": "examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "lookFor": "Switch to the wider scale: the bars shrink and every link still meets its tasks."
+    },
+    {
+        "id": "board-wip-limits",
+        "image": "devmode/board-wip-limits-14.jpg",
+        "name": "Work-in-progress limits",
+        "sourceUrl": "examples/board/wipLimits",
+        "urls": {
+            "devmode": "examples/board/wipLimits/index.html",
+            "dist_dev": "dist/development/examples/board/wipLimits/index.html",
+            "dist_esm": "dist/esm/examples/board/wipLimits/index.html",
+            "dist_prod": "dist/production/examples/board/wipLimits/index.html"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Columns with a limit: the header counts against it, and an overloaded stage stands out",
+        "lookFor": "The bench is over its limit of 3. Move a repair on to Testing: the bench recovers, and Testing goes over."
+    },
+    {
+        "id": "board-card-designs",
+        "image": "devmode/board-card-designs-14.jpg",
+        "name": "Card designs",
+        "sourceUrl": "examples/board/cardDesigns",
+        "urls": {
+            "devmode": "examples/board/cardDesigns/index.html",
+            "dist_dev": "dist/development/examples/board/cardDesigns/index.html",
+            "dist_esm": "dist/esm/examples/board/cardDesigns/index.html",
+            "dist_prod": "dist/production/examples/board/cardDesigns/index.html"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "The same articles as compact, standard and detailed cards, built from five card items",
+        "lookFor": "Switch between the three designs: the cards re-draw in place and keep their columns."
+    },
+    {
         "id": "meridian-observatory",
         "name": "Meridian Observatory",
         "family": "scheduler",
