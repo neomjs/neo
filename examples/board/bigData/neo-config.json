@@ -1,0 +1,9 @@
+{
+    "appPath"         : "examples/board/bigData/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "ResizeObserver", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-light", "neo-theme-neo-dark", "neo-theme-light", "neo-theme-dark", "neo-theme-cyberpunk"],
+    "useAiClient"     : true
+}
