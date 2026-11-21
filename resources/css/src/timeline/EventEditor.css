@@ -25,6 +25,19 @@
     .neo-timeline-event-editor-datetime {
         gap          : 8px;
         margin-bottom: 0;
+        overflow     : visible;
+        position     : relative;
+
+        /* A bound's message spans the row, in the space below it: one line, and Save stays where it was */
+        .neo-textfield-error-wrapper {position: static;}
+
+        /* Up into the fields' 5px bottom margin: nearer its own row than the next */
+        .neo-textfield-error.neo-absolute {
+            left      : 0;
+            margin-top: -3px;
+            right     : 0;
+            top       : 100%;
+        }
     }
 
     /* Narrower than the editor's own width, as on a phone: the time moves below its date */

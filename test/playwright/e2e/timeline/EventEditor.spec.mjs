@@ -66,26 +66,39 @@ for (const [name, url] of examples) {
             await expect(editor.getByRole('button', {name: 'maximize'})).toHaveCount(0)
         });
 
-        test('keeps a refused End in its row, with the message beneath and every row in view', async ({page}) => {
-            const editor  = await openEditor(page, url, 1440, 900),
-                  endDate = editor.locator('input[name="endDate"]'),
-                  start   = await editor.locator('input[name="startDate"]').inputValue(),
-                  earlier = new Date(`${start}T00:00:00Z`);
+        test('keeps a refused End in its row, its message on one line beneath it and Save in place', async ({page}) => {
+            const editor   = await openEditor(page, url, 1440, 900),
+                  endDate  = editor.locator('input[name="endDate"]'),
+                  progress = editor.locator('input[name="percentDone"]'),
+                  save     = editor.locator('.neo-timeline-event-editor-save'),
+                  saveBox  = await save.boundingBox(),
+                  start    = await editor.locator('input[name="startDate"]').inputValue(),
+                  earlier  = new Date(`${start}T00:00:00Z`);
 
             earlier.setUTCDate(earlier.getUTCDate() - 2);
             await endDate.fill(earlier.toISOString().slice(0, 10));
             await endDate.press('Tab');
-            await editor.locator('.neo-timeline-event-editor-save').click();
+            await save.click();
 
             const message = editor.getByText('End date must not precede start date');
 
             await expect(message).toBeVisible();
 
-            for (const node of [editor.getByText('End', {exact: true}), endDate, editor.locator('input[name="percentDone"]')]) {
+            for (const node of [editor.getByText('End', {exact: true}), endDate, progress, message]) {
                 expect(await isPainted(node)).toBe(true)
             }
 
-            expect((await message.boundingBox()).y).toBeGreaterThan((await endDate.boundingBox()).y)
+            const box   = await message.boundingBox(),
+                  lines = await message.evaluate(node => {
+                      const {fontSize, lineHeight} = getComputedStyle(node);
+
+                      return Math.round(node.offsetHeight / (lineHeight === 'normal' ? parseFloat(fontSize) * 1.2 : parseFloat(lineHeight)))
+                  });
+
+            expect(box.y).toBeGreaterThan((await endDate.boundingBox()).y);
+            expect(lines, 'the message reads on one line').toBe(1);
+            expect(box.y + box.height, 'the message clears the Progress input').toBeLessThanOrEqual((await progress.boundingBox()).y);
+            expect((await save.boundingBox()).y, 'Save stays where it was').toBeCloseTo(saveBox.y, 1)
         });
 
         test('keeps every field inside the dialog and the viewport at 390 × 844', async ({page}) => {
