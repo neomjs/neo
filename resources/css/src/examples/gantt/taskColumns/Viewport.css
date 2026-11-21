@@ -1,4 +1,7 @@
 .task-columns-viewport.neo-viewport {
+    /* One gridline a day (0.02 px a minute), set on the track: the themed grid view resets it to 120 px */
+    .neo-timeline-track { --neo-timeline-gridline-step: 28.8px; }
+
     .tc-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--tc-header-bg);
