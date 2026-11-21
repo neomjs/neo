@@ -336,6 +336,7 @@ class List extends BaseList {
      * @protected
      */
     afterSetZIndex(value, oldValue) {
+        // Skip the initial null so style stays untouched and .neo-floating governs; a later null clears a prior override
         if (value !== null || oldValue !== undefined) {
             this.style = {...this.style, zIndex: value};
 
@@ -961,6 +962,7 @@ class List extends BaseList {
                 ...me.getSubMenuData(record),
                 isRoot         : false,
                 parentComponent: me,
+                // Floating roots keep submenus in their own portal; inline roots escape their host container to body
                 parentId       : me.floating ? me.parentId : 'document.body',
                 parentIndex    : store.indexOf(record),
                 parentMenu     : me,
