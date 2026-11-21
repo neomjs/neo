@@ -7,20 +7,28 @@
  * This consolidation streamlines the release process and prevents manual errors.
  */
 
-import fs                          from 'fs-extra';
-import os                          from 'os';
-import path                        from 'path';
-import createLabelIndex            from '../docs/index/labels.mjs';
-import createReleaseIndex          from '../docs/index/release.mjs';
-import {getSeoJson}                from '../docs/seo/seoJson.mjs';
-import {getEngineReleaseNotesRoot} from '../util/contentRoot.mjs';
+import fs                                                           from 'fs-extra';
+import os                                                           from 'os';
+import path                                                         from 'path';
+import createLabelIndex                                             from '../docs/index/labels.mjs';
+import createReleaseIndex                                           from '../docs/index/release.mjs';
+import {extractFrontmatterDateOnly, getChangedGitPaths, getGitPath} from '../docs/seo/gitLastmod.mjs';
+import {getSeoJson}                                                 from '../docs/seo/seoJson.mjs';
+import {getEngineReleaseNotesRoot}                                  from '../util/contentRoot.mjs';
+import {stampReleaseSeoSources}                                     from './releaseNoteFrontmatter.mjs';
 
 const
-    root        = path.resolve(),
-    requireJson = path => JSON.parse(fs.readFileSync((path))),
-    packageJson = requireJson(path.join(root, 'package.json')),
-    insideNeo   = packageJson.name.includes('neo.mjs'),
-    programName = `${packageJson.name} prepare-release`;
+    root             = path.resolve(),
+    requireJson      = path => JSON.parse(fs.readFileSync((path))),
+    packageJson      = requireJson(path.join(root, 'package.json')),
+    insideNeo        = packageJson.name.includes('neo.mjs'),
+    programName      = `${packageJson.name} prepare-release`,
+    releaseNotesRoot = getEngineReleaseNotesRoot(root),
+    releaseNotePath  = insideNeo && process.argv.includes('--release') ? path.join(releaseNotesRoot, `v${packageJson.version}.md`) : null,
+    releaseNote      = releaseNotePath ? fs.readFileSync(releaseNotePath, 'utf8') : null,
+    releaseDate      = releaseNote && extractFrontmatterDateOnly(releaseNote, ['publishedAt']);
+
+if (releaseNotePath && !releaseDate) throw new Error(`Missing publishedAt in ${releaseNotePath}`);
 
 let startDate     = new Date(),
     configPath    = path.join(root, 'src/DefaultConfig.mjs'),
@@ -88,8 +96,8 @@ if (insideNeo) {
     // This ensures the structured data reflects the latest publication date.
     const indexPath = path.join(root, 'apps/portal/index.html');
     if (fs.existsSync(indexPath)) {
-        let indexContent = fs.readFileSync(indexPath, 'utf-8');
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD format
+        let   indexContent = fs.readFileSync(indexPath, 'utf-8');
+        const today        = releaseDate || new Date().toISOString().slice(0, 10);
         indexContent = indexContent.replace(/"datePublished": "\d{4}-\d{2}-\d{2}"/, `"datePublished": "${today}"`);
         fs.writeFileSync(indexPath, indexContent);
         console.log('Updated apps/portal/index.html datePublished');
@@ -108,13 +116,22 @@ if (insideNeo) {
 
 // The conversation indexes, sitemap.xml and llms.txt read the corpus, which the engine does not hold: a build that
 // declares one rebuilds them (`rebuildContentIndexesAndSeo.mjs --corpus-root`).
-const releaseNotesRoot = getEngineReleaseNotesRoot(root);
 await createReleaseIndex({releaseNotesRoot});
 await createLabelIndex();
 
 if (insideNeo) {
     const seoJsonPath = path.join(root, 'apps/portal/resources/data/seo.json');
-    const seoJson     = await getSeoJson({releaseNotesRoot, root, seoJsonPath});
+
+    if (releaseNotePath) {
+        const notePath = getGitPath(releaseNotePath, root),
+              seoPath  = getGitPath(seoJsonPath, root),
+              sources  = [...getChangedGitPaths(root, true)].filter(file => file !== seoPath &&
+                  /^(apps|examples|learn)\//.test(file) && fs.existsSync(path.resolve(root, file)));
+
+        fs.writeFileSync(releaseNotePath, stampReleaseSeoSources(releaseNote, [notePath, ...sources]));
+    }
+
+    const seoJson = await getSeoJson({pendingReleaseNote: releaseNotePath, releaseNotesRoot, root, seoJsonPath});
 
     fs.writeFileSync(seoJsonPath, `${JSON.stringify(seoJson, null, 4)}\n`);
     console.log('Updated apps/portal/resources/data/seo.json');

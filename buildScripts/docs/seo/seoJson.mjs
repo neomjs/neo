@@ -1,8 +1,9 @@
-import * as acorn from 'acorn';
-import fg         from 'fast-glob';
-import fs         from 'fs-extra';
-import path       from 'path';
-import semver     from 'semver';
+import * as acorn            from 'acorn';
+import fg                    from 'fast-glob';
+import fs                    from 'fs-extra';
+import path                  from 'path';
+import semver                from 'semver';
+import {readReleaseSeoStamp} from '../../release/releaseNoteFrontmatter.mjs';
 import {
     FRONTMATTER_BLOCK_PATTERN, chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths,
     getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory,
@@ -809,6 +810,7 @@ export async function resolveLearnTreeLeaves(options={}) {
  * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: (String|null), title: String, route: String, iconCls: (String|undefined)}>} [options.familyDefinitions]
  * @param {String} [options.learnDir]
+ * @param {String} [options.pendingReleaseNote] Stamped note whose sources are about to be committed.
  * @param {String} [options.releaseNotesRoot]
  * @param {String} [options.releasesPath]
  * @param {String} [options.root=ROOT_DIR]
@@ -826,6 +828,7 @@ export async function getSeoJson(options={}) {
         examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
         examplesMainContainerPath,
         familyDefinitions,
+        pendingReleaseNote,
         releasesPath             = path.resolve(root, 'apps/portal/resources/data/releases.json'),
         releaseNotesRoot         = path.resolve(root, '.github/RELEASE_NOTES'),
         seoJsonPath              = path.resolve(root, 'apps/portal/resources/data/seo.json')
@@ -835,10 +838,20 @@ export async function getSeoJson(options={}) {
     const cleanBase          = normalizedBase.endsWith('/') ? normalizedBase.slice(0, -1) : normalizedBase;
     const gitHistoryReliable = hasReliableGitHistory(root);
     const gitDateMap         = gitHistoryReliable
-        ? getGitLastmodDateMap(['learn', 'apps', 'examples', learnDir, releaseNotesRoot], root)
+        ? getGitLastmodDateMap(['learn', 'apps', 'examples', learnDir, releaseNotesRoot], root, releaseNotesRoot)
         : new Map();
     const seo         = {};
     let   existingSeo = {};
+
+    if (pendingReleaseNote) {
+        const stamp = readReleaseSeoStamp(await fs.readFile(pendingReleaseNote, 'utf8'));
+        if (!stamp) throw new Error(`Missing SEO source dates in ${pendingReleaseNote}`);
+
+        stamp.paths.forEach(file => gitDateMap.set(file, stamp.date))
+    }
+
+    // The Portal directory can be a family source. A generated catalog should not date its own route.
+    gitDateMap.delete(getGitPath(seoJsonPath, root));
 
     /**
      * @param {String} route
@@ -861,10 +874,11 @@ export async function getSeoJson(options={}) {
      * @returns {String|null}
      */
     function resolveRouteLastmod(route, candidatePaths=[], fallbackDate=null) {
+        const sourceDate = lookupNewestGitDate(gitDateMap, candidatePaths, root);
+        if (sourceDate) return sourceDate;
+
         if (gitHistoryReliable) {
-            return lookupNewestGitDate(gitDateMap, candidatePaths, root) ||
-                normalizeIsoDateOnly(fallbackDate) ||
-                getExistingRouteLastmod(route);
+            return normalizeIsoDateOnly(fallbackDate) || getExistingRouteLastmod(route);
         }
 
         return getExistingRouteLastmod(route) || normalizeIsoDateOnly(fallbackDate);

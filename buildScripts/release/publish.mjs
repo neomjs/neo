@@ -264,7 +264,7 @@ function prepare(ticket, bodyFile) {
         // The release index dates a release by its note's frontmatter, so the note is stamped before prepare rebuilds it
         fs.writeFileSync(releaseNotePath, stampReleaseNote(fs.readFileSync(releaseNotePath, 'utf-8'), {publishedAt: new Date(), version: newVersion}));
 
-        runCommand('node buildScripts/release/prepare.mjs', 'Failed to run prepare.mjs');
+        runCommand('node buildScripts/release/prepare.mjs --release', 'Failed to run prepare.mjs');
         runCommand('npm run build-all', 'Failed to run npm run build-all');
 
         // Release commits bypass the husky pre-commit battery (--no-verify): they are machine-generated artifact
