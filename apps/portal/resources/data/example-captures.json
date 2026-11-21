@@ -150,13 +150,16 @@
     {
       "id": "grid-export",
       "viewport": {"width": 760, "height": 580},
-      "theme": "default",
-      "state": "The CSV pane open beside the invoices, with the formula-like customer of INV-1004 escaped.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}],
+      "theme": "dark",
+      "state": "Dark-theme invoices with the CSV pane open beside them, the formula-like customer of INV-1004 escaped.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}, {"selector": ".neo-button", "text": "Dark theme"}],
       "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "click", "selector": ".export-controls .neo-button", "text": "Show CSV"}
       ],
       "after": [
+        {"selector": ".neo-viewport.neo-theme-neo-dark"},
         {"selector": ".export-pane-text", "text": "INV-1004,'=SUM(B2:B9) Holdings"},
         {"selector": ".neo-grid-cell[data-field='customer']", "text": "=SUM(B2:B9) Holdings", "inRegion": true}
       ],
@@ -182,15 +185,19 @@
     {
       "id": "grid-locked-columns",
       "viewport": {"width":640,"height":360},
-      "theme": "default",
-      "state": "The centre scrolled to the plan's second year while product, region and total stay pinned.",
+      "theme": "dark",
+      "state": "Dark-theme plan with the centre scrolled to its second year while product, region and total stay pinned.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"}
+        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"},
+        {"selector":".neo-button","text":"Dark theme"}
       ],
       "steps": [
+        {"kind":"click","selector":".neo-button","text":"Dark theme"},
+        {"kind":"wait","selector":".neo-button","text":"Light theme"},
         {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":1280,"y":0}
       ],
       "after": [
+        {"selector":".neo-viewport.neo-theme-neo-dark"},
         {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk","inRegion":true},
         {"selector":".neo-grid-cell[data-field='m16']","inRegion":true},
         {"selector":".neo-grid-cell[data-field='total']","inRegion":true}
@@ -947,11 +954,14 @@
     {
       "id": "list-reorder",
       "viewport": {"width": 1280, "height": 720},
-      "theme": "default",
-      "state": "The release checklist beside the wall of portraits, every item numbered by its place.",
-      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}],
-      "steps": [],
-      "after": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
+      "theme": "dark",
+      "state": "Dark-theme release checklist beside the wall of portraits, every item numbered by its place.",
+      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}, {"selector": ".neo-theme-switcher"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-theme-switcher"},
+        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"}
+      ],
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
@@ -977,16 +987,19 @@
     {
       "id": "sparklines",
       "viewport": {"width": 960, "height": 540},
-      "theme": "default",
-      "state": "The six metric cards at their opening readings, the feed stopped, the pulse and the smooth updates off.",
-      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}],
+      "theme": "dark",
+      "state": "The six metric cards on the dark theme at their opening readings, the feed stopped, the pulse and the smooth updates off.",
+      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}, {"selector": ".neo-theme-switcher"}],
       "steps": [
+        {"kind": "click", "selector": ".neo-theme-switcher"},
+        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
         {"kind": "click", "selector": ".neo-button", "text": "Restart"}
       ],
       "after": [
+        {"selector": ".neo-viewport.neo-theme-neo-dark"},
         {"selector": ".neo-examples-sparkline-value", "text": "1,354 req/s"},
         {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}
       ],
@@ -995,11 +1008,15 @@
     {
       "id": "mermaid",
       "viewport": {"width": 1120, "height": 443},
-      "theme": "default",
-      "state": "The sequence preset as Mermaid draws it from its source, fitted to the diagram's box.",
-      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}],
-      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sequence"}],
-      "after": [{"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
+      "theme": "dark",
+      "state": "The sequence preset as Mermaid draws it from its source in its dark theme, fitted to the diagram's box.",
+      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}, {"selector": ".neo-theme-switcher"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-theme-switcher"},
+        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"},
+        {"kind": "click", "selector": ".neo-button", "text": "Sequence"}
+      ],
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
       "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
     },
     {
@@ -1347,14 +1364,16 @@
     {
       "id": "live-preview",
       "viewport": {"width": 672, "height": 523},
-      "theme": "default",
-      "state": "The Source tab as the page opens in neo-light, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
-      "ready": [{"selector": ".view-lines", "text": "defineComponent"}],
+      "theme": "dark",
+      "state": "The Source tab on the dark theme, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
+      "ready": [{"selector": ".view-lines", "text": "defineComponent"}, {"selector": ".neo-button", "text": "Dark theme"}],
       "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.vertical.invisible.fade"},
         {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.horizontal.invisible.fade"}
       ],
-      "after": [{"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
       "region": {"selector": ".neo-code-live-preview", "anchor": "top-left", "offsetX": 0, "offsetY": 0, "width": 640, "height": 360}
     }
   ]
