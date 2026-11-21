@@ -26,8 +26,9 @@
     --neo-board-card-background        : #1c2432;
     --neo-board-card-border-color      : #2b3545;
     --neo-board-card-hover-border-color: #3b4a60;
-    --neo-board-card-selected-background  : #1e3346;
-    --neo-board-card-selected-border-color: #5eead4;
+    --neo-board-card-selected-background      : #1e3346;
+    --neo-board-card-selected-hover-background: #27465e;
+    --neo-board-card-selected-border-color    : #5eead4;
     --neo-board-card-color             : #e3e8f0;
     --neo-board-card-muted-color       : #8b97a8;
     --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.35);

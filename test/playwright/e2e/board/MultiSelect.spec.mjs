@@ -126,6 +126,67 @@ test.describe('Board, multi-select example: select many reports, move them in on
         expect(errors).toEqual([])
     });
 
+    test('colored cards retain their left accent across rest, hover, selection and selected-hover; uncolored cards follow all four borders across all five themes', async ({page}) => {
+        const readPaint = locator => locator.evaluate(node => {
+            const style = getComputedStyle(node);
+            return {
+                backgroundColor: style.backgroundColor,
+                borderLeftColor: style.borderLeftColor,
+                borderTopColor : style.borderTopColor
+            }
+        });
+
+        for (const theme of THEMES) {
+            const {card, errors, line} = await open(page, theme),
+                  s1Accent             = 'rgb(229, 72, 77)';
+
+            // Move pointer away from cards before reading rest styles
+            await page.mouse.move(10, 10);
+
+            const coloredRest   = await readPaint(card(1043)),
+                  uncoloredRest = await readPaint(card(1046));
+
+            expect(coloredRest.borderLeftColor, `${theme}: S1 card left stripe at rest`).toBe(s1Accent);
+            expect(uncoloredRest.borderLeftColor, `${theme}: S4 uncolored card left matches top at rest`).toBe(uncoloredRest.borderTopColor);
+
+            // Hover unselected colored (1043) and uncolored (1046) cards
+            await card(1043).hover();
+            const coloredHover = await readPaint(card(1043));
+            expect(coloredHover.borderLeftColor, `${theme}: S1 card retains left stripe on :hover`).toBe(s1Accent);
+            expect(coloredHover.borderTopColor, `${theme}: S1 card top border changes on :hover`).not.toBe(coloredRest.borderTopColor);
+
+            await card(1046).hover();
+            const uncoloredHover = await readPaint(card(1046));
+            expect(uncoloredHover.borderLeftColor, `${theme}: S4 uncolored card left matches hover border`).toBe(uncoloredHover.borderTopColor);
+            expect(uncoloredHover.borderTopColor, `${theme}: S4 uncolored card top border changes on :hover`).not.toBe(uncoloredRest.borderTopColor);
+
+            // Select 1042..1046 and move pointer away so 1042..1046 are unhovered .neo-selected
+            await card(1042).click();
+            await card(1046).click({modifiers: ['Shift']});
+            await expect(line).toHaveText('5 selected');
+            await page.mouse.move(10, 10);
+
+            const coloredSelected   = await readPaint(card(1043)),
+                  neighbourSelected = await readPaint(card(1042)),
+                  uncoloredSelected = await readPaint(card(1046));
+
+            expect(coloredSelected.borderLeftColor, `${theme}: S1 card retains left stripe when selected`).toBe(s1Accent);
+            expect(uncoloredSelected.borderLeftColor, `${theme}: S4 uncolored card left matches selected border`).toBe(uncoloredSelected.borderTopColor);
+            expect(coloredSelected.backgroundColor, `${theme}: selected neighbours share selected background`).toBe(neighbourSelected.backgroundColor);
+
+            // Hover selected card 1043: retains S1 left stripe and distinguishes background from unhovered selected 1042
+            await card(1043).hover();
+            const coloredSelectedHover = await readPaint(card(1043)),
+                  neighbourUnhovered   = await readPaint(card(1042));
+
+            expect(coloredSelectedHover.borderLeftColor, `${theme}: S1 card retains left stripe on .neo-selected:hover`).toBe(s1Accent);
+            expect(coloredSelectedHover.backgroundColor, `${theme}: .neo-selected:hover background differs from unhovered .neo-selected neighbour`)
+                .not.toBe(neighbourUnhovered.backgroundColor);
+
+            expect(errors, `${theme}: zero console/page errors`).toEqual([])
+        }
+    });
+
     for (const theme of THEMES) {
         test(`at 1440 × 900 the four columns are in view, the Inbox holds forty reports (${theme})`, async ({page}, testInfo) => {
             const {badge, column, errors} = await open(page, theme);

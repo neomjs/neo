@@ -25,8 +25,9 @@
     --neo-board-card-background        : var(--cyber-bg);
     --neo-board-card-border-color      : var(--cyber-border);
     --neo-board-card-hover-border-color: color-mix(in srgb, var(--cyber-cyan) 50%, var(--cyber-border));
-    --neo-board-card-selected-background  : color-mix(in srgb, var(--cyber-cyan) 12%, var(--cyber-bg));
-    --neo-board-card-selected-border-color: var(--cyber-cyan);
+    --neo-board-card-selected-background      : color-mix(in srgb, var(--cyber-cyan) 12%, var(--cyber-bg));
+    --neo-board-card-selected-hover-background: color-mix(in srgb, var(--cyber-cyan) 24%, var(--cyber-bg));
+    --neo-board-card-selected-border-color    : var(--cyber-cyan);
     --neo-board-card-color             : var(--cyber-text);
     --neo-board-card-muted-color       : color-mix(in srgb, var(--cyber-text) 65%, var(--cyber-bg));
     --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.6);
