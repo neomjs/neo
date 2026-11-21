@@ -61,7 +61,10 @@ test.describe('Board, card editor example: a hiring pipeline edited on the card 
         const field = card('c-01').locator('.neo-board-card-inline-editor input');
         await expect(field).toBeFocused();
 
-        expect((await card('c-01').boundingBox()).height, 'the card keeps its height while edited').toBeCloseTo(before.height, 1);
+        const edited = await card('c-01').boundingBox();
+
+        // A native input and a title line box can round a fraction of a CSS pixel differently.
+        expect(Math.abs(edited.height - before.height), 'the card keeps its height while edited').toBeLessThan(0.25);
 
         await field.fill('Aiko Brandt-Sato');
         await page.keyboard.press('Enter');
