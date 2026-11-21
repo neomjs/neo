@@ -1,18 +1,4 @@
 .gate-viewport.neo-viewport {
-    --neo-timeline-gridline-step: 270px;
-
-    .gate-scheduler .neo-timeline-track {
-        --neo-timeline-gridline-step: 270px;
-    }
-
-    &.is-compact {
-        --neo-timeline-gridline-step: 180px;
-
-        .gate-scheduler .neo-timeline-track {
-            --neo-timeline-gridline-step: 180px;
-        }
-    }
-
     .gate-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--gate-header-bg);
