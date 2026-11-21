@@ -266,18 +266,26 @@ class BoardSortZone extends SortZone {
     }
 
     /**
-     * @summary Resolves a pointer release against the current board and column bounds after scrolling or layout.
+     * @summary Resolves a release against the current board bounds. Board whitespace keeps the last slot if its
+     * column is still visible. A direct column hit sorts at the release point.
      * @param {Object} point The source viewport's pointer coordinates.
-     * @returns {Promise<Neo.board.Column|null>} The visible destination, or null outside its column or board.
+     * @returns {Promise<{column: Neo.board.Column, keepSlot: Boolean}|null>}
+     * @protected
      */
-    async getReleaseColumn({clientX, clientY}) {
+    async getReleaseTarget({clientX, clientY}) {
         const {owner} = this, columns = owner.getColumns();
-        if (!columns.length) return null;
-
         const [board, ...rects] = await owner.getDomRect([owner.id, ...columns.map(column => column.id)]);
         if (!board.width || !board.height || !board.containsPoint(clientX, clientY)) return null;
 
-        return columns.find((column, i) => rects[i].width && rects[i].height && rects[i].containsPoint(clientX, clientY)) || null
+        let lastSlot = null;
+        for (const [i, column] of columns.entries()) {
+            const rect = rects[i];
+            if (column.isDestroyed || column.hidden || (owner.laneField && owner.getLane(column.laneValue)?.collapsed) ||
+                !rect.width || !rect.height) continue;
+            if (rect.containsPoint(clientX, clientY)) return {column, keepSlot: false};
+            if (column === this.activeColumn && board.intersects(rect)) lastSlot = {column, keepSlot: true}
+        }
+        return lastSlot
     }
 
     /**
@@ -690,7 +698,8 @@ class BoardSortZone extends SortZone {
 
     /**
      * @summary Ends a card drag after its column entry and final pointer position settle. Cancellation waits for
-     * entry cleanup without replaying the pointer. The node goes back to where it started, so the DOM matches the component
+     * entry cleanup without replaying the pointer. Board whitespace preserves the preview slot, and an off-board release
+     * cancels the move. The node goes back to where it started, so the DOM matches the component
      * tree again. Then the drop commits through `owner.moveCard` (for a multi-selection, once per record under
      * `owner.isNormalizing` followed by one `cardsMove` event), addressed by the drop's neighbour ({@link #getDropAnchor})
      * and checked against the store after the last await ({@link #resolveDrop}). A cancel, a drop where the record
@@ -707,16 +716,17 @@ class BoardSortZone extends SortZone {
         const terminal = Number.isFinite(data.clientX) && Number.isFinite(data.clientY) ? data : me.pendingColumnMove;
         me.pendingColumnMove = null;
 
-        let targetColumn = data.cancelled ? null : me.activeColumn;
-        if (targetColumn && terminal) {
+        let releaseColumn = data.cancelled ? null : me.activeColumn;
+        if (releaseColumn && terminal) {
             const liveSource = me.columnRects && me.dragComponent && !me.dragComponent.isDestroyed &&
                 !me.owner.isDestroying && !me.owner.isDestroyed && me.dragRecord &&
                 me.owner.store?.get(me.owner.getKey(me.dragRecord)) === me.dragRecord;
 
-            targetColumn = liveSource ? await me.getReleaseColumn(terminal) : null;
-            if (targetColumn && !targetColumn.isDestroyed && targetColumn !== me.activeColumn) {
-                await me.enterColumn(targetColumn, terminal)
-            } else if (targetColumn && targetColumn === me.activeColumn && me.itemRects) {
+            const target = liveSource ? await me.getReleaseTarget(terminal) : null;
+            releaseColumn = target?.column;
+            if (releaseColumn && releaseColumn !== me.activeColumn) {
+                await me.enterColumn(releaseColumn, terminal)
+            } else if (target && !target.keepSlot && me.itemRects) {
                 // Apply the release once; it must not start the Engine's continuing overdrag poll.
                 const moving = super.onDragMove(terminal);
                 me.isOverDragging = false;
@@ -759,7 +769,8 @@ class BoardSortZone extends SortZone {
         }
 
         // After the last await, so the store these checks read is the one the write sees
-        commit = activeColumn && activeColumn === targetColumn && !activeColumn.isDestroyed ?
+        commit = activeColumn && activeColumn === releaseColumn && !activeColumn.isDestroyed &&
+            owner.getColumn(activeColumn.status, activeColumn.laneValue) === activeColumn ?
             me.resolveDrop({...anchor, column: activeColumn, record: dragRecord}) : null;
 
         if (!commit && me.dragProxy && !me.dragProxy.isDestroyed) {

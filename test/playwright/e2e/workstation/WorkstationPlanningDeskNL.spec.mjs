@@ -158,9 +158,10 @@ test.describe('Workstation planning desk (Neural Link)', () => {
         expect((await app.getComponent(boardId, ['store.id']))['store.id'], 'the board binds that instance').toBe(storeId);
         expect((await app.getComponent(paneId, ['eventStore.id']))['eventStore.id'], 'and so does the schedule').toBe(storeId);
 
-        // A real pointer drag of a Ready card into Done: the board's zone commits the drop through its single writer
+        // Enter Done, then release in the gutter. The preview is the slot the board commits.
         const from = await page.locator(`[id="${cardId}"]`).boundingBox(),
-              to   = await page.locator(`[id="${boardId}__col__done"]`).boundingBox(),
+              done = page.locator(`[id="${boardId}__col__done"]`),
+              to   = await done.boundingBox(),
               bar  = page.locator('.workstation-pane-scheduler .neo-timeline-bar[data-event-id="wi-9"]');
 
         await expect(bar).toHaveAttribute('data-status', 'ready');
@@ -169,6 +170,14 @@ test.describe('Workstation planning desk (Neural Link)', () => {
         await page.mouse.down();
         await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, {steps: 4});
         await page.mouse.move(to.x + to.width / 2, to.y + 60, {steps: 16});
+        await expect(done.locator('.neo-board-card-slot')).toHaveCount(1);
+        const adjacent = await page.locator(`[id="${boardId}__col__review"]`).boundingBox(),
+              current  = await done.boundingBox(),
+              gapX     = (adjacent.x + adjacent.width + current.x) / 2;
+        expect(gapX).toBeGreaterThan(adjacent.x + adjacent.width);
+        expect(gapX).toBeLessThan(current.x);
+        await page.mouse.move(gapX, current.y + 60);
+        await expect(done.locator('.neo-board-card-slot')).toHaveCount(1);
         await page.mouse.up();
 
         await expect.poll(async () => (await readRecord(app, storeId, 'wi-9')).status,
