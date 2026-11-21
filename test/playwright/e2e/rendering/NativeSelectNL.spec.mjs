@@ -133,12 +133,20 @@ test('aligns closed chrome, ComboBox-style trigger, and open picker across all f
         const expectedHeight = theme === 'neo-theme-cyberpunk' ? 28 : 27;
         await expect.poll(async () => Math.round((await selectEl.boundingBox()).height)).toBe(expectedHeight);
 
-        await expect.poll(() => page.evaluate(({selId, txtSel}) => {
-            const sel    = document.querySelector(`#${selId} .neo-selectfield-input`),
-                  txt    = document.querySelector(txtSel),
-                  txtBox = txt.closest('.neo-input-wrapper') || txt;
-            return getComputedStyle(sel).borderTopColor === getComputedStyle(txtBox).borderTopColor
-        }, {selId: selectId, txtSel: `#${textFields[0].id} .neo-textfield-input`})).toBe(true);
+        await expect.poll(() => page.evaluate(({selId, txtRootId}) => {
+            const selRoot = document.getElementById(selId),
+                  txtRoot = document.getElementById(txtRootId),
+                  sel     = selRoot?.querySelector('.neo-selectfield-input'),
+                  txt     = txtRoot?.querySelector('.neo-textfield-input'),
+                  txtBox  = txt?.closest('.neo-input-wrapper') || txt,
+                  settled = el => el && el.getAnimations().every(a => a.playState !== 'running');
+
+            return !selRoot.classList.contains('neo-focus')
+                && !txtRoot.classList.contains('neo-focus')
+                && settled(sel)
+                && settled(txtBox)
+                && getComputedStyle(sel).borderTopColor === getComputedStyle(txtBox).borderTopColor
+        }, {selId: selectId, txtRootId: textFields[0].id})).toBe(true);
 
         const closed = await page.evaluate(({selId, txtSel}) => {
             const sel    = document.querySelector(`#${selId} .neo-selectfield-input`),
@@ -180,9 +188,26 @@ test('aligns closed chrome, ComboBox-style trigger, and open picker across all f
 
         // Focus, invalid, and disabled state parity
         await textInputEl.focus();
-        const textFocusBorder = await textInputEl.evaluate(el => getComputedStyle(el.closest('.neo-input-wrapper') || el).borderTopColor);
+        let textFocusBorder;
+        await expect.poll(async () => {
+            textFocusBorder = await page.evaluate(({txtRootId, closedBorder}) => {
+                const txtRoot = document.getElementById(txtRootId),
+                      txt     = txtRoot?.querySelector('.neo-textfield-input'),
+                      txtBox  = txt?.closest('.neo-input-wrapper') || txt;
+
+                if (!txtRoot?.classList.contains('neo-focus') || !txtBox?.getAnimations().every(a => a.playState !== 'running')) {
+                    return null
+                }
+
+                const border = getComputedStyle(txtBox).borderTopColor;
+                return border !== closedBorder ? border : null
+            }, {txtRootId: textFields[0].id, closedBorder: closed.textBorder});
+            return textFocusBorder
+        }).not.toBeNull();
         await selectEl.focus();
-        await expect.poll(() => selectEl.evaluate(el => getComputedStyle(el).borderTopColor)).toBe(textFocusBorder);
+        await expect.poll(() => selectEl.evaluate(el => {
+            return el.getAnimations().every(a => a.playState !== 'running') ? getComputedStyle(el).borderTopColor : null
+        })).toBe(textFocusBorder);
 
         const invalidBorder = await invalidEl.evaluate(el => getComputedStyle(el).borderTopColor);
         expect(invalidBorder).not.toBe(closed.border);
