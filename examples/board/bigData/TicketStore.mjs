@@ -5,19 +5,29 @@ const
     // How many tickets each status holds on load, in column order: 10,000 in all
     statusCounts = {new: 6200, triage: 1500, waiting: 1100, solved: 800, closed: 400},
     agents       = ['Avery', 'Blake', 'Casey', 'Devon', 'Emery', 'Finley', 'Harper', 'Jules'],
-    areas        = ['billing', 'login', 'mobile', 'export', 'search', 'shipping', 'api', 'reports'],
-    problems     = ['charged twice for', 'cannot open', 'times out on', 'shows the wrong total in', 'loses changes in',
-                    'asks again for a code in', 'is slow to load', 'sends no email about'],
-    subjects     = ['the March invoice', 'a shared report', 'the order history', 'two-factor sign-in', 'the CSV download',
-                    'a return label', 'the team workspace', 'the webhook settings', 'the saved search', 'a gift card',
-                    'the mobile checkout', 'the usage dashboard'],
-    customers    = ['A customer', 'An admin', 'A new user', 'A reseller', 'A team lead', 'The finance team'];
+    customers    = ['A customer', 'An admin', 'A new user', 'A reseller', 'A team lead', 'The finance team'],
+    // Each area's issues, so a ticket's area tag always matches its title
+    issues       = {
+        billing : ['is charged twice for the March invoice', 'sees the wrong total on an invoice',
+                   'gets no receipt for the annual plan', 'cannot redeem a gift card'],
+        login   : ['cannot finish two-factor sign-in', 'is asked twice for a sign-in code',
+                   'never gets the password reset email', 'is signed out every few minutes'],
+        mobile  : ['sees the iOS app crash on launch', 'loses a draft in the Android app',
+                   'cannot pay in the mobile checkout'],
+        export  : ['times out on the CSV download', 'misses rows in the PDF export', 'gets an empty scheduled export'],
+        search  : ['finds nothing with a quoted phrase', 'loses a saved search', 'sees stale search results'],
+        shipping: ['cannot print a return label', 'sees the wrong delivery date', 'gets no shipping confirmation'],
+        api     : ['gets a 500 from the webhook settings', 'hits the rate limit too early', 'cannot rotate an API key'],
+        reports : ['sees the wrong total in the usage dashboard', 'cannot open a shared report',
+                   'gets the weekly digest twice']
+    },
+    areas        = Object.keys(issues);
 
 /**
  * @summary A support desk's 10,000 tickets in five statuses, generated from one seed: the same desk on every load.
- * @description Ticket `t-1` is the oldest. A title pairs a customer, a problem and a subject; the area and a priority
- * are its tags and one agent its assignee, except in New, where nobody has picked it up yet. `order` stays unset: the
- * board numbers each column when it loads.
+ * @description Ticket `t-1` is the oldest. A title pairs a customer with one of an area's issues. The area is a tag,
+ * and so is the priority when it is high or urgent. One agent is the assignee, except in New, where nobody has picked
+ * the ticket up yet. `order` stays unset: the board numbers each column when it loads.
  * @class Neo.examples.board.bigData.TicketStore
  * @extends Neo.data.Store
  */
@@ -86,13 +96,15 @@ class TicketStore extends Store {
 
         for (const [status, count] of Object.entries(statusCounts)) {
             for (let i = 0; i < count; i++) {
-                const priority = next() < .12 ? 'urgent' : next() < .4 ? 'high' : 'normal';
+                const
+                    priority = next() < .12 ? 'urgent' : next() < .4 ? 'high' : 'normal',
+                    area     = pick(areas);
 
                 records.push({
                     id       : `t-${records.length + 1}`,
-                    title    : `${pick(customers)} ${pick(problems)} ${pick(subjects)}`,
+                    title    : `${pick(customers)} ${pick(issues[area])}`,
                     status,
-                    tags     : [pick(areas), priority],
+                    tags     : priority === 'normal' ? [area] : [area, priority],
                     assignees: status === 'new' ? [] : [pick(agents)],
                     color    : priority === 'urgent' ? '#e5484d' : null
                 })
