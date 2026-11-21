@@ -134,13 +134,12 @@ async function readDesktopPage(page) {
 }
 
 /**
- * @summary Checks the resting card: a 16:9 cover that fills it, with title, open cue and proof line on a docked scrim.
+ * @summary Checks the resting two-zone card: an unoccluded 16:9 cover frame above a stationary surface footer rail.
  * @param {Object} list The mounted list locator.
  * @param {Number} width Viewport width.
  * @returns {Promise<Object[]>} Measured cards for the retained evidence.
  */
 async function expectCardLayout(list, width) {
-    // a hovered or a focused card opens its action line: measure the resting one, once its line has closed
     await list.page().mouse.move(0, 0);
     await list.page().evaluate(() => document.activeElement?.blur());
     await expect.poll(() => list.locator('.portal-example-more').evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height < 1))).toBe(true);
@@ -150,16 +149,19 @@ async function expectCardLayout(list, width) {
         leadCard: node.classList.contains('portal-examples-list-lead')
     }));
 
-    const cards = await list.locator('.neo-list-item').evaluateAll(nodes => nodes.filter(node => node.offsetWidth).map(node => {
+    const cards = await list.locator('.neo-list-item').evaluateAll((nodes, {columns, leadCard}) => nodes.filter(node => node.offsetWidth).map((node, index) => {
         const card    = node.getBoundingClientRect(),
-              caption = node.querySelector('.neo-item-bottom-position'),
+              wrap    = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+              caption = node.querySelector('.portal-example-footer'),
               copy    = caption.getBoundingClientRect(),
               image   = node.querySelector('.preview-image').getBoundingClientRect(),
               feature = node.querySelector('.portal-example-feature'),
               more    = node.querySelector('.portal-example-more'),
+              isLead  = leadCard && columns === 3 && index === 0,
               shown   = [
                   node.querySelector('.portal-example-group-badge'),
                   node.querySelector('.neo-title'),
+                  node.querySelector('.neo-github-image'),
                   node.querySelector('.portal-example-open-cue'),
                   node.querySelector('.portal-example-feature')
               ].filter(el => el && el.offsetWidth > 0),
@@ -170,31 +172,30 @@ async function expectCardLayout(list, width) {
             top       : card.top,
             bottom    : card.bottom,
             height    : card.height,
-            ratio     : card.width / card.height,
-            clearCover: (copy.top - card.top) / card.height,
-            coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - card[side]) < 1),
-            docked    : Math.abs(copy.left - card.left) < 1 && Math.abs(copy.right - card.right) < 1 && Math.abs(copy.bottom - card.bottom) < 1,
-            fits      : copy.top >= card.top && caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1,
+            isLead,
+            coverRatio: wrap.width / wrap.height,
+            clearCover: (copy.top - wrap.top) / wrap.height,
+            coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - wrap[side]) < 1.5),
+            docked    : Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 && Math.abs(copy.bottom - card.bottom) < 1.5 && copy.top >= wrap.bottom - 1.5,
+            fits      : caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1,
             textFits  : shown.every(text => {
                 const rect = text.getBoundingClientRect();
-                return rect.left >= copy.left && rect.right <= copy.right + 1 && rect.top >= copy.top - 1 && rect.bottom <= copy.bottom + 1
+                return rect.left >= copy.left - 1 && rect.right <= copy.right + 1 && rect.top >= copy.top - 1 && rect.bottom <= copy.bottom + 1
             }),
-            // a group card has no action line to keep closed
             closed      : !more || more.getBoundingClientRect().height < 1,
             opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
             noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio,
-            // the proof line shows whole at rest, or ends in an ellipsis
             featureWhole: !feature || feature.scrollHeight <= feature.clientHeight + 1
         }
-    }));
+    }), gridInfo);
 
     expect(cards.length).toBeGreaterThan(0);
-    expect(cards.every(card => card.coverFills && Math.abs(card.ratio - 16 / 9) < 0.02), 'the cover fills a 16:9 card').toBe(true);
-    // the cards that miss a check, by name, so a red run says which check failed where
+    expect(cards.every(card => card.coverFills && (card.isLead || Math.abs(card.coverRatio - 16 / 9) < 0.025)),
+        'every standard card has an unoccluded 16:9 cover frame').toBe(true);
     expect(cards.filter(card => !(card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
-        'title, cue and proof line fit a full-width, bottom-docked scrim; the action stays closed; no text is dimmed by opacity; no card is sized by hand').toEqual([]);
-    expect(cards.every(card => card.clearCover >= (width <= 600 ? 0.3 : 0.45)),
-        'the resting caption leaves the upper part of the cover clear: 45 % of the card, 30 % at phone widths').toBe(true);
+        'title, source icon, cue and proof line fit the stationary footer below the cover; details stay closed at rest').toEqual([]);
+    expect(cards.every(card => card.clearCover >= 0.99),
+        '100 % of the cover frame is unoccluded at rest').toBe(true);
 
     if (gridInfo.leadCard && gridInfo.columns === 3 && cards.length >= 3) {
         expect(Math.abs(cards[0].top - cards[1].top)).toBeLessThan(1);
@@ -754,7 +755,7 @@ test.describe('Portal examples section', () => {
                 await expect(featured.locator('.neo-title').nth(1)).toHaveText('Data Grid: 100k Rows & 200 Columns');
                 await expect(featured.locator('.portal-example-group-badge').nth(1)).toHaveText('Grid & Table');
                 await expect(featured.locator('.neo-multi-window[aria-label="Multi-window live example"]').first().locator('.neo-multi-window-label')).toHaveText('Multi-window');
-                await expectCaptionContrast(featured.locator('.neo-item-bottom-position').first(), testInfo, 'start-here-caption-contrast');
+                await expectCaptionContrast(featured.locator('.portal-example-footer').first(), testInfo, 'start-here-caption-contrast');
 
                 await openGroup(page, 'Grid & Table');
                 const overview = page.locator(CARDS),
@@ -771,7 +772,7 @@ test.describe('Portal examples section', () => {
                 await expect(overview.locator('.neo-title').nth(1)).toHaveText('TreeGrid - Big Data');
                 await expect(overview.locator('.neo-title').nth(2)).toHaveText('GitHub Issues Grid');
 
-                const covered = overview.locator('.portal-example-image-card .neo-item-bottom-position');
+                const covered = overview.locator('.portal-example-image-card .portal-example-footer');
                 await expect(covered).toHaveCount(cards);
                 await expect(overview.locator('.portal-example-placeholder')).toHaveCount(0);
 
@@ -782,43 +783,60 @@ test.describe('Portal examples section', () => {
 
                 const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');
-                // Table Filtering has a white cover: the scrim alone has to carry the text there.
+                // Table Filtering has a white cover: the footer rail and selected band stay legible across both themes.
                 await expectCaptionContrast(covered.nth(4), testInfo, 'light-cover-caption-contrast');
                 await testInfo.attach('card-geometry', {body: JSON.stringify(geometry), contentType: 'application/json'});
                 expect(await page.locator(PAGE).evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
                 await page.screenshot({path: testInfo.outputPath(`grid-page-${viewport.width}.png`)});
 
                 /**
-                 * @summary Reads the opened Issues card: which parts lie inside it, and whether the caption left the cover.
+                 * @summary Reads the Issues card geometry across hover and selection.
                  * @returns {Promise<Object>}
                  */
                 const opened = () => issues.evaluate(node => {
                     const card   = node.getBoundingClientRect(),
+                          wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+                          footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
+                          more   = node.querySelector('.portal-example-more').getBoundingClientRect(),
                           box    = selector => node.querySelector(selector).getBoundingClientRect(),
                           inside = rect => rect.height > 0 && rect.top >= card.top - 1 && rect.bottom <= card.bottom + 1;
 
                     return {
-                        height    : card.height,
-                        action    : inside(box('.portal-example-look-for')),
-                        scope     : inside(box('.portal-example-scope')),
-                        source    : inside(box('.neo-github-image')),
-                        title     : inside(box('.neo-title')),
-                        belowImage: box('.neo-item-bottom-position').top >= box('.preview-image').bottom - 1
+                        height     : card.height,
+                        moreHeight : more.height,
+                        moreRatio  : more.height / wrap.height,
+                        moreInCover: more.height > 0 && more.bottom <= wrap.bottom + 1.5 && more.top >= wrap.top - 1,
+                        moreBelow  : more.height > 0 && more.top >= footer.bottom - 1.5,
+                        action     : inside(box('.portal-example-look-for')),
+                        scope      : inside(box('.portal-example-scope')),
+                        source     : inside(box('.neo-github-image')),
+                        title      : inside(box('.neo-title'))
                     }
                 });
                 const restHeight = geometry.find(card => card.title === 'GitHub Issues Grid').height;
 
-                if (viewport.width > 600) {
-                    // The action, the limits and the source link open inside the card, on the cover.
+                if (columns > 1) {
+                    // Hover applies the chromatic blue wash without opening .portal-example-more; clicking selects and opens <= 40 % inside the cover frame.
                     await issues.hover();
-                    await expect.poll(opened).toEqual({height: restHeight, action: true, scope: true, source: true, title: true, belowImage: false});
+                    expect((await opened()).moreHeight).toBeLessThan(1);
+                    await issues.locator('.preview-image-wrap').click({position: {x: 24, y: 20}});
+                    await expect(issues).toHaveClass(/neo-selected/);
+                    await expect.poll(async () => (await opened()).action).toBe(true);
+                    const state = await opened();
+                    expect(Math.abs(state.height - restHeight)).toBeLessThan(1);
+                    expect(state.moreInCover).toBe(true);
+                    expect(state.moreRatio).toBeLessThanOrEqual(0.4 + 0.01);
+                    expect(state.scope && state.source && state.title).toBe(true);
                     await expect(issues.locator('.portal-example-scope')).toContainText('public issue snapshot');
                     await issues.screenshot({path: testInfo.outputPath(`issues-card-open-${viewport.width}.png`)})
                 } else {
-                    // One column has room to grow: a tapped card opens under its cover, nothing clamped.
-                    await issues.locator('.preview-image').click({position: {x: 24, y: 20}});
-                    await expect.poll(opened).toMatchObject({action: true, scope: true, source: true, title: true, belowImage: true});
-                    expect((await opened()).height).toBeGreaterThan(restHeight);
+                    // Single-column (< 704 px list width, including 844 px sidebar 1-col and phones): selected details open in-flow below the footer.
+                    await issues.locator('.preview-image-wrap').click({position: {x: 24, y: 20}});
+                    await expect(issues).toHaveClass(/neo-selected/);
+                    await expect.poll(async () => {
+                        const s = await opened();
+                        return s.moreBelow && s.action && s.scope && s.source && s.title && s.height > restHeight
+                    }).toBe(true);
                     await issues.screenshot({path: testInfo.outputPath(`issues-card-open-${viewport.width}.png`)})
                 }
 
@@ -1022,5 +1040,164 @@ test.describe('Portal examples section', () => {
         await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
         await results.getByRole('button', {name: 'Clear (Esc)'}).click();
         await expectOpenPage(page, 'Grid & Table')
+    });
+
+    test('cards preserve 4-state overlay gradients, 0.0 px stationary Open live hitboxes, neighbor cover hit targets, link-focus isolation, and row-wise arrow navigation (#21676)', async ({page, neuralLink, context, baseURL}) => {
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await page.setViewportSize({width: 1440, height: 1080});
+        await page.goto(`${PORTAL}#/examples/grid`);
+        const app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Grid & Table');
+
+        const gridList = await readList(app, 'grid-table'),
+              cards    = page.locator(`${CARDS} .neo-list-item`),
+              card0    = cards.nth(0),
+              card1    = cards.nth(1),
+              card3    = cards.nth(3);
+
+        await app.setProperties(gridList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(gridList.id, 'createItems');
+        await expect(card0.locator('.portal-example-open-cue')).toHaveAttribute('href', new RegExp(`^${baseURL}`));
+
+        // AC-4: zero browser lists anywhere; Grid Big Data shows Mobile without Multi-window
+        await expect(page.locator(CARDS).filter({hasText: 'Chrome, Edge, Firefox, Safari'})).toHaveCount(0);
+        await expect(card0.locator('.portal-example-mobile')).toHaveText('Mobile');
+        await expect(card0.locator('.neo-multi-window')).toHaveCount(0);
+
+        // AC-1: 4 distinct @property chromatic states + overlay blend mode
+        await page.mouse.move(0, 0);
+        const readGradient = locator => locator.locator('.preview-image').evaluate(node => {
+            const style = getComputedStyle(node);
+            return {
+                blend: style.backgroundBlendMode,
+                end  : style.getPropertyValue('--portal-examples-list-gradient-end').trim(),
+                start: style.getPropertyValue('--portal-examples-list-gradient-start').trim()
+            }
+        });
+
+        const restGrad = await readGradient(card0);
+        expect(restGrad.blend).toContain('overlay');
+
+        // AC-2: bottom-entry hover onto Open live ↗ moves Title, GitHub, and Open live ↗ by 0.0 px
+        const measureRects = async () => ({
+            card0Cue   : await card0.locator('.portal-example-open-cue').boundingBox(),
+            card0GitHub: await card0.locator('.neo-github-image').boundingBox(),
+            card0Title : await card0.locator('.neo-title').boundingBox(),
+            card3Cue   : await card3.locator('.portal-example-open-cue').boundingBox(),
+            scrollTop  : await page.locator(PAGE).evaluate(node => node.scrollTop)
+        });
+        await page.evaluate(() => document.fonts.ready);
+        const beforeHover = await measureRects();
+
+        // Enter from below card0 straight onto Open live ↗ center
+        await page.mouse.move(beforeHover.card0Cue.x + beforeHover.card0Cue.width / 2, beforeHover.card0Cue.y + beforeHover.card0Cue.height + 8);
+        await page.mouse.move(beforeHover.card0Cue.x + beforeHover.card0Cue.width / 2, beforeHover.card0Cue.y + beforeHover.card0Cue.height / 2);
+
+        const hoverGrad  = await readGradient(card0),
+              afterHover = await measureRects();
+
+        expect(hoverGrad).not.toEqual(restGrad);
+        for (const key of ['card0Cue', 'card0GitHub', 'card0Title', 'card3Cue']) {
+            expect(Math.abs(afterHover[key].x - beforeHover[key].x), `${key}.x on hover`).toBe(0);
+            expect(Math.abs(afterHover[key].y - beforeHover[key].y), `${key}.y on hover`).toBe(0)
+        }
+
+        // Select card0: Hovered + Selected composite gradient differs from both Rest and Hover; Moving mouse off yields Selected green gradient
+        await card0.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await expect(card0).toHaveClass(/neo-selected/);
+        const bothGrad = await readGradient(card0);
+
+        await page.mouse.move(0, 0);
+        const selectedGrad   = await readGradient(card0),
+              afterSelectRow = await measureRects();
+
+        expect(new Set([
+            `${restGrad.start}|${restGrad.end}`,
+            `${hoverGrad.start}|${hoverGrad.end}`,
+            `${selectedGrad.start}|${selectedGrad.end}`,
+            `${bothGrad.start}|${bothGrad.end}`
+        ]).size, 'four distinct cover gradient states (Rest, Hover, Selected, Hovered+Selected)').toBe(4);
+
+        for (const key of ['card0Cue', 'card0GitHub', 'card0Title', 'card3Cue']) {
+            expect(Math.abs(afterSelectRow[key].x - beforeHover[key].x), `${key}.x on select`).toBe(0);
+            expect(Math.abs(afterSelectRow[key].y - beforeHover[key].y), `${key}.y on select`).toBe(0)
+        }
+
+        // AC-3: In multi-column (>= 704 px), .portal-example-more anchors inside .preview-image-wrap (<= 40 % height) and never overlaps .portal-example-footer
+        const bandBounds = await card0.evaluate(node => {
+            const wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+                  footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
+                  more   = node.querySelector('.portal-example-more').getBoundingClientRect();
+            return {footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, wrapBottom: wrap.bottom, wrapHeight: wrap.height}
+        });
+        expect(bandBounds.moreHeight).toBeGreaterThan(20);
+        expect(bandBounds.moreHeight).toBeLessThanOrEqual(bandBounds.wrapHeight * 0.40 + 1);
+        expect(bandBounds.moreBottom, '.portal-example-more stays inside .preview-image-wrap').toBeLessThanOrEqual(bandBounds.wrapBottom + 1);
+        expect(bandBounds.moreBottom, '.portal-example-more never overlaps .portal-example-footer').toBeLessThanOrEqual(bandBounds.footerTop + 1);
+
+        // Neighbor hit-owner control: 25 px into row 2 card3's cover belongs to card3, never card0's disclosure band
+        const hitOwnerMatchesRow2 = await card3.evaluate(node => {
+            const cover = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+                  hit   = document.elementFromPoint(cover.left + cover.width / 2, cover.top + 25);
+            return node.contains(hit)
+        });
+        expect(hitOwnerMatchesRow2, 'point 25 px into row 2 cover hits row 2 card').toBe(true);
+
+        // Cross-row selection transfer (card0 -> card3) keeps card3's Open live ↗ at 0.0 px displacement
+        await card3.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await expect(card3).toHaveClass(/neo-selected/);
+        await expect(card0).not.toHaveClass(/neo-selected/);
+        const afterCrossRow = await measureRects();
+        expect(Math.abs(afterCrossRow.card3Cue.y - beforeHover.card3Cue.y)).toBe(0);
+
+        // AC-5: With card3 selected, clicking card1's Open live ↗ launches once and leaves card3 selected; zero focusables in .portal-example-more
+        const focusablesInMore = await card3.locator('.portal-example-more a, .portal-example-more button, .portal-example-more input, .portal-example-more [tabindex]').count();
+        expect(focusablesInMore).toBe(0);
+
+        await context.route('**/examples/grid/treeBigData/index.html', route => route.fulfill({status: 200, contentType: 'text/html', body: '<title>TreeGrid</title>'}));
+        const popupPromise = context.waitForEvent('page');
+        await card1.locator('.portal-example-open-cue').click();
+        const popup = await popupPromise;
+        await popup.close();
+        await expect(card3).toHaveClass(/neo-selected/);
+        await expect(card1).not.toHaveClass(/neo-selected/);
+
+        // Escape clears selection
+        await card3.locator('.neo-title').focus();
+        await page.keyboard.press('Escape');
+        await expect(page.locator(`${CARDS} .neo-list-item.neo-selected`)).toHaveCount(0);
+
+        // AC-5: ArrowDown at 1440 crosses a 3-column row (card0 -> card3) and keeps focus + selection on card3
+        await card0.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await card0.locator('.neo-title').focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(card3).toHaveClass(/neo-selected/);
+        await expect.poll(() => card3.evaluate(node => node.contains(document.activeElement))).toBe(true);
+
+        // 900x800 sidebar 1-column (< 704 px list content width): details open below footer and ArrowDown steps +1 (card0 -> card1)
+        await page.setViewportSize({width: 900, height: 800});
+        await card0.scrollIntoViewIfNeeded();
+        await card0.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await expect(card0).toHaveClass(/neo-selected/);
+        const oneColMoreBelow = await card0.evaluate(node => {
+            const footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
+                  more   = node.querySelector('.portal-example-more').getBoundingClientRect();
+            return more.height > 0 && more.top >= footer.bottom - 1.5
+        });
+        expect(oneColMoreBelow).toBe(true);
+        await card0.locator('.neo-title').focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(card1).toHaveClass(/neo-selected/);
+
+        // Featured 2x2 leadCard at 1440x900: Workstation has Multi-window without Mobile, and ArrowDown from 2x2 card0 crosses two rows to card3
+        await page.setViewportSize({width: 1440, height: 900});
+        await openOverview(page);
+        const featCards = page.locator(`${FEATURED} .neo-list-item`);
+        await expect(featCards.nth(0).locator('.neo-multi-window')).toBeVisible();
+        await expect(featCards.nth(0).locator('.portal-example-mobile')).toHaveCount(0);
+        await featCards.nth(0).locator('.preview-image-wrap').click({position: {x: 40, y: 40}});
+        await featCards.nth(0).locator('.neo-title').focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(featCards.nth(3)).toHaveClass(/neo-selected/)
     })
 });
