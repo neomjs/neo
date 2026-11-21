@@ -1,3 +1,6 @@
+---
+seoDescription: "Why Neo.mjs split into one repository per reader in 13.2: a clone carried 5.21 GiB, mostly the AI team's memory, cockpit and data, not the engine."
+---
 # One repository per reader: why Neo.mjs split in 13.2, and the cockpit we build next.
 
 **Before 13.2, cloning Neo.mjs meant cloning everything that had grown around the engine: the AI team that maintains it, that team's cockpit, a data app that rewrote one file every hour, and a mirror of every GitHub conversation. In August, GitHub reported 5.21 GiB of storage for the repository. Neo.mjs 13.2 gives each of them a repository of its own and puts the Engine on its own release line, so `neo.mjs` is the Engine alone again: today a fresh clone downloads a [252 MiB pack](https://github.com/neomjs/neo/issues/19491#issuecomment-6082833515). One of the products that left is the one we build next: Agent Institution, the cockpit where an operator runs a standing team of AI agents, itself an application on the Engine you install.**

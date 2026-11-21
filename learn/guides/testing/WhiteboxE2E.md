@@ -1,3 +1,6 @@
+---
+seoDescription: "Whitebox E2E testing for Neo.mjs: Playwright tests reach component and store state in the App Worker through the Neural Link instead of chasing DOM nodes."
+---
 # Whitebox E2E Testing with Neural Link
 
 Traditional end-to-end (E2E) testing treats the application as a "black box," interacting purely through DOM element locators (e.g. `page.locator('button')`) and asserting visual outputs. In heavily virtualized environments like Neo.mjs, these tests can become flaky as DOM nodes are frequently recycled and state often resides in remote workers asynchronously decoupled from the main thread.
