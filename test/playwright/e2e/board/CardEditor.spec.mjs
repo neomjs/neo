@@ -80,7 +80,7 @@ test.describe('Board, card editor example: a hiring pipeline edited on the card 
         expect(errors).toEqual([])
     });
 
-    test('the editor moves a candidate to Interview and saves role and recruiter; Cancel and Escape change nothing', async ({page}) => {
+    test('the editor moves a candidate to Interview and saves name, role and recruiter; Cancel and Escape change nothing', async ({page}) => {
         const {card, editor, errors, read} = await open(page);
 
         // Cancel and Escape write nothing
@@ -97,22 +97,24 @@ test.describe('Board, card editor example: a hiring pipeline edited on the card 
         await expect(editor).toBeHidden();
         expect((await read('c-02')).record).toEqual({assignees: ['Jordan'], status: 'applied', tags: ['Data analyst'], title: 'Bruno Okafor'});
 
-        // A new stage moves the card; role and recruiter save with it
+        // A new stage moves the card; name, role and recruiter save with it
         await card('c-02').locator('.neo-board-card-menu-button').click();
         await expect(editor).toBeVisible();
+        await editor.getByLabel('Name').fill('Bruno Okafor-Lind');
         await editor.getByLabel('Stage').selectOption({label: 'Interview'});
         await editor.getByLabel('Role').fill('Staff data analyst');
         await editor.getByLabel('Recruiter').fill('Sam');
         await editor.getByRole('button', {name: 'Save'}).click();
         await expect(editor).toBeHidden();
 
-        await expect.poll(async () => (await read('c-02')).record, {message: 'one save writes stage, role and recruiter'})
-            .toEqual({assignees: ['Sam'], status: 'interview', tags: ['Staff data analyst'], title: 'Bruno Okafor'});
+        await expect.poll(async () => (await read('c-02')).record, {message: 'one save writes name, stage, role and recruiter'})
+            .toEqual({assignees: ['Sam'], status: 'interview', tags: ['Staff data analyst'], title: 'Bruno Okafor-Lind'});
 
         const {columns} = await read('c-02');
 
         expect(columns.interview, 'the card moved to Interview').toContain('c-02');
         expect(columns.applied).not.toContain('c-02');
+        await expect(card('c-02').locator('.neo-board-card-title')).toHaveText('Bruno Okafor-Lind');
         await expect(card('c-02').locator('.neo-board-card-tag')).toHaveText('Staff data analyst');
         expect(errors).toEqual([])
     });
