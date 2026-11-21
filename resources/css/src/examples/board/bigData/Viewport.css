@@ -51,5 +51,10 @@
         .desk-counter {
             margin-left: 0;
         }
+
+        /* The subtitle names the example's move, so a phone wraps it rather than cutting it off */
+        .desk-subtitle {
+            white-space: normal;
+        }
     }
 }
