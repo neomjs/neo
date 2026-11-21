@@ -1,9 +1,11 @@
-import Container   from '../../../src/container/Base.mjs';
-import PersonList  from './PersonList.mjs';
-import PersonStore from './PersonStore.mjs';
-import StepList    from './StepList.mjs';
-import StepStore   from './StepStore.mjs';
-import Viewport    from '../../../src/container/Viewport.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
+import PersonList    from './PersonList.mjs';
+import PersonStore   from './PersonStore.mjs';
+import StepList      from './StepList.mjs';
+import StepStore     from './StepStore.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @summary Reorders a checklist and a wall of portraits by drag: two lists, each on its own store, sorted through
@@ -32,11 +34,20 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            cls : ['neo-reorder-intro'],
-            vdom: {cn: [
-                {tag: 'h1', text: 'Reorder by drag'},
-                {tag: 'p',  text: 'Drag a step or a portrait. Each number is its place in the store.'}
-            ]}
+            module: Container,
+            cls   : ['neo-reorder-intro'],
+            layout: {ntype: 'hbox', align: 'start', pack: 'justify', wrap: 'wrap'},
+            items : [{
+                module: Component,
+                flex  : 1,
+                vdom  : {cn: [
+                    {tag: 'h1', text: 'Reorder by drag'},
+                    {tag: 'p',  text: 'Drag a step or a portrait. Each number is its place in the store.'}
+                ]}
+            }, {
+                module: ThemeSwitcher,
+                flex  : 'none'
+            }]
         }, {
             module: Container,
             cls   : ['neo-reorder-panels'],
