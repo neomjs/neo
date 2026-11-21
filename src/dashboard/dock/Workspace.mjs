@@ -2467,7 +2467,7 @@ class Workspace extends Container {
             commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
-        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, source, workspaceKey});
+        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, workspaceKey});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         commitOptions       = me.getRefreshOptions(descriptor, source);

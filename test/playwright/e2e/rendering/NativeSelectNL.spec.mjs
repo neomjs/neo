@@ -88,3 +88,138 @@ test('classic presentation, required placeholder and disabled native input keep 
     await expect(input).toBeDisabled();
     expect(await app.callMethod(id, 'isValid')).toBe(true)
 });
+
+test('aligns closed chrome, ComboBox-style trigger, and open picker across all five themes without an icon font', async ({page, neuralLink}) => {
+    const allThemes = [
+        'neo-theme-neo-dark',
+        'neo-theme-neo-light',
+        'neo-theme-dark',
+        'neo-theme-light',
+        'neo-theme-cyberpunk'
+    ];
+
+    await neuralLink.routeConfig(page, config => ({
+        ...config,
+        themes        : allThemes,
+        useAiClient   : true,
+        useFontAwesome: false
+    }));
+    await page.goto('/examples/form/field/select/index.html');
+    const app = await neuralLink.connectToApp('Neo.examples.form.field.select');
+
+    let viewports, selectFields, textFields;
+    await expect.poll(async () => {
+        viewports    = await app.queryComponent({ntype: 'configuration-viewport'}, ['id']);
+        selectFields = await app.queryComponent({ntype: 'selectfield', name: 'fruit'}, ['id']);
+        textFields   = await app.queryComponent({ntype: 'textfield', labelText: 'labelText'}, ['id']);
+        return viewports.length && selectFields.length && textFields.length
+    }).toBeTruthy();
+
+    const viewportId  = viewports[0].id,
+          selectId    = selectFields[0].id,
+          textInputEl = page.locator(`#${textFields[0].id} .neo-textfield-input`),
+          selectEl    = page.locator(`#${selectId} .neo-selectfield-input`),
+          invalidEl   = page.locator('.neo-selectfield.neo-invalid .neo-selectfield-input'),
+          disabledBox = page.locator('.neo-selectfield.neo-disabled');
+
+    for (const theme of allThemes) {
+        await app.setProperties(viewportId, {theme});
+        await expect(page.locator(`#${viewportId}`)).toHaveClass(new RegExp(`\\b${theme}\\b`));
+
+        // Blur and move pointer to (0, 0) so resting border settles after the 250ms transition
+        await page.mouse.move(0, 0);
+        await page.evaluate(() => document.activeElement?.blur?.());
+
+        const expectedHeight = theme === 'neo-theme-cyberpunk' ? 28 : 27;
+        await expect.poll(async () => Math.round((await selectEl.boundingBox()).height)).toBe(expectedHeight);
+
+        await expect.poll(() => page.evaluate(({selId, txtSel}) => {
+            const sel    = document.querySelector(`#${selId} .neo-selectfield-input`),
+                  txt    = document.querySelector(txtSel),
+                  txtBox = txt.closest('.neo-input-wrapper') || txt;
+            return getComputedStyle(sel).borderTopColor === getComputedStyle(txtBox).borderTopColor
+        }, {selId: selectId, txtSel: `#${textFields[0].id} .neo-textfield-input`})).toBe(true);
+
+        const closed = await page.evaluate(({selId, txtSel}) => {
+            const sel    = document.querySelector(`#${selId} .neo-selectfield-input`),
+                  txt    = document.querySelector(txtSel),
+                  txtBox = txt.closest('.neo-input-wrapper') || txt,
+                  cs     = getComputedStyle(sel),
+                  tcs    = getComputedStyle(txt),
+                  tbcs   = getComputedStyle(txtBox),
+                  icon   = getComputedStyle(sel, '::picker-icon');
+
+            return {
+                appearance : cs.appearance,
+                bg         : cs.backgroundColor,
+                bgImage    : cs.backgroundImage,
+                bgSize     : cs.backgroundSize,
+                border     : cs.borderTopColor,
+                color      : cs.color,
+                radius     : cs.borderTopLeftRadius,
+                textBg     : tbcs.backgroundColor,
+                textBorder : tbcs.borderTopColor,
+                textColor  : tcs.color,
+                textRadius : tbcs.borderTopLeftRadius,
+                iconContent: icon.content,
+                iconWidth  : icon.width,
+                iconBorderR: icon.borderRightWidth
+            }
+        }, {selId: selectId, txtSel: `#${textFields[0].id} .neo-textfield-input`});
+
+        expect(closed.appearance).toBe('base-select');
+        expect(closed.bg).toBe(closed.textBg);
+        expect(closed.border).toBe(closed.textBorder);
+        expect(closed.color).toBe(closed.textColor);
+        expect(closed.radius).toBe(closed.textRadius);
+        expect(closed.bgImage).toContain('linear-gradient');
+        expect(closed.bgSize).toBe('22px 100%');
+        expect(closed.iconContent).toBe('""');
+        expect(closed.iconWidth).toBe('6px');
+        expect(parseFloat(closed.iconBorderR)).toBeGreaterThanOrEqual(1);
+
+        // Focus, invalid, and disabled state parity
+        await textInputEl.focus();
+        const textFocusBorder = await textInputEl.evaluate(el => getComputedStyle(el.closest('.neo-input-wrapper') || el).borderTopColor);
+        await selectEl.focus();
+        await expect.poll(() => selectEl.evaluate(el => getComputedStyle(el).borderTopColor)).toBe(textFocusBorder);
+
+        const invalidBorder = await invalidEl.evaluate(el => getComputedStyle(el).borderTopColor);
+        expect(invalidBorder).not.toBe(closed.border);
+        await expect.poll(() => disabledBox.evaluate(el => parseFloat(getComputedStyle(el).opacity))).toBeLessThan(1);
+
+        // Open customizable picker follows active theme surface, text, and selected option
+        await selectEl.click();
+        await expect.poll(() => selectEl.evaluate(el => el.matches(':open'))).toBe(true);
+        const picker = await selectEl.evaluate(el => {
+            const p       = getComputedStyle(el, '::picker(select)'),
+                  checked = getComputedStyle(el.querySelector('option:checked')),
+                  uncheck = getComputedStyle(el.querySelector('option:not(:checked):not([value=""])'));
+
+            return {
+                pickerBg    : p.backgroundColor,
+                pickerBorder: p.borderTopColor,
+                optColor    : uncheck.color,
+                checkedBg   : checked.backgroundColor,
+                checkedColor: checked.color
+            }
+        });
+
+        if (theme.includes('dark') || theme.includes('cyberpunk')) {
+            expect(picker.pickerBg).not.toBe('rgb(255, 255, 255)');
+            expect(picker.optColor).not.toBe('rgb(0, 0, 0)');
+        } else {
+            expect(picker.pickerBg).toBe('rgb(255, 255, 255)');
+        }
+        expect(picker.checkedBg).not.toBe('rgba(0, 0, 0, 0)');
+        await page.keyboard.press('Escape');
+        await expect.poll(() => selectEl.evaluate(el => el.matches(':open'))).toBe(false);
+    }
+
+    // Classic native fallback removes base-select and the custom 22px divider so only one native arrow renders
+    await app.setProperties(selectId, {customizable: false});
+    await expect.poll(() => selectEl.evaluate(el => {
+        const cs = getComputedStyle(el);
+        return cs.appearance !== 'base-select' && cs.backgroundImage === 'none'
+    })).toBe(true);
+});

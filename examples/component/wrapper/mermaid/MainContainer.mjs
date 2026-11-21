@@ -4,8 +4,8 @@ import Container               from '../../../../src/container/Base.mjs';
 import {DIAGRAMS}              from './diagrams.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Mermaid                 from '../../../../src/component/wrapper/Mermaid.mjs';
-import SwitchField             from '../../../../src/form/field/Switch.mjs';
 import TextArea                from '../../../../src/form/field/TextArea.mjs';
+import ThemeSwitcher           from '../../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                 from '../../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../../src/container/Viewport.mjs';
 
@@ -55,10 +55,8 @@ class MainContainer extends Viewport {
                 text   : name,
                 ui     : 'secondary'
             })), '->', {
-                module    : SwitchField,
-                hideLabel : true,
-                listeners : {change: 'onDarkChange'},
-                valueLabel: 'Dark theme'
+                module: ThemeSwitcher,
+                ui    : 'secondary'
             }]
         }, {
             module: Container,

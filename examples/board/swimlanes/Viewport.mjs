@@ -2,6 +2,7 @@ import BoardContainer from '../../../src/board/Container.mjs';
 import Label          from '../../../src/component/Label.mjs';
 import MainStore      from './MainStore.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
@@ -46,7 +47,9 @@ class SwimlanesViewport extends Viewport {
             flex  : 'none',
             items : [
                 {module: Label, cls: ['board-swimlanes-example-title'], text: 'Product quarter'},
-                {module: Label, cls: ['board-swimlanes-example-hint'],  text: 'Collapse a team. Drag a card into another team\'s row.'}
+                {module: Label, cls: ['board-swimlanes-example-hint'],  text: 'Collapse a team. Drag a card into another team\'s row.'},
+                '->',
+                {module: ThemeSwitcher}
             ]
         }, {
             module   : BoardContainer,

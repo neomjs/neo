@@ -96,6 +96,7 @@ test.describe('Neo.gantt.Container', () => {
         expect(result.cascaded.length).toBe(3);
         expect(result.cycles).toEqual(['d-da']);
         expect(events.length).toBe(1);
+        expect(events[0]).toMatchObject({changeSource: 'api', source: gantt.id});
         expect(events[0].action).toBe('move');
         expect(events[0].record).toBe(taskStore.get('t-a'));
         expect(events[0].changes).toBe(result.updates);
@@ -128,6 +129,7 @@ test.describe('Neo.gantt.Container', () => {
 
         expect(resizeResult).not.toBeNull();
         expect(events.length).toBe(2);
+        expect(events[1]).toMatchObject({changeSource: 'resize', source: gantt.id});
         expect(events[1].changes).toEqual({
             duration: 3,
             endDate : new Date('2026-11-09T07:00:00.000Z')
@@ -289,6 +291,9 @@ test.describe('Neo.gantt.Container', () => {
             barNode = getRowTrackBars(gantt, 0)[0],
             zone    = gantt.eventDragZone;
 
+        const changes = [];
+        gantt.on('taskChange', payload => changes.push(payload));
+
         await gantt.onBarDragStart({
             axisOffset: 75,
             path      : [
@@ -342,6 +347,12 @@ test.describe('Neo.gantt.Container', () => {
         expect(t1.endDate.toISOString()).toBe('2026-11-09T03:30:00.000Z');
         expect(t1.duration).toBe(1.25);
         expect(t2.startDate.toISOString()).toBe('2026-11-09T03:30:00.000Z');
+
+        expect(changes.map(({action, changeSource, source}) => ({action, changeSource, source}))).toEqual([
+            {action: 'move',   changeSource: 'drag',     source: gantt.id},
+            {action: 'move',   changeSource: 'keyboard', source: gantt.id},
+            {action: 'resize', changeSource: 'keyboard', source: gantt.id}
+        ]);
 
         dependencyStore.destroy();
         taskStore.destroy()

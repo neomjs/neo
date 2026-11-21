@@ -3,11 +3,13 @@ import BoxLabel           from '../../../src/component/BoxLabel.mjs';
 import CountryGallery     from './CountryGallery.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import RangeField         from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher      from '../../../src/button/ThemeSwitcher.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.coronaGallery.Viewport
  * @extends Neo.container.Viewport
+ * @summary 3D country indicators gallery viewport with live theme-able controls panel.
  */
 class Viewport extends BaseViewport {
     static config = {
@@ -51,7 +53,6 @@ class Viewport extends BaseViewport {
             cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
-            style    : {backgroundColor: '#2b2b2b'},
             width    : 260,
 
             containerConfig: {
@@ -59,10 +60,11 @@ class Viewport extends BaseViewport {
             },
 
             headers: [{
-                dock: 'top',
-                items: [{
-                    ntype: 'button',
-                    text : 'X',
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype  : 'button',
+                    text   : 'X',
                     handler: function() {
                         const panel  = this.up('panel'),
                               expand = panel.width === 40;
@@ -73,6 +75,9 @@ class Viewport extends BaseViewport {
                 }, {
                     ntype: 'label',
                     text : 'Gallery Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
                 }]
             }],
 

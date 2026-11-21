@@ -913,7 +913,7 @@ class Container extends GridContainer {
      * @param {String} [meta.action]
      * @param {Boolean} [meta.clamp=true]
      * @param {String|null} [meta.resizeEdge=null]
-     * @param {String} [meta.source='api']
+     * @param {String} [meta.source='api'] Edit origin delivered as `eventChange.changeSource`; the event's `source` is the sender id.
      * @returns {Object|null} The applied `updates` object, or `null` if no-op/invalid
      */
     moveEvent(eventIdOrRecord, changes={}, meta={}) {
@@ -1067,14 +1067,14 @@ class Container extends GridContainer {
 
         me.fire('eventChange', {
             action,
-            changes   : updates,
-            endDate   : nextEnd,
+            changeSource: meta.source || 'api',
+            changes     : updates,
+            endDate     : nextEnd,
             previous,
             record,
-            resizeEdge: meta.resizeEdge || null,
-            resourceId: nextResource,
-            source    : meta.source || 'api',
-            startDate : nextStart,
+            resizeEdge  : meta.resizeEdge || null,
+            resourceId  : nextResource,
+            startDate   : nextStart,
             updates
         });
 

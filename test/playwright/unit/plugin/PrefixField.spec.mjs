@@ -48,6 +48,27 @@ test.describe('Neo.plugin.PrefixField (unit)', () => {
 
         const fixtures = [
             {
+                accept  : '[0-9A-Fa-f]',
+                pattern : 'XX:XX:XX:XX:XX:XX',
+                slots   : 'X',
+                input   : '001A2B3C4D5E',
+                expected: '00:1A:2B:3C:4D:5E'
+            },
+            {
+                accept  : '[0-9A-Fa-f]',
+                pattern : 'XX:XX:XX:XX:XX:XX',
+                slots   : 'X',
+                input   : '001a2b3c4d5e',
+                expected: '00:1a:2b:3c:4d:5e'
+            },
+            {
+                accept  : '[0-9A-Fa-f]',
+                pattern : 'XX:XX:XX:XX:XX:XX',
+                slots   : 'X',
+                input   : 'GHIJKLMNOPQRSTUVWXYZghijklmnopqrstuvwxyz',
+                expected: 'XX:XX:XX:XX:XX:XX'
+            },
+            {
                 accept  : /[0-9a-f]/i,
                 pattern : 'XX:XX:XX:XX:XX:XX',
                 slots   : 'X',

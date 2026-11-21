@@ -3,26 +3,19 @@
 .air-desk,
 .air-presenter-window,
 .air-list {
-    --air-night : #101721;
-    --air-panel : #192330;
-    --air-rule  : #394550;
-    --air-paper : #f6f0df;
-    --air-muted : #acb7bd;
-    --air-gold  : #f8c756;
-    --air-red   : #ff8174;
-    --air-mono  : ui-monospace, "SFMono-Regular", Consolas, monospace;
-    --air-sans  : "Source Sans 3", "Segoe UI", system-ui, sans-serif;
-    --air-serif : Georgia, "Times New Roman", serif;
+    --air-mono : ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --air-sans : "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --air-serif: Georgia, "Times New Roman", serif;
 }
 
 .air-desk,
 .air-presenter-window {
-    background : var(--air-night);
-    box-sizing : border-box;
-    color      : var(--air-paper);
-    color-scheme: dark;
-    font-family: var(--air-sans);
-    overflow-y : auto;
+    background  : var(--air-night);
+    box-sizing  : border-box;
+    color       : var(--air-paper);
+    color-scheme: var(--air-scheme, dark);
+    font-family : var(--air-sans);
+    overflow-y  : auto;
 }
 
 .air-desk {
@@ -48,6 +41,14 @@
     gap            : 18px;
     justify-content: space-between;
     min-height     : 56px;
+}
+
+.air-mast-end {
+    align-items     : center;
+    background-color: transparent;
+    display         : flex;
+    flex            : none;
+    gap             : 10px;
 }
 
 .air-station,
@@ -336,10 +337,10 @@
         user-select          : none;
         white-space          : normal;
 
-        &:hover {background-color: #263442; color: var(--air-paper);}
+        &:hover {background-color: var(--air-hover); color: var(--air-paper);}
         &:active {cursor: grabbing;}
         &[aria-selected="true"], &.neo-selected {
-            background-color: #2b3641;
+            background-color: var(--air-selected);
             box-shadow      : inset 3px 0 var(--air-gold);
             color           : var(--air-paper);
         }
@@ -356,19 +357,19 @@
 }
 
 .air-grip {
-    color : #9da8af;
+    color : var(--air-grip);
     cursor: grab;
 }
 
 .air-order,
 .air-duration {
-    color               : #c3ccd0;
+    color               : var(--air-duration);
     font                : 500 12px/1.3 var(--air-mono);
     font-variant-numeric: tabular-nums;
 }
 
 .air-duration {justify-self: end; white-space: nowrap;}
-.air-order    {color: #92a1ad;}
+.air-order    {color: var(--air-order);}
 .air-row-label {
     display  : grid;
     gap      : 3px;
@@ -379,7 +380,7 @@
 
 .air-desk .neo-button:is(.air-primary, .air-secondary, .air-quiet) {
     background   : transparent;
-    border       : 1px solid #54606a;
+    border       : 1px solid var(--air-btn-border);
     border-radius: 4px;
     box-shadow   : none;
     box-sizing   : border-box;
@@ -392,11 +393,11 @@
 
     .neo-button-glyph, .neo-button-text {color: inherit;}
     .neo-button-text {font: 650 14px/1.2 var(--air-sans); text-transform: none;}
-    &:hover {background: #263644; border-color: #97a2a6;}
-    &:focus-visible {outline: 2px solid #ffe39a; outline-offset: 3px;}
-    &.air-primary {background: var(--air-gold); border-color: var(--air-gold); color: #18202a;}
-    &.air-primary:hover {background: #ffda7e; border-color: #ffda7e;}
-    &.air-quiet {border-color: transparent; color: #bec9ce;}
+    &:hover {background: var(--air-btn-hover-bg); border-color: var(--air-btn-hover-border);}
+    &:focus-visible {outline: 2px solid var(--air-btn-focus); outline-offset: 3px;}
+    &.air-primary {background: var(--air-gold); border-color: var(--air-gold); color: var(--air-primary-ink);}
+    &.air-primary:hover {background: var(--air-primary-hover); border-color: var(--air-primary-hover);}
+    &.air-quiet {border-color: transparent; color: var(--air-btn-quiet);}
     &.neo-disabled, &:disabled {cursor: default; opacity: .48;}
 }
 
@@ -420,8 +421,8 @@
     min-width   : 0;
     padding     : 13px 15px;
 
-    &.air-risk {--air-marker: #ffac92;}
-    &.air-safe {--air-marker: #98dcc5;}
+    &.air-risk {--air-marker: var(--air-risk);}
+    &.air-safe {--air-marker: var(--air-safe);}
 }
 
 .air-plan-heading {
@@ -455,7 +456,7 @@
 .air-line-marker {
     background    : var(--air-marker);
     bottom        : -3px;
-    box-shadow    : 0 0 0 1px #17212a;
+    box-shadow    : 0 0 0 1px var(--air-marker-ring);
     left          : var(--air-line-at);
     position      : absolute;
     top           : -2px;

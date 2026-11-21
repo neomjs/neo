@@ -188,6 +188,36 @@ test('a bound whose time is unreadable or cleared refuses to save and marks its 
     }
 });
 
+test('an end before the start marks the part of the end that changed: its time on the same day, else its date', () => {
+    const
+        axis  = Neo.create(TimeAxis, {timeZone: 'UTC'}),
+        store = Neo.create(Events, {data: [{
+            id: 'launch', title: 'Launch', startDate: '2026-11-10T12:00Z', endDate: '2026-11-10T16:00Z'
+        }]}),
+        record  = store.get('launch'),
+        editor  = Neo.create(EventEditor, {appName, owner: {timeAxis: axis}}),
+        message = 'End date must not precede start date';
+
+    try {
+        editor.openForRecord(record);
+        editor.getField('endDate__time').value = '09:00';
+        expect(editor.save()).toBe(false);
+        expect(editor.getField('endDate__time').error).toBe(message);
+        expect(editor.getField('endDate').error).toBeFalsy();
+
+        // Same draft, date moved too: the refusal moves to the date, and the time's earlier one does not stay
+        editor.getField('endDate').value = '2026-11-09';
+        expect(editor.save()).toBe(false);
+        expect(editor.getField('endDate').error).toBe(message);
+        expect(editor.getField('endDate__time').error).toBeFalsy();
+        expect(record.endDate.toISOString()).toBe('2026-11-10T16:00:00.000Z')
+    } finally {
+        editor.destroy();
+        store.destroy();
+        axis.destroy()
+    }
+});
+
 test('an owner can refuse an edit and accept the same draft on retry', () => {
     const
         store = Neo.create(Events, {data: [{

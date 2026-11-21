@@ -4,6 +4,7 @@ const EXAMPLE   = '/examples/desktop/basic/index.html',
       ICON      = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
       MENU_ITEM = '.neo-menu-list .neo-list-item',
       TASK      = '.neo-desktop-task-list .neo-list-item',
+      THEMES    = ['neo-theme-neo-dark', 'neo-theme-neo-light', 'neo-theme-dark', 'neo-theme-light', 'neo-theme-cyberpunk'],
       WINDOW    = '.neo-dialog.neo-desktop-app-window';
 
 /**
@@ -38,6 +39,32 @@ async function geometry(locator) {
     const {height, width, x, y} = await locator.boundingBox();
 
     return {height: Math.round(height), width: Math.round(width), x: Math.round(x), y: Math.round(y)}
+}
+
+/**
+ * The theme owns every `--desktop-*` variable the loaded stylesheets read, except the colour each app sets on its icon,
+ * task and window. A variable that is undefined, or refers to one that is, computes to nothing.
+ * @param {Object} page
+ * @returns {Promise<String[]>} The variables that compute to nothing on the desktop
+ */
+function unresolvedVariables(page) {
+    return page.evaluate(() => {
+        const names = new Set();
+
+        for (const sheet of document.styleSheets) {
+            for (const rule of sheet.cssRules) {
+                for (const [, name] of rule.cssText.matchAll(/var\((--desktop-[a-z-]+)/g)) {
+                    names.add(name)
+                }
+            }
+        }
+
+        names.delete('--desktop-app-color');
+
+        const style = getComputedStyle(document.querySelector('.neo-desktop'));
+
+        return names.size ? [...names].filter(name => !style.getPropertyValue(name).trim()) : ['no stylesheet reads a --desktop-* variable']
+    })
 }
 
 /**
@@ -177,4 +204,33 @@ test.describe('examples/desktop/basic', () => {
         await expect(windowOf(page, 'Calculator')).toBeVisible();
         await expect(page.locator(TASK)).toHaveText(/Calculator/)
     })
+});
+
+test.describe('examples/desktop/basic in every shipped theme', () => {
+    for (const theme of THEMES) {
+        for (const [width, height] of [[1440, 900], [390, 844]]) {
+            test(`at ${width} × ${height} a window and the start menu wear ${theme}, every desktop variable resolved`, async ({page}, testInfo) => {
+                await page.setViewportSize({height, width});
+                await page.goto(`${EXAMPLE}?theme=${theme}`);
+                await expect(page.locator(ICON)).toHaveCount(3);
+                await expect(page.locator(`.${theme}`).first(), 'the example runs in the theme').toBeAttached();
+
+                await page.locator(ICON).filter({hasText: 'Notes'}).dblclick();
+                await expect(windowOf(page, 'Notes')).toBeVisible();
+                await page.getByRole('button', {name: 'Apps'}).click();
+                await expect(page.locator(MENU_ITEM).filter({hasText: 'Tools'})).toBeVisible();
+
+                expect(await unresolvedVariables(page), 'every desktop variable resolves').toEqual([]);
+
+                // The frame waits for the window to finish growing out of its icon and for the start button's ripple
+                await settled(page, windowOf(page, 'Notes'));
+                await expect(page.locator('.neo-desktop-start-button .neo-button-ripple-wrapper')).toHaveCount(0);
+
+                const frame = testInfo.outputPath(`desktop-basic-${width}-${theme}.png`);
+
+                await page.screenshot({path: frame});
+                await testInfo.attach(`desktop-basic-${width}-${theme}`, {path: frame, contentType: 'image/png'})
+            })
+        }
+    }
 });
