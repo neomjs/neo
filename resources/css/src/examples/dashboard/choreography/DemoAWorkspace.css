@@ -45,6 +45,17 @@
         color      : var(--dashboard-example-ink-dim);
         font-family: var(--dashboard-example-font-mono);
         font-size  : 13px;
+        min-width  : 0;
+    }
+
+    .neo-theme-switcher {
+        margin-left: 8px;
+    }
+
+    @media (max-width: 560px) {
+        .agentos-dockdemo-tour-pips {
+            display: none;
+        }
     }
 }
 

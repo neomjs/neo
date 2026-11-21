@@ -1,9 +1,11 @@
 import Button          from '../../../src/button/Base.mjs';
+import Container       from '../../../src/container/Base.mjs';
 import Viewport        from '../../../src/container/Viewport.mjs';
 import Label           from '../../../src/component/Label.mjs';
 import DependencyStore from '../../../src/gantt/DependencyStore.mjs';
 import Gantt           from '../../../src/gantt/Container.mjs';
 import TaskStore       from '../../../src/gantt/TaskStore.mjs';
+import ThemeSwitcher   from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar         from '../../../src/toolbar/Base.mjs';
 
 const storageKey = 'neo-examples-gantt-project-plan-v1';
@@ -29,14 +31,25 @@ class ProjectViewport extends Viewport {
         className: 'Neo.examples.gantt.basic.Viewport',
         layout   : {ntype:'vbox', align:'stretch'},
         items    : [{
-            module:Toolbar, cls:['project-toolbar'], flex:'none', items:[
+            module:Toolbar, cls:['project-toolbar'], flex:'none', layout:{ntype:'hbox', align:'center', wrap:'wrap'}, items:[
                 {module:Label, cls:['project-title'], text:'Community garden plan'},
                 {module:Label, cls:['project-subtitle'], text:'November · UTC'},
                 '->',
                 {module:Label, cls:['project-save-status'], reference:'save-status', text:''},
                 {module:Button, ui:'secondary', cls:['project-control'], text:'Working time', reference:'working', pressed:false, handler:'up.onWorking'},
-                {module:Button, ui:'secondary', cls:['project-control'], text:'Day', reference:'day', pressed:false, handler:'up.onDay'},
-                {module:Button, ui:'secondary', cls:['project-control'], text:'Week', reference:'week', pressed:true, handler:'up.onWeek'}
+                {
+                    module: Container,
+                    cls   : ['project-zoom-group'],
+                    flex  : 'none',
+                    layout: {ntype: 'hbox', align: 'center'},
+                    role  : 'group',
+                    vdom  : {'aria-label': 'Time scale', cn: []},
+                    items : [
+                        {module:Button, ui:'secondary', cls:['project-control'], text:'Day', reference:'day', pressed:false, handler:'up.onDay'},
+                        {module:Button, ui:'secondary', cls:['project-control'], text:'Week', reference:'week', pressed:true, handler:'up.onWeek'}
+                    ]
+                },
+                {module:ThemeSwitcher}
             ]
         }, {
             module:Gantt, reference:'gantt', flex:1, editable:true, rowHeight:56, animateCascade:true,

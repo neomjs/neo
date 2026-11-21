@@ -1,7 +1,9 @@
-import FileList from './FileList.mjs';
-import Label    from '../../../src/component/Label.mjs';
-import MenuList from '../../../src/menu/List.mjs';
-import Viewport from '../../../src/container/Viewport.mjs';
+import Container     from '../../../src/container/Base.mjs';
+import FileList      from './FileList.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import MenuList      from '../../../src/menu/List.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 const folders = ['Documents', 'Images', 'Archive'];
 
@@ -31,10 +33,19 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module: Label,
-            cls   : ['neo-context-files-title'],
+            module: Container,
+            cls   : ['neo-context-files-header'],
             flex  : 'none',
-            text  : 'Project files'
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
+                module: Label,
+                cls   : ['neo-context-files-title'],
+                flex  : 1,
+                text  : 'Project files'
+            }, {
+                module: ThemeSwitcher,
+                flex  : 'none'
+            }]
         }, {
             module: Label,
             cls   : ['neo-context-files-hint'],
@@ -103,6 +114,20 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Keeps the detached floating context menu synchronized with the viewport theme.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.contextMenu && value) {
+            this.contextMenu.theme = value
+        }
+    }
+
+    /**
      * @returns {Neo.menu.List}
      * @protected
      */
@@ -117,7 +142,7 @@ class MainContainer extends Viewport {
             hidden      : true,
             items       : [],
             parentId    : 'document.body',
-            theme       : me.theme,
+            theme       : me.getTheme(),
             windowId    : me.windowId
         })
     }

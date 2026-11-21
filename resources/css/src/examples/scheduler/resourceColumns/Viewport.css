@@ -67,6 +67,11 @@
     }
 
     @media (max-width: 720px) {
+        .fs-toolbar.neo-toolbar {
+            gap    : 6px 10px;
+            padding: 8px 12px;
+        }
+
         .fs-hint-wide {
             display: none;
         }

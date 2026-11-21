@@ -25,7 +25,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
         );
         expect(nestedHeaders.length).toBeGreaterThanOrEqual(2);
 
-        // Open dialog from row 0 Edit button and wait for animateShow() -> onDialogShow() focus
+        // Open dialog from row 0 Edit button and wait for the dialog's focus on its first field
         await firstRow.locator('.neo-button', {hasText: 'Edit'}).click();
 
         const dialog = page.locator('.neo-dialog');
@@ -77,7 +77,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
 
         await expect(editBtn).toBeVisible({timeout: 30000});
 
-        // Open by keyboard (focus Edit -> Enter) and wait for animateShow() -> onDialogShow() focus
+        // Open by keyboard (focus Edit -> Enter) and wait for the dialog's focus on its first field
         await editBtn.focus();
         await page.keyboard.press('Enter');
         await expect(dialog.locator('input.neo-textfield-input').first()).toBeFocused({timeout: 10000});
@@ -113,5 +113,31 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(dialog).toBeHidden();
         await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('chioma');
         await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveClass(/neo-is-modified/)
+    });
+
+    test('Escape while the dialog still opens hands focus back to the Edit button (#21753)', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(URL);
+
+        const editBtn = page.locator('.neo-grid-row').first().locator('.neo-button', {hasText: 'Edit'}),
+              dialog  = page.locator('.neo-dialog');
+
+        await expect(editBtn).toBeVisible({timeout: 30000});
+
+        // The first field takes focus as the dialog mounts, before its open animation ends: Escape at once
+        await editBtn.focus();
+        await page.keyboard.press('Enter');
+        await expect(dialog.locator('input.neo-textfield-input').first()).toBeFocused({timeout: 10000});
+
+        // Records, for each focus the button takes, whether the modal is still in the DOM in front of it
+        await editBtn.evaluate(el => {
+            window.editFocusDialogInDom = [];
+            el.addEventListener('focusin', () => window.editFocusDialogInDom.push(!!document.querySelector('.neo-dialog')))
+        });
+        await page.keyboard.press('Escape');
+
+        await expect(dialog).toBeHidden();
+        await expect(editBtn).toBeFocused();
+        expect(await page.evaluate(() => window.editFocusDialogInDom)).toEqual([false])
     })
 });

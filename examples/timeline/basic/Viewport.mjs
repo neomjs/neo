@@ -4,6 +4,7 @@ import Label          from '../../../src/component/Label.mjs';
 import TimeAxis       from '../../../src/timeline/TimeAxis.mjs';
 import TimelineColumn from '../../../src/timeline/Column.mjs';
 import EventStore     from '../../../src/timeline/store/Events.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
@@ -44,6 +45,7 @@ class TimelineViewport extends Viewport {
         items    : [{
             module: Toolbar,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [
                 {module: Label, text: 'Resource Timeline'},
                 '->',
@@ -51,7 +53,8 @@ class TimelineViewport extends Viewport {
                     module : Button,
                     text   : 'Shift Selected Interval (+1h)',
                     handler: 'up.onShiftInterval'
-                }
+                },
+                {module: ThemeSwitcher}
             ]
         }, {
             module   : GridContainer,

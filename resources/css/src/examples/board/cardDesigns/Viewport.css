@@ -304,9 +304,14 @@
                 display: none;
             }
 
+            .neo-theme-switcher {
+                margin-left: auto;
+            }
+
             .editorial-segmented.neo-container {
                 display              : grid;
                 grid-template-columns: repeat(3, minmax(0, 1fr));
+                order                : 2;
                 width                : 100%;
 
                 .editorial-seg-btn.neo-button {

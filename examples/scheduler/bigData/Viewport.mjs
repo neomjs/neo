@@ -1,10 +1,11 @@
-import Button     from '../../../src/button/Base.mjs';
-import Component  from '../../../src/component/Base.mjs';
-import EventModel from '../../../src/timeline/model/Event.mjs';
-import Label      from '../../../src/component/Label.mjs';
-import Scheduler  from '../../../src/scheduler/Container.mjs';
-import Toolbar    from '../../../src/toolbar/Base.mjs';
-import Viewport   from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import EventModel    from '../../../src/timeline/model/Event.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import Scheduler     from '../../../src/scheduler/Container.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 const
     RESOURCE_COUNT  = 300,
@@ -178,7 +179,8 @@ class BigDataViewport extends Viewport {
                 },
                 {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-first'], reference: 'zoom-day',  text: 'Day',     pressed: false, handler: 'up.onDay'},
                 {module: Button, cls: ['year-plan-zoom'],                         reference: 'zoom-week', text: 'Week',    pressed: false, handler: 'up.onWeek'},
-                {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-last'],  reference: 'zoom-3w',   text: '3 Weeks', pressed: true,  handler: 'up.onThreeWeeks'}
+                {module: Button, cls: ['year-plan-zoom', 'year-plan-zoom-last'],  reference: 'zoom-3w',   text: '3 Weeks', pressed: true,  handler: 'up.onThreeWeeks'},
+                {module: ThemeSwitcher}
             ]
         }, {
             module        : Scheduler,

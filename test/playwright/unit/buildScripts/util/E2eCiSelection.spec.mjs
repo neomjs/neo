@@ -256,6 +256,32 @@ test.describe('e2e CI selection — the engine tier and the local-only specs', (
         }
     });
 
+    test('unmeasured files are dealt first, so a wave of them cannot concentrate measured work on shard 1', () => {
+        // One heavy measured outlier, smaller measured files (10-35 s), and K unmeasured files with K >= 2 * shards:
+        // the shape of a batch of new specs landing between duration-table rebuilds. Priced at the table's 90th
+        // percentile they all sort ahead of every measured file below it, so unless they are dealt before the measured
+        // files, the greedy pass hands shard 1 — the shard that starts with the 160 s outlier — almost no fallback
+        // headroom and piles the real measured seconds onto it, which is the shard that then runs into the ceiling.
+        const heavy      = 'heavy.spec.mjs',
+              durations  = Object.fromEntries(Array.from({length: 20}, (_, index) => [`m${String(index).padStart(2, '0')}.spec.mjs`, 10 + index])),
+              unmeasured = Array.from({length: 12}, (_, index) => `new${String(index).padStart(2, '0')}.spec.mjs`),
+              shards     = 5,
+              paths      = [heavy, ...Object.keys(durations), ...unmeasured];
+
+        durations[heavy] = 160;
+
+        const split   = () => Array.from({length: shards}, (_, index) => balancedShard({paths, shard: `${index + 1}/${shards}`, durations})),
+              sharded = split(),
+              counts  = sharded.map(shard => shard.paths.filter(path => !(path in durations)).length),
+              known   = sharded.map(shard => shard.paths.reduce((sum, path) => sum + (durations[path] ?? 0), 0));
+
+        expect(sharded.flatMap(shard => shard.paths).toSorted(), 'every file runs in exactly one shard').toEqual(paths.toSorted());
+        expect(split(), 'every shard computes the same split').toEqual(sharded);
+        expect(Math.max(...counts) - Math.min(...counts), 'unmeasured files differ by at most 1 across shards').toBeLessThanOrEqual(1);
+        expect(known[0], 'shard 1 does not carry a disproportionate share of the measured seconds')
+            .toBeLessThanOrEqual(known.reduce((sum, value) => sum + value) / shards);
+    });
+
 });
 
 /**

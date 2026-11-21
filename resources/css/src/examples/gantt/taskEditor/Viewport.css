@@ -1,0 +1,37 @@
+.task-editor-viewport.neo-viewport {
+    .te-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--te-header-bg);
+        border-bottom: 1px solid var(--te-border);
+        flex-wrap    : wrap;
+        gap          : 8px 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+
+        .te-title    { color: var(--te-title); font-size: 18px; font-weight: 700; }
+        .te-subtitle { color: var(--te-muted); font-size: 12px; }
+        /* The one cue that the tasks open: a pill in the title's colour */
+        .te-hint {
+            border       : 1px solid var(--te-border);
+            border-radius: 999px;
+            color        : var(--te-title);
+            font-size    : 12px;
+            padding      : 4px 12px;
+        }
+    }
+
+    /* A bar too short to name its task shows its shape only: the tree column carries the name */
+    .neo-timeline-bar { container-type: inline-size; }
+
+    @container (max-width: 95px) {
+        .neo-timeline-bar-label { visibility: hidden; }
+    }
+}
+
+@media (max-width: 600px) {
+    .task-editor-viewport.neo-viewport .te-toolbar.neo-toolbar {
+        padding: 10px 16px;
+
+        .te-subtitle { display: none; }
+    }
+}

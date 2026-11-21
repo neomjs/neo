@@ -80,6 +80,7 @@
         .tz-zones {
             display              : grid;
             grid-template-columns: 1fr 1fr;
+            order                : 2;
             width                : 100%;
 
             .tz-zone.neo-button {

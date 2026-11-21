@@ -63,7 +63,7 @@ The tier's job summary names what the selection ran and why, spec by spec. A `de
 
 Each shard's test step stops at six minutes.
 
-The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as the table's 90th percentile, so a new spec needs no table edit. A file's time varies from runner to runner, so the table holds each file's costliest of several runs. When the shards' times drift from the table, rebuild it from the logs of at least five green full-matrix runs, `dev` pushes first, one log file per run:
+The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` deals the files the table does not list yet first, then gives each measured file, longest first, to the shard with the least time so far. An unlisted file counts as the table's 90th percentile, so a new spec needs no table edit, and a batch of new specs spreads evenly across the shards. A file's time varies from runner to runner, so the table holds each file's costliest of several runs. When the shards' times drift from the table, rebuild it from the logs of at least five green full-matrix runs, `dev` pushes first, one log file per run:
 
 ```bash
 for id in <run-id> <run-id> <run-id> <run-id> <run-id>; do gh run view "$id" --log > "e2e-$id.log"; done

@@ -1,0 +1,8 @@
+.neo-context-menu-workspace.neo-viewport {
+    gap    : 1.5em;
+    padding: 3em;
+
+    .neo-context-menu-actions {
+        gap: 12px;
+    }
+}

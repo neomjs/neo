@@ -60,8 +60,11 @@
 
 @media (max-width: 600px) {
     .zoom-viewport.neo-viewport .zoom-toolbar.neo-toolbar {
-        padding: 10px 16px;
+        gap    : 6px 8px;
+        padding: 8px 12px;
 
+        .zoom-title { font-size: 16px; }
         .zoom-subtitle { display: none; }
+        .zoom-level.neo-button { min-width: 52px; padding: 0 10px; }
     }
 }

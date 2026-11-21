@@ -1,8 +1,9 @@
 import DisplayField            from '../../../src/form/field/Display.mjs';
-import MainContainerController from './MainContainerController.mjs'
+import MainContainerController from './MainContainerController.mjs';
 import Panel                   from '../../../src/container/Panel.mjs';
 import StateProvider           from '../../../src/state/Provider.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
+import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
@@ -56,7 +57,8 @@ class MainContainer extends Viewport {
          * @member {Object} style
          */
         style: {
-            padding: '20px'
+            overflow: 'auto',
+            padding : '16px'
         },
         /**
          * @member {Object[]} items
@@ -79,7 +81,7 @@ class MainContainer extends Viewport {
 
             containerConfig: {
                 reference: 'content-container',
-                style    : {padding: '20px'},
+                style    : {maxWidth: '100%', overflow: 'auto', padding: '16px'},
 
                 layout: {
                     ntype: 'vbox',
@@ -89,6 +91,7 @@ class MainContainer extends Viewport {
 
             headers: [{
                 dock     : 'top',
+                layout   : {ntype: 'hbox', align: 'center', wrap: 'wrap'},
                 reference: 'header-toolbar',
 
                 items: [{
@@ -124,12 +127,16 @@ class MainContainer extends Viewport {
                     bind: {
                         text: data => data.button2Text.toLowerCase()
                     }
+                }, {
+                    module: ThemeSwitcher,
+                    style : {marginLeft: '10px'}
                 }]
             }],
 
             itemDefaults: {
                 ntype : 'container',
-                layout: {ntype: 'hbox', align: 'stretch'}
+                layout: {ntype: 'hbox', align: 'stretch', wrap: 'wrap'},
+                style : {maxWidth: '100%'}
             },
 
             items: [{
@@ -138,6 +145,7 @@ class MainContainer extends Viewport {
                     flex      : 'none',
                     labelText : 'data.button1Text:',
                     labelWidth: 150,
+                    style     : {maxWidth: '100%'},
                     width     : 300,
 
                     bind: {
@@ -150,7 +158,7 @@ class MainContainer extends Viewport {
                 }, {
                     module   : DisplayField,
                     labelText: 'Button1 formatter:',
-                    style    : {marginLeft: '2em'},
+                    style    : {marginLeft: '1em', maxWidth: '100%'},
                     value    : 'Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}',
                     width    : 600
                 }]
@@ -160,6 +168,7 @@ class MainContainer extends Viewport {
                     flex      : 'none',
                     labelText : 'data.button2Text:',
                     labelWidth: 150,
+                    style     : {maxWidth: '100%'},
                     width     : 300,
 
                     bind: {
@@ -172,7 +181,7 @@ class MainContainer extends Viewport {
                 }, {
                     module   : DisplayField,
                     labelText: 'Button2 formatter:',
-                    style    : {marginLeft: '2em'},
+                    style    : {marginLeft: '1em', maxWidth: '100%'},
                     value    : '${data.button2Text.toLowerCase()}',
                     width    : 600
                 }]

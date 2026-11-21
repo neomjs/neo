@@ -1,4 +1,5 @@
 :where(.neo-theme-neo-dark) { /* .neo-desktop-taskbar and its start menu: dark glass */
+    --desktop-start-button-color                    : #fff;
     --desktop-start-menu-background-color           : rgba(15, 23, 42, .84);
     --desktop-start-menu-border-color               : rgba(255, 255, 255, .10);
     --desktop-start-menu-color                      : #f1f5f9;

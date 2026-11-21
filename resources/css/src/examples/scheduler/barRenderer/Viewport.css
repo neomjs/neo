@@ -1,10 +1,4 @@
 .print-viewport.neo-viewport {
-    --neo-timeline-gridline-step: 120px;
-
-    &.is-compact {
-        --neo-timeline-gridline-step: 108px;
-    }
-
     .print-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--print-header-bg);

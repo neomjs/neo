@@ -169,6 +169,22 @@ test.describe('Neo.timeline.Column', () => {
         } finally { col.destroy(); axis.destroy() }
     });
 
+    test('steps each track\'s gridlines by one tick of its axis, and leaves month ticks to the theme', () => {
+        const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00:00Z', end: '2026-11-16T00:00:00Z', pxPerMinute: 0.5, tickUnit: 'hour', tickStep: 2});
+        const col  = Neo.create(TimelineColumn, {appName, timeAxis: axis, bufferPx: 0, viewportWidth: 180});
+        const step = () => col.cellRenderer({record: {id: 'r'}, row: {id: 'row'}}).cn[0].style['--neo-timeline-gridline-step'];
+
+        try {
+            expect(step()).toBe('60px');
+
+            axis.set({pxPerMinute: 0.25, tickStep: 1, tickUnit: 'day'});
+            expect(step()).toBe('360px');
+
+            axis.tickUnit = 'month';
+            expect(step()).toBeUndefined()
+        } finally { col.destroy(); axis.destroy() }
+    });
+
     test('renders an inline milestone at the visible window start', () => {
         const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00:00Z', end: '2026-11-09T12:00:00Z', pxPerMinute: 1});
         const col  = Neo.create(TimelineColumn, {appName, timeAxis: axis, scrollLeft: 180, bufferPx: 0, viewportWidth: 180});

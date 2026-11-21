@@ -1,10 +1,13 @@
-import Button   from '../../src/button/Base.mjs';
-import Video    from '../../src/component/Video.mjs';
-import Viewport from '../../src/container/Viewport.mjs';
+import Button        from '../../src/button/Base.mjs';
+import ThemeSwitcher from '../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../src/toolbar/Base.mjs';
+import Video         from '../../src/component/Video.mjs';
+import Viewport      from '../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.videoMove.MainContainer
  * @extends Neo.container.Viewport
+ * @summary Live video VDOM reparenting demonstration with theme switching.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -13,8 +16,20 @@ class MainContainer extends Viewport {
         layout   : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
+            module: Toolbar,
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
+                module : Button,
+                handler: 'up.onMoveVideoButtonClick',
+                text   : 'Move Video'
+            }, '->', {
+                module: ThemeSwitcher
+            }]
+        }, {
             ntype    : 'container',
             cls      : ['video-wrapper'],
+            flex     : 1,
             layout   : {ntype: 'hbox', align: 'stretch'},
             reference: 'video-wrapper',
 
@@ -34,16 +49,6 @@ class MainContainer extends Viewport {
                 }]
             }, {
                 reference: 'container-2'
-            }]
-        }, {
-            ntype : 'container',
-            layout: {ntype: 'vbox', align: 'start'},
-            style : {marginTop: '50px'},
-
-            items: [{
-                module : Button,
-                handler: 'up.onMoveVideoButtonClick',
-                text   : 'Move Video'
             }]
         }]
     }

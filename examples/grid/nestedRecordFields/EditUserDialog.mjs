@@ -93,14 +93,6 @@ class EditUserDialog extends Dialog {
     }
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        this.addListener({show: this.onDialogShow, scope: this})
-    }
-
-    /**
      * Populates draft form fields whenever `record` changes without mutating the record until Save.
      * @param {Record|null} value
      * @param {Record|null} oldValue
@@ -114,17 +106,12 @@ class EditUserDialog extends Dialog {
     }
 
     /**
-     * Restores focus to the triggering row's `Edit` button once the dialog finishes hiding and unmounting.
-     * @param {Boolean} [animate=!!this.animateTargetId]
+     * @summary The row's `Edit` button that opened the dialog takes focus back, ahead of the component focus came
+     * from: the grid view takes focus on the way in. The engine hands it over as the dialog leaves the DOM.
+     * @returns {Neo.component.Base|null}
      */
-    async hide(animate=!!this.animateTargetId) {
-        let target = this.animateTarget;
-        await super.hide(animate);
-
-        if (!animate && target) {
-            await this.timeout(20);
-            target.focus(target.id)
-        }
+    getFocusReturnTarget() {
+        return this.animateTarget || super.getFocusReturnTarget()
     }
 
     /**
@@ -133,21 +120,6 @@ class EditUserDialog extends Dialog {
     onCancelButtonClick() {
         this.populateFields(this.record);
         this.closeOrHide()
-    }
-
-    /**
-     * Re-populates draft fields (in case a previous open cancelled) and moves keyboard focus into `First Name`.
-     */
-    onDialogShow() {
-        if (this.record) {
-            this.populateFields(this.record)
-        }
-
-        let firstField = this.down({reference: 'firstname-field'});
-
-        if (firstField) {
-            firstField.focus(firstField.getInputElId())
-        }
     }
 
     /**
@@ -262,6 +234,16 @@ class EditUserDialog extends Dialog {
         me.down({reference: 'organization-field'}).value   = record.organization;
         me.down({reference: 'date-field'})        .value   = record.date;
         me.down({reference: 'selected-field'})    .checked = Boolean(record['annotations.selected'])
+    }
+
+    /**
+     * Restores the draft fields from the record before the dialog mounts, in case a previous open left edits
+     * behind: the dialog takes focus into `First Name` as it mounts, so a later reset would erase what is typed.
+     * @param {...*} args
+     */
+    show(...args) {
+        this.populateFields(this.record);
+        super.show(...args)
     }
 }
 

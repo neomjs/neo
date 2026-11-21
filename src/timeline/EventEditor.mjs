@@ -65,6 +65,11 @@ class EventEditor extends Dialog {
          */
         draggable: false,
         /**
+         * A form of five fields has no use for maximize: the header keeps its close action only.
+         * @member {Object} headerConfig={actions: ['close']}
+         */
+        headerConfig: {actions: ['close']},
+        /**
          * @member {Boolean} hidden=true
          */
         hidden: true,
@@ -239,7 +244,9 @@ class EventEditor extends Dialog {
 
     /**
      * @summary Builds the row that edits one bound of the bar: a `Neo.form.field.Date` and a `Neo.form.field.Time`
-     * in the owner's timeline clock, the time list stepping by the axis' `snapMinutes`.
+     * in the owner's timeline clock, the time list stepping by the axis' `snapMinutes`. Either field's message
+     * opens across the whole row, below it (`errorPositionAbsolute`, placed by `EventEditor.css`), so the row
+     * keeps its height.
      * @param {String} name Record field the pair writes
      * @param {String} label `'Start'` or `'End'`
      * @returns {Object} Container config
@@ -251,27 +258,29 @@ class EventEditor extends Dialog {
             module: Container,
             cls   : ['neo-timeline-event-editor-datetime'],
             id    : `${me.id}__datetime__${name}`,
-            layout: {ntype: 'hbox', align: 'end'},
+            layout: {ntype: 'hbox', align: 'start'},
             items : [{
-                module   : DateField,
-                clearable: false,
-                flex     : 1,
-                id       : `${me.id}__field__${name}`,
-                labelText: label,
+                module               : DateField,
+                clearable            : false,
+                errorPositionAbsolute: true,
+                flex                 : 1,
+                id                   : `${me.id}__field__${name}`,
+                labelText            : label,
                 name,
-                required : true
+                required             : true
             }, {
-                module   : TimeField,
-                clearable: false,
-                hideLabel: true,
-                id       : `${me.id}__field__${name}__time`,
-                labelText: `${label} time`,
-                maxValue : '23:59',
-                minValue : '00:00',
-                name     : `${name}__time`,
-                required : true,
-                stepSize : 60 * (me.owner?.timeAxis?.snapMinutes || 15),
-                width    : 120
+                module               : TimeField,
+                clearable            : false,
+                errorPositionAbsolute: true,
+                hideLabel            : true,
+                id                   : `${me.id}__field__${name}__time`,
+                labelText            : `${label} time`,
+                maxValue             : '23:59',
+                minValue             : '00:00',
+                name                 : `${name}__time`,
+                required             : true,
+                stepSize             : 60 * (me.owner?.timeAxis?.snapMinutes || 15),
+                width                : 120
             }]
         }
     }
@@ -323,13 +332,15 @@ class EventEditor extends Dialog {
             ];
 
         me.form = Neo.create({
-            module  : FormContainer,
+            module: FormContainer,
             appName,
-            cls     : ['neo-timeline-event-editor-form'],
-            flex    : 1,
-            id      : `${me.id}__form`,
-            items   : standardFields,
-            parentId: me.id,
+            cls   : ['neo-timeline-event-editor-form'],
+            flex  : 1,
+            id    : `${me.id}__form`,
+            // A row keeps its height, so a message below a field moves the rows under it instead of clipping it
+            itemDefaults: {flex: 'none'},
+            items       : standardFields,
+            parentId    : me.id,
             windowId
         });
 
@@ -429,6 +440,25 @@ class EventEditor extends Dialog {
         }
 
         return value ?? ''
+    }
+
+    /**
+     * @summary The field of one bound that a refused save marks: its time field when only its time changed since
+     * the editor opened, else its date field. As in {@link #validateBound}, the field the person has to fix carries
+     * the error.
+     * @param {String} name `'startDate'`, `'endDate'`, or the owner's configured field name
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    getBoundErrorField(name) {
+        const
+            me           = this,
+            field        = me.resolveDateField(name),
+            dateInput    = me.getField(field),
+            timeInput    = me.getField(`${field}__time`),
+            [date, time] = (me.initialValues[field] || '').split('T');
+
+        return timeInput && dateInput?.value === date && timeInput.value !== time ? timeInput : dateInput
     }
 
     /**
@@ -762,7 +792,8 @@ class EventEditor extends Dialog {
     }
 
     /**
-     * @summary Validates and commits changed fields through the owner hook or the record.
+     * @summary Validates and commits changed fields through the owner hook or the record. Each attempt starts
+     * without the last one's errors, so a refusal marks only the field it names, never beside an older one.
      * @returns {Object|Boolean|null}
      */
     save() {
@@ -770,13 +801,14 @@ class EventEditor extends Dialog {
             me              = this,
             {owner, record} = me,
             startDateField  = me.getStartDateField(),
-            endDateField    = me.getEndDateField(),
-            endInput        = me.getField(endDateField);
+            endDateField    = me.getEndDateField();
 
         if (!record) {
             me.hide();
             return null
         }
+
+        me.clearErrors();
 
         const
             startDate = me.parseDateValue(me.getDateTimeValue(startDateField)),
@@ -787,13 +819,13 @@ class EventEditor extends Dialog {
         }
 
         if (endDate.getTime() < startDate.getTime()) {
+            const endInput = me.getBoundErrorField(endDateField);
+
             if (endInput) {
                 endInput.error = 'End date must not precede start date'
             }
             return false
         }
-
-        me.clearErrors();
 
         const
             changes = me.getChanges({startDate, endDate}),
@@ -808,7 +840,7 @@ class EventEditor extends Dialog {
         if (typeof owner?.commitTimelineEdit === 'function') {
             result = owner.commitTimelineEdit(record, changes, {source: 'editor'});
             if (result === false || result?.status === 'refused') {
-                const field = me.getField(keys[0]);
+                const field = me.resolveDateField(keys[0]) ? me.getBoundErrorField(keys[0]) : me.getField(keys[0]);
                 if (field) field.error = result?.message || 'The edit could not be saved.';
                 return false
             }
