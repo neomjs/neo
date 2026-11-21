@@ -32,6 +32,7 @@ const
         'scheduler/basic',
         'scheduler/bigData',
         'scheduler/dragAndResize',
+        'scheduler/eventEditor',
         'scheduler/liveUpdates',
         'scheduler/meridian',
         'scheduler/nonWorkingTime',
@@ -41,6 +42,8 @@ const
         'gantt/basic',
         'gantt/bigData',
         'gantt/dependencies',
+        'gantt/taskColumns',
+        'gantt/taskEditor',
         'gantt/workingTime',
         'gantt/zoom',
         'timeline/basic'

@@ -2,6 +2,7 @@ import DependencyStore from '../../../src/gantt/DependencyStore.mjs';
 import Gantt           from '../../../src/gantt/Container.mjs';
 import Label           from '../../../src/component/Label.mjs';
 import TaskStore       from '../../../src/gantt/TaskStore.mjs';
+import ThemeSwitcher   from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar         from '../../../src/toolbar/Base.mjs';
 import Viewport        from '../../../src/container/Viewport.mjs';
 
@@ -79,7 +80,8 @@ class TaskEditorViewport extends Viewport {
                 {module: Label, cls: ['te-title'],    text: 'Website relaunch'},
                 {module: Label, cls: ['te-subtitle'], text: 'Seven weeks · four phases · progress on 12 March · UTC'},
                 '->',
-                {module: Label, cls: ['te-hint'],     text: 'Double-click a task, or press Enter on it, to edit it'}
+                {module: Label, cls: ['te-hint'],     text: 'Double-click a task, or press Enter on it, to edit it'},
+                {module: ThemeSwitcher}
             ]
         }, {
             module             : Gantt,
