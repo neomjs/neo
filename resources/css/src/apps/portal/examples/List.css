@@ -261,7 +261,7 @@
         }
 
         .preview-image {
-            background-position: center top;
+            background-position: left top;
             background-size    : cover;
             height             : 100%;
             inset              : 0;

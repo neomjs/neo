@@ -219,12 +219,13 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Renders a two-zone card (`16:9` chromatic cover + stationary surface footer) with progressive selection details.
+     * @summary Renders a cover and a stationary footer with progressive selection details.
      *
-     * Non-tile cards separate `.preview-image-wrap` (`100%` unoccluded at rest and on hover, blended via `@property`
-     * `overlay` washes) from `.portal-example-footer` (`.portal-example-group-badge`, `.neo-title`, `.neo-github-image`,
+     * Non-tile cards separate `.preview-image-wrap` (unoccluded at rest and on hover, with a hard-light reflection)
+     * from `.portal-example-footer` (`.portal-example-group-badge`, `.neo-title`, `.neo-github-image`,
      * `.portal-example-open-cue`, and `.portal-example-feature`), keeping every launch hitbox stationary across hover
-     * and selection. Progressive details (`lookFor`, `scope`, and positive `Mobile` qualification) sit in
+     * and selection. The selection ring and neutral keyboard focus ring are independent. Progressive details
+     * (`lookFor`, `scope`, and positive `Mobile` qualification) sit in
      * `.portal-example-more` with zero focusable descendants — opening in-frame (`<= 40%` height) in multi-column
      * lists (`@container examples-list (min-width: 704px)`) and in-flow below the footer in single-column lists.
      *

@@ -1059,6 +1059,9 @@ test.describe('Portal examples section', () => {
         await app.callMethod(gridList.id, 'createItems');
         await expect(card0.locator('.portal-example-open-cue')).toHaveAttribute('href', new RegExp(`^${baseURL}`));
 
+        await expect(card0.locator('.preview-image')).toHaveCSS('background-position', '0% 0%');
+        await expect(card1.locator('.preview-image')).toHaveCSS('background-position', '0% 0%');
+
         // AC-4: zero browser lists anywhere; Grid Big Data shows Mobile without Multi-window
         await expect(page.locator(CARDS).filter({hasText: 'Chrome, Edge, Firefox, Safari'})).toHaveCount(0);
         await expect(card0.locator('.portal-example-mobile')).toHaveText('Mobile');
