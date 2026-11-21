@@ -601,7 +601,7 @@
         "title": "Building Resource Schedulers | Neo.mjs",
         "description": "Learn how to build interactive resource schedulers with Neo.scheduler.Container: resource stores, event stores, time axes, and booking edits.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-21"
     },
     "/learn/guides/datahandling/Timeline": {
         "title": "Using a Timeline Column in a Grid | Neo.mjs",
@@ -697,7 +697,7 @@
         "title": "Whitebox E2E Testing with Neural Link — Neo.mjs Developer Guide",
         "description": "Traditional end-to-end (E2E) testing treats the application as a \"black box,\" interacting purely through DOM element locators (e.g. page.locator('button'))...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/learn/guides/testing/DockLayoutsTesting": {
         "title": "Dock Layouts: Testing and Debugging - Neo.mjs",
@@ -736,7 +736,7 @@
         "title": "OffscreenCanvas Web Worker Rendering & Zero-Allocation 60fps Canvas | Neo.mjs",
         "description": "Render 60fps interactive graphics off the main thread by combining SharedWorkers, OffscreenCanvas transfer, and zero-allocation physics loops in Neo.mjs.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-21"
     },
     "/learn/guides/advanced/BuildArchitecture": {
         "title": "Build Architecture & Service Workers — Neo.mjs Developer Guide",
@@ -1059,9 +1059,9 @@
     },
     "/news/releases/14.0.0": {
         "title": "Neo.mjs v14.0.0 Release Notes",
-        "description": "Release Type: Pending the operator. Planned as a major: Engine 14 — The Front Door (ROADMAP). Stability: Pending the operator. It is set at the cut...",
+        "description": "Release Type: Pending the operator. The version is 14.0.0, fixed by the generated-app check on 2026-11-21 (#20874): Engine 14 — The Front Door (ROADMAP)...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
@@ -1101,19 +1101,19 @@
     },
     "/examples/scheduler": {
         "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
-        "description": "Explore 3 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
+        "description": "Explore 11 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
     "/examples/gantt": {
         "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
-        "description": "Explore 3 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
+        "description": "Explore 8 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
-        "description": "Explore 3 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
+        "description": "Explore 9 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1271,11 +1271,35 @@
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table below the board shows its new status.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/bigData/index.html": {
+        "title": "Support desk · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "10,000 seeded tickets in five columns, about 100 rendered per column. Scroll the first column to its end, then drag its last card into another column: the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
     },
     "/examples/board/cardDesigns/index.html": {
         "title": "Card designs · Editorial calendar · Neo Board — Live Demo | Neo.mjs",
-        "description": "Live runnable Card designs · Editorial calendar · Neo Board example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and...",
+        "description": "The same articles as compact, standard and detailed cards, built from five card items. Switch between the three designs: the cards re-draw in place and keep...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/cardEditor/index.html": {
+        "title": "Hiring pipeline · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "description": "A card's title edited in place, its stage, tags and owner in the card editor. Rename a candidate on the card itself. Open the card and move it to Interview...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/columns/index.html": {
+        "title": "Arrange the columns · Neo Board — JavaScript UI Demo | Neo.mjs",
+        "description": "Columns reordered by drag, folded to a strip, or locked in place. Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/multiSelect/index.html": {
+        "title": "Bug triage · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Cards selected by click, Shift and a modifier key, dragged together into another column. Click a report, Shift-click one further down, then drag the...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
@@ -1283,13 +1307,13 @@
         "title": "A board by team · Neo Board — JavaScript UI Demo | Neo.mjs",
         "description": "One row per team over the same five columns, each with its card count. Collapse a team, then drag a card into another team's row: the card joins that team...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/board/wipLimits/index.html": {
         "title": "Work-in-progress limits · Neo Board — JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Work-in-progress limits · Neo Board example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in...",
+        "description": "Columns with a limit: the header counts against it, and an overloaded stage stands out. The bench is over its limit of 3. Move a repair on to Testing: the...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/button/base/index.html": {
         "title": "Button — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1319,7 +1343,7 @@
         "title": "amCharts — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend. Hover the pie segments and legend entries to compare each country's share.",
         "schemaType": "WebPage",
-        "lastmod": "2024-08-17"
+        "lastmod": "2026-11-21"
     },
     "/examples/code/livePreview/index.html": {
         "title": "Live Preview — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1361,13 +1385,13 @@
         "title": "Country Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose GDP, then raise Amount Rows...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/coronaHelix/index.html": {
         "title": "Country Helix — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick. Under Sort By, choose Life and watch the countries...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/dateSelector/index.html": {
         "title": "DateSelector — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1379,19 +1403,19 @@
         "title": "Gallery — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Image items in a 3D gallery that you reshape live. Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/graphScene/index.html": {
         "title": "GraphScene — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes. Choose 100k clustered, drag to orbit, and press Read...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/helix/index.html": {
         "title": "Helix — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Image items on a 3D helix that you reshape live. Scroll over the helix, then change Radius and Perspective in Helix Controls.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/magicmovetext/index.html": {
         "title": "Magic Move - Text — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1403,19 +1427,19 @@
         "title": "Markdown VDOM (streaming) — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates. The page opens streaming: headings, lists, code, a table and a quote...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/multiWindowCoronaGallery/index.html": {
         "title": "Multi-Window Country Gallery — Multi-Window Demo | Neo.mjs",
         "description": "Gallery controls move into a second window while still controlling the gallery. Maximise Gallery Controls, change Translate X in the popup, then close it to...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/multiWindowHelix/index.html": {
         "title": "Multi-Window Helix — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "Helix controls stay connected from their own window. Maximise Helix Controls, change Translate X in the popup, then close it to return the controls.",
         "schemaType": "WebPage",
-        "lastmod": "2026-01-21"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/mwc/button/index.html": {
         "title": "MWC Button — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1463,7 +1487,7 @@
         "title": "Sparkline Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Six metric cards draw their last thirty readings as sparklines in the canvas worker, and a simulated feed extends them once a second. Watch the lines move...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/splitter/index.html": {
         "title": "Splitter — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1487,7 +1511,7 @@
         "title": "Toast Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A live form previews toast configuration and launches a temporary notification. Enter a message and watch the code preview follow each field, choose a...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/video/index.html": {
         "title": "Video — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1511,7 +1535,7 @@
         "title": "Mermaid Component — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Mermaid draws a flowchart, sequence, class or Gantt diagram from text, and draws it again on every edit and theme change. Edit the source on the left, load...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/component/wrapper/monacoEditor/index.html": {
         "title": "Monaco Editor — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1523,7 +1547,7 @@
         "title": "OpenStreetMaps/OpenLayers Component — JavaScript UI Demo | Neo.mjs",
         "description": "An OpenLayers map shows a static set of 51 earthquake records and exposes camera, zoom and marker controls. Fly between San Francisco and Iceland, change...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-21"
     },
     "/examples/container/accordion/index.html": {
         "title": "Accordion — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1559,19 +1583,19 @@
         "title": "Dock Choreography — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A scripted layout tour splits, groups and auto-hides live panes. Press Tour and watch the editor clock keep ticking as the panes rearrange.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-21"
     },
     "/examples/dashboard/crossWindow/index.html": {
         "title": "Cross-Window Dock — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A live workbench travels between windows without restarting its counter. Press Tour and follow Workbench into the popup and home again as its counter keeps...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/dashboard/desk/index.html": {
         "title": "Dashboard — Operations Desk — JavaScript UI Demo | Neo.mjs",
         "description": "Ten docked panes are views of one data set: a selection and an edit cross them. Pick an agent in Swarm, switch its state in the Inspector, then drag a tab...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-21"
     },
     "/examples/dashboard/dock/index.html": {
         "title": "Dashboard — Dock Layout — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1583,7 +1607,7 @@
         "title": "Dock Tear-Out — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A Notes pane keeps its draft when it moves to a separate window. Type a draft in Notes, use its pop-out action, then close the popup and find the draft back...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/data/pipeline/index.html": {
         "title": "Data Pipeline — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1601,7 +1625,7 @@
         "title": "Web desktop · Neo Desktop — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Web desktop · Neo Desktop example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-21"
     },
     "/examples/dialog/index.html": {
         "title": "Dialog — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1619,7 +1643,7 @@
         "title": "Field with Prefix — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "The PrefixField plugin masks a phone number, a date, a MAC address, a code and a card number. Type letters into the phone field to see them refused, then...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/form/field/checkbox/index.html": {
         "title": "CheckBoxField — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1787,7 +1811,7 @@
         "title": "Form Validation — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/functional/button/base/index.html": {
         "title": "Functional Button — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1837,15 +1861,33 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
+    "/examples/gantt/dependencies/index.html": {
+        "title": "Link tasks by drag · Neo Gantt — JavaScript UI Demo | Neo.mjs",
+        "description": "Dependencies drawn from one task's handle to another, in four link types. Hover a task and drag from its finish handle onto another task. Then move the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/gantt/taskColumns/index.html": {
+        "title": "Festival production plan · Neo Gantt columns — Live Demo | Neo.mjs",
+        "description": "Seven task columns: outline number, tree, owner, dates, days and a progress bar. Collapse a phase: its rows fold in the table and in the chart together...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/gantt/taskEditor/index.html": {
+        "title": "Website relaunch · Neo Gantt task editor — Live Demo | Neo.mjs",
+        "description": "A task's editor: title, start, end and percent done, and a plan that follows the change. Double-click a task and move its end a week out: its successors...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
     "/examples/gantt/workingTime/index.html": {
         "title": "Durations in working days · Neo Gantt — JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Durations in working days · Neo Gantt example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in...",
+        "description": "Tasks that skip weekends and holidays when they compute their end. Switch working days off: every task that crosses a weekend ends earlier, and its...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
     "/examples/gantt/zoom/index.html": {
         "title": "House build · Neo Gantt zoom — JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable House build · Neo Gantt zoom example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "The same linked plan at more than one scale, its links re-drawn at each. Switch to the wider scale: the bars shrink and every link still meets its tasks.",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
@@ -1853,7 +1895,7 @@
         "title": "Grid: Animated Row Sorting — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Animated sorting and filtering. Sort a header or filter Firstname, then adjust the transition duration to watch the rows move.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/grid/bigData/index.html": {
         "title": "JavaScript Data Grid — 100k Rows & 200 Columns in a Web Worker | Neo.mjs",
@@ -1883,7 +1925,7 @@
         "title": "GridContainer - Content-Sized Rows — Data Grid Demo | Neo.mjs",
         "description": "Wrapped content with locked columns. Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/grid/countries/index.html": {
         "title": "JavaScript Data Grid with Country Statistics | Neo.mjs",
@@ -1919,7 +1961,7 @@
         "title": "Grid: Nested Record Fields — Web Worker Data Grid Demo | Neo.mjs",
         "description": "Modal form editing on a grid row. Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/grid/pinnedColumns/index.html": {
         "title": "JavaScript Data Grid with Pinned Columns | Neo.mjs",
@@ -1979,13 +2021,13 @@
         "title": "Layouts Side by Side — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Seven layouts arrange the same six items at once, and three of them change as they run. Set align to start and pack to end, turn on flex, then press Next...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/list/animate/index.html": {
         "title": "AnimatedList — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Fifteen portrait cards that sort, filter and search, every move animated. Press Lastname, type an a into Search, then turn on Is online and watch the cards...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/list/base/index.html": {
         "title": "List — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2027,19 +2069,19 @@
         "title": "Reorder by Drag — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A checklist and a wall of portraits, each reordered by drag and drop over its own store. Drag Freeze the release branch below Write the release notes, then...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/menu/context/index.html": {
         "title": "Context Menu — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Live runnable Context Menu example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2026-08-29"
+        "lastmod": "2026-11-21"
     },
     "/examples/menu/contextFiles/index.html": {
         "title": "Context Menu: Project Files — JavaScript UI Demo | Neo.mjs",
         "description": "A right-click on a project file opens its actions at the pointer, and every action changes the list. Right-click a file to move, star, duplicate or delete...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/menu/list/index.html": {
         "title": "MenuList — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2085,7 +2127,7 @@
     },
     "/examples/scheduler/barRenderer/index.html": {
         "title": "Bars that say more · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Bars that say more · Neo Scheduler example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web...",
+        "description": "Progress inside each bar, and a renderer that colours by status and adds a second line. Find the late jobs by colour and glyph. Switch to plain bars and...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
@@ -2093,17 +2135,29 @@
         "title": "Studio bookings · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
         "description": "Resource bookings on an editable timeline. Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-15"
+        "lastmod": "2026-11-21"
     },
     "/examples/scheduler/bigData/index.html": {
         "title": "A year for 300 people · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
         "description": "300 people and 15,600 seeded bookings across a 52-week timeline. Scroll down through 300 people, then sideways through the year: buffered rows and...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-21"
     },
     "/examples/scheduler/dragAndResize/index.html": {
         "title": "Re-plan a day by drag · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Re-plan a day by drag · Neo Scheduler example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in...",
+        "description": "Bookings that move between resources, stretch, and snap to a grid you choose. Drag a stop onto another van, then pull its right edge: it lands on the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/eventEditor/index.html": {
+        "title": "Edit a booking in a form · Neo Scheduler — Live Demo | Neo.mjs",
+        "description": "A booking's editor: title, room, start and end, with a minimum length. Double-click an appointment, or focus it and press Enter. Shorten it below 30...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/liveUpdates/index.html": {
+        "title": "Gate operations · Neo Scheduler — JavaScript UI Demo | Neo.mjs",
+        "description": "Flights arrive, slip and leave on a simulated feed while you scroll and drag. Watch a delayed flight slide along its gate. Scroll, or drag a flight, while...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
@@ -2115,9 +2169,27 @@
     },
     "/examples/scheduler/nonWorkingTime/index.html": {
         "title": "Weekends and holidays in the plan · Neo Scheduler | Neo.mjs",
-        "description": "Live runnable Weekends and holidays in the plan · Neo Scheduler example in Neo.mjs, the multi-threaded JavaScript application engine running UI components...",
+        "description": "Non-working days and dates shaded across the timeline and its header. Switch the working week to Sunday to Thursday: the shaded days move. Find the holiday...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/resourceColumns/index.html": {
+        "title": "A table beside the timeline · Neo Scheduler — Live Demo | Neo.mjs",
+        "description": "Four locked resource columns: name, skill, region and booked hours, each sortable. Sort by booked hours to find who has room. Scroll the timeline: the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/timeZones/index.html": {
+        "title": "Support rota in three time zones · Neo Scheduler | Neo.mjs",
+        "description": "The same shifts read in Berlin, New York or Tokyo time. Switch the zone: every shift moves on the axis and the day boundary moves with it. The stored times...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/scheduler/zoom/index.html": {
+        "title": "Zoom from hours to a week · Neo Scheduler — Live Demo | Neo.mjs",
+        "description": "Three zoom levels over the same bookings, each with its own time axis and snap. Switch from Hours to Week and back: the axis changes its units and the...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
     },
     "/examples/serverside/toolbarItems/index.html": {
         "title": "Load Toolbar Items — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2135,7 +2207,7 @@
         "title": "state.Provider: advanced — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Nested state providers bind button texts through the formatters shown beside them. Edit data.button2Text and watch both buttons follow: the first reads from...",
         "schemaType": "WebPage",
-        "lastmod": "2025-09-23"
+        "lastmod": "2026-11-21"
     },
     "/examples/stateProvider/dialog/index.html": {
         "title": "state.Provider: dialog — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2165,13 +2237,13 @@
         "title": "stateProvider.multiWindow — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "Two windows bind their user labels to one shared state provider. Press Open second window, use Edit user and watch Current user change in both windows.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-21"
     },
     "/examples/stateProvider/multiWindow2/index.html": {
         "title": "stateProvider.multiWindow2 — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "Live runnable stateProvider.multiWindow2 example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
-        "lastmod": "2024-11-29"
+        "lastmod": "2026-11-21"
     },
     "/examples/stateProvider/nestedData/index.html": {
         "title": "state.Provider: nested data — JavaScript UI Demo | Neo.mjs",
@@ -2195,7 +2267,7 @@
         "title": "Browser-Style Tabs — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Thirty tabs in one strip close, open, reorder by drag and overflow into a menu. Drag a tab to a new place, close one with its ×, open one with +, then pick...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-21"
     },
     "/examples/tab/container/index.html": {
         "title": "TabContainer — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2225,7 +2297,7 @@
         "title": "Resource Timeline · Neo Timeline — JavaScript UI Demo | Neo.mjs",
         "description": "A plain grid mounting the timeline column with interval bars. Click Shift to advance the interval by one hour and watch the bar follow the record change.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-21"
     },
     "/examples/todoList/version1/index.html": {
         "title": "TodoList version1 — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2243,7 +2315,7 @@
         "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up. Open grid under src, then press the neo crumb to...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/tree/index.html": {
         "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -2261,7 +2333,7 @@
         "title": "Moving a Video Tag — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A mounted video component moves between two containers without being recreated. Press Move Video and watch the same player switch sides between the two panels.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-21"
     },
     "/examples/viewport/index.html": {
         "title": "Viewport — Web Worker JavaScript UI Demo | Neo.mjs",

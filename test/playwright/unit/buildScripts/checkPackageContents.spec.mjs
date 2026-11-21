@@ -167,10 +167,9 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
         expect(findForbiddenEntries(['.neo-ai-data/keep/nested/deep.jsonl'], CARVED)).toEqual([]);
     });
 
-    test('the rule set names DIRECTORIES and one file CLASS — the two generated portal FILES are a boundary, not a gap', () => {
-        // `.npmignore` also excludes `/apps/portal/sitemap.xml` and `/apps/portal/llms.txt` (3.22 MiB),
-        // and they are deliberately not gated here. Prefixes cover whole private or generated trees, the
-        // one suffix a class no folder separates; individual public SEO artifacts remain ordinary ignore rules.
+    test('the rule set names DIRECTORIES and one file CLASS — individual generated files live in .gitignore', () => {
+        // Prefixes cover whole private or generated trees, the one suffix a class no folder separates;
+        // individual untracked outputs (`apps/portal/sitemap*.xml`, `apps/portal/llms*.txt`) stay in `.gitignore`.
         expect(FORBIDDEN_PREFIXES.every(rule => rule.prefix.endsWith('/'))).toBe(true);
         expect(FORBIDDEN_SUFFIXES.map(rule => rule.suffix)).toEqual(['.spec.mjs']);
     });

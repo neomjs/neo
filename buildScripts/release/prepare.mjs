@@ -3,7 +3,7 @@
 /**
  * @file This script automates critical tasks required before a new Neo.mjs release.
  * It ensures that the package version is consistently updated across key framework files
- * and rebuilds the Portal indexes whose sources the engine holds: the release notes and the labels.
+ * and rebuilds the Portal indexes whose sources the engine holds: release notes, labels, and seo.json.
  * This consolidation streamlines the release process and prevents manual errors.
  */
 
@@ -12,6 +12,7 @@ import os                          from 'os';
 import path                        from 'path';
 import createLabelIndex            from '../docs/index/labels.mjs';
 import createReleaseIndex          from '../docs/index/release.mjs';
+import {getSeoJson}                from '../docs/seo/seoJson.mjs';
 import {getEngineReleaseNotesRoot} from '../util/contentRoot.mjs';
 
 const
@@ -107,8 +108,17 @@ if (insideNeo) {
 
 // The conversation indexes, sitemap.xml and llms.txt read the corpus, which the engine does not hold: a build that
 // declares one rebuilds them (`rebuildContentIndexesAndSeo.mjs --corpus-root`).
-await createReleaseIndex({releaseNotesRoot: getEngineReleaseNotesRoot(root)});
+const releaseNotesRoot = getEngineReleaseNotesRoot(root);
+await createReleaseIndex({releaseNotesRoot});
 await createLabelIndex();
+
+if (insideNeo) {
+    const seoJsonPath = path.join(root, 'apps/portal/resources/data/seo.json');
+    const seoJson     = await getSeoJson({releaseNotesRoot, root, seoJsonPath});
+
+    fs.writeFileSync(seoJsonPath, `${JSON.stringify(seoJson, null, 4)}\n`);
+    console.log('Updated apps/portal/resources/data/seo.json');
+}
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`\nTotal time for ${programName}: ${processTime}s`);

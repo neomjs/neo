@@ -551,7 +551,7 @@ export function selectSpecs({changed, exampleCss = [], root = process.cwd(), map
               // The app that fetches a non-module file of its own, such as its data or its index.html
               app        = /^(apps|examples)\//.test(file) && !file.endsWith('.mjs') ? entryOf(file.replace(/\.[^/.]+$/, ''), map.tracked) : null;
 
-        if (ownerSpecs.length) {
+        if (ownerSpecs.some(([spec]) => map.witnessesExample?.(spec, owner))) {
             ownerSpecs.forEach(([spec]) => select(spec, `owns example stylesheet ${file}`))
         } else if (FOUNDATION.some(rule => rule.test(file))) {
             reasons.push(`${file}: foundation`)

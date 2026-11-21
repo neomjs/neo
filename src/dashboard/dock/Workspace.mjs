@@ -2486,7 +2486,7 @@ class Workspace extends Container {
 
         // The cycle's own record (see {@link #projectionCycle}), handed to the refresh beside the options
         // rather than inside them: the options are a consumer-visible contract, the cycle is not.
-        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {waitedForTail: Boolean(me.refreshPromise)});
+        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {predecessorTiming: ProjectionCycle.timingOf(me.projectionCycle, me.refreshPromise), waitedForTail: Boolean(me.refreshPromise)});
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
