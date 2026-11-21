@@ -251,8 +251,9 @@ test.describe('Neo.board.SortZone', () => {
     let board, deltas, placed, store;
 
     const
-        realApplyDeltas = Neo.applyDeltas,
-        realGetDomRect  = Container.prototype.getDomRect,
+        realApplyDeltas   = Neo.applyDeltas,
+        realGetAttributes = Neo.main.DomAccess.getAttributes,
+        realGetDomRect    = Container.prototype.getDomRect,
         // A card's rect follows the DOM: a node the zone moved sits where its delta put it and pushes the cards at
         // and after that index down
         rectFor = id => {
@@ -262,6 +263,13 @@ test.describe('Neo.board.SortZone', () => {
             if (columnIndex > -1) {
                 const column = board.items[columnIndex], x = columnIndex * 300;
                 return id === column.id ? new Rectangle(x, 0, 280, 600) : new Rectangle(x, 50, 280, 550)
+            }
+
+            // A body's cards root spans its cards in the flow
+            const rootIndex = board.items.findIndex(column => column.body.getVdomItemsRoot().id === id);
+
+            if (rootIndex > -1) {
+                return new Rectangle(rootIndex * 300, 60, 280, Math.max(0, board.items[rootIndex].body.items.length * 100 - 20))
             }
 
             const
@@ -283,6 +291,9 @@ test.describe('Neo.board.SortZone', () => {
             for (let i = 0; i < 10 && !board.sortZone; i++) {
                 await Promise.resolve()
             }
+
+            // Nothing renders here, so the cards roots get the ids a render would give them
+            board.items.forEach(column => column.body && (column.body.getVdomItemsRoot().id ??= `${column.body.id}__cards`));
 
             const zone = board.sortZone;
 
@@ -315,7 +326,8 @@ test.describe('Neo.board.SortZone', () => {
         expectNothingPinned = () => {
             board.items.forEach(column => {
                 expect(column.body.style?.position ?? null, `${column.status} body`).toBe(null);
-                expect(column.body.style?.height ?? null, `${column.status} body`).toBe(null)
+                expect(column.body.style?.height ?? null, `${column.status} body`).toBe(null);
+                expect(column.body.getVdomItemsRoot().style?.minHeight ?? null, `${column.status} cards`).toBe(null)
             });
             board.cardMap.forEach(card => expect(card.wrapperStyle?.position ?? null, card.record.id).toBe(null))
         },
@@ -359,12 +371,15 @@ test.describe('Neo.board.SortZone', () => {
             list.forEach(delta => delta.action === 'moveNode' && (placed[delta.id] = {index: delta.index, parentId: delta.parentId}));
             return Promise.resolve()
         };
-        Container.prototype.getDomRect = ids => Promise.resolve(ids.map(rectFor))
+        // The fake geometry does not scroll
+        Neo.main.DomAccess.getAttributes = () => Promise.resolve({scrollTop: 0});
+        Container.prototype.getDomRect   = ids => Promise.resolve(ids.map(rectFor))
     });
 
     test.afterEach(() => {
-        Neo.applyDeltas                = realApplyDeltas;
-        Container.prototype.getDomRect = realGetDomRect;
+        Neo.applyDeltas                  = realApplyDeltas;
+        Neo.main.DomAccess.getAttributes = realGetAttributes;
+        Container.prototype.getDomRect   = realGetDomRect;
         board?.destroy();
         store?.destroy();
         board = store = null
@@ -404,6 +419,25 @@ test.describe('Neo.board.SortZone', () => {
         expect(keys(board.getColumn('backlog'))).toEqual(['c1', 'c2']);
         expect(card.wrapperStyle.visibility ?? null).toBe(null);
         expect(card.wrapperStyle.position ?? null).toBe(null)
+    });
+
+    test('a drag in a scrolled column sorts in the body\'s content space, and its cards keep their in-flow height until the cancel', async () => {
+        store = createStore();
+
+        const zone = await startZone(), column = board.getColumn('in-progress');
+
+        // Bodies sit at y 50 and cards 100 apart from y 60: scrolled by 40, the cards start 50 into the content
+        Neo.main.DomAccess.getAttributes = () => Promise.resolve({scrollTop: 40});
+        await drag(zone, 'c4', 400, 170);
+
+        expect(zone.scrollTop).toBe(40);
+        expect(zone.itemRects.map(rect => rect.y)).toEqual([50, 150, 250]);
+        expect(column.body.items.map(card => card.wrapperStyle.top)).toEqual(['50px', '150px', '250px']);
+        expect(column.body.getVdomItemsRoot().style.minHeight, 'three cards span 280px in the flow').toBe('280px');
+
+        await zone.onDragCancel({});
+
+        expectNothingPinned()
     });
 
     test('a drop in another column commits once through moveCard and the card follows in the tree', async () => {
