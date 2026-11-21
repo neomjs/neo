@@ -430,7 +430,8 @@ class SelectionModel extends BaseModel {
     }
 
     /**
-     * @summary Handles plain, `Ctrl/Cmd`, and `Shift` clicks on cards.
+     * @summary Handles plain, `Ctrl/Cmd`, and `Shift` clicks on cards, and the `⋯` button: an unselected card whose
+     * editor it opens becomes the selection.
      * @param {Object} data
      */
     onBoardClick(data) {
@@ -443,10 +444,7 @@ class SelectionModel extends BaseModel {
             return
         }
 
-        if (path.some(node =>
-            node?.cls?.includes?.('neo-board-card-menu-button') ||
-            node?.cls?.includes?.('neo-board-card-inline-editor')
-        )) {
+        if (path.some(node => node?.cls?.includes?.('neo-board-card-inline-editor'))) {
             return
         }
 
@@ -458,6 +456,18 @@ class SelectionModel extends BaseModel {
         }
 
         key = view.getKey(card.record);
+
+        // The ⋯ button opens its card's editor: an unselected card becomes the selection, so the highlight names the
+        // card being edited, while a selected one keeps the selection it belongs to
+        if (path.some(node => node?.cls?.includes?.('neo-board-card-menu-button'))) {
+            if (!me.isSelected(key)) {
+                me.focusedKey = key;
+                me.anchorKey  = key;
+                me.setSelection([key])
+            }
+
+            return
+        }
 
         if (data.shiftKey) {
             pos    = view.getCardPosition(card.record);

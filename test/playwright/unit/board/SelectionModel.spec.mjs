@@ -229,6 +229,15 @@ test.describe('Neo.board.SelectionModel & keyboard / ARIA contract', () => {
         sm.onBoardClick({shiftKey: true, path: [{id: cardB3.id, cls: ['neo-board-card']}]});
         expect(sm.items).toEqual(['b1', 'b2', 'b3']);
 
+        // The ⋯ button opens its card's editor: a selected card keeps the selection, an unselected one becomes it
+        const menuClick = card => sm.onBoardClick({path: [{cls: ['neo-board-card-menu-button']}, {id: card.id, cls: ['neo-board-card']}]});
+
+        menuClick(board.getCard('b2'));
+        expect(sm.items).toEqual(['b1', 'b2', 'b3']);
+        menuClick(cardP1);
+        expect(sm.items).toEqual(['p1']);
+        expect(sm.focusedKey).toBe('p1');
+
         // Ctrl+A / Meta+A selects all cards in the focused column
         await sm.focusRecord('d1');
         sm.onKeyDownA({ctrlKey: true});

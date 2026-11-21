@@ -70,6 +70,12 @@
             height    : 1lh;
             min-height: 0;
             padding   : 0 4px;
+
+            /* The board's focus ring says the name is being edited, in themes whose field border barely shows */
+            &:focus {
+                outline       : 2px solid var(--neo-board-focus-color);
+                outline-offset: 1px;
+            }
         }
     }
 
