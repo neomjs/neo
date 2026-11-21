@@ -128,6 +128,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'scheduler/MeridianSequence.spec.mjs',
     'scheduler/TouchDragFocusNL.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',
+    'timeline/PlanningThemeSwitcher.spec.mjs',
     'workstation/DockSplitterZoneIdNL.spec.mjs',
     'workstation/VesselClosesMidFirstRenderNL.spec.mjs',
     'workstation/VesselNativeRouteNL.spec.mjs',

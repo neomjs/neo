@@ -394,45 +394,50 @@
 
     @media (max-width: 767px) {
         .gate-toolbar.neo-toolbar {
-            gap       : 4px 5px;
-            min-height: 44px;
-            padding   : 7px 8px;
+            gap       : 3px 4px;
+            min-height: 42px;
+            padding   : 6px;
 
             & > * {
                 margin: 0;
             }
 
             .gate-title {
-                font-size     : 13px;
+                font-size     : 12.5px;
                 letter-spacing: -.025em;
             }
 
             .gate-sim-badge {
-                font-size: 10px;
-                padding  : 4px 7px 4px 17px;
+                font-size: 9.5px;
+                padding  : 3px 5px 3px 14px;
 
                 &::before {
-                    height: 5.5px;
-                    left  : 7px;
-                    width : 5.5px;
+                    height: 5px;
+                    left  : 5.5px;
+                    width : 5px;
                 }
             }
 
             .gate-counter {
-                font-size: 10px;
-                padding  : 4px 7px;
+                font-size: 9.5px;
+                padding  : 3px 5px;
             }
 
             .gate-pause-btn.neo-button {
-                font-size : 10.5px;
+                font-size : 10px;
                 min-height: 25px;
-                padding   : 0 8px 0 20px;
+                padding   : 0 6px 0 17px;
 
                 &::before {
-                    height: 8px;
-                    left  : 8px;
-                    width : 6.5px;
+                    height: 7.5px;
+                    left  : 6.5px;
+                    width : 6px;
                 }
+            }
+
+            .neo-theme-switcher.neo-button {
+                min-height: 25px;
+                padding   : 0 5px;
             }
         }
 

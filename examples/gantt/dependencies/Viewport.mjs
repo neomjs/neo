@@ -1,12 +1,13 @@
-import Button                            from '../../../src/button/Base.mjs';
-import Component                         from '../../../src/component/Base.mjs';
+import Button                               from '../../../src/button/Base.mjs';
+import Component                            from '../../../src/component/Base.mjs';
 import DependencyStore, {SEED_DEPENDENCIES} from './DependencyStore.mjs';
-import Gantt                             from '../../../src/gantt/Container.mjs';
-import Label                             from '../../../src/component/Label.mjs';
-import StateProvider                     from '../../../src/state/Provider.mjs';
-import TaskStore                         from './TaskStore.mjs';
-import Toolbar                           from '../../../src/toolbar/Base.mjs';
-import Viewport                          from '../../../src/container/Viewport.mjs';
+import Gantt                                from '../../../src/gantt/Container.mjs';
+import Label                                from '../../../src/component/Label.mjs';
+import StateProvider                        from '../../../src/state/Provider.mjs';
+import TaskStore                            from './TaskStore.mjs';
+import ThemeSwitcher                        from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar                              from '../../../src/toolbar/Base.mjs';
+import Viewport                             from '../../../src/container/Viewport.mjs';
 
 const
     AXIS_START     = '2026-11-02',
@@ -94,6 +95,7 @@ class LaunchViewport extends Viewport {
             module: Toolbar,
             cls   : ['launch-toolbar'],
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [{
                 module: Label,
                 cls   : ['launch-title'],
@@ -111,6 +113,8 @@ class LaunchViewport extends Viewport {
                 reference: 'reset',
                 text     : 'Reset',
                 ui       : 'secondary'
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module: Component,
