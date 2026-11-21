@@ -11,14 +11,14 @@ import {
     collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
     extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLastmodDate, formatLearnSeoTitle,
     formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath,
-    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
-    isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
+    getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
+    isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
     NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes,
     extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
-    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getMaxReleaseMajor,
+    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getIndexableReleaseVersions, getMaxReleaseMajor,
     getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
     isRedirectMarkdown, resolveLearnTreeLeaves
 };
@@ -680,7 +680,7 @@ export async function getSsgArchiveRoutes(options={}) {
 
 /**
  * @summary Formats curated, discussion, or archive routes as a sitemap `<urlset>` XML string, pruning
- * `hidden` and `type: redirect` learn stubs and historical release notes (`< maxReleaseMajor - 1`) from
+ * `hidden` and `type: redirect` learn stubs and release notes outside the indexable window from
  * `sitemap-core.xml` and falling back to pre-baked `seo.json` `lastmod` dates when `.git` is absent.
  * @param {Object} [options={}]
  * @param {String} options.corpusRoot The conversation corpus root, see {@link collectAllRoutes}.
@@ -725,18 +725,16 @@ export async function getSitemapXml(options={}) {
         root
     });
 
-    const localMaxReleaseMajor = getMaxReleaseMajor(
-        allRoutes
-            .filter(route => route.category === 'release-notes')
-            .map(route => route.version)
-    );
+    const releaseVersions      = allRoutes.filter(route => route.category === 'release-notes').map(route => route.version),
+          localMaxReleaseMajor = getMaxReleaseMajor(releaseVersions),
+          indexableVersions    = getIndexableReleaseVersions(releaseVersions);
 
     const filteredRoutes = allRoutes.filter(route => {
         if (route.hidden || route.isRedirect) {
             return false;
         }
 
-        if (route.category === 'release-notes' && !isIndexableReleaseVersion(route.version, localMaxReleaseMajor)) {
+        if (route.category === 'release-notes' && !isIndexableReleaseVersion(route.version, indexableVersions)) {
             return false;
         }
 
@@ -797,6 +795,7 @@ export async function getSitemapXml(options={}) {
         if (
             !onlyArchives &&
             !onlyDiscussions &&
+            category !== 'release-notes' &&
             typeof resolvedSeoJson?.[routePath]?.robots === 'string' &&
             /\bnoindex\b/i.test(resolvedSeoJson[routePath].robots)
         ) {
@@ -1337,6 +1336,7 @@ export default {
     getLatestSitemapLastmod,
     getLlmsFullTxt,
     getLlmsTxt,
+    getIndexableReleaseVersions,
     getMaxReleaseMajor,
     getPublishedExampleFamilies,
     getReleaseNotePriority,

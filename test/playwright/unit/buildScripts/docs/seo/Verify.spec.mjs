@@ -82,7 +82,6 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
                     title      : 'Neo.mjs v11.0.0 Release Notes',
                     description: 'Release notes and changelog for Neo.mjs v11.0.0.',
                     lastmod    : '2025-11-01',
-                    robots     : 'noindex, follow',
                     schemaType : 'TechArticle'
                 },
                 '/examples/grid/bigData/index.html': {
@@ -108,6 +107,7 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
                 '  <url><loc>https://neomjs.com/news/blog/json-ld-xss</loc><lastmod>2026-11-12</lastmod></url>',
                 '  <url><loc>https://neomjs.com/news/releases/13.4.0</loc><lastmod>2026-11-09</lastmod></url>',
                 '  <url><loc>https://neomjs.com/news/releases/12.1.0</loc><lastmod>2026-05-01</lastmod></url>',
+                '  <url><loc>https://neomjs.com/news/releases/11.0.0</loc><lastmod>2025-11-01</lastmod></url>',
                 '</urlset>'
             ].join('\n'),
             sitemapDiscussionsXml: [
@@ -342,59 +342,117 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
         await expect(verifySeoArtifacts(llmsHeadingLeakBundle)).rejects.toThrow(/archive section "## GitHub Discussions"/);
     });
 
-    test('rejects noindex/hidden/redirect/historical-release leaks, missing <lastmod>, and missing blog.json seo.json entries', async () => {
-        const missingLastmodInCoreBundle = {
-            ...buildValidBundle(),
-            sitemapCoreXml: [
-                '<urlset>',
-                '  <url><loc>https://neomjs.com/</loc></url>',
-                '</urlset>'
-            ].join('\n')
-        };
+    test('rejects noindex/hidden/redirect leaks, missing <lastmod>, and missing blog.json seo.json entries', async () => {
+        const missingLastmodInCoreBundle = buildValidBundle();
+        missingLastmodInCoreBundle.sitemapCoreXml = missingLastmodInCoreBundle.sitemapCoreXml.replace(
+            '<loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod>',
+            '<loc>https://neomjs.com/</loc>'
+        );
         await expect(verifySeoArtifacts(missingLastmodInCoreBundle)).rejects.toThrow(/missing <lastmod> despite seo\.json lastmod/);
 
         const invalidLastmodFormatBundle = buildValidBundle();
         invalidLastmodFormatBundle.seoJson['/'].lastmod = '10/21/2026';
         await expect(verifySeoArtifacts(invalidLastmodFormatBundle)).rejects.toThrow(/invalid lastmod/);
 
-        const noindexInCoreBundle = {
-            ...buildValidBundle(),
-            sitemapCoreXml: [
-                '<urlset>',
-                '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
-                '  <url><loc>https://neomjs.com/learn/agentos/decisions/0020-stub</loc><lastmod>2026-10-19</lastmod></url>',
-                '</urlset>'
-            ].join('\n')
-        };
+        const noindexInCoreBundle = buildValidBundle();
+        noindexInCoreBundle.sitemapCoreXml = noindexInCoreBundle.sitemapCoreXml.replace(
+            '</urlset>',
+            '  <url><loc>https://neomjs.com/learn/agentos/decisions/0020-stub</loc><lastmod>2026-10-19</lastmod></url>\n</urlset>'
+        );
         await expect(verifySeoArtifacts(noindexInCoreBundle)).rejects.toThrow(/must not advertise noindex route/);
 
         const missingRedirectNoindexInSeoBundle = buildValidBundle();
         delete missingRedirectNoindexInSeoBundle.seoJson['/learn/agentos/decisions/0020-stub'].robots;
         await expect(verifySeoArtifacts(missingRedirectNoindexInSeoBundle)).rejects.toThrow(/hidden or redirect learn route.*noindex, follow/);
 
-        const oldReleaseInCoreBundle = buildValidBundle();
-        delete oldReleaseInCoreBundle.seoJson['/news/releases/11.0.0'].robots;
-        oldReleaseInCoreBundle.sitemapCoreXml = [
-            '<urlset>',
-            '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
-            '  <url><loc>https://neomjs.com/news/releases/13.4.0</loc><lastmod>2026-11-09</lastmod></url>',
-            '  <url><loc>https://neomjs.com/news/releases/11.0.0</loc><lastmod>2025-11-01</lastmod></url>',
-            '</urlset>'
-        ].join('\n');
-        await expect(verifySeoArtifacts(oldReleaseInCoreBundle)).rejects.toThrow(/historical release route "\/news\/releases\/11\.0\.0"/);
-
-        const missingOldReleaseNoindexBundle = buildValidBundle();
-        delete missingOldReleaseNoindexBundle.seoJson['/news/releases/11.0.0'].robots;
-        await expect(verifySeoArtifacts(missingOldReleaseNoindexBundle)).rejects.toThrow(/historical release route "\/news\/releases\/11\.0\.0" must set robots/);
-
         const missingBlogSeoBundle = buildValidBundle();
         delete missingBlogSeoBundle.seoJson['/news/blog/json-ld-xss'];
-        missingBlogSeoBundle.sitemapCoreXml = [
-            '<urlset>',
-            '  <url><loc>https://neomjs.com/</loc><lastmod>2026-10-21</lastmod></url>',
-            '</urlset>'
-        ].join('\n');
+        missingBlogSeoBundle.sitemapCoreXml = missingBlogSeoBundle.sitemapCoreXml.split('\n')
+            .filter(line => !line.includes('<loc>https://neomjs.com/news/blog/json-ld-xss</loc>')).join('\n');
         await expect(verifySeoArtifacts(missingBlogSeoBundle)).rejects.toThrow(/missing blog post metadata entry for "\/news\/blog\/json-ld-xss"/);
+    });
+
+    test('enforces sitemap coverage and indexing metadata at release ranks 25 and 26 (#21811)', async () => {
+        const bundle       = buildValidBundle(),
+              rank25       = '/news/releases/13.3.1',
+              rank26       = '/news/releases/13.3.0',
+              metadataOnly = '/news/releases/99.0.0',
+              coreEntries  = [];
+
+        for (let patch = 0; patch < 25; patch++) {
+            const version = `13.3.${patch}`,
+                  route   = `/news/releases/${version}`;
+
+            await fs.outputFile(path.join(releaseNotesRoot, `v${version}.md`), `# Neo.mjs v${version} Release Notes`);
+            bundle.seoJson[route] = {
+                title      : `Neo.mjs v${version} Release Notes`,
+                description: `Release notes and changelog for Neo.mjs v${version}.`,
+                schemaType : 'TechArticle'
+            };
+
+            if (patch > 0) {
+                coreEntries.push(`  <url><loc>${bundle.baseUrl}${route}</loc></url>`)
+            }
+        }
+
+        const historicalRoutes = ['/news/releases/11.0.0', '/news/releases/12.1.0', rank26];
+        for (const route of historicalRoutes) {
+            bundle.seoJson[route].robots = 'noindex, follow'
+        }
+        bundle.sitemapCoreXml = bundle.sitemapCoreXml.split('\n')
+            .filter(line => !historicalRoutes.some(route => line.includes(`<loc>${bundle.baseUrl}${route}</loc>`)))
+            .join('\n').replace('</urlset>', [...coreEntries, '</urlset>'].join('\n'));
+
+        bundle.releasesPath = path.join(rootDir, 'release-index.json');
+        await fs.outputJson(bundle.releasesPath, [{id: '99.0.0', isLeaf: true}]);
+        bundle.seoJson[metadataOnly] = {
+            title      : 'Neo.mjs v99.0.0 metadata',
+            description: 'Release index entry without a note.',
+            robots     : 'noindex, follow'
+        };
+
+        await expect(verifySeoArtifacts(bundle)).resolves.toBeUndefined();
+
+        const missingIndexableSitemapBundle = {
+            ...bundle,
+            sitemapCoreXml: bundle.sitemapCoreXml.replace(`  <url><loc>${bundle.baseUrl}${rank25}</loc></url>\n`, '')
+        };
+        await expect(verifySeoArtifacts(missingIndexableSitemapBundle))
+            .rejects.toThrow(/sitemap-core\.xml missing indexable release route "\/news\/releases\/13\.3\.1"/);
+
+        const missingIndexableSeoBundle = structuredClone(bundle);
+        delete missingIndexableSeoBundle.seoJson[rank25];
+        await expect(verifySeoArtifacts(missingIndexableSeoBundle))
+            .rejects.toThrow(/seo\.json missing indexable release route "\/news\/releases\/13\.3\.1"/);
+
+        const noindexIndexableBundle = structuredClone(bundle);
+        noindexIndexableBundle.seoJson[rank25].robots = 'noindex, follow';
+        await expect(verifySeoArtifacts(noindexIndexableBundle))
+            .rejects.toThrow(/seo\.json indexable release route "\/news\/releases\/13\.3\.1" must allow indexing/);
+
+        const historicalInSitemapBundle = {
+            ...bundle,
+            sitemapCoreXml: bundle.sitemapCoreXml.replace('</urlset>', `  <url><loc>${bundle.baseUrl}${rank26}</loc></url>\n</urlset>`)
+        };
+        await expect(verifySeoArtifacts(historicalInSitemapBundle))
+            .rejects.toThrow(/sitemap-core\.xml must not contain historical release route "\/news\/releases\/13\.3\.0"/);
+
+        const metadataOnlyInSitemap = {
+            ...bundle,
+            sitemapCoreXml: bundle.sitemapCoreXml.replace('</urlset>', `  <url><loc>${bundle.baseUrl}${metadataOnly}</loc></url>\n</urlset>`)
+        };
+        await expect(verifySeoArtifacts(metadataOnlyInSitemap))
+            .rejects.toThrow(/sitemap-core\.xml must not contain historical release route "\/news\/releases\/99\.0\.0"/);
+
+        const missingHistoricalNoindexBundle = structuredClone(bundle);
+        delete missingHistoricalNoindexBundle.seoJson[rank26].robots;
+        await expect(verifySeoArtifacts(missingHistoricalNoindexBundle))
+            .rejects.toThrow(/historical release route "\/news\/releases\/13\.3\.0" must set robots/);
+
+        const missingHistoricalSeoBundle = structuredClone(bundle);
+        delete missingHistoricalSeoBundle.seoJson[rank26];
+        await expect(verifySeoArtifacts(missingHistoricalSeoBundle))
+            .rejects.toThrow(/seo\.json missing historical release route "\/news\/releases\/13\.3\.0"/);
     });
 
     test('rejects placeholder release titles in llms.txt and missing or generic deep seo.json entries', async () => {

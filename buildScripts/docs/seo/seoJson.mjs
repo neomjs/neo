@@ -167,20 +167,50 @@ export function getMaxReleaseMajor(versions=[]) {
 }
 
 /**
- * @summary Determines whether a release-note version falls within the active indexable window
- * (`releaseMajor >= maxReleaseMajor - 1`, i.e., current and previous major).
+ * @summary Normalizes a release tag for comparisons while retaining prerelease and build metadata.
  * @param {String} version
- * @param {Number|null} maxMajor
+ * @returns {String}
+ */
+function releaseVersionKey(version) {
+    return String(version ?? '').trim().replace(/^v/, '')
+}
+
+/** @member {Number} INDEXABLE_RELEASE_LIMIT=25 */
+export const INDEXABLE_RELEASE_LIMIT = 25;
+
+/**
+ * @summary Selects the latest distinct SemVer releases eligible for indexing.
+ * @param {String[]} versions Versions from release notes and the release index
+ * @returns {Set<String>}
+ */
+export function getIndexableReleaseVersions(versions=[]) {
+    const distinct = new Set(versions.map(releaseVersionKey).filter(version => semver.valid(version)));
+
+    return new Set([...distinct].sort((a, b) => semver.compareBuild(b, a)).slice(0, INDEXABLE_RELEASE_LIMIT))
+}
+
+/**
+ * @summary Checks whether a release-note version belongs to the shared indexable window.
+ * @param {String} version
+ * @param {Set<String>} indexableVersions
  * @returns {Boolean}
  */
-export function isIndexableReleaseVersion(version, maxMajor) {
-    const major = semver.coerce(version)?.major;
+export function isIndexableReleaseVersion(version, indexableVersions) {
+    return indexableVersions.has(releaseVersionKey(version))
+}
 
-    if (major == null || maxMajor == null) {
-        return true;
-    }
+/**
+ * @summary Reads release leaf records from the Portal index, including metadata-only releases.
+ * @param {String} releasesPath
+ * @returns {Promise<Object[]>}
+ */
+export async function readReleaseIndex(releasesPath) {
+    if (!(await fs.pathExists(releasesPath))) return [];
 
-    return major >= maxMajor - 1;
+    const index = await fs.readJSON(releasesPath),
+          nodes = Array.isArray(index) ? index : index?.data;
+
+    return Array.isArray(nodes) ? nodes.filter(node => node?.id && node.isLeaf !== false) : []
 }
 
 /**
@@ -802,7 +832,7 @@ export async function resolveLearnTreeLeaves(options={}) {
  * curated top-level routes (including both `'/'` and `'/home'`), `learn/tree.json` leaves (`/learn/*`),
  * `blog.json` leaves (`/news/blog/*`), release-note leaves (`/news/releases/*`), and populated
  * `/examples/<family>` overview routes, baking batched git `lastmod` (`YYYY-MM-DD`) dates and marking
- * hidden/redirect learn leaves and historical releases (`< maxReleaseMajor - 1`) with `robots: 'noindex, follow'`.
+ * hidden/redirect learn leaves and releases outside the latest SemVer window with `robots: 'noindex, follow'`.
  * @param {Object} [options={}]
  * @param {String} [options.basePath='/learn']
  * @param {String} [options.blogIndexPath]
@@ -1001,22 +1031,16 @@ export async function getSeoJson(options={}) {
 
     const releaseEntriesByVersion = new Map();
 
-    if (await fs.pathExists(releasesPath)) {
-        const releasesRaw = await fs.readJSON(releasesPath);
-        const nodes       = (Array.isArray(releasesRaw) ? releasesRaw : Array.isArray(releasesRaw?.data) ? releasesRaw.data : [])
-            .filter(node => node?.id && node.isLeaf !== false);
+    for (const node of await readReleaseIndex(releasesPath)) {
+        const version = releaseVersionKey(node.id);
 
-        for (const node of nodes) {
-            const version = String(node.id).replace(/^v/, '');
-
-            releaseEntriesByVersion.set(version, {
-                description : `Release notes and changelog for Neo.mjs v${version}.`,
-                fallbackDate: normalizeIsoDateOnly(node.date),
-                filePath    : null,
-                title       : `Neo.mjs v${version} Release Notes`,
-                version
-            });
-        }
+        releaseEntriesByVersion.set(version, {
+            description : `Release notes and changelog for Neo.mjs v${version}.`,
+            fallbackDate: normalizeIsoDateOnly(node.date),
+            filePath    : null,
+            title       : `Neo.mjs v${version} Release Notes`,
+            version
+        });
     }
 
     if (await fs.pathExists(releaseNotesRoot)) {
@@ -1031,7 +1055,7 @@ export async function getSeoJson(options={}) {
             const filePath             = path.resolve(releaseNotesRoot, file);
             const rawContent           = await fs.readFile(filePath, 'utf-8');
             const fileName             = path.basename(file, '.md');
-            const version              = fileName.startsWith('v') ? fileName.substring(1) : fileName;
+            const version              = releaseVersionKey(fileName);
             const existing             = releaseEntriesByVersion.get(version);
             const frontmatterDate      = extractFrontmatterDateOnly(rawContent);
             const {title, description} = extractMarkdownSeoMetadata(rawContent, {
@@ -1049,11 +1073,14 @@ export async function getSeoJson(options={}) {
         }
     }
 
-    const maxReleaseMajor = getMaxReleaseMajor(Array.from(releaseEntriesByVersion.keys()));
+    // When notes are available, only versions with a document can use sitemap slots.
+    const markdownVersions  = [...releaseEntriesByVersion.values()].filter(entry => entry.filePath).map(entry => entry.version),
+          markdownWindow    = getIndexableReleaseVersions(markdownVersions),
+          indexableVersions = markdownWindow.size ? markdownWindow : getIndexableReleaseVersions([...releaseEntriesByVersion.keys()]);
 
     for (const entry of releaseEntriesByVersion.values()) {
         const route       = `/news/releases/${entry.version}`;
-        const isIndexable = isIndexableReleaseVersion(entry.version, maxReleaseMajor);
+        const isIndexable = isIndexableReleaseVersion(entry.version, indexableVersions);
         const lastmod     = resolveRouteLastmod(
             route,
             entry.filePath ? [entry.filePath] : [],

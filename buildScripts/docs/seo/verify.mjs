@@ -20,11 +20,12 @@ import {
 import {
     NON_INDEXABLE_STANDALONE_PATHS,
     collectExampleRoutes,
-    getMaxReleaseMajor,
+    getIndexableReleaseVersions,
     getSeoJson,
     hasReliableGitHistory,
     isIndexableReleaseVersion,
     isRedirectMarkdown,
+    readReleaseIndex,
     resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
@@ -41,7 +42,7 @@ import {
  * - `sitemap-core.xml` advertises `/` (never `/home` or `/apps/portal/index.html`), all 5 indexable
  *   News hub routes (`/news/blog`, `/news/releases`, `/news/discussions`, `/news/medium`, `/news/videos`),
  *   and standalone routes with unique generated and source HTML titles; excludes `noindex` (`/news/tickets`,
- *   `/news/pulls`), `hidden`, `type: redirect`, and `< maxReleaseMajor - 1` release routes; and emits
+ *   `/news/pulls`), `hidden`, `type: redirect`, and releases outside the indexable window; and emits
  *   `<lastmod>` whenever `seo.json` carries a pre-baked `lastmod`.
  * - `seo.json` coverage across Portal routes, News hubs, and `blog.json` leaves, `YYYY-MM-DD` `lastmod` validity,
  *   and `robots: 'noindex, follow'` on `/news/tickets`, `/news/pulls`, hidden/redirect learn leaves, and historical releases.
@@ -403,6 +404,7 @@ export function validateLlmsTxtContent(llmsTxt, {maxBytes=LLMS_TXT_MAX_BYTES, re
  * @param {String} options.llmsFullTxt
  * @param {String} options.llmsTxt
  * @param {String} [options.releaseNotesRoot]
+ * @param {String} [options.releasesPath] Portal release index used by the generators.
  * @param {String|null} [options.robotsTxt=null]
  * @param {String} [options.root=process.cwd()]
  * @param {Object} options.seoJson
@@ -426,6 +428,7 @@ export async function verifySeoArtifacts(options={}) {
         releaseNotesRoot,
         robotsTxt              = null,
         root                   = process.cwd(),
+        releasesPath           = path.resolve(root, 'apps/portal/resources/data/releases.json'),
         seoJson,
         sitemapArchiveName     = 'sitemap-archive.xml',
         sitemapArchiveXml,
@@ -556,6 +559,53 @@ export async function verifySeoArtifacts(options={}) {
         }
     }
 
+    const releasePrefix     = '/news/releases/',
+          releaseNoteFiles  = await indexReleaseNoteFiles(releaseNotesRoot),
+          markdownVersions  = [...releaseNoteFiles].map(file => file.replace(/^v/, '').replace(/\.md$/, '')),
+          releaseMetadata   = await readReleaseIndex(releasesPath),
+          releaseSeoRoutes  = Object.entries(seoJson).filter(([route]) => route.startsWith(releasePrefix)),
+          coreReleases      = [...corePathnameSet].filter(route => route.startsWith(releasePrefix)),
+          sourceVersions    = [...markdownVersions, ...releaseMetadata.map(entry => String(entry.id).trim().replace(/^v/, ''))],
+          artifactVersions  = [...coreReleases, ...releaseSeoRoutes.map(([route]) => route)].map(route => route.slice(releasePrefix.length)),
+          markdownWindow    = getIndexableReleaseVersions(markdownVersions),
+          availableVersions = sourceVersions.length ? sourceVersions : artifactVersions,
+          indexableVersions = markdownWindow.size ? markdownWindow : getIndexableReleaseVersions(availableVersions);
+
+    for (const version of new Set(sourceVersions)) {
+        const route = `${releasePrefix}${version}`;
+
+        if (!seoJson[route] || typeof seoJson[route] !== 'object') {
+            const status = isIndexableReleaseVersion(version, indexableVersions) ? 'indexable' : 'historical';
+
+            throw new Error(`seo.json missing ${status} release route "${route}".`);
+        }
+    }
+
+    for (const version of markdownVersions) {
+        const route = `${releasePrefix}${version}`;
+
+        if (isIndexableReleaseVersion(version, indexableVersions) && !corePathnameSet.has(route)) {
+            throw new Error(`sitemap-core.xml missing indexable release route "${route}".`);
+        }
+    }
+
+    for (const route of coreReleases) {
+        if (!isIndexableReleaseVersion(route.slice(releasePrefix.length), indexableVersions)) {
+            throw new Error(`sitemap-core.xml must not contain historical release route "${route}" outside the indexable release window.`);
+        }
+    }
+
+    for (const [route, entry] of releaseSeoRoutes) {
+        const indexable = isIndexableReleaseVersion(route.slice(releasePrefix.length), indexableVersions);
+
+        if (indexable && /\bnoindex\b/i.test(entry?.robots || '')) {
+            throw new Error(`seo.json indexable release route "${route}" must allow indexing.`);
+        }
+        if (!indexable && entry?.robots !== 'noindex, follow') {
+            throw new Error(`seo.json historical release route "${route}" must set robots to "noindex, follow".`);
+        }
+    }
+
     for (const noindexHubRoute of NOINDEX_NEWS_HUB_ROUTES) {
         if (seoJson[noindexHubRoute] !== undefined && seoJson[noindexHubRoute]?.robots !== 'noindex, follow') {
             throw new Error(`seo.json route "${noindexHubRoute}" must set robots to "noindex, follow".`);
@@ -638,50 +688,6 @@ export async function verifySeoArtifacts(options={}) {
         }
 
         seenStandaloneSourceTitles.set(sourceTitle, standaloneRoute.id);
-    }
-
-    const releaseNoteFiles = await indexReleaseNoteFiles(releaseNotesRoot);
-    const releaseVersions  = new Set();
-
-    for (const fileName of releaseNoteFiles) {
-        const base = fileName.replace(/\.md$/, '');
-        releaseVersions.add(base.startsWith('v') ? base.slice(1) : base);
-    }
-
-    for (const route of Object.keys(seoJson)) {
-        if (route.startsWith('/news/releases/')) {
-            releaseVersions.add(route.slice('/news/releases/'.length));
-        }
-    }
-
-    for (const pathname of corePathnameSet) {
-        if (pathname.startsWith('/news/releases/')) {
-            releaseVersions.add(pathname.slice('/news/releases/'.length));
-        }
-    }
-
-    const maxReleaseMajor = getMaxReleaseMajor(Array.from(releaseVersions));
-
-    if (maxReleaseMajor !== null) {
-        for (const pathname of corePathnameSet) {
-            if (pathname.startsWith('/news/releases/')) {
-                const version = pathname.slice('/news/releases/'.length);
-
-                if (!isIndexableReleaseVersion(version, maxReleaseMajor)) {
-                    throw new Error(`sitemap-core.xml must not contain historical release route "${pathname}" (< v${maxReleaseMajor - 1}).`);
-                }
-            }
-        }
-
-        for (const [route, entry] of Object.entries(seoJson)) {
-            if (route.startsWith('/news/releases/')) {
-                const version = route.slice('/news/releases/'.length);
-
-                if (!isIndexableReleaseVersion(version, maxReleaseMajor) && entry?.robots !== 'noindex, follow') {
-                    throw new Error(`seo.json historical release route "${route}" must set robots to "noindex, follow".`);
-                }
-            }
-        }
     }
 
     const treeFilePath = path.resolve(root, 'learn/tree.json');
