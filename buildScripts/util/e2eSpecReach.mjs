@@ -187,8 +187,9 @@ export function specReach({root = process.cwd()} = {}) {
 
                 const content = text(path);
 
+                // A foreign import can get the namespace from a helper in the example's entry.
                 if (content.includes(namespace) || content.includes(`${stem}.css`) ||
-                    (path.endsWith('.mjs') && edgesOf(path).some(edge => entryOf(edge, tracked) === entry && closureOf(edge).has(module)))) {
+                    (path.endsWith('.mjs') && edgesOf(path).some(edge => entryOf(edge, tracked) === entry))) {
                     return null
                 }
             }

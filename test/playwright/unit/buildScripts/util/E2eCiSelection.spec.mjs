@@ -471,6 +471,10 @@ test.describe('e2e CI selection — verified example styles', () => {
             'apps/other/Consumer.mjs'           : "import '../../examples/scheduler/demo/Helper.mjs';",
             'examples/scheduler/demo/Helper.mjs': "export {default} from './Viewport.mjs';"
         });
+        withTree(check, {
+            'apps/other/Consumer.mjs'               : "import {themeFiles} from '../../examples/scheduler/demo/ThemeFiles.mjs';\nexport default {additionalThemeFiles: themeFiles};",
+            'examples/scheduler/demo/ThemeFiles.mjs': `export const themeFiles = ['${namespace}'];`
+        });
         withTree(check, {'resources/css/src/Global.css': '@import "examples/scheduler/demo/Viewport.css";'});
     });
 });
