@@ -113,8 +113,6 @@
         display       : block;
         overflow      : visible;
         pointer-events: none;
-        /* Bars are centered inside the cell, above its 1px bottom border. */
-        transform     : translateY(-.5px);
     }
 
     .neo-gantt-dependency-arrow {

@@ -314,6 +314,23 @@ class TimeAxisHeader extends Component {
     }
 
     /**
+     * @summary Marks the header with its lock region's class, as `Neo.grid.header.Button#afterSetLocked` does, so the
+     * region seam rules of `grid/header/Button.css` reach a locked timeline.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLocked(value, oldValue) {
+        let cls = this.cls.filter(item => item !== 'neo-locked-start' && item !== 'neo-locked-end');
+
+        if (value === 'start' || value === 'end') {
+            cls.push(`neo-locked-${value}`)
+        }
+
+        this.cls = cls
+    }
+
+    /**
      * @summary Re-projects ticks when `majorFormatter` changes.
      * @param {Function|null} value
      * @param {Function|null} oldValue

@@ -131,6 +131,113 @@ test.describe('Board, basic example: one store, two views', () => {
     }
 
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
+        test(`a column dragged by its header carries its cards, leaves its slot empty and moves once (${theme})`, async ({page, neuralLink}, testInfo) => {
+            const {boardId, column, domOrder, records} = await open(page, neuralLink, theme),
+                  proxy  = page.locator('.neo-dragproxy'),
+                  order  = () => page.locator(`[id^="${boardId}__col__"]`).evaluateAll((nodes, prefix) =>
+                      nodes.map(node => node.id.slice(prefix.length)).filter(status => !status.includes('_')), `${boardId}__col__`),
+                  cards  = await domOrder('ready'),
+                  from   = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
+                  to     = await column('in-progress').boundingBox(),
+                  y      = from.y + from.height / 2;
+
+            expect(await order(), 'the seeded column order').toEqual(STATUSES);
+
+            await page.mouse.move(from.x + 24, y);
+            await page.mouse.down();
+            await page.mouse.move(from.x + 44, y, {steps: 4});
+
+            await expect(proxy.locator('.neo-board-column-header'), 'the proxy carries the header').toHaveCount(1);
+            await expect(proxy.locator('.neo-board-card'), 'and every card the column renders').toHaveCount(cards.length);
+            await expect(proxy.locator(`[id^="${boardId}__card__"]`), 'as copies, never the live card nodes').toHaveCount(0);
+            await expect(column('ready'), 'the slot stays empty while the column is carried').toHaveCSS('visibility', 'hidden');
+
+            const slot = await column('ready').boundingBox();
+
+            expect((await proxy.boundingBox()).width, 'the proxy is as wide as the slot').toBe(slot.width);
+            expect((await proxy.locator('.neo-board-column').boundingBox()).width, 'and the carried column fills it').toBe(slot.width);
+
+            await page.mouse.move(to.x + to.width / 2 + 24, y, {steps: 16});
+            expect((await proxy.boundingBox()).y, 'a level pointer keeps the column level with its slot').toBe(slot.y);
+
+            const frame = testInfo.outputPath(`board-column-drag-${theme}.png`);
+            await page.screenshot({path: frame});
+            await testInfo.attach(`board-column-drag-${theme}`, {path: frame, contentType: 'image/png'});
+            await page.mouse.up();
+
+            await expect.poll(order, {message: 'one move: Ready lands after In Progress'}).toEqual(['backlog', 'in-progress', 'ready', 'review', 'done']);
+            await expect(column('ready')).not.toHaveCSS('visibility', 'hidden');
+            await expect(proxy).toHaveCount(0);
+            expect(await page.evaluate(id => Neo.main.addon.DragDrop.zoneRegistrations[id] ?? null, `${boardId}__col__ready`),
+                'the zone registry stays keyed on headers, so card drags inside the column keep their zone').toBeNull();
+            expect(await domOrder('ready'), 'the moved column keeps its cards').toEqual(cards);
+
+            // A card drag inside the moved column must still reach the card zone, not the column zone
+            const moved = (await records('ready'))[0].id,
+                  card  = await page.locator(`[id="${boardId}__card__${moved}"]`).boundingBox(),
+                  into  = await column('review').boundingBox();
+
+            await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(card.x + card.width / 2 + 20, card.y + card.height / 2, {steps: 4});
+            await page.mouse.move(into.x + into.width / 2, into.y + 120, {steps: 16});
+            await page.mouse.up();
+
+            await expect.poll(async () => (await records('review')).some(record => record.id === moved),
+                {message: 'a card dragged out of the moved column lands in Review'}).toBe(true)
+        })
+    }
+
+    test('a column dragged diagonally past the board\'s corner stays inside the board', async ({page, neuralLink}) => {
+        const {boardId, domOrder} = await open(page, neuralLink),
+              proxy = page.locator('.neo-dragproxy'),
+              board = await page.locator(`[id="${boardId}"]`).boundingBox(),
+              from  = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
+              y     = from.y + from.height / 2;
+
+        await page.mouse.move(from.x + 24, y);
+        await page.mouse.down();
+        await page.mouse.move(from.x + 44, y, {steps: 4});
+        await expect(proxy.locator('.neo-board-column-header')).toHaveCount(1);
+
+        // The board's sort zones clamp to the board: the carried column is clamped by its own size, not its header's
+        await page.mouse.move(board.x + board.width + 100, board.y + board.height + 200, {steps: 12});
+
+        const box = await proxy.boundingBox();
+
+        expect(box.y, 'the carried column keeps the board\'s top').toBeGreaterThanOrEqual(board.y - 1);
+        expect(box.y + box.height, 'and its bottom').toBeLessThanOrEqual(board.y + board.height + 1);
+        expect(box.x + box.width, 'and its right edge').toBeLessThanOrEqual(board.x + board.width + 1);
+
+        const cards = await domOrder('ready');
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(proxy).toHaveCount(0);
+        expect(await domOrder('ready'), 'a cancelled drag moves nothing').toEqual(cards)
+    });
+
+    test('a windowed column dragged by its header carries only the cards it renders', async ({page, neuralLink}) => {
+        const {app, boardId, storeId, domOrder} = await open(page, neuralLink),
+              proxy = page.locator('.neo-dragproxy');
+
+        await seedSliced(app, boardId, storeId, 60, 8);
+        await expect.poll(async () => (await domOrder('ready')).length, {message: 'the column windows its 60 cards'}).toBeLessThan(60);
+
+        const rendered = (await domOrder('ready')).length,
+              from     = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
+              y        = from.y + from.height / 2;
+
+        await page.mouse.move(from.x + 24, y);
+        await page.mouse.down();
+        await page.mouse.move(from.x + 44, y, {steps: 4});
+
+        await expect(proxy.locator('.neo-board-card'), 'the proxy clones the rendered window only').toHaveCount(rendered);
+
+        await page.mouse.up()
+    });
+
+    for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         test(`at 1440 × 900 all five columns are in view on first paint, the table below them (${theme})`, async ({page, neuralLink}, testInfo) => {
             await page.setViewportSize({height: 900, width: 1440});
 

@@ -138,9 +138,9 @@ test.describe('Portal examples overview and group pages', () => {
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
-        expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data']);
-        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data']);
-        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes']);
+        expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data', 'meridian-observatory']);
+        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data', 'meridian-observatory']);
+        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes', 'meridian-observatory']);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
         expect(pageIds(view, 'functional')).toEqual(['live-preview', 'email']);
         expect(tileIds(view, 'functional')).toEqual(['functional-define-component', 'functional-host-component', 'functional-nested-template']);
@@ -717,9 +717,9 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           lists         : [12, 1],
           charts        : [5, 1],
           calendar      : [1, 0],
-          scheduler     : [2, 0],
-          gantt         : [2, 0],
-          board         : [2, 0],
+          scheduler     : [3, 0],
+          gantt         : [2, 1],
+          board         : [2, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
           layouts       : [3, 0],
@@ -921,6 +921,7 @@ test.describe('Portal examples canonical catalog', () => {
             'form-app'               : ['apps'],
             'layout-form'            : ['forms'],
             'timeline-basic'         : ['scheduler'],
+            'meridian-observatory'   : ['gantt', 'board'],
             'dock-cross-window'      : ['multi-window'],
             'dock-tear-out'          : ['multi-window', 'drag-drop'],
             'email'                  : ['multi-window', 'functional'],
@@ -1001,7 +1002,7 @@ test.describe('Portal examples canonical catalog', () => {
         const {store}     = createList(),
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
-                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'timeline-basic',
+                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', 'on-air-at-eight', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {
