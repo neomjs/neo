@@ -861,6 +861,10 @@ class BoardSortZone extends SortZone {
         }
 
         me.dragComponent = null;
+
+        // A cancel or a drop that wrote nothing re-projects no column: a window the held card pinned returns here
+        startColumn.windowPinned && !startColumn.isDestroyed && owner.reconcileColumn(startColumn);
+
         me.dragEnd(data)
     }
 

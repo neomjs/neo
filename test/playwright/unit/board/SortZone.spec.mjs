@@ -674,8 +674,8 @@ test.describe('Neo.board.SortZone', () => {
 
         await zone.onDragCancel({});
 
-        // Released, the window returns to that scroll position instead of leaving the viewport on its spacer
-        board.reconcileColumn(column);
+        // Released without a drop, the window returns to that scroll position instead of leaving the viewport on its
+        // spacer: a cancel writes nothing, so nothing else re-projects the column
         expect(keys(column), 'the window follows the scroll again').toEqual(['b290', 'b291', 'b292', 'b293'])
     });
 
