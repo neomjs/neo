@@ -9,7 +9,7 @@ const
     DAY_MS = 86_400_000,
     START  = Date.UTC(2027, 2, 1),
     // Each task: [id, title, days, percent done on 12 March, the tasks it follows]
-    PHASES = [
+    PHASES          = [
         {id: 'discovery', title: 'Discovery', tasks: [
             ['interviews', 'Interview the stakeholders', 4, 100, []],
             ['audit', 'Audit the current site', 3, 100, []],
@@ -35,49 +35,14 @@ const
             ['announce', 'Announce the relaunch', 1, 0, ['domain']]
         ]}
     ],
-    format = date => new Date(date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'}),
-    iso    = day => new Date(START + day * DAY_MS).toISOString();
-
-/**
- * @summary Schedules every task right after the tasks it follows and rolls each phase up to its tasks' span.
- * @returns {{tasks: Object[], dependencies: Object[]}} Task and finish-to-start link records for the stores.
- */
-function buildPlan() {
-    const
-        byId   = new Map(PHASES.flatMap(phase => phase.tasks.map(task => [task[0], task]))),
-        starts = new Map(),
-        start  = id => {
-            if (!starts.has(id)) {
-                const [, , , , follows] = byId.get(id);
-                starts.set(id, Math.max(0, ...follows.map(key => start(key) + byId.get(key)[2])))
-            }
-            return starts.get(id)
-        },
-        tasks        = [],
-        dependencies = [];
-
-    PHASES.forEach(phase => {
-        const rows = phase.tasks.map(([id, title, days, percentDone, follows]) => {
-            follows.forEach(fromId => dependencies.push({id: `${fromId}-${id}`, fromId, toId: id, type: 'FS', lag: 0, lagUnit: 'hour'}));
-
-            return {id, parentId: phase.id, isLeaf: true, percentDone, title, startDate: iso(start(id)), endDate: iso(start(id) + days)}
-        });
-
-        tasks.push({
-            id       : phase.id, parentId: null, isLeaf: false, collapsed: false, title: phase.title,
-            startDate: rows.map(row => row.startDate).sort()[0],
-            endDate  : rows.map(row => row.endDate).sort().at(-1)
-        }, ...rows)
-    });
-
-    return {tasks, dependencies}
-}
-
-const plan = buildPlan();
+    // The stylesheet's phone breakpoint, where the task column narrows to leave the chart room for its bars
+    PHONE_MAX_WIDTH = 600,
+    TASK_WIDTH      = {phone: 160, wide: 240};
 
 /**
  * @summary A website relaunch whose tasks open in the Gantt's task editor: a double-click on a bar, or Enter on a
- * focused bar. A saved end moves the task and every task linked after it; a saved percent fills its bar.
+ * focused bar. A saved end moves the task and every task linked after it; a saved percent fills its bar. On a phone
+ * the task column narrows, so the chart keeps room for its bars.
  * @class Neo.examples.gantt.taskEditor.Viewport
  * @extends Neo.container.Viewport
  */
@@ -97,6 +62,16 @@ class TaskEditorViewport extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {Object} listeners={resize:'onResize'}
+         */
+        listeners: {resize: 'onResize'},
+        /**
+         * @member {Boolean} monitorSize=true
+         */
+        monitorSize: true,
+        /**
+         * The stores get the plan from the static builders below: JavaScript defines a class's static methods
+         * before it evaluates its static fields, and each viewport deep-clones its items.
          * @member {Object[]} items
          */
         items: [{
@@ -113,16 +88,71 @@ class TaskEditorViewport extends Viewport {
             cascadeDependencies: true,
             editable           : true,
             rowHeight          : 36,
-            store              : {module: TaskStore,       data: plan.tasks},
-            dependencyStore    : {module: DependencyStore, data: plan.dependencies},
-            taskColumns        : [{type: 'tree', dataField: 'title', text: 'Task', width: 240, locked: 'start'}],
+            store              : {module: TaskStore,       data: this.buildTasks()},
+            dependencyStore    : {module: DependencyStore, data: this.buildDependencies()},
+            taskColumns        : [{type: 'tree', dataField: 'title', text: 'Task', width: TASK_WIDTH.wide, locked: 'start'}],
             majorTickStep      : 1,
             majorTickUnit      : 'week',
-            majorFormatter     : tick => `Week of ${format(tick.date)}`,
+            majorFormatter     : tick => `Week of ${tick.date.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'})}`,
             minorFormatter     : tick => tick.date.toLocaleDateString('en-GB', {day: 'numeric', timeZone: 'UTC'}),
             // The now line marks the day the progress was reported
             timeAxis           : {start: '2027-03-01', end: '2027-04-19', now: '2027-03-12', timeZone: 'UTC', tickUnit: 'day', tickStep: 1, pxPerMinute: 0.02, snapMinutes: 1440}
         }]
+    }
+
+    /**
+     * @summary One finish-to-start link for every task a task follows.
+     * @returns {Object[]} The dependency store's records
+     */
+    static buildDependencies() {
+        return PHASES.flatMap(phase => phase.tasks.flatMap(([toId, , , , follows]) =>
+            follows.map(fromId => ({id: `${fromId}-${toId}`, fromId, toId, type: 'FS', lag: 0, lagUnit: 'hour'}))
+        ))
+    }
+
+    /**
+     * @summary Schedules every task right after the tasks it follows and rolls each phase up to its tasks' span.
+     * @returns {Object[]} The task store's records: each phase, then its tasks
+     */
+    static buildTasks() {
+        const
+            byId   = new Map(PHASES.flatMap(phase => phase.tasks.map(task => [task[0], task]))),
+            starts = new Map(),
+            iso    = day => new Date(START + day * DAY_MS).toISOString(),
+            start  = id => {
+                if (!starts.has(id)) {
+                    const [, , , , follows] = byId.get(id);
+                    starts.set(id, Math.max(0, ...follows.map(key => start(key) + byId.get(key)[2])))
+                }
+                return starts.get(id)
+            };
+
+        return PHASES.flatMap(phase => {
+            const rows = phase.tasks.map(([id, title, days, percentDone]) =>
+                ({id, parentId: phase.id, isLeaf: true, percentDone, title, startDate: iso(start(id)), endDate: iso(start(id) + days)})
+            );
+
+            return [{
+                id       : phase.id, parentId: null, isLeaf: false, collapsed: false, title: phase.title,
+                startDate: rows.map(row => row.startDate).sort()[0],
+                endDate  : rows.map(row => row.endDate).sort().at(-1)
+            }, ...rows]
+        })
+    }
+
+    /**
+     * @summary Narrows the task column at the phone breakpoint and widens it back above it.
+     * @param {Object} data The viewport's `resize` event
+     */
+    onResize(data) {
+        const
+            gantt  = this.getReference('gantt'),
+            [tree] = gantt?.taskColumns || [],
+            width  = data.borderBoxSize.inlineSize <= PHONE_MAX_WIDTH ? TASK_WIDTH.phone : TASK_WIDTH.wide;
+
+        if (data.id === this.id && tree && tree.width !== width) {
+            gantt.taskColumns = [{...tree, width}]
+        }
     }
 }
 

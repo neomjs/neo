@@ -113,6 +113,7 @@ test('opens cleanly at 1440 × 900 and 390 × 844 in every theme', async ({page}
         message.type() === 'error' && !url.endsWith('/favicon.ico') && errors.push(`${message.text()} ${url}`)
     });
     page.on('response', response => response.status() >= 400 && !response.url().endsWith('/favicon.ico') && errors.push(`${response.status()} ${response.url()}`));
+    page.on('pageerror', error => errors.push(error.message));
 
     for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
         await page.setViewportSize(viewport);
@@ -125,4 +126,31 @@ test('opens cleanly at 1440 × 900 and 390 × 844 in every theme', async ({page}
     }
 
     expect(errors).toEqual([])
+});
+
+test('on a phone the task column narrows to 160 px and the chart follows it, and a desktop width restores 240 px', async ({page}) => {
+    // The task column's width, and how far right of it the first task's bar starts
+    const layout = () => page.evaluate(() => {
+        const
+            header = [...document.querySelectorAll('.neo-grid-header-button.neo-locked-start')].find(button => button.innerText.trim() === 'Task'),
+            bar    = document.querySelector('.neo-timeline-bar[data-event-id="interviews"]');
+
+        return header && bar && {
+            barOffset: Math.round(bar.getBoundingClientRect().left - header.getBoundingClientRect().right),
+            task     : Math.round(header.getBoundingClientRect().width)
+        }
+    });
+
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+    await expect.poll(async () => (await layout())?.task).toBe(240);
+
+    const desktop = await layout();
+
+    await page.setViewportSize({width: 390, height: 844});
+    await expect.poll(async () => (await layout())?.task).toBe(160);
+    await expect.poll(async () => (await layout())?.barOffset).toBe(desktop.barOffset);
+
+    await page.setViewportSize({width: 1440, height: 900});
+    await expect.poll(async () => (await layout())?.task).toBe(240)
 });

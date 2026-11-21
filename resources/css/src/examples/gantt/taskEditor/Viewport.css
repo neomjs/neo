@@ -10,7 +10,14 @@
 
         .te-title    { color: var(--te-title); font-size: 18px; font-weight: 700; }
         .te-subtitle { color: var(--te-muted); font-size: 12px; }
-        .te-hint     { color: var(--te-muted); font-size: 12px; }
+        /* The one cue that the tasks open: a pill in the title's colour */
+        .te-hint {
+            border       : 1px solid var(--te-border);
+            border-radius: 999px;
+            color        : var(--te-title);
+            font-size    : 12px;
+            padding      : 4px 12px;
+        }
     }
 
     /* A bar too short to name its task shows its shape only: the tree column carries the name */
