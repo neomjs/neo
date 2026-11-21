@@ -352,7 +352,17 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(
             await page.locator(`#${home.id}`).evaluate(node => node.scrollWidth <= node.clientWidth + 1),
             '390x844 mobile viewport has zero horizontal overflow'
-        ).toBe(true)
+        ).toBe(true);
+
+        // A proof link's icon stays after its label's last word: an icon alone on a line reads as a stray mark
+        for (const proof of await page.locator(`#${doors.id} .portal-door-proof a`).all()) {
+            expect(await proof.evaluate(link => {
+                const last = [...link.querySelector('span').getClientRects()].at(-1),
+                      icon = link.querySelector('.fa').getBoundingClientRect();
+
+                return icon.left >= last.right - 1 && Math.abs(icon.top + icon.height / 2 - (last.top + last.height / 2)) < last.height / 2
+            }), 'the proof icon shares its label\'s last line').toBe(true)
+        }
     });
 
     test('a hovered or keyboard-focused door lights in place: it never moves, its border stays whole, and reduced motion skips the glint and the lap', async ({page, neuralLink}) => {

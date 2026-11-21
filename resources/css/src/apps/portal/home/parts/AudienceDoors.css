@@ -135,8 +135,10 @@
             margin     : 0.75rem 0 0;
             padding-top: 0.75rem;
 
+            /* Inline, not inline-block: the label's last word and the icon then share a line when the text wraps */
             span + .fa {
-                margin-left: 0.35em;
+                --fa-display: inline;
+                margin-left : 0.35em;
             }
         }
 
