@@ -8,10 +8,11 @@ import ThemeSwitcher  from '../../../../src/button/ThemeSwitcher.mjs';
 const appName = 'Test.Unit.ThemeSwitcher',
       light   = 'neo-theme-neo-light',
       dark    = 'neo-theme-neo-dark',
-      classic = 'neo-theme-dark';
+      classic = 'neo-theme-dark',
+      studio  = 'neo-theme-company-studio-night';
 
 setup({
-    neoConfig: {themes: [light, dark, classic]},
+    neoConfig: {themes: [light, dark, classic, studio]},
     appConfig: {name: appName}
 });
 
@@ -84,4 +85,27 @@ test.describe('ThemeSwitcher transition ownership', () => {
         expect(host.getTheme()).toBe(dark);
         expect(calls).toBe(0)
     })
+});
+
+test('refreshes workspace theme labels in the trigger and menu while retaining built-in names', async () => {
+    const host     = Neo.create(Container, {appName, theme: studio}),
+          switcher = Neo.create(ThemeSwitcher, {appName, target: host, themeLabels: {[studio]: 'Atlas Preview'}}),
+          choices  = () => switcher.menuList.store.items.map(({id, text}) => [id, text]);
+
+    try {
+        await switcher.menuListReady;
+
+        expect(switcher.ariaLabel).toBe('Theme: Atlas Preview');
+        expect(choices()).toEqual([[light, 'Neo Light'], [dark, 'Neo Dark'], [classic, 'Dark'], [studio, 'Atlas Preview']]);
+
+        switcher.themeLabels = {[light]: 'Day shift', [studio]: 'Atlas Night'};
+        await switcher.menuListReady;
+
+        expect(switcher.ariaLabel).toBe('Theme: Atlas Night');
+        expect(choices()).toEqual([[light, 'Day shift'], [dark, 'Neo Dark'], [classic, 'Dark'], [studio, 'Atlas Night']]);
+        expect(host.getTheme()).toBe(studio)
+    } finally {
+        switcher.destroy();
+        host.destroy()
+    }
 });

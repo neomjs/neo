@@ -137,6 +137,7 @@
  "Neo.button.Menu": "Neo.button.Split",
  "Neo.button.Split": "Neo.button.Base",
  "Neo.button.ThemeSwitcher": "Neo.button.Base",
+ "Neo.button.ThemeSwitcherMenu": "Neo.menu.List",
  "Neo.calendar.model.Calendar": "Neo.data.Model",
  "Neo.calendar.model.Color": "Neo.data.Model",
  "Neo.calendar.model.Event": "Neo.data.Model",

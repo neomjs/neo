@@ -1,113 +1,6 @@
-import Button   from './Base.mjs';
-import MenuList from '../menu/List.mjs';
-
-const themeLabels = {
-    'neo-theme-neo-light': 'Neo Light',
-    'neo-theme-neo-dark' : 'Neo Dark',
-    'neo-theme-light'    : 'Light',
-    'neo-theme-dark'     : 'Dark',
-    'neo-theme-cyberpunk': 'Cyberpunk'
-};
-
-/**
- * @summary Presents the host's current theme as a radio selection using the standard menu's navigation and dismissal.
- * @class Neo.button.ThemeSwitcherMenu
- * @extends Neo.menu.List
- * @private
- */
-class ThemeSwitcherMenu extends MenuList {
-    static config = {
-        /**
-         * @member {String} className='Neo.button.ThemeSwitcherMenu'
-         * @protected
-         */
-        className: 'Neo.button.ThemeSwitcherMenu',
-        /**
-         * @member {String} role='menu'
-         * @protected
-         */
-        role: 'menu'
-    }
-
-    /** @member {Object|null} #pointer=null @private */
-    #pointer = null
-
-    /**
-     * @summary Keeps the trigger expanded state and the menu's keyboard entry in sync with mounting.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        const button = this.parentComponent;
-
-        if (button?.menuList === this) {
-            button.syncMenuAria();
-
-            if (value) {
-                const record = this.store.get(button.activeTheme) || this.store.getAt(0);
-
-                record && this.focus(this.getItemId(this.getRecordId(record)))
-            }
-        }
-    }
-
-    /**
-     * @summary Projects the effective theme independently of transient menu focus.
-     * @param {Object} record
-     * @param {Number} index
-     * @param {Number} [poolIndex=index]
-     * @returns {Object|null}
-     * @protected
-     */
-    createItem(record, index, poolIndex=index) {
-        const item = super.createItem(record, index, poolIndex);
-
-        if (item) {
-            delete item['aria-selected'];
-            item.role            = 'menuitemradio';
-            item['aria-checked'] = String(record.id === this.parentComponent?.activeTheme)
-        }
-
-        return item
-    }
-
-    /**
-     * @summary Carries the pointer origin through the standard menu's shared pointer/Enter dispatch.
-     * @param {Object} node
-     * @param {Object} data
-     * @protected
-     */
-    onItemClick(node, data) {
-        this.#pointer = data;
-
-        try {
-            super.onItemClick(node, data)
-        } finally {
-            this.#pointer = null
-        }
-    }
-
-    /**
-     * @summary Applies the chosen theme before the standard leaf command closes the menu.
-     * @param {String} nodeId
-     * @protected
-     */
-    onKeyDownEnter(nodeId) {
-        if (nodeId) {
-            const record = this.store.get(this.getItemRecordId(nodeId));
-
-            if (record) {
-                this.parentComponent?.selectTheme(record.id, this.#pointer);
-                super.onKeyDownEnter(nodeId)
-            }
-        }
-    }
-}
-
-Neo.setupClass(ThemeSwitcherMenu);
+import Button            from './Base.mjs';
+import ThemeSwitcherMenu from './ThemeSwitcherMenu.mjs';
+import {isDescriptor}    from '../core/ConfigSymbols.mjs';
 
 /**
  * @summary Switches the owning viewport between configured themes, as a toggle for two or a menu for more.
@@ -146,6 +39,26 @@ class ThemeSwitcher extends Button {
          * @reactive
          */
         target_: null,
+        /**
+         * Display names keyed by theme ID. Custom entries extend the built-in labels per switcher.
+         * Declare the theme in the workspace's <code>neo-config.json</code> to make it available.
+         * Themes without a label use a name derived from their ID.
+         * @example
+         * {module: ThemeSwitcher, themeLabels: {'neo-theme-company-dark': 'Company Dark'}}
+         * @member {Object} themeLabels_
+         * @reactive
+         */
+        themeLabels_: {
+            [isDescriptor]: true,
+            merge         : 'shallow',
+            value         : {
+                'neo-theme-neo-light': 'Neo Light',
+                'neo-theme-neo-dark' : 'Neo Dark',
+                'neo-theme-light'    : 'Light',
+                'neo-theme-dark'     : 'Dark',
+                'neo-theme-cyberpunk': 'Cyberpunk'
+            }
+        },
         /**
          * Optional ordered subset of the themes configured for the target window.
          * @member {String[]|null} themes_=null
@@ -219,6 +132,16 @@ class ThemeSwitcher extends Button {
     }
 
     /**
+     * @summary Refreshes the button and menu when workspace labels change.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetThemeLabels(value, oldValue) {
+        this.isConstructed && this.syncPresentation()
+    }
+
+    /**
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
      * @protected
@@ -243,16 +166,18 @@ class ThemeSwitcher extends Button {
      * @protected
      */
     bindThemeTarget() {
-        const host = Neo.isString(this.target) ? Neo.getComponent(this.target) : this.target || this.up('viewport');
+        const me       = this,
+              {target} = me,
+              host     = Neo.isString(target) ? Neo.getComponent(target) : target || me.up('viewport');
 
-        if (host !== this.#host) {
-            this.#releaseTheme?.();
-            this.#host = host;
-            this.#request++;
-            this.#releaseTheme = host ? this.observeConfig(host, 'theme', () => this.syncPresentation()) : null
+        if (host !== me.#host) {
+            me.#releaseTheme?.();
+            me.#host = host;
+            me.#request++;
+            me.#releaseTheme = host ? me.observeConfig(host, 'theme', () => me.syncPresentation()) : null
         }
 
-        this.syncPresentation()
+        me.syncPresentation()
     }
 
     /**
@@ -262,7 +187,9 @@ class ThemeSwitcher extends Button {
      * @protected
      */
     getThemeLabel(theme) {
-        return Object.hasOwn(themeLabels, theme) ? themeLabels[theme]
+        const {themeLabels} = this;
+
+        return themeLabels && Object.hasOwn(themeLabels, theme) ? themeLabels[theme]
             : theme.replace(/^neo-theme-/, '').replaceAll('-', ' ').replace(/(^|\s)[a-z]/g, part => part.toUpperCase())
     }
 
@@ -272,10 +199,12 @@ class ThemeSwitcher extends Button {
      * @protected
      */
     onClick(data) {
-        if (this.disabled || this.#choices.length < 2) return;
+        const me = this;
 
-        if (this.#choices.length === 2) {
-            this.selectTheme(this.#choices.find(theme => theme !== this.activeTheme), data)
+        if (me.disabled || me.#choices.length < 2) return;
+
+        if (me.#choices.length === 2) {
+            me.selectTheme(me.#choices.find(theme => theme !== me.activeTheme), data)
         }
 
         super.onClick(data)
@@ -298,31 +227,32 @@ class ThemeSwitcher extends Button {
      * @protected
      */
     async selectTheme(theme, data) {
-        const host     = this.#host,
-              previous = this.activeTheme;
+        const me       = this,
+              host     = me.#host,
+              previous = me.activeTheme;
 
-        if (!host || !this.#choices.includes(theme) || theme === previous) return;
+        if (!host || !me.#choices.includes(theme) || theme === previous) return;
 
-        const request  = ++this.#request,
+        const request  = ++me.#request,
               windowId = host.windowId;
 
-        if (this.useViewTransition && !Neo.config.prefersReducedMotion && Neo.main.DomAccess?.startViewTransition) {
+        if (me.useViewTransition && !Neo.config.prefersReducedMotion && Neo.main.DomAccess?.startViewTransition) {
             try {
                 let x, y;
 
-                if (windowId === this.windowId) {
+                if (windowId === me.windowId) {
                     x = data?.clientX;
                     y = data?.clientY;
 
-                    if ((!Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) && this.mounted) {
-                        const rect = await this.getDomRect();
+                    if ((!Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0)) && me.mounted) {
+                        const rect = await me.getDomRect();
 
                         x = rect && rect.left + rect.width / 2;
                         y = rect && rect.top + rect.height / 2
                     }
                 }
 
-                if (!this.isDestroyed && !host.isDestroyed && request === this.#request && this.activeTheme === previous) {
+                if (!me.isDestroyed && !host.isDestroyed && request === me.#request && me.activeTheme === previous) {
                     await Neo.main.DomAccess.startViewTransition({delay: 100, reveal: {x, y}, windowId})
                 }
             } catch {
@@ -330,8 +260,8 @@ class ThemeSwitcher extends Button {
             }
         }
 
-        if (!this.isDestroyed && !host.isDestroyed && request === this.#request &&
-            this.activeTheme === previous && this.#choices.includes(theme)) {
+        if (!me.isDestroyed && !host.isDestroyed && request === me.#request &&
+            me.activeTheme === previous && me.#choices.includes(theme)) {
             host.theme = theme
         }
     }
@@ -341,45 +271,49 @@ class ThemeSwitcher extends Button {
      * @protected
      */
     syncMenuAria() {
-        const vdom = this.vdom;
+        const me   = this,
+              vdom = me.vdom;
 
-        vdom['aria-haspopup'] = this.menu ? 'menu' : null;
-        vdom['aria-expanded'] = this.menu ? String(Boolean(this.menuList?.mounted)) : null;
-        vdom['aria-disabled'] = this.#choices.length < 2 ? 'true' : null;
-        this.update()
+        vdom['aria-haspopup'] = me.menu ? 'menu' : null;
+        vdom['aria-expanded'] = me.menu ? String(Boolean(me.menuList?.mounted)) : null;
+        vdom['aria-disabled'] = me.#choices.length < 2 ? 'true' : null;
+        me.update()
     }
 
     /**
-     * @summary Projects the effective choice onto the trigger and updates menu options only when the list changes.
+     * @summary Projects the effective choice onto the trigger and rebuilds the menu when its options or labels change.
      * @protected
      */
     syncPresentation() {
-        const windowId = this.#host?.windowId ?? this.windowId,
-              loaded   = (Neo.windowConfigs?.[windowId] || Neo.config).themes ?? [],
-              choices  = this.#host ? [...new Set(this.themes ?? loaded)].filter(theme => loaded.includes(theme)) : [],
-              active   = this.activeTheme,
-              next     = choices.length === 2 ? choices.find(theme => theme !== active) : null,
-              label    = (next || active) ? this.getThemeLabel(next || active) : 'Theme',
-              icon     = next?.endsWith('-dark') ? 'moon' : next?.endsWith('-light') ? 'sun' : 'palette';
+        const me        = this,
+              windowId  = me.#host?.windowId ?? me.windowId,
+              loaded    = (Neo.windowConfigs?.[windowId] || Neo.config).themes ?? [],
+              choices   = me.#host ? [...new Set(me.themes ?? loaded)].filter(theme => loaded.includes(theme)) : [],
+              active    = me.activeTheme,
+              next      = choices.length === 2 ? choices.find(theme => theme !== active) : null,
+              label     = (next || active) ? me.getThemeLabel(next || active) : 'Theme',
+              icon      = next?.endsWith('-dark') ? 'moon' : next?.endsWith('-light') ? 'sun' : 'palette',
+              menuItems = choices.length > 2 ? choices.map(id => ({id, text: me.getThemeLabel(id)})) : null;
 
-        if (!Neo.isEqual(choices, this.#choices)) {
-            this.#choices = choices;
-            this.menu = choices.length > 2 ? {
+        me.#choices = choices;
+
+        if (!Neo.isEqual(menuItems, me.menu?.items ?? null)) {
+            me.menu = menuItems ? {
                 module: ThemeSwitcherMenu,
-                align : {edgeAlign: 't1-b1', target: this.id},
+                align : {edgeAlign: 't1-b1', target: me.id},
                 cls   : ['neo-theme-switcher-menu'],
-                items : choices.map(id => ({id, text: this.getThemeLabel(id)}))
+                items : menuItems
             } : null
         } else {
-            this.menuList?.createItems()
+            me.menuList?.createItems()
         }
 
-        this.set({
+        me.set({
             ariaLabel: next ? 'Switch to ' + label : 'Theme: ' + label,
             iconCls  : 'neo-theme-switcher-icon-' + icon,
-            text     : this.showText ? label : null
+            text     : me.showText ? label : null
         });
-        this.syncMenuAria()
+        me.syncMenuAria()
     }
 }
 
