@@ -1689,6 +1689,19 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             expect(well.vdom.cn).toEqual([{cls: ['neo-dashboard-dock-center-well-text'], text: 'Swarm is in its own window'}])
         });
 
+        test('keeps a title with replacement patterns literal', () => {
+            const model = createCenterlessModel();
+
+            model.items.swarm.title = 'Sales $& Costs';
+
+            const well = findWell(DockLayoutAdapter.project(model, {
+                dockAwayPlacements  : swarmAway,
+                enableDockCenterWell: true
+            }));
+
+            expect(well.vdom.cn[0].text).toBe('Sales $& Costs is in its own window')
+        });
+
         test('stays a plain well for a pane closed for good, and for a home elsewhere', () => {
             const model = createCenterlessModel();
 

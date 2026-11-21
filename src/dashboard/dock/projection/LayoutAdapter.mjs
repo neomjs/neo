@@ -905,7 +905,8 @@ class LayoutAdapter extends Base {
                 return home?.parentId === nodeId && home.slot === 'center' && items[id] &&
                     !WorkspaceDocument.findContainingTabsId(context.dockZoneDocument, id)
             }),
-            text   = itemId && context.dockCenterWellAwayText.replace('{title}', items[itemId].title || itemId);
+            // A replacer function, so a title's own `$&` or `$'` stays literal text
+            text   = itemId && context.dockCenterWellAwayText.replace('{title}', () => items[itemId].title || itemId);
 
         return {
             cls         : ['neo-dashboard-dock-center-well'],
