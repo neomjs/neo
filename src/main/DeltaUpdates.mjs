@@ -689,9 +689,11 @@ class DeltaUpdates extends Base {
      * running transitions rather than pausing them — see the gate's own reasoning below.
      *
      * The toggle zeroes the parent's own scroll position and can drop focus, so both are captured
-     * immediately before it and restored after. Boundary, unchanged from the per-move form: scrolled
-     * DESCENDANTS inside the parent also reset and are not walked here, since that would reintroduce a
-     * subtree scan.
+     * immediately before it and restored after. A scrolled ANCESTOR loses its place too: for the forced
+     * layout the parent's content leaves the ancestor's scroll extent, and the browser clamps the offset
+     * (a board column's cards root inside its scrolled body). The ancestor chain is O(depth), so it is
+     * captured and restored as well. Boundary, unchanged from the per-move form: scrolled DESCENDANTS
+     * inside the parent also reset and are not walked here, since that would reintroduce a subtree scan.
      * @protected
      */
     flushLayoutHeals() {
@@ -726,6 +728,12 @@ class DeltaUpdates extends Base {
             // reorders siblings that carry no transitions, so this gate never fires there.
             if (parentNode.getAnimations?.({subtree: true}).length > 0) return;
 
+            const scrolledAncestors = [];
+
+            for (let node = parentNode.parentElement; node; node = node.parentElement) {
+                (node.scrollLeft || node.scrollTop) && scrolledAncestors.push([node, node.scrollLeft, node.scrollTop])
+            }
+
             parentNode.style.display = 'none';
             void parentNode.offsetHeight;
             parentNode.style.display = displayValue;
@@ -734,6 +742,11 @@ class DeltaUpdates extends Base {
                 parentNode.scrollLeft = scrollLeft;
                 parentNode.scrollTop  = scrollTop
             }
+
+            scrolledAncestors.forEach(([node, left, top]) => {
+                node.scrollLeft = left;
+                node.scrollTop  = top
+            });
 
             if (containsFocus && document.activeElement !== activeElement) {
                 activeElement.focus()

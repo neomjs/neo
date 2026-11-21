@@ -1,6 +1,9 @@
+import Component               from '../../../src/component/Base.mjs';
+import Container               from '../../../src/container/Base.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import TabContainer            from '../../../src/tab/Container.mjs';
 import TabOverflow             from '../../../src/tab/plugin/Overflow.mjs';
+import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
@@ -93,10 +96,19 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            cls : ['neo-example-browser-claim'],
-            flex: 'none',
-            html: '<b>Thirty tabs in one strip.</b> Drag a tab to reorder it, close it with its ×, ' +
-                  'open one more with +, and reach the tabs that do not fit through the overflow menu at the end of the strip.'
+            module: Container,
+            cls   : ['neo-example-browser-claim'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
+                module: Component,
+                flex  : 1,
+                html  : '<b>Thirty tabs in one strip.</b> Drag a tab to reorder it, close it with its ×, ' +
+                        'open one more with +, and reach the tabs that do not fit through the overflow menu at the end of the strip.'
+            }, {
+                module: ThemeSwitcher,
+                flex  : 'none'
+            }]
         }, {
             module              : TabContainer,
             activateInsertedTabs: true,

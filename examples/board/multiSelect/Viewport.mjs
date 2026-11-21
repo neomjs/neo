@@ -5,6 +5,7 @@ import Container      from '../../../src/container/Base.mjs';
 import Label          from '../../../src/component/Label.mjs';
 import ReportStore    from './ReportStore.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
@@ -66,7 +67,9 @@ class MultiSelectViewport extends Viewport {
             flex  : 'none',
             items : [
                 {module: Label, cls: ['triage-title'],    text: 'Bug triage'},
-                {module: Label, cls: ['triage-subtitle'], text: 'Select many reports, move them in one drag'}
+                {module: Label, cls: ['triage-subtitle'], text: 'Select many reports, move them in one drag'},
+                '->',
+                {module: ThemeSwitcher}
             ]
         }, {
             module: Container,

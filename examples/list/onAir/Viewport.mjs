@@ -5,6 +5,7 @@ import BaseViewport  from '../../../src/container/Viewport.mjs';
 import Monitor       from './Monitor.mjs';
 import Presenter     from './Presenter.mjs';
 import Rundown       from './Rundown.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 
 const titlesDuration = 10,
       guestReadyAt   = 90,
@@ -31,8 +32,11 @@ class Viewport extends BaseViewport {
             module: Container, cls: ['air-mast'], layout: 'base',
             items : [
                 {cls: ['air-station'], text: 'Channel 08   /   Transmission control'},
-                {module: Container, cls: ['air-clock'], layout: 'base', items: [
-                    {tag: 'span', text: 'Studio clock'}, {tag: 'strong', bind: {text: 'clock'}}
+                {module: Container, cls: ['air-mast-end'], layout: 'base', items: [
+                    {module: Container, cls: ['air-clock'], layout: 'base', items: [
+                        {tag: 'span', text: 'Studio clock'}, {tag: 'strong', bind: {text: 'clock'}}
+                    ]},
+                    {module: ThemeSwitcher, showText: false}
                 ]}
             ]
         }, {

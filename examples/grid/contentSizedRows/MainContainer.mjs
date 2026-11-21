@@ -4,6 +4,7 @@ import Label         from '../../../src/component/Label.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar       from '../../../src/toolbar/Base.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
@@ -38,6 +39,7 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [{
                 module    : CheckBox,
                 checked   : true,
@@ -53,7 +55,6 @@ class MainContainer extends Viewport {
                 maxValue     : 10000,
                 minValue     : 1,
                 reference    : 'jump-to-row',
-                style        : {marginLeft: '1em'},
                 width        : 160
             }, {
                 module       : TextField,
@@ -61,8 +62,10 @@ class MainContainer extends Viewport {
                 labelText    : 'Filter summary',
                 listeners    : {change: 'up.onFilterChange'},
                 reference    : 'filter',
-                style        : {marginLeft: '1em'},
                 width        : 200
+            }, '->', {
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
         }, {
             module   : Label,

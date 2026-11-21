@@ -8,6 +8,8 @@
 
     .project-title { color: var(--project-title); font-size: 18px; font-weight: 700; }
     .project-subtitle, .project-save-status { color: var(--project-muted); font-size: 12px; }
+    .project-save-status:empty { display: none; }
+    .project-zoom-group { gap: 6px; }
     .project-control {
         --button-background-color-hover: var(--project-hover);
         --button-secondary-background-color-hover: var(--project-hover);
@@ -41,5 +43,20 @@
             .neo-button-text { color: var(--project-selected-text); }
         }
         &:focus-visible { outline: 2px solid var(--project-focus); outline-offset: 2px; }
+    }
+}
+
+@media (max-width: 767px) {
+    .project-toolbar.neo-toolbar {
+        gap       : 5px 6px;
+        min-height: auto;
+        padding   : 8px 10px;
+
+        .project-title { font-size: 15px; }
+        .project-subtitle { display: none; }
+        .project-control { font-size: 11px; min-height: 28px; padding: 0 8px; }
+        .neo-theme-switcher { order: 1; }
+        .project-zoom-group { gap: 4px; order: 2; }
+        .project-save-status { font-size: 10px; margin-left: auto; order: 3; }
     }
 }

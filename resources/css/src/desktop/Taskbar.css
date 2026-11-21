@@ -27,12 +27,12 @@
         --button-background-color       : var(--desktop-taskbar-accent-color);
         --button-background-color-active: color-mix(in srgb, var(--desktop-taskbar-accent-color) 80%, black);
         --button-background-color-hover : color-mix(in srgb, var(--desktop-taskbar-accent-color) 85%, white);
-        --button-glyph-color            : #fff;
-        --button-glyph-color-active     : #fff;
-        --button-glyph-color-hover      : #fff;
-        --button-text-color             : #fff;
-        --button-text-color-active      : #fff;
-        --button-text-color-hover       : #fff;
+        --button-glyph-color            : var(--desktop-start-button-color);
+        --button-glyph-color-active     : var(--desktop-start-button-color);
+        --button-glyph-color-hover      : var(--desktop-start-button-color);
+        --button-text-color             : var(--desktop-start-button-color);
+        --button-text-color-active      : var(--desktop-start-button-color);
+        --button-text-color-hover       : var(--desktop-start-button-color);
 
         box-shadow: 0 8px 20px -8px var(--desktop-taskbar-accent-color);
     }

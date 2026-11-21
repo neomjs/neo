@@ -5,10 +5,14 @@
     gap             : 12px;
     padding         : 24px;
 
-    .neo-breadcrumb-toolbar {
+    .neo-breadcrumb-folders-header {
         border-bottom : 1px solid var(--breadcrumb-folders-rule);
-        flex-wrap     : wrap;
+        gap           : 8px 12px;
         padding-bottom: 8px;
+    }
+
+    .neo-breadcrumb-toolbar {
+        flex-wrap: wrap;
 
         .neo-button {
             font-size: 15px;

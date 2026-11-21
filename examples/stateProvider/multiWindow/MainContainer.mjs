@@ -1,5 +1,6 @@
 import MainContainerController from './MainContainerController.mjs';
 import Panel                   from '../../../src/container/Panel.mjs';
+import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 
 /**
  * @summary Shared-state multi-window demonstration panel whose primary instance launches the companion window.
@@ -41,8 +42,9 @@ class MainContainer extends Panel {
             ownsProvider = !me.stateProvider?.parent;
 
         me.headers = [{
-            dock : 'top',
-            items: [{
+            dock  : 'top',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
                 ntype: 'label',
                 bind : {
                     text: data => `Current user: ${data.user.firstname} ${data.user.lastname}`
@@ -60,6 +62,8 @@ class MainContainer extends Panel {
                 iconCls  : 'fa fa-user',
                 reference: 'edit-user-button',
                 text     : 'Edit user'
+            }, {
+                module: ThemeSwitcher
             }]
         }];
 

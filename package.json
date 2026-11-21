@@ -176,7 +176,7 @@
         "{apps,buildScripts,src}/**/*.mjs": [
             "node ./buildScripts/util/check-content-root-derivations.mjs"
         ],
-        "src/**/*.mjs": [
+        "{apps,examples,src}/**/*.mjs": [
             "node ./buildScripts/util/check-class-module-scope.mjs"
         ],
         "resources/css/**/*.css": [

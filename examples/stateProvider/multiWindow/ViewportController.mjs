@@ -5,6 +5,7 @@ import StateProvider       from '../../../src/state/Provider.mjs';
 /**
  * @class Neo.examples.stateProvider.multiWindow.ViewportController
  * @extends Neo.controller.Component
+ * @summary Coordinates shared state provider bindings and cross-window theme synchronization.
  */
 class MainContainerController extends ComponentController {
     /**
@@ -68,7 +69,24 @@ class MainContainerController extends ComponentController {
         }
 
         import('../multiWindow/MainContainer.mjs').then(module => {
-            view = Neo.apps[data.windowId].mainView.add({
+            const mainView     = Neo.apps[data.windowId].mainView,
+                  primaryTheme = Object.values(Neo.apps || {}).find(app => app?.mainView && app.mainView !== mainView)?.mainView?.theme;
+
+            if (primaryTheme && mainView.theme !== primaryTheme) {
+                mainView.theme = primaryTheme
+            }
+
+            me.observeConfig(mainView, 'theme', theme => {
+                for (const app of Object.values(Neo.apps || {})) {
+                    const otherView = app?.mainView;
+
+                    if (otherView && !otherView.isDestroyed && otherView !== mainView && otherView.theme !== theme) {
+                        otherView.theme = theme
+                    }
+                }
+            });
+
+            view = mainView.add({
                 module: module.default,
                 stateProvider
             });

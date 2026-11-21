@@ -17,12 +17,20 @@
     position     : relative;
 
     &:hover {
-        border-color: var(--neo-board-card-hover-border-color);
+        border-color     : var(--neo-board-card-hover-border-color);
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-hover-border-color));
     }
 
     &.neo-selected {
-        background  : var(--neo-board-card-selected-background, var(--neo-board-card-background));
-        border-color: var(--neo-board-card-selected-border-color, var(--neo-board-accent-color));
+        background       : var(--neo-board-card-selected-background, var(--neo-board-card-background));
+        border-color     : var(--neo-board-card-selected-border-color, var(--neo-board-accent-color));
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-selected-border-color, var(--neo-board-accent-color)));
+
+        @media (hover: hover) {
+            &:hover {
+                box-shadow: 0 0 0 1px var(--neo-board-card-selected-border-color, var(--neo-board-accent-color)), var(--neo-board-card-shadow);
+            }
+        }
     }
 
     &.neo-board-card-ghost {

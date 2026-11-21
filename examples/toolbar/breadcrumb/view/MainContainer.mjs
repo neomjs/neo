@@ -2,6 +2,7 @@ import BreadcrumbToolbar       from '../../../../src/toolbar/Breadcrumb.mjs';
 import Container               from '../../../../src/container/Base.mjs';
 import Label                   from '../../../../src/component/Label.mjs';
 import MainContainerController from './MainContainerController.mjs';
+import ThemeSwitcher           from '../../../../src/button/ThemeSwitcher.mjs';
 import Viewport                from '../../../../src/container/Viewport.mjs';
 import folders                 from './folders.mjs';
 
@@ -32,11 +33,20 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module   : BreadcrumbToolbar,
-            activeKey: 2,
-            flex     : 'none',
-            reference: 'breadcrumb-toolbar',
-            store    : {data: folders.map(({id, name, parentId, route}) => ({id, name, parentId, route}))}
+            module: Container,
+            cls   : ['neo-breadcrumb-folders-header'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
+                module   : BreadcrumbToolbar,
+                activeKey: 2,
+                flex     : 1,
+                reference: 'breadcrumb-toolbar',
+                store    : {data: folders.map(({id, name, parentId, route}) => ({id, name, parentId, route}))}
+            }, {
+                module: ThemeSwitcher,
+                flex  : 'none'
+            }]
         }, {
             module   : Label,
             cls      : ['neo-breadcrumb-folders-name'],
