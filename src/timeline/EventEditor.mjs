@@ -792,7 +792,8 @@ class EventEditor extends Dialog {
     }
 
     /**
-     * @summary Validates and commits changed fields through the owner hook or the record.
+     * @summary Validates and commits changed fields through the owner hook or the record. Each attempt starts
+     * without the last one's errors, so a refusal marks only the field it names, never beside an older one.
      * @returns {Object|Boolean|null}
      */
     save() {
@@ -806,6 +807,8 @@ class EventEditor extends Dialog {
             me.hide();
             return null
         }
+
+        me.clearErrors();
 
         const
             startDate = me.parseDateValue(me.getDateTimeValue(startDateField)),
@@ -823,8 +826,6 @@ class EventEditor extends Dialog {
             }
             return false
         }
-
-        me.clearErrors();
 
         const
             changes = me.getChanges({startDate, endDate}),

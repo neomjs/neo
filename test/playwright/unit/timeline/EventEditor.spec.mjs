@@ -205,7 +205,7 @@ test('an end before the start marks the part of the end that changed: its time o
         expect(editor.getField('endDate__time').error).toBe(message);
         expect(editor.getField('endDate').error).toBeFalsy();
 
-        editor.openForRecord(record);
+        // Same draft, date moved too: the refusal moves to the date, and the time's earlier one does not stay
         editor.getField('endDate').value = '2026-11-09';
         expect(editor.save()).toBe(false);
         expect(editor.getField('endDate').error).toBe(message);
