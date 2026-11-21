@@ -129,29 +129,39 @@ class BoardSortZone extends SortZone {
     /**
      * @summary Pins a column's body and positions its cards absolutely at their measured rects, so the engine's
      * vertical sort can move them.
+     * @description The rects are taken in the body's content space: each card's top adds the body's `scrollTop`, and
+     * the sort reads that offset as `scrollTop`. The cards' root keeps at least the height its cards gave it in the
+     * flow, so the body's content, its end padding included, stays as tall as before: the browser has nothing to clamp,
+     * and the column stays where its user scrolled it. The root is not a spacer, so a sliced column's projection during
+     * the drag leaves its height alone. The pin rides the body's update, which the cards' updates merge into.
      * @param {Neo.board.Column} column
      * @param {Neo.board.Card} card The dragged card
      * @param {Number} index Its index among the column's cards
      */
     async beginColumnSort(column, card, index) {
-        let me     = this,
-            {body} = column,
-            items  = me.getColumnCards(column).filter(item => item !== card),
-            bodyRect, rects;
+        let me        = this,
+            {body}    = column,
+            cardsRoot = body.getVdomItemsRoot(),
+            items     = me.getColumnCards(column).filter(item => item !== card),
+            bodyRect, cardsRect, rects, scrollTop;
 
         items.splice(index, 0, card);
 
-        rects    = await me.trap(me.owner.getDomRect([body.id, ...items.map(item => item.id)]));
+        [rects, {scrollTop = 0}] = await me.trap(Promise.all([
+            me.owner.getDomRect([body.id, cardsRoot.id, ...items.map(item => item.id)]),
+            Neo.main.DomAccess.getAttributes({attributes: ['scrollTop'], id: body.id, windowId: me.windowId})
+        ]));
         if (me.isDestroying || me.isDestroyed || card.isDestroyed || column.isDestroyed || me.dragComponent !== card) return;
-        bodyRect = rects.shift();
+        [bodyRect, cardsRect] = rects.splice(0, 2);
 
         rects.forEach(rect => {
             rect.x -= bodyRect.x;
-            rect.y -= bodyRect.y
+            rect.y += scrollTop - bodyRect.y
         });
 
-        me.bodyStyle = {height: body.style?.height, position: body.style?.position};
-        body.style   = {...body.style, height: `${bodyRect.height}px`, position: 'relative'};
+        cardsRoot.style = {...cardsRoot.style, minHeight: `${cardsRect.height}px`};
+        me.bodyStyle    = {height: body.style?.height, position: body.style?.position};
+        body.style      = {...body.style, height: `${bodyRect.height}px`, position: 'relative'};
 
         Object.assign(me, {
             activeColumn           : column,
@@ -163,7 +173,7 @@ class BoardSortZone extends SortZone {
             ownerRect              : bodyRect,
             reversedLayoutDirection: false,
             scrollLeft             : 0,
-            scrollTop              : 0,
+            scrollTop,
             sortableItems          : items,
             sortBoundaryRect       : bodyRect,
             sortDirection          : 'vertical'
@@ -884,7 +894,8 @@ class BoardSortZone extends SortZone {
     }
 
     /**
-     * @summary Returns the active column's cards and body to the flow; the dragged card keeps its visibility
+     * @summary Returns the active column's cards and body to the flow, and their root to its own height; the dragged
+     * card keeps its visibility
      */
     restoreColumn() {
         let me                                                 = this,
@@ -905,7 +916,10 @@ class BoardSortZone extends SortZone {
         });
 
         if (bodyStyle && activeColumn && !activeColumn.isDestroyed) {
-            activeColumn.body.style = {...activeColumn.body.style, height: bodyStyle.height || null, position: bodyStyle.position || null}
+            const {body} = activeColumn;
+
+            delete body.getVdomItemsRoot().style?.minHeight;
+            body.style = {...body.style, height: bodyStyle.height || null, position: bodyStyle.position || null}
         }
 
         me.bodyStyle = me.columnItems = null

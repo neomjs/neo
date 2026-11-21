@@ -126,6 +126,31 @@ test.describe('Board, multi-select example: select many reports, move them in on
         expect(errors).toEqual([])
     });
 
+    test('a drag that starts in the Inbox scrolled to its end keeps the Inbox there, through the drag and after Escape', async ({page}) => {
+        const {column, errors} = await open(page),
+              body             = column('inbox').locator('.neo-board-column-body'),
+              scroll           = () => body.evaluate(el => Math.round(el.scrollTop));
+
+        // Forty reports overflow the Inbox's body, so its end sits well below its top
+        await body.evaluate(el => { el.scrollTop = el.scrollHeight - el.clientHeight });
+        await expect.poll(scroll).toBeGreaterThan(0);
+
+        const end                   = await scroll(),
+              {height, width, x, y} = await body.boundingBox();
+
+        await page.mouse.move(x + width / 2, y + height / 2);
+        await page.mouse.down();
+        await page.mouse.move(x + width / 2 + 20, y + height / 2 + 10, {steps: 4});
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+        expect(await scroll(), 'the drag keeps the Inbox where it was scrolled to').toBe(end);
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        expect(await scroll(), 'and so does the cancel').toBe(end);
+        expect(errors).toEqual([])
+    });
+
     for (const theme of THEMES) {
         test(`at 1440 × 900 the four columns are in view, the Inbox holds forty reports (${theme})`, async ({page}, testInfo) => {
             const {badge, column, errors} = await open(page, theme);
