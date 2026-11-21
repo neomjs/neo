@@ -18,9 +18,9 @@ const
     // How each edit starts and ends, as the line under the toolbar names it: [keys, what they do]
     editHints = [
         [['Double-click a name', 'F2'], 'rename on the card'],
-        [['Enter'],                     'saves'],
-        [['Esc'],                       'restores'],
-        [['⋯', 'Enter'],                'open the editor']
+        [['Enter'],                     'keeps the new name'],
+        [['Esc'],                       'restores the old one'],
+        [['⋯'],                         'opens the editor']
     ];
 
 /**

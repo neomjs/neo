@@ -1,10 +1,10 @@
 import CardEditor from '../../../src/board/CardEditor.mjs';
 
 // The pipeline's words for the board's standard fields
-const labels = {assignees: 'Recruiter', status: 'Stage', tags: 'Role'};
+const labels = {assignees: 'Recruiter', status: 'Stage', tags: 'Role', title: 'Name'};
 
 /**
- * @summary The board's card editor in the hiring pipeline's words: a candidate's stage, role and recruiter.
+ * @summary The board's card editor in the hiring pipeline's words: a candidate's name, stage, role and recruiter.
  * @description The board builds its one editor from `cardEditorModule`, and the standard fields keep their engine
  * behavior (the stage select lists the board's columns, and a new stage moves the card through `moveCard`); only
  * their labels change.
