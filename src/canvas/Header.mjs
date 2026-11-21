@@ -7,41 +7,21 @@ const
     HIGHLIGHT = '#00BFFF';
 
 /**
- * @summary SharedWorker renderer for the HeaderToolbar overlay.
- *
- * Implements the **"Luminous Flux"** visual theme, an ambient, interactive energy simulation that
- * serves as the backdrop for the Portal header.
- *
- * **Visual Architecture:**
- * 1. **Neo Ether (Background):** A volumetric particle field composed of faint "dust" and larger "nebula" orbs.
- *    This provides atmospheric depth, fluid interactivity (mouse repulsion), and bridges the contrast gap
- *    between the white background and the foreground elements.
- * 2. **Ambient Helix (Midground):** A large-scale, slow-moving sine wave pattern that provides structural
- *    texture to the negative space. Now enhanced with a **volumetric Ribbon fill** to add depth.
- * 3. **Split Stream (Foreground):** Two intertwined energy strands (Helix/DNA) that flow across the canvas.
- *    - **3D Ribbon Effect:** A subtle gradient fills the space between strands, simulating a twisting surface.
-  *   - **Neon Tube Effect:** Strands are rendered with a bright white core inside a colored glow, creating a physical light-emitting look.
-  *   - **Adaptive Geometry:** The strands flow loosely around text buttons but tighten into a "high-gravity orbit"
-  *     around social icons.
-  *   - **Energy Surge (Active State):** The segment of the stream passing through the active navigation item
-  *     is rendered with a high-intensity white glow and a nervous pulse, semantically highlighting the current view.
-  *   - **Preview Glow (Hover State):** A static, high-contrast glow highlights the item under the cursor,
-  *     providing immediate, distinct feedback separate from the active state.
-  *
-  * **Performance Architecture (Zero-Allocation):**
- * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
- * 1. **TypedArray Buffers:** Wave geometry is stored in pre-allocated `Float32Array` buffers (`waveBuffers`), reused every frame.
- * 2. **Gradient Caching:** CanvasGradients are created only on resize (`updateResources`) and cached, avoiding expensive generator calls per frame.
- * 3. **Reusable Objects:** Physics calculations write directly to buffers instead of returning new Arrays of Objects.
- *
+ * @summary Renders the header's wave field around the measured navigation buttons.
+ * @description The foreground splits around the controls over a wider ambient wave and particle field.
+ * The current link's lower strand becomes a connected double helix. Hover lights the two ordinary
+ * contours of the link under the pointer. Geometry buffers and stroke gradients are reused between
+ * frames. In reduced motion, the renderer draws a settled frame when its inputs change.
  * @class Neo.canvas.Header
  * @extends Neo.canvas.Base
  * @singleton
- * @see Portal.view.HeaderCanvas
+ * @see Neo.app.header.Canvas
  */
 class Header extends Base {
     static colors = {
         dark : {
+            helix        : ['#7ff7ef', '#b59bff', '#88ddeb'],
+            selectionWash: 'rgba(106, 156, 241, 0.22)',
             background   : ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
             background2  : ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
             bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
@@ -56,6 +36,8 @@ class Header extends Base {
             shockwave    : HIGHLIGHT
         },
         light: {
+            helix        : ['#046c8c', '#6541bd', '#5187b6'],
+            selectionWash: 'rgba(80, 114, 211, 0.15)',
             background   : ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
             background2  : ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
             bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
@@ -96,7 +78,13 @@ class Header extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * Render on input alone until the host's motion token allows animation.
+         * @member {Boolean} still_=true
+         * @reactive
+         */
+        still_: true
     }
 
     /**
@@ -142,20 +130,23 @@ class Header extends Base {
     /**
      * Pre-allocated buffers for wave geometry.
      * Uses `Float32Array` to eliminate Garbage Collection pressure during the render loop.
-     * @member {Object} waveBuffers={bgA: null, bgB: null, fgA: null, fgB: null}
+     * @member {Object} waveBuffers
      */
-    waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
+    waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null, helix: null}
 
     /**
      * Clears the graph state and stops the render loop.
      */
     clearGraph() {
         let me = this;
+        me.cancelFrame();
         super.clearGraph();
+        me.still       = true;
+        me.activeId    = me.hoverId = null;
         me.navRects    = [];
         me.particles   = [];
         me.shockwaves  = [];
-        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
+        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null, helix: null}
     }
 
     /**
@@ -164,7 +155,36 @@ class Header extends Base {
      * @param {Number} height
      */
     onGraphMounted(width, height) {
-        this.initParticles(width, height)
+        !this.still && this.initParticles(width, height)
+    }
+
+    /**
+     * @summary Cancels the one pending frame before suspending or retiring the renderer.
+     * @protected
+     */
+    cancelFrame() {
+        if (this.animationId != null) {
+            hasRaf ? cancelAnimationFrame(this.animationId) : clearTimeout(this.animationId);
+            this.animationId = null
+        }
+        this.lastFrameTime = 0
+    }
+
+    /**
+     * @summary Draws the settled state or starts the continuous loop when the host's preference changes.
+     * @param {Boolean} value
+     * @protected
+     */
+    afterSetStill(value) {
+        this.cancelFrame();
+        if (value) this.shockwaves.length = 0;
+        this.render()
+    }
+
+    /** @summary Suspends the current loop, including a frame already scheduled before the window became hidden. */
+    pause() {
+        this.cancelFrame();
+        super.pause()
     }
 
     /**
@@ -215,7 +235,8 @@ class Header extends Base {
     render() {
         let me = this;
 
-        if (!me.canRender) {
+        me.animationId = null;
+        if (!me.canRender || !me.canvasSize) {
             return
         }
 
@@ -226,7 +247,7 @@ class Header extends Base {
             now    = performance.now();
 
         // 0. Performance Monitoring (Adaptive Backpressure)
-        if (me.lastFrameTime > 0) {
+        if (!me.still && me.lastFrameTime > 0) {
             let delta = now - me.lastFrameTime;
 
             // Only update average if delta is sanity-checked (ignore tab suspension pauses)
@@ -235,10 +256,10 @@ class Header extends Base {
                 me.avgFrameTime = (me.avgFrameTime * 0.95) + (delta * 0.05);
             }
         }
-        me.lastFrameTime = now;
+        me.lastFrameTime = me.still ? 0 : now;
 
         // Smooth transition for timeScale
-        if (me.timeScale !== me.targetTimeScale) {
+        if (!me.still && me.timeScale !== me.targetTimeScale) {
             let diff = me.targetTimeScale - me.timeScale;
             if (Math.abs(diff) < 0.01) {
                 me.timeScale = me.targetTimeScale
@@ -247,14 +268,11 @@ class Header extends Base {
             }
         }
 
-        // If animations are enabled, use dynamic timeScale (1x to 2x).
-        // If disabled, use a fixed "Reduced Motion" drift (0.2x).
-        let speed = me.usePulse ? me.timeScale : 0.2;
-
-        me.time += 0.05 * speed;
+        // Pulse-off retains its slow drift only when the OS allows motion.
+        if (!me.still) me.time += 0.05 * (me.usePulse ? me.timeScale : 0.2);
 
         // Auto-reinit particles if size changes significantly or empty OR count mismatch (config update)
-        if (me.particles.length !== 60) {
+        if (!me.still && me.particles.length !== 60) {
             me.initParticles(width, height)
         }
 
@@ -264,18 +282,17 @@ class Header extends Base {
         me.drawAmbientBackground(ctx, width, height);
 
         // 2. Draw Ether Particles (Background Layer)
-        me.drawParticles(ctx, width, height);
+        !me.still && me.drawParticles(ctx, width, height);
 
         // 3. Draw "Auras" (Hover Effects) => 3D Ribbon + Neon Tube
         // Backpressure: If we are dropping frames (> 32ms), disable the hot overlay
-        const isStressed = me.avgFrameTime > 32;
+        const isStressed = me.still || me.avgFrameTime > 32;
         me.drawAuras(ctx, width, height, isStressed);
 
-        // 3b. Draw Active Overlay
+        me.drawHoverOverlay(ctx, width);
         me.drawActiveOverlay(ctx, width);
 
-        // 3c. Draw Hover Overlay
-        me.drawHoverOverlay(ctx, width);
+        if (me.still) return;
 
         // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
@@ -324,7 +341,7 @@ class Header extends Base {
             // BREATHING: Modulate base amplitude over time (slow pulse)
             breath   = Math.sin(me.time * 0.5) * 2,
             baseAmp  = Math.min(6 + breath, maxH),
-            hoverAmp = 4;
+            hoverAmp = 2;
 
         // REF 1: Linked Phase - Shimmer leads Breath by 90deg ("Charging up")
         let baseShimmer = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2) * 0.25);
@@ -347,8 +364,8 @@ class Header extends Base {
             // Noise Calculation
             // We calculate noise once per frame per point to ensure that the Ribbon Fill and
             // Neon Stroke passes use identical geometry, preventing visual tearing.
-            let noiseA = (Math.random() - 0.5) * hoverAmp * intensity,
-                noiseB = (Math.random() - 0.5) * hoverAmp * intensity,
+            let noiseA = me.still ? 0 : Math.sin(x * 0.19 - me.time * 1.5) * hoverAmp * intensity,
+                noiseB = -noiseA,
                 sine   = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
                 sineB  = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp; // Inverted
 
@@ -371,6 +388,28 @@ class Header extends Base {
             // Write Y values to buffers
             bufA[i] = centerY + sine  - offsetY + noiseA + shockY;
             bufB[i] = centerY + sineB + offsetY + noiseB + shockY;
+        }
+
+        // Move the helix with aria-current on the first frame. The old link resumes its ordinary wave at the same phase.
+        const active = me.getNavRect(me.activeId);
+        if (active) {
+            const first  = Math.max(0, Math.ceil(active.x / step)),
+                  last   = Math.min(count - 1, Math.floor((active.x + active.width) / step)),
+                  turns  = Math.max(1, active.width / 58),
+                  phase  = me.time * 0.4,
+                  radius = Math.min(5.5, height * 0.1),
+                  minY   = centerY + Math.min(16, height * 0.28),
+                  maxY   = height - Math.min(8, height * 0.14);
+
+            for (let i = first; i <= last; i++) {
+                const u     = (i * step - active.x) / active.width,
+                      taper = Math.min(1, u * 6, (1 - u) * 6),
+                      axis  = bufB[i] + taper * (Math.max(minY, Math.min(maxY, bufB[i])) - bufB[i]),
+                      twist = Math.sin(u * turns * 2 * Math.PI - phase) * radius * taper;
+
+                bufB[i]                 = axis + twist;
+                me.waveBuffers.helix[i] = axis - twist
+            }
         }
 
         return {shimmerA, shimmerB, count}
@@ -476,72 +515,84 @@ class Header extends Base {
     }
 
     /**
-     * Draws an additional highlight for the active navigation item.
-     * **"Energy Surge" Effect:**
-     * Renders a high-intensity pass of the energy strands *only* within the active zone.
-     * This makes the lines appear to "power up" or glow white-hot as they pass through the active view,
-     * fully integrated with the existing geometry.
-     *
+     * @summary Finds the visible button bounds for a canvas selection or hover.
+     * @param {String|null} id
+     * @returns {Object|null}
+     */
+    getNavRect(id) {
+        if (id) {
+            for (const rect of this.navRects) {
+                if (rect.id === id && rect.width > 0 && rect.height > 0) return rect
+            }
+        }
+        return null
+    }
+
+    /**
+     * @summary Draws the current link's two filaments and their cross-links along its lower orbit.
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      */
     drawActiveOverlay(ctx, width) {
-        let me = this,
-            rect;
+        const me = this, rect = me.getNavRect(me.activeId);
+        if (!rect || !me.waveBuffers.helix) return;
 
-        if (!me.activeId || !me.waveBuffers.fgA) return;
+        const {fgA, fgB, helix} = me.waveBuffers,
+              palette           = me.constructor.colors[me.theme],
+              colors            = palette.helix ?? palette.grad1,
+              step              = 2,
+              first             = Math.max(0, Math.ceil(rect.x / step)),
+              last              = Math.min(Math.ceil(width / step) - 1, Math.floor((rect.x + rect.width) / step));
 
-        // Zero-Allocation: Use for-loop instead of .find() to avoid closure creation
-        for (const r of me.navRects) {
-            if (r.id === me.activeId) {
-                rect = r;
-                break
+        if (last <= first) return;
+        ctx.save();
+        ctx.lineJoin = ctx.lineCap = 'round';
+        ctx.fillStyle = palette.selectionWash ?? palette.fgRibbon[1];
+        ctx.beginPath();
+        const centerY = me.canvasSize.height / 2;
+        ctx.moveTo(first * step, centerY);
+        for (let i = first + 1; i <= last; i++) {
+            const edge = Math.min(1, (i - first) / 6, (last - i) / 6);
+            ctx.lineTo(i * step, centerY + (fgA[i] - centerY) * edge)
+        }
+        for (let i = last - 1; i >= first; i--) {
+            const edge = Math.min(1, (i - first) / 6, (last - i) / 6);
+            ctx.lineTo(i * step, centerY + ((fgB[i] + helix[i]) / 2 - centerY) * edge)
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = colors[2];
+        ctx.lineWidth   = 1.4;
+        ctx.beginPath();
+        for (let i = first + 1; i < last; i += 3) {
+            ctx.moveTo(i * step, fgB[i]);
+            ctx.lineTo((i + 1) * step, helix[i + 1])
+        }
+        ctx.stroke();
+
+        for (let strand = 0; strand < 2; strand++) {
+            const rail = strand === 0 ? fgB : helix;
+            ctx.strokeStyle = colors[strand];
+            ctx.lineWidth   = strand === 0 ? 2.2 : 1.8;
+            ctx.beginPath();
+            ctx.moveTo(first * step, rail[first]);
+            for (let i = first + 1; i <= last; i++) ctx.lineTo(i * step, rail[i]);
+            ctx.stroke()
+        }
+
+        // At alternate crossings the first filament passes in front of its companion.
+        ctx.beginPath();
+        ctx.strokeStyle = colors[0];
+        ctx.lineWidth   = 2.4;
+        for (let i = first + 1; i <= last; i++) {
+            if (fgB[i - 1] <= helix[i - 1] && fgB[i] > helix[i]) {
+                const from = Math.max(first, i - 2), to = Math.min(last, i + 2);
+                ctx.moveTo(from * step, fgB[from]);
+                for (let j = from + 1; j <= to; j++) ctx.lineTo(j * step, fgB[j])
             }
         }
-
-        if (!rect) return;
-
-        const
-            step   = 2, // Must match calculateStrandGeometry
-            // Add padding to fade the effect in/out smoothly
-            pad    = 10,
-            startX = Math.max(0, rect.x - pad),
-            endX   = Math.min(width, rect.x + rect.width + pad),
-            startI = Math.floor(startX / step),
-            endI   = Math.ceil(endX / step),
-            bufA   = me.waveBuffers.fgA,
-            bufB   = me.waveBuffers.fgB;
-
-        ctx.save();
-        ctx.lineCap  = 'round';
-        ctx.lineJoin = 'round';
-
-        // High-Intensity Glow
-        ctx.shadowBlur  = 20;
-        ctx.shadowColor = '#FFFFFF'; // White glow
-        ctx.strokeStyle = '#FFFFFF'; // White core
-        ctx.lineWidth   = 2;
-
-        // Gradient Fade mask (manual alpha)
-        // We can't easily gradient-stroke a sub-path, so we rely on globalAlpha
-        // combined with the "hot" white color to make it pop.
-        ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast, nervous pulse
-
-        // Inline drawing to avoid closure
-        ctx.beginPath();
-        ctx.moveTo(startI * step, bufA[startI]);
-        for (let i = startI + 1; i <= endI; i++) {
-            ctx.lineTo(i * step, bufA[i])
-        }
         ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(startI * step, bufB[startI]);
-        for (let i = startI + 1; i <= endI; i++) {
-            ctx.lineTo(i * step, bufB[i])
-        }
-        ctx.stroke();
-
         ctx.restore()
     }
 
@@ -549,48 +600,34 @@ class Header extends Base {
      * Draws an additional highlight for the hovered navigation item.
      * **"Preview" Effect:**
      * Renders a static intensity pass of the energy strands within the hovered zone.
-     * Uses the theme-specific hover color (Cyan/Blue) to distinguish it from the active state (White).
+     * Uses the theme-specific hover color without the current link's cross-links.
      *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      */
     drawHoverOverlay(ctx, width) {
-        let me = this,
-            rect;
-
-        if (!me.hoverId || !me.waveBuffers.fgA) return;
-
-        // Zero-Allocation: Use for-loop instead of .find() to avoid closure creation
-        for (const r of me.navRects) {
-            if (r.id === me.hoverId) {
-                rect = r;
-                break
-            }
-        }
-
-        if (!rect) return;
+        const me = this, rect = me.getNavRect(me.hoverId);
+        if (!rect || me.hoverId === me.activeId || !me.waveBuffers.fgA) return;
 
         const
             step        = 2, // Must match calculateStrandGeometry
-            pad         = 10,
-            startX      = Math.max(0, rect.x - pad),
-            endX        = Math.min(width - 3, rect.x + rect.width + pad),
-            startI      = Math.floor(startX / step),
-            endI        = Math.ceil(endX / step),
+            startI      = Math.max(0, Math.ceil(rect.x / step)),
+            endI        = Math.min(Math.ceil(width / step) - 1, Math.floor((rect.x + rect.width) / step)),
             bufA        = me.waveBuffers.fgA,
             bufB        = me.waveBuffers.fgB,
             themeColors = me.constructor.colors[me.theme];
 
+        if (endI <= startI) return;
         ctx.save();
         ctx.lineCap  = 'round';
         ctx.lineJoin = 'round';
 
         // Hover Effect: Static Glow (No Pulse)
-        ctx.shadowBlur  = 15;
+        ctx.shadowBlur  = 2;
         ctx.shadowColor = themeColors.hover;
         ctx.strokeStyle = themeColors.hover;
         ctx.lineWidth   = 2;
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 0.55;
 
         // Inline drawing to avoid closure
         ctx.beginPath();
@@ -936,7 +973,8 @@ class Header extends Base {
      * @param {String} [data.id]
      */
     updateActiveId(data) {
-        this.activeId = data?.id || null
+        this.activeId = data?.id || null;
+        this.still && this.render()
     }
 
     /**
@@ -951,7 +989,8 @@ class Header extends Base {
      * @param {String} [data.id]
      */
     updateHoverId(data) {
-        this.hoverId = data?.id || null
+        this.hoverId = data?.id || null;
+        this.still && this.render()
     }
 
     /**
@@ -959,6 +998,7 @@ class Header extends Base {
      * @param {Object} data
      */
     onMouseClick(data) {
+        if (this.still) return;
         this.shockwaves.push({
             x    : data.x,
             y    : data.y,
@@ -986,14 +1026,16 @@ class Header extends Base {
     updateNavRects(data) {
         let rects = data?.rects;
 
-        if (data.width !== undefined && data.height !== undefined) {
-            this.updateSize(data)
-        }
-
         if (Array.isArray(rects)) {
             this.navRects = rects
         } else {
             this.navRects = []
+        }
+
+        if (data.width !== undefined && data.height !== undefined) {
+            this.updateSize(data)
+        } else if (this.still) {
+            this.render()
         }
     }
 
@@ -1018,6 +1060,7 @@ class Header extends Base {
         const fgCount = Math.ceil(width / 2) + 1;
         me.waveBuffers.fgA = new Float32Array(fgCount);
         me.waveBuffers.fgB = new Float32Array(fgCount);
+        me.waveBuffers.helix = new Float32Array(fgCount);
 
         // 2. Cache Gradients
         if (!ctx) return;
@@ -1073,6 +1116,8 @@ class Header extends Base {
         bgRibbon.addColorStop(0.5, themeColors.bgRibbon[1]);
         bgRibbon.addColorStop(1,   themeColors.bgRibbon[2]);
         me.gradients.bgRibbon = bgRibbon;
+
+        me.still && me.render()
     }
 }
 

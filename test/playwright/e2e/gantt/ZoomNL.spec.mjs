@@ -91,6 +91,62 @@ test('each zoom level draws its own header units and keeps every link on its bar
     }
 });
 
+/**
+ * @summary Reads the minor tick under the timeline's visible left edge: its unit, its text, and where its text starts
+ * relative to that edge, negative when the start is cut off.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{offset: Number, text: String, unit: String}|null>}
+ */
+function readMinorTickAtEdge(page) {
+    return page.evaluate(() => {
+        const
+            header = document.querySelector('.neo-timeline-header'),
+            edge   = header.closest('.neo-grid-header-toolbar').getBoundingClientRect().left,
+            tick   = [...header.querySelectorAll('.neo-timeline-tick-minor')].find(el => {
+                const box = el.getBoundingClientRect();
+                return box.left < edge - 10 && box.right > edge + 10
+            }),
+            range  = document.createRange();
+
+        if (!tick) return null;
+
+        range.selectNodeContents(tick);
+
+        return {offset: Math.round(range.getBoundingClientRect().left - edge), text: tick.textContent.trim(), unit: tick.dataset.unit}
+    })
+}
+
+test('a day whose start is scrolled out keeps its name in the minor row, an hour does not (#21726)', async ({page}) => {
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+    await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeVisible();
+
+    const
+        scrollbar = page.locator('.neo-grid-horizontal-scrollbar'),
+        tickWidth = () => page.locator('.neo-timeline-header .neo-timeline-tick-minor').first().evaluate(el => el.getBoundingClientRect().width);
+
+    // The week level puts days in the minor row: one and a half days in, Tuesday has lost its start
+    await scrollbar.evaluate((el, left) => {el.scrollLeft = left}, Math.round(await tickWidth() * 1.5));
+    await expect.poll(async () => (await readMinorTickAtEdge(page))?.unit).toBe('day');
+    await expect.poll(async () => (await readMinorTickAtEdge(page)).offset, 'the day keeps its name at the edge').toBeGreaterThanOrEqual(-1);
+    expect((await readMinorTickAtEdge(page)).text).not.toBe('');
+
+    // The day level puts hours there: half an hour past the edge, the hour's label leaves with its tick
+    await page.getByRole('button', {name: 'Day', exact: true}).click();
+    await expect.poll(() => readAxis(page)).toMatchObject({tickUnit: 'hour'});
+
+    // The zoom brings its left-edge date back with a scroll of its own: let it land first
+    let last = -1;
+    await expect.poll(async () => {
+        const left = await scrollbar.evaluate(el => el.scrollLeft), settled = left === last;
+        last = left;
+        return settled
+    }, {intervals: [250]}).toBe(true);
+    await scrollbar.evaluate((el, by) => {el.scrollLeft += by}, Math.round(await tickWidth() / 2));
+    await expect.poll(async () => (await readMinorTickAtEdge(page))?.unit).toBe('hour');
+    expect((await readMinorTickAtEdge(page)).offset, 'an hour is not pinned').toBeLessThan(-10)
+});
+
 test('the month level fits all ten weeks into a 1440 px window', async ({page}) => {
     await page.setViewportSize({width: 1440, height: 900});
     await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);

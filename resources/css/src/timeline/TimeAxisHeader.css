@@ -8,6 +8,7 @@
     border-left   : 0;
     box-sizing    : border-box;
     color         : var(--neo-timeline-header-color);
+    cursor        : default;
     display       : flex;
     flex-direction: column;
     height        : var(--neo-timeline-header-height, 44px);
@@ -21,6 +22,26 @@
     &.neo-locked-end:first-child {
         border-left-style: solid;
         border-left-width: 1px;
+    }
+
+    /* A scale, not a sortable column: the hover grid/header/Button.css gives every header button keeps the rest look */
+    &:hover {
+        background-color   : var(--neo-timeline-header-background);
+        border-color       : transparent;
+        border-bottom-color: var(--neo-timeline-border-color);
+        box-shadow         : none;
+
+        &:not(:last-child) {
+            border-right-color: var(--grid-header-button-border-right-color);
+        }
+
+        &.neo-locked-end:first-child {
+            border-left-color: var(--grid-header-button-border-right-color);
+        }
+
+        &:last-child::after {
+            background-color: var(--grid-header-button-border-right-color);
+        }
     }
 
     .neo-timeline-header-row {
@@ -69,8 +90,10 @@
         z-index      : 1;
     }
 
-    /* A day, week or month whose start is scrolled out keeps its name at the visible left edge */
-    .neo-timeline-tick-major {
+    /* A day, week or month whose start is scrolled out keeps its name at the visible left edge, in either row.
+       An hour does not: a pinned `08:00` would mark 08:30 */
+    .neo-timeline-tick-major,
+    .neo-timeline-tick-minor:is([data-unit="day"], [data-unit="week"], [data-unit="month"]) {
         overflow: clip;
 
         .neo-timeline-tick-label {

@@ -1,7 +1,8 @@
-import NeoArray from '../util/Array.mjs';
-import Panel    from '../container/Panel.mjs';
-import Toolbar  from './header/Toolbar.mjs';
-import VDomUtil from '../util/VDom.mjs';
+import ComponentManager from '../manager/Component.mjs';
+import NeoArray         from '../util/Array.mjs';
+import Panel            from '../container/Panel.mjs';
+import Toolbar          from './header/Toolbar.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 
 let DragZone;
 
@@ -495,8 +496,13 @@ class Dialog extends Panel {
 
         await me.timeout(200);
 
-        // Remove the animation class
-        await Neo.applyDeltas(me.windowId, {id, cls: {remove: ['animated-hiding-showing']}});
+        // Remove the animation class. The measured height was only its end point: a dialog whose height nothing
+        // declares follows its content again, so a message its form shows below a field has room.
+        await Neo.applyDeltas(me.windowId, {
+            id,
+            cls: {remove: ['animated-hiding-showing']},
+            ...!(me.height || style?.height || me.wrapperStyle?.height) && {style: {height: null}}
+        });
 
         // show() holds this as a mount flight, which lands on the latest hidden: a hide() during the animation wins
         if (!me._hidden) {
@@ -617,11 +623,44 @@ class Dialog extends Panel {
     }
 
     /**
+     * @summary A dialog opens on its first field, so a form takes input at once: the window controls of its header
+     * come first in the DOM. Without a field, it takes focus as every floating component does.
+     * @protected
+     */
+    focusOnArrival() {
+        const field = this.getFirstField();
+
+        field ? field.focus(field.id, true) : super.focusOnArrival()
+    }
+
+    /**
      * Returns the id of the animation node
      * @returns {String}
      */
     getAnimateTargetId() {
         return this.id + '-animate'
+    }
+
+    /**
+     * @summary The first enabled, visible field in item order, which is the order on the page. `down()` walks the
+     * order components registered in, so a form that rebuilt its fields would answer with a later one.
+     * @param {Neo.component.Base} [component=this]
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    getFirstField(component=this) {
+        for (const item of component.items || []) {
+            if (!item.hidden && !item.disabled) {
+                const field = ComponentManager.hasPrototypePropertyValue(item, 'ntype', 'basefield') ?
+                    item : this.getFirstField(item);
+
+                if (field) {
+                    return field
+                }
+            }
+        }
+
+        return null
     }
 
     /**

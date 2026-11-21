@@ -1,4 +1,4 @@
-import SharedCanvas from '../SharedCanvas.mjs';
+import MotionCanvas from '../MotionCanvas.mjs';
 
 /**
  * @summary The App Worker half of a round table: an offscreen canvas handed to the canvas worker's
@@ -12,15 +12,15 @@ import SharedCanvas from '../SharedCanvas.mjs';
  *
  * Stillness is the motion vocabulary's own verdict: `--motion-base` collapses to `0ms` under
  * `prefers-reduced-motion: reduce` (`resources/css/src/Global.css`), and the canvas reads it from its node each
- * time it mounts. Every mount starts still, and a read that fails or answers nothing keeps it still.
+ * time it mounts or the preference changes. Every mount starts still, and a failed read keeps it still.
  *
  * The measuring and the motion read follow `AgentOS.view.home.Canvas` of `neomjs/neo-agent-institution`.
  *
  * @class Neo.app.roundtable.Canvas
- * @extends Neo.app.SharedCanvas
+ * @extends Neo.app.MotionCanvas
  * @see Neo.canvas.RoundTable
  */
-class Canvas extends SharedCanvas {
+class Canvas extends MotionCanvas {
     static config = {
         /**
          * @member {String} className='Neo.app.roundtable.Canvas'
@@ -64,22 +64,9 @@ class Canvas extends SharedCanvas {
         /**
          * @member {String} rendererImportPath='src/canvas/RoundTable.mjs'
          */
-        rendererImportPath: 'src/canvas/RoundTable.mjs',
-        /**
-         * Whether the scene is still: `true` until the current mount's read of the motion vocabulary says the host
-         * allows motion. Every unmount returns it to `true`.
-         * @member {Boolean} still_=true
-         * @reactive
-         */
-        still_: true
+        rendererImportPath: 'src/canvas/RoundTable.mjs'
     }
 
-    /**
-     * Counts the motion reads, so that only the latest read of the current mount may answer.
-     * @member {Number} motionRead=0
-     * @protected
-     */
-    motionRead = 0
     /**
      * The one size listener this host adds to the statement's components, kept so that `destroy()` takes back
      * exactly what `watchStatement()` added.
@@ -136,23 +123,14 @@ class Canvas extends SharedCanvas {
     }
 
     /**
-     * Triggered after the mounted config got changed: every mount reads the host's motion preference again, and
-     * every unmount returns the scene to still and outdates the reads still in flight.
+     * @summary Invalidates pending statement measurements on unmount.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    async afterSetMounted(value, oldValue) {
-        const me = this;
-
-        if (!value) {
-            me.motionRead++;
-            me.statementRead++;
-            me.still = true
-        }
-
-        await super.afterSetMounted(value, oldValue);
-        value && me.readMotion()
+    afterSetMounted(value, oldValue) {
+        if (!value) this.statementRead++;
+        return super.afterSetMounted(value, oldValue)
     }
 
     /**
@@ -267,28 +245,6 @@ class Canvas extends SharedCanvas {
                 canvasId: me.getCanvasId(),
                 windowId: me.windowId
             })
-        }
-    }
-
-    /**
-     * @summary Reads `--motion-base` from the canvas's node through its own window: `0ms`, the reduced-motion
-     * collapse, keeps the scene still, and so does a read that fails or answers nothing. Only the latest read of
-     * the current mount answers.
-     * @returns {Promise<void>}
-     */
-    async readMotion() {
-        const me = this, read = ++me.motionRead;
-
-        let value = '';
-
-        try {
-            const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--motion-base', windowId: me.windowId});
-
-            value = styles?.['--motion-base']?.trim() ?? ''
-        } catch {}
-
-        if (read === me.motionRead && me.mounted && !me.isDestroyed) {
-            me.still = !value || parseFloat(value) === 0
         }
     }
 

@@ -252,6 +252,22 @@ class TimeAxisHeader extends Component {
     #projectedMinPx = 0
 
     /**
+     * The {@link #axisLeft} the last projected window was measured from.
+     * @member {Number} #projectedAxisLeft=0
+     * @private
+     */
+    #projectedAxisLeft = 0
+
+    /**
+     * @summary The center-content x in pixels where this header starts: the width of the columns before it in its
+     * scrolling region. The time axis has scrolled `scrollLeft - axisLeft` pixels.
+     * @returns {Number}
+     */
+    get axisLeft() {
+        return this.parent?.gridContainer?.body?.columnPositions?.get(this.dataField)?.x || 0
+    }
+
+    /**
      * @summary Returns the visible width of the timeline header between the locked grid bodies.
      * @returns {Number}
      */
@@ -506,8 +522,18 @@ class TimeAxisHeader extends Component {
         }
 
         if (gridContainer?.body) {
+            const
+                {body}      = gridContainer,
+                // `passSizeToBody()` clears the positions, then adds them: only the second event carries the geometry
+                onPositions = ({addedItems}) => {
+                    if (addedItems?.length && me.axisLeft !== me.#projectedAxisLeft) me.project()
+                };
+
+            body.columnPositions.on('mutate', onPositions);
+
             me.#gridCleanups.push(
-                me.observeConfig(gridContainer.body, 'containerWidth', () => me.project())
+                me.observeConfig(body, 'containerWidth', () => me.project()),
+                () => body.isDestroyed || body.columnPositions.un('mutate', onPositions)
             )
         }
 
@@ -615,8 +641,8 @@ class TimeAxisHeader extends Component {
     }
 
     /**
-     * @summary Computes the horizontally buffered `{visibleStart, visibleEnd, minPx, maxPx}` window.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @summary Computes the horizontally buffered `{visibleStart, visibleEnd, minPx, maxPx}` window in axis pixels.
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.effectiveViewportWidth]
      * @returns {{visibleStart: Date, visibleEnd: Date, minPx: Number, maxPx: Number}}
      */
@@ -625,7 +651,7 @@ class TimeAxisHeader extends Component {
             axis      = this.timeAxis,
             totalSize = axis?.totalSize || 0,
             buffer    = Math.max(0, this.bufferPx || 0),
-            left      = Math.max(0, Number(scrollLeft) || 0),
+            left      = Math.max(0, (Number(scrollLeft) || 0) - this.axisLeft),
             width     = Math.max(1, Number(viewportWidth) || 0),
             minPx     = Math.max(0, left - buffer),
             maxPx     = Math.min(totalSize, left + width + buffer);
@@ -642,7 +668,7 @@ class TimeAxisHeader extends Component {
      * @summary Returns `true` when the visible viewport `[scrollLeft, scrollLeft + viewportWidth]`
      * extends outside the last projected `[#projectedMinPx, #projectedMaxPx]` window.
      * @description Delegates to {@link Neo.timeline.TimeAxis.needsReprojection}.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.effectiveViewportWidth]
      * @returns {Boolean}
      */
@@ -652,7 +678,7 @@ class TimeAxisHeader extends Component {
             hasProjectedWindow: this.#hasProjectedWindow,
             projectedMaxPx    : this.#projectedMaxPx,
             projectedMinPx    : this.#projectedMinPx,
-            scrollLeft,
+            scrollLeft        : (Number(scrollLeft) || 0) - this.axisLeft,
             timeAxis          : this.timeAxis,
             viewportWidth
         })
@@ -735,6 +761,7 @@ class TimeAxisHeader extends Component {
                 }))
                 : [];
 
+        me.#projectedAxisLeft  = me.axisLeft;
         me.#projectedMinPx     = minPx;
         me.#projectedMaxPx     = maxPx;
         me.#hasProjectedWindow = true;
@@ -755,7 +782,7 @@ class TimeAxisHeader extends Component {
                 ? ['neo-timeline-tick', row, 'neo-timeline-tick-current']
                 : ['neo-timeline-tick', row];
 
-        // The label is its own node so it can stay sticky while its tick is partly scrolled out
+        // In both rows the label is its own node, so it can stay sticky while its tick is partly scrolled out
         majorRow.cn = majorTicks.map(tick => ({
             id  : `${me.id}__major-tick-${tick.index}`,
             cls : tickCls(tick, 'neo-timeline-tick-major'),
@@ -786,7 +813,7 @@ class TimeAxisHeader extends Component {
                     left : `${tick.offset}px`,
                     width: `${tick.size}px`
                 },
-                text : me.formatMinorTick(tick)
+                cn: [{tag: 'span', cls: ['neo-timeline-tick-label'], text: me.formatMinorTick(tick)}]
             })),
             ...nonWorkingNodes,
             ...showNow ? [{

@@ -11,9 +11,10 @@ const ARROW_STUB_PX = 12;
 /**
  * @summary Single SVG dependency-arrow overlay (`Neo.gantt.DependencyLayer`) for `Neo.gantt.Container`.
  * @description Renders directed task dependencies (`FS`, `SS`, `FF`, `SF`) inside a single `<svg>` element layered over
- * the center timeline track. Only dependencies whose source and target tasks are currently expanded in `taskStore`
- * and whose horizontal span intersects `[scrollLeft - bufferPx, scrollLeft + viewportWidth + bufferPx]` are projected
- * into `<path class="neo-gantt-dependency-arrow">` descriptors.
+ * the center timeline track, from `axisLeft`, where the timeline starts in its scrolling region. Only dependencies
+ * whose source and target tasks are currently expanded in `taskStore` and whose horizontal span intersects the axis
+ * window `[left - bufferPx, left + viewportWidth + bufferPx]`, `left` being `max(0, scrollLeft - axisLeft)`, are
+ * projected into `<path class="neo-gantt-dependency-arrow">` descriptors.
  *
  * The layer replaces the visible arrows and their marker definitions together as one SVG fragment.
  * It escapes record-derived attributes and skips the DOM update when the fragment and its bounds are unchanged.
@@ -61,6 +62,13 @@ class DependencyLayer extends Component {
          * @protected
          */
         baseCls: ['neo-gantt-dependency-layer'],
+        /**
+         * Center-content x in pixels where the time axis starts: the width of the columns before the timeline in
+         * its scrolling region. The layer is drawn from there, and `scrollLeft` minus this is the axis scroll.
+         * @member {Number} axisLeft_=0
+         * @reactive
+         */
+        axisLeft_: 0,
         /**
          * Horizontal overscan buffer in pixels on each side of the visible viewport.
          * @member {Number} bufferPx_=400
@@ -190,6 +198,18 @@ class DependencyLayer extends Component {
     construct(config) {
         super.construct(config);
         this.project()
+    }
+
+    /**
+     * @summary Moves the layer and its window to the new start of the time axis.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetAxisLeft(value, oldValue) {
+        if (oldValue !== undefined && this.isConstructed) {
+            this.project()
+        }
     }
 
     /**
@@ -337,7 +357,7 @@ class DependencyLayer extends Component {
      * @summary Returns `true` when `[scrollLeft, scrollLeft + viewportWidth]` steps outside the last projected
      * `[#projectedMinPx, #projectedMaxPx]` buffer window.
      * @description Delegates to {@link Neo.timeline.TimeAxis.needsReprojection}.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.viewportWidth]
      * @returns {Boolean}
      */
@@ -347,7 +367,7 @@ class DependencyLayer extends Component {
             hasProjectedWindow: this.#hasProjectedWindow,
             projectedMaxPx    : this.#projectedMaxPx,
             projectedMinPx    : this.#projectedMinPx,
-            scrollLeft,
+            scrollLeft        : (Number(scrollLeft) || 0) - (this.axisLeft || 0),
             timeAxis          : this.timeAxis,
             viewportWidth     : viewportWidth || 1200
         })
@@ -411,8 +431,10 @@ class DependencyLayer extends Component {
             depCount   = depStore.getCount(),
             rowHeight  = Math.max(1, me.rowHeight || 48),
             totalWidth = Math.max(1, axis.totalSize || 1),
-            minPx      = Math.max(0, (me.scrollLeft || 0) - (me.bufferPx || 0)),
-            maxPx      = Math.min(totalWidth, (me.scrollLeft || 0) + Math.max(1, me.viewportWidth || 1200) + (me.bufferPx || 0)),
+            // Clamped as the scroll guard clamps it, so both read the same visible axis
+            axisScroll = Math.max(0, (me.scrollLeft || 0) - (me.axisLeft || 0)),
+            minPx      = Math.max(0, axisScroll - (me.bufferPx || 0)),
+            maxPx      = Math.min(totalWidth, axisScroll + Math.max(1, me.viewportWidth || 1200) + (me.bufferPx || 0)),
             indexById  = new Map(),
             paths      = [];
 
@@ -527,6 +549,7 @@ class DependencyLayer extends Component {
                 ` data-to-id="${esc(p.data.toId)}" data-type="${esc(p.data.type)}"` +
                 `${p.data.highlighted ? ' data-highlighted="true"' : ''}></path>`
             ).join(''),
+            nextLeft        = `${me.axisLeft || 0}px`,
             nextWidth       = `${totalWidth}px`,
             nextHeight      = `${totalHeight}px`,
             nextHtml        =
@@ -541,10 +564,11 @@ class DependencyLayer extends Component {
                 `</marker>` +
                 `</defs>${pathHtml}</svg>`,
             overflowY       = Number.isFinite(me.#pageHeight) ? 'clip' : null,
-            changed         = vdom.style.width !== nextWidth || vdom.style.height !== nextHeight ||
+            changed         = vdom.style.left !== nextLeft || vdom.style.width !== nextWidth || vdom.style.height !== nextHeight ||
                 vdom.html !== nextHtml || (vdom.style.overflowY ?? null) !== overflowY;
 
         me.arrows         = paths;
+        vdom.style.left   = nextLeft;
         vdom.style.width  = nextWidth;
         vdom.style.height = nextHeight;
         if (overflowY) vdom.style.overflowY = overflowY;
