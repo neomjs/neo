@@ -460,7 +460,7 @@ test.describe('Portal examples overview and group pages', () => {
         expect(pageIds(view, 'drag-drop').filter(id => id === 'dialog-drag-drop')).toHaveLength(1);
         expect(pageIds(view, 'platform')).toEqual(['offscreen-canvas', 'shared-offscreen-canvas']);
         // the paging toolbar reaches Buttons through the grid that runs it on the simulated server
-        expect(pageIds(view, 'buttons')).toEqual(['context-menu-files', 'breadcrumb', 'grid-server-side']);
+        expect(pageIds(view, 'buttons')).toEqual(['context-menu-files', 'breadcrumb', 'toolbar-application', 'grid-server-side']);
         expect(pageIds(view, 'charts')).toEqual(['offscreen-canvas', 'open-street-maps', 'graph-scene', 'am-charts', 'sparklines', 'mermaid']);
         expect(pageIds(view, 'tree')).toEqual(['grid-tree-big-data', 'grid-tree']);
         expect(view.getGroupStore().get('dialogs').count).toBe(3);
@@ -736,7 +736,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           layouts       : [3, 0],
           dialogs       : [3, 0],
           forms         : [30, 1],
-          buttons       : [4, 1],
+          buttons       : [5, 1],
           components    : [13, 0],
           'multi-window': [6, 4],
           platform      : [2, 1],
@@ -744,7 +744,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 147,
+      recordCount    = 148,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1012,7 +1012,7 @@ test.describe('Portal examples canonical catalog', () => {
     test('preserves the #21140 catalog order and inserts the Multi-Window block after timeline-basic', () => {
         const {store}     = createList(),
               completeIds = [
-                  ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
+                  ...startHereIds, ...establishedTailIds, ...componentExampleIds, 'toolbar-application', ...establishedMiddleIds,
                   ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data',
                   'scheduler-drag-and-resize', 'scheduler-non-working-time', 'scheduler-bar-renderer',
                   'scheduler-event-editor', 'scheduler-zoom', 'scheduler-resource-columns', 'scheduler-time-zones',

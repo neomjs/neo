@@ -394,6 +394,14 @@ test.describe('Portal examples section', () => {
             await expect(page.locator(`${CARDS} .neo-list-item`)).toHaveCount(count)
         }
 
+        await expect(page.locator(SIDEBAR).getByRole('link', {
+            name : 'Buttons, Menus & Toolbars, 6 live examples',
+            exact: true
+        })).toBeVisible();
+        await openGroup(page, 'Buttons, Menus & Toolbars');
+        await expect(page.locator(`${CARDS} .neo-list-item`)).toHaveCount(4);
+        await expect(page.locator(`${TILES} .neo-list-item`)).toHaveCount(2);
+
         // Apps shows its own examples and the ones other groups lend it, and its number counts the whole page
         const appsCount = Number(await apps.textContent());
         await openGroup(page, 'Apps');

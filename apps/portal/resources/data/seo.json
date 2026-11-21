@@ -1149,7 +1149,7 @@
     },
     "/examples/buttons": {
         "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
-        "description": "Explore 5 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "description": "Explore 6 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -2310,6 +2310,12 @@
         "description": "Live runnable TodoList version2 example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-09-10"
+    },
+    "/examples/toolbar/application/index.html": {
+        "title": "Release notes editor · Neo Toolbar — JavaScript UI Demo | Neo.mjs",
+        "description": "A split button, a font toggle, and an action group loaded from one JSON file. Open Insert to add a checklist item. Toggle Monospace to change the draft’s...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
     },
     "/examples/toolbar/breadcrumb/index.html": {
         "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",

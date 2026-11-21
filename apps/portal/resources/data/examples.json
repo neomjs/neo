@@ -1079,6 +1079,22 @@
         "hiddenIn": []
     },
     {
+        "id": "toolbar-application",
+        "image": "devmode/toolbar-application-14.jpg",
+        "name": "A toolbar loaded from JSON",
+        "sourceUrl": "examples/toolbar/application",
+        "urls": {
+            "devmode": "examples/toolbar/application/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/toolbar/application/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/toolbar/application/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/toolbar/application/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "buttons",
+        "component": "Toolbar",
+        "feature": "A split button, a font toggle, and an action group loaded from one JSON file",
+        "lookFor": "Open Insert to add a checklist item. Toggle Monospace to change the draft’s font, or edit the JSON file and reload to change the toolbar."
+    },
+    {
         "id": "table-filtering",
         "featured": false,
         "image": "devmode/table-filtering-14.jpg",
