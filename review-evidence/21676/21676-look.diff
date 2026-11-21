@@ -1,0 +1,482 @@
+diff --git a/apps/portal/view/examples/List.mjs b/apps/portal/view/examples/List.mjs
+index 5f62648b74..6b21fc6d05 100644
+--- a/apps/portal/view/examples/List.mjs
++++ b/apps/portal/view/examples/List.mjs
+@@ -362,20 +362,12 @@ class List extends BaseList {
+     }
+ 
+     /**
+-     * @summary Paints the record's cover blended (`overlay`) against the `@property` hover/selection gradient.
++     * @summary Names the record's cover. The card's state lights are the stylesheet's, layered over the image.
+      * @param {Object} record
+      * @returns {{backgroundImage: string}}
+      */
+     getBackgroundImageStyle(record) {
+-        return {
+-            backgroundImage: [
+-                record.image ? `url('${this.imageBasePath}/${record.image}'),` : '',
+-                'linear-gradient(135deg,',
+-                'var(--portal-examples-list-gradient-start),',
+-                'var(--portal-examples-list-gradient-end)',
+-                ')'
+-            ].join('')
+-        }
++        return {backgroundImage: record.image ? `url('${this.imageBasePath}/${record.image}')` : 'none'}
+     }
+ 
+     /**
+diff --git a/resources/css/src/apps/portal/examples/List.css b/resources/css/src/apps/portal/examples/List.css
+index 9be594b8e7..36592016e3 100644
+--- a/resources/css/src/apps/portal/examples/List.css
++++ b/resources/css/src/apps/portal/examples/List.css
+@@ -1,15 +1,46 @@
+-@property --portal-examples-list-gradient-start {
++/* Typed, so a card's two lights, its selection ring and its launch pill can animate */
++@property --portal-examples-list-light-hover {
+     inherits     : true;
+     initial-value: rgba(0, 0, 0, 0);
+     syntax       : '<color>';
+ }
+ 
+-@property --portal-examples-list-gradient-end {
++@property --portal-examples-list-light-select {
+     inherits     : true;
+     initial-value: rgba(0, 0, 0, 0);
+     syntax       : '<color>';
+ }
+ 
++@property --portal-examples-list-ring-progress {
++    inherits     : false;
++    initial-value: 0%;
++    syntax       : '<percentage>';
++}
++
++@property --portal-examples-list-ring-lead {
++    inherits     : false;
++    initial-value: rgba(0, 0, 0, 0);
++    syntax       : '<color>';
++}
++
++@property --portal-examples-list-cue-from {
++    inherits     : false;
++    initial-value: rgba(0, 0, 0, 0);
++    syntax       : '<color>';
++}
++
++@property --portal-examples-list-cue-to {
++    inherits     : false;
++    initial-value: rgba(0, 0, 0, 0);
++    syntax       : '<color>';
++}
++
++/* The glint enters and leaves outside the cover, so nothing of it rests on the image */
++@keyframes portal-examples-list-glint {
++    from {background-position: 120% 0}
++    to   {background-position: -20% 0}
++}
++
+ .portal-examples-list.neo-list {
+     /* Muted text derives from the opaque footer surface so glyph color never carries alpha. */
+     --portal-examples-list-text-muted: color-mix(in srgb, var(--portal-examples-list-text) 78%, var(--portal-examples-list-surface));
+@@ -57,56 +88,120 @@
+         }
+     }
+ 
++    /* Two cursors share this grid, and each has its own kind of answer. The pointer is light from outside: a glint
++       crosses the cover and the card rests lit from its upper right. The selection, which the arrow keys move, is light
++       the card emits: a ring draws itself around the card and stays, over the open details. Nothing moves a hit target. */
+     .neo-list-item {
+-        --portal-examples-list-gradient-end  : rgba(0, 0, 0, 0);
+-        --portal-examples-list-gradient-start: rgba(0, 0, 0, 0);
+-
+-        background   : var(--portal-examples-list-surface);
+-        border-radius: 16px;
+-        box-shadow   : 0 0 0 1px var(--portal-examples-list-edge), var(--portal-examples-list-shadow);
+-        cursor       : pointer;
+-        display      : block;
+-        margin       : 0;
+-        outline      : 1.5px solid transparent;
+-        outline-offset: -1.5px;
+-        overflow     : hidden;
+-        padding      : 0;
+-        transition   : --portal-examples-list-gradient-start var(--motion-base) var(--ease-out-soft),
+-                       --portal-examples-list-gradient-end var(--motion-base) var(--ease-out-soft),
+-                       box-shadow var(--motion-fast) var(--ease-out-soft),
+-                       outline-color var(--motion-fast) var(--ease-out-soft);
+-        white-space  : normal;
+-        width        : 100%;
++        --portal-examples-list-glow        : 0 0 0 0 transparent;
++        --portal-examples-list-light-hover : rgba(0, 0, 0, 0);
++        --portal-examples-list-light-select: rgba(0, 0, 0, 0);
++
++        background    : var(--portal-examples-list-surface);
++        border-radius : 16px;
++        box-shadow    : 0 0 0 1px var(--portal-examples-list-edge), var(--portal-examples-list-shadow), var(--portal-examples-list-glow);
++        cursor        : pointer;
++        display       : block;
++        margin        : 0;
++        outline       : 0; /* the base list's navigator outline would show as slivers under the cover; the ring below is this card's focus */
++        overflow      : hidden;
++        padding       : 0;
++        position      : relative;
++        transition    : --portal-examples-list-light-hover var(--motion-base) var(--ease-out-soft),
++                        --portal-examples-list-light-select var(--motion-base) var(--ease-out-soft),
++                        box-shadow var(--motion-base) var(--ease-out-soft);
++        white-space   : normal;
++        width         : 100%;
++
++        /* Both edges lie over the card's content: an outline would be painted under the cover and the footer */
++        &::before,
++        &::after {
++            border-radius : inherit;
++            content       : '';
++            inset         : 0;
++            pointer-events: none;
++            position      : absolute;
++        }
+ 
+-        &.neo-selected {
+-            --portal-examples-list-gradient-end  : var(--portal-examples-list-selected-end);
+-            --portal-examples-list-gradient-start: var(--portal-examples-list-selected-start);
++        /* The pointer's edge fades in and out */
++        &::after {
++            border    : 1.5px solid var(--portal-examples-list-hover);
++            opacity   : 0;
++            transition: opacity var(--motion-fast) var(--ease-out-soft);
++            z-index   : 3;
++        }
+ 
+-            outline-color: var(--portal-examples-list-selected-border);
++        &.neo-selected {
++            --portal-examples-list-glow        : var(--portal-examples-list-selected-glow);
++            --portal-examples-list-light-select: var(--portal-examples-list-selected-light);
+         }
+ 
+         @media (hover: hover) {
+-            &:hover:not(.neo-selected) {
+-                --portal-examples-list-gradient-end  : var(--portal-examples-list-hover-end);
+-                --portal-examples-list-gradient-start: var(--portal-examples-list-hover-start);
+-
+-                outline-color: var(--sem-color-border-focus);
+-            }
++            &:hover {
++                --portal-examples-list-light-hover: var(--portal-examples-list-hover-light);
+ 
+-            &.neo-selected:hover {
+-                --portal-examples-list-gradient-end  : var(--portal-examples-list-selected-end);
+-                --portal-examples-list-gradient-start: var(--portal-examples-list-hover-end);
++                box-shadow: 0 0 0 1px var(--portal-examples-list-edge), var(--portal-examples-list-hover-shadow), var(--portal-examples-list-glow);
+ 
+-                box-shadow   : inset 0 0 0 2.5px var(--portal-examples-list-selected-border), var(--portal-examples-list-shadow);
+-                outline-color: var(--sem-color-border-focus);
++                &::after {
++                    opacity: 1;
++                }
+             }
+         }
+ 
++        /* Keyboard focus is a neutral ring, selected or not: blue belongs to the pointer, green to the selection */
+         &:focus-visible,
+         &.neo-navigator-active-item:has(:focus-visible) {
+             box-shadow: 0 0 0 2px var(--portal-examples-bg, var(--portal-examples-list-surface)),
+-                        0 0 0 4px var(--sem-color-border-focus),
+-                        var(--portal-examples-list-shadow);
++                        0 0 0 4px var(--portal-examples-list-focus),
++                        var(--portal-examples-list-shadow),
++                        var(--portal-examples-list-glow);
++        }
++    }
++
++    /* The selection's ring. Where masks cannot be composited it is a plain border that fades in. */
++    .neo-list-item::before {
++        border    : 2px solid var(--portal-examples-list-selected);
++        opacity   : 0;
++        transition: opacity var(--motion-fast) var(--ease-out-soft);
++        z-index   : 4;
++    }
++
++    .neo-list-item.neo-selected::before {
++        opacity: 1;
++    }
++
++    /* Where they can, the ring draws itself: from the upper right corner, where the pointer's light falls, down both
++       sides, closing at the lower left. Deselecting opens it again. */
++    @supports (mask-composite: intersect) {
++        .neo-list-item::before {
++            --portal-examples-list-ring-lead    : var(--portal-examples-list-selected);
++            --portal-examples-list-ring-progress: 0%;
++
++            background: linear-gradient(225deg, var(--portal-examples-list-ring-lead), var(--portal-examples-list-selected) 55%);
++            border    : 0;
++            mask      : linear-gradient(225deg, #000 calc(var(--portal-examples-list-ring-progress) - 8%), transparent var(--portal-examples-list-ring-progress)) intersect,
++                        linear-gradient(#000 0 0) content-box exclude,
++                        linear-gradient(#000 0 0);
++            opacity   : 1;
++            padding   : 2px;
++            transition: --portal-examples-list-ring-progress var(--motion-base) var(--ease-in-soft),
++                        --portal-examples-list-ring-lead var(--motion-base) var(--ease-out-soft);
++        }
++
++        /* Recorded exception, as for the glass card's lap: a ring is drawn at constant speed (linear). An ease-out
++           would draw three quarters of it in the first 70 ms and then crawl. Reduced motion collapses the tier to 0.
++           108 % carries the soft tip past the last corner. */
++        .neo-list-item.neo-selected::before {
++            --portal-examples-list-ring-progress: 108%;
++
++            transition-duration       : var(--motion-stage), var(--motion-base);
++            transition-timing-function: linear, var(--ease-out-soft);
++        }
++
++        /* Both cursors on one card: the ring leads in the pointer's blue and closes in the selection's green */
++        @media (hover: hover) {
++            .neo-list-item.neo-selected:hover::before {
++                --portal-examples-list-ring-lead: var(--portal-examples-list-hover);
++            }
+         }
+     }
+ 
+@@ -127,20 +222,51 @@
+             grid-column  : 1;
+             grid-row     : 1;
+             height       : var(--portal-example-cover-height, auto);
++            isolation    : isolate;
+             overflow     : hidden;
+             position     : relative;
+             width        : 100%;
++
++            &::before,
++            &::after {
++                content       : '';
++                inset         : 0;
++                pointer-events: none;
++                position      : absolute;
++            }
++
++            /* The two lights mix into the cover: the pointer's falls from the upper right, the selection's rises from
++               the details. Where neither reaches, the cover shows as captured. */
++            &::before {
++                background    : radial-gradient(84% 124% at 100% 0%, var(--portal-examples-list-light-hover), color-mix(in srgb, var(--portal-examples-list-light-hover) 42%, transparent) 36%, transparent 72%),
++                                linear-gradient(0deg, var(--portal-examples-list-light-select), transparent var(--portal-examples-list-light-select-reach, 52%));
++                mix-blend-mode: hard-light;
++                z-index       : 1;
++            }
++
++            /* The glint: one pass across the glass on entry, as on the Portal's glass cards */
++            &::after {
++                background: linear-gradient(115deg, transparent 38%, var(--portal-examples-list-glint-edge) 45%, var(--portal-examples-list-glint-core) 50%, var(--portal-examples-list-glint-edge) 55%, transparent 62%) 120% 0 / 250% 100% no-repeat;
++                opacity   : 0;
++                transition: opacity var(--motion-fast) var(--ease-out-soft);
++                z-index   : 2;
++            }
++        }
++
++        @media (hover: hover) {
++            .neo-list-item:hover .preview-image-wrap::after {
++                animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
++                opacity  : 1;
++            }
+         }
+ 
+         .preview-image {
+-            background-blend-mode: overlay;
+-            background-image     : linear-gradient(135deg, var(--portal-examples-list-gradient-start), var(--portal-examples-list-gradient-end));
+-            background-position  : center top;
+-            background-size      : cover;
+-            height               : 100%;
+-            inset                : 0;
+-            position             : absolute;
+-            width                : 100%;
++            background-position: center top;
++            background-size    : cover;
++            height             : 100%;
++            inset              : 0;
++            position           : absolute;
++            width              : 100%;
+         }
+ 
+         .portal-example-footer {
+@@ -184,7 +310,7 @@
+ 
+             .portal-example-more {
+                 align-self     : end;
+-                backdrop-filter: blur(10px);
++                backdrop-filter: blur(24px) saturate(1.4);
+                 background     : var(--portal-examples-list-band-bg);
+                 border-top     : 0 solid transparent;
+                 color          : var(--portal-examples-list-band-text);
+@@ -252,6 +378,11 @@
+                 height            : auto;
+             }
+ 
++            /* No details lie over this cover, so the selection's light only touches its lower edge */
++            .preview-image-wrap {
++                --portal-examples-list-light-select-reach: 26%;
++            }
++
+             .portal-example-more {
+                 background : var(--portal-examples-list-surface);
+                 border-top : 0 solid transparent;
+@@ -320,16 +451,31 @@
+         transition     : color var(--motion-fast) var(--ease-out-soft);
+     }
+ 
++    /* The launch pill keeps its box in every state, so lighting it moves nothing. Its negative margins keep the title
++       row at the title's own height and let the lit pill reach into the footer's padding. */
+     .portal-example-open-cue {
+-        color          : var(--portal-examples-list-text-muted);
+-        cursor         : pointer;
+-        flex           : none;
+-        font-size      : 12px;
+-        font-weight    : 500;
+-        line-height    : 1.2;
+-        text-decoration: none;
+-        transition     : color var(--motion-fast) var(--ease-out-soft);
+-        white-space    : nowrap;
++        background-image: linear-gradient(225deg, var(--portal-examples-list-cue-from), var(--portal-examples-list-cue-to));
++        border          : 1px solid transparent;
++        border-radius   : 999px;
++        color           : var(--portal-examples-list-text-muted);
++        cursor          : pointer;
++        flex            : none;
++        font-size       : 12px;
++        font-weight     : 600;
++        line-height     : 1.2;
++        margin          : -2px -6px -2px 0;
++        padding         : 3px 9px;
++        text-decoration : none;
++        transition      : --portal-examples-list-cue-from var(--motion-fast) var(--ease-out-soft),
++                          --portal-examples-list-cue-to var(--motion-fast) var(--ease-out-soft),
++                          border-color var(--motion-fast) var(--ease-out-soft),
++                          color var(--motion-fast) var(--ease-out-soft);
++        white-space     : nowrap;
++    }
++
++    .neo-list-item.neo-selected .portal-example-open-cue {
++        border-color: var(--portal-examples-list-selected);
++        color       : var(--portal-examples-list-selected-text);
+     }
+ 
+     .portal-example-feature,
+@@ -369,9 +515,21 @@
+     }
+ 
+     @media (hover: hover) {
+-        .neo-list-item:hover .portal-example-open-cue,
++        .neo-list-item:hover .portal-example-open-cue {
++            --portal-examples-list-cue-from: var(--portal-examples-list-hover);
++            --portal-examples-list-cue-to  : var(--portal-examples-list-hover);
++
++            color: var(--portal-examples-list-cue-text);
++        }
++
++        .neo-list-item.neo-selected:hover .portal-example-open-cue {
++            --portal-examples-list-cue-to: var(--portal-examples-list-selected-deep);
++
++            border-color: transparent;
++        }
++
+         .portal-example-open-cue:hover {
+-            color: var(--portal-examples-list-link-hover);
++            filter: brightness(1.14);
+         }
+     }
+ 
+@@ -408,11 +566,11 @@
+ 
+     .neo-multi-window {
+         align-items  : center;
+-        background   : var(--portal-examples-list-band-bg);
+-        border       : 1px solid var(--portal-examples-list-band-border);
++        background   : var(--portal-examples-list-pill-bg);
++        border       : 1px solid var(--portal-examples-list-pill-border);
+         border-radius: 999px;
+         box-shadow   : 0 5px 10px rgba(0, 0, 0, 0.3);
+-        color        : var(--portal-examples-list-band-text);
++        color        : var(--portal-examples-list-pill-text);
+         display      : inline-flex;
+         font-size    : 11.5px;
+         font-weight  : 600;
+@@ -484,7 +642,6 @@
+ 
+             .preview-image {
+                 aspect-ratio       : 4 / 3;
+-                background-image   : linear-gradient(135deg, var(--portal-examples-list-gradient-start), var(--portal-examples-list-gradient-end));
+                 background-position: center;
+                 background-size    : cover;
+                 height             : auto;
+diff --git a/resources/css/theme-neo-dark/apps/portal/examples/List.css b/resources/css/theme-neo-dark/apps/portal/examples/List.css
+index 8d77a8c13f..b0b2517e52 100644
+--- a/resources/css/theme-neo-dark/apps/portal/examples/List.css
++++ b/resources/css/theme-neo-dark/apps/portal/examples/List.css
+@@ -1,15 +1,25 @@
+ :where(.neo-theme-neo-dark) {
+-    --portal-examples-list-band-bg          : rgba(13, 16, 22, 0.88);
+-    --portal-examples-list-band-border      : rgba(255, 255, 255, 0.14);
++    --portal-examples-list-band-bg          : rgba(13, 16, 22, 0.86);
++    --portal-examples-list-band-border      : color-mix(in srgb, var(--portal-examples-list-selected) 62%, transparent);
+     --portal-examples-list-band-text        : var(--gray-100);
+     --portal-examples-list-band-text-muted  : #c5cad8;
++    --portal-examples-list-cue-text         : #fff;
+     --portal-examples-list-edge             : color-mix(in srgb, var(--sem-color-text-neutral-default) 11%, transparent);
+-    --portal-examples-list-hover-end        : color-mix(in srgb, var(--sem-color-border-focus) 50%, transparent);
+-    --portal-examples-list-hover-start      : color-mix(in srgb, var(--sem-color-border-focus) 22%, transparent);
++    --portal-examples-list-focus            : var(--sem-color-text-neutral-default);
++    --portal-examples-list-glint-core       : rgba(255, 255, 255, 0.42);
++    --portal-examples-list-glint-edge       : color-mix(in srgb, var(--sem-color-border-focus) 34%, transparent);
++    --portal-examples-list-hover            : var(--sem-color-border-focus);
++    --portal-examples-list-hover-light      : color-mix(in srgb, var(--sem-color-border-focus) 48%, transparent);
++    --portal-examples-list-hover-shadow     : 0 14px 34px rgba(0, 0, 0, 0.46);
+     --portal-examples-list-link-hover       : var(--portal-headline-primary);
+-    --portal-examples-list-selected-border  : #18b877;
+-    --portal-examples-list-selected-end     : rgba(24, 184, 119, 0.44);
+-    --portal-examples-list-selected-start   : rgba(16, 150, 104, 0.18);
++    --portal-examples-list-pill-bg          : rgba(13, 16, 22, 0.88);
++    --portal-examples-list-pill-border      : rgba(255, 255, 255, 0.14);
++    --portal-examples-list-pill-text        : var(--gray-100);
++    --portal-examples-list-selected         : var(--green-500);
++    --portal-examples-list-selected-deep    : color-mix(in srgb, var(--green-700) 50%, var(--green-800));
++    --portal-examples-list-selected-glow    : 0 0 24px -8px color-mix(in srgb, var(--green-500) 50%, transparent);
++    --portal-examples-list-selected-light   : color-mix(in srgb, var(--green-600) 30%, transparent);
++    --portal-examples-list-selected-text    : var(--green-500);
+     --portal-examples-list-shadow           : 0 10px 28px rgba(0, 0, 0, 0.34);
+     --portal-examples-list-surface          : color-mix(in srgb, var(--purple-900) 26%, var(--sem-color-bg-neutral-default));
+     --portal-examples-list-text             : var(--sem-color-text-neutral-default);
+diff --git a/resources/css/theme-neo-light/apps/portal/examples/List.css b/resources/css/theme-neo-light/apps/portal/examples/List.css
+index 9742741c18..e2b1ee745c 100644
+--- a/resources/css/theme-neo-light/apps/portal/examples/List.css
++++ b/resources/css/theme-neo-light/apps/portal/examples/List.css
+@@ -1,15 +1,25 @@
+ :where(.neo-theme-neo-light) {
+-    --portal-examples-list-band-bg          : rgba(14, 17, 24, 0.88);
+-    --portal-examples-list-band-border      : rgba(255, 255, 255, 0.16);
+-    --portal-examples-list-band-text        : #f4f6fb;
+-    --portal-examples-list-band-text-muted  : #d2d7e5;
++    --portal-examples-list-band-bg          : rgba(255, 255, 255, 0.93);
++    --portal-examples-list-band-border      : color-mix(in srgb, var(--portal-examples-list-selected) 62%, transparent);
++    --portal-examples-list-band-text        : var(--sem-color-text-neutral-default);
++    --portal-examples-list-band-text-muted  : color-mix(in srgb, var(--sem-color-text-neutral-default) 76%, #fff);
++    --portal-examples-list-cue-text         : #fff;
+     --portal-examples-list-edge             : var(--sem-color-border-default);
+-    --portal-examples-list-hover-end        : color-mix(in srgb, var(--sem-color-border-focus) 46%, transparent);
+-    --portal-examples-list-hover-start      : color-mix(in srgb, var(--sem-color-border-focus) 20%, transparent);
++    --portal-examples-list-focus            : var(--sem-color-text-neutral-default);
++    --portal-examples-list-glint-core       : rgba(255, 255, 255, 0.55);
++    --portal-examples-list-glint-edge       : color-mix(in srgb, var(--sem-color-border-focus) 30%, transparent);
++    --portal-examples-list-hover            : var(--sem-color-border-focus);
++    --portal-examples-list-hover-light      : color-mix(in srgb, var(--sem-color-border-focus) 48%, transparent);
++    --portal-examples-list-hover-shadow     : 0 12px 28px rgba(15, 23, 42, 0.17);
+     --portal-examples-list-link-hover       : var(--sem-color-border-focus);
+-    --portal-examples-list-selected-border  : #128a58;
+-    --portal-examples-list-selected-end     : rgba(18, 158, 102, 0.42);
+-    --portal-examples-list-selected-start   : rgba(16, 138, 92, 0.16);
++    --portal-examples-list-pill-bg          : rgba(14, 17, 24, 0.88);
++    --portal-examples-list-pill-border      : rgba(255, 255, 255, 0.16);
++    --portal-examples-list-pill-text        : #f4f6fb;
++    --portal-examples-list-selected         : color-mix(in srgb, var(--green-700) 70%, var(--green-800));
++    --portal-examples-list-selected-deep    : color-mix(in srgb, var(--green-700) 50%, var(--green-800));
++    --portal-examples-list-selected-glow    : 0 0 22px -8px color-mix(in srgb, var(--green-700) 46%, transparent);
++    --portal-examples-list-selected-light   : color-mix(in srgb, var(--green-600) 26%, transparent);
++    --portal-examples-list-selected-text    : color-mix(in srgb, var(--green-700) 50%, var(--green-800));
+     --portal-examples-list-shadow           : 0 8px 22px rgba(15, 23, 42, 0.1);
+     --portal-examples-list-surface          : var(--sem-color-surface-neutral-highlighted);
+     --portal-examples-list-text             : var(--sem-color-text-neutral-default);
