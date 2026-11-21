@@ -681,9 +681,9 @@
     },
     {
       "id": "gantt-zoom",
-      "viewport": {"width": 1280, "height": 720},
+      "viewport": {"width": 640, "height": 720},
       "theme": "dark",
-      "state": "The house build in Month view, with the first schedule links and March’s weekly ticks.",
+      "state": "The house build in Month view, with the Day, Week and Month controls above named tasks and links.",
       "ready": [
         {"selector": ".zoom-level", "text": "Month"},
         {"selector": ".neo-gantt-dependency-arrow"}
@@ -693,11 +693,15 @@
       ],
       "after": [
         {"selector": ".neo-theme-neo-dark .neo-gantt"},
-        {"selector": ".zoom-level[aria-pressed=\"true\"]", "text": "Month"},
+        {"selector": ".zoom-level", "text": "Day", "inRegion": true},
+        {"selector": ".zoom-level", "text": "Week", "inRegion": true},
+        {"selector": ".zoom-level[aria-pressed=\"true\"]", "text": "Month", "inRegion": true},
+        {"selector": ".neo-grid-tree-cell", "text": "Site and foundation", "inRegion": true},
+        {"selector": ".neo-grid-tree-cell", "text": "Survey and stake out", "inRegion": true},
         {"selector": ".neo-timeline-tick-major .neo-timeline-tick-label", "text": "March 2027", "inRegion": true},
         {"selector": ".neo-gantt-dependency-arrow", "inRegion": true}
       ],
-      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
+      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "gantt-working-time",
