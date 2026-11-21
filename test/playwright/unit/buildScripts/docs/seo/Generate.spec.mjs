@@ -1358,12 +1358,21 @@ test('preserves release cut lastmod through a later squash and uses Git dates fo
         git(['commit', '--quiet', '-m', `${message} (#21808)`], date);
     };
 
-    const index = () => createReleaseIndex({outputFile: path.join(root, indexSource), releaseNotesRoot: path.dirname(notePath)});
+    const index             = () => createReleaseIndex({outputFile: path.join(root, indexSource), releaseNotesRoot: path.dirname(notePath)});
+    const familyDefinitions = [{family: 'apps', route: '/examples/apps', title: 'Apps'}];
+    const generate          = (options={}) => getSeoJson({root, familyDefinitions, ...options});
 
     try {
         await fs.outputFile(notePath, draftNote);
         await fs.outputFile(portalPath, portalHtml.replace('Engine 14', 'Engine 14 Draft'));
         await fs.outputFile(path.join(root, aboutSource), '// About page source.\n');
+        await fs.outputJson(path.join(root, 'apps/portal/resources/data/examples.json'), [{
+            family   : 'apps',
+            image    : 'portal.jpg',
+            name     : 'Portal',
+            sourceUrl: 'apps/portal',
+            urls     : {dist_prod: 'dist/production/apps/portal/index.html'}
+        }]);
         await fs.outputJson(seoJsonPath, {
             '/about-us'     : {title: 'About Us', description: 'About the project.'},
             '/news/releases': {title: 'Release Notes', description: 'Neo.mjs release notes.'}
@@ -1377,9 +1386,9 @@ test('preserves release cut lastmod through a later squash and uses Git dates fo
         await fs.writeFile(portalPath, portalHtml);
         await index();
 
-        const routes     = ['/', '/home', '/news/releases', releaseRoute];
-        const defaultSeo = await getSeoJson({root});
-        const baked      = await getSeoJson({root, pendingReleaseNote: notePath});
+        const routes     = ['/', '/home', '/news/releases', releaseRoute, '/examples/apps'];
+        const defaultSeo = await generate();
+        const baked      = await generate({pendingReleaseNote: notePath});
 
         expect(routes.map(route => defaultSeo[route]?.lastmod)).toEqual(routes.map(() => draftDate));
         expect.soft(routes.map(route => baked[route]?.lastmod), 'prepared routes use the cut date').toEqual(routes.map(() => cutDate));
@@ -1388,28 +1397,29 @@ test('preserves release cut lastmod through a later squash and uses Git dates fo
         await fs.writeJson(seoJsonPath, baked);
         const serializedSeo = JSON.stringify(baked);
         commit(cutDate, 'Prepare the release');
-        expect.soft(JSON.stringify(await getSeoJson({root})), 'prepared commit matches its baked catalog').toBe(serializedSeo);
+        expect.soft(JSON.stringify(await generate()), 'prepared commit matches its baked catalog').toBe(serializedSeo);
 
         const tree   = git(['rev-parse', 'HEAD^{tree}']);
         const squash = git(['commit-tree', tree, '-p', base, '-m', 'Squash the release (#21808)'], '2026-11-24');
         git(['checkout', '--quiet', '--detach', squash]);
-        expect.soft(JSON.stringify(await getSeoJson({root})), 'later squash matches the same baked catalog').toBe(serializedSeo);
+        expect.soft(JSON.stringify(await generate()), 'later squash matches the same baked catalog').toBe(serializedSeo);
 
         const packageRoot = path.join(tempDir, 'node_modules/neo.mjs');
 
         await fs.copy(root, packageRoot, {filter: file => file !== path.join(root, '.git')});
-        expect(JSON.stringify(await getSeoJson({root: packageRoot}))).toBe(serializedSeo);
+        expect(JSON.stringify(await generate({root: packageRoot}))).toBe(serializedSeo);
 
         await fs.writeFile(notePath, stampedNote.replace('Engine 14 highlights.', 'Updated Engine 14 highlights.'));
         await fs.writeFile(portalPath, portalHtml.replace('Engine 14.', 'Updated Engine 14.'));
         commit('2026-11-25', 'Edit the release note and Portal');
-        const edited = await getSeoJson({root});
+        const edited = await generate();
         expect([edited['/'].lastmod, edited[releaseRoute].lastmod]).toEqual(['2026-11-25', '2026-11-25']);
+        expect(edited['/examples/apps'].lastmod).toBe('2026-11-25');
 
         await fs.writeFile(notePath, stampedNote);
         await fs.writeFile(portalPath, portalHtml);
         commit('2026-11-26', 'Revert the later edits');
-        const reverted = await getSeoJson({root});
+        const reverted = await generate();
         expect([reverted['/'].lastmod, reverted[releaseRoute].lastmod]).toEqual(['2026-11-26', '2026-11-26']);
         expect(reverted['/news/releases'].lastmod).toBe(cutDate);
     } finally {

@@ -850,6 +850,9 @@ export async function getSeoJson(options={}) {
         stamp.paths.forEach(file => gitDateMap.set(file, stamp.date))
     }
 
+    // The Portal directory can be a family source. A generated catalog should not date its own route.
+    gitDateMap.delete(getGitPath(seoJsonPath, root));
+
     /**
      * @param {String} route
      * @returns {String|null}
