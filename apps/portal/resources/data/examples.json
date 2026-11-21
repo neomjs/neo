@@ -162,10 +162,10 @@
         "name": "Studio Bookings",
         "sourceUrl": "examples/scheduler/basic",
         "urls": {
-            "devmode": "examples/scheduler/basic/index.html",
-            "dist_dev": "dist/development/examples/scheduler/basic/index.html",
-            "dist_esm": "dist/esm/examples/scheduler/basic/index.html",
-            "dist_prod": "dist/production/examples/scheduler/basic/index.html"
+            "devmode": "examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "scheduler",
@@ -188,10 +188,10 @@
         "name": "Community Garden Plan",
         "sourceUrl": "examples/gantt/basic",
         "urls": {
-            "devmode": "examples/gantt/basic/index.html",
-            "dist_dev": "dist/development/examples/gantt/basic/index.html",
-            "dist_esm": "dist/esm/examples/gantt/basic/index.html",
-            "dist_prod": "dist/production/examples/gantt/basic/index.html"
+            "devmode": "examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/basic/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "gantt",
@@ -214,10 +214,10 @@
         "name": "Sprint Board",
         "sourceUrl": "examples/board/basic",
         "urls": {
-            "devmode": "examples/board/basic/index.html",
-            "dist_dev": "dist/development/examples/board/basic/index.html",
-            "dist_esm": "dist/esm/examples/board/basic/index.html",
-            "dist_prod": "dist/production/examples/board/basic/index.html"
+            "devmode": "examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/basic/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "board",
@@ -1991,10 +1991,10 @@
         "name": "A board by team, in rows that collapse",
         "sourceUrl": "examples/board/swimlanes",
         "urls": {
-            "devmode": "examples/board/swimlanes/index.html",
-            "dist_dev": "dist/development/examples/board/swimlanes/index.html",
-            "dist_esm": "dist/esm/examples/board/swimlanes/index.html",
-            "dist_prod": "dist/production/examples/board/swimlanes/index.html"
+            "devmode": "examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "board",
@@ -2304,10 +2304,10 @@
         "name": "Card designs",
         "sourceUrl": "examples/board/cardDesigns",
         "urls": {
-            "devmode": "examples/board/cardDesigns/index.html",
-            "dist_dev": "dist/development/examples/board/cardDesigns/index.html",
-            "dist_esm": "dist/esm/examples/board/cardDesigns/index.html",
-            "dist_prod": "dist/production/examples/board/cardDesigns/index.html"
+            "devmode": "examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
         "component": "Board",

@@ -105,6 +105,7 @@ function tileList(value) {
 
 /**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
+ * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
  * (`kind: 'component'`) takes its crop from the `tiles` list, so it needs no recipe in a declared family.
  * @param {Object} manifest Raw version1 recipe manifest.

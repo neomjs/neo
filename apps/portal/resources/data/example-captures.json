@@ -437,7 +437,7 @@
       "theme": "dark",
       "state": "The garden plan's timeline in the Week view: the summary bar over four tasks in a staircase, with Survey the site linked to Design the beds and Design the beds to Gather materials.",
       "ready": [{"selector": ".neo-timeline-bar", "text": "Build the beds"}, {"selector": ".neo-gantt-dependency-arrow", "count": 2}],
-      "steps": [{"kind": "click", "selector": ".neo-theme-switcher"}, {"kind": "click", "selector": ".neo-theme-switcher-menu [role=\"menuitemradio\"]", "text": "Neo Dark"}],
+      "steps": [],
       "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-gantt-bar-summary", "text": "Community garden"}, {"selector": ".neo-timeline-bar", "text": "Survey the site", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Design the beds", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Gather materials", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Build the beds"}],
       "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
     },
@@ -447,7 +447,7 @@
       "theme": "dark",
       "state": "Monday's bookings across the studios in the Day view, with two overlapping recording sessions packed into lanes of one row.",
       "ready": [{"selector": ".neo-timeline-bar", "text": "Quartet recording"}],
-      "steps": [{"kind": "click", "selector": ".neo-theme-switcher"}, {"kind": "click", "selector": ".neo-theme-switcher-menu [role=\"menuitemradio\"]", "text": "Neo Dark"}],
+      "steps": [],
       "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
       "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
     },
