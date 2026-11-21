@@ -412,6 +412,7 @@ test.describe('e2e CI selection — verified example styles', () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-example-css-reach-')),
               tree = {
                   'examples/scheduler/demo/app.mjs'    : "import './Viewport.mjs';",
+                  'examples/scheduler/demo/index.html' : '<!doctype html>',
                   [`${stem}.mjs`]                      : `class Viewport { static config = {className: '${namespace}'}; }\nexport default Neo.setupClass(Viewport);`,
                   'examples/scheduler/adjacent/app.mjs': "import '../../../src/form/Field.mjs';",
                   'src/form/Field.mjs'                 : '',
@@ -487,7 +488,9 @@ test.describe('e2e CI selection — verified example styles', () => {
         ['a literal reference outside navigation',
             "const examplePath = '/examples/scheduler/demo/index.html';\nawait page.goto('/examples/scheduler/adjacent/index.html');"],
         ['a shadowed route constant',
-            "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nasync function visit(EXAMPLE_URL) {await page.goto(EXAMPLE_URL)}\nawait visit('/examples/scheduler/adjacent/index.html');"]
+            "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nasync function visit(EXAMPLE_URL) {await page.goto(EXAMPLE_URL)}\nawait visit('/examples/scheduler/adjacent/index.html');"],
+        ['a missing nested page under the owner',
+            "await page.goto('/examples/scheduler/demo/missing/index.html');"]
     ]) {
         test(`${label} preserves full E2E for the apparent owner`, () => {
             withTree(root => {

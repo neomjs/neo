@@ -188,9 +188,9 @@ function navigationEntries(source, tracked) {
     for (const call of calls) {
         const route    = routeValue(call, constants),
               [, path] = /^\/?(examples\/[\w-]+(?:\/[\w-]+)*)\/index\.html(?:[?#]|$)/.exec(route || '') || [],
-              entry    = path && entryOf(path, tracked);
+              entry    = path && `${path}/app.mjs`;
 
-        if (entry) entries.add(entry)
+        if (entry && tracked.has(entry) && tracked.has(`${path}/index.html`)) entries.add(entry)
     }
 
     return entries
