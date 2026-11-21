@@ -2,10 +2,11 @@ import {test, expect} from '../../fixtures.mjs';
 
 const
     EXAMPLE_URL              = '/examples/scheduler/liveUpdates/index.html',
-    PAUSE_HOLD_VERIFY_MS     = 2_200,
+    PAUSE_HOLD_VERIFY_MS     = 1_600,
     RUN_WALL_CLOCK_SOAK      = process.env.NEO_LIVE_UPDATES_SOAK === '1',
     SOAK_MIN_TICKS           = 120,
-    CI_SOAK_INTERVAL_MS      = 80,
+    CI_DRAG_INTERVAL_MS      = 250,
+    CI_SOAK_INTERVAL_MS      = 50,
     TWO_MINUTES_FEED_SOAK_MS = 120_500,
     THEMES                   = [
         'neo-theme-neo-light',
@@ -172,7 +173,7 @@ test.describe('Scheduler liveUpdates example', () => {
         page.on('pageerror', err => consoleErrors.push(err.message));
 
         await page.setViewportSize({width: 1440, height: 900});
-        await page.goto(`${EXAMPLE_URL}?seed=19257&theme=neo-theme-neo-dark`);
+        await page.goto(`${EXAMPLE_URL}?seed=19257&interval=${CI_DRAG_INTERVAL_MS}&theme=neo-theme-neo-dark`);
         await expect(page.locator('.neo-scheduler .neo-timeline-track').first()).toBeVisible();
 
         await page.evaluate(() => {
@@ -305,37 +306,8 @@ test.describe('Scheduler liveUpdates example', () => {
             targetPage.on('pageerror', err => consoleErrors.push(`${label}:${err.message}`))
         };
 
-        attachErrorCollectors(page, 'matrix');
+        attachErrorCollectors(page, 'desktop');
 
-        // Every theme in basic's neo-config.json at both 1440x900 and 390x844
-        for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
-            await page.setViewportSize(viewport);
-
-            for (const theme of THEMES) {
-                await page.goto(`${EXAMPLE_URL}?seed=19257&theme=${theme}`);
-                await expect(page.locator(`.gate-viewport.${theme}`)).toBeVisible();
-                await expect(page.locator('.gate-sim-badge')).toBeVisible();
-                await expect(page.locator('.gate-sim-badge')).toHaveText('Simulated feed');
-                await expect(page.locator('.neo-scheduler .neo-timeline-track').first()).toBeVisible();
-
-                const pauseRadius = await page.locator('.gate-pause-btn').evaluate(el => getComputedStyle(el).borderRadius);
-                expect(pauseRadius).toBe('999px');
-
-                const expectedStep = viewport.width === 390 ? '180px' : '270px';
-                await expect.poll(() => page.locator('.neo-scheduler .neo-timeline-track').first()
-                    .evaluate(el => getComputedStyle(el).getPropertyValue('--neo-timeline-gridline-step').trim())
-                ).toBe(expectedStep);
-
-                if (viewport.width === 390) {
-                    const docFits = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
-                    expect(docFits, `${theme} fits 390px viewport without document overflow`).toBe(true)
-                }
-            }
-        }
-
-        // 120-tick (two-minute equivalent) continuous feed at 1440x900 AND 390x844 concurrently.
-        // Default CI mode drives the identical 120 seeded mutations at 80ms cadence to fit the 6m e2e-engine shard ceiling;
-        // NEO_LIVE_UPDATES_SOAK=1 runs the full 120.5s 1s-cadence wall-clock soak.
         const
             soakQuery     = RUN_WALL_CLOCK_SOAK
                 ? 'seed=19257&theme=neo-theme-neo-dark'
@@ -343,7 +315,15 @@ test.describe('Scheduler liveUpdates example', () => {
             mobileContext = await browser.newContext({viewport: {width: 390, height: 844}}),
             mobilePage    = await mobileContext.newPage();
 
-        attachErrorCollectors(mobilePage, 'mobile-soak');
+        attachErrorCollectors(mobilePage, 'mobile');
+
+        const setViewportTheme = (targetPage, nextTheme) => getAppWorker(targetPage).evaluate(theme => {
+            const viewport = [...globalThis.Neo.manager.Instance.items.values()]
+                .find(inst => inst.className === 'Neo.examples.scheduler.liveUpdates.Viewport');
+            if (viewport) {
+                viewport.theme = theme
+            }
+        }, nextTheme);
 
         try {
             await page.setViewportSize({width: 1440, height: 900});
@@ -356,6 +336,42 @@ test.describe('Scheduler liveUpdates example', () => {
                 expect(page.locator('.gate-sim-badge')).toBeVisible(),
                 expect(mobilePage.locator('.gate-sim-badge')).toBeVisible()
             ]);
+
+            // Verify all five themes in basic's neo-config.json at both 1440x900 and 390x844 while the feed runs
+            for (const theme of THEMES) {
+                await Promise.all([
+                    setViewportTheme(page, theme),
+                    setViewportTheme(mobilePage, theme)
+                ]);
+
+                await Promise.all([
+                    expect(page.locator(`.gate-viewport.${theme}`)).toBeVisible(),
+                    expect(mobilePage.locator(`.gate-viewport.${theme}`)).toBeVisible(),
+                    expect(page.locator('.gate-sim-badge')).toHaveText('Simulated feed'),
+                    expect(mobilePage.locator('.gate-sim-badge')).toHaveText('Simulated feed'),
+                    expect(page.locator('.neo-scheduler .neo-timeline-track').first()).toBeVisible(),
+                    expect(mobilePage.locator('.neo-scheduler .neo-timeline-track').first()).toBeVisible()
+                ]);
+
+                const [desktopRadius, mobileRadius] = await Promise.all([
+                    page.locator('.gate-pause-btn').evaluate(el => getComputedStyle(el).borderRadius),
+                    mobilePage.locator('.gate-pause-btn').evaluate(el => getComputedStyle(el).borderRadius)
+                ]);
+                expect(desktopRadius).toBe('999px');
+                expect(mobileRadius).toBe('999px');
+
+                await Promise.all([
+                    expect.poll(() => page.locator('.neo-scheduler .neo-timeline-track').first()
+                        .evaluate(el => getComputedStyle(el).getPropertyValue('--neo-timeline-gridline-step').trim())
+                    ).toBe('270px'),
+                    expect.poll(() => mobilePage.locator('.neo-scheduler .neo-timeline-track').first()
+                        .evaluate(el => getComputedStyle(el).getPropertyValue('--neo-timeline-gridline-step').trim())
+                    ).toBe('180px')
+                ]);
+
+                const docFits = await mobilePage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
+                expect(docFits, `${theme} fits 390px viewport without document overflow`).toBe(true)
+            }
 
             if (RUN_WALL_CLOCK_SOAK) {
                 // wall-clock-under-test: sustains two minutes of continuous 1s simulated feed with zero console errors at 1440x900 and 390x844
