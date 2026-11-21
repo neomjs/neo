@@ -845,4 +845,164 @@ test.describe('Neo.calendar.view.week.Component - Issue #19930 & #1069', () => {
         weekView.destroy();
         provider.destroy();
     });
+
+    test('drag:cancel releases week.plugin.DragDrop across event move, event resize, and column drag-to-create without mutating eventStore (#21765)', async () => {
+        const DomEvent         = (await import('../../../../src/manager/DomEvent.mjs')).default,
+              EventResizable   = (await import('../../../../src/calendar/view/week/plugin/EventResizable.mjs')).default,
+              VDomUtil         = (await import('../../../../src/util/VDom.mjs')).default,
+              originalDeltas   = Neo.applyDeltas,
+              originalDragDrop = Neo.main.addon.DragDrop,
+              originalGetRect  = Neo.main.DomAccess.getBoundingClientRect;
+
+        Neo.applyDeltas = async () => {};
+        Neo.main.addon.DragDrop = {
+            registerZone       : async () => {},
+            setConfigs         : async () => ({boundaryContainerRect: {height: 600, left: 0, top: 0, width: 800}}),
+            setDragProxyElement: async () => {},
+            unregisterZone     : async () => {}
+        };
+        Neo.main.DomAccess.getBoundingClientRect = async ({id}) =>
+            Array.isArray(id)
+                ? id.map((_, index) => index === 0
+                    ? {height: 50, left: 10, top: 225, width: 120, x: 10, y: 225}
+                    : {height: 600, left: 10, top: 0, width: 120, x: 10, y: 0})
+                : {height: 600, left: 0, top: 0, width: 800, x: 0, y: 0};
+
+        try {
+            const calendarStore = Neo.create(CalendarsStore, {data: [{active: true, color: 'blue', id: 1, name: 'Work'}]}),
+                  eventStore    = Neo.create(EventsStore, {
+                      data: [{
+                          calendarId: 1,
+                          endDate   : new Date(2026, 4, 12, 10, 0),
+                          id        : 101,
+                          startDate : new Date(2026, 4, 12, 9, 0),
+                          title     : 'Standup'
+                      }]
+                  }),
+                  component     = Neo.create(WeekComponent, {
+                      appName,
+                      calendarStore,
+                      currentDate    : new Date(2026, 4, 13),
+                      enableDrag     : true,
+                      endTime        : '24:00',
+                      eventStore,
+                      intlFormat_time: new Intl.DateTimeFormat('en-US', {hour: '2-digit', minute: '2-digit'}),
+                      plugins        : [{module: WeekDragDrop, appName}, {module: EventResizable, appName}],
+                      startTime      : '00:00',
+                      stateProvider  : {
+                          data  : {
+                              activeCalendarId    : 1,
+                              currentDate         : new Date(2026, 4, 13),
+                              endTime             : '24:00',
+                              events              : {enableResizingAcrossOppositeEdge: true},
+                              minimumEventDuration: 30,
+                              showWeekends        : true,
+                              startTime           : '00:00',
+                              weekStartDay        : 0
+                          },
+                          stores: {calendars: calendarStore, events: eventStore}
+                      }
+                  });
+
+            component.timeout = () => Promise.resolve();
+            await component.initVnode();
+            component._mounted = true;
+            await component.afterSetMounted(true, false);
+
+            const plugin      = component.getPlugin('calendar-week-dragdrop'),
+                  resizable   = component.getPlugin('calendar-week-eventresizable'),
+                  eventResult = VDomUtil.find(component.vdom, `${component.id}__101`),
+                  sourceCol   = eventResult.parentNode,
+                  columns     = component.getColumnContainer().cn.filter(node => node.cls?.includes('neo-c-w-column')),
+                  targetCol   = columns.find(col => col.id !== sourceCol.id),
+                  eventNodeId = `${component.id}__101`,
+                  eventPath   = [
+                      {id: eventNodeId,  cls: ['neo-event', 'neo-draggable'], rect: {height: 50, left: 10, top: 225, width: 120}},
+                      {id: sourceCol.id, cls: ['neo-c-w-column'],             rect: {height: 600, left: 10, top: 0, width: 120}},
+                      {id: component.id, cls: ['neo-calendar-weekcomponent']}
+                  ];
+
+            // 1. Event move cancelled via `drag:cancel` (`pointercancel`) resets `plugin.isDragging` and preserves dates
+            DomEvent.fire({
+                data     : {clientX: 40, clientY: 240, path: eventPath, targetPath: eventPath},
+                eventName: 'drag:start',
+                windowId : component.windowId
+            });
+            await expect.poll(() => Boolean(component.eventDragZone?.dragProxy), {interval: 5, timeout: 500}).toBe(true);
+
+            expect(plugin.isDragging).toBe(true);
+            plugin.onEventDragMove({
+                clientX   : 180,
+                clientY   : 360,
+                path      : eventPath,
+                targetPath: [{id: targetCol.id, cls: ['neo-c-w-column']}]
+            });
+
+            DomEvent.fire({
+                data     : {dragZoneId: component.eventDragZone.id, path: eventPath, targetPath: eventPath},
+                eventName: 'drag:cancel',
+                windowId : component.windowId
+            });
+
+            expect(plugin.isDragging, 'event move drag:cancel resets isDragging').toBe(false);
+            expect(component.eventDragZone.dragProxy).toBeNull();
+            expect(+eventStore.get(101).startDate).toBe(+new Date(2026, 4, 12, 9, 0));
+
+            // 2. Event resize cancelled via `drag:cancel` resets both `plugin.isDragging` and `resizable.isDragging`
+            resizable.currentNodeName = 'bottom';
+            const resizePath = [
+                {id: `${eventNodeId}__resize`, cls: ['neo-resizable', 'neo-resizable-bottom']},
+                ...eventPath
+            ];
+
+            DomEvent.fire({
+                data     : {clientX: 40, clientY: 274, path: [...resizePath], targetPath: [...resizePath]},
+                eventName: 'drag:start',
+                windowId : component.windowId
+            });
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(plugin.isDragging).toBe(true);
+            expect(resizable.isDragging).toBe(true);
+
+            DomEvent.fire({
+                data     : {dragZoneId: component.eventDragZone.id, path: [...resizePath], targetPath: [...resizePath]},
+                eventName: 'drag:cancel',
+                windowId : component.windowId
+            });
+
+            expect(plugin.isDragging, 'resize drag:cancel resets plugin.isDragging').toBe(false);
+            expect(resizable.isDragging, 'resize drag:cancel resets resizable.isDragging').toBe(false);
+            expect(component.eventDragZone.keepStartDate).toBe(false);
+
+            // 3. Column drag-to-create cancelled via `drag:cancel` removes the provisional 'New Event' and resets state
+            const colPath = [
+                {id: targetCol.id, cls: ['neo-c-w-column'], rect: {height: 600, left: 140, top: 0, width: 120}},
+                {id: component.id, cls: ['neo-calendar-weekcomponent']}
+            ];
+
+            await plugin.onColumnDragStart({clientX: 160, clientY: 300, path: colPath, targetPath: colPath});
+            expect(plugin.isDragging).toBe(true);
+            expect(eventStore.getCount(), 'provisional New Event added during column drag').toBe(2);
+
+            DomEvent.fire({
+                data     : {dragZoneId: component.eventDragZone.id, path: colPath, targetPath: colPath},
+                eventName: 'drag:cancel',
+                windowId : component.windowId
+            });
+
+            expect(plugin.isDragging, 'column drag:cancel resets plugin.isDragging').toBe(false);
+            expect(resizable.isDragging, 'column drag:cancel resets resizable.isDragging').toBe(false);
+            expect(eventStore.getCount(), 'column drag:cancel removes provisional New Event').toBe(1);
+
+            component.destroy();
+            calendarStore.destroy();
+            eventStore.destroy()
+        } finally {
+            Neo.applyDeltas                          = originalDeltas;
+            Neo.main.addon.DragDrop                  = originalDragDrop;
+            Neo.main.DomAccess.getBoundingClientRect = originalGetRect
+        }
+    });
 });

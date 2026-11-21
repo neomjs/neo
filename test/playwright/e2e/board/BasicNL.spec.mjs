@@ -574,5 +574,105 @@ test.describe('Board, basic example: one store, two views', () => {
             expect(border.style).not.toBe('none');
             expect(border.contrast, 'cyberpunk unfocused field outline >= 3:1').toBeGreaterThanOrEqual(3)
         })
+    });
+
+    test('a touch cancelled over Ready leaves card 1 in Backlog with zero cardMove, and an immediate follow-up touch drag commits once (#21765)', async ({page, neuralLink}) => {
+        const cdp   = await page.context().newCDPSession(page),
+              touch = (type, points) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints: points});
+
+        await cdp.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 1});
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'maxTouchPoints', {configurable: true, get: () => 1})
+        });
+
+        const {app, boardId, domOrder, gridId, records} = await open(page, neuralLink),
+              cardId                                    = `${boardId}__card__1`,
+              proxy                                     = page.locator('.neo-dragproxy'),
+              row                                       = page.locator(`[id="${gridId}"]`).getByRole('row').filter({hasText: 'Design the login form'}),
+              sensorState                               = () => page.evaluate(async () => {
+                  const sensor = await Neo.main.addon.DragDrop.getPointerSensor();
+
+                  return {
+                      active  : document.body.classList.contains('neo-drag-active'),
+                      captured: sensor.hasCapture,
+                      dragging: sensor.dragging,
+                      engaged : Boolean(sensor.currentElement)
+                  }
+              }),
+              idleSensor = {active: false, captured: false, dragging: false, engaged: false};
+
+        const appWorker = page.workers().find(worker => worker.url().includes('/worker/App.mjs'));
+        expect(appWorker, 'dedicated App Worker is attached').toBeTruthy();
+
+        await appWorker.evaluate(id => {
+            globalThis.__boardCardMoves = 0;
+            Neo.get(id).on('cardMove', () => { globalThis.__boardCardMoves++ })
+        }, boardId);
+
+        const readCardMoves = () => appWorker.evaluate(() => globalThis.__boardCardMoves);
+
+        const initialBacklogOrder = await domOrder('backlog'),
+              initialReadyOrder   = await domOrder('ready'),
+              initialCard1        = (await records('backlog')).find(record => record.id === 1);
+
+        expect(initialCard1).toMatchObject({id: 1, order: 1000, status: 'backlog'});
+
+        const from   = await page.locator(`[id="${cardId}"]`).boundingBox(),
+              to     = await page.locator(`[id="${boardId}__col__ready"]`).boundingBox(),
+              startX = Math.round(from.x + from.width / 2),
+              startY = Math.round(from.y + from.height / 2),
+              dropX  = Math.round(to.x + to.width / 2),
+              dropY  = Math.round(to.y + 120);
+
+        // 1. Long-press card 1 in Backlog past touchDelay (200ms), drag over Ready, then dispatch native touchCancel
+        await touch('touchStart', [{x: startX, y: startY}]);
+        await expect(proxy, 'long-press arms the touch drag and mounts the proxy').toHaveCount(1);
+        expect((await sensorState()).captured, 'engaged touch drag holds pointer capture').toBe(true);
+
+        for (let step = 1; step <= 8; step++) {
+            await touch('touchMove', [{
+                x: Math.round(startX + (dropX - startX) * (step / 8)),
+                y: Math.round(startY + (dropY - startY) * (step / 8))
+            }])
+        }
+
+        expect((await records('backlog')).find(record => record.id === 1), 'while held over Ready, card 1 still belongs to Backlog')
+            .toMatchObject({id: 1, order: 1000, status: 'backlog'});
+
+        await touch('touchCancel', []);
+
+        await expect(proxy, 'canceled touch removes the drag proxy').toHaveCount(0);
+        await expect.poll(sensorState, {message: 'canceled touch releases capture and resets the sensor'}).toEqual(idleSensor);
+
+        expect((await records('backlog')).find(record => record.id === 1), 'card 1 retains Backlog status and order 1000 after touchCancel')
+            .toMatchObject({id: 1, order: 1000, status: 'backlog'});
+        expect((await records('ready')).some(record => record.id === 1), 'Ready gains no card on touchCancel').toBe(false);
+        expect(await domOrder('backlog')).toEqual(initialBacklogOrder);
+        expect(await domOrder('ready')).toEqual(initialReadyOrder);
+        expect(await readCardMoves(), 'touchCancel emits zero cardMove').toBe(0);
+        await expect(row).toContainText('Backlog');
+
+        // 2. Immediately run a normal touch drag on the same path and release with touchEnd -> commits once
+        await touch('touchStart', [{x: startX, y: startY}]);
+        await expect(proxy, 'an immediate next touch gesture after cancel arms cleanly').toHaveCount(1);
+
+        for (let step = 1; step <= 8; step++) {
+            await touch('touchMove', [{
+                x: Math.round(startX + (dropX - startX) * (step / 8)),
+                y: Math.round(startY + (dropY - startY) * (step / 8))
+            }])
+        }
+
+        await touch('touchEnd', []);
+
+        await expect.poll(async () => (await records('ready')).some(record => record.id === 1), {
+            message: 'normal touchEnd over Ready commits card 1 to Ready'
+        }).toBe(true);
+        await expect(proxy).toHaveCount(0);
+        await expect.poll(sensorState).toEqual(idleSensor);
+        expect(await readCardMoves(), 'normal touchEnd commits exactly one cardMove').toBe(1);
+        expect((await records('backlog')).some(record => record.id === 1)).toBe(false);
+        expect((await records('ready')).filter(record => record.id === 1)).toHaveLength(1);
+        await expect(row).toContainText('Ready')
     })
 });

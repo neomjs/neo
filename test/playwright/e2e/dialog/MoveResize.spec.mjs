@@ -189,5 +189,45 @@ test.describe('dialog move and resize', () => {
 
         await resizeRightBy(page, dialog, 150);
         await expect.poll(opacity, 'the dialog is as opaque as before the gesture').toBe(initial)
+    });
+
+    test('a platform-cancelled touch drag on the header keeps the dialog at its initial position and restores opacity 1 (#21765)', async ({page}) => {
+        const cdp   = await page.context().newCDPSession(page),
+              touch = (type, touchPoints) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
+
+        await cdp.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 1});
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'maxTouchPoints', {configurable: true, get: () => 1})
+        });
+
+        const dialog  = await openDialog(page),
+              opacity = () => dialog.evaluate(node => getComputedStyle(node).opacity),
+              proxy   = page.locator('.neo-dragproxy'),
+              before  = await dialog.boundingBox(),
+              initial = await opacity(),
+              title   = await dialog.locator('.neo-header-toolbar .neo-panel-header-text').boundingBox(),
+              startX  = Math.round(title.x + title.width / 2),
+              startY  = Math.round(title.y + title.height / 2);
+
+        await touch('touchStart', [{x: startX, y: startY}]);
+        await expect(proxy, 'header long-press arms the touch drag').toHaveCount(1);
+        await expect.poll(opacity, 'engaged drag dims the dialog').toBe('0.7');
+
+        for (let step = 1; step <= 8; step++) {
+            await touch('touchMove', [{
+                x: Math.round(startX + (120 * step) / 8),
+                y: Math.round(startY + (60 * step) / 8)
+            }])
+        }
+
+        await touch('touchCancel', []);
+        await expect(proxy, 'touchCancel removes the drag proxy').toHaveCount(0);
+
+        await expect.poll(opacity, 'touchCancel restores pre-drag opacity 1').toBe(initial);
+
+        const after = await dialog.boundingBox();
+
+        expect(near(after.x, before.x) && near(after.y, before.y),
+            `dialog stays at (${after.x}, ${after.y}), was (${before.x}, ${before.y})`).toBe(true)
     })
 });
