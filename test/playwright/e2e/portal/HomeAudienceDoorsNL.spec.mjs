@@ -269,6 +269,29 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         })
     }
 
+    for (const viewport of [{width: 1440, height: 900}, {width: 646, height: 844}]) {
+        test(`at ${viewport.width}x${viewport.height} a keyboard visitor who takes the first cue stays on the doors with Tab`, async ({page, neuralLink}) => {
+            await page.setViewportSize(viewport);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const home  = await queryOne(app, {className: 'Portal.view.home.MainContainer'}),
+                  doors = await queryOne(app, {reference: 'home-audience-doors'});
+
+            await page.locator('.portal-home-hero-content .hero-doors .neo-button:visible').first().focus();
+            await page.keyboard.press('Enter');
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
+            await waitForScrollSettled(page, home.id);
+
+            // The next stop is inside the doors, and the screen does not jump back to the cue's siblings
+            await page.keyboard.press('Tab');
+            await expect.poll(() => page.evaluate(id => document.getElementById(id).contains(document.activeElement), doors.id)).toBe(true);
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport()
+        })
+    }
+
     test('fits all three cards without clipping at 900x700 snap-active and stacks cleanly at 390x844 mobile', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 900, height: 700});
         await page.goto(HOME_URL);

@@ -174,10 +174,14 @@ class Content extends BaseContainer {
     }
 
     /**
-     * @summary Scrolls Home to the audience doors, the continuation the hero's cue promises.
+     * @summary Scrolls Home to the audience doors, the continuation the hero's cue promises, and moves focus there, so a
+     * keyboard visitor's next Tab stays on that screen.
      */
     onScrollToAudience() {
-        this.up('portal-home-maincontainer')?.scrollToPart('home-audience-doors')
+        const home = this.up('portal-home-maincontainer');
+
+        home?.scrollToPart('home-audience-doors');
+        home?.getItem('home-audience-doors')?.focusHeader()
     }
 
     /**

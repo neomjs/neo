@@ -81,12 +81,15 @@ class AudienceDoors extends BaseContainer {
             cls  : ['content-wrapper'],
             flex : 'none',
             items: [{
-                ntype: 'component',
-                cls  : ['portal-audience-header'],
-                flex : 'none',
-                vdom : {
-                    tag: 'header',
-                    cn : [{
+                ntype    : 'component',
+                cls      : ['portal-audience-header'],
+                flex     : 'none',
+                reference: 'audience-header',
+                vdom     : {
+                    tag     : 'header',
+                    // A focus target for the hero's cue, never a Tab stop of its own
+                    tabIndex: -1,
+                    cn      : [{
                         tag : 'h2',
                         cls : ['neo-h1'],
                         text: 'Who Neo.mjs Is For'
@@ -271,6 +274,14 @@ class AudienceDoors extends BaseContainer {
                 windowId: this.windowId
             })
         }
+    }
+
+    /**
+     * @summary Moves focus to the stage's header without scrolling, so a keyboard visitor who arrived through the hero's
+     * cue continues with Tab inside this stage instead of jumping back to the cue's siblings.
+     */
+    focusHeader() {
+        this.getItem('audience-header')?.focus(undefined, false, true)
     }
 
     /**
