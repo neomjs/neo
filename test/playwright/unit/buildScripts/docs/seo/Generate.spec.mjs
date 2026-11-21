@@ -1014,6 +1014,53 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         });
     });
 
+    test('extractMarkdownSeoMetadata skips leading page-metadata fields and the TL;DR label (#21820)', () => {
+        const describe = lines => extractMarkdownSeoMetadata(lines.join('\n')).description;
+
+        expect(describe([
+            '# Neo.mjs v11.17.1 Release Notes',
+            '',
+            '**Release Type:** Patch Release',
+            '**Stability:** Production-ready',
+            '**Upgrade Path:** Drop-in replacement for v11.17.0',
+            '',
+            '---',
+            '',
+            'This patch release fixes a configuration oversight that left new applications out of the npm package.'
+        ])).toBe('This patch release fixes a configuration oversight that left new applications out of the npm package.');
+
+        expect(describe([
+            '# Neo.mjs v13.4.0 Release Notes',
+            '',
+            '**Release Type:** A minor release, and the householding one, with the open issues down to five.',
+            '',
+            '**Stability:** Stable.',
+            '**Upgrade Path:** Not a drop-in for every app.',
+            '',
+            '> **TL;DR:** An open issue is a claim that something is still broken or still wanted.'
+        ])).toBe('An open issue is a claim that something is still broken or still wanted.');
+
+        expect(describe([
+            '# Config System Deep Dive',
+            '',
+            '**Pre-requisite:** It is highly recommended to study [The Unified Class Config System](../ConfigSystem.md)',
+            'first to understand the foundations.',
+            '',
+            '**Target Audience**: Developers who write their own configs and need to know how they resolve.',
+            '',
+            'The class configuration system is a cornerstone of the engine, declaring state as configs.'
+        ])).toBe('The class configuration system is a cornerstone of the engine, declaring state as configs.');
+
+        // A bold label that is not page metadata opens real prose, so it stays the description
+        expect(describe([
+            '# Fixed Row Heights',
+            '',
+            '**The Problem:** A grid with a fixed row height has to clip long text or waste space.',
+            '',
+            'A second paragraph that the description must not reach on this page.'
+        ])).toBe('The Problem: A grid with a fixed row height has to clip long text or waste space.');
+    });
+
     test('formatLearnSeoTitle and getSeoJson apply /learn/* search-intent title qualifiers (#20715)', async () => {
         expect(formatLearnSeoTitle('Overview', '/learn/comparisons/Overview')).toBe(
             'Neo.mjs vs React, Angular, Vue & Solid: Application Engine vs JavaScript Frameworks | Neo.mjs'
