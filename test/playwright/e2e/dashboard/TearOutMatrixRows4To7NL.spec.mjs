@@ -7,6 +7,8 @@ import {
 const
     // The dock's panes in a window: what must refill it after a pane leaves or comes home.
     dockPanes     = '.neo-dashboard-dock-tabs',
+    // The place a center pane leaves behind while it is away.
+    centerWell    = '.neo-dashboard-dock-center-well',
     // A vessel's viewport holds the torn-out pane itself.
     vesselContent = '.agentos-dockdemo-counter-pane';
 
@@ -579,8 +581,6 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
     });
 
     test('row 7 — the main window refills after its center pane leaves and after it comes home', async ({page, neuralLink}) => {
-        test.fail(true, 'neomjs/neo#21375: the window keeps its side band in a corner after the drop, and the pane comes home into that band');
-
         const {app, wsId} = await bootDemoB(page, neuralLink),
               panesBefore = await readUnion(page, dockPanes),
               popupWait   = page.waitForEvent('popup', {timeout: 30000}),
@@ -591,13 +591,21 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
               popup       = await popupWait;
 
         expect(result).toMatchObject({applied: true, errors: []});
-        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window after the drop');
+        // The center stays a place: the band keeps its edge and the well fills the rest.
+        await expectPanesRefill(page, `${dockPanes}, ${centerWell}`, panesBefore, 'the main window after the drop');
+        await expect(page.locator(`${centerWell}-text`)).toHaveText('Workbench is in its own window');
 
         const popupClosed = popup.waitForEvent('close');
 
         await popup.evaluate(() => window.close());
         await popupClosed;
-        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window after the pane came home')
+        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window after the pane came home');
+        await expect(page.locator(centerWell)).toHaveCount(0);
+
+        const {lifecycle} = await getTerminalSnapshot(page, app, wsId),
+              centerId    = lifecycle.dockModel.nodes.root.zones.center?.nodeId;
+
+        expect(lifecycle.dockModel.nodes[centerId]?.items, 'the pane came home to a rebuilt center').toEqual(['workbench'])
     });
 
     test('row 7 — post-birth cancel restores the same pane and cleans once', async ({page, neuralLink}) => {

@@ -273,13 +273,16 @@ class TearOut extends Base {
 
     /**
      * @summary The four gesture callbacks {@link Neo.dashboard.dock.projection.LayoutAdapter#project} reads,
-     * each dispatching through this instance — a host spreads them into its projection options.
-     * @returns {{onDockTearOutCancel:Function, onDockTearOutEntry:Function, onDockTearOutExit:Function, onDockTearOutTerminal:Function}}
+     * each dispatching through this instance, plus the recorded homes a center well names — a host
+     * spreads them into its projection options.
+     * @returns {{dockAwayPlacements:Object, onDockTearOutCancel:Function, onDockTearOutEntry:Function, onDockTearOutExit:Function, onDockTearOutTerminal:Function}}
      */
     getProjectionCallbacks() {
         const me = this;
 
         return {
+            // The live record, not a copy: every projection reads the homes as they stand.
+            dockAwayPlacements   : me.placements,
             onDockTearOutCancel  : data => me.onDockTearOutCancel(data),
             onDockTearOutEntry   : data => me.onDockTearOutEntry(data),
             onDockTearOutExit    : data => me.onDockTearOutExit(data),

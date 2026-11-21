@@ -288,6 +288,33 @@ class Operations extends Base {
     }
 
     /**
+     * @summary The append policy for a host that keeps an empty center as a well: a pane homed in a
+     * still-free edge-zone center returns there through {@link #restoreTab}.
+     *
+     * {@link #appendingReturnDescriptor} never resurrects a node the user watched collapse. A center
+     * projected as a well (`LayoutAdapter`'s `enableDockCenterWell`) never collapses, so returning there
+     * is the round trip's identity. Every other return, a band that emptied included, keeps the append policy.
+     * @param {Object} document
+     * @param {String} itemId
+     * @param {Object|null} placement The recorded `{tabsNodeId, index, home}`, or null.
+     * @returns {Object|null} A `restoreTab` descriptor for a free center, else the append policy's answer.
+     * @static
+     */
+    static centerWellReturnDescriptor(document, itemId, placement) {
+        const home   = placement?.home,
+              parent = home && document?.nodes?.[home.parentId];
+
+        // A surviving home tabs node keeps the append policy's exact index.
+        if (home?.slot === 'center' && parent?.type === 'edge-zone' &&
+            !WorkspaceDocument.getZoneNodeId(parent.zones?.center) &&
+            document.nodes[placement.tabsNodeId]?.type !== 'tabs') {
+            return {operation: 'restoreTab', itemId, tabsNodeId: placement.tabsNodeId, home}
+        }
+
+        return Operations.appendingReturnDescriptor(document, itemId, placement)
+    }
+
+    /**
      * @summary The document with every recorded home folded back in: what it becomes once each pane
      * that is away has returned.
      *

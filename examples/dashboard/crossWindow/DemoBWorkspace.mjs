@@ -580,9 +580,9 @@ class DemoBWorkspace extends Container {
             reparentPane    : (pane, target, itemId) => me.reparentDockPane(pane, target, itemId),
             resolvePane     : itemId => me.paneCache[itemId] || null,
             // NEVER a resurrected node: the engine's default re-mints the remembered parent/slot,
-            // and the user watched that node collapse.
+            // and the user watched that node collapse. Only the center, kept as a well, takes its pane back.
             resolveReturnDescriptor: (document, itemId, placement) =>
-                Operations.appendingReturnDescriptor(document, itemId, placement),
+                Operations.centerWellReturnDescriptor(document, itemId, placement),
             settlePane      : pane => {
                 pane && !pane.isDestroyed && (pane.parent?.remove(pane, false), pane.destroy())
             }
@@ -1207,6 +1207,7 @@ class DemoBWorkspace extends Container {
         return DockLayoutAdapter.project(document, {
             applyDockZoneOperation   : descriptor => me.applyWorkspaceOperation(workspaceId, descriptor),
             crossWindowSortGroup     : me.crossWindowEnabled ? DemoBWorkspace.CROSS_WINDOW_SORT_GROUP : null,
+            enableDockCenterWell     : tearOut,
             enableDockTearOut        : tearOut,
             enableStackDrag          : stackDrag,
             enableVesselConversion   : tearOut && me.crossWindowEnabled,

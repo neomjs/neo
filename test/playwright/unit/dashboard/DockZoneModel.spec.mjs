@@ -2397,6 +2397,85 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
         })
     });
 
+    test.describe('centerWellReturnDescriptor: a center kept as a well takes its pane back (#21375)', () => {
+        /**
+         * Demo B's shape: the center holds one pane, the right band two. Tearing the center pane out
+         * empties the center, and the edge-zone survives without it.
+         * @returns {Object}
+         */
+        function centerAlone() {
+            const d = doc();
+
+            d.nodes['main-tabs'] = {type: 'tabs', items: ['swarm'], activeItemId: 'swarm'};
+            d.nodes['side-tabs'] = {type: 'tabs', items: ['terminal', 'strategy'], activeItemId: 'terminal'};
+
+            return d
+        }
+
+        /**
+         * @param {Object} source
+         * @param {String} itemId
+         * @returns {{document:Object, placement:Object}}
+         */
+        function tearOut(source, itemId) {
+            const placement          = WorkspaceDocument.captureItemPlacement(source, itemId),
+                  {document, errors} = Operations.applyOperation(source, {operation: 'detachItem', itemId});
+
+            expect(errors).toEqual([]);
+
+            return {document, placement}
+        }
+
+        test('the pane alone in the center comes home to a rebuilt center: the round trip is the identity', () => {
+            const source                          = centerAlone(),
+                  {document: detached, placement} = tearOut(source, 'swarm');
+
+            expect(detached.nodes.root.zones.center, 'the center emptied').toBeUndefined();
+
+            const descriptor = Operations.centerWellReturnDescriptor(detached, 'swarm', placement);
+
+            expect(descriptor).toEqual({
+                operation: 'restoreTab', itemId: 'swarm', tabsNodeId: 'main-tabs', home: {parentId: 'root', slot: 'center'}
+            });
+
+            const {document: restored, errors} = Operations.applyOperation(detached, descriptor);
+
+            expect(errors).toEqual([]);
+            expect(restored).toEqual(source)
+        });
+
+        test('control: the append policy alone sends the same pane into the band, the defect this fixes', () => {
+            const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
+
+            expect(Operations.appendingReturnDescriptor(detached, 'swarm', placement))
+                .toEqual({operation: 'addTab', itemId: 'swarm', tabsNodeId: 'side-tabs'})
+        });
+
+        test('a band that emptied keeps the append policy: a band does collapse', () => {
+            const {document: detached, placement} = tearOut(doc(), 'terminal');
+
+            expect(detached.nodes.root.zones.right, 'the band emptied').toBeUndefined();
+            expect(Operations.centerWellReturnDescriptor(detached, 'terminal', placement))
+                .toEqual(Operations.appendingReturnDescriptor(detached, 'terminal', placement))
+        });
+
+        test('an occupied center and a surviving home node keep the append policy', () => {
+            const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
+
+            // Another pane docked into the well while this one was away: the center is taken.
+            detached.nodes['other-tabs']      = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+            detached.nodes.root.zones.center = {nodeId: 'other-tabs'};
+
+            expect(Operations.centerWellReturnDescriptor(detached, 'swarm', placement).operation).toBe('addTab');
+
+            // A pane that SHARED its center node returns to that node at its index.
+            const {document: shared, placement: sharedPlacement} = tearOut(doc(), 'strategy');
+
+            expect(Operations.centerWellReturnDescriptor(shared, 'strategy', sharedPlacement))
+                .toEqual({operation: 'addTab', itemId: 'strategy', tabsNodeId: 'main-tabs', index: 0})
+        })
+    });
+
     test.describe('#18177 an edge-zone home carries its own geometry', () => {
         /**
          * `doc()`'s right zone with a committed extent — the shape `resizeEdgeZone` leaves behind,
