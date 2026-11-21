@@ -138,6 +138,38 @@ class EventEditor extends Dialog {
     }
 
     /**
+     * @summary Hands focus back to the bar the editor opened on, while the editor holds focus. A bar is a node inside
+     * a grid row, not a component, so the dialog's own return target would be the grid around it.
+     * @param {String} [restoreFrom] Set as the editor departs: only a lost focus is handed back
+     * @returns {Boolean} Whether the bar takes the focus back
+     */
+    #focusBar(restoreFrom) {
+        const {barId, owner} = this;
+
+        if (!this.containsFocus || !barId || !owner) {
+            return false
+        }
+
+        owner.focus(barId, false, undefined, undefined, restoreFrom);
+        return true
+    }
+
+    /**
+     * @summary Hands focus back to the bar the editor opened on, else as every component does.
+     */
+    revertFocus() {
+        this.#focusBar() || super.revertFocus()
+    }
+
+    /**
+     * @summary Hands focus back to the bar the editor opened on as the editor leaves the DOM, else as every
+     * component does.
+     */
+    revertFocusOnDeparture() {
+        this.#focusBar(this.id) || super.revertFocusOnDeparture()
+    }
+
+    /**
      * @summary Creates the form and fills it when the editor starts with a bound record.
      * @param {Object} config
      */
