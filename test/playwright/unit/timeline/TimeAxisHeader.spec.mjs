@@ -126,8 +126,8 @@ test.describe('Neo.timeline.TimeAxisHeader', () => {
         expect(majorRow.cn[1].cn[0].text).toBe('H-1');
 
         expect(minorRow.cn.length).toBe(8);
-        expect(minorRow.cn[0].text).toBe('M-0');
-        expect(minorRow.cn[7].text).toBe('M-7');
+        expect(minorRow.cn[0].cn[0]).toEqual({tag: 'span', cls: ['neo-timeline-tick-label'], text: 'M-0'});
+        expect(minorRow.cn[7].cn[0].text).toBe('M-7');
 
         header.destroy();
         axis.destroy();

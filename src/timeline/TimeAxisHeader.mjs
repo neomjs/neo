@@ -782,7 +782,7 @@ class TimeAxisHeader extends Component {
                 ? ['neo-timeline-tick', row, 'neo-timeline-tick-current']
                 : ['neo-timeline-tick', row];
 
-        // The label is its own node so it can stay sticky while its tick is partly scrolled out
+        // In both rows the label is its own node, so it can stay sticky while its tick is partly scrolled out
         majorRow.cn = majorTicks.map(tick => ({
             id  : `${me.id}__major-tick-${tick.index}`,
             cls : tickCls(tick, 'neo-timeline-tick-major'),
@@ -813,7 +813,7 @@ class TimeAxisHeader extends Component {
                     left : `${tick.offset}px`,
                     width: `${tick.size}px`
                 },
-                text : me.formatMinorTick(tick)
+                cn: [{tag: 'span', cls: ['neo-timeline-tick-label'], text: me.formatMinorTick(tick)}]
             })),
             ...nonWorkingNodes,
             ...showNow ? [{

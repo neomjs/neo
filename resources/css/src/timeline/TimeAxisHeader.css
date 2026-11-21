@@ -90,8 +90,10 @@
         z-index      : 1;
     }
 
-    /* A day, week or month whose start is scrolled out keeps its name at the visible left edge */
-    .neo-timeline-tick-major {
+    /* A day, week or month whose start is scrolled out keeps its name at the visible left edge, in either row.
+       An hour does not: a pinned `08:00` would mark 08:30 */
+    .neo-timeline-tick-major,
+    .neo-timeline-tick-minor:is([data-unit="day"], [data-unit="week"], [data-unit="month"]) {
         overflow: clip;
 
         .neo-timeline-tick-label {
