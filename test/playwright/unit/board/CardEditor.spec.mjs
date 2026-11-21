@@ -633,5 +633,144 @@ test.describe('Neo.board.CardEditor follows the model it edits', () => {
 
         expect([...board.openCardEditor('c1').fieldMap.keys()])
             .toEqual(['title', 'description', 'status', 'lane', 'assignees', 'tags', 'progress', 'color', 'dueDate'])
-    })
+    });
+
+    test('defaults headerConfig to {actions: [\'close\']} and omits maximize button unless explicitly requested', () => {
+        store = createStore();
+        board = createBoard({store});
+
+        const editor = board.openCardEditor('c1');
+
+        expect(editor.headerConfig).toEqual({actions: ['close']});
+        expect(editor.headerToolbar.actions).toEqual(['close']);
+
+        board.destroy();
+        board = createBoard({store, cardEditorConfig: {headerConfig: {actions: ['maximize', 'close']}}});
+
+        const custom = board.openCardEditor('c1');
+
+        expect(custom.headerConfig).toEqual({actions: ['maximize', 'close']});
+        expect(custom.headerToolbar.actions).toEqual(['maximize', 'close'])
+    });
+
+    test('fieldLabels merges shallowly on construction and customizes standard and model-derived field labels', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({
+            store,
+            cardEditorConfig: {
+                fieldLabels: {
+                    assignees: 'Recruiter',
+                    startDate: 'Begins',
+                    status   : 'Stage',
+                    tags     : 'Role',
+                    title    : 'Name'
+                }
+            }
+        });
+
+        const editor = board.openCardEditor('w1');
+
+        expect(editor.fieldLabels).toEqual({
+            assignees  : 'Recruiter',
+            color      : 'Color',
+            description: 'Description',
+            dueDate    : 'Due date',
+            lane       : 'Lane',
+            progress   : 'Progress',
+            startDate  : 'Begins',
+            status     : 'Stage',
+            tags       : 'Role',
+            title      : 'Name'
+        });
+
+        expect(editor.getField('title').labelText).toBe('Name');
+        expect(editor.getField('status').labelText).toBe('Stage');
+        expect(editor.getField('startDate').labelText).toBe('Begins');
+        expect(editor.getField('progress').labelText).toBe('Progress')
+    });
+
+    test('fieldLabels respects custom statusField, domain-keyed and role-keyed overrides', () => {
+        store = createStore([
+            {id: 'l1', title: 'Alpha task', status: 'backlog', lane: 'urgent', order: 1000}
+        ]);
+        board = createBoard({
+            laneField       : 'lane',
+            statusField     : 'column',
+            store,
+            columns         : [
+                {status: 'backlog', laneValue: 'urgent', title: 'Backlog Urgent'}
+            ],
+            cardEditorConfig: {
+                fieldLabels: {
+                    column: 'Pipeline Column',
+                    lane  : 'Swimlane Section'
+                }
+            }
+        });
+
+        let editor = board.openCardEditor('l1');
+
+        expect(editor.getField('column').labelText).toBe('Pipeline Column');
+        expect(editor.getField('lane').labelText).toBe('Swimlane Section');
+
+        board.destroy();
+        board = createBoard({
+            statusField     : 'column',
+            store,
+            cardEditorConfig: {
+                fieldLabels: {
+                    status: 'Role-keyed Stage'
+                }
+            }
+        });
+
+        editor = board.openCardEditor('l1');
+        expect(editor.getField('column').labelText).toBe('Role-keyed Stage')
+    });
+
+    test('runtime fieldLabels update merges shallowly, updates labels in place and preserves unsaved draft values', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({
+            store,
+            cardEditorConfig: {
+                fieldLabels: {
+                    startDate: 'Begins',
+                    title    : 'Name'
+                }
+            }
+        });
+
+        const editor = board.openCardEditor('w1');
+
+        expect(editor.getField('title').labelText).toBe('Name');
+        expect(editor.getField('startDate').labelText).toBe('Begins');
+        expect(editor.getField('status').labelText).toBe('Status');
+        expect(editor.getFieldValue('title')).toBe('Build the booking screens');
+
+        editor.setFieldValue('title', 'Unsaved title');
+        expect(store.get('w1').title).toBe('Build the booking screens');
+
+        editor.set({fieldLabels: {status: 'Stage'}});
+
+        expect(editor.fieldLabels).toEqual({
+            assignees  : 'Assignees',
+            color      : 'Color',
+            description: 'Description',
+            dueDate    : 'Due date',
+            lane       : 'Lane',
+            progress   : 'Progress',
+            startDate  : 'Begins',
+            status     : 'Stage',
+            tags       : 'Tags',
+            title      : 'Name'
+        });
+        expect(editor.getField('title').labelText).toBe('Name');
+        expect(editor.getField('startDate').labelText).toBe('Begins');
+        expect(editor.getField('status').labelText).toBe('Stage');
+        expect(editor.getField('description').labelText).toBe('Description');
+        expect(editor.getFieldValue('title'), 'unsaved draft survives runtime label update').toBe('Unsaved title');
+
+        expect(editor.save()).toEqual({title: 'Unsaved title'});
+        expect(store.get('w1').title).toBe('Unsaved title')
+    });
 });
