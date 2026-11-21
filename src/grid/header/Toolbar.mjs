@@ -408,6 +408,11 @@ class Toolbar extends BaseToolbar {
             return
         }
 
+        // Mid-rebuild an item can still be its config, with nothing to measure: the post-update pass measures it
+        if (items.some(item => Neo.typeOf(item) !== 'NeoInstance')) {
+            return
+        }
+
         for (; i < len; i++) {
             if (me.isMeasuredWidth(items[i])) {
                 hasDynamicWidth = true;
