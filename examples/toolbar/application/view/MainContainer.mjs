@@ -56,7 +56,7 @@ class MainContainer extends Viewport {
         }, {
             module       : TextArea,
             cls          : ['neo-toolbar-application-draft'],
-            flex         : 1,
+            flex         : 'none',
             labelPosition: 'top',
             labelText    : 'Draft',
             reference    : 'draft',

@@ -4,6 +4,7 @@
             "ntype": "split-button",
             "text": "Insert",
             "iconCls": "fa fa-plus",
+            "ui": "primary",
             "handler": "onPrimaryInsert",
             "tooltip": {"html": "Insert a heading"},
             "triggerButtonConfig": {"vdom": {"aria-label": "Insert options"}},
