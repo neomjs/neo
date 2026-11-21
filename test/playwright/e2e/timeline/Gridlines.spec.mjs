@@ -5,7 +5,7 @@ import {test, expect} from '../../fixtures.mjs';
  * and a phone width and after a zoom.
  */
 
-const examples = ['scheduler/basic', 'scheduler/nonWorkingTime', 'gantt/basic', 'gantt/workingTime'];
+const examples = ['scheduler/basic', 'scheduler/nonWorkingTime', 'scheduler/zoom', 'gantt/basic', 'gantt/workingTime'];
 
 /**
  * @summary The gridline step the first track resolves, and the width of the header's second minor tick.
