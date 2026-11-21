@@ -2663,7 +2663,7 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
         plugin.onOwnerMounted();
 
         const domEvents = entry => Object.keys(entry).filter(key => key !== 'delegate' && key !== 'scope'),
-              expected  = ['resize', 'click', 'drag:end', 'drag:start', 'mousedown', 'mouseleave'];
+              expected  = ['resize', 'click', 'drag:cancel', 'drag:end', 'drag:start', 'mousedown', 'mouseleave'];
 
         expect(added.flatMap(domEvents), 'a remount registers each DOM event once').toEqual(expected);
         expect(released.flatMap(domEvents),
@@ -2924,6 +2924,85 @@ test.describe('Neo.tab.plugin.Overflow — the control press hold', () => {
         plugin.destroy();
         expect(held(), 'a destroyed plugin leaves no hold behind').toBe(false);
 
+        toolbar.destroy()
+    });
+
+    test('drag:cancel on a tab header releases overflow-tab-press and applies the owed contextual reveal (#21765)', async () => {
+        await import('../../../../../src/manager/Instance.mjs');
+        const Base                         = (await import('../../../../../src/core/Base.mjs')).default,
+              DomEvent                     = (await import('../../../../../src/manager/DomEvent.mjs')).default,
+              Observable                   = (await import('../../../../../src/core/Observable.mjs')).default,
+              {plugin, toolbar, withdrawn} = createRail(),
+              held                         = () => toolbar.contextualRevealHolds?.has('overflow-tab-press') === true,
+              tabPath                      = [
+                  {id: 'tab-metrics', cls: ['neo-tab-header-button']},
+                  {id: toolbar.id,    cls: ['neo-toolbar']}
+              ];
+
+        class MockCancelSortZone extends Base {
+            static config = {
+                className: 'Test.Unit.Tab.Plugin.Overflow.MockCancelSortZone',
+                mixins   : [Observable]
+            }
+        }
+        MockCancelSortZone = Neo.setupClass(MockCancelSortZone);
+
+        const sortZone = Neo.create(MockCancelSortZone);
+
+        toolbar.sortZone = sortZone;
+        plugin.onOwnerMounted();
+
+        // 1. Platform-cancelled drag (`drag:cancel` DOM event on `.neo-tab-header-button`, zoned or zoneless)
+        DomEvent.fire({
+            data     : {button: 0, path: tabPath, targetPath: tabPath},
+            eventName: 'mousedown',
+            windowId : toolbar.windowId
+        });
+        toolbar.contextualActionsVisible = true;
+        expect(held(), 'mousedown holds overflow-tab-press').toBe(true);
+
+        DomEvent.fire({
+            data     : {dragZoneId: null, path: tabPath, targetPath: tabPath},
+            eventName: 'drag:start',
+            windowId : toolbar.windowId
+        });
+        DomEvent.fire({
+            data     : {path: tabPath, targetPath: tabPath},
+            eventName: 'mouseleave',
+            windowId : toolbar.windowId
+        });
+        expect(held(), 'active drag retains the hold past mouseleave').toBe(true);
+        expect(withdrawn()).toBe(true);
+
+        DomEvent.fire({
+            data     : {dragZoneId: null, path: tabPath, targetPath: tabPath},
+            eventName: 'drag:cancel',
+            windowId : toolbar.windowId
+        });
+        expect(held(), 'drag:cancel releases overflow-tab-press').toBe(false);
+        expect(withdrawn(), 'drag:cancel applies the owed contextual reveal').toBe(false);
+
+        // 2. Escape cancel routed directly to `sortZone` when keyboard focus lies outside `.neo-tab-header-button`
+        toolbar.contextualActionsVisible = false;
+        DomEvent.fire({
+            data     : {button: 0, path: tabPath, targetPath: tabPath},
+            eventName: 'mousedown',
+            windowId : toolbar.windowId
+        });
+        toolbar.contextualActionsVisible = true;
+        DomEvent.fire({
+            data     : {dragZoneId: sortZone.id, path: tabPath, targetPath: tabPath},
+            eventName: 'drag:start',
+            windowId : toolbar.windowId
+        });
+        expect(held()).toBe(true);
+
+        sortZone.fire('dragCancel', {key: 'Escape'});
+        expect(held(), 'sortZone dragCancel releases overflow-tab-press').toBe(false);
+        expect(withdrawn(), 'sortZone dragCancel applies the owed contextual reveal').toBe(false);
+
+        plugin.destroy();
+        sortZone.destroy();
         toolbar.destroy()
     });
 
