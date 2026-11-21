@@ -2486,7 +2486,7 @@ class Workspace extends Container {
 
         // The cycle's own record (see {@link #projectionCycle}), handed to the refresh beside the options
         // rather than inside them: the options are a consumer-visible contract, the cycle is not.
-        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {predecessor: me.refreshPromise ? me.projectionCycle : null, waitedForTail: Boolean(me.refreshPromise)});
+        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {predecessorTiming: me.refreshPromise ? me.projectionCycle?.timing : null, waitedForTail: Boolean(me.refreshPromise)});
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
@@ -2677,7 +2677,7 @@ class Workspace extends Container {
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions,
-            superseded         = () => cycle?.abandoned === true || refreshOptions.isCurrent?.() === false;
+            superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
