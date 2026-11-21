@@ -74,5 +74,11 @@
             padding-left : 16px;
             padding-right: 16px;
         }
+
+        .pipeline-subtitle {
+            font-size: 12px;
+            order    : 2;
+            width    : 100%;
+        }
     }
 }

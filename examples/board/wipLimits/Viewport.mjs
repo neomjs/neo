@@ -2,6 +2,7 @@ import BoardContainer from '../../../src/board/Container.mjs';
 import Component      from '../../../src/component/Base.mjs';
 import MainStore      from './MainStore.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 import WorkshopColumn from './WorkshopColumn.mjs';
@@ -74,6 +75,8 @@ class WipLimitsViewport extends Viewport {
                         {tag: 'span', cls: ['workshop-overload-detail'], text: ' · On the bench (4/3)'}
                     ]
                 }
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module: Toolbar,

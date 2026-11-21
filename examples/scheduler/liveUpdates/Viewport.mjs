@@ -6,6 +6,7 @@ import GateStore, {GATES}           from './GateStore.mjs';
 import Label                        from '../../../src/component/Label.mjs';
 import Scheduler                    from '../../../src/scheduler/Container.mjs';
 import StateProvider                from '../../../src/state/Provider.mjs';
+import ThemeSwitcher                from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                      from '../../../src/toolbar/Base.mjs';
 import Viewport                     from '../../../src/container/Viewport.mjs';
 
@@ -186,6 +187,8 @@ class GateOperationsViewport extends Viewport {
                 pressed  : false,
                 reference: 'pause-button',
                 text     : 'Pause'
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module   : Container,

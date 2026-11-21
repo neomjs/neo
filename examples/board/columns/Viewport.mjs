@@ -3,6 +3,7 @@ import Button         from '../../../src/button/Base.mjs';
 import Component      from '../../../src/component/Base.mjs';
 import MainStore      from './MainStore.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
@@ -85,6 +86,8 @@ class ColumnsViewport extends Viewport {
                 handler  : 'up.onResetClick',
                 reference: 'resetButton',
                 text     : '↺ Reset arrangement'
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module: Toolbar,
