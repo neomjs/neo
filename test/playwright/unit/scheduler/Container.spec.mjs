@@ -618,6 +618,70 @@ test.describe('Neo.scheduler.Container', () => {
         scheduler.destroy(); scheduler = null; events.destroy(); resources.destroy()
     });
 
+    test.describe('the editor below the minimum (#21722)', () => {
+        const message = 'The end must be at least 30 minutes after the start';
+        let events, resources;
+
+        test.beforeEach(() => {
+            resources = Neo.create(Store, {keyProperty: 'id', data: [{id: 'r-1'}]});
+            events    = Neo.create(EventStore, {data: [
+                {id: 'long', resourceId: 'r-1', title: 'Three hours',    startDate: '2026-11-09T08:00:00Z', endDate: '2026-11-09T11:00:00Z'},
+                {id: 'min',  resourceId: 'r-1', title: 'At the minimum', startDate: '2026-11-09T12:00:00Z', endDate: '2026-11-09T12:30:00Z'}
+            ]});
+            scheduler = Neo.create(SchedulerContainer, {appName, editable: true, minimumDuration: 30, store: resources, eventStore: events,
+                timeAxis: {timeZone: 'UTC', start: '2026-11-09', end: '2026-11-10', snapMinutes: 15}})
+        });
+
+        test.afterEach(() => {
+            scheduler.destroy(); scheduler = null; events.destroy(); resources.destroy()
+        });
+
+        test('an end that leaves an event shorter than the minimum is refused, not moved', () => {
+            const record = events.get('long'), editor = scheduler.openEventEditor('long');
+
+            editor.setFieldValue('endDate', '2026-11-09T08:15');
+
+            expect(editor.save(), 'the editor keeps its draft').toBe(false);
+            expect(record.endDate.toISOString(), 'the record keeps its end').toBe('2026-11-09T11:00:00.000Z');
+            expect(editor.getField('endDate').error).toBe(message)
+        });
+
+        test('an event already at the minimum gets the same refusal', () => {
+            const record = events.get('min'), editor = scheduler.openEventEditor('min');
+
+            editor.setFieldValue('endDate', '2026-11-09T12:15');
+
+            expect(editor.save()).toBe(false);
+            expect(record.endDate.toISOString()).toBe('2026-11-09T12:30:00.000Z');
+            expect(editor.getField('endDate').error).toBe(message)
+        });
+
+        test('a start moved within the minimum of the end is refused on the Start field', () => {
+            const record = events.get('long'), editor = scheduler.openEventEditor('long');
+
+            editor.setFieldValue('startDate', '2026-11-09T10:45');
+
+            expect(editor.save()).toBe(false);
+            expect(record.startDate.toISOString()).toBe('2026-11-09T08:00:00.000Z');
+            expect(editor.getField('startDate').error).toBe(message)
+        });
+
+        test('a range at the minimum saves, and a gesture below it is still clamped', () => {
+            const record = events.get('long'), editor = scheduler.openEventEditor('long');
+
+            editor.setFieldValue('endDate', '2026-11-09T08:30');
+            editor.save();
+            expect(record.endDate.toISOString()).toBe('2026-11-09T08:30:00.000Z');
+
+            scheduler.moveEvent(record, {endDate: '2026-11-09T08:10:00Z'}, {resizeEdge: 'end', source: 'resize'});
+            expect(record.endDate.toISOString(), 'a resize clamps to the minimum').toBe('2026-11-09T08:30:00.000Z');
+
+            scheduler.moveEvent(record, {endDate: '2026-11-09T09:00:00Z'}, {resizeEdge: 'end', source: 'resize'});
+            scheduler.moveEvent(record, {endDate: '2026-11-09T08:05:00Z'}, {resizeEdge: 'end', source: 'resize'});
+            expect(record.endDate.toISOString(), 'from a longer range too').toBe('2026-11-09T08:30:00.000Z')
+        });
+    });
+
     test('resource identity agrees across projection, editor options and the writer', () => {
         const resources = Neo.create(Store, {keyProperty: 'id', model: {fields: [{name: 'id'}, {name: 'name'}]},
             data: [{id: 7, name: 'Seven'}, {id: 8, name: 'Eight'}]});

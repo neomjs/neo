@@ -245,64 +245,17 @@ if (distX < span) {
 
 ## Semantic State Visualization
 
-A key innovation in the Header Canvas is the use of the canvas itself to provide semantic feedback for UI states (Active and Hover), replacing traditional CSS effects. This creates a deeply integrated "living UI".
+The two navigation states have different jobs. `Neo.app.header.Toolbar` sets `aria-current="page"` on the link for the current route and forwards the same button ID to the canvas. A separate `hoverId` identifies the button under the pointer. Hovering News while reading Learn leaves Learn visibly selected.
 
-### 1. The "Energy Surge" (Active State)
-A semantic highlighting effect that makes the currently active navigation item glow.
+### Current route
 
-**Implementation Challenge:**
-We needed to highlight the active section *without* disrupting the flow or adding clashing geometry (like a bounding box or overlay).
+The main streams continue around every button. Beneath the current link, the lower stream opens into two intertwined filaments with short cross-links. The filaments share the existing stream at either end of the button. Placing their crossings below the label keeps text, badges and keyboard focus readable, even in the compact header.
 
-**Solution: Localized Redraw**
-We use a **Multi-Pass Rendering** technique. After the main stream is drawn, we perform a second pass that draws *only* the segment of the stream corresponding to the active item's position.
-*   **Visuals:** This segment is drawn with `strokeStyle: 'white'` (simulating heat) and a high `shadowBlur` (glow).
-*   **Animation:** We apply a faster alpha oscillation ("nervous pulse") to this segment, making the energy feel "excited" compared to the calm rest of the stream.
-*   **Zero-Cost Physics:** We reuse the *same* geometry buffers (`waveBuffers`) calculated for the main stream. No new physics are run.
+`Neo.canvas.Header#calculateStrandGeometry` writes the opposite phases into reusable foreground buffers. `drawActiveOverlay` paints just the selected span, using the current theme's colors. With reduced motion, a still frame shows the same connected shape; a route, size or theme change repaints it.
 
-```javascript
-// drawActiveOverlay(ctx, width)
-// 1. Find the active rect (Zero-Allocation: use for-loop)
-for (const r of me.navRects) {
-    if (r.id === me.activeId) {
-        rect = r;
-        break;
-    }
-}
+### Hover
 
-// 2. Set "Energy" styles
-ctx.strokeStyle = '#FFFFFF';
-ctx.shadowBlur  = 20;
-ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast pulse
-
-// 3. Draw segment (Inline loop to avoid closures)
-ctx.beginPath();
-ctx.moveTo(startI * step, bufA[startI]);
-for (let i = startI + 1; i <= endI; i++) {
-    ctx.lineTo(i * step, bufA[i]);
-}
-ctx.stroke();
-```
-
-### 2. The "Preview Glow" (Hover State)
-We replaced the standard CSS `background-color` hover effect with a canvas-based glow. This solves contrast issues (ghost buttons on complex backgrounds) and reinforces the visual theme.
-
-*   **Bridge Pattern:** The `HeaderToolbar` (App Worker) captures `mouseenter` events and updates the `hoverId` in the `HeaderCanvas` (Shared Worker).
-*   **Visual Distinction:** Unlike the Active state (White, Pulsing), the Hover state is drawn in **Cyan** (Theme Highlight) with a **Static Alpha** (No Pulse). This clearly distinguishes "current location" from "interaction focus".
-*   **Priority:** The Hover effect is drawn *after* the Active effect, ensuring interaction feedback is always visible.
-
-```javascript
-// drawHoverOverlay(ctx, width)
-// ... find rect ...
-
-// Hover Style: Cyan, Static
-ctx.strokeStyle = themeColors.hover; // e.g. Cyan
-ctx.shadowBlur  = 15;
-ctx.globalAlpha = 1; // No pulse = Stable feedback
-
-// Edge Handling:
-// Special logic clamps the drawing range near the canvas edge to prevent visual artifacts.
-endX = Math.min(width - 3, rect.x + rect.width + pad);
-```
+The controller sends the hovered button ID to the renderer. A lighter stroke follows the waves immediately around that button. The selected helix is painted last, so a neighboring hover keeps its own visual treatment without covering the current route.
 
 ## Shockwaves
 Interactive pulses triggered by clicks. They displace the waves and repel particles.

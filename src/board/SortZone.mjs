@@ -18,9 +18,10 @@ import {getTitleField} from './CardItems.mjs';
  * When a drag begins on a selected card and the board's selection holds more than one record, {@link #getDragProxyConfig}
  * builds a paper-stack proxy with the dragged card's clone in front, up to four clones of the other selected cards
  * behind it (`.neo-board-stack-card`, with alternating `--stack-angle`, `--stack-offset`, `--stack-opacity`, and
- * FLIP origin offsets `--flip-x` / `--flip-y`), and a `.neo-board-stack-count` badge (`+N`) for any remaining
- * selected records. Offscreen selected records in a sliced column render a title-only clone. Rendered selected cards
- * receive `.neo-board-card-ghost` until the gesture ends.
+ * FLIP origin offsets `--flip-x` / `--flip-y`), and a `.neo-board-stack-count` badge with the selection's total.
+ * Offscreen selected records in a sliced column render a title-only clone. Rendered selected cards receive
+ * `.neo-board-card-ghost` until the gesture ends. The drop lands the selection as one block in board order, starting
+ * at the slot ({@link #processDragEnd}).
  *
  * The drag state stays plain fields (`activeColumn`, `startColumn`, `columnRects`, `currentIndex`): the shape the
  * dashboard zone's `DragCoordinator` hooks drive, so a cross-window board can register this zone per window later.
@@ -354,7 +355,8 @@ class BoardSortZone extends SortZone {
      * @summary Returns the drag proxy configuration: a single card drags as today, while a multi-selection returns a
      * paper-stack VDOM with the dragged card's clone in front, up to four `.neo-board-stack-card` clones behind it
      * (alternating `--stack-angle` between 2 and 6 degrees, `--stack-offset`, opacity falling from 0.9 to 0.6, and FLIP
-     * origin offsets `--flip-x` / `--flip-y`), and a `.neo-board-stack-count` badge (`+N`) for any remaining cards.
+     * origin offsets `--flip-x` / `--flip-y`), and a `.neo-board-stack-count` badge with the total of selected cards:
+     * past five the stack stops growing, and only the number says how many.
      * @returns {Object}
      */
     getDragProxyConfig() {
@@ -376,7 +378,6 @@ class BoardSortZone extends SortZone {
             leadClone    = me.cloneCardVdom(leadRecord),
             leadRect     = me.dragCardRects?.get(owner.getKey(leadRecord)) || me.dragElementRect || null,
             stackRecords = records.slice(1, 5),
-            extraCount   = records.length - 1 - stackRecords.length,
             stackClones  = stackRecords.map((record, i) => {
                 const
                     clone   = me.cloneCardVdom(record),
@@ -402,18 +403,10 @@ class BoardSortZone extends SortZone {
 
                 return clone
             }),
-            cn = [leadClone, ...stackClones];
+            cn = [leadClone, ...stackClones, {tag: 'span', cls: ['neo-board-stack-count'], text: String(records.length)}];
 
         NeoArray.add(leadClone.cls, 'neo-board-stack-lead');
         leadClone.style = {...leadClone.style, zIndex: '5'};
-
-        if (extraCount > 0) {
-            cn.push({
-                tag : 'span',
-                cls : ['neo-board-stack-count'],
-                text: `+${extraCount}`
-            })
-        }
 
         return {
             ...base,
@@ -465,23 +458,22 @@ class BoardSortZone extends SortZone {
             return [leadRecord]
         }
 
-        others = [];
+        others = me.getBoardRecords(record => record !== leadRecord && sm.isSelected(owner.getKey(record)));
 
-        owner.getColumns().forEach(column => {
-            if (!column?.status) {
-                return
-            }
+        return [leadRecord, ...others]
+    }
 
-            owner.getColumnRecords(column.status, column.laneValue).forEach(record => {
-                const key = owner.getKey(record);
+    /**
+     * @summary The board's records in board order, column by column as `owner.getColumns()` lists them and within a
+     * column as `getColumnRecords()` sorts it, kept where `filterFn` returns true.
+     * @param {Function} filterFn Receives each record
+     * @returns {Object[]}
+     * @protected
+     */
+    getBoardRecords(filterFn) {
+        const {owner} = this;
 
-                if (record !== leadRecord && sm.isSelected(key)) {
-                    others.push(record)
-                }
-            })
-        });
-
-        return others.length ? [leadRecord, ...others] : [leadRecord]
+        return owner.getColumns().flatMap(column => column?.status ? owner.getColumnRecords(column.status, column.laneValue).filter(filterFn) : [])
     }
 
     /**
@@ -702,7 +694,8 @@ class BoardSortZone extends SortZone {
      * cancels the move. The node goes back to where it started, so the DOM matches the component
      * tree again. Then the drop commits through `owner.moveCard` (for a multi-selection, once per record under
      * `owner.isNormalizing` followed by one `cardsMove` event), addressed by the drop's neighbour ({@link #getDropAnchor})
-     * and checked against the store after the last await ({@link #resolveDrop}). A cancel, a drop where the record
+     * and checked against the store after the last await ({@link #resolveDrop}). A multi-selection lands as one block
+     * in board order, starting at the slot, whichever of its cards the drag held. A cancel, a drop where the record
      * already sits, or a drop whose record or neighbour the store no longer holds there writes nothing.
      * @param {Object} data
      */
@@ -802,7 +795,9 @@ class BoardSortZone extends SortZone {
         if (commit) {
             if (records.length > 1) {
                 const
-                    liveRecords    = records.filter(record => record && owner.store?.get(owner.getKey(record)) === record),
+                    dragged        = new Set(records),
+                    // Read before the first write moves anything: the board's own records, so a replaced one drops out
+                    liveRecords    = me.getBoardRecords(record => dragged.has(record)),
                     fromColumns    = new Set(),
                     movedRecords   = [],
                     targetColumn   = owner.getColumn(commit.status, commit.lane),
@@ -819,25 +814,29 @@ class BoardSortZone extends SortZone {
                 owner.isNormalizing = true;
 
                 try {
-                    const firstMoved = owner.moveCard(commit);
+                    const lead = owner.moveCard(commit);
 
-                    if (firstMoved) {
-                        movedRecords.push(firstMoved);
-                        let prevKey = owner.getKey(firstMoved);
+                    if (lead) {
+                        const
+                            leadIndex = liveRecords.indexOf(lead),
+                            // Moves each record next to the one placed before it, starting at the held card
+                            place     = (list, side) => {
+                                let anchor = owner.getKey(lead);
 
-                        liveRecords.slice(1).forEach(record => {
-                            const moved = owner.moveCard({
-                                afterId: prevKey,
-                                lane   : commit.lane,
-                                record,
-                                status : commit.status
-                            });
+                                return list.map(record => {
+                                    const moved = owner.moveCard({[side]: anchor, lane: commit.lane, record, status: commit.status});
+                                    moved && (anchor = owner.getKey(moved));
+                                    return moved
+                                }).filter(Boolean)
+                            };
 
-                            if (moved) {
-                                movedRecords.push(moved);
-                                prevKey = owner.getKey(moved)
-                            }
-                        })
+                        // The held card took the slot: the cards above it in board order go in front of it, nearest
+                        // first, and the rest follow it, so the block starts at the slot in board order
+                        movedRecords.push(
+                            ...place(liveRecords.slice(0, leadIndex).reverse(), 'beforeId').reverse(),
+                            lead,
+                            ...place(liveRecords.slice(leadIndex + 1), 'afterId')
+                        )
                     }
                 } finally {
                     owner.isNormalizing = wasNormalizing

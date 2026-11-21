@@ -209,7 +209,8 @@ class Container extends GridContainer {
          */
         minBarWidthPx_: 4,
         /**
-         * Minimum allowed event duration in minutes (`>= 1`) during drag-resize, keyboard resize, and {@link #moveEvent}.
+         * Minimum allowed event duration in minutes (`>= 1`) during drag-resize, keyboard resize, and {@link #moveEvent},
+         * which clamp to it. The editor refuses a range below it ({@link #commitTimelineEdit}).
          * @member {Number} minimumDuration_=15
          * @reactive
          */
@@ -649,15 +650,31 @@ class Container extends GridContainer {
     }
 
     /**
-     * @summary Commits an editor or drag gesture through the scheduler's single writer.
+     * @summary Commits an editor or drag gesture through the scheduler's single writer. The editor holds what the person
+     * typed, so its range below {@link #getMinimumDurationMs} is refused where a gesture would be clamped.
      * @param {Neo.data.Model} record Current event record.
      * @param {Object} changes Requested changes.
      * @param {Object} [meta] Gesture metadata.
-     * @returns {Object|Boolean} Applied changes, or false when the edit was not accepted.
+     * @returns {Object|Boolean} Applied changes, `{status: 'refused', message}` for an editor range below the minimum,
+     * or false when the edit was not accepted.
      */
     commitTimelineEdit(record, changes, meta={}) {
         if (!changes || typeof changes !== 'object' || Array.isArray(changes)) return false;
-        return this.moveEvent(record, {...changes, fields: {...changes, ...changes.fields}}, meta) ?? false
+
+        const me = this;
+
+        if (meta.source === 'editor') {
+            const
+                start   = changes[me.startDateField] ?? changes.startDate ?? record[me.startDateField],
+                end     = changes[me.endDateField]   ?? changes.endDate   ?? record[me.endDateField],
+                minutes = me.getMinimumDurationMs() / MS_PER_MINUTE;
+
+            if (new Date(end) - new Date(start) < minutes * MS_PER_MINUTE) {
+                return {status: 'refused', message: `The end must be at least ${minutes} minute${minutes === 1 ? '' : 's'} after the start`}
+            }
+        }
+
+        return me.moveEvent(record, {...changes, fields: {...changes, ...changes.fields}}, meta) ?? false
     }
 
     /**
@@ -795,6 +812,14 @@ class Container extends GridContainer {
     }
 
     /**
+     * @summary The shortest an event may last: {@link #minimumDuration}, else the axis' `snapMinutes`, else 15 minutes.
+     * @returns {Number} Milliseconds
+     */
+    getMinimumDurationMs() {
+        return Math.max(1, this.minimumDuration || this.timeAxis?.snapMinutes || 15) * MS_PER_MINUTE
+    }
+
+    /**
      * @summary Returns events for a resource intersecting the given range, or the axis range by default.
      * @param {String|Number} resourceId
      * @param {Date|String|Number|null} [start=null]
@@ -872,9 +897,9 @@ class Container extends GridContainer {
     /**
      * @summary Single writer for rescheduling, reassigning, or editing an event record (`drag`, `resize`, `keyboard`,
      * `EventEditor`, or programmatic/NL API). Validates and clamps `[startDate, endDate]` against {@link #timeAxis} and
-     * {@link #minimumDuration}, merges any extra `fields` into one reactive `record.set(updates)` (running
-     * `eventStore.doSort()` only when `eventStore.sorters?.length > 0`), and fires `eventChange`. Returns `null` when
-     * nothing changed.
+     * {@link #minimumDuration} (the editor is refused below the minimum first, in {@link #commitTimelineEdit}), merges
+     * any extra `fields` into one reactive `record.set(updates)` (running `eventStore.doSort()` only when
+     * `eventStore.sorters?.length > 0`), and fires `eventChange`. Returns `null` when nothing changed.
      * @param {Neo.data.Model|Object|String|Number} eventIdOrRecord Record instance, record key, or single-object options `{record|key|eventId, startDate, endDate, resourceId, percentDone, title, fields, meta}`
      * @param {Object} [changes={}] Accepts `startDate` (or `[startDateField]`), `endDate` (or `[endDateField]`),
      * `resourceId`, `percentDone` (or `[percentDoneField]`), `title` (or `[titleField]`), and `fields` (plain object of extra model fields; `keyProperty` is refused)
@@ -938,7 +963,7 @@ class Container extends GridContainer {
             return null
         }
 
-        const minMs = Math.max(1, me.minimumDuration || axis?.snapMinutes || 15) * MS_PER_MINUTE;
+        const minMs = me.getMinimumDurationMs();
 
         if (hasStartInput || hasEndInput) {
             if (axis && meta.clamp !== false) {
@@ -1318,7 +1343,37 @@ class Container extends GridContainer {
     }
 
     /**
-     * @summary Applies a named zoom preset (`'hour' | 'day' | 'week'`) or custom `timeAxis` configuration object.
+     * @summary Scrolls the timeline so `date` sits at its visible left edge, as far as the timeline's end allows.
+     * @description Waits for the horizontal scrollbar's update first: after a scale change the scrollbar takes the
+     * timeline's new width in that update, and a scroll sent before it lands is clamped to the old width.
+     * @param {Date} date
+     * @returns {Promise<void>}
+     */
+    async scrollToDate(date) {
+        const
+            me                                    = this,
+            {horizontalScrollbar, timelineColumn} = me;
+
+        if (horizontalScrollbar && timelineColumn) {
+            await horizontalScrollbar.promiseUpdate();
+
+            const position = !me.isDestroyed && me.body.columnPositions?.get(timelineColumn.dataField);
+
+            position && await Neo.main.DomAccess.scrollTo({
+                direction: 'left',
+                id       : horizontalScrollbar.id,
+                value    : position.x + me.timeAxis.dateToOffset(date),
+                windowId : me.windowId
+            })
+        }
+    }
+
+    /**
+     * @summary Applies a named zoom preset (`'hour' | 'day' | 'week'`) or custom `timeAxis` configuration object,
+     * keeping the date at the visible timeline's left edge where it is.
+     * @description A new scale changes how many pixels a minute takes, so the old scroll offset would show another
+     * date. The date at the visible timeline's left edge is read before the scale changes and scrolled back to the
+     * edge after it ({@link #scrollToDate}). While the timeline's start is in view, nothing scrolls.
      * @param {String|Object} presetOrConfig
      * @returns {Neo.timeline.TimeAxis|null}
      */
@@ -1336,6 +1391,13 @@ class Container extends GridContainer {
 
         const {majorTickStep, majorTickUnit, ...axisConfig} = config;
 
+        const
+            {timelineColumn} = me,
+            position         = me.mounted && timelineColumn && me.body.columnPositions?.get(timelineColumn.dataField),
+            // The visible timeline's left edge on the axis, 0 while the timeline's start is in view
+            edgeOffset       = position ? Math.min(axis.totalSize, timelineColumn.scrollLeft - position.x) : 0,
+            edgeDate         = edgeOffset > 0 ? axis.offsetToDate(edgeOffset) : null;
+
         if (majorTickUnit !== undefined) {
             me.majorTickUnit = majorTickUnit
         }
@@ -1344,6 +1406,9 @@ class Container extends GridContainer {
         }
 
         axis.set(axisConfig);
+
+        // The new scale moved that date: bring it back to the edge
+        edgeDate && me.scrollToDate(edgeDate);
         return axis
     }
 }

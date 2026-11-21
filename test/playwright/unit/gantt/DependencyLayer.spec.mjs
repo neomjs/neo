@@ -97,3 +97,31 @@ test('the buffered horizontal window intersects the rounded SVG route, including
         layer.destroy(); axis.destroy(); dependencies.destroy(); store.destroy()
     }
 });
+
+test('with the axis starting past the overscan, a scroll keeps the projected window until it crosses it', () => {
+    const date  = x => new Date(epoch + x * 60_000);
+    const task  = (id, from, to) => ({id, title: id, isLeaf: true, collapsed: false, parentId: null, startDate: date(from), endDate: date(to)});
+    const store = Neo.create(TaskStore, {data: [task('a', 10, 20), task('b', 30, 40)]});
+    const links = Neo.create(DependencyStore, {data: [{id: 'ab', fromId: 'a', toId: 'b', type: 'FS'}]});
+    const axis  = Neo.create(TimeAxis, {start: date(0), end: date(4000), pxPerMinute: 1});
+    // The axis starts 800 px into its region, beyond 40 px of overscan
+    const layer = Neo.create(DependencyLayer, {appName, taskStore: store, dependencyStore: links, timeAxis: axis,
+        axisLeft: 800, bufferPx: 40, scrollLeft: 50, viewportWidth: 1000});
+    const project     = layer.project.bind(layer);
+    let   projections = 0;
+
+    try {
+        project();
+        layer.project = () => (projections++, project());
+
+        // Until the axis start scrolls 40 px past the region's left edge, the visible axis stays inside [0, 1040]
+        layer.scrollLeft = 51;
+        layer.scrollLeft = 839;
+        expect(projections).toBe(0);
+
+        layer.scrollLeft = 841;
+        expect(projections).toBe(1)
+    } finally {
+        layer.destroy(); links.destroy(); store.destroy(); axis.destroy()
+    }
+});

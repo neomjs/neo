@@ -99,6 +99,12 @@
         }
     }
 
+    /* The layer scrolls with the cells, but no row clips it as rows clip theirs: its body does,
+       so a link whose bars scrolled out never paints over the locked columns */
+    .neo-grid-body:has(> .neo-gantt-dependency-layer) {
+        overflow-x: clip;
+    }
+
     .neo-gantt-dependency-layer {
         left          : 0;
         overflow      : visible;
