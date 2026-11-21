@@ -1,5 +1,13 @@
 /* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
 .venue-viewport.neo-viewport {
+    /* The body's gridlines follow the level's minor ticks: two hours at Hours and six at Days both measure 180px */
+    --neo-timeline-gridline-step: 180px;
+
+    /* A day at Week */
+    &.venue-at-week {
+        --neo-timeline-gridline-step: 216px;
+    }
+
     .venue-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--neo-timeline-header-background);
@@ -61,6 +69,53 @@
         }
     }
 
+    /* What each bar colour means, in the bars' own colours */
+    .venue-legend {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        color        : var(--neo-timeline-header-muted-color);
+        display      : flex;
+        flex-wrap    : wrap;
+        font-size    : 12px;
+        gap          : 6px 18px;
+        padding      : 8px 20px;
+    }
+
+    .venue-legend-item {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 6px;
+
+        &::before {
+            border       : 1px solid;
+            border-radius: 3px;
+            content      : '';
+            height       : 10px;
+            width        : 10px;
+        }
+    }
+
+    .venue-legend-violet::before {
+        background  : var(--neo-scheduler-bar-violet-bg);
+        border-color: var(--neo-scheduler-bar-violet-border);
+    }
+
+    .venue-legend-talk::before {
+        background  : var(--neo-timeline-bar-background);
+        border-color: var(--neo-timeline-bar-border-color);
+    }
+
+    .venue-legend-emerald::before {
+        background  : var(--neo-scheduler-bar-emerald-bg);
+        border-color: var(--neo-scheduler-bar-emerald-border);
+    }
+
+    .venue-legend-amber::before {
+        background  : var(--neo-scheduler-bar-amber-bg);
+        border-color: var(--neo-scheduler-bar-amber-border);
+    }
+
     .venue-room-name,
     .venue-room-seats {
         display      : block;
@@ -78,9 +133,18 @@
         font-size: 12px;
     }
 
-    /* A session too short to name shows its shape only: at the week level an hour is nine pixels wide */
+    /* A title takes two lines before it ends in an ellipsis; a session too short to name shows its shape only, as at
+       the week level, where an hour is nine pixels wide */
     .neo-timeline-bar {
         container-type: inline-size;
+
+        .neo-timeline-bar-label {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            display           : -webkit-box;
+            line-height       : 1.25;
+            white-space       : normal;
+        }
     }
 
     @container (max-width: 36px) {
@@ -93,6 +157,10 @@
     @media (max-width: 720px) {
         .venue-hint {
             display: none;
+        }
+
+        .venue-legend {
+            padding: 6px 12px;
         }
 
         .venue-levels {

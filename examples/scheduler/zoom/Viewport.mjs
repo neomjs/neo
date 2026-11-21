@@ -1,4 +1,5 @@
 import Button     from '../../../src/button/Base.mjs';
+import Component  from '../../../src/component/Base.mjs';
 import Container  from '../../../src/container/Base.mjs';
 import EventModel from '../../../src/timeline/model/Event.mjs';
 import EventStore from '../../../src/timeline/store/Events.mjs';
@@ -11,42 +12,43 @@ import Viewport   from '../../../src/container/Viewport.mjs';
 
 const
     // Monday to Monday in Lisbon, which keeps UTC in December: the venue's clock and the stored times agree
-    RANGE   = {start: '2026-12-07', end: '2026-12-14'},
-    DAYS    = ['2026-12-07', '2026-12-08', '2026-12-09', '2026-12-10', '2026-12-11', '2026-12-12', '2026-12-13'],
-    OPEN_AT = new Date('2026-12-07T08:00:00Z'), // Monday 08:00, when the venue opens
+    RANGE    = {start: '2026-12-07', end: '2026-12-14'},
+    DAYS     = ['2026-12-07', '2026-12-08', '2026-12-09', '2026-12-10', '2026-12-11', '2026-12-12', '2026-12-13'],
+    OPEN_AT  = new Date('2026-12-07T08:00:00Z'), // Monday 08:00, when the venue opens
     // The scheduler's own zoom presets, from one morning to the whole week
-    LEVELS  = [
+    LEVELS   = [
         {preset: 'hour', text: 'Hours'},
         {preset: 'day',  text: 'Days'},
         {preset: 'week', text: 'Week'}
-    ];
+    ],
+    WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // [id, name, seats]
 const ROOMS = [
-    ['main',   'Main hall',        900],
-    ['north',  'North auditorium', 400],
-    ['south',  'South auditorium', 400],
-    ['room-a', 'Room A',           120],
-    ['room-b', 'Room B',           120],
-    ['room-c', 'Room C',           120],
-    ['room-d', 'Room D',           120],
-    ['lab-1',  'Lab 1',            40],
-    ['lab-2',  'Lab 2',            40],
-    ['studio', 'Studio',           6],
-    ['board',  'Boardroom',        14],
-    ['foyer',  'Foyer stage',      150]
+    ['main',   'Main hall',   900],
+    ['north',  'North hall',  400],
+    ['south',  'South hall',  400],
+    ['room-a', 'Room A',      120],
+    ['room-b', 'Room B',      120],
+    ['room-c', 'Room C',      120],
+    ['room-d', 'Room D',      120],
+    ['lab-1',  'Lab 1',       40],
+    ['lab-2',  'Lab 2',       40],
+    ['studio', 'Studio',      6],
+    ['board',  'Boardroom',   14],
+    ['foyer',  'Foyer stage', 150]
 ];
 
-// A conference day, Monday to Friday: [room, start, end, kind]
+// A conference day, Monday to Friday: [room, start, end, kind]. Every room keeps an hour between its sessions
 const CONFERENCE_DAY = [
     ['board',  '08:00', '08:45', 'standup'],
     ['main',   '09:00', '10:00', 'keynote'],
-    ['north',  '10:30', '11:30', 'talk'], ['north', '13:30', '14:30', 'talk'], ['north', '15:00', '16:00', 'talk'],
-    ['south',  '10:30', '11:30', 'talk'], ['south', '13:30', '14:30', 'talk'], ['south', '15:00', '16:00', 'talk'],
+    ['north',  '10:30', '11:30', 'talk'], ['north',  '13:00', '14:00', 'talk'], ['north', '15:30', '16:30', 'talk'],
+    ['south',  '10:30', '11:30', 'talk'], ['south',  '13:00', '14:00', 'talk'], ['south', '15:30', '16:30', 'talk'],
     ['room-a', '10:30', '12:00', 'talk'], ['room-a', '14:00', '15:30', 'talk'],
-    ['room-b', '10:30', '12:00', 'talk'], ['room-b', '14:00', '15:30', 'talk'],
-    ['room-c', '10:30', '12:00', 'talk'], ['room-c', '14:00', '15:30', 'talk'],
-    ['room-d', '10:30', '12:00', 'talk'], ['room-d', '14:00', '15:30', 'talk'],
+    ['room-b', '11:00', '12:00', 'talk'], ['room-b', '13:30', '15:00', 'talk'], ['room-b', '16:00', '17:00', 'talk'],
+    ['room-c', '10:00', '11:30', 'talk'], ['room-c', '15:00', '16:30', 'talk'],
+    ['room-d', '11:30', '12:30', 'talk'], ['room-d', '14:30', '16:00', 'talk'],
     ['lab-1',  '10:00', '13:00', 'workshop'],
     ['studio', '12:00', '13:00', 'studio'],
     ['foyer',  '12:30', '13:15', 'lightning'],
@@ -57,10 +59,10 @@ const CONFERENCE_DAY = [
 // The weekend: a community Saturday and a hack day on Sunday
 const SATURDAY = [
     ['lab-1',  '10:00', '13:00', 'workshop'],
-    ['room-a', '10:00', '11:00', 'openSpace'], ['room-a', '11:30', '12:30', 'openSpace'],
-    ['room-b', '10:00', '11:00', 'openSpace'], ['room-b', '11:30', '12:30', 'openSpace'],
+    ['room-a', '10:00', '11:00', 'openSpace'], ['room-a', '12:00', '13:00', 'openSpace'],
+    ['room-b', '10:00', '11:00', 'openSpace'], ['room-b', '12:00', '13:00', 'openSpace'],
     ['main',   '11:00', '12:30', 'meetup'],
-    ['foyer',  '13:00', '14:00', 'lightning'],
+    ['foyer',  '13:30', '14:30', 'lightning'],
     ['lab-2',  '14:00', '17:00', 'workshop']
 ];
 
@@ -98,7 +100,7 @@ const TITLES = {
                 'Workshop: open hardware', 'Workshop: game jam warm-up']
 };
 
-// A bar's colour by kind; a talk keeps the theme's own bar colour
+// A bar's colour by kind; a talk keeps the theme's own bar colour. The legend names the four groups
 const KIND_CLS = {
     demos    : 'neo-scheduler-bar-violet',
     keynote  : 'neo-scheduler-bar-violet',
@@ -112,11 +114,18 @@ const KIND_CLS = {
     studio   : 'neo-scheduler-bar-amber'
 };
 
+const LEGEND = [
+    {cls: 'venue-legend-violet',  text: 'Keynotes, panels, meetups'},
+    {cls: 'venue-legend-talk',    text: 'Talks'},
+    {cls: 'venue-legend-emerald', text: 'Workshops, open space, hack day'},
+    {cls: 'venue-legend-amber',   text: 'Stand-ups, studio, lightning talks'}
+];
+
 // Rooms whose talks start half an hour later on Tuesday and Thursday, so no two days read the same
 const LATE_ROOMS = new Set(['north', 'room-b', 'room-d']);
 
 /**
- * @summary Builds the week's 117 sessions from the day programs, in the order a visitor reads them.
+ * @summary Builds the week's 122 sessions from the day programs, in the order a visitor reads them.
  * @returns {Object[]}
  */
 function buildSessions() {
@@ -141,6 +150,21 @@ function buildSessions() {
             }
         })
     })
+}
+
+/**
+ * @summary Labels a minor tick: a day by its weekday and date ("Tue 8"), so the week level does not read as hours,
+ * and an hour by its clock time ("08:00").
+ * @param {{date: Date, unit: String}} tick
+ * @param {Neo.timeline.TimeAxis} axis
+ * @returns {String}
+ */
+function formatMinor(tick, axis) {
+    const wall = axis.wallTime(tick.date);
+
+    return tick.unit === 'day'
+        ? `${WEEKDAYS[wall.getUTCDay()]} ${wall.getUTCDate()}`
+        : `${String(wall.getUTCHours()).padStart(2, '0')}:00`
 }
 
 /**
@@ -176,8 +200,8 @@ class SessionModel extends EventModel {
 SessionModel = Neo.setupClass(SessionModel);
 
 /**
- * @summary A conference venue's week, twelve rooms and 117 sessions, read at three zoom levels: Hours for one
- * morning, Days for a day and a half, Week for all seven days.
+ * @summary A conference venue's week, twelve rooms and 122 sessions, read at three zoom levels: Hours for one
+ * morning, Days for a day and a half, Week for the whole week.
  * @description The levels are `Neo.scheduler.Container`'s own `zoomPresets`, switched through `zoomTo()`, which keeps
  * the date at the timeline's left edge in place. The plan opens at Days on Monday 08:00, so a zoom to Hours shows
  * Monday morning and a zoom to Week starts the week from there.
@@ -219,6 +243,11 @@ class VenueViewport extends Viewport {
                 }))
             }]
         }, {
+            module: Component,
+            cls   : ['venue-legend'],
+            flex  : 'none',
+            vdom  : {cn: LEGEND.map(({cls, text}) => ({tag: 'span', cls: ['venue-legend-item', cls], text}))}
+        }, {
             module      : Scheduler,
             barDraggable: false,
             barRenderer : (barDescriptor, {vdom}) => {
@@ -234,13 +263,14 @@ class VenueViewport extends Viewport {
                 data  : buildSessions()
             },
             flex           : 1,
+            minorFormatter : formatMinor,
             reference      : 'scheduler',
             resizableBars  : false,
             resourceColumns: [{
                 dataField: 'name',
                 locked   : 'start',
                 text     : 'Room',
-                width    : 156,
+                width    : 120,
                 renderer : ({record}) => ({
                     cn: [
                         {tag: 'span', cls: ['venue-room-name'],  text: record.name},
@@ -248,7 +278,7 @@ class VenueViewport extends Viewport {
                     ]
                 })
             }],
-            rowHeight: 64,
+            rowHeight: 60,
             store    : {
                 module: Store,
                 model : RoomModel,
@@ -288,7 +318,8 @@ class VenueViewport extends Viewport {
     }
 
     /**
-     * @summary Zooms to the pressed button's level and marks it as the active one.
+     * @summary Zooms to the pressed button's level, marks it as the active one, and sets the body's gridlines to the
+     * level's ticks: a day at Week, otherwise two or six hours, which both measure 180px.
      * @param {Object} data
      * @param {Neo.button.Base} data.component
      */
@@ -296,6 +327,7 @@ class VenueViewport extends Viewport {
         const preset = component.reference.split('-').pop();
 
         LEVELS.forEach(level => this.getReference(`level-${level.preset}`).pressed = level.preset === preset);
+        this.toggleCls('venue-at-week', preset === 'week');
         this.getReference('scheduler').zoomTo(preset)
     }
 }
