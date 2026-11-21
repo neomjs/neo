@@ -1318,7 +1318,33 @@ class Container extends GridContainer {
     }
 
     /**
-     * @summary Applies a named zoom preset (`'hour' | 'day' | 'week'`) or custom `timeAxis` configuration object.
+     * @summary Scrolls the timeline's region to `value` once the horizontal scrollbar carries the region's width.
+     * @description After a scale change the scrollbar takes the timeline's new width in its next update, and a
+     * scroll sent before that update lands is clamped to the old width.
+     * @param {Number} value Pixels in the region's scroll content, the unit of the header toolbar's `scrollLeft`
+     * @returns {Promise<void>}
+     */
+    async scrollTimelineTo(value) {
+        const
+            me                    = this,
+            {horizontalScrollbar} = me;
+
+        if (horizontalScrollbar) {
+            await horizontalScrollbar.promiseUpdate();
+
+            if (!me.isDestroyed) {
+                await Neo.main.DomAccess.scrollTo({direction: 'left', id: horizontalScrollbar.id, value, windowId: me.windowId})
+            }
+        }
+    }
+
+    /**
+     * @summary Applies a named zoom preset (`'hour' | 'day' | 'week'`) or custom `timeAxis` configuration object,
+     * keeping the date at the visible timeline's left edge where it is.
+     * @description A new scale changes how many pixels a minute takes, so the old scroll offset would show another
+     * date. The date at the visible timeline's left edge is read before the scale changes, and the region scrolls
+     * by as far as that date moved ({@link #scrollTimelineTo}). While the timeline's start is in view, nothing
+     * scrolls.
      * @param {String|Object} presetOrConfig
      * @returns {Neo.timeline.TimeAxis|null}
      */
@@ -1336,6 +1362,14 @@ class Container extends GridContainer {
 
         const {majorTickStep, majorTickUnit, ...axisConfig} = config;
 
+        const
+            {timelineColumn} = me,
+            position         = me.mounted && timelineColumn && me.body.columnPositions?.get(timelineColumn.dataField),
+            scrollLeft       = position ? timelineColumn.scrollLeft : 0,
+            // The visible timeline's left edge on the axis, 0 while the timeline's start is in view
+            edgeOffset       = position ? Math.min(axis.totalSize, scrollLeft - position.x) : 0,
+            edgeDate         = edgeOffset > 0 ? axis.offsetToDate(edgeOffset) : null;
+
         if (majorTickUnit !== undefined) {
             me.majorTickUnit = majorTickUnit
         }
@@ -1344,6 +1378,9 @@ class Container extends GridContainer {
         }
 
         axis.set(axisConfig);
+
+        // The new scale moved that date: scroll by as much, so it stays at the edge
+        edgeDate && me.scrollTimelineTo(scrollLeft + axis.dateToOffset(edgeDate) - edgeOffset);
         return axis
     }
 }
