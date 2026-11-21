@@ -56,7 +56,7 @@ class BigDataViewport extends Viewport {
             flex  : 'none',
             items : [
                 {module: Label, cls: ['desk-title'],    text: 'Support desk'},
-                {module: Label, cls: ['desk-subtitle'], text: 'Each column renders only the cards near its scroll position'},
+                {module: Label, cls: ['desk-subtitle'], text: 'Scroll New to its end and drag its last ticket into Triage: the counts follow, and the DOM stays small'},
                 {module: Label, cls: ['desk-counter'],  reference: 'counter', text: ''}
             ]
         }, {

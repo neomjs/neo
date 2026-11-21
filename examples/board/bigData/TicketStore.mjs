@@ -25,8 +25,9 @@ const
 
 /**
  * @summary A support desk's 10,000 tickets in five statuses, generated from one seed: the same desk on every load.
- * @description Ticket `t-1` is the oldest. A title pairs a customer with one of an area's issues. The area is a tag,
- * and so is the priority when it is high or urgent. One agent is the assignee, except in New, where nobody has picked
+ * @description Ticket `t-1` tops New with the highest ticket number: New holds the newest tickets, and Closed the
+ * oldest. A title is the ticket's number, then a customer with one of an area's issues, so a problem that recurs still
+ * reads as separate tickets. The area is a tag, and so is the priority when it is high or urgent. One agent is the assignee, except in New, where nobody has picked
  * the ticket up yet. `order` stays unset: the board numbers each column when it loads.
  * @class Neo.examples.board.bigData.TicketStore
  * @extends Neo.data.Store
@@ -92,7 +93,8 @@ class TicketStore extends Store {
         const
             next    = this.createRandom(21627),
             pick    = list => list[Math.floor(next() * list.length)],
-            records = [];
+            records = [],
+            total   = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
 
         for (const [status, count] of Object.entries(statusCounts)) {
             for (let i = 0; i < count; i++) {
@@ -102,7 +104,7 @@ class TicketStore extends Store {
 
                 records.push({
                     id       : `t-${records.length + 1}`,
-                    title    : `${pick(customers)} ${pick(issues[area])}`,
+                    title    : `#${total - records.length} · ${pick(customers)} ${pick(issues[area])}`,
                     status,
                     tags     : priority === 'normal' ? [area] : [area, priority],
                     assignees: status === 'new' ? [] : [pick(agents)],
