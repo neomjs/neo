@@ -1,34 +1,34 @@
 :where(.neo-theme-light) {
-    --kitchen-header-bg            : #ffffff;
-    --kitchen-status-bg            : #f8fafc;
-    --kitchen-border               : #cbd5e1;
-    --kitchen-title                : #0f172a;
-    --kitchen-muted                : #475569;
-    --kitchen-control-bg           : #f1f5f9;
-    --kitchen-hover-bg             : #e2e8f0;
-    --kitchen-switch-off-bg        : #e2e8f0;
+    --kitchen-header-bg            : #fafaf9;
+    --kitchen-status-bg            : #f5f5f4;
+    --kitchen-border               : #d6d3d1;
+    --kitchen-title                : #1c1917;
+    --kitchen-muted                : #57534e;
+    --kitchen-control-bg           : #f5f5f4;
+    --kitchen-hover-bg             : #e7e5e4;
+    --kitchen-switch-off-bg        : #e7e5e4;
     --kitchen-switch-active-surface: #e0f2fe;
     --kitchen-selected-bg          : #0369a1;
     --kitchen-selected-text        : #ffffff;
     --kitchen-badge-text           : #0f766e;
     --kitchen-focus                : #0284c7;
 
-    --kitchen-nw-bg                : rgba(226, 232, 240, 0.62);
-    --kitchen-nw-stripe            : rgba(100, 116, 139, 0.16);
-    --kitchen-nw-border            : rgba(100, 116, 139, 0.34);
-    --kitchen-nw-pill-bg           : #f1f5f9;
-    --kitchen-nw-swatch-bg         : #e2e8f0;
+    --kitchen-nw-bg                : rgba(231, 229, 228, 0.66);
+    --kitchen-nw-stripe            : rgba(120, 113, 108, 0.16);
+    --kitchen-nw-border            : rgba(120, 113, 108, 0.34);
+    --kitchen-nw-pill-bg           : #f5f5f4;
+    --kitchen-nw-swatch-bg         : #e7e5e4;
 
-    --kitchen-holiday-bg           : rgba(254, 243, 199, 0.72);
+    --kitchen-holiday-bg           : rgba(254, 243, 199, 0.74);
     --kitchen-holiday-stripe       : rgba(217, 119, 6, 0.18);
     --kitchen-holiday-border       : rgba(180, 83, 9, 0.52);
     --kitchen-holiday-pill-bg      : #fffbeb;
     --kitchen-holiday-pill-text    : #92400e;
     --kitchen-holiday-swatch-bg    : #fef3c7;
 
-    --kitchen-bar-text             : #0f172a;
-    --kitchen-bar-shadow           : 0 1px 4px rgba(15, 23, 42, 0.12);
-    --kitchen-hero-shadow          : 0 0 0 1px rgba(2, 132, 199, 0.40), 0 2px 8px rgba(15, 23, 42, 0.16);
+    --kitchen-bar-text             : #1c1917;
+    --kitchen-bar-shadow           : 0 1px 4px rgba(28, 25, 23, 0.12);
+    --kitchen-hero-shadow          : 0 0 0 1px rgba(3, 105, 161, 0.40), 0 2px 8px rgba(28, 25, 23, 0.16);
 
     --kitchen-prep-bg              : #dbeafe;
     --kitchen-prep-border          : #3b82f6;

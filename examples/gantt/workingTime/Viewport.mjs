@@ -11,12 +11,11 @@ import Viewport                    from '../../../src/container/Viewport.mjs';
 
 const
     AXIS_START     = '2026-11-02',
-    AXIS_END       = '2026-11-21',
-    TOTAL_DAYS     = 19,
-    DESKTOP_DAY_PX = 63,
-    COMPACT_DAY_PX = 28,
+    AXIS_END       = '2026-11-25',
+    TOTAL_DAYS     = 23,
+    DESKTOP_DAY_PX = 53,
+    COMPACT_DAY_PX = 18,
     HOLIDAY_KEY    = '2026-11-12',
-    MS_PER_DAY     = 86_400_000,
     WEEKDAY_SHORT  = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
     SHORT_DATE_FMT = new Intl.DateTimeFormat('en-GB', {weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC'}),
     MONTH_FMT      = new Intl.DateTimeFormat('en-GB', {day: 'numeric', month: 'short', timeZone: 'UTC'}),
@@ -27,24 +26,52 @@ const
     };
 
 /**
- * @summary Formats an exclusive midnight `endDate` as its inclusive last calendar day (e.g. `'2026-11-12T00:00:00Z'` → `'Wed 11 Nov'`).
+ * @summary Formats a task's `[startValue, endValue)` span as its inclusive last active UTC day
+ * (e.g. `'2026-11-05'..'2026-11-12T00:00:00Z'` → `'Wed 11 Nov'`, intra-day `'Mon 16:00Z'` → `'Mon'`).
+ * @param {Date|String|Number} startValue
  * @param {Date|String|Number} endValue
  * @returns {String}
  */
-function formatInclusiveFinish(endValue) {
-    const ms = endValue instanceof Date ? endValue.getTime() : new Date(endValue).getTime();
-    return SHORT_DATE_FMT.format(new Date(ms - MS_PER_DAY))
+function formatInclusiveFinish(startValue, endValue) {
+    const
+        startMs = startValue instanceof Date ? startValue.getTime() : new Date(startValue).getTime(),
+        endMs   = endValue   instanceof Date ? endValue.getTime()   : new Date(endValue).getTime();
+
+    return SHORT_DATE_FMT.format(new Date(Math.max(startMs, endMs - 1)))
 }
 
 /**
- * @summary Kitchen renovation Gantt chart demonstrating `useWorkingTime` duration evaluation across two shaded
- * weekends (`Sat 7–Sun 8 Nov`, `Sat 14–Sun 15 Nov`) and one public holiday (`Thu 12 Nov`).
+ * @summary Locked `Task` (`156px`) and `Days` (`48px`) column descriptors (`204px` total), leaving `1236px` on
+ * `1440 × 900` (`23 × 53px = 1219px`) and `186px` on `390 × 844` (`10 × 18px = 180px` so `Mon 2..Wed 11` fits on first paint).
+ * @type {Object[]}
+ */
+const TASK_COLUMNS = [{
+    columnMenu: false,
+    dataField : 'title',
+    locked    : 'start',
+    sortable  : false,
+    text      : 'Task',
+    width     : 156
+}, {
+    cellAlign : 'right',
+    cls       : ['kitchen-days-header'],
+    columnMenu: false,
+    dataField : 'duration',
+    locked    : 'start',
+    renderer  : ({value}) => `${Math.max(1, Math.round(Number(value) || 1))}d`,
+    sortable  : false,
+    text      : 'Days',
+    width     : 48
+}];
+
+/**
+ * @summary Kitchen renovation Gantt chart demonstrating `useWorkingTime` duration evaluation across shaded
+ * weekends and one public holiday (`Thu 12 Nov`).
  * @description Starts with `"Count working days only"` enabled (`useWorkingTime: true`), so the 5-day `"Rough plumbing & gas"`
  * task starting Thursday `5 Nov` skips `Sat 7–Sun 8 Nov` and finishes at the end of Wednesday `11 Nov` (`2026-11-12T00:00:00Z`),
- * while `"Hood & exterior duct"` (`3d`) crosses the `Thu 12 Nov` holiday and `"Drywall & skim plaster"` (`2d`) skips both
- * `Thu 12 Nov` and `Sat 14–Sun 15 Nov`. Switching working days off recalculates every linked task in calendar days immediately;
- * dragging a bar onto a non-working day snaps forward to the next working morning when `useWorkingTime` is `true` and lands on
- * that non-working day when `false`.
+ * while `"Hood & exterior duct"` (`3d`) crosses the `Thu 12 Nov` holiday and `"Drywall & plaster"` (`2d`) skips both
+ * `Thu 12 Nov` and `Sat 14–Sun 15 Nov`. Flipping `gantt.useWorkingTime` delegates rescheduling and `taskChange` publication
+ * directly to `Neo.gantt.Container`.
  * @class Neo.examples.gantt.workingTime.Viewport
  * @extends Neo.container.Viewport
  */
@@ -133,9 +160,10 @@ class KitchenWorkingTimeViewport extends Viewport {
                 text     : 'Rough plumbing & gas (5d): Thu 5 Nov → Wed 11 Nov · Sign-off: Fri 20 Nov'
             }]
         }, {
-            module      : Gantt,
-            barMarginPct: 16,
-            bind        : {
+            module        : Gantt,
+            animateCascade: true,
+            barMarginPct  : 16,
+            bind          : {
                 dependencyStore: 'stores.dependencies',
                 store          : 'stores.tasks'
             },
@@ -150,24 +178,36 @@ class KitchenWorkingTimeViewport extends Viewport {
             reference          : 'gantt',
             rowHeight          : 44,
             showNonWorkingTime : true,
+            taskColumns        : TASK_COLUMNS,
             useWorkingTime     : true,
             barRenderer(barDescriptor, {record, vdom}) {
                 const
                     task     = barDescriptor?.event || record,
                     days     = Math.max(1, Math.round(Number(task?.duration) || 1)),
                     widthPx  = parseFloat(vdom?.style?.width) || 0,
-                    tradeCls = BAR_CLS_MAP[task?.trade] || 'kitchen-bar-prep';
+                    tradeCls = BAR_CLS_MAP[task?.trade] || 'kitchen-bar-prep',
+                    baseName = task?.shortLabel || task?.title || '';
 
                 vdom.cls.push(tradeCls);
-                if (task?.id === 't3') {
-                    vdom.cls.push('kitchen-bar-hero')
-                }
 
-                if (widthPx > 0 && widthPx < 60) {
+                if (widthPx > 0 && widthPx < 24) {
+                    return ''
+                }
+                if (widthPx > 0 && widthPx < 46) {
                     return `${days}d`
                 }
 
-                return task?.shortLabel || `${task?.title || ''} (${days}d)`
+                if (days > 1) {
+                    let label = baseName;
+                    if (widthPx > 0 && widthPx < 155 && baseName === 'Rough plumbing & gas') {
+                        label = 'Rough plumbing'
+                    } else if (widthPx > 0 && widthPx < 115 && baseName === 'Circuits & LEDs') {
+                        label = 'Circuits'
+                    }
+                    return `${label} (${days}d)`
+                }
+
+                return baseName
             },
             majorFormatter: tick => `Week of ${MONTH_FMT.format(tick.date)}`,
             minorFormatter: tick => {
@@ -176,24 +216,6 @@ class KitchenWorkingTimeViewport extends Viewport {
                     ? String(d.getUTCDate())
                     : `${WEEKDAY_SHORT[d.getUTCDay()]} ${d.getUTCDate()}`
             },
-            taskColumns: [{
-                columnMenu: false,
-                dataField : 'title',
-                locked    : 'start',
-                sortable  : false,
-                text      : 'Task',
-                width     : 166
-            }, {
-                cellAlign : 'right',
-                cls       : ['kitchen-days-header'],
-                columnMenu: false,
-                dataField : 'duration',
-                locked    : 'start',
-                renderer  : ({value}) => `${Math.max(1, Math.round(Number(value) || 1))}d`,
-                sortable  : false,
-                text      : 'Days',
-                width     : 52
-            }],
             timeAxis: {
                 end            : AXIS_END,
                 nonWorkingDates: [HOLIDAY_KEY],
@@ -212,18 +234,18 @@ class KitchenWorkingTimeViewport extends Viewport {
     #isCompact = null
 
     /**
-     * @summary Observes center timeline width so desktop (`63px/day`) and narrow mobile (`24px/day`) keep integer day gridlines.
+     * @summary Observes grid width so desktop (`53px/day`) and compact mobile (`18px/day`) keep integer day gridlines.
      */
     onConstructed() {
         super.onConstructed();
 
-        const body = this.getReference('gantt')?.body;
+        const gantt = this.getReference('gantt');
 
-        if (body) {
-            this.observeConfig(body, 'containerWidth', width => this.syncViewportDensity(width));
+        if (gantt?.body) {
+            this.observeConfig(gantt.body, 'containerWidth', width => this.syncViewportDensity(width));
 
-            if (body.containerWidth > 0) {
-                this.syncViewportDensity(body.containerWidth)
+            if (gantt.body.containerWidth > 0) {
+                this.syncViewportDensity(gantt.body.containerWidth)
             }
         }
 
@@ -231,7 +253,7 @@ class KitchenWorkingTimeViewport extends Viewport {
     }
 
     /**
-     * @summary Restores the 12 seeded kitchen tasks and re-applies the active working-days setting.
+     * @summary Restores the 12 seeded kitchen tasks and re-applies the active working-days setting through the chart.
      */
     onResetPlan() {
         const
@@ -241,24 +263,24 @@ class KitchenWorkingTimeViewport extends Viewport {
         store.data = buildSeedTasks();
 
         if (!gantt.useWorkingTime) {
-            this.recomputeSchedule(false)
+            gantt.rescheduleWorkingTime(false, true)
         } else {
             gantt.timelineColumn?.refreshMountedRows();
-            gantt.syncDependencyLayer();
-            this.syncSummaryReadout()
+            gantt.syncDependencyLayer()
         }
+
+        this.syncSummaryReadout()
     }
 
     /**
-     * @summary Refreshes the top readout whenever a task is dragged, resized, or edited interactively.
+     * @summary Refreshes the top readout whenever a task edit or working-calendar switch commits.
      */
     onTaskChange() {
         this.syncSummaryReadout()
     }
 
     /**
-     * @summary Flips `gantt.useWorkingTime` and re-evaluates all 12 tasks from their stored `duration` (`days`)
-     * so switching working days off immediately shortens weekend/holiday-spanning bars and moves successors forward.
+     * @summary Flips `gantt.useWorkingTime`; `Neo.gantt.Container` reschedules task spans and dependent tasks.
      * @param {Object} data
      */
     onToggleWorkingDays({component}) {
@@ -266,120 +288,13 @@ class KitchenWorkingTimeViewport extends Viewport {
             gantt = this.getReference('gantt'),
             next  = !gantt.useWorkingTime;
 
-        component.pressed = next;
-        this.recomputeSchedule(next)
-    }
-
-    /**
-     * @summary Evaluates all task `[startDate, endDate)` intervals in topological FS order from each record's
-     * stored `duration` (`days`), skipping weekends and `2026-11-12` when `useWorking` is `true` or counting raw
-     * calendar days when `false`.
-     * @param {Boolean} useWorking
-     */
-    recomputeSchedule(useWorking) {
-        const
-            gantt    = this.getReference('gantt'),
-            axis     = gantt?.timeAxis,
-            store    = this.getStateProvider().getStore('tasks'),
-            depStore = this.getStateProvider().getStore('dependencies');
-
-        if (!gantt || !axis || !store || !depStore) {
-            return
-        }
-
-        gantt.useWorkingTime = useWorking;
-
-        const
-            incoming = new Map(),
-            outgoing = new Map(),
-            inDegree = new Map(),
-            tasks    = [];
-
-        for (let i = 0, n = store.getCount(); i < n; i++) {
-            const rec = store.getAt(i);
-            if (rec) {
-                const id = String(rec.id);
-                tasks.push(rec);
-                incoming.set(id, []);
-                outgoing.set(id, []);
-                inDegree.set(id, 0)
-            }
-        }
-
-        for (let i = 0, n = depStore.getCount(); i < n; i++) {
-            const edge = depStore.getAt(i);
-            if (!edge) continue;
-            const from = String(edge.fromId), to = String(edge.toId);
-            if (incoming.has(to) && outgoing.has(from)) {
-                incoming.get(to).push(edge);
-                outgoing.get(from).push(to);
-                inDegree.set(to, inDegree.get(to) + 1)
-            }
-        }
-
-        const queue = [];
-        for (const [id, deg] of inDegree.entries()) {
-            if (deg === 0) queue.push(id)
-        }
-
-        const spans = new Map();
-
-        for (let cursor = 0; cursor < queue.length; cursor++) {
-            const
-                id      = queue[cursor],
-                rec     = store.get(id),
-                inEdges = incoming.get(id) || [],
-                days    = Math.max(1, Number(rec.duration) || Number(rec.baseDuration) || 1),
-                durMs   = days * MS_PER_DAY;
-
-            let startMs;
-
-            if (inEdges.length === 0) {
-                const anchor = rec.startDate ? new Date(rec.startDate).getTime() : new Date(rec.baseStartDate).getTime();
-                startMs = useWorking ? axis.snapToWorkingTime(anchor, 1).getTime() : anchor
-            } else {
-                startMs = -Infinity;
-                for (const edge of inEdges) {
-                    const predSpan = spans.get(String(edge.fromId));
-                    if (!predSpan) continue;
-                    const req = gantt.computeRequiredStartMs({
-                        durationMs : durMs,
-                        lag        : Number(edge.lag) || 0,
-                        lagUnit    : edge.lagUnit || 'day',
-                        predEndMs  : predSpan.endMs,
-                        predStartMs: predSpan.startMs,
-                        type       : edge.type || 'FS',
-                        useWorking
-                    });
-                    if (req > startMs) startMs = req
-                }
-            }
-
-            const endMs = useWorking
-                ? axis.addWorkingMs(startMs, durMs).getTime()
-                : (startMs + durMs);
-
-            spans.set(id, {startMs, endMs});
-            rec.set({
-                endDate  : new Date(endMs),
-                startDate: new Date(startMs)
-            });
-
-            for (const succId of outgoing.get(id) || []) {
-                const nextDeg = inDegree.get(succId) - 1;
-                inDegree.set(succId, nextDeg);
-                if (nextDeg === 0) queue.push(succId)
-            }
-        }
-
-        gantt.timelineColumn?.refreshMountedRows();
-        gantt.syncDependencyLayer();
+        component.pressed    = next;
+        gantt.useWorkingTime = next;
         this.syncSummaryReadout()
     }
 
     /**
-     * @summary Updates the sub-toolbar pill and task finish readout to reflect current `t3` (`Rough plumbing & gas`)
-     * and `t12` (`Hook up range & sign`) dates.
+     * @summary Updates the sub-toolbar pill and task finish readout to reflect current `t3` and `t12` dates.
      */
     syncSummaryReadout() {
         const
@@ -406,16 +321,16 @@ class KitchenWorkingTimeViewport extends Viewport {
             const
                 pDays  = Math.max(1, Math.round(Number(plumbing.duration) || 5)),
                 pStart = SHORT_DATE_FMT.format(new Date(plumbing.startDate)),
-                pEnd   = formatInclusiveFinish(plumbing.endDate),
-                sEnd   = formatInclusiveFinish(signOff.endDate);
+                pEnd   = formatInclusiveFinish(plumbing.startDate, plumbing.endDate),
+                sEnd   = formatInclusiveFinish(signOff.startDate, signOff.endDate);
 
             summaryText.text = `Rough plumbing & gas (${pDays}d): ${pStart} → ${pEnd} · Sign-off: ${sEnd}`
         }
     }
 
     /**
-     * @summary Adjusts `timeAxis.size` to integer day widths (`63px` desktop, `24px` compact mobile) so both
-     * `1440 × 900` and `390 × 844` display the Thursday 5-day task spanning the shaded weekend on first paint.
+     * @summary Adjusts `timeAxis.size` to integer day widths (`53px` desktop, `18px` compact mobile)
+     * so both `1440 × 900` and `390 × 844` display the 5-day Thursday task spanning the shaded weekend on first paint.
      * @param {Number} width
      */
     syncViewportDensity(width) {

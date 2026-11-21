@@ -1,8 +1,7 @@
 import BaseTaskModel from '../../../src/gantt/TaskModel.mjs';
 
 /**
- * @summary Kitchen renovation task model adding a `trade` classification (`'prep' | 'mep' | 'finish'`) and
- * `baseStartDate` / `baseDuration` anchors so the working-days switch and reset control evaluate deterministic spans.
+ * @summary Kitchen renovation task model adding `cls`, `shortLabel`, and a `trade` classification (`'prep' | 'mep' | 'finish'`).
  * @class Neo.examples.gantt.workingTime.TaskModel
  * @extends Neo.gantt.TaskModel
  */
@@ -18,14 +17,9 @@ class TaskModel extends BaseTaskModel {
          */
         fields: [
             {
-                name        : 'baseDuration',
-                type        : 'Number',
-                defaultValue: 1
-            },
-            {
-                name        : 'baseStartDate',
-                type        : 'String',
-                defaultValue: null
+                name        : 'cls',
+                defaultValue: null,
+                nullable    : true
             },
             {
                 name        : 'shortLabel',

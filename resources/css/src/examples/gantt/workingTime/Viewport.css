@@ -1,8 +1,8 @@
 .kitchen-viewport.neo-viewport {
-    --neo-timeline-gridline-step: 63px;
+    --neo-timeline-gridline-step: 53px;
 
     &.kitchen-is-compact {
-        --neo-timeline-gridline-step: 28px;
+        --neo-timeline-gridline-step: 18px;
     }
 
     .kitchen-toolbar.neo-toolbar {
@@ -232,7 +232,7 @@
             --grid-header-button-color                 : var(--kitchen-title);
             --grid-header-button-color-hover           : var(--kitchen-title);
             border-bottom: 1px solid var(--kitchen-border);
-            padding      : 0 10px;
+            padding      : 0 8px;
 
             .neo-button-glyph {
                 display: none;
@@ -241,11 +241,11 @@
 
         .kitchen-days-header.neo-grid-header-button {
             justify-content: flex-end;
-            padding        : 0 10px;
+            padding        : 0 8px;
         }
 
         .neo-grid-row .neo-grid-cell[data-field="title"] {
-            padding: 0 10px;
+            padding: 0 8px;
         }
 
         .neo-grid-row .neo-grid-cell[data-field="duration"] {
@@ -254,7 +254,7 @@
             font-variant-numeric: tabular-nums;
             font-weight         : 600;
             justify-content     : flex-end;
-            padding-right       : 10px;
+            padding-right       : 8px;
         }
 
         .neo-timeline-non-working {
@@ -295,8 +295,12 @@
             font-size           : 12px;
             font-variant-numeric: tabular-nums;
             font-weight         : 600;
-            padding             : 0 8px;
+            padding             : 0 4px;
             z-index             : 2;
+
+            .neo-timeline-bar-label {
+                padding: 0;
+            }
 
             .neo-timeline-bar-progress {
                 opacity: 0.24;
@@ -412,14 +416,33 @@
         }
 
         .kitchen-gantt.neo-gantt {
+            .neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header),
+            .kitchen-days-header.neo-grid-header-button {
+                padding: 0 7px;
+            }
+
+            .neo-grid-row .neo-grid-cell[data-field="title"] {
+                font-size: 11.5px;
+                padding  : 0 7px;
+            }
+
+            .neo-grid-row .neo-grid-cell[data-field="duration"] {
+                font-size    : 11.5px;
+                padding-right: 7px;
+            }
+
             .neo-timeline-header .neo-timeline-tick {
-                font-size: 10.5px;
-                padding  : 0 2px;
+                font-size: 10px;
+                padding  : 0 1px;
             }
 
             .neo-timeline-bar {
-                font-size: 11px;
-                padding  : 0 5px;
+                font-size: 10.5px;
+                padding  : 0 2px;
+
+                .neo-timeline-bar-label {
+                    padding: 0;
+                }
             }
         }
     }

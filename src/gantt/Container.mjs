@@ -284,11 +284,14 @@ class Container extends SchedulerContainer {
         if (this.dependencyLayer) { this.dependencyLayer.timeAxis = value; this.bindTimelineSubscriptions(); this.syncDependencyLayer() }
     }
 
-    /** @summary Refreshes scheduling projections when the working-calendar mode changes. */
+    /** @summary Reschedules task spans and dependent tasks through the writer when the working-calendar mode flips. */
     afterSetUseWorkingTime(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.#analysis?.invalidateSchedule();
-            if (this.isConstructed) this.syncDependencyLayer()
+        if (oldValue !== undefined && Boolean(value) !== Boolean(oldValue)) {
+            if (this.isConstructed) {
+                this.rescheduleWorkingTime(Boolean(value), Boolean(oldValue))
+            } else {
+                this.#analysis?.invalidateSchedule()
+            }
         }
     }
 
@@ -466,6 +469,106 @@ class Container extends SchedulerContainer {
     computeRequiredStartMs(...args) { return Cascade.computeRequiredStartMs(this, ...args) }
     /** @summary Cascades dependency changes and reports cycles. */
     runDependencyCascade(...args) { return Cascade.runDependencyCascade(this, ...args) }
+    /** @summary Plans task span updates across a working-calendar switch. */
+    planWorkingTimeSchedule(...args) { return Cascade.planWorkingTimeSchedule(this, ...args) }
+
+    /**
+     * @summary Recomputes task spans and reachable dependencies when {@link #useWorkingTime} changes, publishing through the writer.
+     * @param {Boolean} [useWorking=Boolean(this.useWorkingTime)] Target working-calendar mode.
+     * @param {Boolean} [wasWorking=!useWorking] Prior working-calendar mode.
+     * @returns {Object|null} Published task-change summary, service receipt, or `null` when no dates changed.
+     */
+    rescheduleWorkingTime(useWorking=Boolean(this.useWorkingTime), wasWorking=!useWorking) {
+        const
+            me            = this,
+            hasCalendar   = Boolean(me.timeAxis?.hasWorkingCalendar()),
+            effectiveNext = Boolean(useWorking && hasCalendar),
+            effectivePrev = Boolean(wasWorking && hasCalendar),
+            service       = me.schedule;
+
+        if (service && !me.#usesService(service)) {
+            const result = {status: 'refused', message: 'The service does not match the current stores.'};
+            me.fire('scheduleResult', {record: null, result});
+            return result
+        }
+
+        const
+            cycles  = [],
+            entries = effectiveNext !== effectivePrev
+                ? me.planWorkingTimeSchedule(effectiveNext, effectivePrev, cycles)
+                : [];
+
+        if (!entries.length) {
+            me.#analysis?.invalidateSchedule();
+            if (me.isConstructed) me.syncDependencyLayer();
+            if (cycles.length) me.fire('dependencyCycle', {cycles, record: null});
+            return null
+        }
+
+        const meta = {action: 'workingTime', source: 'workingTime'};
+
+        if (service?.moveTask) {
+            const nativeEntries     = [];
+            let   lastServiceResult = null;
+
+            for (const entry of entries) {
+                const key = me.store.getKey(entry.record);
+                if (!service.handlesTask || service.handlesTask(key)) {
+                    me._movingTask = true;
+                    let result;
+                    try { result = service.moveTask(key, {...entry.changes}) }
+                    finally { me._movingTask = false }
+
+                    if (result?.status === 'committed') {
+                        const native = me.#publishServiceResult(entry.record, result, meta, true);
+                        lastServiceResult = {...native, status: 'committed', notificationErrors: result.notificationErrors}
+                    } else {
+                        if (result?.status && result.status !== 'committed') {
+                            me.fire('scheduleResult', {record: entry.record, result})
+                        }
+                        lastServiceResult = result
+                    }
+                } else {
+                    nativeEntries.push(entry)
+                }
+            }
+
+            if (!nativeEntries.length) {
+                return lastServiceResult
+            }
+            entries.splice(0, entries.length, ...nativeEntries)
+        }
+
+        me._movingTask = true;
+        try {
+            for (const entry of entries) {
+                entry.record.set(entry.changes)
+            }
+        } finally {
+            me._movingTask = false
+        }
+
+        const
+            [first, ...rest] = entries,
+            cascaded         = rest.map(({changes, dependencyId, endDate, previous, record, startDate}) => ({
+                changes,
+                dependencyId,
+                endDate,
+                previous,
+                record,
+                startDate
+            }));
+
+        me.#analysis?.invalidateSchedule();
+        me.#moveCascade(first.record, first.previous, cascaded, meta);
+        me.syncDependencyLayer();
+
+        if (cycles.length > 0) {
+            me.fire('dependencyCycle', {cycles, record: first.record})
+        }
+
+        return me.#publishTaskChange(first.record, first.changes, first.previous, cascaded, cycles, meta, first.startMs, first.endMs)
+    }
 
     /**
      * @summary Returns the task-tree column descriptors.

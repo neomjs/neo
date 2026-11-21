@@ -45,7 +45,7 @@ async function readScheduleState(page) {
 }
 
 test.describe('Gantt working days example (#21623)', () => {
-    test('evaluates a 5-day Thursday task across a weekend and holiday, updates ends & successors on switch, and snaps Saturday drops', async ({page}) => {
+    test('evaluates a 5-day Thursday task across weekends and a holiday, reschedules via Neo.gantt.Container, and verifies Saturday drops in both modes', async ({page}) => {
         const errors = [];
 
         page.on('console', msg => {
@@ -64,11 +64,36 @@ test.describe('Gantt working days example (#21623)', () => {
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
 
         await expect(page.locator('.kitchen-bar-hero')).toBeVisible();
+        await expect(page.locator('.neo-timeline-non-working[data-day-key="2026-11-07"]').first()).toBeVisible();
         await expect(page.locator('.neo-timeline-non-working[data-day-key="2026-11-12"]').first()).toBeVisible();
+        await expect(page.locator('.neo-timeline-non-working[data-day-key="2026-11-14"]').first()).toBeVisible();
+
+        const appWorker = page.workers().find(w => w.url().includes('worker/App'));
+        await appWorker.evaluate(() => {
+            const gantt = Neo.manager.Instance.findFirst({ntype: 'gantt'});
+            globalThis.__taskChanges = 0;
+            gantt.on('taskChange', () => { globalThis.__taskChanges++ })
+        });
+        await page.evaluate(() => {
+            Neo.config.logDeltaUpdates = true;
+            window.__observedUpdates   = 0;
+            window.__idlessInserts     = 0;
+
+            const orig = console.log.bind(console);
+            console.log = (...args) => {
+                if (typeof args[0] === 'string' && args[0].startsWith('update ')) {
+                    window.__observedUpdates++;
+                    const
+                        data   = args[3],
+                        deltas = Array.isArray(data) ? data : (data?.deltas || []);
+
+                    window.__idlessInserts += deltas.filter(d => d.action === 'insertNode' && !d.id && !d.vnode?.id).length
+                }
+                orig(...args)
+            }
+        });
 
         // AC-1 & AC-4: First frame — working days ON (`useWorkingTime: true`) on fixed dates
-        // `t3` ("Rough plumbing & gas", 5d) starts Thu 2026-11-05, spans Sat 7–Sun 8, and finishes end of Wed 2026-11-11 (`2026-11-12`).
-        // `t5` (3d) crosses Thu 2026-11-12 holiday (`2026-11-10` -> `2026-11-14`); `t6` (2d, FS `t3`) skips Thu 2026-11-12 holiday to start Fri `2026-11-13`.
         const initial = await readScheduleState(page);
         expect(initial.count).toBe(12);
         expect(initial.useWorkingTime).toBe(true);
@@ -77,7 +102,7 @@ test.describe('Gantt working days example (#21623)', () => {
         expect(initial.t6).toEqual({duration: 2, startDate: '2026-11-13', endDate: '2026-11-17'});
         expect(initial.t12).toEqual({duration: 1, startDate: '2026-11-20', endDate: '2026-11-21'});
 
-        // AC-2 & AC-4: Switch working days OFF -> `t3` ends 2 days earlier (`2026-11-10`), `t6` starts `2026-11-10` (3 days earlier), `t12` moves up to `2026-11-16`
+        // AC-2 & AC-4: Switch working days OFF -> `Neo.gantt.Container` reschedules and emits `taskChange`
         await page.locator('.kitchen-working-switch').click();
 
         await expect.poll(async () => (await readScheduleState(page)).useWorkingTime).toBe(false);
@@ -86,32 +111,69 @@ test.describe('Gantt working days example (#21623)', () => {
         expect(calendarMode.t5).toEqual({duration: 3, startDate: '2026-11-08', endDate: '2026-11-11'});
         expect(calendarMode.t6).toEqual({duration: 2, startDate: '2026-11-10', endDate: '2026-11-12'});
         expect(calendarMode.t12).toEqual({duration: 1, startDate: '2026-11-15', endDate: '2026-11-16'});
+        expect(await appWorker.evaluate(() => globalThis.__taskChanges)).toBe(1);
 
-        // Switch working days back ON -> restores exact working-calendar schedule
+        // AC-3 (mode OFF): Dragging `t3` (+2 days) onto Saturday `2026-11-07` while `useWorkingTime` is `false`
+        // lands directly on Saturday `2026-11-07` and counts 5 calendar days (`2026-11-12`).
+        const
+            heroBar    = page.locator('.kitchen-bar-hero'),
+            holidayBox = await page.locator('.neo-timeline-non-working[data-day-key="2026-11-12"]').first().boundingBox(),
+            dayPx      = holidayBox.width;
+
+        await expect.poll(async () => Math.abs((await heroBar.boundingBox()).width - 5 * dayPx)).toBeLessThanOrEqual(2);
+
+        const
+            offBox    = await heroBar.boundingBox(),
+            offStartX = offBox.x + 24,
+            offStartY = offBox.y + offBox.height / 2;
+
+        await page.mouse.move(offStartX, offStartY);
+        await page.mouse.down();
+        await page.mouse.move(offStartX + Math.round(2 * dayPx), offStartY, {steps: 10});
+        await page.mouse.up();
+
+        await expect.poll(async () => (await readScheduleState(page)).t3.startDate).toBe('2026-11-07');
+        const afterOffSaturdayDrop = await readScheduleState(page);
+        expect(afterOffSaturdayDrop.t3).toEqual({duration: 5, startDate: '2026-11-07', endDate: '2026-11-12'});
+
+        // Switching working days back ON preserves `t3`'s hand-placed offset (snapping Saturday forward to Monday `2026-11-09`)
         await page.locator('.kitchen-working-switch').click();
         await expect.poll(async () => (await readScheduleState(page)).useWorkingTime).toBe(true);
+        const preservedAfterSwitch = await readScheduleState(page);
+        expect(preservedAfterSwitch.t3).toEqual({duration: 5, startDate: '2026-11-09', endDate: '2026-11-17'});
+
+        // Reset restores seeded working-calendar schedule (`t3` at `2026-11-05..2026-11-12`)
+        await page.locator('.kitchen-reset-btn').click();
+        await expect.poll(async () => (await readScheduleState(page)).t3.startDate).toBe('2026-11-05');
         const restored = await readScheduleState(page);
         expect(restored.t3).toEqual({duration: 5, startDate: '2026-11-05', endDate: '2026-11-12'});
         expect(restored.t6).toEqual({duration: 2, startDate: '2026-11-13', endDate: '2026-11-17'});
 
-        // AC-3 empirical verification: dropping `t3` onto Saturday `2026-11-07` (+2 days = +126px at 63px/day)
-        // snaps `startDate` forward to Monday `2026-11-09` (`snapToWorkingTime(startMs, 1)`) and advances `endDate`
-        // across the `2026-11-12` holiday + `Sat 14–Sun 15` weekend to `2026-11-17` (5 working days: Mon 9, Tue 10, Wed 11, Fri 13, Mon 16).
-        const
-            heroBar = page.locator('.kitchen-bar-hero'),
-            barBox  = await heroBar.boundingBox(),
-            startX  = barBox.x + 40,
-            startY  = barBox.y + barBox.height / 2;
+        // AC-3 (mode ON): Dragging `t3` (+2 days) onto Saturday `2026-11-07` while `useWorkingTime` is `true`
+        // snaps `startDate` forward to Monday `2026-11-09` and evaluates 5 working days across `2026-11-12` + weekend to `2026-11-17`.
+        await expect.poll(async () => Math.abs((await heroBar.boundingBox()).width - 7 * dayPx)).toBeLessThanOrEqual(2);
 
-        await page.mouse.move(startX, startY);
+        const
+            onBox    = await heroBar.boundingBox(),
+            onStartX = onBox.x + 24,
+            onStartY = onBox.y + onBox.height / 2;
+
+        await page.mouse.move(onStartX, onStartY);
         await page.mouse.down();
-        await page.mouse.move(startX + 126, startY, {steps: 10});
+        await page.mouse.move(onStartX + Math.round(2 * dayPx), onStartY, {steps: 10});
         await page.mouse.up();
 
         await expect.poll(async () => (await readScheduleState(page)).t3.startDate).toBe('2026-11-09');
-        const afterSaturdayDrop = await readScheduleState(page);
-        expect(afterSaturdayDrop.t3).toEqual({duration: 5, startDate: '2026-11-09', endDate: '2026-11-17'});
+        const afterOnSaturdayDrop = await readScheduleState(page);
+        expect(afterOnSaturdayDrop.t3).toEqual({duration: 5, startDate: '2026-11-09', endDate: '2026-11-17'});
+        expect(afterOnSaturdayDrop.t12).toEqual({duration: 1, startDate: '2026-11-24', endDate: '2026-11-25'});
 
+        const deltaStats = await page.evaluate(() => ({
+            idlessInserts  : window.__idlessInserts,
+            observedUpdates: window.__observedUpdates
+        }));
+        expect(deltaStats.observedUpdates).toBeGreaterThan(0);
+        expect(deltaStats.idlessInserts).toBe(0);
         expect(errors).toEqual([])
     });
 
