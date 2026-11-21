@@ -420,15 +420,10 @@ function durationOf(durations) {
  * the shard with the least time so far: equal times fall to the lower shard and equal files to path order, so every
  * shard of a run computes the same split and every selected file runs in exactly one of them.
  *
- * Files the table does not list yet are dealt FIRST, before the measured files are balanced longest-first on top.
- * They all plan at the same fallback ({@link durationOf}'s 90th percentile), so sorted among the measured files they
- * sit ahead of every file below that percentile, and the greedy pass then hands the shards holding the longest
- * measured specs ever fewer of the rest — a wave of new specs landing between table rebuilds concentrates the real
- * measured work onto the one shard that holds the single longest spec, and that is the shard that runs into the
- * ceiling. Dealt first, K unmeasured files distribute `floor(K/M)..ceil(K/M)` per shard, because every shard starts
- * equal and the pass round-robins them, so the measured load stays spread no matter how many specs arrive unmeasured.
- * A single missing file still plans at the fallback and leaves its own shard that much lighter in measured work,
- * which is exactly the headroom the fallback exists to give.
+ * Files the table does not list yet are dealt first, then the measured files longest-first on top. The unlisted ones
+ * all plan at the same fallback ({@link durationOf}'s 90th percentile), so sorted among the measured files they would
+ * land ahead of every file below it and leave the shard holding the longest measured spec the least fallback headroom;
+ * dealt first, K of them split `floor(K/M)..ceil(K/M)` per shard, and the measured load stays spread.
  * @param {Object}   options
  * @param {String[]} options.paths The selection to split, relative to the repository root.
  * @param {String}   options.shard `N/M`, the shard to return.
