@@ -441,7 +441,18 @@ test.describe('Neo.form.field.ComboBox', () => {
 
         componentId = ids.containerId;
 
+        for (const id of [ids.textId, ids.comboId, ids.inlineComboId, ids.countryId, ids.narrowId]) {
+            await expect(page.locator(`#${id} .neo-input-wrapper`)).toBeVisible()
+        }
+        for (const id of [ids.comboId, ids.inlineComboId, ids.countryId, ids.narrowId]) {
+            await expect(page.locator(`#${id} .neo-field-trigger`).first()).toBeVisible()
+        }
+        await expect(page.locator(`#${ids.comboId} input.neo-typeahead-input`)).toBeAttached();
+        await expect(page.locator(`#${ids.textId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('Stuttgart');
+        await expect(page.locator(`#${ids.comboId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('California');
+        await expect(page.locator(`#${ids.inlineComboId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('California');
         await expect(page.locator(`#${ids.countryId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('germany');
+        await expect(page.locator(`#${ids.narrowId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('California');
 
         const metrics = await page.evaluate(ids => {
             const measureField = id => {
