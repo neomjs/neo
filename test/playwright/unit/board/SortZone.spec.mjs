@@ -669,11 +669,14 @@ test.describe('Neo.board.SortZone', () => {
         expect(column.body.items.includes(board.getCard('b299')), 'the held card stays in its column\'s body').toBe(true);
         expect(keys(column), 'the window moves only as far as the held card needs').toEqual(['b296', 'b297', 'b298', 'b299']);
 
+        // The scroll that moved the window, as the body reported it
+        column.pendingScroll = {scrollTop: 290 * column.averageCardHeight, stride: column.averageCardHeight};
+
         await zone.onDragCancel({});
 
-        // Released, the window follows the scroll again
-        column.setWindowStart(290);
-        expect(keys(column)).toEqual(['b290', 'b291', 'b292', 'b293'])
+        // Released, the window returns to that scroll position instead of leaving the viewport on its spacer
+        board.reconcileColumn(column);
+        expect(keys(column), 'the window follows the scroll again').toEqual(['b290', 'b291', 'b292', 'b293'])
     });
 
     test('a window that moved under the drag cannot pass a real move off as a drop where the card started', async () => {
