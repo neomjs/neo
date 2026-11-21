@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
-import {Command}                  from 'commander';
-import fg                         from 'fast-glob';
-import fs                         from 'fs-extra';
-import os                         from 'os';
-import path                       from 'path';
+import {Command}                   from 'commander';
+import fg                          from 'fast-glob';
+import fs                          from 'fs-extra';
+import os                          from 'os';
+import {parse as parseHtml}        from 'parse5';
+import path                        from 'path';
 import {getEngineReleaseNotesRoot} from '../../util/contentRoot.mjs';
-import isEntryModule              from '../../util/isEntryModule.mjs';
-import {sanitizeInput}            from '../../util/sanitizer.mjs';
-import createReleaseIndex         from '../index/release.mjs';
+import isEntryModule               from '../../util/isEntryModule.mjs';
+import {sanitizeInput}             from '../../util/sanitizer.mjs';
+import createReleaseIndex          from '../index/release.mjs';
 import {
     getLlmsFullTxt,
     getLlmsTxt,
@@ -396,13 +397,38 @@ export function validateLlmsTxtContent(llmsTxt, {maxBytes=LLMS_TXT_MAX_BYTES, re
 }
 
 /**
- * @summary Parses `<script type="application/ld+json">` blocks in `apps/portal/index.html` and rejects malformed JSON or `#/` hash-fragment URLs.
+ * @summary Parses `<script type="application/ld+json">` elements in `apps/portal/index.html` via `parse5` and rejects malformed JSON or `#/` hash-fragment URLs.
  * @param {String} htmlContent
  * @returns {String[]}
  */
 export function validatePortalIndexJsonLd(htmlContent='') {
-    const errors        = [];
-    const scriptPattern = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+    const errors     = [];
+    const jsonBlocks = [];
+
+    function collectJsonLdScripts(node) {
+        if (!node || typeof node !== 'object') {
+            return;
+        }
+
+        if (node.tagName === 'script') {
+            const typeAttr = node.attrs?.find(attr => attr.name === 'type');
+            const mimeType = typeAttr?.value.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').toLowerCase();
+
+            if (mimeType === 'application/ld+json') {
+                const rawJson = (node.childNodes || [])
+                    .filter(child => child.nodeName === '#text')
+                    .map(child => child.value)
+                    .join('');
+
+                jsonBlocks.push(rawJson);
+            }
+            return;
+        }
+
+        for (const child of node.childNodes || []) {
+            collectJsonLdScripts(child);
+        }
+    }
 
     function checkValue(value) {
         if (typeof value === 'string') {
@@ -426,7 +452,9 @@ export function validatePortalIndexJsonLd(htmlContent='') {
         }
     }
 
-    for (const [, rawJson] of String(htmlContent).matchAll(scriptPattern)) {
+    collectJsonLdScripts(parseHtml(String(htmlContent)));
+
+    for (const rawJson of jsonBlocks) {
         try {
             checkValue(JSON.parse(rawJson));
         } catch (error) {

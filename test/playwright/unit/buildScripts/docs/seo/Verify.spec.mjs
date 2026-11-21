@@ -740,6 +740,19 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
             'apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "https://neomjs.com/#/learn/agentos/NeuralLink".'
         ]);
 
+        expect(validatePortalIndexJsonLd([
+            '<script type = "application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script>',
+            '<script type=application/ld+json>{"url":"https://neomjs.com/#/examples/grid"}</script>'
+        ].join('\n'))).toEqual([
+            'apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "https://neomjs.com/#/learn/agentos/NeuralLink".',
+            'apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "https://neomjs.com/#/examples/grid".'
+        ]);
+
+        expect(validatePortalIndexJsonLd([
+            '<script type="application/json" data-type="application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script>',
+            '<!-- <script type="application/ld+json">{"url":"https://neomjs.com/#/learn/agentos/NeuralLink"}</script> -->'
+        ].join('\n'))).toEqual([]);
+
         expect(validatePortalIndexJsonLd('<script type="application/ld+json">{broken</script>')).toEqual([
             expect.stringMatching(/^apps\/portal\/index\.html contains invalid application\/ld\+json JSON:/)
         ]);
