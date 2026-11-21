@@ -103,13 +103,14 @@
     }
 }
 
-.neo-dragproxy .neo-board-column-header {
-    background   : var(--neo-board-column-background);
-    border       : 1px solid var(--neo-board-column-border-color);
-    border-radius: var(--neo-board-radius);
-    box-shadow   : var(--neo-board-card-shadow);
-    box-sizing   : border-box;
-    cursor       : grabbing;
+/* A dragged column rides in a proxy sized from its own rect. The proxy renders outside the scope that may set
+   --neo-board-column-width, so the column fills the proxy instead of falling back to the default width. */
+.neo-dragproxy > .neo-board-column {
+    box-shadow: var(--neo-board-card-shadow);
+    cursor    : grabbing;
+    height    : 100%;
+    min-width : 0;
+    width     : 100%;
 }
 
 .neo-board-column-body {

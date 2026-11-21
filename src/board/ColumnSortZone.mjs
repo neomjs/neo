@@ -1,5 +1,6 @@
-import NeoArray from '../util/Array.mjs';
-import SortZone from '../draggable/container/SortZone.mjs';
+import NeoArray    from '../util/Array.mjs';
+import SortZone    from '../draggable/container/SortZone.mjs';
+import TreeBuilder from '../util/vdom/TreeBuilder.mjs';
 
 /**
  * @summary Reorders unlocked board columns horizontally by dragging their header (`sortGroup: 'board-columns'`),
@@ -7,8 +8,8 @@ import SortZone from '../draggable/container/SortZone.mjs';
  * @description Sorts `owner.items` horizontally in single-row mode (`!owner.laneField`) using
  * `.neo-board-column-header` as the drag handle while ignoring `.neo-board-column-collapse`. Columns with
  * `locked: true` are excluded from {@link #getSortableItems} and stay pinned at their index via {@link #getPinnedItems}
- * while unlocked columns reorder around them; the drag proxy clones the dragged column's header via
- * {@link #getDragElement}.
+ * while unlocked columns reorder around them; the drag proxy clones the whole dragged column, its header and its
+ * rendered cards, via {@link #getDragElement}.
  * @class Neo.board.ColumnSortZone
  * @extends Neo.draggable.container.SortZone
  */
@@ -124,15 +125,33 @@ class ColumnSortZone extends SortZone {
     }
 
     /**
-     * @summary Returns the dragged column's header VDOM node (`handleNode` when resolved from `owner.vdom`, falling
-     * back to `draggedItem.header.vdom`) so the drag proxy clones only the column header.
+     * @summary Returns the dragged column's whole tree, its header and the cards it renders, so the drag proxy
+     * carries the column. A windowed column's tree holds only its rendered cards.
      * @param {Neo.board.Column} draggedItem
-     * @param {Object|null} [handleNode=null]
      * @returns {Object}
      * @protected
      */
-    getDragElement(draggedItem, handleNode=null) {
-        return handleNode || draggedItem.header.vdom
+    getDragElement(draggedItem) {
+        return TreeBuilder.getVdomTree(draggedItem.vdom)
+    }
+
+    /**
+     * @summary Keys the main-thread zone registry on the column header, so card drags inside the column keep their
+     * own zone. The proxy's pointer offset and its clamp inside the board come from the carried column, not from the
+     * pressed header, which sits inside the column's border and is a fraction of its height.
+     * @param {Object} data The `drag:start` data
+     * @param {Object} rect The dragged column's rect
+     * @returns {Object}
+     * @protected
+     */
+    getMainThreadConfigs(data, rect) {
+        return {
+            ...super.getMainThreadConfigs(data, rect),
+            dragElementRootId: this.dragComponent.header.id,
+            dragProxyRect    : rect,
+            offsetX          : data.clientX - rect.left,
+            offsetY          : data.clientY - rect.top
+        }
     }
 
     /**
