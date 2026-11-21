@@ -1,7 +1,8 @@
-import NeoArray from '../util/Array.mjs';
-import Panel    from '../container/Panel.mjs';
-import Toolbar  from './header/Toolbar.mjs';
-import VDomUtil from '../util/VDom.mjs';
+import ComponentManager from '../manager/Component.mjs';
+import NeoArray         from '../util/Array.mjs';
+import Panel            from '../container/Panel.mjs';
+import Toolbar          from './header/Toolbar.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 
 let DragZone;
 
@@ -627,7 +628,7 @@ class Dialog extends Panel {
      * @protected
      */
     focusOnArrival() {
-        const field = this.down({ntype: 'basefield', disabled: false, hidden: false});
+        const field = this.getFirstField();
 
         field ? field.focus(field.id, true) : super.focusOnArrival()
     }
@@ -638,6 +639,28 @@ class Dialog extends Panel {
      */
     getAnimateTargetId() {
         return this.id + '-animate'
+    }
+
+    /**
+     * @summary The first enabled, visible field in item order, which is the order on the page. `down()` walks the
+     * order components registered in, so a form that rebuilt its fields would answer with a later one.
+     * @param {Neo.component.Base} [component=this]
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    getFirstField(component=this) {
+        for (const item of component.items || []) {
+            if (!item.hidden && !item.disabled) {
+                const field = ComponentManager.hasPrototypePropertyValue(item, 'ntype', 'basefield') ?
+                    item : this.getFirstField(item);
+
+                if (field) {
+                    return field
+                }
+            }
+        }
+
+        return null
     }
 
     /**
