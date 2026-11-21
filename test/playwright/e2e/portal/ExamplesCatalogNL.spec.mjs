@@ -1189,6 +1189,19 @@ test.describe('Portal examples section', () => {
         await page.keyboard.press('ArrowDown');
         await expect(card1).toHaveClass(/neo-selected/);
 
+        // At the two-column boundary, a card with look-for and scope text still shows its whole Mobile badge.
+        await page.setViewportSize({width: 1016, height: 900});
+        const issuesCard = cards.filter({has: page.getByRole('link', {name: 'GitHub Issues Grid', exact: true})});
+        await issuesCard.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await expect(issuesCard).toHaveClass(/neo-selected/);
+        const mobileBounds = await issuesCard.evaluate(node => {
+            const chip  = node.querySelector('.portal-example-mobile').getBoundingClientRect(),
+                  inner = node.querySelector('.portal-example-more-inner').getBoundingClientRect();
+            return {chipBottom: chip.bottom, chipHeight: chip.height, innerBottom: inner.bottom}
+        });
+        expect(mobileBounds.chipHeight).toBeGreaterThan(0);
+        expect(mobileBounds.chipBottom).toBeLessThanOrEqual(mobileBounds.innerBottom);
+
         // Featured 2x2 leadCard at 1440x900: Workstation has Multi-window without Mobile, and ArrowDown from 2x2 card0 crosses two rows to card3
         await page.setViewportSize({width: 1440, height: 900});
         await openOverview(page);
