@@ -129,6 +129,9 @@ class BoardSortZone extends SortZone {
     /**
      * @summary Pins a column's body and positions its cards absolutely at their measured rects, so the engine's
      * vertical sort can move them.
+     * @description The rects are taken in the body's content space: each card's top adds the body's `scrollTop`, and
+     * the sort reads that offset as `scrollTop`. Cards placed at their content offsets keep a scrolled body's content
+     * as tall as before, so the browser has nothing to clamp and the column stays where its user scrolled it.
      * @param {Neo.board.Column} column
      * @param {Neo.board.Card} card The dragged card
      * @param {Number} index Its index among the column's cards
@@ -137,17 +140,20 @@ class BoardSortZone extends SortZone {
         let me     = this,
             {body} = column,
             items  = me.getColumnCards(column).filter(item => item !== card),
-            bodyRect, rects;
+            bodyRect, rects, scrollTop;
 
         items.splice(index, 0, card);
 
-        rects    = await me.trap(me.owner.getDomRect([body.id, ...items.map(item => item.id)]));
+        [rects, {scrollTop = 0}] = await me.trap(Promise.all([
+            me.owner.getDomRect([body.id, ...items.map(item => item.id)]),
+            Neo.main.DomAccess.getAttributes({attributes: ['scrollTop'], id: body.id, windowId: me.windowId})
+        ]));
         if (me.isDestroying || me.isDestroyed || card.isDestroyed || column.isDestroyed || me.dragComponent !== card) return;
         bodyRect = rects.shift();
 
         rects.forEach(rect => {
             rect.x -= bodyRect.x;
-            rect.y -= bodyRect.y
+            rect.y += scrollTop - bodyRect.y
         });
 
         me.bodyStyle = {height: body.style?.height, position: body.style?.position};
@@ -163,7 +169,7 @@ class BoardSortZone extends SortZone {
             ownerRect              : bodyRect,
             reversedLayoutDirection: false,
             scrollLeft             : 0,
-            scrollTop              : 0,
+            scrollTop,
             sortableItems          : items,
             sortBoundaryRect       : bodyRect,
             sortDirection          : 'vertical'
