@@ -115,14 +115,122 @@ function routeValue(node, constants) {
 }
 
 /**
+ * @summary Visits each node of an Acorn syntax tree.
+ * @param {Object} node
+ * @param {Function} visit
+ */
+function walkSyntax(node, visit) {
+    if (!node?.type) return;
+
+    visit(node);
+
+    for (const value of Object.values(node)) {
+        Array.isArray(value) ? value.forEach(child => walkSyntax(child, visit)) : walkSyntax(value, visit)
+    }
+}
+
+/**
+ * @summary Lists the bindings declared by a parameter or destructuring pattern.
+ * @param {Object|null} pattern
+ * @param {Function} record
+ */
+function bindPattern(pattern, record) {
+    switch (pattern?.type) {
+        case 'Identifier': record(pattern.name); break;
+        case 'AssignmentPattern': bindPattern(pattern.left, record); break;
+        case 'RestElement': bindPattern(pattern.argument, record); break;
+        case 'ArrayPattern': pattern.elements.forEach(item => bindPattern(item, record)); break;
+        case 'ObjectPattern':
+            pattern.properties.forEach(property => bindPattern(property.type === 'RestElement' ? property : property.value, record));
+            break;
+        default: break;
+    }
+}
+
+/**
+ * @summary Records the local bindings introduced directly by a syntax node.
+ * @param {Object} node
+ * @param {Function} record
+ */
+function visitBindings(node, record) {
+    if (node.type === 'VariableDeclarator' || node.type.startsWith('Class')) bindPattern(node.id, record);
+    if (node.type.includes('Function')) {
+        bindPattern(node.id, record);
+        node.params?.forEach(param => bindPattern(param, record))
+    }
+    if (node.type === 'CatchClause') bindPattern(node.param, record);
+    if (node.type.startsWith('Import')) bindPattern(node.local, record);
+}
+
+/**
+ * @summary Checks for a property call on a named fixture or test binding.
+ * @param {Object|null} call
+ * @param {String} receiver
+ * @param {String} method
+ * @returns {Boolean}
+ */
+function callsMethod(call, receiver, method) {
+    const callee = call?.callee;
+
+    return callee?.type === 'MemberExpression' && !callee.computed &&
+        callee.object.type === 'Identifier' && callee.object.name === receiver && callee.property.name === method
+}
+
+/**
+ * @summary Collects awaited calls before control flow can bypass a navigation.
+ * @param {Object[]} statements
+ * @returns {Object[]}
+ */
+function straightLineCalls(statements) {
+    const calls = [];
+
+    for (const statement of statements) {
+        if (statement.type === 'FunctionDeclaration') continue;
+        if (statement.type !== 'ExpressionStatement' && statement.type !== 'VariableDeclaration') break;
+
+        const expressions = statement.type === 'VariableDeclaration'
+            ? statement.declarations.map(declaration => declaration.init)
+            : [statement.expression];
+
+        for (const node of expressions) {
+            if (node?.type === 'AwaitExpression' && node.argument.type === 'CallExpression') calls.push(node.argument)
+        }
+    }
+
+    return calls
+}
+
+/**
+ * @summary Checks that a callback keeps its page fixture and remains an active test.
+ * @param {Object} callback
+ * @returns {Boolean}
+ */
+function stablePage(callback) {
+    let stable = true;
+
+    walkSyntax(callback.body, node => {
+        visitBindings(node, name => {if (name === 'page') stable = false});
+
+        const target = node.type === 'AssignmentExpression' ? node.left : node.type === 'UpdateExpression' ? node.argument : null;
+
+        if (target?.name === 'page' || target?.object?.name === 'page' ||
+            callsMethod(node, 'test', 'skip') || callsMethod(node, 'test', 'fixme')) stable = false
+    });
+
+    return stable
+}
+
+/**
  * @summary Proves example entry visits from a spec's own Playwright navigation calls.
  * @description Broad route expansion stays in the ordinary reach map. Only a fixed navigation pathname may
- * qualify a stylesheet for narrower coverage. An unavailable parser or ambiguous binding leaves no witness.
+ * qualify a stylesheet for narrower coverage. The supported witness is a straight-line awaited navigation from
+ * a registered test, or through one directly awaited module helper receiving the same page fixture.
  * @param {String} source
+ * @param {String} spec The spec's path relative to the repository root.
  * @param {Set<String>} tracked
  * @returns {Set<String>}
  */
-function navigationEntries(source, tracked) {
+function navigationEntries(source, spec, tracked) {
     const entries = new Set();
     let syntax;
 
@@ -132,59 +240,81 @@ function navigationEntries(source, tracked) {
         return entries
     }
 
-    const constants = new Map(),
-          bindings  = new Map(),
-          calls     = [],
-          scalar    = node => node?.type === 'Literal' && typeof node.value === 'string';
+    const constants     = new Map(),
+          bindings      = new Map(),
+          helpers       = new Map(),
+          calls         = [],
+          scalar        = node => node?.type === 'Literal' && typeof node.value === 'string',
+          functionValue = node => node && ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(node.type),
+          tester        = syntax.body.some(node => node.type === 'ImportDeclaration' &&
+              (node.source.value === '@playwright/test' ||
+                  (normalize(join(dirname(spec), node.source.value)) === 'test/playwright/fixtures.mjs' && tracked.has('test/playwright/fixtures.mjs'))) &&
+              node.specifiers.some(binding => binding.imported?.name === 'test' && binding.local.name === 'test'));
+
+    if (!tester) return entries;
 
     for (const statement of syntax.body) {
         if (statement.type === 'VariableDeclaration' && statement.kind === 'const') {
             for (const {id, init} of statement.declarations) {
-                if (id.type === 'Identifier' && scalar(init)) constants.set(id.name, init.value)
+                if (id.type !== 'Identifier') continue;
+                if (scalar(init)) constants.set(id.name, init.value);
+                if (functionValue(init)) helpers.set(id.name, init)
             }
+        } else if (statement.type === 'FunctionDeclaration' && statement.id) {
+            helpers.set(statement.id.name, statement)
         }
     }
 
-    const bind = pattern => {
-        if (!pattern) return;
-
-        switch (pattern.type) {
-            case 'Identifier':
-                bindings.set(pattern.name, (bindings.get(pattern.name) || 0) + 1);
-                break;
-            case 'AssignmentPattern': bind(pattern.left); break;
-            case 'RestElement': bind(pattern.argument); break;
-            case 'ArrayPattern': pattern.elements.forEach(bind); break;
-            case 'ObjectPattern': pattern.properties.forEach(property => bind(property.type === 'RestElement' ? property : property.value)); break;
-            default: break;
-        }
-    };
-
-    const visit = node => {
-        if (!node?.type) return;
-
-        if (node.type === 'VariableDeclarator' || node.type.startsWith('Class')) bind(node.id);
-        if (node.type.includes('Function')) {
-            bind(node.id);
-            node.params?.forEach(bind)
-        }
-        if (node.type === 'CatchClause') bind(node.param);
-        if (node.type.startsWith('Import')) bind(node.local);
-
-        if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' &&
-            !node.callee.computed && node.callee.object.name === 'page' && node.callee.property.name === 'goto') {
-            calls.push(node.arguments[0])
-        }
-
-        for (const value of Object.values(node)) {
-            Array.isArray(value) ? value.forEach(visit) : visit(value)
-        }
-    };
-    visit(syntax);
+    walkSyntax(syntax, node => visitBindings(node, name => bindings.set(name, (bindings.get(name) || 0) + 1)));
+    if (bindings.get('test') !== 1) return entries;
 
     for (const name of constants.keys()) {
         if (bindings.get(name) !== 1) constants.delete(name)
     }
+
+    const collectCalls = (callback, allowHelper) => {
+        if (callback.body?.type !== 'BlockStatement' || !stablePage(callback)) return;
+
+        for (const call of straightLineCalls(callback.body.body)) {
+            if (callsMethod(call, 'page', 'goto')) {
+                calls.push(call.arguments[0]);
+                continue
+            }
+
+            if (!allowHelper || call.callee.type !== 'Identifier' || bindings.get(call.callee.name) !== 1) continue;
+
+            const helper = helpers.get(call.callee.name);
+
+            if (helper?.params[0]?.type === 'Identifier' && helper.params[0].name === 'page' &&
+                call.arguments[0]?.type === 'Identifier' && call.arguments[0].name === 'page') {
+                collectCalls(helper, false)
+            }
+        }
+    };
+
+    const visitRegistrations = statements => {
+        const registrations = statements.filter(node => node.type === 'ExpressionStatement' && node.expression.type === 'CallExpression')
+            .map(node => node.expression);
+
+        if (registrations.some(call => (callsMethod(call, 'test', 'skip') || callsMethod(call, 'test', 'fixme')) &&
+            !functionValue(call.arguments.at(-1)))) return;
+
+        for (const call of registrations) {
+            const callback = call.arguments.at(-1);
+
+            if (!functionValue(callback)) continue;
+            if (callsMethod(call, 'test', 'describe') && callback.body.type === 'BlockStatement') {
+                visitRegistrations(callback.body.body)
+            } else if (call.callee.type === 'Identifier' && call.callee.name === 'test' &&
+                callback.params[0]?.type === 'ObjectPattern' &&
+                callback.params[0].properties.some(property => !property.computed && property.key?.name === 'page' &&
+                    property.value?.type === 'Identifier' && property.value.name === 'page')) {
+                collectCalls(callback, true)
+            }
+        }
+    };
+    visitRegistrations(syntax.body);
+
     for (const call of calls) {
         const route    = routeValue(call, constants),
               [, path] = /^\/?(examples\/[\w-]+(?:\/[\w-]+)*)\/index\.html(?:[?#]|$)/.exec(route || '') || [],
@@ -377,7 +507,7 @@ export function specReach({root = process.cwd()} = {}) {
     }
 
     const witnessesExample = (spec, entry) => {
-        if (!witnesses.has(spec)) witnesses.set(spec, navigationEntries(text(spec), tracked));
+        if (!witnesses.has(spec)) witnesses.set(spec, navigationEntries(text(spec), spec, tracked));
 
         return witnesses.get(spec).has(entry)
     };

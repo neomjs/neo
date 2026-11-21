@@ -393,13 +393,15 @@ test.describe('e2e CI selection — what a pull request\'s change selects', () =
 });
 
 test.describe('e2e CI selection — verified example styles', () => {
-    const stem      = 'examples/scheduler/demo/Viewport',
-          css       = `resources/css/src/${stem}.css`,
-          darkCss   = `resources/css/theme-neo-dark/${stem}.css`,
-          namespace = 'Neo.examples.scheduler.demo.Viewport',
-          owner     = 'test/playwright/e2e/scheduler/Demo.spec.mjs',
-          adjacent  = 'test/playwright/e2e/scheduler/Adjacent.spec.mjs',
-          bare      = 'test/playwright/e2e/scheduler/Bare.spec.mjs';
+    const stem          = 'examples/scheduler/demo/Viewport',
+          css           = `resources/css/src/${stem}.css`,
+          darkCss       = `resources/css/theme-neo-dark/${stem}.css`,
+          namespace     = 'Neo.examples.scheduler.demo.Viewport',
+          owner         = 'test/playwright/e2e/scheduler/Demo.spec.mjs',
+          adjacent      = 'test/playwright/e2e/scheduler/Adjacent.spec.mjs',
+          bare          = 'test/playwright/e2e/scheduler/Bare.spec.mjs',
+          fixtureImport = "import {test} from '../../fixtures.mjs';\n",
+          visit         = (body, prelude='') => fixtureImport + prelude + `test('example', async ({page}) => { ${body} });`;
 
     /**
      * @summary Builds a tracked tree whose owning spec goes through the actual Engine tier filter.
@@ -416,10 +418,11 @@ test.describe('e2e CI selection — verified example styles', () => {
                   [`${stem}.mjs`]                      : `class Viewport { static config = {className: '${namespace}'}; }\nexport default Neo.setupClass(Viewport);`,
                   'examples/scheduler/adjacent/app.mjs': "import '../../../src/form/Field.mjs';",
                   'src/form/Field.mjs'                 : '',
+                  'test/playwright/fixtures.mjs'       : '',
                   [css]                                : '.row { color: blue }',
                   [darkCss]                            : '.row { color: white }',
-                  [ownerSpec]                          : "await page.goto('/examples/scheduler/demo/index.html');",
-                  [adjacent]                           : "await page.goto('/examples/scheduler/adjacent/index.html');",
+                  [ownerSpec]                          : visit("await page.goto('/examples/scheduler/demo/index.html');"),
+                  [adjacent]                           : visit("await page.goto('/examples/scheduler/adjacent/index.html');"),
                   [bare]                               : '',
                   ...extra
               };
@@ -478,19 +481,23 @@ test.describe('e2e CI selection — verified example styles', () => {
         const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
 
         withTree(check, {}, 'test/playwright/e2e/demo/LocalOnly.spec.mjs');
-        withTree(check, {[owner]: "await page.goto('/examples/scheduler/demo/index.html');\nawait neuralLink();"});
+        withTree(check, {[owner]: visit("await page.goto('/examples/scheduler/demo/index.html');\nawait neuralLink();")});
         withTree(check, {'examples/scheduler/demo/app.mjs': ''});
     });
 
     for (const [label, source] of [
         ['a computed route with a sibling-only value',
-            "for (const example of ['adjacent']) await page.goto(`/examples/scheduler/${example}/index.html`);"],
+            visit("for (const example of ['adjacent']) await page.goto(`/examples/scheduler/${example}/index.html`);")],
         ['a literal reference outside navigation',
-            "const examplePath = '/examples/scheduler/demo/index.html';\nawait page.goto('/examples/scheduler/adjacent/index.html');"],
+            visit("const examplePath = '/examples/scheduler/demo/index.html';\nawait page.goto('/examples/scheduler/adjacent/index.html');")],
         ['a shadowed route constant',
-            "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nasync function visit(EXAMPLE_URL) {await page.goto(EXAMPLE_URL)}\nawait visit('/examples/scheduler/adjacent/index.html');"],
+            visit("await open(page, '/examples/scheduler/adjacent/index.html');",
+                "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nconst open = async (page, EXAMPLE_URL) => {await page.goto(EXAMPLE_URL)};\n")],
         ['a missing nested page under the owner',
-            "await page.goto('/examples/scheduler/demo/missing/index.html');"]
+            visit("await page.goto('/examples/scheduler/demo/missing/index.html');")],
+        ['an unreachable owner visit', visit("if (false) await page.goto('/examples/scheduler/demo/index.html'); await page.goto('/examples/scheduler/adjacent/index.html');")],
+        ['a shadowed Playwright page',
+            fixtureImport + "test('example', async () => {const page = {goto() {}}; await page.goto('/examples/scheduler/demo/index.html');});"]
     ]) {
         test(`${label} preserves full E2E for the apparent owner`, () => {
             withTree(root => {
@@ -502,11 +509,13 @@ test.describe('e2e CI selection — verified example styles', () => {
         });
     }
 
-    for (const source of [
-        "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nawait page.goto(`${EXAMPLE_URL}?theme=${theme}`);",
-        "await page.goto(`/examples/scheduler/demo/index.html${theme ? `?theme=${theme}` : ''}`);"
+    for (const [label, source] of [
+        ['a module-level constant',
+            visit('await page.goto(`${EXAMPLE_URL}?theme=${theme}`);', "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\n")],
+        ['an awaited helper receiving the fixture',
+            visit('const result = await open(page, theme);', 'const open = async (page, theme) => { await page.goto(`/examples/scheduler/demo/index.html${theme ? `?theme=${theme}` : \'\'}`); };\n')]
     ]) {
-        test(`a fixed navigation pathname qualifies despite its dynamic query: ${source.split('\n').at(-1)}`, () => {
+        test(`a fixed pathname qualifies with a dynamic query through ${label}`, () => {
             withTree(root => {
                 const {full, specs} = selectSpecs({changed: [css], exampleCss: [css], root});
 
