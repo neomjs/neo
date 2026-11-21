@@ -143,3 +143,132 @@ test.describe('Neo.plugin.PrefixField (OMT browser)', () => {
         await expect(phoneInput).toHaveValue('ID-NEOM');
     });
 });
+
+test.describe('examples/fieldWithPrefix Input masks workbench', () => {
+    test('MAC field accepts uppercase/lowercase hex digits, refuses G-Z, reflects hex label, and resets cleanly', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto('/examples/fieldWithPrefix/index.html');
+
+        const container = page.locator('.example-fieldWithPrefix');
+        await expect(container).toBeVisible();
+        await expect(container.locator('input[data-neo-prefix-ready="true"]')).toHaveCount(5);
+
+        const macField = container.locator('.neo-textfield').nth(2),
+              macLabel = macField.locator('.neo-textfield-label'),
+              macInput = macField.locator('input');
+
+        await expect(macLabel).toHaveText('[0-9A-Fa-f] MAC');
+
+        await macInput.click();
+        await macInput.pressSequentially('001A2B3C4D5E', {delay: 0});
+        await expect(macInput).toHaveValue('00:1A:2B:3C:4D:5E');
+
+        await macInput.fill('');
+        await macInput.pressSequentially('001a2b3c4d5e', {delay: 0});
+        await expect(macInput).toHaveValue('00:1a:2b:3c:4d:5e');
+
+        // Non-hex letters G-Z / g-z are refused; untouched-slot mask clears on blur
+        await macInput.fill('');
+        await macInput.click();
+        await macInput.pressSequentially('GHIJKLMNOPQRghijklmnopqr', {delay: 0});
+        await expect(macInput).toHaveValue('XX:XX:XX:XX:XX:XX');
+        await container.locator('.neo-textfield input').first().click();
+        await expect(macInput).toHaveValue('');
+
+        // Mixed string strips G-Z and fills hex slots in order
+        await macInput.click();
+        await macInput.pressSequentially('GG00ZZ1a2B3c4D5e', {delay: 0});
+        await expect(macInput).toHaveValue('00:1a:2B:3c:4D:5e');
+
+        // Workbench Reset clears masked fields back to empty initial state
+        await page.getByRole('button', {name: /reset/i}).click();
+        await expect(macInput).toHaveValue('');
+    });
+
+    test('fits 1440x900 (350px cap) and 390x844 phone width in light and dark themes with all five fields reachable', async ({page}) => {
+        await page.goto('/examples/fieldWithPrefix/index.html');
+
+        const container = page.locator('.example-fieldWithPrefix');
+        await expect(container).toBeVisible();
+        await expect(container.locator('input[data-neo-prefix-ready="true"]')).toHaveCount(5);
+
+        const viewportEl = page.locator('.neo-viewport');
+
+        for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+            await page.setViewportSize(viewport);
+
+            for (const expectedTheme of ['neo-theme-light', 'neo-theme-dark']) {
+                for (let step = 0; step < 6; step++) {
+                    if (await viewportEl.evaluate((el, cls) => el.classList.contains(cls), expectedTheme)) {
+                        break;
+                    }
+                    const prevClass = await viewportEl.getAttribute('class');
+                    await page.locator('.neo-button-theme-switch').click();
+                    await expect.poll(() => viewportEl.getAttribute('class')).not.toBe(prevClass);
+                }
+                await expect(viewportEl).toHaveClass(new RegExp(`\\b${expectedTheme}\\b`));
+
+                const layout = await page.evaluate(() => {
+                    const stage       = document.querySelector('.neo-workbench-stage'),
+                          exContainer = document.querySelector('.neo-example-container'),
+                          box         = document.querySelector('.example-fieldWithPrefix'),
+                          stageRect   = stage.getBoundingClientRect(),
+                          boxRect     = box.getBoundingClientRect(),
+                          fields      = [...box.querySelectorAll('.neo-textfield')].map(field => {
+                              const rect      = field.getBoundingClientRect(),
+                                    labelRect = field.querySelector('.neo-textfield-label').getBoundingClientRect(),
+                                    inputRect = (field.querySelector('.neo-input-wrapper') || field.querySelector('input')).getBoundingClientRect();
+
+                              return {
+                                  left      : rect.left,
+                                  right     : rect.right,
+                                  labelRight: labelRect.right,
+                                  inputLeft : inputRect.left
+                              };
+                          });
+
+                    return {
+                        boxWidth     : Math.round(boxRect.width),
+                        exClientWidth: exContainer.clientWidth,
+                        exScrollWidth: exContainer.scrollWidth,
+                        stageLeft    : stageRect.left,
+                        stageRight   : stageRect.right,
+                        fields
+                    };
+                });
+
+                expect(layout.fields).toHaveLength(5);
+                expect(layout.exScrollWidth).toBeLessThanOrEqual(layout.exClientWidth);
+
+                if (viewport.width === 1440) {
+                    expect(layout.boxWidth).toBe(350);
+                } else {
+                    expect(layout.boxWidth).toBeLessThan(350);
+                }
+
+                for (const field of layout.fields) {
+                    expect(field.left).toBeGreaterThanOrEqual(layout.stageLeft);
+                    expect(field.right).toBeLessThanOrEqual(layout.stageRight);
+                    expect(field.labelRight).toBeLessThanOrEqual(field.inputLeft + 0.5);
+                }
+
+                // Scroll to the 5th field (Credit Card) and verify it is visible inside the stage and interactive
+                const cardInput = container.locator('.neo-textfield').nth(4).locator('input');
+                await cardInput.scrollIntoViewIfNeeded();
+
+                const cardInStage = await page.evaluate(() => {
+                    const stage     = document.querySelector('.neo-workbench-stage').getBoundingClientRect(),
+                          cardField = document.querySelectorAll('.example-fieldWithPrefix .neo-textfield')[4].getBoundingClientRect();
+
+                    return cardField.top >= stage.top && cardField.bottom <= stage.bottom &&
+                           cardField.left >= stage.left && cardField.right <= stage.right;
+                });
+
+                expect(cardInStage).toBe(true);
+                await cardInput.fill('4242424242424242');
+                await expect(cardInput).toHaveValue('4242 4242 4242 4242');
+                await cardInput.fill('');
+            }
+        }
+    });
+});
