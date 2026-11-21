@@ -154,3 +154,18 @@ test('on a phone the task column narrows to 160 px and the chart follows it, and
     await page.setViewportSize({width: 1440, height: 900});
     await expect.poll(async () => (await layout())?.task).toBe(240)
 });
+
+test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+    const theme = () => page.locator('.task-editor-viewport').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+    await page.emulateMedia({colorScheme: 'light'});
+    await page.goto(EXAMPLE_URL);
+    await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+    await page.emulateMedia({colorScheme: 'dark'});
+    await page.goto(EXAMPLE_URL);
+    await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+    await page.goto(`${EXAMPLE_URL}?theme=neo-theme-light`);
+    await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
+});
