@@ -61,6 +61,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'dashboard/LegacyPopupReturnNL.spec.mjs',
     'dashboard/PreviewLanguageDragPairNL.spec.mjs',
     'dashboard/TearOutMatrixRows4To7NL.spec.mjs',
+    'dialog/MenuLayerNL.spec.mjs',
     'gantt/BasicNL.spec.mjs',
     'gantt/BigDataNL.spec.mjs',
     'gantt/CascadeTransitionNL.spec.mjs',

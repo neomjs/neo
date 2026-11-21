@@ -42,7 +42,7 @@ class WindowManager extends Base {
         appStore_: null,
         /**
          * The z-index below the lowest window. The default keeps the windows under the engine's floating layer, menus
-         * at 100 and dialogs at 1000, so a taskbar's menu opens above every window.
+         * and dialogs at 1000, so a taskbar's menu opens above every window.
          * @member {Number} baseZIndex=10
          */
         baseZIndex: 10,

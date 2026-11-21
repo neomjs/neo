@@ -271,7 +271,7 @@ that one rule:
 
 The order is the window manager's own. A dialog has one fixed `z-index` and no order among dialogs, so the manager
 keeps a stack of the windows it created and sets their `z-index` from `baseZIndex` up, 10 by default. That keeps every
-window beneath the engine's floating layer, menus at 100 and dialogs at 1000: the start menu opens above every window,
+window beneath the engine's floating layer, menus and dialogs at 1000: the start menu opens above every window,
 and a dialog an app opens stays above all of them. Two desktops on one App worker keep two separate orders.
 
 The window is a `Neo.desktop.AppWindow`, which shows its app's record: the title and the header icon follow the record,

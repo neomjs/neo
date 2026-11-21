@@ -160,11 +160,11 @@ class List extends BaseList {
          */
         subMenuMap: null,
         /**
-         * We are applying a z-index style which is 1 number higher to each sub-menu
-         * @member {Number} zIndex_=100
+         * Optional explicit `z-index` override; `null` uses `.neo-floating` (`1000`) and DOM order, while a number cascades `+ 1` per submenu.
+         * @member {Number|null} zIndex_=null
          * @reactive
          */
-        zIndex_: 100,
+        zIndex_: null,
         /**
          * @member {Object} _vdom
          */
@@ -330,13 +330,20 @@ class List extends BaseList {
     }
 
     /**
-     * Triggered after the zIndex config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @summary Syncs explicit `z-index` overrides onto root style and cached submenus; `null` defers to `.neo-floating`.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
     afterSetZIndex(value, oldValue) {
-        this.style = {...this.style, zIndex: value}
+        // Skip the initial null so style stays untouched and .neo-floating governs; a later null clears a prior override
+        if (value !== null || oldValue !== undefined) {
+            this.style = {...this.style, zIndex: value};
+
+            Object.values(this.subMenuMap || {}).forEach(menu => {
+                menu.zIndex = Neo.isNumber(value) ? value + 1 : null
+            })
+        }
     }
 
     /**
@@ -955,11 +962,12 @@ class List extends BaseList {
                 ...me.getSubMenuData(record),
                 isRoot         : false,
                 parentComponent: me,
-                parentId       : me.app.mainView.id,
+                // Floating roots keep submenus in their own portal; inline roots escape their host container to body
+                parentId       : me.floating ? me.parentId : 'document.body',
                 parentIndex    : store.indexOf(record),
                 parentMenu     : me,
                 theme          : me.theme,
-                zIndex         : me.zIndex + 1
+                zIndex         : Neo.isNumber(me.zIndex) ? me.zIndex + 1 : null
             }));
 
         // Every way into a submenu comes through here, so this ends a pending rest: a focus rest has no leave event,
