@@ -392,6 +392,111 @@ test.describe('e2e CI selection — what a pull request\'s change selects', () =
     });
 });
 
+test.describe('e2e CI selection — verified example styles', () => {
+    const stem      = 'examples/scheduler/demo/Viewport',
+          css       = `resources/css/src/${stem}.css`,
+          darkCss   = `resources/css/theme-neo-dark/${stem}.css`,
+          namespace = 'Neo.examples.scheduler.demo.Viewport',
+          owner     = 'test/playwright/e2e/scheduler/Demo.spec.mjs',
+          adjacent  = 'test/playwright/e2e/scheduler/Adjacent.spec.mjs',
+          bare      = 'test/playwright/e2e/scheduler/Bare.spec.mjs';
+
+    /**
+     * @summary Builds a tracked tree whose owning spec goes through the actual Engine tier filter.
+     * @param {Function} run The assertion to run against the fixture root.
+     * @param {Object<String, String>} [extra={}] Source files or replacements for the fixture.
+     * @param {String} [ownerSpec=owner] The spec that opens the styled example.
+     * @returns {void}
+     */
+    function withTree(run, extra={}, ownerSpec=owner) {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-example-css-reach-')),
+              tree = {
+                  'examples/scheduler/demo/app.mjs'    : "import './Viewport.mjs';",
+                  [`${stem}.mjs`]                      : `class Viewport { static config = {className: '${namespace}'}; }\nexport default Neo.setupClass(Viewport);`,
+                  'examples/scheduler/adjacent/app.mjs': "import '../../../src/form/Field.mjs';",
+                  'src/form/Field.mjs'                 : '',
+                  [css]                                : '.row { color: blue }',
+                  [darkCss]                            : '.row { color: white }',
+                  [ownerSpec]                          : "await page.goto('/examples/scheduler/demo/index.html');",
+                  [adjacent]                           : "await page.goto('/examples/scheduler/adjacent/index.html');",
+                  [bare]                               : '',
+                  ...extra
+              };
+
+        try {
+            for (const runPath of RUN_PATHS) {
+                fs.mkdirSync(path.join(root, runPath.endsWith('.mjs') ? path.dirname(runPath) : runPath), {recursive: true})
+            }
+
+            for (const [file, content] of Object.entries(tree)) {
+                fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
+                fs.writeFileSync(path.join(root, file), content)
+            }
+
+            execFileSync('git', ['init', '-q'], {cwd: root});
+            execFileSync('git', ['add', '.'], {cwd: root});
+            run(root)
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true})
+        }
+    }
+
+    test('local theme variants select the owner and unnamed controls while other edits retain their reach', () => {
+        withTree(root => {
+            const exampleCss = [css, darkCss],
+                  selection  = selectSpecs({changed: exampleCss, exampleCss, root}),
+                  mixed      = selectSpecs({changed: [...exampleCss, 'src/form/Field.mjs'], exampleCss, root});
+
+            expect(selection.full).toBe(false);
+            expect([...selection.specs.keys()]).toEqual([owner, bare]);
+            expect(mixed.full).toBe(false);
+            expect([...mixed.specs.keys()]).toEqual([owner, adjacent, bare]);
+            expect(selectSpecs({changed: [css], root}).full, 'paths without PR status use the full tier').toBe(true);
+        })
+    });
+
+    for (const viaHelper of [false, true]) {
+        test(`a computed example route keeps a spec with a known app in the selection via ${viaHelper ? 'a helper' : 'the spec'}`, () => {
+            const helper     = 'test/playwright/exampleNavigation.mjs',
+                  literal    = "await page.goto('/examples/scheduler/adjacent/index.html');",
+                  navigation = 'await page.goto(`/examples/${example}/index.html`);',
+                  extra      = viaHelper
+                      ? {[adjacent]: `import '../../exampleNavigation.mjs';\n${literal}`, [helper]: navigation}
+                      : {[adjacent]: `${literal}\n${navigation}`};
+
+            withTree(root => {
+                const {full, specs} = selectSpecs({changed: [css], exampleCss: [css], root});
+
+                expect(full).toBe(false);
+                expect(specs.get(adjacent)).toBe('the map cannot place it')
+            }, extra)
+        });
+    }
+
+    test('ownership needs a deployed class and an executed owning spec', () => {
+        const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
+
+        withTree(check, {}, 'test/playwright/e2e/demo/LocalOnly.spec.mjs');
+        withTree(check, {[owner]: "await page.goto('/examples/scheduler/demo/index.html');\nawait neuralLink();"});
+        withTree(check, {'examples/scheduler/demo/app.mjs': ''});
+    });
+
+    test('explicit theme consumers, foreign class imports and CSS imports keep the full tier', () => {
+        const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
+
+        withTree(check, {'examples/scheduler/adjacent/app.mjs': `export default {additionalThemeFiles: ['${namespace}']};`});
+        withTree(check, {
+            'apps/other/Consumer.mjs'           : "import '../../examples/scheduler/demo/Helper.mjs';",
+            'examples/scheduler/demo/Helper.mjs': "export {default} from './Viewport.mjs';"
+        });
+        withTree(check, {
+            'apps/other/Consumer.mjs'               : "import {themeFiles} from '../../examples/scheduler/demo/ThemeFiles.mjs';\nexport default {additionalThemeFiles: themeFiles};",
+            'examples/scheduler/demo/ThemeFiles.mjs': `export const themeFiles = ['${namespace}'];`
+        });
+        withTree(check, {'resources/css/src/Global.css': '@import "examples/scheduler/demo/Viewport.css";'});
+    });
+});
+
 /**
  * The selection on this tree: how it splits into the tiers, what the classifier reads, and the historical reds it
  * replays.
