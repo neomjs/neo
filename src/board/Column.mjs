@@ -124,6 +124,8 @@ class Column extends Container {
     measurementFlight = null
     /** @member {Object|null} pendingScroll=null Latest native scroll event. */
     pendingScroll = null
+    /** @member {Boolean} windowPinned=false Whether a drag's held card holds the window away from the scroll position. */
+    windowPinned = false
     /** @member {Object|null} navigationToken=null Keeps a requested record rendered through native scroll alignment. */
     navigationToken = null
     /** @member {Number} navigationGeneration=0 Rejects native scroll samples emitted before a requested jump. */
@@ -220,7 +222,8 @@ class Column extends Container {
     }
 
     /**
-     * @summary Selects records before the board allocates their components.
+     * @summary Selects records before the board allocates their components. A sliced column's window always holds the
+     * record of a card the board's drag holds, so a scroll during the drag cannot unmount it.
      * @param {Object[]} records
      * @param {Number} [sourceCount=records.length] Canonical column size, keeping filtered retention bounded.
      * @returns {Object[]}
@@ -231,6 +234,28 @@ class Column extends Container {
         me.windowRecords = records;
         me.isSliced = me.maxRenderedCards !== null && sourceCount > me.maxRenderedCards;
         me.windowStart = me.isSliced ? Math.max(0, Math.min(me.windowStart, records.length - me.windowCapacity)) : 0;
+
+        // A card a drag holds stays a component of this body until the drop, so the window keeps its record, moving as
+        // little as it must: a window that lost it would unmount the card the drag still moves. Once the drag lets go,
+        // the window returns to the scroll position it was held away from, or the viewport would show its spacer.
+        if (me.isSliced) {
+            const
+                zone   = me.board?.sortZone,
+                index  = zone?.dragComponent ? records.indexOf(zone.dragRecord) : -1,
+                scroll = me.pendingScroll;
+
+            if (index > -1 && (index < me.windowStart || index >= me.windowStart + me.windowCapacity)) {
+                me.windowStart  = index < me.windowStart ? index : index - me.windowCapacity + 1;
+                me.windowPinned = true
+            } else if (index < 0 && me.windowPinned) {
+                me.windowPinned = false;
+
+                if (scroll) {
+                    me.windowStart = Math.max(0, Math.min(Math.floor((scroll.scrollTop + 1) / scroll.stride), records.length - me.windowCapacity))
+                }
+            }
+        }
+
         me.measurementRevision++;
 
         return me.isSliced ? records.slice(me.windowStart, me.windowStart + me.windowCapacity) : records
