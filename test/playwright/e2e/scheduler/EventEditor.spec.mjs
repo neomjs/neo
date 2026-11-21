@@ -190,6 +190,37 @@ test.describe('Scheduler event editor example (#21615)', () => {
         expect(errors).toEqual([])
     });
 
+    test('the Room select has its label beside it, in the column of the other fields, at both sizes', async ({page}) => {
+        const errors = trackErrors(page);
+
+        for (const size of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+            await page.setViewportSize(size);
+            await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+            await bar(page, 'appt-2').dblclick();
+            await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toBeFocused();
+
+            const {room, roomLabel, title, titleLabel} = await page.locator(EDITOR).evaluate(editor => {
+                const rect = selector => editor.querySelector(selector).getBoundingClientRect().toJSON();
+
+                return {
+                    room      : rect('[id$="__field__resourceId"] .neo-selectfield-input'),
+                    roomLabel : rect('[id$="__field__resourceId"] .neo-selectfield-label'),
+                    title     : rect('[id$="__field__title"] .neo-textfield-input'),
+                    titleLabel: rect('[id$="__field__title"] .neo-textfield-label')
+                }
+            });
+
+            expect(Math.abs(roomLabel.left - titleLabel.left), `${size.width} px: the labels start together`).toBeLessThanOrEqual(1);
+            expect(Math.abs(room.left - title.left), `${size.width} px: the select starts where Title's input does`).toBeLessThanOrEqual(1);
+            expect(Math.abs((roomLabel.top + roomLabel.bottom) - (room.top + room.bottom)) / 2, `${size.width} px: the label sits beside the select`).toBeLessThanOrEqual(2);
+
+            await clickButton(page, 'Cancel');
+            await expect(page.locator(EDITOR)).toBeHidden()
+        }
+
+        expect(errors).toEqual([])
+    });
+
     test('renders without errors in every theme at both sizes', async ({page}) => {
         const errors = trackErrors(page);
 
