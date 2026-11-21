@@ -73,7 +73,8 @@ for (const [example, scroll] of [['zoom', 2400], ['basic', 300]]) {
 
         const {table, chart} = await regions(page);
 
-        expect(await linksPaintIn(page, table)).toBe(false);
-        expect(await linksPaintIn(page, chart)).toBe(true)
+        // The layer redraws after the scroll: links in the chart first, so an empty layer never passes the table check
+        await expect.poll(() => linksPaintIn(page, chart)).toBe(true);
+        expect(await linksPaintIn(page, table)).toBe(false)
     })
 }
