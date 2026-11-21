@@ -18,7 +18,8 @@ import Base from '../../../core/Base.mjs';
  *   in flight when this one was chained, `landedInPlace` what the reconciler reported.
  * - **`predecessorTiming`** is the earlier cycle's live `timing` while this one waits on it. Read during a
  *   stall, its last stamp names the phase the earlier refresh never left. It is dropped once the tail
- *   settles, so no cycle keeps another alive.
+ *   settles, so no cycle keeps another alive. When the tail is a refresh no cycle owns (a direct repair),
+ *   it is `{owner: 'unknown'}` rather than an older cycle's stamps (see {@link #timingOf}).
  *
  * @class Neo.dashboard.dock.projection.Cycle
  * @extends Neo.core.Base
@@ -43,10 +44,28 @@ class Cycle extends Base {
     }
 
     /**
+     * The timing a cycle chained onto `tail` carries: the newest cycle's own when `tail` is the promise that cycle's
+     * `run` returned, a marker when the tail is a refresh no cycle owns, `null` with no tail.
+     * @param {Neo.dashboard.dock.projection.Cycle|null} cycle The newest cycle chained before the new one
+     * @param {Promise|null} tail The Workspace's current refresh
+     * @returns {Object|null}
+     */
+    static timingOf(cycle, tail) {
+        if (!tail) return null;
+
+        return cycle?.promise === tail ? cycle.timing : {owner: 'unknown'}
+    }
+
+    /**
      * Settles with the reconciler's outcome at adoption, or `null` when the cycle never adopted.
      * @member {Promise<Object|null>} adoption=null
      */
     adoption = null
+    /**
+     * The promise `run` returned: the Workspace's refresh while this cycle is the newest link.
+     * @member {Promise|null} promise=null
+     */
+    promise = null
     /**
      * The phase receipt, in epoch milliseconds (see the class summary).
      * @member {Object} timing=null
@@ -96,7 +115,7 @@ class Cycle extends Base {
     run(tail, workspace, refresh) {
         const me = this;
 
-        return tail
+        return me.promise = tail
             .then(() => {
                 me.predecessorTiming = null;
                 return workspace.timeout(0).catch(error => {if (error !== Neo.isDestroyed) throw error})

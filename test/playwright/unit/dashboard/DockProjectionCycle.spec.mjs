@@ -54,5 +54,20 @@ test.describe('Neo.dashboard.dock.projection.Cycle', () => {
         await run;
 
         expect(order).toEqual(['predecessor', 'cycle'])
+    });
+
+    test('the timing belongs to the awaited refresh: a direct repair tail gets an unknown-owner marker', async () => {
+        const older  = Neo.create(ProjectionCycle),
+              own    = older.run(Promise.resolve(), workspace, async () => {}),
+              repair = own.then(() => new Promise(() => {}));
+
+        // The older cycle settled with a start and no settledAt, as a typed failure that queued a repair leaves it
+        await own;
+        delete older.timing.settledAt;
+
+        expect(own, 'run keeps the promise it returned').toBe(older.promise);
+        expect(ProjectionCycle.timingOf(older, own), 'the cycle\'s own refresh').toBe(older.timing);
+        expect(ProjectionCycle.timingOf(older, repair), 'a repair no cycle owns').toEqual({owner: 'unknown'});
+        expect(ProjectionCycle.timingOf(older, null), 'no tail').toBeNull()
     })
 });
