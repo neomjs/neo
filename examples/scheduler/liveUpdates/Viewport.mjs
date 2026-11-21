@@ -46,6 +46,12 @@ function mulberry32(seed) {
     }
 }
 
+/**
+ * @summary Formats `[start, end]` timestamps as a compact `'HH:MM–HH:MM'` UTC range string.
+ * @param {Date|Number|String} start
+ * @param {Date|Number|String} end
+ * @returns {String}
+ */
 function formatUtcRange(start, end) {
     const
         s = start instanceof Date ? start : new Date(start),

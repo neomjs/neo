@@ -2,10 +2,12 @@ import {test, expect} from '../../fixtures.mjs';
 
 const
     EXAMPLE_URL              = '/examples/scheduler/liveUpdates/index.html',
-    PAUSE_HOLD_VERIFY_MS     = 1_600,
+    PARKED_INTERVAL_MS       = 600_000,
+    PAUSE_FEED_INTERVAL_MS   = 200,
+    PAUSE_HOLD_VERIFY_MS     = 1_000,
     RUN_WALL_CLOCK_SOAK      = process.env.NEO_LIVE_UPDATES_SOAK === '1',
     SOAK_MIN_TICKS           = 120,
-    CI_DRAG_INTERVAL_MS      = 250,
+    CI_DRAG_INTERVAL_MS      = 350,
     CI_SOAK_INTERVAL_MS      = 50,
     TWO_MINUTES_FEED_SOAK_MS = 120_500,
     THEMES                   = [
@@ -74,8 +76,21 @@ async function readWorkerSnapshot(page, flightIds=[]) {
     }, flightIds)
 }
 
+/**
+ * @summary Executes one deterministic `Viewport#stepFeed()` mutation inside the App Worker.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+function stepWorkerFeed(page) {
+    return getAppWorker(page).evaluate(() => {
+        const viewport = [...globalThis.Neo.manager.Instance.items.values()]
+            .find(inst => inst.className === 'Neo.examples.scheduler.liveUpdates.Viewport');
+        viewport?.stepFeed()
+    })
+}
+
 test.describe('Scheduler liveUpdates example', () => {
-    test('runs seeded simulated feed on open, asserts named flight times after fixed changes, shows fresh and fading marks, and pauses cleanly', async ({page}) => {
+    test('steps seeded simulated feed deterministically for named flight times and fresh/fading marks, and pauses a running feed cleanly', async ({page}) => {
         const consoleErrors = [];
         page.on('console', msg => {
             if (msg.type() === 'error') {
@@ -85,15 +100,16 @@ test.describe('Scheduler liveUpdates example', () => {
         page.on('pageerror', err => consoleErrors.push(err.message));
 
         await page.setViewportSize({width: 1440, height: 900});
-        await page.goto(`${EXAMPLE_URL}?seed=19257&theme=neo-theme-neo-dark`);
+        await page.goto(`${EXAMPLE_URL}?seed=19257&interval=${PARKED_INTERVAL_MS}&theme=neo-theme-neo-dark`);
 
-        // Simulated feed label stays visible on screen and 14 gates mount
+        // Simulated feed label stays visible on screen and 14 gates mount with the timer parked at 0 changes
         const simBadge = page.locator('.gate-sim-badge');
         await expect(simBadge).toBeVisible();
         await expect(simBadge).toHaveText('Simulated feed');
         await expect(page.locator('.neo-scheduler .neo-grid-cell.neo-locked-start')).toHaveCount(14);
 
         const initial = await readWorkerSnapshot(page, ['fl-101', 'fl-116']);
+        expect(initial.changeCount).toBe(0);
         expect(initial.gateCount).toBe(14);
         expect(initial.flightCount).toBe(60);
         expect(initial.flights['fl-101']).toMatchObject({
@@ -112,40 +128,82 @@ test.describe('Scheduler liveUpdates example', () => {
         await expect(pauseBtn).not.toHaveAttribute('role');
         expect(await pauseBtn.evaluate(el => getComputedStyle(el).borderRadius)).toBe('999px');
 
-        // Wait for 2 deterministic feed ticks on seed 19257, then Pause immediately
-        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount, {timeout: 8_000}).toBeGreaterThanOrEqual(2);
-        await pauseBtn.click();
-        await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
-        await expect(pauseBtn).toHaveClass(/\bpressed\b/);
+        // Step 1: NX 101 (fl-101) slips +10m to 06:15–06:55 UTC and renders the at-rest fresh mark (.is-feed-fresh)
+        await stepWorkerFeed(page);
+        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount).toBe(1);
 
-        const pausedSnap = await readWorkerSnapshot(page, ['fl-101', 'fl-live-2']);
-        expect(pausedSnap.paused).toBe(true);
-        expect(pausedSnap.changeCount).toBeGreaterThanOrEqual(2);
+        const
+            step1    = await readWorkerSnapshot(page, ['fl-101']),
+            fl101Bar = page.locator('.neo-timeline-bar[data-event-id="fl-101"]');
 
-        // Named flight NX 101 (fl-101) slipped +10m on tick 1 to exact 06:15–06:55 UTC, and arrival fl-live-2 landed at 06:10–06:50 UTC on Gate A2
-        expect(pausedSnap.flights['fl-101']).toMatchObject({
+        expect(step1.flights['fl-101']).toMatchObject({
             endDate   : '2026-11-09T06:55:00.000Z',
+            feedMark  : 'fresh',
             flightCode: 'NX 101',
             resourceId: 'g-01',
             startDate : '2026-11-09T06:15:00.000Z',
             status    : 'delayed'
         });
-        expect(pausedSnap.flights['fl-live-2']).toMatchObject({
+        await expect(fl101Bar).toHaveClass(/\bis-feed-fresh\b/);
+        expect(await fl101Bar.evaluate(el => ({
+            borderTopStyle: getComputedStyle(el).borderTopStyle,
+            zIndex        : getComputedStyle(el).zIndex
+        }))).toEqual({borderTopStyle: 'solid', zIndex: '3'});
+
+        // Step 2: arrival fl-live-2 lands at 06:10–06:50 UTC on Gate A2 as fresh, while fl-101 transitions to fading
+        await stepWorkerFeed(page);
+        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount).toBe(2);
+
+        const
+            step2    = await readWorkerSnapshot(page, ['fl-101', 'fl-live-2']),
+            live2Bar = page.locator('.neo-timeline-bar[data-event-id="fl-live-2"]');
+
+        expect(step2.flights['fl-live-2']).toMatchObject({
             endDate   : '2026-11-09T06:50:00.000Z',
+            feedMark  : 'fresh',
             resourceId: 'g-02',
             startDate : '2026-11-09T06:10:00.000Z',
             status    : 'arrived'
         });
+        expect(step2.flights['fl-101'].feedMark).toBe('fading');
+        await expect(live2Bar).toHaveClass(/\bis-feed-fresh\b/);
+        await expect(fl101Bar).toHaveClass(/\bis-feed-fading\b/);
+        expect(await live2Bar.evaluate(el => ({
+            borderTopStyle: getComputedStyle(el).borderTopStyle,
+            zIndex        : getComputedStyle(el).zIndex
+        }))).toEqual({borderTopStyle: 'solid', zIndex: '3'});
+        expect(await fl101Bar.evaluate(el => ({
+            borderTopStyle: getComputedStyle(el).borderTopStyle,
+            zIndex        : getComputedStyle(el).zIndex
+        }))).toEqual({borderTopStyle: 'dashed', zIndex: '2'});
 
-        if (pausedSnap.changeCount === 2) {
-            // At tick 2, fl-live-2 is marked at rest (.is-feed-fresh) while fl-101 is fading (.is-feed-fading)
-            await expect(page.locator('.neo-timeline-bar[data-event-id="fl-live-2"]')).toHaveClass(/is-feed-fresh/);
-            await expect(page.locator('.neo-timeline-bar[data-event-id="fl-101"]')).toHaveClass(/is-feed-fading/);
-        }
+        // Step 3: Gate A4 departure removes fl-116 while fl-live-2 transitions to fading and fl-101 clears its mark
+        await stepWorkerFeed(page);
+        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount).toBe(3);
 
-        const counterBeforeHold = await page.locator('.gate-counter').textContent();
+        const step3 = await readWorkerSnapshot(page, ['fl-101', 'fl-live-2', 'fl-116']);
+        expect(step3.flights['fl-116']).toBeNull();
+        expect(step3.flights['fl-live-2'].feedMark).toBe('fading');
+        expect(step3.flights['fl-101'].feedMark).toBe('');
+        await expect(page.locator('.neo-timeline-bar[data-event-id="fl-116"]')).toHaveCount(0);
+        await expect(live2Bar).toHaveClass(/\bis-feed-fading\b/);
 
-        // wall-clock-under-test: verifies Pause stops the 1s simulated feed and holds the change counter still across >2 tick intervals
+        // Running-feed Pause / Resume arm: open on an active interval, let >= 2 ticks run, Pause across 5 intervals, then Resume
+        await page.goto(`${EXAMPLE_URL}?seed=19257&interval=${PAUSE_FEED_INTERVAL_MS}&theme=neo-theme-neo-dark`);
+        await expect(simBadge).toBeVisible();
+        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount, {timeout: 8_000}).toBeGreaterThanOrEqual(2);
+
+        await pauseBtn.click();
+        await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
+        await expect(pauseBtn).toHaveClass(/\bpressed\b/);
+
+        const
+            pausedSnap        = await readWorkerSnapshot(page),
+            counterBeforeHold = await page.locator('.gate-counter').textContent();
+
+        expect(pausedSnap.paused).toBe(true);
+
+        // wall-clock-under-test: verifies Pause stops the active simulated feed timer and holds the counter still across 5 tick intervals
         await page.waitForTimeout(PAUSE_HOLD_VERIFY_MS);
 
         const afterHoldSnap = await readWorkerSnapshot(page);
@@ -153,13 +211,10 @@ test.describe('Scheduler liveUpdates example', () => {
         await expect(page.locator('.gate-counter')).toHaveText(counterBeforeHold);
         await expect(simBadge).toBeVisible();
 
-        // Resume feed and verify tick 3 frees Gate A4 (removes fl-116)
         await pauseBtn.click();
         await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
-        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount, {timeout: 8_000}).toBeGreaterThanOrEqual(pausedSnap.changeCount + 2);
-
-        const postResume = await readWorkerSnapshot(page, ['fl-116']);
-        expect(postResume.flights['fl-116']).toBeNull();
+        await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount, {timeout: 8_000})
+            .toBeGreaterThanOrEqual(pausedSnap.changeCount + 2);
         expect(consoleErrors).toEqual([])
     });
 
@@ -175,6 +230,10 @@ test.describe('Scheduler liveUpdates example', () => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(`${EXAMPLE_URL}?seed=19257&interval=${CI_DRAG_INTERVAL_MS}&theme=neo-theme-neo-dark`);
         await expect(page.locator('.neo-scheduler .neo-timeline-track').first()).toBeVisible();
+
+        const pauseBtn = page.locator('.gate-pause-btn');
+        await pauseBtn.click();
+        await expect(pauseBtn).toHaveAttribute('aria-pressed', 'true');
 
         await page.evaluate(() => {
             globalThis.Neo.config.logDeltaUpdates = true;
@@ -220,6 +279,8 @@ test.describe('Scheduler liveUpdates example', () => {
             top       : document.querySelector('.neo-grid-view')?.scrollTop ?? -1
         }));
         const countAtScroll = (await readWorkerSnapshot(page)).changeCount;
+        await pauseBtn.click();
+        await expect(pauseBtn).toHaveAttribute('aria-pressed', 'false');
 
         await expect.poll(async () => (await readWorkerSnapshot(page)).changeCount, {timeout: 10_000})
             .toBeGreaterThanOrEqual(countAtScroll + 3);
@@ -373,22 +434,22 @@ test.describe('Scheduler liveUpdates example', () => {
                 expect(docFits, `${theme} fits 390px viewport without document overflow`).toBe(true)
             }
 
+            const minExpectedTicks = RUN_WALL_CLOCK_SOAK ? 110 : SOAK_MIN_TICKS;
+
             if (RUN_WALL_CLOCK_SOAK) {
                 // wall-clock-under-test: sustains two minutes of continuous 1s simulated feed with zero console errors at 1440x900 and 390x844
                 await page.waitForTimeout(TWO_MINUTES_FEED_SOAK_MS)
-            } else {
-                await expect.poll(async () => {
-                    const [d, m] = await Promise.all([readWorkerSnapshot(page), readWorkerSnapshot(mobilePage)]);
-                    return Math.min(d.changeCount, m.changeCount)
-                }, {timeout: 30_000}).toBeGreaterThanOrEqual(SOAK_MIN_TICKS)
             }
 
-            const
-                minExpectedTicks        = RUN_WALL_CLOCK_SOAK ? 110 : SOAK_MIN_TICKS,
-                [desktopEnd, mobileEnd] = await Promise.all([
-                    readWorkerSnapshot(page),
-                    readWorkerSnapshot(mobilePage)
-                ]);
+            await expect.poll(async () => {
+                const [d, m] = await Promise.all([readWorkerSnapshot(page), readWorkerSnapshot(mobilePage)]);
+                return Math.min(d.changeCount, m.changeCount)
+            }, {timeout: 30_000}).toBeGreaterThanOrEqual(minExpectedTicks);
+
+            const [desktopEnd, mobileEnd] = await Promise.all([
+                readWorkerSnapshot(page),
+                readWorkerSnapshot(mobilePage)
+            ]);
 
             expect(desktopEnd.changeCount).toBeGreaterThanOrEqual(minExpectedTicks);
             expect(mobileEnd.changeCount).toBeGreaterThanOrEqual(minExpectedTicks);
