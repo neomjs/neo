@@ -53,18 +53,25 @@
       "id": "grid-cell-editing",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "A quantity of 60 refused in the order sheet's open editor (at most 50), in the dark grid.",
+      "state": "SO-1001 updated to quantity 3 ($1,260.00 line total) and SO-1002 open in the typed number editor on quantity 12, in the dark grid.",
       "ready": [
         {"selector": ".neo-grid-cell[data-field='quantity']"},
         {"selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"}
       ],
       "steps": [
         {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='quantity']", "nth": 0},
+        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "3"},
+        {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"},
         {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='quantity']", "nth": 1},
-        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "60"},
-        {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"}
+        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "12"}
       ],
-      "after": [{"selector": ".neo-grid-editor .neo-textfield-error", "text": "At most 50"}],
+      "after": [
+        {"selector": ".neo-ripple", "count": 0},
+        {"selector": ".neo-grid-cell[data-field='total']", "text": "$1,260.00", "inRegion": true},
+        {"selector": ".neo-grid-editor input", "value": "12", "inRegion": true},
+        {"selector": ".neo-grid-editor .neo-textfield-error", "count": 0}
+      ],
       "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
