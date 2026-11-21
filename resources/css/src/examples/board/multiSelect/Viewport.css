@@ -6,6 +6,11 @@
 
     background: var(--neo-board-background);
 
+    /* A selected report keeps its severity stripe, which the selection's border would otherwise paint over */
+    .triage-board .neo-board-card.neo-selected {
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-selected-border-color));
+    }
+
     /* An empty column says what it is for; the drag's slot fills it, so the hint leaves while a card is over it */
     .triage-board .neo-board-column-cards:empty::before {
         border       : 1px dashed var(--neo-board-column-border-color);
@@ -88,13 +93,16 @@
         }
     }
 
+    /* The keys sit beside the count they change, set off by a rule */
     .triage-keys {
-        color      : var(--neo-board-card-muted-color);
-        display    : flex;
-        flex-wrap  : wrap;
-        font-size  : 12px;
-        gap        : 6px 16px;
-        margin-left: auto;
+        border-left : 1px solid var(--neo-board-column-border-color);
+        color       : var(--neo-board-card-muted-color);
+        display     : flex;
+        flex-wrap   : wrap;
+        font-size   : 12px;
+        gap         : 6px 16px;
+        margin-left : 4px;
+        padding-left: 16px;
     }
 
     .triage-key-hint {

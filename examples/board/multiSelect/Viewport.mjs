@@ -20,7 +20,7 @@ const
         [['Click'],             'selects one'],
         [['Shift', 'Click'],    'a range'],
         [['⌘ / Ctrl', 'Click'], 'adds or removes'],
-        [['⌘ / Ctrl', 'A'],     'the whole column'],
+        [['⌘ / Ctrl', 'A'],     'its whole column'],
         [['Esc'],               'clears']
     ];
 
