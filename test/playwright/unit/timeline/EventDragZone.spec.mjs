@@ -336,4 +336,71 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
         zone.destroy();
         axis.destroy();
     });
+
+    test('focuses dragged bar at dragStart with pointer modality and hands focus across cross-row barId replacement at dragEnd', async () => {
+        const axis = Neo.create(TimeAxis, {
+            start      : new Date(2026, 10, 9, 8, 0, 0, 0),
+            end        : new Date(2026, 10, 9, 18, 0, 0, 0),
+            pxPerMinute: 2,
+            snapMinutes: 15
+        });
+
+        const store = Neo.create(EventStore, {
+            data: [{
+                id        : 'ev-focus',
+                title     : 'Focus Move',
+                resourceId: 'res-1',
+                startDate : new Date(2026, 10, 9, 9, 0, 0, 0),
+                endDate   : new Date(2026, 10, 9, 10, 0, 0, 0)
+            }]
+        });
+
+        const focusCalls = [],
+              ownerVdom  = {id: 'scheduler-1'},
+              owner      = {
+                  id       : 'scheduler-1',
+                  vdom     : ownerVdom,
+                  focus    : (...args) => focusCalls.push(args),
+                  findBarId: id => `row-${record.resourceId}__bar__${id}`
+              },
+              record     = store.get('ev-focus'),
+              zone       = Neo.create(EventDragZone, {
+                  appName,
+                  axis,
+                  dragElement: ownerVdom,
+                  eventRecord: record,
+                  owner,
+                  store
+              });
+
+        // Container fallback root (owner.vdom) does not trigger bar focus
+        await zone.dragStart({axisOffset: 120});
+        expect(focusCalls).toEqual([]);
+        zone.dragEnd({cancelled: true});
+
+        // Active bar node focuses at dragStart and skips restoreFrom on same-row drop
+        zone.dragElement = {id: 'row-res-1__bar__ev-focus', cls: ['neo-timeline-bar']};
+        await zone.dragStart({axisOffset: 120});
+        expect(focusCalls).toEqual([['row-res-1__bar__ev-focus', false, true, 'pointer']]);
+
+        zone.dragMove({axisOffset: 180, targetPath: [{id: 'row-1', cls: ['neo-timeline-row'], data: {resourceId: 'res-1'}}]});
+        zone.dragEnd({});
+        expect(focusCalls.length).toBe(1);
+
+        // Cross-row drop hands focus to the new row's bar node via restoreFrom
+        focusCalls.length = 0;
+        zone.dragElement  = {id: 'row-res-1__bar__ev-focus', cls: ['neo-timeline-bar']};
+        await zone.dragStart({axisOffset: 180});
+        zone.dragMove({axisOffset: 240, targetPath: [{id: 'row-2', cls: ['neo-timeline-row'], data: {resourceId: 'res-2'}}]});
+        zone.dragEnd({});
+
+        expect(focusCalls).toEqual([
+            ['row-res-1__bar__ev-focus', false, true, 'pointer'],
+            ['row-res-2__bar__ev-focus', false, true, 'pointer', 'row-res-1__bar__ev-focus']
+        ]);
+
+        zone.destroy();
+        store.destroy();
+        axis.destroy();
+    });
 });

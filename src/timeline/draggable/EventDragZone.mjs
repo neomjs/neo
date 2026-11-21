@@ -10,10 +10,13 @@ const MS_PER_MINUTE = 60_000;
  * `super.onDragCancel`) and delegates all coordinate↔date conversion, snapping, and boundary clamping
  * to a `Neo.timeline.TimeAxis` (`axis`). Supports whole-bar move (`resizeEdge: null`) and edge
  * resizing (`resizeEdge: 'start' | 'end'`, with optional opposite-edge flip when
- * `enableResizingAcrossOppositeEdge: true`). Commits through `owner.commitTimelineEdit(...)` when present on
- * `owner` (or a single reactive `record.set(...)` + `store.doSort()` otherwise, never `setSilent`),
- * and restores original state without mutating `eventRecord` when `onDragCancel` or
- * `dragEnd({cancelled: true})` fires.
+ * `enableResizingAcrossOppositeEdge: true`). Once a bar gesture starts without aborting, focuses the
+ * dragged bar (`preventScroll: true`, `modality: 'pointer'`) so long-press touch drags move focus off
+ * any previously focused bar just as mouse presses do; when a committed drop moves the bar into a new
+ * row (`barId` changes), hands focus across the row re-projection via `restoreFrom`. Commits through
+ * `owner.commitTimelineEdit(...)` when present on `owner` (or a single reactive `record.set(...)` +
+ * `store.doSort()` otherwise, never `setSilent`), and restores original state without mutating
+ * `eventRecord` when `onDragCancel` or `dragEnd({cancelled: true})` fires.
  * @class Neo.timeline.draggable.EventDragZone
  * @extends Neo.draggable.DragZone
  */
@@ -215,16 +218,18 @@ class EventDragZone extends DragZone {
 
     /**
      * @summary Commits the pending drop through `owner.commitTimelineEdit(...)` when present (or a single reactive
-     * `record.set(...)` + `store.doSort()` otherwise), or leaves the record untouched when `data.cancelled` is true.
+     * `record.set(...)` + `store.doSort()` otherwise), hands focus across cross-row `barId` replacement via
+     * `restoreFrom`, or leaves the record untouched when `data.cancelled` is true.
      * @param {Object} [data={}]
      */
     dragEnd(data={}) {
         const
-            me      = this,
-            edge    = me.resizeEdge,
-            owner   = me.owner,
-            pending = me.pendingDrop,
-            record  = me.eventRecord;
+            me        = this,
+            edge      = me.resizeEdge,
+            owner     = me.owner,
+            pending   = me.pendingDrop,
+            prevBarId = me.getDraggedBarId(),
+            record    = me.eventRecord;
 
         if (owner?.cls) {
             super.dragEnd(data)
@@ -258,6 +263,14 @@ class EventDragZone extends DragZone {
             }
 
             if (committed !== false && committed?.status !== 'refused') {
+                if (prevBarId && typeof owner?.focus === 'function' && typeof owner.findBarId === 'function') {
+                    const nextBarId = owner.findBarId(record.id);
+
+                    if (nextBarId && nextBarId !== prevBarId) {
+                        owner.focus(nextBarId, false, true, 'pointer', prevBarId)
+                    }
+                }
+
                 me.fire('dropCommit', {
                     record,
                     ...updates
@@ -324,7 +337,9 @@ class EventDragZone extends DragZone {
     }
 
     /**
-     * @summary Runs the base `DragZone#dragStart` handshake (`getMainThreadConfigs()`) and captures the initial record snapshot and grab offset.
+     * @summary Runs the base `DragZone#dragStart` handshake (`getMainThreadConfigs()`), focuses the dragged bar
+     * (`preventScroll: true`, `modality: 'pointer'`) so touch long-press gestures match mouse focus, and captures
+     * the initial record snapshot and grab offset.
      * @param {Object} data
      * @param {AbortSignal} [signal] Discards the snapshot when the press ended during setup.
      */
@@ -349,6 +364,12 @@ class EventDragZone extends DragZone {
             if (signal?.aborted) return
         }
 
+        const barId = me.getDraggedBarId();
+
+        if (barId && typeof me.owner?.focus === 'function') {
+            me.owner.focus(barId, false, true, 'pointer')
+        }
+
         me.initialSnapshot = {
             startDate : DateUtil.clone(record.startDate),
             endDate   : DateUtil.clone(record.endDate),
@@ -365,6 +386,23 @@ class EventDragZone extends DragZone {
         me.pendingDrop = null;
 
         me.dragMove(data)
+    }
+
+    /**
+     * @summary Returns the DOM/VDOM `id` of the active `.neo-timeline-bar` `dragElement`, excluding container fallback roots (`owner.vdom`).
+     * @returns {String|null}
+     * @protected
+     */
+    getDraggedBarId() {
+        const
+            {dragElement, owner} = this,
+            id                   = dragElement?.id;
+
+        if (!id || dragElement === owner?.vdom || id === owner?.id) {
+            return null
+        }
+
+        return id
     }
 
     /**
