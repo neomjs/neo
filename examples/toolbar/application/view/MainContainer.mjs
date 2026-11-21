@@ -60,6 +60,7 @@ class MainContainer extends Viewport {
             labelPosition: 'top',
             labelText    : 'Draft',
             reference    : 'draft',
+            rows         : 6,
             value        : '# Engine release\n\n- Verify the published examples.'
         }, {
             module   : Label,
