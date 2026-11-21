@@ -1,7 +1,8 @@
-import BaseList from '../../../../src/list/Base.mjs';
-import Example  from '../../model/Example.mjs';
-import NeoArray from '../../../../src/util/Array.mjs';
-import VDomUtil from '../../../../src/util/VDom.mjs';
+import BaseList          from '../../../../src/list/Base.mjs';
+import Example           from '../../model/Example.mjs';
+import ExamplesListModel from './ListModel.mjs';
+import NeoArray          from '../../../../src/util/Array.mjs';
+import VDomUtil          from '../../../../src/util/VDom.mjs';
 
 /**
  * @class Portal.view.examples.List
@@ -58,7 +59,18 @@ class List extends BaseList {
          */
         preloadImages: 5,
         /**
-         * Show each card's home group title badge (`groupTitles[record.family]`) in the upper-left corner.
+         * Keeps `Navigator` `autoClick` disabled so focusing a nested `<a>` on card B never synthesizes a card-wrapper
+         * click that steals card A's selection; {@link Portal.view.examples.ListModel} owns card selection and row keys.
+         * @member {Boolean} selectOnFocus=false
+         */
+        selectOnFocus: false,
+        /**
+         * @member {Neo.selection.Model} selectionModel=ExamplesListModel
+         * @reactive
+         */
+        selectionModel: ExamplesListModel,
+        /**
+         * Show each card's home group title badge (`groupTitles[record.family]`) above the title row.
          * @member {Boolean} showGroup_=false
          * @reactive
          */
@@ -86,6 +98,15 @@ class List extends BaseList {
         {cn: [
             {tag: 'ul', cn: []}
         ]}
+    }
+
+    /**
+     * Delegates all four arrow keys to {@link Portal.view.examples.ListModel} so multi-column row traversal and
+     * single-owner selection/focus stay synchronized without `Navigator` stepping `±1` independently.
+     * @member {Object} navigator={workerKeys:['ArrowDown','ArrowLeft','ArrowRight','ArrowUp']}
+     */
+    navigator = {
+        workerKeys: ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp']
     }
 
     /**
@@ -187,23 +208,34 @@ class List extends BaseList {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        if (value) {
+            this.navigator = Neo.merge({
+                workerKeys: ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp']
+            }, this.navigator)
+        }
+
         super.afterSetMounted(value, oldValue);
         value && this.registerIntersectionObserver()
     }
 
     /**
-     * @summary Renders the cover as the card, with the title, resting open-live cue, optional group pill and proof line.
+     * @summary Renders a two-zone card (`16:9` chromatic cover + stationary surface footer) with progressive selection details.
      *
-     * The cover fills the 16:9 card. Title and `feature` stay visible on a scrim at its foot. The action
-     * (`lookFor`), the limits (`scope`) and the source link sit in `.portal-example-more`, which the styles open
-     * on hover, focus and selection: a tap selects a list item, so touch reaches them too. A record without a
-     * cover never arrives here: the list's store filters it out (`Portal.model.Example.publishes()`).
+     * Non-tile cards separate `.preview-image-wrap` (`100%` unoccluded at rest and on hover, blended via `@property`
+     * `overlay` washes) from `.portal-example-footer` (`.portal-example-group-badge`, `.neo-title`, `.neo-github-image`,
+     * `.portal-example-open-cue`, and `.portal-example-feature`), keeping every launch hitbox stationary across hover
+     * and selection. Progressive details (`lookFor`, `scope`, and positive `Mobile` qualification) sit in
+     * `.portal-example-more` with zero focusable descendants — opening in-frame (`<= 40%` height) in multi-column
+     * lists (`@container examples-list (min-width: 704px)`) and in-flow below the footer in single-column lists.
+     *
      * @param {Object} record
      * @param {Number} index
+     * @returns {Object[]}
      */
     createItemContent(record, index) {
         let me         = this,
             groupTitle = me.showGroup && me.groupTitles?.[record.family],
+            hasMobile  = Boolean(record.environments?.includes('Mobile')),
             imageStyle = index < 6 ? me.getBackgroundImageStyle(record) : null;
 
         if (me.tiles) {
@@ -217,37 +249,46 @@ class List extends BaseList {
             ]}]
         }
 
-        return [
-            {cls: ['content', 'neo-relative', ...(record.image && record.feature ? ['portal-example-image-card'] : [])],
-                data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
-                {cls: ['neo-multi-window'], 'aria-label': 'Multi-window live example', data: {neoTooltip: 'Multi-window live example'}, removeDom: !record.sharedWorkers, cn: [
-                    {tag: 'i',    cls: ['far', 'fa-window-restore'], 'aria-hidden': true},
-                    {tag: 'span', cls: ['neo-multi-window-label'], text: 'Multi-window'}
-                ]},
-                {cls: ['neo-full-size', 'preview-image'], flag: `image-${record.id}`, style: imageStyle},
-                {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
+        return [{
+            cls      : ['content', ...(record.image && record.feature ? ['portal-example-image-card'] : [])],
+            data     : {recordId: record.id},
+            removeDom: me.isHiddenItem(record),
+            cn       : [{
+                cls: ['preview-image-wrap'],
+                cn : [
+                    {cls: ['neo-multi-window'], 'aria-label': 'Multi-window live example', data: {neoTooltip: 'Multi-window live example'}, removeDom: !record.sharedWorkers, cn: [
+                        {tag: 'i',    cls: ['far', 'fa-window-restore'], 'aria-hidden': true},
+                        {tag: 'span', cls: ['neo-multi-window-label'], text: 'Multi-window'}
+                    ]},
+                    {cls: ['preview-image'], flag: `image-${record.id}`, style: imageStyle}
+                ]
+            }, {
+                cls: ['portal-example-footer'],
+                cn : [
                     {tag: 'span', cls: ['portal-example-group-badge'], removeDom: !groupTitle, text: groupTitle},
                     {cls: ['portal-example-title-row'], cn: [
                         {...me.createLink(record)},
-                        {...me.createOpenCue(record)}
-                    ]},
-                    {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature},
-                    {cls: ['portal-example-more'], cn: [
-                        {cls: ['portal-example-more-inner'], cn: [
-                            {tag: 'p', cls: ['portal-example-look-for'], removeDom: !record.lookFor, text: record.lookFor},
-                            {tag: 'p', cls: ['portal-example-scope'], removeDom: !record.scope, text: record.scope},
-                            {cls: ['neo-top-20'], cn: [
-                                {...me.createSourceLink(record)},
-                                {cls: ['neo-inner-content'], cn: [
-                                    {cls: ['neo-inner-details'], text: record.browsers.join(', ')},
-                                    {cls: ['neo-inner-details'], text: record.environments.join(', ')}
-                                ]}
-                            ]}
+                        {cls: ['portal-example-actions'], cn: [
+                            {...me.createSourceLink(record)},
+                            {...me.createOpenCue(record)}
                         ]}
-                    ]}
-                ]}
-            ]}
-        ]
+                    ]},
+                    {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature}
+                ]
+            }, {
+                cls: ['portal-example-more'],
+                cn : [{
+                    cls: ['portal-example-more-inner'],
+                    cn : [
+                        {tag: 'p', cls: ['portal-example-look-for'], removeDom: !record.lookFor, text: record.lookFor},
+                        {tag: 'p', cls: ['portal-example-scope'],    removeDom: !record.scope,   text: record.scope},
+                        {cls: ['portal-example-meta'], removeDom: !hasMobile, cn: [
+                            {tag: 'span', cls: ['portal-example-mobile'], text: 'Mobile'}
+                        ]}
+                    ]
+                }]
+            }]
+        }]
     }
 
     /**
@@ -305,10 +346,11 @@ class List extends BaseList {
     createSourceLink(record) {
         let sourceUrl = record.sourceUrls?.[this.catalogMode] || record.sourceUrl,
             vdom      = {
-            tag   : 'a',
-            cls   : ['fab', 'fa-github', 'neo-github-image'],
-            href  : sourceUrl,
-            target: '_blank'
+            tag         : 'a',
+            'aria-label': 'View source on GitHub',
+            cls         : ['fab', 'fa-github', 'neo-github-image'],
+            href        : sourceUrl,
+            target      : '_blank'
         };
 
         // We can use a shorter syntax for pointing examples to neomjs/neo repo, but not all examples have to be there.
@@ -320,7 +362,7 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Paints the record's cover over the theme gradient that shows while it loads.
+     * @summary Paints the record's cover blended (`overlay`) against the `@property` hover/selection gradient.
      * @param {Object} record
      * @returns {{backgroundImage: string}}
      */
@@ -328,7 +370,7 @@ class List extends BaseList {
         return {
             backgroundImage: [
                 record.image ? `url('${this.imageBasePath}/${record.image}'),` : '',
-                'linear-gradient(',
+                'linear-gradient(135deg,',
                 'var(--portal-examples-list-gradient-start),',
                 'var(--portal-examples-list-gradient-end)',
                 ')'

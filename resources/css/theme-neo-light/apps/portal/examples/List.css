@@ -1,9 +1,16 @@
-/* A card is a picture: its surface stays dark and its text light in the light theme too. */
 :where(.neo-theme-neo-light) {
-    --portal-examples-list-edge          : color-mix(in srgb, var(--sem-color-text-neutral-default) 12%, transparent);
-    --portal-examples-list-gradient-start: color-mix(in srgb, var(--portal-headline-primary) 25%, var(--portal-bg-main));
-    --portal-examples-list-gradient-end  : color-mix(in srgb, var(--portal-bg-main) 90%, var(--portal-headline-primary));
-    --portal-examples-list-link-hover    : var(--portal-headline-primary);
-    --portal-examples-list-surface       : var(--sem-color-bg-neutral-contrast);
-    --portal-examples-list-text          : var(--gray-50);
+    --portal-examples-list-band-bg          : rgba(14, 17, 24, 0.88);
+    --portal-examples-list-band-border      : rgba(255, 255, 255, 0.16);
+    --portal-examples-list-band-text        : #f4f6fb;
+    --portal-examples-list-band-text-muted  : #d2d7e5;
+    --portal-examples-list-edge             : var(--sem-color-border-default);
+    --portal-examples-list-hover-end        : color-mix(in srgb, var(--sem-color-border-focus) 46%, transparent);
+    --portal-examples-list-hover-start      : color-mix(in srgb, var(--sem-color-border-focus) 20%, transparent);
+    --portal-examples-list-link-hover       : var(--sem-color-border-focus);
+    --portal-examples-list-selected-border  : #128a58;
+    --portal-examples-list-selected-end     : rgba(18, 158, 102, 0.42);
+    --portal-examples-list-selected-start   : rgba(16, 138, 92, 0.16);
+    --portal-examples-list-shadow           : 0 8px 22px rgba(15, 23, 42, 0.1);
+    --portal-examples-list-surface          : var(--sem-color-surface-neutral-highlighted);
+    --portal-examples-list-text             : var(--sem-color-text-neutral-default);
 }
