@@ -142,7 +142,10 @@ class AudienceDoors extends BaseContainer {
                                     href  : AudienceDoors.resolveBigDataExampleUrl(),
                                     rel   : 'noopener noreferrer',
                                     target: '_blank',
-                                    text  : 'Proof: 100,000-row live grid ↗'
+                                    cn    : [
+                                        {tag: 'span', text: 'Proof: 100,000-row live grid'},
+                                        {tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square'], 'aria-hidden': true}
+                                    ]
                                 }]
                             }]
                         }
@@ -193,7 +196,10 @@ class AudienceDoors extends BaseContainer {
                                 cn : [{
                                     tag : 'a',
                                     href: '#/news/pulls/15123',
-                                    text: 'Proof: cross-family PR #15123 record →'
+                                    cn  : [
+                                        {tag: 'span', text: 'Proof: cross-family PR #15123 record'},
+                                        {tag: 'i', cls: ['fa', 'fa-arrow-right'], 'aria-hidden': true}
+                                    ]
                                 }]
                             }]
                         }
@@ -244,18 +250,23 @@ class AudienceDoors extends BaseContainer {
                                 cn : [{
                                     tag : 'a',
                                     href: '#/learn/benefits/Introduction',
-                                    text: 'Proof: architectural essay with primary receipts →'
+                                    cn  : [
+                                        {tag: 'span', text: 'Proof: architectural essay with primary receipts'},
+                                        {tag: 'i', cls: ['fa', 'fa-arrow-right'], 'aria-hidden': true}
+                                    ]
                                 }]
                             }]
                         }
                     }, {
-                        module   : Button,
-                        cls      : ['portal-door-cta'],
-                        flex     : 'none',
-                        reference: 'door-study-cta',
-                        route    : '/learn/benefits/Introduction',
-                        text     : 'Read What Is Neo.mjs? →',
-                        ui       : 'secondary'
+                        module      : Button,
+                        cls         : ['portal-door-cta'],
+                        flex        : 'none',
+                        iconCls     : 'fa fa-arrow-right',
+                        iconPosition: 'right',
+                        reference   : 'door-study-cta',
+                        route       : '/learn/benefits/Introduction',
+                        text        : 'Read What Is Neo.mjs?',
+                        ui          : 'secondary'
                     }]
                 }]
             }]

@@ -134,6 +134,10 @@
             line-height: 1.4;
             margin     : 0.75rem 0 0;
             padding-top: 0.75rem;
+
+            span + .fa {
+                margin-left: 0.35em;
+            }
         }
 
         .portal-door-cta {

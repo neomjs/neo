@@ -146,7 +146,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(doorAgentsCta?.properties?.text ?? doorAgentsCta?.text).toBe('Explore the Agent OS');
         await expect(page.locator(`#${doorBuildCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-down/);
         await expect(page.locator(`#${doorAgentsCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-down/);
-        expect(doorStudyCta?.properties?.text ?? doorStudyCta?.text).toBe('Read What Is Neo.mjs? →');
+        expect(doorStudyCta?.properties?.text ?? doorStudyCta?.text).toBe('Read What Is Neo.mjs?');
+        await expect(page.locator(`#${doorStudyCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-right/);
         expect(doorStudyCta?.properties?.route ?? doorStudyCta?.route).toBe('/learn/benefits/Introduction');
 
         const heroRoot  = page.locator(`#${hero.id}`);
@@ -452,7 +453,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             expect(snapshot.text).toContain('MX · Two Hemispheres · Gated RSI');
             expect(snapshot.text).toContain('Explore the Engine');
             expect(snapshot.text).toContain('Explore the Agent OS');
-            expect(snapshot.text).toContain('Read What Is Neo.mjs? →');
+            expect(snapshot.text).toContain('Read What Is Neo.mjs?');
 
             const buildIdx  = snapshot.text.indexOf('Build an application');
             const agentsIdx = snapshot.text.indexOf('Run an agent team');
