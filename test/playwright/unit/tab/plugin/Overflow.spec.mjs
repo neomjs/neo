@@ -456,6 +456,34 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         plugin.destroy()
     });
 
+    test('a superseded pass hands its queued re-run to its successor instead of starting it', async () => {
+        let reads = 0;
+
+        const
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        plugin.owner.getLayoutRect = () => {reads++; return new Promise(() => {})}; // no read answers
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        plugin.project(false); // a resize while the read is held
+
+        expect(plugin.projectQueued, 'the resize queues behind the held read').toBe(true);
+
+        controller.abort();
+        await pass;
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(reads, 'no detached re-run starts a read of its own').toBe(1);
+        expect(plugin.projectQueued).toBe(false);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
     test('a caller superseded before its recapture starts measures nothing', async () => {
         const
             reads      = [],

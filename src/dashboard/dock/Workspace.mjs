@@ -548,10 +548,10 @@ class Workspace extends Container {
     projectionCycle = null
 
     /**
-     * The running refresh's supersession: {@link #refreshDockWorkspace} binds a fresh one at entry, whichever path
-     * started it, and {@link #projectDockZoneDocument} aborts it before chaining a newer committed document. The
-     * reconciler hands its signal to the overflow recaptures it starts, so a read that never answers cannot hold
-     * the newer projection behind it.
+     * The newest refresh's supersession. {@link #projectDockZoneDocument} creates one per commit and aborts the one
+     * before it, whether that refresh is in flight or still queued; a repair or a parked replay binds its own at
+     * {@link #refreshDockWorkspace} entry. The reconciler hands its signal to the overflow recaptures it starts, so
+     * a read that never answers cannot hold a newer projection behind it.
      * @member {AbortController|null} projectionAbort=null
      * @protected
      */
@@ -2510,11 +2510,13 @@ class Workspace extends Container {
         // commit as the newer one and stands down — a `null` document, the clear, included.
         me.scheduledProjection = {document};
 
-        // The refresh in flight now projects a document this commit replaced: its overflow recaptures stop
-        // waiting on their reads, so this projection never queues behind a read that may not answer.
+        // Every refresh this commit replaces is superseded, the one in flight or one still queued: its overflow
+        // recaptures stop waiting on their reads, so this projection never queues behind a read that may not answer.
         me.projectionAbort?.abort();
 
-        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle));
+        const projectionAbort = me.projectionAbort = new AbortController();
+
+        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle, projectionAbort));
         return me.refreshPromise
     }
 
@@ -2680,10 +2682,12 @@ class Workspace extends Container {
      * @param {Neo.dashboard.dock.projection.Cycle|null} [cycle=null] The scheduling commit's record of
      *     this one cycle, kept out of the options the hooks receive: the refresh stamps its receipt and
      *     settles its adoption once the reconcile has landed.
+     * @param {AbortController|null} [abort=null] The scheduling commit's supersession, aborted when a newer commit
+     *     was queued before this refresh started. A repair or a parked replay passes none and binds its own.
      * @returns {Promise<void>}
      * @protected
      */
-    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null) {
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null, abort=null) {
         const
             me                 = this,
             host               = me.getDockHost(),
@@ -2691,7 +2695,7 @@ class Workspace extends Container {
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions,
-            projectionAbort    = me.projectionAbort = new AbortController(),
+            projectionAbort    = abort || (me.projectionAbort = new AbortController()),
             superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {

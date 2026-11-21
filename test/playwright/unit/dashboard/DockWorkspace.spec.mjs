@@ -4127,7 +4127,7 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
     });
 
-    test('a newer commit supersedes the refresh in flight, never a queued one, and the obsolete catalog releases no pane', async () => {
+    test('a newer commit supersedes the refresh in flight and any still queued, and an obsolete catalog releases no pane', async () => {
         workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
 
         const
@@ -4165,8 +4165,9 @@ test('the holder contract: a config-assigned document is readable before any ope
                 await new Promise(resolve => setTimeout(resolve, 0))
             }
 
-            const second = commit([0.6, 0.4]),
-                  third  = commit([0.7, 0.3]);
+            commit([0.6, 0.4]);
+
+            const third = commit([0.7, 0.3]);
 
             expect(signals[0].aborted, 'the refresh in flight is superseded').toBe(true);
 
@@ -4174,9 +4175,9 @@ test('the holder contract: a config-assigned document is readable before any ope
             await workspace.refreshPromise;
 
             expect(signals.length, 'every committed document still reconciles').toBe(3);
-            expect(signals[1].aborted, 'a refresh queued behind the first starts with its own signal').toBe(false);
-            expect(signals[2].aborted).toBe(false);
-            expect(released, 'the superseded catalog releases no pane').toEqual([second, third])
+            expect(signals[1].aborted, 'a refresh queued behind the first was superseded before it started').toBe(true);
+            expect(signals[2].aborted, 'the newest refresh runs unsuperseded').toBe(false);
+            expect(released, 'only the newest catalog releases panes').toEqual([third])
         } finally {
             DockProjectionReconciler.reconcileProjection = reconcile
         }

@@ -1212,6 +1212,13 @@ class Overflow extends Plugin {
             me.measuring = false
         }
 
+        // A superseded pass hands its queued re-run to the projection that superseded it, which recaptures
+        // under its own signal; a detached re-run here could wait on an unanswered read again.
+        if (signal?.aborted) {
+            me.projectQueued   = false;
+            me.queuedRecapture = false
+        }
+
         // Drain a coalesced re-run: an event that arrived mid-pass is applied once here, against the
         // now-current extents, so the split never lags the last resize / activation / tab-set change.
         if (me.projectQueued) {
