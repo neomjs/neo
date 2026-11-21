@@ -181,14 +181,14 @@ test('default header hour labels and weekend shading use the common axis', () =>
     try {
         const [major, minor] = header.vdom.cn;
         expect(major.cn[0].cn[0].text).toBe('Sat, Nov 14');
-        expect(minor.cn.filter(n => n.cls.includes('neo-timeline-tick-minor')).map(n => n.text)).toEqual(['00:00','01:00','02:00']);
+        expect(minor.cn.filter(n => n.cls.includes('neo-timeline-tick-minor')).map(n => n.cn[0].text)).toEqual(['00:00','01:00','02:00']);
         expect(minor.cn.find(n => n.cls.includes('neo-timeline-non-working'))).toMatchObject({
             data: {dayKey: '2026-11-14'}, style: {width: '180px'}
         });
         axis.timeZone = 'UTC';
         const [updatedMajor, updatedMinor] = header.vdom.cn;
         expect(updatedMajor.cn[0].cn[0].text).toBe('Fri, Nov 13');
-        expect(updatedMinor.cn.filter(n => n.cls.includes('neo-timeline-tick-minor')).map(n => n.text)).toEqual(['18:15','19:15','20:15']);
+        expect(updatedMinor.cn.filter(n => n.cls.includes('neo-timeline-tick-minor')).map(n => n.cn[0].text)).toEqual(['18:15','19:15','20:15']);
         expect(updatedMinor.cn.find(n => n.cls.includes('neo-timeline-non-working'))).toBeUndefined();
     } finally { header.destroy(); axis.destroy() }
 });
