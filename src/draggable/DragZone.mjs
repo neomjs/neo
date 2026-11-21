@@ -7,19 +7,6 @@ import Observable         from '../core/Observable.mjs';
 import VDomUtil           from '../util/VDom.mjs';
 
 /**
- * @summary Drops `name` from every native form control in a proxy's clone, so a cloned radio never joins its source's
- * group and unchecks the source when the proxy renders.
- * @param {Object} node A node of the proxy's vdom clone
- */
-function unnameFormControls(node) {
-    if (node.tag === 'input' || node.tag === 'select' || node.tag === 'textarea') {
-        delete node.name
-    }
-
-    node.cn?.forEach(unnameFormControls)
-}
-
-/**
  * @class Neo.draggable.DragZone
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
@@ -337,7 +324,7 @@ class DragZone extends Base {
             source = me.dragProxyConfig?.vdom || me.dragElementSnapshot || me.dragElement,
             clone  = source && VDomUtil.clone(source);
 
-        clone && unnameFormControls(clone);
+        clone && me.unnameFormControls(clone);
 
         return !clone ? null : me.useProxyWrapper ? {cn: [clone]} : clone
     }
@@ -725,6 +712,20 @@ class DragZone extends Base {
             dragZoneId : me.id,
             ...data
         }
+    }
+
+    /**
+     * @summary Drops `name` from every native form control in a proxy's vdom clone, so a cloned radio never joins its
+     * source's group and unchecks the source when the proxy renders.
+     * @param {Object} node A node of the proxy's vdom clone
+     * @protected
+     */
+    unnameFormControls(node) {
+        if (node.tag === 'input' || node.tag === 'select' || node.tag === 'textarea') {
+            delete node.name
+        }
+
+        node.cn?.forEach(child => this.unnameFormControls(child))
     }
 }
 
