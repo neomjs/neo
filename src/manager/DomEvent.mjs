@@ -909,17 +909,20 @@ class DomEvent extends Base {
     }
 
     /**
+     * @summary Returns `true` when a delegated `mouseenter` or `mouseleave` crosses the `delegationTargetId` boundary,
+     * and `false` when `fromElementId` / `toElementId` stays on or inside `delegationTargetId` (including
+     * child↔delegate crossings across `VDomUtil.find`-expanded `{componentId}` subtrees).
      * @param {Neo.component.Base} component
      * @param {Object} data
      * @param {String} delegationTargetId
      * @param {String} eventName
-     * @returns {Boolean}
+     * @returns {Boolean} `true` to fire the delegated listener; `false` to suppress an internal transition
      */
     static verifyMouseEnterLeave(component, data, delegationTargetId, eventName) {
         let targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId,
             delegationVdom;
 
-        if (targetId && targetId !== delegationTargetId) {
+        if (targetId) {
             delegationVdom = VDomUtil.find(component.vdom, delegationTargetId);
 
             // delegationVdom can be undefined when dragging a proxy over the node.

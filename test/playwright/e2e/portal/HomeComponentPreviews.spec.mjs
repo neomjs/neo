@@ -86,11 +86,45 @@ function readLinks(section) {
 }
 
 /**
+ * @param {import('@playwright/test').Locator} section
+ * @returns {Promise<String[]>} The task titles from top to bottom on screen; the grid recycles its row nodes
+ */
+function readTaskOrder(section) {
+    return section.evaluate(node => [...node.querySelectorAll('.neo-grid-row')]
+        .filter(row => row.textContent.trim())
+        .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+        .map(row => row.textContent.trim()))
+}
+
+/**
+ * @param {import('@playwright/test').Locator} section
+ * @returns {Promise<Number>} The largest distance in px between a dependency link's end and the bar edge it joins.
+ * The plan's links run finish to start, from a bar's right edge to the next one's left edge, at mid-height.
+ */
+function readLinkGap(section) {
+    return section.evaluate(node => {
+        const bars = Object.fromEntries([...node.querySelectorAll('.neo-timeline-bar')].map(bar => [bar.dataset.eventId, bar.getBoundingClientRect()]));
+
+        return Math.max(0, ...[...node.querySelectorAll('path.neo-gantt-dependency-arrow')].map(path => {
+            const matrix = path.getScreenCTM(),
+                  first  = path.getPointAtLength(0).matrixTransform(matrix),
+                  last   = path.getPointAtLength(path.getTotalLength()).matrixTransform(matrix),
+                  from   = bars[path.dataset.fromId],
+                  to     = bars[path.dataset.toId];
+
+            return Math.max(Math.abs(first.x - from.right), Math.abs(first.y - (from.top + from.bottom) / 2),
+                Math.abs(last.x - to.left), Math.abs(last.y - (to.top + to.bottom) / 2))
+        }))
+    })
+}
+
+/**
  * @summary The home's two component pages: one plan as a Gantt chart and a task board on one store, and a grid
  * under a live feed, each built by the snippet behind its Source tab.
  * Covers what a unit test cannot see: the text beside the preview inside one snap page, the switch from the source
  * to the running result, the selected card's bar highlighted and following a click, a card move recolouring its bar
- * and a bar move taking its successors along, the feed reaching the cells, a change coloured by its sign, the rate
+ * and a bar move taking its successors along, a Task-header sort reordering the plan with its links on their bars,
+ * the feed reaching the cells, a change coloured by its sign, the rate
  * the feed measured, the preview following an edit, the links to the other families, the wheel and the keyboard
  * moving the page on, and the phone layout.
  */
@@ -249,6 +283,47 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
 
         expect(requested.filter(url => /\/apps\/colors\/|multiWindowHelix/.test(url))).toEqual([]);
         expect(errors).toEqual([])
+    });
+
+    test('desktop: the board ends where the Gantt chart ends, in a wider window too', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(HOME_URL);
+
+        for (const size of [{width: 1440, height: 900}, {width: 1920, height: 1080}]) {
+            await page.setViewportSize(size);
+
+            const planning = await openPage(page, '.portal-home-parts-planning', '.neo-board-column'),
+                  right    = selector => planning.locator(selector).last().evaluate(node => node.getBoundingClientRect().right);
+
+            await expect.poll(async () => Math.abs(await right('.neo-board-column') - await right('.neo-timeline-header')))
+                .toBeLessThanOrEqual(1)
+        }
+    });
+
+    test('desktop: a Task-header sort reorders the plan within its phases, and every link stays on its bars', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(HOME_URL);
+
+        const planning = await openPage(page, '.portal-home-parts-planning', '.neo-timeline-bar'),
+              header   = planning.locator('.neo-grid-header-button', {hasText: 'Task'});
+
+        expect(await readTaskOrder(planning)).toEqual([
+            'Design', 'Wireframes', 'Visual design', 'Prototype', 'Build', 'Data layer', 'Grid views', 'Scheduling',
+            'Launch', 'Load test', 'Go live'
+        ]);
+        expect(await readLinkGap(planning)).toBeLessThanOrEqual(1);
+
+        // A tree sorts its phases, and each phase its own tasks
+        for (const [direction, order] of [
+            ['ascending',  ['Build', 'Data layer', 'Grid views', 'Scheduling', 'Design', 'Prototype', 'Visual design', 'Wireframes', 'Launch', 'Go live', 'Load test']],
+            ['descending', ['Launch', 'Load test', 'Go live', 'Design', 'Wireframes', 'Visual design', 'Prototype', 'Build', 'Scheduling', 'Grid views', 'Data layer']]
+        ]) {
+            await header.click();
+
+            await expect(header).toHaveAttribute('aria-sort', direction);
+            await expect.poll(() => readTaskOrder(planning), {message: `${direction}: the rows follow the header`}).toEqual(order);
+            await expect.poll(() => readLinkGap(planning), {message: `${direction}: every link on its bars`}).toBeLessThanOrEqual(1)
+        }
     });
 
     test('phone: the pages fall back to tabs and stay inside the screen', async ({page}) => {

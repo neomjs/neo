@@ -1,0 +1,37 @@
+:where(.neo-theme-light) {
+    --workshop-header-bg             : #ffffff;
+    --workshop-subbar-bg             : #f5f5f5;
+    --workshop-border                : #d4d4d8;
+    --workshop-title                 : #18181b;
+    --workshop-muted                 : #52525b;
+    --workshop-focus                 : #1c60a0;
+
+    --workshop-overload-bg           : #fffbeb;
+    --workshop-overload-border       : #d97706;
+    --workshop-overload-text         : #78350f;
+
+    --workshop-clear-bg              : #ecfdf5;
+    --workshop-clear-border          : #059669;
+    --workshop-clear-text            : #064e3b;
+
+    --workshop-chip-open-bg          : #ffffff;
+    --workshop-chip-open-border      : #d4d4d8;
+    --workshop-chip-open-text        : #27272a;
+
+    --workshop-chip-limit-bg         : #f5f3ff;
+    --workshop-chip-limit-border     : #7c3aed;
+    --workshop-chip-limit-text       : #4c1d95;
+
+    --workshop-stepper-bg            : #ffffff;
+    --workshop-stepper-border        : #a1a1aa;
+    --workshop-stepper-text          : #18181b;
+    --workshop-stepper-btn-bg        : #e4e4e7;
+    --workshop-stepper-btn-hover     : #d4d4d8;
+    --workshop-stepper-btn-text      : #18181b;
+
+    --workshop-exceeded-col-bg       : #fef3c7;
+    --workshop-exceeded-col-border   : #d97706;
+    --workshop-exceeded-banner-bg    : #fffbeb;
+    --workshop-exceeded-banner-border: #b45309;
+    --workshop-exceeded-banner-text  : #78350f;
+}

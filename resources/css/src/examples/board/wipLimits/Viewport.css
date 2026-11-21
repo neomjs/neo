@@ -1,0 +1,342 @@
+.workshop-viewport.neo-viewport {
+    background: var(--neo-board-background);
+    color     : var(--workshop-title);
+
+    .workshop-toolbar.neo-toolbar {
+        align-items    : center;
+        background     : var(--workshop-header-bg);
+        border-bottom  : 1px solid var(--workshop-border);
+        display        : flex;
+        gap            : 12px;
+        justify-content: space-between;
+        min-height     : 56px;
+        padding        : 10px 20px;
+    }
+
+    .workshop-brand {
+        align-items: baseline;
+        display    : flex;
+        flex-wrap  : wrap;
+        gap        : 10px;
+        min-width  : 0;
+    }
+
+    .workshop-title {
+        color         : var(--workshop-title);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -0.02em;
+        line-height   : 1.2;
+    }
+
+    .workshop-subtitle {
+        color      : var(--workshop-muted);
+        font-size  : 13px;
+        font-weight: 500;
+    }
+
+    .workshop-overload-pill {
+        align-items  : center;
+        background   : var(--workshop-overload-bg);
+        border       : 1px solid var(--workshop-overload-border);
+        border-radius: 999px;
+        color        : var(--workshop-overload-text);
+        display      : inline-flex;
+        flex         : none;
+        font-size    : 12px;
+        font-weight  : 600;
+        gap          : 6px;
+        line-height  : 1.2;
+        padding      : 6px 12px;
+
+        &.is-clear {
+            background  : var(--workshop-clear-bg);
+            border-color: var(--workshop-clear-border);
+            color       : var(--workshop-clear-text);
+        }
+    }
+
+    .workshop-overload-dot {
+        font-size: 11px;
+    }
+
+    .workshop-stage-bar.neo-toolbar {
+        align-items    : center;
+        background     : var(--workshop-subbar-bg);
+        border-bottom  : 1px solid var(--workshop-border);
+        display        : flex;
+        flex-wrap      : wrap;
+        gap            : 8px 14px;
+        justify-content: space-between;
+        min-height     : 42px;
+        padding        : 8px 20px;
+    }
+
+    .workshop-stage-strip {
+        align-items: center;
+        display    : flex;
+        flex-wrap  : wrap;
+        gap        : 8px;
+    }
+
+    .workshop-stage-chip {
+        align-items  : center;
+        background   : var(--workshop-chip-open-bg);
+        border       : 1px solid var(--workshop-chip-open-border);
+        border-radius: 6px;
+        color        : var(--workshop-chip-open-text);
+        display      : inline-flex;
+        font-size    : 12px;
+        font-weight  : 500;
+        gap          : 6px;
+        line-height  : 1.1;
+        padding      : 5px 9px;
+
+        &.is-at-limit {
+            background  : var(--workshop-chip-limit-bg);
+            border-color: var(--workshop-chip-limit-border);
+            color       : var(--workshop-chip-limit-text);
+        }
+
+        &.is-exceeded {
+            background  : var(--workshop-overload-bg);
+            border-color: var(--workshop-overload-border);
+            color       : var(--workshop-overload-text);
+            font-weight : 600;
+        }
+
+        &.is-pickup .workshop-stage-chip-mark {
+            color: var(--workshop-clear-border);
+        }
+    }
+
+    .workshop-stage-chip-mark {
+        font-size: 10px;
+    }
+
+    .workshop-stage-chip-count {
+        font-variant-numeric: tabular-nums;
+        font-weight         : 700;
+    }
+
+    .workshop-hint {
+        color    : var(--workshop-muted);
+        font-size: 12px;
+    }
+
+    .workshop-board.neo-board {
+        --neo-board-column-width: clamp(276px, calc((100% - 3 * var(--neo-board-gap)) / 4), 380px);
+
+        .neo-board-column {
+            transition: background-color var(--motion-fast) var(--ease-out-soft),
+                        border-color var(--motion-fast) var(--ease-out-soft),
+                        box-shadow var(--motion-fast) var(--ease-out-soft);
+
+            &.neo-board-column-wip-exceeded {
+                border-top: 3px solid var(--neo-board-wip-color);
+
+                > .neo-board-column-header {
+                    background   : var(--workshop-exceeded-col-bg);
+                    border-bottom: 1px solid var(--workshop-exceeded-col-border);
+                    border-radius: calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px) 0 0;
+                    margin-bottom: 6px;
+                }
+
+                .neo-board-card.neo-board-card-slot::after {
+                    background  : var(--workshop-exceeded-banner-bg);
+                    border-color: var(--neo-board-wip-color);
+                }
+
+                &:has(.neo-board-card-slot) {
+                    background  : var(--workshop-exceeded-col-bg);
+                    border-color: var(--workshop-exceeded-col-border);
+                    box-shadow  : inset 0 0 0 1px var(--workshop-exceeded-col-border);
+                }
+            }
+        }
+
+        .neo-board-column-header {
+            column-gap: 7px;
+            flex-wrap : wrap;
+            padding   : 10px 11px;
+            row-gap   : 8px;
+
+            .neo-board-column-title {
+                order: 1;
+            }
+
+            .workshop-wip-stepper {
+                order: 2;
+            }
+
+            .neo-board-column-count {
+                font-weight: 700;
+                order      : 3;
+
+                &.workshop-wip-at-limit {
+                    background: var(--workshop-chip-limit-bg);
+                    box-shadow: inset 0 0 0 1px var(--workshop-chip-limit-border);
+                    color     : var(--workshop-chip-limit-text);
+                }
+
+                &.neo-board-column-wip-exceeded {
+                    box-shadow: 0 0 0 1px var(--workshop-exceeded-col-border);
+                }
+            }
+
+            .neo-board-column-collapse {
+                order: 4;
+            }
+
+            .workshop-wip-over-banner {
+                order: 5;
+            }
+        }
+
+        .neo-board-column-collapsed .neo-board-column-header {
+            flex-wrap: nowrap;
+        }
+
+        .workshop-wip-stepper {
+            align-items  : center;
+            background   : var(--workshop-stepper-bg);
+            border       : 1px solid var(--workshop-stepper-border);
+            border-radius: 999px;
+            color        : var(--workshop-stepper-text);
+            display      : inline-flex;
+            flex         : none;
+            gap          : 2px;
+            padding      : 2px;
+        }
+
+        .workshop-wip-step-btn {
+            align-items    : center;
+            appearance     : none;
+            background     : var(--workshop-stepper-btn-bg);
+            border         : 0;
+            border-radius  : 999px;
+            color          : var(--workshop-stepper-btn-text);
+            cursor         : pointer;
+            display        : inline-flex;
+            font-family    : inherit;
+            font-size      : 13px;
+            font-weight    : 700;
+            height         : 20px;
+            justify-content: center;
+            line-height    : 1;
+            padding        : 0;
+            width          : 20px;
+
+            &:hover:not(:disabled) {
+                background: var(--workshop-stepper-btn-hover);
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--workshop-focus);
+                outline-offset: 1px;
+            }
+
+            &:disabled {
+                cursor : not-allowed;
+                opacity: 0.42;
+            }
+        }
+
+        .workshop-wip-step-value {
+            font-size           : 11px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            line-height         : 1;
+            padding             : 0 4px;
+            white-space         : nowrap;
+        }
+
+        .workshop-wip-over-banner {
+            align-items  : center;
+            background   : var(--workshop-exceeded-banner-bg);
+            border       : 1px solid var(--workshop-exceeded-banner-border);
+            border-left  : 3px solid var(--neo-board-wip-color);
+            border-radius: 6px;
+            color        : var(--workshop-exceeded-banner-text);
+            display      : flex;
+            flex         : 1 0 100%;
+            font-size    : 11.5px;
+            font-weight  : 600;
+            gap          : 6px;
+            line-height  : 1.25;
+            padding      : 5px 8px;
+        }
+
+        .workshop-wip-over-glyph {
+            flex     : none;
+            font-size: 10px;
+        }
+
+        .neo-board-card-text {
+            color      : var(--neo-board-card-muted-color);
+            font-size  : 12px;
+            line-height: 1.35;
+        }
+    }
+}
+
+body:has(.workshop-viewport) .neo-dragproxy > .neo-board-card {
+    border-color     : var(--workshop-focus);
+    border-left-color: var(--neo-board-card-accent, var(--workshop-focus));
+}
+
+@media (max-width: 720px) {
+    .workshop-viewport.neo-viewport {
+        .workshop-toolbar.neo-toolbar {
+            padding: 10px 14px;
+        }
+
+        .workshop-title {
+            font-size  : 16px;
+            white-space: nowrap;
+        }
+
+        .workshop-subtitle,
+        .workshop-overload-detail,
+        .workshop-hint {
+            display: none;
+        }
+
+        .workshop-overload-pill {
+            font-size  : 11px;
+            padding    : 5px 9px;
+            white-space: nowrap;
+        }
+
+        .workshop-stage-bar.neo-toolbar {
+            padding: 6px 14px;
+        }
+
+        .workshop-stage-chip {
+            font-size: 11px;
+            padding  : 4px 7px;
+        }
+
+        .workshop-board.neo-board {
+            --neo-board-column-width: 276px;
+
+            .neo-board-column-header {
+                .neo-board-column-title {
+                    flex: 1 0 calc(100% - 88px);
+                }
+
+                .neo-board-column-count {
+                    order: 2;
+                }
+
+                .neo-board-column-collapse {
+                    order: 3;
+                }
+
+                .workshop-wip-stepper {
+                    order: 4;
+                }
+            }
+        }
+    }
+}

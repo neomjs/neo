@@ -373,6 +373,7 @@
  "Neo.functional.util.html": null,
  "Neo.gantt.Body": "Neo.grid.Body",
  "Neo.gantt.Cascade": "Neo.core.Base",
+ "Neo.gantt.CascadeMotion": "Neo.core.Base",
  "Neo.gantt.Column": "Neo.timeline.Column",
  "Neo.gantt.Container": "Neo.scheduler.Container",
  "Neo.gantt.DependencyLayer": "Neo.component.Base",

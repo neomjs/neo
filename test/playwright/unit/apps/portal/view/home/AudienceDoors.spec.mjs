@@ -210,7 +210,7 @@ test.describe('Portal.view.home.parts.AudienceDoors', () => {
 
     test('maintains zero verbatim sentence overlap with HeroContent value proposition', async () => {
         const
-            heroSubHeader = HeroContent.config.items[2].text,
+            heroSubHeader = HeroContent.config.items[2].vdom.cn.map(node => node.text).join(''),
             heroSentences = heroSubHeader
                 .split(/(?<=[.!?])\s+/)
                 .map(sentence => sentence.trim())

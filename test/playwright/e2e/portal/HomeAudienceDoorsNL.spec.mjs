@@ -2,7 +2,7 @@ import {expect, test}                   from '../../fixtures.mjs';
 import {readComponentRects, withinRect} from '../utils/dockGeometry.mjs';
 
 const HOME_URL  = '/apps/portal/index.html#/home';
-const HERO_COPY = "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.";
+const HERO_COPY = 'Neo.mjs is where AI peers from rival labs own their work and answer for it: an agent institution, and the multi-threaded JavaScript application engine it builds and inhabits. Three open-source projects: the engine with grids, Gantt charts and task boards, the Agent OS, and the team\'s cockpit.';
 
 /**
  * Queries a single component through the Neural Link bridge and normalizes array vs object replies.
@@ -303,6 +303,73 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         ).toBe(true)
     });
 
+    test('a hovered or keyboard-focused door lights in place: it never moves, its border stays whole, and reduced motion skips the glint and the lap', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(HOME_URL);
+
+        const app       = await neuralLink.connectToApp('Portal');
+        const home      = await queryOne(app, {className: 'Portal.view.home.MainContainer'});
+        const doors     = await queryOne(app, {reference: 'home-audience-doors'});
+        const doorStudy = await queryOne(app, {reference: 'door-study'});
+        const studyCta  = await queryOne(app, {reference: 'door-study-cta'});
+
+        await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
+
+        const card = page.locator(`#${doorStudy.id}`);
+
+        // A clipped border hit-tests to the ancestor that clips it, not to the card
+        const read = () => card.evaluate(async node => {
+            await Promise.all(node.getAnimations().map(animation => animation.finished));
+
+            const rect = node.getBoundingClientRect();
+
+            return {
+                border      : getComputedStyle(node).borderTopColor,
+                motions     : Object.fromEntries(node.getAnimations({subtree: true}).filter(a => a.animationName?.startsWith('portal-glass-card-')).map(a => [a.animationName, a.effect.getComputedTiming().duration])),
+                light       : getComputedStyle(node, '::after').opacity,
+                position    : {left: rect.left, top: rect.top},
+                topBorderHit: node.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + 0.5))
+            }
+        });
+
+        await page.mouse.move(5, 895);
+        const rest = await read();
+        expect(rest.topBorderHit).toBe(true);
+
+        const box = await card.boundingBox();
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height - 12);
+
+        const hovered = await read();
+        expect(hovered.position, 'a hovered door stays where it was').toEqual(rest.position);
+        expect(hovered.topBorderHit, 'its whole top border stays visible').toBe(true);
+        expect(rest.light).toBe('0');
+        expect(hovered.border).not.toBe(rest.border);
+        expect(hovered.light).toBe('1');
+        expect(Object.keys(hovered.motions).sort(), 'a glint crosses the glass and a lap runs the border').toEqual(['portal-glass-card-glint', 'portal-glass-card-sweep']);
+        expect(Object.values(hovered.motions).every(duration => duration > 0)).toBe(true);
+
+        // Keyboard focus inside the door gets the same treatment
+        await page.mouse.move(5, 895);
+        await expect.poll(async () => (await read()).light).toBe('0');
+        await page.locator(`#${doorStudy.id} .portal-door-proof a`).focus();
+        await page.keyboard.press('Tab');
+        await expect(page.locator(`#${studyCta.id}`)).toBeFocused();
+
+        const focused = await read();
+        expect(focused.border).toBe(hovered.border);
+        expect(focused.light).toBe('1');
+        expect(focused.position).toEqual(rest.position);
+
+        // Reduced motion keeps the static light and skips the glint and the lap
+        await page.locator(`#${studyCta.id}`).blur();
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height - 12);
+
+        const reduced = await read();
+        expect(reduced.light).toBe('1');
+        expect(Object.values(reduced.motions).every(duration => duration === 0)).toBe(true)
+    });
+
     test('exposes crawler and agent DOM snapshot parity across root entry and #/home', async ({page, neuralLink}) => {
         for (const entryUrl of ['/apps/portal/index.html', HOME_URL]) {
             if (page.url() !== 'about:blank') {
@@ -325,7 +392,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
                 text: el.innerText
             }));
 
-            expect(snapshot.text).toContain(HERO_COPY);
+            // The hero's sentence renders as two block lines, so innerText breaks where textContent has a space
+            expect(snapshot.text.replace(/\s+/g, ' ')).toContain(HERO_COPY);
             expect(snapshot.text).toContain('$ npx neo-app@latest');
             expect(snapshot.text).toContain('neo-agent-brain · neo-agent-institution');
             expect(snapshot.text).toContain('MX · Two Hemispheres · Gated RSI');

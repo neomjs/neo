@@ -4,6 +4,7 @@ import SchedulerContainer from '../scheduler/Container.mjs';
 import TimeAxis           from '../timeline/TimeAxis.mjs';
 import Body               from './Body.mjs';
 import Cascade            from './Cascade.mjs';
+import CascadeMotion      from './CascadeMotion.mjs';
 import Column             from './Column.mjs';
 import DependencyLayer    from './DependencyLayer.mjs';
 import DependencyStore    from './DependencyStore.mjs';
@@ -29,6 +30,18 @@ class Container extends SchedulerContainer {
         className: 'Neo.gantt.Container',
         /** @member {String} ntype='gantt' @protected */
         ntype: 'gantt',
+        /**
+         * Moves the bars and links a cascade changed from their previous to their final dates over the chart's
+         * `--motion-panel` with `--ease-out-soft`, instead of in one update. A dragged or resized task stays where
+         * its preview dropped it while its successors move. Reduced motion collapses that tier to `0ms` and keeps
+         * one update, and so does a chart whose tier read has not answered yet. A scroll, a zoom, a store load,
+         * filter or sort, and the next move land a running move at once; another store drops it. A service decision
+         * that settles later lands in one update.
+         * See {@link Neo.gantt.CascadeMotion}.
+         * @member {Boolean} animateCascade_=false
+         * @reactive
+         */
+        animateCascade_: false,
         /** @member {String[]} baseCls=['neo-gantt','neo-grid-container'] @protected */
         baseCls: ['neo-gantt', 'neo-grid-container'],
         /** @member {Number} barMarginPct=14 Padding around bars in each row. */
@@ -74,7 +87,14 @@ class Container extends SchedulerContainer {
     }
 
     dependencyLayer = null
+    /**
+     * In-flight spans `[startMs, endMs]`, by task key as a String, of the tasks a cascade is moving. Bars and links
+     * draw a listed task over its span instead of its dates. Empty unless {@link #animateCascade} moves a cascade.
+     * @member {Map<String, Number[]>} drawnSpans
+     */
+    drawnSpans = new Map()
     _movingTask = false
+    #cascadeMotion = null
     #cleanups = []
     #storeCleanups = []
     #dependencyCleanups = []
@@ -128,6 +148,8 @@ class Container extends SchedulerContainer {
      * and leave the overlay to that final event.
      */
     afterSetStore(value, oldValue) {
+        // Another store's records reuse the keys of a running move: drop it before the grid draws them
+        if (oldValue) this.#cascadeMotion?.stop();
         super.afterSetStore(value, oldValue);
         this.#analysis?.invalidateSchedule();
         this.#storeCleanups.forEach(fn => fn());
@@ -142,7 +164,9 @@ class Container extends SchedulerContainer {
                 if (stale) { stale = false; this.#analysis?.invalidateSchedule(data) }
                 if (!(this.schedule?.isPublishing && this.#serviceCleanup)) this.syncDependencyLayer()
             };
-            const changed      = data => settle(true, data);
+            // A load, filter, sort or mutation lands a running cascade move, unless that move made it
+            const land         = () => this._movingTask || this.#cascadeMotion?.end();
+            const changed      = data => { land(); settle(true, data) };
             const recordChange = data => {
                 const fields = data?.fields;
                 settle(!Array.isArray(fields) || !fields.length || fields.some(field => {
@@ -150,7 +174,8 @@ class Container extends SchedulerContainer {
                     return !name || [this.startDateField, this.endDateField, 'milestone', 'parentId', 'isLeaf', 'id', value.keyProperty].includes(name)
                 }))
             };
-            const listeners = {mutate: changed, recordChange, rowsChange: recordChange, filter: changed};
+            // A sort moves rows, never dates: it lands a running move, and the links follow without a schedule pass
+            const listeners = {load: land, mutate: changed, recordChange, rowsChange: recordChange, filter: changed, sort: data => { land(); settle(false, data) }};
             value.on(listeners);
             this.#storeCleanups.push(() => value.un(listeners))
         }
@@ -179,6 +204,17 @@ class Container extends SchedulerContainer {
         }
         if (this.dependencyLayer) { this.dependencyLayer.dependencyStore = value; this.syncDependencyLayer() }
         if (oldValue && oldValue !== value && this.#ownedDependencies.has(oldValue)) oldValue.destroy()
+    }
+
+    /** @summary Reads the motion tier when the transition is switched on; lands a running move when it is switched off. */
+    afterSetAnimateCascade(value) {
+        value ? this.#motion().readTokens() : this.#cascadeMotion?.end()
+    }
+
+    /** @summary A chart that mounts with the transition on reads its motion tier from its node, which exists now. */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        if (value && this.animateCascade) this.#motion().readTokens()
     }
 
     /** @summary Enables link gestures when creation is available. */
@@ -276,8 +312,11 @@ class Container extends SchedulerContainer {
             (!('dependencyStore' in service) || service.dependencyStore === this.dependencyStore))
     }
 
-    /** @summary Publishes a service's committed receipt without repeating its writes. */
-    #publishServiceResult(record, result, meta) {
+    /**
+     * @summary Publishes a service's committed receipt without repeating its writes. A receipt committed within
+     * the edit moves its tasks (`animate`); one settled later lands in one update.
+     */
+    #publishServiceResult(record, result, meta, animate=false) {
         const convert = (row, fields={}) => Object.fromEntries(Object.entries(fields).map(([key, value]) =>
             [key, row?.[key] instanceof Date && value != null ? new Date(value) : value]));
         const updates = convert(record, result.updates), previous = convert(record, result.previous),
@@ -285,6 +324,7 @@ class Container extends SchedulerContainer {
                 const row = this.resolveTaskRecord(item.taskId);
                 return {record: row, changes: convert(row, item.changes), previous: convert(row, item.previous)}
             });
+        if (animate) this.#moveCascade(record, previous, cascaded, meta);
         if (!this.#serviceCleanup) { this.#analysis?.invalidateSchedule(); this.syncDependencyLayer() }
         return this.#publishTaskChange(record, updates, previous, cascaded, result.cycles || [], meta,
             record[this.startDateField], record[this.endDateField])
@@ -295,8 +335,9 @@ class Container extends SchedulerContainer {
         if (oldValue !== undefined && this.configsApplied && this._columns) this.createColumns(null, this._columns)
     }
 
-    /** @summary Subscribes to axis and viewport changes used by the overlay. */
+    /** @summary Subscribes to axis and viewport changes used by the overlay. A scroll lands a running cascade move. */
     bindTimelineSubscriptions() {
+        const {body} = this;
         this.#cleanups.forEach(fn => fn());
         this.#cleanups = [];
         if (this.timeAxis) for (const key of ['start', 'end', 'pxPerMinute', 'size', 'tickUnit', 'tickStep', 'nonWorkingDays', 'nonWorkingDates', 'timeZone']) {
@@ -306,8 +347,14 @@ class Container extends SchedulerContainer {
             }))
         }
         if (this.headerToolbar) this.#cleanups.push(this.observeConfig(this.headerToolbar, 'scrollLeft', value => {
+            this.#cascadeMotion?.end();
             if (this.dependencyLayer) this.dependencyLayer.scrollLeft = value || 0
         }))
+        if (body) {
+            const listeners = {isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()};
+            body.on(listeners);
+            this.#cleanups.push(() => body.isDestroyed || body.un(listeners))
+        }
     }
 
     /** @summary Updates the dependency layer from the current chart geometry. */
@@ -398,6 +445,8 @@ class Container extends SchedulerContainer {
         this.#serviceCleanup?.();
         this.#pendingCleanup = this.#serviceCleanup = null;
         this.#analysis = null;
+        this.#cascadeMotion?.destroy();
+        this.#cascadeMotion = null; // the grid's teardown unbinds the store next, which reads it
         this.#cleanups.forEach(fn => fn());
         this.#storeCleanups.forEach(fn => fn());
         this.#dependencyCleanups.forEach(fn => fn());
@@ -480,7 +529,8 @@ class Container extends SchedulerContainer {
                 viewportWidth  : me.viewportWidth,
                 windowId       : me.windowId,
                 ...me.dependencyLayerConfig
-            })
+            });
+            me.dependencyLayer.drawnSpans = me.drawnSpans
         }
 
         const rootCn = me.body?.getVdomRoot?.()?.cn;
@@ -637,8 +687,9 @@ class Container extends SchedulerContainer {
         return this.resolveEventRecord(taskIdOrRecord)
     }
 
-    /** @summary Updates the axis scale and dependency projection. */
+    /** @summary Lands a running cascade move, then updates the axis scale and dependency projection. */
     zoomTo(presetOrConfig) {
+        this.#cascadeMotion?.end();
         const axis = super.zoomTo(presetOrConfig);
         this.syncDependencyLayer();
         return axis
@@ -865,7 +916,7 @@ class Container extends SchedulerContainer {
             try { result = service.moveTask(me.store.getKey(record), proposal) }
             finally { me._movingTask = false }
             if (result?.status === 'committed') {
-                const native = me.#publishServiceResult(record, result, meta);
+                const native = me.#publishServiceResult(record, result, meta, true);
                 return {...native, status: 'committed', notificationErrors: result.notificationErrors}
             }
             if (result?.status === 'pending' && result.pending?.id != null && service.onDecisionSettled) {
@@ -909,7 +960,10 @@ class Container extends SchedulerContainer {
             me._movingTask = false
         }
 
-        if (updates[startField] || updates[endField] || cascaded.length) me.#analysis?.invalidateSchedule();
+        if (updates[startField] || updates[endField] || cascaded.length) {
+            me.#analysis?.invalidateSchedule();
+            me.#moveCascade(record, previous, cascaded, meta)
+        }
         me.syncDependencyLayer();
 
         if (cycles.length > 0) {
@@ -920,6 +974,26 @@ class Container extends SchedulerContainer {
         }
 
         return me.#publishTaskChange(record, updates, previous, cascaded, cycles, meta, startMs, endMs)
+    }
+
+    /**
+     * @summary With {@link #animateCascade}, moves the changed tasks from their previous dates to their current ones.
+     * A drag or resize already showed its task at the new dates in its preview, so that task stays there.
+     * @param {Neo.data.Model} record The edited task
+     * @param {Object} previous Its previous values
+     * @param {Object[]} cascaded `{record, previous}` per changed successor
+     * @param {Object} meta The edit's gesture source
+     */
+    #moveCascade(record, previous, cascaded, meta) {
+        if (this.animateCascade) {
+            const dropped = meta.source === 'drag' || meta.source === 'resize';
+            this.#motion().start(dropped ? cascaded : [{record, previous}, ...cascaded])
+        }
+    }
+
+    /** @summary The chart's cascade motion, created on first use. @returns {Neo.gantt.CascadeMotion} */
+    #motion() {
+        return this.#cascadeMotion ??= Neo.create(CascadeMotion, {chart: this})
     }
 
     /** @summary Emits the settled task edit. */

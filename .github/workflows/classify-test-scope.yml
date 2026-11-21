@@ -15,9 +15,10 @@ name: Classify test scope
 # `neomjs/neo-agent-skills#14` centralises non-product governance and explicitly excludes
 # repository-specific product tests, so these Engine path predicates stay in this repository.
 #
-# Sharing a classifier does NOT couple the suites' reds. Callers keep separate workflow
-# identities and separate checks, which is the half of #14685's failing-honest intent that
-# outlived its retired mechanism: an e2e failure must not be readable as `test.yml` being red.
+# Sharing a classifier does NOT couple the suites' reds. Every tier keeps its own checks, which is
+# the half of #14685's failing-honest intent that outlived its retired mechanism: an e2e failure reads
+# as `e2e-engine`, never as `unit` or `components`. One workflow, `test.yml`, calls this once for every
+# tier, because a workflow cannot read another workflow's job outputs.
 
 on:
   workflow_call:
@@ -57,6 +58,9 @@ on:
       skip_reason:
         description: Human-readable reason a caller can print when it skips.
         value: ${{ jobs.classify.outputs.skip_reason }}
+      e2e_skip_reason:
+        description: The e2e tier's reason, which is the selection's when a pull request's selection reached no spec. Kept apart from `skip_reason`, which the other tiers print.
+        value: ${{ jobs.classify.outputs.e2e_skip_reason }}
       e2e_boundary_report:
         description: One line per changed file, saying whether the E2E boundary admits it and which rule leaves it out.
         value: ${{ jobs.classify.outputs.e2e_boundary_report }}
@@ -71,7 +75,8 @@ jobs:
       run_components: ${{ steps.scope.outputs.run_components }}
       run_e2e: ${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}
       run_red_on_base: ${{ steps.scope.outputs.run_red_on_base }}
-      skip_reason: ${{ steps.select.outputs.skip_reason || steps.scope.outputs.skip_reason }}
+      skip_reason: ${{ steps.scope.outputs.skip_reason }}
+      e2e_skip_reason: ${{ steps.select.outputs.skip_reason || steps.scope.outputs.skip_reason }}
       e2e_boundary_report: ${{ steps.scope.outputs.e2e_boundary_report }}
       e2e_selection: ${{ steps.select.outputs.e2e_selection }}
       e2e_engine_paths: ${{ steps.select.outputs.e2e_engine_paths }}
@@ -464,7 +469,7 @@ jobs:
               isE2eTestSupportPath(file) ||
               (file === 'package.json' && (packageJsonDependencyChange || packageJsonE2eScriptChange)) ||
               (file === 'package-lock.json' && packageLockChange) ||
-              file === '.github/workflows/test-e2e.yml' ||
+              file === '.github/workflows/test.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
             // Each changed file against the boundary, for the skip summary to print: a misclassified

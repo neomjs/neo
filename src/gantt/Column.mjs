@@ -40,6 +40,19 @@ class Column extends TimelineColumn {
         }
         return node
     }
+
+    /**
+     * @summary Draws a task a cascade is moving over its in-flight span ({@link Neo.gantt.Container#drawnSpans}).
+     * @param {Neo.data.Model} item Task record
+     * @param {Number} startMs
+     * @param {Number} endMs
+     * @returns {Number[]}
+     * @protected
+     */
+    getDrawnSpan(item, startMs, endMs) {
+        const chart = this.parent, spans = chart?.drawnSpans;
+        return spans?.size && spans.get(String(chart.store.getKey(item))) || super.getDrawnSpan(item, startMs, endMs)
+    }
 }
 
 export default Neo.setupClass(Column);

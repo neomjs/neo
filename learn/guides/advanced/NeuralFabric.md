@@ -2,7 +2,7 @@
 
 The "Neural Fabric" (Services Canvas) visualizes the Neo.mjs Application Engine as a structured, engineered lattice. It represents the "Motherboard" or "VDOM Registry" where components live, are inspected, and are mutated by intelligent agents.
 
-While **Neural Swarm** deals with autonomous, organic behaviors, and **Neural Timeline** deals with data coordination, the **Neural Fabric** solves a different challenge: **High-Performance 3D Visualization in a 2D Context.**
+While the [Round Table](./RoundTable.md) replays a record through a clock, and **Neural Timeline** deals with data coordination, the **Neural Fabric** solves a different challenge: **High-Performance 3D Visualization in a 2D Context.**
 
 ## When to Use This Pattern
 
@@ -31,7 +31,7 @@ The architecture relies on a **Shared Worker** (Physics/Render) and an **App Wor
 flowchart TD
     Input(User Mouse) -->|Normalized Coords| App
     App(App Worker) -->|Update State| Shared
-    
+
     subgraph Shared Worker [2.5D Engine]
         direction TB
         State(Grid Data: q,r,x,y)
@@ -39,7 +39,7 @@ flowchart TD
         Project(Project 3D -> 2D)
         Render(Draw Path)
     end
-    
+
     Shared -->|Render Loop| OffscreenCanvas
 ```
 

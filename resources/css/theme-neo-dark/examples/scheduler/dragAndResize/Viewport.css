@@ -1,0 +1,21 @@
+:where(.neo-theme-neo-dark) {
+    --depot-header-bg        : #171e2c;
+    --depot-status-bg        : #121824;
+    --depot-border           : #38465b;
+    --depot-title            : #f1f5fb;
+    --depot-muted            : #b0bed0;
+    --depot-badge-bg         : #1f2b40;
+    --depot-badge-border     : #4a6389;
+    --depot-badge-text       : #dbeafe;
+    --depot-control-bg       : #253145;
+    --depot-hover-bg         : #34445c;
+    --depot-selected-bg      : #b9ccf6;
+    --depot-selected-text    : #18253c;
+    --depot-focus            : #a9c7ff;
+    --depot-preview-pill-bg  : #1e3256;
+    --depot-preview-pill-text: #dbeafe;
+    --depot-moved-pill-bg    : #133529;
+    --depot-moved-pill-text  : #a7f3d0;
+    --depot-resized-pill-bg  : #3b2a12;
+    --depot-resized-pill-text: #fde68a;
+}

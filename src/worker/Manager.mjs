@@ -352,6 +352,12 @@ class Manager extends Base {
         NeoConfig.hasTouchEvents   = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         NeoConfig.prefersDarkTheme = matchMedia('(prefers-color-scheme: dark)').matches;
 
+        // A worker's own motion clock cannot read CSS synchronously, so the preference reaches it live
+        const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+        NeoConfig.prefersReducedMotion = reducedMotion.matches;
+        reducedMotion.addEventListener('change', ({matches}) => me.setNeoConfig({broadcast: true, config: {prefersReducedMotion: matches}}));
+
         // Useful for styling
         document.body.classList.add(NeoConfig.hasMouseEvents ? 'neo-mouse' : 'neo-no-mouse');
 

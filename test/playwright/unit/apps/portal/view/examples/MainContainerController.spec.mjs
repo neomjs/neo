@@ -138,9 +138,9 @@ test.describe('Portal examples overview and group pages', () => {
         expect(tileIds(view, 'forms')).toEqual(formTileIds);
         expect(pageIds(view, 'multi-window')).toEqual(multiWindowPageIds);
         expect(pageIds(view, 'calendar')).toEqual(['calendar']);
-        expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data']);
-        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data']);
-        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes']);
+        expect(pageIds(view, 'scheduler')).toEqual(['scheduler-basic', 'scheduler-big-data', 'meridian-observatory']);
+        expect(pageIds(view, 'gantt')).toEqual(['gantt-basic', 'gantt-big-data', 'meridian-observatory']);
+        expect(pageIds(view, 'board')).toEqual(['board-basic', 'board-swimlanes', 'meridian-observatory']);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
         expect(pageIds(view, 'functional')).toEqual(['live-preview', 'email']);
         expect(tileIds(view, 'functional')).toEqual(['functional-define-component', 'functional-host-component', 'functional-nested-template']);
@@ -224,16 +224,18 @@ test.describe('Portal examples overview and group pages', () => {
         expect(mobIx.vdom.cn.filter(node => node.tag === 'section').map(band => band.cn[0].text))
             .toEqual(['Data views', 'Planning', 'Layout', 'Components', 'Platform']);
         expect(links(mobIx).map(link => link.href)).toEqual(publishedRoutes.map(route => '#' + route));
-        // a group shows its home examples; one that only borrows shows no number, and its label still names what it borrows
+        // a group's number is what its page shows: its own examples and the ones other groups lend it
         expect(links(mobIx).map(link => link.cn[2].text))
-            .toEqual(Object.values(groupCounts).map(([count]) => count ? String(count) : ''));
-        expect(links(mobIx).filter(link => !link.cn[2].text).map(link => link.href))
-            .toEqual(publishedRoutes.filter((route, index) => Object.values(groupCounts)[index][0] === 0).map(route => '#' + route));
-        expect(links(mobIx).filter(link => !link.cn[2].text).every(link => link['aria-label'].endsWith('from other groups'))).toBe(true);
+            .toEqual(Object.values(groupCounts).map(([count, crossCount]) => String(count + crossCount)));
+        expect(links(mobIx).find(link => link.href === '#/examples/drag-drop')['aria-label']).toBe('Drag & Drop, 3 live examples');
+        expect(links(mobIx).some(link => link['aria-label'].includes('from other groups'))).toBe(false);
         expect(links(mobIx).every(link => link['aria-current'] === null)).toBe(true);
         expect(mobIx.vdom.cn[0].removeDom).toBe(true);
-        // the all-examples link, the unbanded list and one section per band: no note under them
-        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section']);
+        // the all-examples link, the unbanded list, one section per band, and the line that says why the numbers add up
+        // to more than the published total
+        expect(mobIx.vdom.cn.map(node => node.tag)).toEqual(['a', 'ul', 'section', 'section', 'section', 'section', 'section', 'p']);
+        expect(mobIx.vdom.cn.at(-1).removeDom).toBe(false);
+        expect(mobIx.vdom.cn.at(-1).text).toBe(`${publishedCount} examples in all. Some appear in more than one group.`);
 
         expect(index.presentation).toBe('list');
         expect(index.vdom.cn[0].removeDom).toBe(false);
@@ -245,9 +247,10 @@ test.describe('Portal examples overview and group pages', () => {
         expect(sheet.presentation).toBe('sheet');
         expect(sheet.vdom.cn[0].removeDom).toBe(false);
         expect(links(sheet).filter(link => link['aria-current'] === 'page').map(link => link.href)).toEqual(['#/examples/drag-drop']);
-        expect(ExampleGroup.countLabel({count: 0, crossCount: 2})).toBe('2 live examples from other groups');
+        expect(ExampleGroup.countLabel({count: 0, crossCount: 2})).toBe('2 live examples');
         expect(ExampleGroup.countLabel({count: 1, crossCount: 0})).toBe('1 live example');
-        expect(ExampleGroup.countLabel({count: 4, crossCount: 4})).toBe('4 live examples, 4 from other groups')
+        expect(ExampleGroup.countLabel({count: 4, crossCount: 4})).toBe('8 live examples');
+        expect(ExampleGroup.countText({count: 0, crossCount: 2})).toBe('2')
     });
 
     test('the hoisted crumb button opens and closes the sheet and syncs with routes', async () => {
@@ -539,8 +542,11 @@ test.describe('Portal examples overview and group pages', () => {
               dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
               calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
 
-        expect(dragEntry['aria-label']).toBe('Drag & Drop, 3 matching examples from other groups');
+        expect(dragEntry['aria-label']).toBe('Drag & Drop, 3 matching examples');
+        expect(dragEntry.cn[2].text).toBe('3');
         expect(calEntry['aria-label']).toBe('Calendar, 0 matching examples');
+        // the line under the list explains the catalog's sums; a filter shows matches, so it stays out
+        expect(indexVdom.cn.at(-1).removeDom).toBe(true);
 
         controller.onFindFieldChange({value: 'date'});
         const dateIds = matchedIds();
@@ -711,9 +717,9 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           lists         : [12, 0],
           charts        : [5, 1],
           calendar      : [1, 0],
-          scheduler     : [2, 0],
-          gantt         : [2, 0],
-          board         : [2, 0],
+          scheduler     : [3, 0],
+          gantt         : [2, 1],
+          board         : [2, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
           layouts       : [3, 0],
@@ -727,7 +733,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 126,
+      recordCount    = 127,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -915,6 +921,7 @@ test.describe('Portal examples canonical catalog', () => {
             'form-app'               : ['apps'],
             'layout-form'            : ['forms'],
             'timeline-basic'         : ['scheduler'],
+            'meridian-observatory'   : ['gantt', 'board'],
             'dock-cross-window'      : ['multi-window'],
             'dock-tear-out'          : ['multi-window', 'drag-drop'],
             'email'                  : ['multi-window', 'functional'],
@@ -994,7 +1001,7 @@ test.describe('Portal examples canonical catalog', () => {
         const {store}     = createList(),
               completeIds = [
                   ...startHereIds, ...establishedTailIds, ...componentExampleIds, ...establishedMiddleIds,
-                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'timeline-basic',
+                  ...newExampleIds, ...formExampleIds, 'board-swimlanes', 'scheduler-big-data', 'gantt-big-data', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', ...newTileIds, ...layoutExampleIds
               ],
               excluded = {
