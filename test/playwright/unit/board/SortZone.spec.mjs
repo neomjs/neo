@@ -878,7 +878,7 @@ test.describe('Neo.board.SortZone', () => {
         expect(records[1]).toBe(offscreen)
     });
 
-    test('multi-selection proxy vdom: 3 selected cards produce lead + 2 stack clones and no badge; 7 produce lead + 4 stack clones and "+2" badge', async () => {
+    test('multi-selection proxy vdom: the stack draws the lead and at most four clones, and its badge shows the total', async () => {
         store = createStore([
             ...cards(),
             {id: 'c7', title: 'Graph', status: 'done', order: 2000}
@@ -902,7 +902,7 @@ test.describe('Neo.board.SortZone', () => {
         expect(lead3.cls).toContain('neo-board-stack-lead');
         expect(lead3.cls).not.toContain('neo-board-card-ghost');
         expect(stackCards3).toHaveLength(2);
-        expect(badge3).toBeUndefined();
+        expect(badge3).toEqual({tag: 'span', cls: ['neo-board-stack-count'], text: '3'});
         expect(stackCards3[0].style['--stack-angle']).toBe('3deg');
         expect(stackCards3[1].style['--stack-angle']).toBe('-4deg');
         expect(stackCards3[0].style['--stack-opacity']).toBe('0.9');
@@ -928,13 +928,21 @@ test.describe('Neo.board.SortZone', () => {
         expect(stackCards7).toHaveLength(4);
         expect(stackCards7.map(node => node.style['--stack-angle'])).toEqual(['3deg', '-4deg', '5deg', '-6deg']);
         expect(stackCards7.map(node => node.style['--stack-opacity'])).toEqual(['0.9', '0.8', '0.7', '0.6']);
-        expect(badge7).toEqual({
-            tag : 'span',
-            cls : ['neo-board-stack-count'],
-            text: '+2'
-        });
+        expect(badge7).toEqual({tag: 'span', cls: ['neo-board-stack-count'], text: '7'});
 
         await zone.onDragCancel({});
+
+        // Two and five: the smallest selection and the largest stack without overflow count themselves too
+        for (const ids of [['c1', 'c2'], ['c1', 'c2', 'c3', 'c4', 'c5']]) {
+            board.selectionModel.setSelection(ids);
+            await drag(zone, 'c1', 100, 70);
+
+            const {cn} = zone.dragProxyConfig.vdom;
+
+            expect(cn.filter(node => node.cls?.includes('neo-board-stack-card'))).toHaveLength(ids.length - 1);
+            expect(cn.find(node => node.cls?.includes('neo-board-stack-count'))?.text).toBe(String(ids.length));
+            await zone.onDragCancel({})
+        }
 
         // Dragging an unselected card falls back to the single-card proxy config
         board.selectionModel.setSelection(['c3', 'c4']);
@@ -996,6 +1004,30 @@ test.describe('Neo.board.SortZone', () => {
         expect(keys(board.getColumn('done'))).toEqual([]);
         expect(['c1', 'c2', 'c6'].map(id => board.getCard(id))).toEqual(originalCards);
         expect(['c1', 'c2', 'c6'].map(id => board.getCard(id).id)).toEqual(originalIds)
+    });
+
+    test('a multi-selection dragged by its middle card lands in board order, the block starting at the slot', async () => {
+        store = createStore();
+
+        const
+            zone       = await startZone(),
+            cardMoves  = [],
+            cardsMoves = [];
+
+        board.on('cardMove',  data => cardMoves.push(data.record.id));
+        board.on('cardsMove', data => cardsMoves.push(data.records.map(record => record.id)));
+
+        // Board order is c1, c2 (backlog), c6 (done); the drag holds c2
+        board.selectionModel.setSelection(['c1', 'c2', 'c6']);
+
+        await drag(zone, 'c2', 100, 170);
+        // Into in-progress at index 1, between c3 and c4
+        await zone.onDragMove({clientX: 400, clientY: 160});
+        await zone.onDragEnd({});
+
+        expect(keys(board.getColumn('in-progress')), 'the block starts at the slot, in board order').toEqual(['c3', 'c1', 'c2', 'c6', 'c4', 'c5']);
+        expect(cardMoves, 'the held card takes the slot first').toEqual(['c2', 'c1', 'c6']);
+        expect(cardsMoves, 'one cardsMove, in board order').toEqual([['c1', 'c2', 'c6']])
     });
 
     test('a prepared multi-card drop completes when its rebalance filters out a later selected record', async () => {
