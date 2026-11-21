@@ -29,6 +29,13 @@ class ListModel extends BaseListModel {
     }
 
     /**
+     * The row navigation request whose geometry is still relevant to the current input.
+     * @member {Symbol|null} #rowNavigationRequest=null
+     * @private
+     */
+    #rowNavigationRequest = null
+
+    /**
      * @summary Resolves the active index inside the visible record list from event focus path or current selection.
      * @param {Object} [data]
      * @param {Object[]} records
@@ -121,7 +128,10 @@ class ListModel extends BaseListModel {
      * @summary Clears card selection when `Escape` is pressed.
      */
     onKeyDownEscape() {
-        this.hasSelection() && this.deselectAll()
+        let me = this;
+
+        me.#rowNavigationRequest = null;
+        me.hasSelection() && me.deselectAll()
     }
 
     /**
@@ -155,6 +165,8 @@ class ListModel extends BaseListModel {
      */
     onListClick(data) {
         let me = this;
+
+        me.#rowNavigationRequest = null;
 
         if (me.hasAnchorInPath(data)) {
             return
@@ -198,18 +210,21 @@ class ListModel extends BaseListModel {
      * @protected
      */
     stepLinear(data, delta) {
-        const records = this.getNavigableRecords();
+        let me      = this,
+            records = me.getNavigableRecords();
+
+        me.#rowNavigationRequest = null;
 
         if (!records.length) {
             return
         }
 
-        const currentIndex = this.getCurrentRecordIndex(data, records),
+        const currentIndex = me.getCurrentRecordIndex(data, records),
               nextIndex    = currentIndex < 0
                   ? (delta > 0 ? 0 : records.length - 1)
                   : Math.max(0, Math.min(records.length - 1, currentIndex + delta));
 
-        this.selectAndFocus(records[nextIndex])
+        me.selectAndFocus(records[nextIndex])
     }
 
     /**
@@ -227,7 +242,10 @@ class ListModel extends BaseListModel {
     async stepRow(data, direction) {
         const me      = this,
               {view}  = me,
-              records = me.getNavigableRecords();
+              records = me.getNavigableRecords(),
+              request = Symbol();
+
+        me.#rowNavigationRequest = request;
 
         if (!records.length) {
             return
@@ -243,7 +261,11 @@ class ListModel extends BaseListModel {
         let rects = null;
 
         if (view.mounted && typeof view.getDomRect === 'function') {
-            rects = await view.getDomRect(records.map(record => view.getItemId(view.getRecordId(record))))
+            rects = await view.getDomRect(records.map(record => view.getItemId(view.getRecordId(record))));
+
+            if (me.#rowNavigationRequest !== request || me.view !== view || !view.mounted) {
+                return
+            }
         }
 
         const current = rects?.[currentIndex];

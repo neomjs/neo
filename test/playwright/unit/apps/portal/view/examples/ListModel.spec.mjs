@@ -131,6 +131,49 @@ test.describe('Portal.view.examples.ListModel', () => {
         }
     });
 
+    test('an earlier row measurement cannot replace a later Escape or card selection', async () => {
+        const {focusedIds, list, model, store} = await createMountedList(),
+              firstId                          = list.getItemId(list.getRecordId(store.get('workstation'))),
+              otherId                          = list.getItemId(list.getRecordId(store.get('sprint-board'))),
+              rects                            = [
+                  {x: 0, y: 0,   width: 320, height: 200},
+                  {x: 0, y: 214, width: 320, height: 200}
+              ],
+              holdRowMove = () => {
+                  let complete;
+
+                  list.getDomRect = () => new Promise(resolve => {complete = resolve});
+
+                  const move = model.onKeyDownDown({path: [{id: firstId, cls: ['neo-list-item']}]});
+
+                  return async () => {
+                      complete(rects);
+                      await move
+                  }
+              };
+
+        model.select(firstId);
+
+        const finishBeforeEscape = holdRowMove();
+        list.keys.onKeyDown({key: 'Escape'});
+        await finishBeforeEscape();
+
+        expect(model.items).toEqual([]);
+        expect(focusedIds).toEqual([]);
+
+        model.select(firstId);
+
+        const finishBeforeClick = holdRowMove();
+        model.onListClick({
+            currentTarget: otherId,
+            path         : [{id: otherId, tagName: 'li', cls: ['neo-list-item']}]
+        });
+        await finishBeforeClick();
+
+        expect(model.items).toEqual([otherId]);
+        expect(focusedIds).toEqual([])
+    });
+
     test('traverses visual rows on Up/Down across uniform 3-column, 2×2 leadCard, and 1-column layouts', async () => {
         // 1. Uniform 3-column grid: card 0 (col 1, row 1) -> Down -> card 3 (col 1, row 2); card 1 (col 2, row 1) -> Down -> card 4 (col 2, row 2)
         const box = (col, row, w=350, h=260, gapX=24, gapY=14) => {
