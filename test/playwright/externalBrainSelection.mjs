@@ -125,6 +125,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'scheduler/BigDataNL.spec.mjs',
     'scheduler/MeridianPointer.spec.mjs',
     'scheduler/MeridianSequence.spec.mjs',
+    'scheduler/TouchDragFocusNL.spec.mjs',
     'tab/TabHeaderActionsNL.spec.mjs',
     'workstation/DockSplitterZoneIdNL.spec.mjs',
     'workstation/VesselClosesMidFirstRenderNL.spec.mjs',
