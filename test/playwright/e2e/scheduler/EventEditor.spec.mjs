@@ -92,7 +92,9 @@ test.describe('Scheduler event editor example (#21615)', () => {
     test('Tab and Enter, or a double-click, open the editor, and Cancel and Escape change nothing', async ({page}) => {
         const errors = trackErrors(page);
 
-        // Two Tabs from the top of the page reach the first appointment; Enter opens it, Cancel closes it
+        // Two Tabs from the toolbar's last control, its theme switcher, reach the first appointment; Enter opens it,
+        // Cancel closes it. The count starts there because Tab skips buttons on macOS and stops on them on Linux.
+        await page.locator('.neo-theme-switcher').first().focus();
         await page.keyboard.press('Tab');
         await page.keyboard.press('Tab');
         expect(await focusedAppointment(page)).toBe('appt-1');
