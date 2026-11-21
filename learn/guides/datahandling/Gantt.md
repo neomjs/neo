@@ -76,6 +76,8 @@ class MainViewport extends Viewport {
 export default Neo.setupClass(MainViewport);
 ```
 
+The `taskChange` listener receives `changeSource` for the edit origin (`keyboard`, `drag`, `resize`, `editor`, or the caller's `meta.source`, defaulting to `api`). Its `source` remains the Gantt's component id.
+
 ## 3. The Task Record
 
 The data model for tasks is `Neo.gantt.TaskModel`. It extends `Neo.data.TreeModel` and incorporates timeline fields:
