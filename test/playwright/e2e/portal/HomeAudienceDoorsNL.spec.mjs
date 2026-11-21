@@ -307,7 +307,9 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(HOME_URL);
 
-        const app       = await neuralLink.connectToApp('Portal');
+        const app = await neuralLink.connectToApp('Portal');
+        await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
         const home      = await queryOne(app, {className: 'Portal.view.home.MainContainer'});
         const doors     = await queryOne(app, {reference: 'home-audience-doors'});
         const doorStudy = await queryOne(app, {reference: 'door-study'});
