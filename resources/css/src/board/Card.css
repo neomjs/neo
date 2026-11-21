@@ -179,7 +179,8 @@
         border         : 2px solid var(--neo-board-card-background);
         border-radius  : 999px;
         box-shadow     : var(--neo-board-card-shadow);
-        color          : #ffffff;
+        /* Each theme's accent sits opposite its background in lightness, so the background reads on it */
+        color          : var(--neo-board-background);
         display        : inline-flex;
         font-size      : 0.78em;
         font-weight    : 700;
