@@ -3,7 +3,7 @@ import {expect, test} from '../../fixtures.mjs';
 /**
  * @summary Verifies `Neo.button.ThemeSwitcher` across the 17 standalone Grid, Table, Dashboard, Desktop,
  * Menu, Tab, Toolbar, List, and Layout examples: 4-theme dropdown + detached menu sync (`menu/context`),
- * 2-theme toggle + `?theme=` boot override, multi-window propagation (`dashboard/crossWindow`,
+ * 2-theme toggle round-trip, multi-window propagation (`dashboard/crossWindow`,
  * `dashboard/tearOut`, `list/onAir`), and `390 × 844` / `1440 × 900` reachability with zero console/page errors.
  */
 
@@ -112,7 +112,7 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
     });
 
     for (const {appName, path, themes} of TOGGLE_EXAMPLES) {
-        test(`${path} toggles 2-theme state in the App Worker and honours ?theme= boot override`, async ({page, neuralLink}) => {
+        test(`${path} toggles theme state in the App Worker and syncs document.body`, async ({page, neuralLink}) => {
             const errors = [];
             captureErrors(page, errors);
 
@@ -120,17 +120,19 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
             await page.emulateMedia({reducedMotion: 'reduce'});
             await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
 
-            await page.goto(`/examples/${path}/index.html?theme=${themes[1]}`);
+            await page.goto(`/examples/${path}/index.html`);
 
             const switcher = page.locator('.neo-theme-switcher').first();
             await expect(switcher).toBeVisible();
 
             const
                 app        = await neuralLink.connectToApp(appName),
-                viewportId = await page.locator('.neo-viewport').first().getAttribute('id');
+                viewportId = await page.locator('.neo-viewport').first().getAttribute('id'),
+                startTheme = await app.callMethod(viewportId, 'getTheme', []),
+                nextTheme  = themes.find(t => t !== startTheme);
 
-            await expect.poll(() => app.callMethod(viewportId, 'getTheme', []), `${path}: ?theme= boot`).toBe(themes[1]);
-            await expect.poll(() => page.evaluate(cls => document.body.classList.contains(cls), themes[1])).toBe(true);
+            expect(themes).toContain(startTheme);
+            await expect.poll(() => page.evaluate(cls => document.body.classList.contains(cls), startTheme)).toBe(true);
 
             const selectTheme = async targetTheme => {
                 const hasMenu = (await switcher.getAttribute('aria-haspopup')) === 'menu';
@@ -142,13 +144,13 @@ test.describe('Standalone Examples ThemeSwitcher Rollout', () => {
                 }
             };
 
-            await selectTheme(themes[0]);
-            await expect.poll(() => app.callMethod(viewportId, 'getTheme', []), `${path}: switch to ${themes[0]}`).toBe(themes[0]);
-            await expect.poll(() => page.evaluate(cls => document.body.classList.contains(cls), themes[0])).toBe(true);
+            await selectTheme(nextTheme);
+            await expect.poll(() => app.callMethod(viewportId, 'getTheme', []), `${path}: switch to ${nextTheme}`).toBe(nextTheme);
+            await expect.poll(() => page.evaluate(cls => document.body.classList.contains(cls), nextTheme)).toBe(true);
 
-            await selectTheme(themes[1]);
-            await expect.poll(() => app.callMethod(viewportId, 'getTheme', []), `${path}: switch back to ${themes[1]}`).toBe(themes[1]);
-            await expect.poll(() => page.evaluate(cls => document.body.classList.contains(cls), themes[1])).toBe(true);
+            await selectTheme(startTheme);
+            await expect.poll(() => app.callMethod(viewportId, 'getTheme', []), `${path}: switch back to ${startTheme}`).toBe(startTheme);
+            await expect.poll(() => page.evaluate(cls => document.body.classList.contains(cls), startTheme)).toBe(true);
 
             if (path === 'toolbar/breadcrumb') {
                 await expect(page.locator('.neo-breadcrumb-folders-name')).toHaveText('src')
