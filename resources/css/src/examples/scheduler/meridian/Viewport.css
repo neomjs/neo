@@ -200,8 +200,6 @@
     --neo-timeline-header-color                : #e1eadf;
     --neo-timeline-header-muted-color          : var(--mer-muted);
     --neo-timeline-gridline-color              : #334348;
-    /* Four-minute ticks across the shared 28-minute axis, including when the two charts fit a wide screen. */
-    --neo-timeline-gridline-step               : calc(100% / 7);
     --neo-timeline-tick-border-color           : var(--mer-line);
     --neo-timeline-border-color                : var(--mer-line);
     --neo-timeline-bar-background              : #254d4b;

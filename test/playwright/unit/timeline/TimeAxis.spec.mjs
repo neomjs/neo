@@ -50,6 +50,22 @@ test.describe('Neo.timeline.TimeAxis', () => {
         axis.destroy();
     });
 
+    test('measures one tick in pixels for the units of a fixed length, and none for a month', () => {
+        const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00:00Z', end: '2026-11-16T00:00:00Z', pxPerMinute: 0.5, tickUnit: 'hour', tickStep: 2});
+
+        try {
+            expect(axis.getTickSize(), 'the axis\' own unit and step: two hours').toBe(60);
+            expect(axis.getTickSize('minute', 15)).toBe(7.5);
+            expect(axis.getTickSize('day', 1)).toBe(720);
+            expect(axis.getTickSize('week', 1)).toBe(5040);
+            expect(axis.getTickSize('month', 1)).toBeNull();
+
+            // An explicit size sets the scale: 1,008 px over the week's 10,080 minutes
+            axis.size = 1008;
+            expect(axis.getTickSize('day', 1)).toBeCloseTo(144, 9)
+        } finally { axis.destroy() }
+    });
+
     test('snaps and clamps dates and computes rangeFromOffsets with minimum duration', () => {
         const axis = Neo.create(TimeAxis, {
             start      : new Date(2026, 10, 9, 8, 0, 0, 0),

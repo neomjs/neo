@@ -1,10 +1,4 @@
 .kitchen-viewport.neo-viewport {
-    --neo-timeline-gridline-step: 53px;
-
-    &.kitchen-is-compact {
-        --neo-timeline-gridline-step: 18px;
-    }
-
     .kitchen-toolbar.neo-toolbar {
         align-items  : center;
         background   : var(--kitchen-header-bg);

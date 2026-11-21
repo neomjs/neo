@@ -1,6 +1,7 @@
 import Base from '../core/Base.mjs';
 
-const dayMs = 86_400_000, MS_PER_MINUTE = 60_000, dayKeyPattern = /^\d{4}-\d{2}-\d{2}$/;
+const dayMs            = 86_400_000, MS_PER_MINUTE = 60_000, dayKeyPattern = /^\d{4}-\d{2}-\d{2}$/,
+      fixedTickMinutes = {minute: 1, hour: 60, day: 1440, week: 10080};
 let lastZone, formatter;
 
 /**
@@ -800,6 +801,18 @@ class TimeAxis extends Base {
     getNowOffset() {
         const now = this.now ?? new Date();
         return now >= this.start && now < this.end ? this.dateToOffset(now) : null
+    }
+
+    /**
+     * @summary Returns the width in pixels of one tick of `unit` × `step`, for the units of a fixed length. Day and
+     * week ticks follow the civil calendar, so across a daylight-saving change one runs an hour off this width.
+     * @param {String} [unit=this.tickUnit]
+     * @param {Number} [step=this.tickStep]
+     * @returns {Number|null} `null` for `'month'`, whose length varies
+     */
+    getTickSize(unit=this.tickUnit, step=this.tickStep) {
+        const minutes = fixedTickMinutes[unit];
+        return minutes ? minutes * Math.max(1, step || 1) * this.effectivePxPerMinute : null
     }
 
     /**
