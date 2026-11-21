@@ -4,6 +4,7 @@ import GridContainer from '../../../src/grid/Container.mjs';
 import Label         from '../../../src/component/Label.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar       from '../../../src/toolbar/Base.mjs';
 
 /**
@@ -70,6 +71,9 @@ class Viewport extends BaseViewport {
                     opacity   : 0.8,
                     whiteSpace: 'normal'
                 }
+            }, '->', {
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
         }, {
             module   : GridContainer,

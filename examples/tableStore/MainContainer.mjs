@@ -6,9 +6,11 @@ import MainStore       from './MainStore.mjs';
 import Radio           from '../../src/form/field/Radio.mjs';
 import RowModel        from '../../src/selection/table/RowModel.mjs';
 import TableContainer  from '../../src/table/Container.mjs';
+import ThemeSwitcher   from '../../src/button/ThemeSwitcher.mjs';
 import Viewport        from '../../src/container/Viewport.mjs';
 
 /**
+ * @summary Table & Store showcase demonstrating dynamic cell updates, sorting, selection models, and theme switching.
  * @class Neo.examples.tableStore.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -19,9 +21,10 @@ class MainContainer extends Viewport {
         style    : {padding: '20px'},
 
         items: [{
-            ntype: 'toolbar',
-            flex : '0 1 auto',
-            style: {marginBottom: '5px', padding: 0},
+            ntype : 'toolbar',
+            flex  : '0 1 auto',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            style : {marginBottom: '5px', padding: 0},
 
             items: [{
                 ntype: 'label',
@@ -87,10 +90,14 @@ class MainContainer extends Viewport {
                 handler() {
                     Neo.getComponent('myTableStoreContainer').store.sort();
                 }
+            }, {
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
         }, {
-            ntype: 'toolbar',
-            flex : '0 1 auto',
+            ntype : 'toolbar',
+            flex  : '0 1 auto',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
 
             style: {
                 marginBottom: '10px',

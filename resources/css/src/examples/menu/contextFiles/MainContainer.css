@@ -5,6 +5,10 @@
     gap             : 8px;
     padding         : 24px;
 
+    .neo-context-files-header {
+        gap: 8px 12px;
+    }
+
     .neo-context-files-title {
         font-size  : 22px;
         font-weight: 600;
