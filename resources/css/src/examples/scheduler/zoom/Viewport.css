@@ -1,0 +1,103 @@
+/* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
+.venue-viewport.neo-viewport {
+    .venue-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 16px;
+        min-height   : 56px;
+        padding      : 10px 20px;
+    }
+
+    .venue-title {
+        color         : var(--neo-timeline-header-color);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .venue-hint {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 13px;
+    }
+
+    /* One segmented control: the buttons share their borders, the pressed one carries the bar colour */
+    .venue-levels {
+        gap: 0;
+
+        .venue-level.neo-button {
+            background   : transparent;
+            border       : 1px solid var(--neo-timeline-border-color);
+            border-radius: 0;
+            color        : var(--neo-timeline-header-muted-color);
+            font-size    : 13px;
+            font-weight  : 600;
+            height       : 32px;
+            margin       : 0 0 0 -1px;
+            min-width    : 72px;
+            padding      : 0 14px;
+
+            &:first-child {
+                border-radius: 6px 0 0 6px;
+                margin-left  : 0;
+            }
+
+            &:last-child {
+                border-radius: 0 6px 6px 0;
+            }
+
+            &:hover {
+                color: var(--neo-timeline-header-color);
+            }
+
+            &.pressed {
+                background: var(--neo-timeline-bar-background);
+                border    : 1px solid var(--neo-timeline-bar-border-color);
+                color     : var(--neo-timeline-bar-color);
+                position  : relative;
+            }
+        }
+    }
+
+    .venue-room-name,
+    .venue-room-seats {
+        display      : block;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .venue-room-name {
+        font-weight: 600;
+    }
+
+    .venue-room-seats {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 12px;
+    }
+
+    /* A session too short to name shows its shape only: at the week level an hour is nine pixels wide */
+    .neo-timeline-bar {
+        container-type: inline-size;
+    }
+
+    @container (max-width: 36px) {
+        .neo-timeline-bar-label {
+            visibility: hidden;
+        }
+    }
+
+    /* On a phone the hint gives the plan its height, and the three levels share the toolbar's width */
+    @media (max-width: 720px) {
+        .venue-hint {
+            display: none;
+        }
+
+        .venue-levels {
+            flex : 1 0 100%;
+            width: 100%;
+        }
+    }
+}
