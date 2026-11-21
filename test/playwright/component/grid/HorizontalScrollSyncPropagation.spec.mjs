@@ -173,7 +173,18 @@ test.describe('Neo.main.addon.GridHorizontalScrollSync in the browser', () => {
             viewId    : 'late-view'
         }));
 
-        expect(await readLate()).toEqual({body: '120px', header: 120, scroller: 120})
+        expect(await readLate()).toEqual({body: '120px', header: 120, scroller: 120});
+
+        // A re-registration seeds the scrollbar's position as it is now, zero included
+        await page.evaluate(() => {
+            const sync = Neo.main.addon.GridHorizontalScrollSync;
+
+            sync.unregister({id: 'late__h_scroll'});
+            document.getElementById('late-scroller').scrollLeft = 0;
+            sync.register({id: 'late__h_scroll', scrollerId: 'late-scroller', bodyId: 'late-body', headerId: 'late-header', viewId: 'late-view'})
+        });
+
+        expect(await readLate(), 'a re-registration at zero').toEqual({body: '0px', header: 0, scroller: 0})
     });
 
     test('an unregistered grid no longer follows its scrollbar', async ({page}) => {
