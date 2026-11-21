@@ -206,11 +206,12 @@ class RotaViewport extends Viewport {
                 cls   : ['tz-hint'],
                 text  : 'Pick a clock for the axis. Each bar keeps its agent\'s own hours; click one to compare.'
             }, '->', {
-                module: Container,
-                cls   : ['tz-zones'],
-                layout: {ntype: 'hbox'},
-                vdom  : {role: 'group', 'aria-label': 'Time zone', cn: []},
-                items : CHOICES.map(({text}, index) => ({
+                module   : Container,
+                cls      : ['tz-zones'],
+                layout   : {ntype: 'hbox'},
+                reference: 'zones',
+                role     : 'group',
+                items    : CHOICES.map(({text}, index) => ({
                     module   : Button,
                     cls      : ['tz-zone'],
                     handler  : 'up.onZone',
@@ -290,13 +291,15 @@ class RotaViewport extends Viewport {
     #opened = false
 
     /**
-     * @summary Marks the chosen shift, fills the readout and opens the plan once the scheduler's body is measured.
+     * @summary Names the zone switch for assistive technology, marks the chosen shift, fills the readout and opens
+     * the plan once the scheduler's body is measured.
      */
     onConstructed() {
         super.onConstructed();
 
         const {body} = this.getReference('scheduler');
 
+        this.getReference('zones').changeVdomRootKey('aria-label', 'Time zone');
         this.renderReadout();
 
         // Once the body is measured, then on every new column layout: availableWidth follows the new positions

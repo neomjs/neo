@@ -88,6 +88,8 @@ test.describe('Scheduler time zones example (#21620)', () => {
 
         // The plan opens at Saturday 15:00, so Sunday's header comes into view once the opening scroll has landed
         await expect(page.locator('.neo-timeline-tick-major', {hasText: 'Sun 1 Nov'})).toBeVisible();
+        // The four clocks are one named control for assistive technology
+        await expect(page.getByRole('group', {name: 'Time zone'})).toBeVisible();
 
         // Dana Ortiz works Sunday 09:00–17:00 in New York, stored 14:00–22:00 UTC: on the viewer's clock 06:00–14:00
         const clocks = [
