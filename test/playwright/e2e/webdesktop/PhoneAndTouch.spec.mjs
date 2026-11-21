@@ -101,12 +101,24 @@ test.describe('web desktop on a touch-capable computer', () => {
         // A tap on another app opens it. Both opens would wait on the same window import, in order, so a
         // window opened by the click would be listed before this one is shown.
         await mail.tap();
-        await expect(windowOf(page, 'Mail')).toBeVisible();
+        const mailWindow = windowOf(page, 'Mail');
+
+        await expect(mailWindow).toBeVisible();
         await expect(page.locator(TASK)).toHaveCount(1);
         await expect(page.locator(TASK)).toHaveText(/Mail/);
 
-        await windowOf(page, 'Mail').getByRole('button', {name: 'close'}).click();
-        await expect(windowOf(page, 'Mail')).toHaveCount(0);
+        const mailId    = await mailWindow.getAttribute('id'),
+              appWorker = page.workers().find(worker => worker.url().includes('worker/App'));
+
+        // Visibility starts at the launcher rectangle, before the Close button reaches its final position.
+        await expect.poll(() => appWorker.evaluate(id => {
+            const dialog = Neo.get(id);
+
+            return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null;
+        }, mailId), {message: 'Mail has finished opening'}).toBe(true);
+
+        await mailWindow.getByRole('button', {name: 'close'}).click();
+        await expect(mailWindow).toHaveCount(0);
 
         await messages.dblclick();
         await expect(windowOf(page, 'Messages')).toBeVisible();
