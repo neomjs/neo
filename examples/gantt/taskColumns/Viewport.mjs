@@ -3,6 +3,7 @@ import Gantt           from '../../../src/gantt/Container.mjs';
 import Label           from '../../../src/component/Label.mjs';
 import TaskModel       from './TaskModel.mjs';
 import TaskStore       from '../../../src/gantt/TaskStore.mjs';
+import ThemeSwitcher   from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar         from '../../../src/toolbar/Base.mjs';
 import Viewport        from '../../../src/container/Viewport.mjs';
 
@@ -94,7 +95,9 @@ class TaskColumnsViewport extends Viewport {
         items: [{
             module: Toolbar, cls: ['tc-toolbar'], flex: 'none', items: [
                 {module: Label, cls: ['tc-title'],    text: 'Festival production plan'},
-                {module: Label, cls: ['tc-subtitle'], text: 'Ten weeks · five phases · progress on 17 May · UTC'}
+                {module: Label, cls: ['tc-subtitle'], text: 'Ten weeks · five phases · progress on 17 May · UTC'},
+                '->',
+                {module: ThemeSwitcher}
             ]
         }, {
             module         : Gantt,
