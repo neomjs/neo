@@ -8,8 +8,12 @@ import {expect, test} from '../../fixtures.mjs';
  * @returns {Promise<{midActiveEventId: String|null, midFocusPointer: Boolean, scrollBefore: Object, scrollMid: Object}>}
  */
 async function driveTouchDrag(page, {startX, startY, endX, endY}) {
+    await expect.poll(() => page.evaluate(() => Boolean(Neo.main?.addon?.DragDrop?.pointerSensor))).toBe(true);
+
     const cdp          = await page.context().newCDPSession(page),
           scrollBefore = await readScrollState(page);
+
+    await cdp.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 1});
 
     await cdp.send('Input.dispatchTouchEvent', {
         type       : 'touchStart',
@@ -156,7 +160,7 @@ test.describe('Scheduler touch & mouse drag bar focus', () => {
 test.describe('Scheduler touch drag on 390x844 phone', () => {
     test.use({hasTouch: true, isMobile: true, viewport: {width: 390, height: 844}});
 
-    test('scrolled 390x844 phone viewport does not jump scroll offsets when long-press touch drag focuses a bar', async ({page}) => {
+    test('scrolled 390x844 phone viewport does not jump scroll offsets when long-press touch drag focuses a bar', async ({page, neuralLink}) => {
         await page.goto('/examples/scheduler/basic/index.html');
 
         const bar1 = page.locator('.neo-timeline-bar[data-event-id="ev-1"]'),
@@ -165,17 +169,29 @@ test.describe('Scheduler touch drag on 390x844 phone', () => {
         await expect(bar1).toBeVisible();
         await expect(bar2).toBeVisible();
 
+        expect(await page.evaluate(() => Neo.config.hasTouchEvents)).toBe(true);
+        const app = await neuralLink.connectToApp('SchedulerBasic');
+
         const beforeScrollX = (await bar2.boundingBox()).x;
 
         await page.evaluate(() => {
-            const targets = [...document.querySelectorAll('.neo-scheduler *')]
-                .filter(el => el.scrollWidth > el.clientWidth + 50 && el.clientHeight > 10);
-            for (const el of targets) {
-                el.scrollLeft = 20
+            const scrollbar = document.querySelector('.neo-scheduler .neo-grid-horizontal-scrollbar');
+            if (scrollbar) {
+                scrollbar.scrollLeft = 20
             }
         });
 
+        await expect.poll(async () => {
+            const [sm]   = await app.findInstances({className: 'Neo.grid.ScrollManager'}, ['scrollLeft']),
+                  bodies = await app.findInstances({className: 'Neo.grid.Body'}, ['isScrolling']);
+
+            return sm?.properties?.scrollLeft === 20 &&
+                bodies.length > 0 &&
+                bodies.every(b => b.properties?.isScrolling === false)
+        }).toBe(true);
+
         await expect.poll(async () => (await bar2.boundingBox())?.x).toBeLessThan(beforeScrollX - 10);
+        await expect(page.locator('.neo-scheduler .neo-grid-body').first()).not.toHaveClass(/neo-is-scrolling/);
 
         await bar1.evaluate(el => el.focus({preventScroll: true}));
         await expect(bar1).toBeFocused();
@@ -187,6 +203,10 @@ test.describe('Scheduler touch drag on 390x844 phone', () => {
                   maxX   = Math.min(rect.right - 10, window.innerWidth - 10);
             return {x: (minX + maxX) / 2, y: rect.top + rect.height / 2}
         });
+
+        await expect.poll(() => page.evaluate(({x, y}) =>
+            document.elementFromPoint(x, y)?.closest('.neo-timeline-bar')?.getAttribute('data-event-id') || null, hitPoint)
+        ).toBe('ev-2');
 
         const mobileRes = await driveTouchDrag(page, {
             startX: hitPoint.x,
