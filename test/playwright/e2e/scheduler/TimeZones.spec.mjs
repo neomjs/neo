@@ -46,20 +46,36 @@ function readPlan(page, shiftId) {
                 left : parseFloat(tick.style.left),
                 width: parseFloat(tick.style.width)
             })),
-            pressed: [...document.querySelectorAll('.tz-zone.pressed')].map(button => button.textContent.trim()),
-            readout: [...document.querySelectorAll('.tz-readout span')].map(span => span.textContent.trim())
+            axisClock: document.querySelector('.tz-clock-axis .tz-clock-city')?.textContent.trim(),
+            clocks   : [...document.querySelectorAll('.tz-clock')].map(clock =>
+                `${clock.querySelector('.tz-clock-city').textContent.trim()}: ${clock.querySelector('.tz-clock-time').textContent.trim()}`),
+            pressed  : [...document.querySelectorAll('.tz-zone.pressed')].map(button => button.textContent.trim()),
+            shift    : document.querySelector('.tz-readout-shift')?.textContent.trim(),
+            stored   : document.querySelector('.tz-readout-stored')?.textContent.trim()
         }
     }, shiftId)
 }
 
 /**
- * @summary Chooses a zone with its button and waits for the readout to name that zone's clock.
+ * @summary Chooses a zone with its button and waits for the readout and Sunday's header to name that zone's clock.
+ * The bars re-render in their own update; read them with `barLeftOf`.
  * @param {import('@playwright/test').Page} page
  * @param {String} city
  */
 async function chooseZone(page, city) {
     await page.locator('.tz-zone', {hasText: new RegExp(`^${city}$`)}).click();
-    await expect(page.locator('.tz-readout-local')).toContainText(city)
+    await expect(page.locator('.tz-clock-axis .tz-clock-city')).toContainText(city);
+    await expect(page.locator('.neo-timeline-tick-major', {hasText: 'Sun 1 Nov'})).toContainText(city)
+}
+
+/**
+ * @summary Polls one shift's left edge until it settles on the expected pixel offset.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} shiftId
+ * @param {Number} expected
+ */
+async function expectBarLeft(page, shiftId, expected) {
+    await expect.poll(async () => (await readPlan(page, shiftId)).barLeft).toBe(expected)
 }
 
 test.describe('Scheduler time zones example (#21620)', () => {
@@ -70,27 +86,35 @@ test.describe('Scheduler time zones example (#21620)', () => {
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
         await expect(page.locator('.neo-timeline-bar').first()).toBeVisible();
 
-        // Dana Ortiz works Sunday 09:00–17:00 in New York, stored 14:00–22:00 UTC: on the viewer's clock 06:00–14:00
-        let plan = await readPlan(page, 'shift-1-1');
-        expect(plan.pressed).toEqual(['Your zone · Los Angeles']);
-        expect(plan.readout).toEqual(['Dana Ortiz, New York', 'Stored Sun 14:00 – 22:00 UTC', 'Your time Sun 06:00 – 14:00 (UTC−8)']);
-        expect(plan.days[0].label).toBe('Fri 30 Oct · Los Angeles · UTC−7');
+        // The plan opens at Saturday 15:00, so Sunday's header comes into view once the opening scroll has landed
+        await expect(page.locator('.neo-timeline-tick-major', {hasText: 'Sun 1 Nov'})).toBeVisible();
 
-        // Every zone's axis starts on its own Friday midnight, so Saturday begins at 24 h whatever the zone
+        // Dana Ortiz works Sunday 09:00–17:00 in New York, stored 14:00–22:00 UTC: on the viewer's clock 06:00–14:00
+        const clocks = [
+            'New York · own clock: Sun 09:00 – 17:00',
+            'Los Angeles · you: Sun 06:00 – 14:00',
+            'Tokyo: Sun 23:00 – Mon 07:00',
+            'Berlin: Sun 15:00 – 23:00'
+        ];
+        let plan = await readPlan(page, 'shift-1-2');
+        expect(plan.pressed).toEqual(['Los Angeles (you)']);
+        expect(plan).toMatchObject({axisClock: 'Los Angeles · you', clocks, shift: 'Dana Ortiz\'s shift', stored: 'Stored in UTC: Sun 14:00 – 22:00'});
+        expect(plan.days.find(day => day.label.startsWith('Sun')).label).toBe('Sun 1 Nov · Los Angeles · clocks go back 1 h: UTC−7 → UTC−8');
+
+        // Every zone's axis starts on its own Friday midnight, so Sunday begins at 48 h whatever the zone
         await chooseZone(page, 'Tokyo');
-        plan = await readPlan(page, 'shift-1-1');
-        expect(plan.readout).toEqual(['Dana Ortiz, New York', 'Stored Sun 14:00 – 22:00 UTC', 'Tokyo Sun 23:00 – Mon 07:00 (UTC+9)']);
-        expect(plan.days[1]).toMatchObject({label: 'Sat 31 Oct · Tokyo · UTC+9', left: 24 * HOUR_PX});
-        // Haruto Sato's Saturday, stored from Friday 22:00 UTC, starts at 07:00 on Saturday in Tokyo
-        expect(plan.barLeft).toBe((24 + 7) * HOUR_PX);
+        plan = await readPlan(page, 'shift-1-2');
+        expect(plan).toMatchObject({axisClock: 'Tokyo', clocks, stored: 'Stored in UTC: Sun 14:00 – 22:00'});
+        expect(plan.days.find(day => day.label.startsWith('Sun'))).toMatchObject({label: 'Sun 1 Nov · Tokyo · UTC+9', left: 48 * HOUR_PX});
+        // Haruto Sato's Sunday, stored from Saturday 22:00 UTC, starts at 07:00 on Sunday in Tokyo
+        await expectBarLeft(page, 'shift-1-2', (48 + 7) * HOUR_PX);
 
         await chooseZone(page, 'Berlin');
-        plan = await readPlan(page, 'shift-1-1');
-        expect(plan.readout[1]).toBe('Stored Sun 14:00 – 22:00 UTC');
-        expect(plan.readout[2]).toBe('Berlin Sun 15:00 – 23:00 (UTC+1)');
-        expect(plan.days[1]).toMatchObject({label: 'Sat 31 Oct · Berlin · UTC+1', left: 24 * HOUR_PX});
-        // The same shift starts at 23:00 on Friday in Berlin
-        expect(plan.barLeft).toBe(23 * HOUR_PX);
+        plan = await readPlan(page, 'shift-1-2');
+        expect(plan).toMatchObject({axisClock: 'Berlin', clocks, stored: 'Stored in UTC: Sun 14:00 – 22:00'});
+        expect(plan.days.find(day => day.label.startsWith('Sun'))).toMatchObject({label: 'Sun 1 Nov · Berlin · UTC+1', left: 48 * HOUR_PX});
+        // The same shift starts at 23:00 on Saturday in Berlin
+        await expectBarLeft(page, 'shift-1-2', 47 * HOUR_PX);
 
         expect(errors).toEqual([])
     });
@@ -105,7 +129,7 @@ test.describe('Scheduler time zones example (#21620)', () => {
 
         // Sunday's day tick spans 25 hours; the clock goes back from 02:00 EDT to 01:00 EST
         const sunday = page.locator('.neo-timeline-tick-major', {hasText: 'Sun 1 Nov'});
-        await expect(sunday).toContainText('Sun 1 Nov · New York · UTC−4 → UTC−5');
+        await expect(sunday).toContainText('Sun 1 Nov · New York · clocks go back 1 h: UTC−4 → UTC−5');
         expect(await sunday.evaluate(tick => parseFloat(tick.style.width))).toBe(25 * HOUR_PX);
 
         // The hours of that night, stored as instants an hour apart, read 00:00, 01:00, 01:00, 02:00
@@ -113,9 +137,11 @@ test.describe('Scheduler time zones example (#21620)', () => {
             document.querySelector(`.neo-timeline-tick-minor[data-date="2026-11-01T${hour}:00:00.000Z"]`)?.textContent));
         expect(night).toEqual(['00:00', '01:00', '01:00', '02:00']);
 
-        // Dana Ortiz's Sunday was stored an hour later than her Saturday, and both read 09:00–17:00 on her clock
-        await expect(page.locator('.tz-readout-local')).toHaveText('New York Sun 09:00 – 17:00 (UTC−5)');
-        await expect(page.locator('.neo-timeline-bar[data-event-id="shift-8-1"]')).toContainText('Sat 09:00 – 17:00 New York time');
+        // Dana Ortiz's Sunday starts after the change, at 09:00 on Dana's clock: ten hours into a day that began on UTC−4
+        await expect(page.locator('.tz-clock-axis .tz-clock-time')).toHaveText('Sun 09:00 – 17:00');
+        const dana = page.locator('.neo-timeline-bar[data-event-id="shift-8-2"]');
+        await expect(dana).toContainText('09:00–17:00 in New York');
+        await expectBarLeft(page, 'shift-8-2', (48 + 10) * HOUR_PX);
 
         expect(errors).toEqual([])
     });
@@ -127,15 +153,15 @@ test.describe('Scheduler time zones example (#21620)', () => {
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
         await chooseZone(page, 'Tokyo');
 
-        await page.locator('.neo-timeline-bar[data-event-id="shift-1-1"]').click();
-        await expect(page.locator('.tz-readout-shift')).toHaveText('Haruto Sato, Tokyo');
-        await expect(page.locator('.tz-readout-stored')).toHaveText('Stored Fri 22:00 – Sat 06:00 UTC');
-        await expect(page.locator('.tz-readout-local')).toHaveText('Tokyo Sat 07:00 – 15:00 (UTC+9)');
-        await expect(page.locator('.neo-timeline-bar[data-event-id="shift-1-1"]')).toHaveClass(/neo-timeline-bar-highlighted/);
+        await page.locator('.neo-timeline-bar[data-event-id="shift-1-2"]').click();
+        await expect(page.locator('.tz-readout-shift')).toHaveText('Haruto Sato\'s shift');
+        await expect(page.locator('.tz-clock-axis')).toContainText('Tokyo · own clockSun 07:00 – 15:00');
+        await expect(page.locator('.tz-readout-stored')).toHaveText('Stored in UTC: Sat 22:00 – Sun 06:00');
+        await expect(page.locator('.neo-timeline-bar[data-event-id="shift-1-2"]')).toHaveClass(/neo-timeline-bar-highlighted/);
 
-        await page.locator('.neo-timeline-bar[data-event-id="shift-2-1"]').focus();
+        await page.locator('.neo-timeline-bar[data-event-id="shift-2-2"]').focus();
         await page.keyboard.press('Enter');
-        await expect(page.locator('.tz-readout-shift')).toHaveText('Yui Tanaka, Tokyo');
+        await expect(page.locator('.tz-readout-shift')).toHaveText('Yui Tanaka\'s shift');
 
         expect(errors).toEqual([])
     });

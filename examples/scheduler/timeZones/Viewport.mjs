@@ -13,7 +13,7 @@ import Viewport   from '../../../src/container/Viewport.mjs';
 const
     // The axis shows Friday to Monday in the chosen zone, so every shift of the weekend stays on it in every city
     RANGE   = {start: '2026-10-30', end: '2026-11-03'},
-    OPEN_AT = 20 * 60, // Friday 20:00 in minutes from the axis start, before the first shift in Berlin or Tokyo time
+    OPEN_AT = (24 + 15) * 60, // Saturday 15:00 in minutes from the axis start: Sunday, with its clock change, comes next
     CITIES  = {
         'Asia/Tokyo'      : {barCls: 'neo-scheduler-bar-violet',  name: 'Tokyo'},
         'Europe/Berlin'   : {barCls: 'neo-scheduler-bar-emerald', name: 'Berlin'},
@@ -73,7 +73,8 @@ function offsetOf(timeZone, date) {
 }
 
 /**
- * @summary Labels a day of the axis with its date, the city and its offset; a day whose offset changes names both.
+ * @summary Labels a day of the axis with its date, the city and its offset. A day whose clocks change says which
+ * way and by how much, so an hour label that comes twice, or not at all, reads as the clock it is.
  * @param {{date: Date, endDate: Date}} tick
  * @param {Neo.timeline.TimeAxis} axis
  * @returns {String}
@@ -81,11 +82,12 @@ function offsetOf(timeZone, date) {
 function formatDay(tick, axis) {
     const
         {timeZone} = axis,
-        first      = offsetOf(timeZone, tick.date),
-        last       = offsetOf(timeZone, new Date(+tick.endDate - 1)),
-        day        = format(timeZone, {weekday: 'short', day: 'numeric', month: 'short'}).format(tick.date);
+        last       = new Date(+tick.endDate - 1),
+        shiftMs    = (+axis.wallTime(last) - +last) - (+axis.wallTime(tick.date) - +tick.date),
+        day        = format(timeZone, {weekday: 'short', day: 'numeric', month: 'short'}).format(tick.date),
+        change     = `clocks go ${shiftMs < 0 ? 'back' : 'forward'} ${Math.abs(shiftMs) / 3_600_000} h`;
 
-    return `${day} · ${cityOf(timeZone)} · ${first === last ? first : `${first} → ${last}`}`
+    return `${day} · ${cityOf(timeZone)} · ${shiftMs ? `${change}: ${offsetOf(timeZone, tick.date)} → ${offsetOf(timeZone, last)}` : offsetOf(timeZone, tick.date)}`
 }
 
 /**
@@ -114,19 +116,30 @@ function spanOf(timeZone, start, end) {
     return `${clockOf(timeZone, start)} – ${clockOf(timeZone, end, !sameDay)}`
 }
 
-// A bar names its shift on the agent's own clock, so the axis and the label read two clocks side by side
+// A bar names its agent's working hours on the agent's own clock; the axis shows the clock the visitor picks
 const SHIFTS = AGENTS.flatMap(([name, zone, ...days], agentIndex) => days.map(([start, end], dayIndex) => ({
     id        : `shift-${agentIndex + 1}-${dayIndex + 1}`,
     endDate   : `${end}:00Z`,
     resourceId: `agent-${agentIndex + 1}`,
     startDate : `${start}:00Z`,
-    title     : `${spanOf(zone, new Date(`${start}:00Z`), new Date(`${end}:00Z`))} ${cityOf(zone)} time`,
+    title     : `${clockOf(zone, new Date(`${start}:00Z`), false)}–${clockOf(zone, new Date(`${end}:00Z`), false)} in ${cityOf(zone)}`,
     zone
 })));
 
+/**
+ * @summary Labels an hour tick by its two-digit hour on the axis' clock, as "05"; the narrow plan's ticks are too
+ * small for "05:00".
+ * @param {{date: Date}} tick
+ * @param {Neo.timeline.TimeAxis} axis
+ * @returns {String}
+ */
+function formatHour(tick, axis) {
+    return String(axis.wallTime(tick.date).getUTCHours()).padStart(2, '0')
+}
+
 // The zone switch: the viewer's own zone first, then the three cities
 const CHOICES = [
-    {text: `Your zone · ${cityOf(VIEWER)}`, zone: VIEWER},
+    {text: `${cityOf(VIEWER)} (you)`, zone: VIEWER},
     ...Object.keys(CITIES).sort((a, b) => cityOf(a).localeCompare(cityOf(b))).map(zone => ({text: cityOf(zone), zone}))
 ];
 
@@ -188,6 +201,10 @@ class RotaViewport extends Viewport {
                 module: Label,
                 cls   : ['tz-title'],
                 text  : 'Support rota · 31 Oct – 1 Nov'
+            }, {
+                module: Label,
+                cls   : ['tz-hint'],
+                text  : 'Pick a clock for the axis. Each bar keeps its agent\'s own hours; click one to compare.'
             }, '->', {
                 module: Container,
                 cls   : ['tz-zones'],
@@ -209,8 +226,8 @@ class RotaViewport extends Viewport {
             reference: 'readout',
             vdom     : {tag: 'div', 'aria-live': 'polite', cn: [
                 {tag: 'span', cls: ['tz-readout-shift']},
-                {tag: 'span', cls: ['tz-readout-stored']},
-                {tag: 'span', cls: ['tz-readout-local']}
+                {tag: 'span', cls: ['tz-readout-clocks']},
+                {tag: 'span', cls: ['tz-readout-stored']}
             ]}
         }, {
             module      : Scheduler,
@@ -284,16 +301,24 @@ class RotaViewport extends Viewport {
 
         // Once the body is measured, then on every new column layout: availableWidth follows the new positions
         this.observeConfig(body, 'containerWidth', width => {
-            if (width > 0 && !this.#opened) {
-                this.#opened = true;
-                this.openPlan()
+            if (width > 0) {
+                const scheduler = this.getReference('scheduler'), narrow = width < 720;
+
+                // A phone shows ten hours of the plan instead of five, each hour labelled by its number alone
+                scheduler.minorFormatter       = narrow ? formatHour : null;
+                scheduler.timeAxis.pxPerMinute = narrow ? 0.4 : 0.75;
+
+                if (!this.#opened) {
+                    this.#opened = true;
+                    this.openPlan()
+                }
             }
         });
         this.observeConfig(body, 'availableWidth', () => this.#opened && this.openPlan())
     }
 
     /**
-     * @summary True below 720px, where the plan shows a few hours and opens at the chosen shift instead of Friday 20:00.
+     * @summary True below 720px, where the plan shows ten hours and opens at the chosen shift instead of Saturday 15:00.
      * @returns {Boolean}
      */
     isNarrow() {
@@ -301,7 +326,7 @@ class RotaViewport extends Viewport {
     }
 
     /**
-     * @summary Scrolls the plan through the grid's horizontal scrollbar: to Friday 20:00 on the chosen clock, one
+     * @summary Scrolls the plan through the grid's horizontal scrollbar: to Saturday 15:00 on the chosen clock, one
      * position for every zone because every axis starts on its own Friday midnight; below 720px to an hour before the
      * chosen shift.
      * @returns {Promise<void>}
@@ -378,24 +403,33 @@ class RotaViewport extends Viewport {
     }
 
     /**
-     * @summary Marks the chosen shift on the plan and renders the readout: who works it, its stored UTC times and the
-     * same span on the chosen clock.
+     * @summary Marks the chosen shift on the plan and renders the readout: whose shift it is, the same span on every
+     * clock of the team and the viewer, the agent's own first and the axis' clock lit, then the UTC times it is
+     * stored with.
      */
     renderReadout() {
         const
-            scheduler                  = this.getReference('scheduler'),
-            readout                    = this.getReference('readout'),
-            {timeZone}                 = scheduler.timeAxis,
-            shift                      = scheduler.resolveEventRecord(this.#chosenShiftId),
-            agent                      = scheduler.store.get(shift.resourceId),
-            {endDate, startDate}       = shift,
-            [shiftNode, stored, local] = readout.vdom.cn;
+            scheduler                   = this.getReference('scheduler'),
+            readout                     = this.getReference('readout'),
+            {timeZone}                  = scheduler.timeAxis,
+            shift                       = scheduler.resolveEventRecord(this.#chosenShiftId),
+            agent                       = scheduler.store.get(shift.resourceId),
+            {endDate, startDate}        = shift,
+            [shiftNode, clocks, stored] = readout.vdom.cn,
+            zones                       = [...new Set([agent.zone, VIEWER, ...Object.keys(CITIES)])];
 
         scheduler.timelineColumn.highlightedRecordIds = [this.#chosenShiftId];
 
-        shiftNode.text = `${agent.name}, ${agent.city}`;
-        stored.text    = `Stored ${spanOf('UTC', startDate, endDate)} UTC`;
-        local.text     = `${timeZone === VIEWER ? 'Your time' : cityOf(timeZone)} ${spanOf(timeZone, startDate, endDate)} (${offsetOf(timeZone, startDate)})`;
+        shiftNode.text = `${agent.name}'s shift`;
+        clocks.cn      = zones.map(zone => ({
+            tag: 'span',
+            cls: zone === timeZone ? ['tz-clock', 'tz-clock-axis'] : ['tz-clock'],
+            cn : [
+                {tag: 'span', cls: ['tz-clock-city'], text: [cityOf(zone), zone === agent.zone && 'own clock', zone === VIEWER && 'you'].filter(Boolean).join(' · ')},
+                {tag: 'span', cls: ['tz-clock-time'], text: spanOf(zone, startDate, endDate)}
+            ]
+        }));
+        stored.text    = `Stored in UTC: ${spanOf('UTC', startDate, endDate)}`;
         readout.update()
     }
 }
