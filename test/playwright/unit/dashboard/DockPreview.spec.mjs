@@ -186,6 +186,16 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(affordance.accepted).toBe(false)
         });
 
+        test('a zone placement paints the whole well it targets', () => {
+            const affordance = DockPreview.mapPreviewToAffordance(preview({
+                target   : {containerId: 'workspace', nodeId: 'root'},
+                placement: {kind: 'zone-center', tabsNodeId: 'root-center-0'}
+            }));
+
+            expect(affordance.group).toBe('zone');
+            expect(DockPreview.affordanceGeometry(affordance, {x: 10, y: 20, width: 300, height: 200})).toEqual({x: 10, y: 20, width: 300, height: 200})
+        });
+
         test('returns null for a rejected placement (no candidate to draw)', () => {
             expect(DockPreview.mapPreviewToAffordance(preview({placement: {kind: 'rejected'}, feedback: {state: 'rejected'}}))).toBe(null)
         });

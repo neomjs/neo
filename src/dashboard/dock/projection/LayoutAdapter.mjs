@@ -888,7 +888,8 @@ class LayoutAdapter extends Base {
      * window, and stays a plain well once the center was emptied for good.
      *
      * It is not a dock node: it carries no `dockNodeId`, so the Reconciler and the topology diff see an
-     * edge-zone without a center, which is the committed truth.
+     * edge-zone without a center, which is the committed truth. `dockEdgeZoneId` names that edge-zone, so
+     * a drop on the well can rebuild its center ({@link Neo.dashboard.dock.interaction.DragAffordances.centerWellZones}).
      * @param {String} nodeId The edge-zone whose center is empty.
      * @param {Object} context
      * @returns {Object}
@@ -909,9 +910,10 @@ class LayoutAdapter extends Base {
             text   = itemId && context.dockCenterWellAwayText.replace('{title}', () => items[itemId].title || itemId);
 
         return {
-            cls         : ['neo-dashboard-dock-center-well'],
-            dockNodeType: 'center-well',
-            flex        : 1,
+            cls           : ['neo-dashboard-dock-center-well'],
+            dockEdgeZoneId: nodeId,
+            dockNodeType  : 'center-well',
+            flex          : 1,
             ntype       : 'component',
             vdom        : {cn: text ? [{cls: ['neo-dashboard-dock-center-well-text'], text}] : []}
         }

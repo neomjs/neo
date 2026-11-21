@@ -155,6 +155,10 @@ class Preview extends Component {
             }
         }
 
+        if (PreviewContract.ZONE_KINDS.has(kind)) {
+            return {...base, group: 'zone'}
+        }
+
         return {...base, group: 'tab', index: Number.isInteger(placement.index) ? placement.index : null, position: kind.slice('tab-'.length)}
     }
 
@@ -198,6 +202,9 @@ class Preview extends Component {
 
         let band = Math.min(edgeBandSize, width, height),
             line = splitLineSize;
+
+        // a zone placement fills the free center it targets: the whole well is the region
+        if (affordance.group === 'zone') return {x, y, width, height};
 
         if (affordance.group === 'edge') {
             // region mode paints the fraction the new pane would occupy toward that edge — the

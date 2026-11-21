@@ -13,6 +13,7 @@ import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import LayoutAdapter      from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
+import PreviewContract    from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import Persistence        from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary from '../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import MainContainer      from '../../../../examples/dashboard/dock/MainContainer.mjs';
@@ -2473,6 +2474,24 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
 
             expect(Operations.centerWellReturnDescriptor(shared, 'strategy', sharedPlacement))
                 .toEqual({operation: 'addTab', itemId: 'strategy', tabsNodeId: 'main-tabs', index: 0})
+        });
+
+        test('a tab dropped on the well rebuilds the center under the id the hover found free', () => {
+            const {document: detached} = tearOut(centerAlone(), 'swarm'),
+                  tabsNodeId           = WorkspaceDocument.genId(detached, 'root-center'),
+                  descriptor           = PreviewContract.previewToOperation({
+                      schema   : 'neo.dock.preview.v1',
+                      itemId   : 'terminal',
+                      target   : {nodeId: 'root'},
+                      placement: {kind: 'zone-center', tabsNodeId},
+                      feedback : {state: 'accepted'}
+                  }),
+                  {document, errors}   = Operations.applyOperation(detached, descriptor);
+
+            expect(errors).toEqual([]);
+            expect(WorkspaceDocument.getZoneNodeId(document.nodes.root.zones.center), 'the center is rebuilt').toBe(tabsNodeId);
+            expect(document.nodes[tabsNodeId].items).toEqual(['terminal']);
+            expect(document.nodes['side-tabs'].items, 'the tab left its band').toEqual(['strategy'])
         })
     });
 
