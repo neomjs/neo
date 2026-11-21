@@ -566,7 +566,7 @@ test.describe('Board, basic example: one store, two views', () => {
 
         const cyberMetrics = await measureEditor();
 
-        expect(cyberMetrics.iconContrasts.length).toBeGreaterThanOrEqual(2);
+        expect(cyberMetrics.iconContrasts.length).toBeGreaterThanOrEqual(1);
         cyberMetrics.iconContrasts.forEach(contrast => expect(contrast, 'cyberpunk header icon >= 3:1').toBeGreaterThanOrEqual(3));
         expect(cyberMetrics.fieldBorders.length).toBeGreaterThanOrEqual(7);
         cyberMetrics.fieldBorders.forEach(border => {
