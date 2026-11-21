@@ -147,14 +147,16 @@ class AudienceDoors extends BaseContainer {
                             }]
                         }
                     }, {
-                        module   : Button,
-                        cls      : ['portal-door-cta', 'portal-door-scroll-cta'],
-                        flex     : 'none',
-                        handler  : 'up.onScrollToBodyEntry',
-                        reference: 'door-build-cta',
-                        text     : 'Explore the Engine ↓',
-                        ui       : 'secondary',
-                        urlTarget: ''
+                        module      : Button,
+                        cls         : ['portal-door-cta', 'portal-door-scroll-cta'],
+                        flex        : 'none',
+                        handler     : 'up.onScrollToBodyEntry',
+                        iconCls     : 'fa fa-arrow-down',
+                        iconPosition: 'right',
+                        reference   : 'door-build-cta',
+                        text        : 'Explore the Engine',
+                        ui          : 'secondary',
+                        urlTarget   : ''
                     }]
                 }, {
                     ntype    : 'container',
@@ -196,14 +198,16 @@ class AudienceDoors extends BaseContainer {
                             }]
                         }
                     }, {
-                        module   : Button,
-                        cls      : ['portal-door-cta', 'portal-door-scroll-cta'],
-                        flex     : 'none',
-                        handler  : 'up.onScrollToAgentOs',
-                        reference: 'door-agents-cta',
-                        text     : 'Explore the Agent OS ↓',
-                        ui       : 'secondary',
-                        urlTarget: ''
+                        module      : Button,
+                        cls         : ['portal-door-cta', 'portal-door-scroll-cta'],
+                        flex        : 'none',
+                        handler     : 'up.onScrollToAgentOs',
+                        iconCls     : 'fa fa-arrow-down',
+                        iconPosition: 'right',
+                        reference   : 'door-agents-cta',
+                        text        : 'Explore the Agent OS',
+                        ui          : 'secondary',
+                        urlTarget   : ''
                     }]
                 }, {
                     ntype    : 'container',

@@ -142,8 +142,10 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(doorBuild?.id).toBeTruthy();
         expect(doorAgents?.id).toBeTruthy();
         expect(doorStudy?.id).toBeTruthy();
-        expect(doorBuildCta?.properties?.text ?? doorBuildCta?.text).toBe('Explore the Engine ↓');
-        expect(doorAgentsCta?.properties?.text ?? doorAgentsCta?.text).toBe('Explore the Agent OS ↓');
+        expect(doorBuildCta?.properties?.text ?? doorBuildCta?.text).toBe('Explore the Engine');
+        expect(doorAgentsCta?.properties?.text ?? doorAgentsCta?.text).toBe('Explore the Agent OS');
+        await expect(page.locator(`#${doorBuildCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-down/);
+        await expect(page.locator(`#${doorAgentsCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-down/);
         expect(doorStudyCta?.properties?.text ?? doorStudyCta?.text).toBe('Read What Is Neo.mjs? →');
         expect(doorStudyCta?.properties?.route ?? doorStudyCta?.route).toBe('/learn/benefits/Introduction');
 
@@ -448,8 +450,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             expect(snapshot.text).toContain('$ npx neo-app@latest');
             expect(snapshot.text).toContain('neo-agent-brain · neo-agent-institution');
             expect(snapshot.text).toContain('MX · Two Hemispheres · Gated RSI');
-            expect(snapshot.text).toContain('Explore the Engine ↓');
-            expect(snapshot.text).toContain('Explore the Agent OS ↓');
+            expect(snapshot.text).toContain('Explore the Engine');
+            expect(snapshot.text).toContain('Explore the Agent OS');
             expect(snapshot.text).toContain('Read What Is Neo.mjs? →');
 
             const buildIdx  = snapshot.text.indexOf('Build an application');
