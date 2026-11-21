@@ -128,9 +128,16 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await editBtn.focus();
         await page.keyboard.press('Enter');
         await expect(dialog.locator('input.neo-textfield-input').first()).toBeFocused({timeout: 10000});
+
+        // Records, for each focus the button takes, whether the modal is still in the DOM in front of it
+        await editBtn.evaluate(el => {
+            window.editFocusDialogInDom = [];
+            el.addEventListener('focusin', () => window.editFocusDialogInDom.push(!!document.querySelector('.neo-dialog')))
+        });
         await page.keyboard.press('Escape');
 
         await expect(dialog).toBeHidden();
-        await expect(editBtn).toBeFocused()
+        await expect(editBtn).toBeFocused();
+        expect(await page.evaluate(() => window.editFocusDialogInDom)).toEqual([false])
     })
 });

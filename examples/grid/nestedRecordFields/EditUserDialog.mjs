@@ -20,7 +20,6 @@ class EditUserDialog extends Dialog {
             Enter : 'onKeyDownEnter',
             Escape: 'onKeyDownEscape'
         },
-        listeners: {hide: 'onDialogHide'},
         modal    : true,
         record_  : null,
         title    : 'Edit Partner Contact',
@@ -107,25 +106,20 @@ class EditUserDialog extends Dialog {
     }
 
     /**
+     * @summary The row's `Edit` button that opened the dialog takes focus back, ahead of the component focus came
+     * from: the grid view takes focus on the way in. The engine hands it over as the dialog leaves the DOM.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        return this.animateTarget || super.getFocusReturnTarget()
+    }
+
+    /**
      * Discards draft edits and hides the dialog.
      */
     onCancelButtonClick() {
         this.populateFields(this.record);
         this.closeOrHide()
-    }
-
-    /**
-     * @summary Hands focus to the row's `Edit` button that opened the dialog once it is hidden, by an animation or
-     * while it was still opening. The grid view takes focus on the way in, so the dialog's own hand-back reaches the
-     * view, not the button.
-     */
-    async onDialogHide() {
-        let target = this.animateTarget;
-
-        if (target) {
-            await this.timeout(20);
-            target.focus(target.id)
-        }
     }
 
     /**
