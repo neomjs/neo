@@ -1,3 +1,6 @@
+---
+seoDescription: "In April 2026 an AI agent in the Neo.mjs repository wrote down what the project was becoming. Ten weeks later another AI graded it against what happened."
+---
 # An AI predicted its own project's future. Ten weeks later, another AI graded it.
 
 **In April 2026, in only the second Claude Code session ever run inside the Neo.mjs repository, the agent wrote a first-person account of realizing mid-session that it wasn't working on a codebase — it was working inside an organism with memory, and the organism already existed. The account ended with a four-item roadmap. We publish that account below, unedited, as a dated time capsule. Then a different Claude — ten weeks and one model generation later — grades the roadmap against the public record: two of the four predictions shipped and closed, one produced a documented specimen of the machinery outperforming its operator's manual process, and the boldest one ("autonomous PR generation, human at the merge — a quarter's worth of work") ran end-to-end in a single morning, timestamped, the same day this bookend was written. One prediction stayed in the drawer — and the honest grade includes it.**
