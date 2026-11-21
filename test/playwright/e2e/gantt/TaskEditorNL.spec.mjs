@@ -51,12 +51,13 @@ test.describe('at 1440 × 900', () => {
         await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeVisible()
     });
 
-    test('the editor opens on a task by double-click and by Enter', async ({page}) => {
+    test('the editor opens on a task by double-click and by Enter, and Escape hands focus back to it', async ({page}) => {
         const editor = page.locator('.neo-timeline-event-editor');
 
         await editWireframes(page);
         await page.keyboard.press('Escape');
         await expect(editor).toBeHidden();
+        await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeFocused();
 
         await page.locator('.neo-timeline-bar[data-event-id="home"]').focus();
         await page.keyboard.press('Enter');
@@ -85,7 +86,7 @@ test.describe('at 1440 × 900', () => {
         await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"] .neo-timeline-bar-progress')).toHaveAttribute('style', /width: 100%/)
     });
 
-    test('an end before the start is refused with a message, and Cancel then changes nothing', async ({page}) => {
+    test('an end before the start is refused with a message, and Cancel then changes nothing and hands focus back', async ({page}) => {
         const editor = page.locator('.neo-timeline-event-editor');
 
         await editWireframes(page);
@@ -97,6 +98,7 @@ test.describe('at 1440 × 900', () => {
 
         await page.locator('.neo-timeline-event-editor-cancel').click();
         await expect(editor).toBeHidden();
+        await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeFocused();
         expect(await task(page, 'wireframes')).toBe('2027-03-10 → 2027-03-15, 40 %');
         expect(await task(page, 'home')).toBe('2027-03-15 → 2027-03-20, 0 %')
     })
