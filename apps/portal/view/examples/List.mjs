@@ -362,20 +362,12 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Paints the record's cover blended (`overlay`) against the `@property` hover/selection gradient.
+     * @summary Names the record's cover. The card's state lights are the stylesheet's, layered over the image.
      * @param {Object} record
      * @returns {{backgroundImage: string}}
      */
     getBackgroundImageStyle(record) {
-        return {
-            backgroundImage: [
-                record.image ? `url('${this.imageBasePath}/${record.image}'),` : '',
-                'linear-gradient(135deg,',
-                'var(--portal-examples-list-gradient-start),',
-                'var(--portal-examples-list-gradient-end)',
-                ')'
-            ].join('')
-        }
+        return {backgroundImage: record.image ? `url('${this.imageBasePath}/${record.image}')` : 'none'}
     }
 
     /**

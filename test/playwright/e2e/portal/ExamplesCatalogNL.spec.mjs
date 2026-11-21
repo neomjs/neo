@@ -1042,7 +1042,7 @@ test.describe('Portal examples section', () => {
         await expectOpenPage(page, 'Grid & Table')
     });
 
-    test('cards preserve 4-state overlay gradients, 0.0 px stationary Open live hitboxes, neighbor cover hit targets, link-focus isolation, and row-wise arrow navigation (#21676)', async ({page, neuralLink, context, baseURL}) => {
+    test('cards keep pointer and selection feedback distinct and preserve launch hitboxes and row navigation (#21676)', async ({page, neuralLink, context, baseURL}) => {
         await page.emulateMedia({reducedMotion: 'reduce'});
         await page.setViewportSize({width: 1440, height: 1080});
         await page.goto(`${PORTAL}#/examples/grid`);
@@ -1064,19 +1064,28 @@ test.describe('Portal examples section', () => {
         await expect(card0.locator('.portal-example-mobile')).toHaveText('Mobile');
         await expect(card0.locator('.neo-multi-window')).toHaveCount(0);
 
-        // AC-1: 4 distinct @property chromatic states + overlay blend mode
+        // AC-1: the pointer light and the persistent selection ring combine independently.
         await page.mouse.move(0, 0);
-        const readGradient = locator => locator.locator('.preview-image').evaluate(node => {
-            const style = getComputedStyle(node);
+        const readPaint = locator => locator.evaluate(node => {
+            const card = getComputedStyle(node),
+                  ring = getComputedStyle(node, '::before'),
+                  edge = getComputedStyle(node, '::after'),
+                  cue  = getComputedStyle(node.querySelector('.portal-example-open-cue'));
+
             return {
-                blend: style.backgroundBlendMode,
-                end  : style.getPropertyValue('--portal-examples-list-gradient-end').trim(),
-                start: style.getPropertyValue('--portal-examples-list-gradient-start').trim()
+                cueBorder   : cue.borderTopColor,
+                cueFill     : cue.backgroundImage,
+                edgeOpacity : edge.opacity,
+                hoverLight  : card.getPropertyValue('--portal-examples-list-light-hover').trim(),
+                ringLead    : ring.getPropertyValue('--portal-examples-list-ring-lead').trim(),
+                ringProgress: parseFloat(ring.getPropertyValue('--portal-examples-list-ring-progress')),
+                selectLight : card.getPropertyValue('--portal-examples-list-light-select').trim()
             }
         });
 
-        const restGrad = await readGradient(card0);
-        expect(restGrad.blend).toContain('overlay');
+        const rest = await readPaint(card0);
+        expect(rest.ringProgress).toBe(0);
+        expect(rest.edgeOpacity).toBe('0');
 
         // AC-2: bottom-entry hover onto Open live ↗ moves Title, GitHub, and Open live ↗ by 0.0 px
         const measureRects = async () => ({
@@ -1093,30 +1102,37 @@ test.describe('Portal examples section', () => {
         await page.mouse.move(beforeHover.card0Cue.x + beforeHover.card0Cue.width / 2, beforeHover.card0Cue.y + beforeHover.card0Cue.height + 8);
         await page.mouse.move(beforeHover.card0Cue.x + beforeHover.card0Cue.width / 2, beforeHover.card0Cue.y + beforeHover.card0Cue.height / 2);
 
-        const hoverGrad  = await readGradient(card0),
+        const hover      = await readPaint(card0),
               afterHover = await measureRects();
 
-        expect(hoverGrad).not.toEqual(restGrad);
+        expect(hover.hoverLight).not.toBe(rest.hoverLight);
+        expect(hover.selectLight).toBe(rest.selectLight);
+        expect(hover.ringProgress).toBe(0);
+        expect(hover.edgeOpacity).toBe('1');
+        expect(hover.cueFill).not.toBe(rest.cueFill);
         for (const key of ['card0Cue', 'card0GitHub', 'card0Title', 'card3Cue']) {
             expect(Math.abs(afterHover[key].x - beforeHover[key].x), `${key}.x on hover`).toBe(0);
             expect(Math.abs(afterHover[key].y - beforeHover[key].y), `${key}.y on hover`).toBe(0)
         }
 
-        // Select card0: Hovered + Selected composite gradient differs from both Rest and Hover; Moving mouse off yields Selected green gradient
         await card0.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
         await expect(card0).toHaveClass(/neo-selected/);
-        const bothGrad = await readGradient(card0);
+        const both = await readPaint(card0);
 
         await page.mouse.move(0, 0);
-        const selectedGrad   = await readGradient(card0),
+        const selected       = await readPaint(card0),
               afterSelectRow = await measureRects();
 
-        expect(new Set([
-            `${restGrad.start}|${restGrad.end}`,
-            `${hoverGrad.start}|${hoverGrad.end}`,
-            `${selectedGrad.start}|${selectedGrad.end}`,
-            `${bothGrad.start}|${bothGrad.end}`
-        ]).size, 'four distinct cover gradient states (Rest, Hover, Selected, Hovered+Selected)').toBe(4);
+        expect(selected.hoverLight).toBe(rest.hoverLight);
+        expect(selected.selectLight).not.toBe(rest.selectLight);
+        expect(selected.ringProgress).toBeGreaterThanOrEqual(100);
+        expect(selected.edgeOpacity).toBe('0');
+        expect(selected.cueBorder).not.toBe(rest.cueBorder);
+        expect(both.hoverLight).toBe(hover.hoverLight);
+        expect(both.selectLight).toBe(selected.selectLight);
+        expect(both.ringProgress).toBe(selected.ringProgress);
+        expect(both.ringLead).not.toBe(selected.ringLead);
+        expect(both.cueFill).not.toBe(hover.cueFill);
 
         for (const key of ['card0Cue', 'card0GitHub', 'card0Title', 'card3Cue']) {
             expect(Math.abs(afterSelectRow[key].x - beforeHover[key].x), `${key}.x on select`).toBe(0);
@@ -1173,6 +1189,14 @@ test.describe('Portal examples section', () => {
         await page.keyboard.press('ArrowDown');
         await expect(card3).toHaveClass(/neo-selected/);
         await expect.poll(() => card3.evaluate(node => node.contains(document.activeElement))).toBe(true);
+        await expect.poll(() => card3.evaluate(node => {
+            const probe = document.createElement('span');
+            probe.style.color = 'var(--portal-examples-list-focus)';
+            node.append(probe);
+            const neutral = getComputedStyle(probe).color;
+            probe.remove();
+            return getComputedStyle(node).boxShadow.includes(`${neutral} 0px 0px 0px 4px`)
+        }), 'keyboard focus paints a separate neutral ring on the selected card').toBe(true);
 
         // 900x800 sidebar 1-column (< 704 px list content width): details open below footer and ArrowDown steps +1 (card0 -> card1)
         await page.setViewportSize({width: 900, height: 800});
