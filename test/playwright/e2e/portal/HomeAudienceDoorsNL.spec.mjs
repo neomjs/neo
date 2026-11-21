@@ -244,6 +244,54 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(page.getByRole('heading', {level: 1, name: 'What Is Neo.mjs?'})).toBeVisible({timeout: 15000})
     });
 
+    for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+        test(`at ${viewport.width}x${viewport.height} the hero's second button is the cue and scrolls to the doors`, async ({page, neuralLink}) => {
+            await page.setViewportSize(viewport);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const doors   = await queryOne(app, {reference: 'home-audience-doors'}),
+                  buttons = page.locator('.portal-home-hero-content .button-group .neo-button');
+
+            // Screen 1 keeps two controls, the cue shows without a scroll, and the doors start below it
+            await expect(buttons).toHaveText(['Get started', 'Who it\'s for ↓']);
+            await expect(buttons.last()).toBeInViewport();
+            await expect(page.locator(`#${doors.id}`)).not.toBeInViewport();
+
+            await buttons.last().click();
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
+            await expect(page).toHaveURL(/#\/home$/)
+        })
+    }
+
+    for (const viewport of [{width: 1440, height: 900}, {width: 646, height: 844}]) {
+        test(`at ${viewport.width}x${viewport.height} a keyboard visitor who takes the cue lands on the doors' header and stays there with Tab`, async ({page, neuralLink}) => {
+            await page.setViewportSize(viewport);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const home  = await queryOne(app, {className: 'Portal.view.home.MainContainer'}),
+                  doors = await queryOne(app, {reference: 'home-audience-doors'});
+
+            await page.locator('.portal-home-hero-content .hero-audience-cue').focus();
+            await page.keyboard.press('Enter');
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
+            await waitForScrollSettled(page, home.id);
+
+            // Focus follows the scroll: a cue left holding focus off-screen would hide where the visitor now is
+            await expect(page.locator(`#${doors.id} .portal-audience-header`)).toBeFocused();
+
+            // The next stop is inside the doors, and the screen does not jump back to the cue's sibling
+            await page.keyboard.press('Tab');
+            await expect.poll(() => page.evaluate(id => document.getElementById(id).contains(document.activeElement), doors.id)).toBe(true);
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport()
+        })
+    }
+
     test('fits all three cards without clipping at 900x700 snap-active and stacks cleanly at 390x844 mobile', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 900, height: 700});
         await page.goto(HOME_URL);

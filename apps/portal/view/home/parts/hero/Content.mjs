@@ -3,7 +3,8 @@ import Button            from '../../../../../../src/button/Base.mjs';
 import MagicMoveText     from '../../../../../../src/component/MagicMoveText.mjs';
 
 /**
- * @summary Hero foreground container holding the category headline, value proposition, and primary CTAs.
+ * @summary Hero foreground container holding the category headline, the value proposition and two controls: Get started,
+ * and a cue that scrolls to the audience doors below.
  * @class Portal.view.home.parts.hero.Content
  * @extends Neo.container.Base
  */
@@ -93,12 +94,12 @@ class Content extends BaseContainer {
                 text  : 'Get started',
                 ui    : 'primary'
             }, {
-                module: Button,
-                cls   : ['neo-github'],
-                flex  : 'none',
-                text  : 'View on GitHub',
-                ui    : 'secondary',
-                url   : 'https://github.com/neomjs/neo'
+                module : Button,
+                cls    : ['hero-audience-cue'],
+                flex   : 'none',
+                handler: 'up.onScrollToAudience',
+                text   : 'Who it\'s for ↓',
+                ui     : 'secondary'
             }]
         }]
     }
@@ -168,6 +169,17 @@ class Content extends BaseContainer {
         me.#initialHoldController?.abort();
         me.#initialHoldController = null;
         me.getItem('magic-move').autoCycle = false
+    }
+
+    /**
+     * @summary Scrolls Home to the audience doors, the continuation the cue promises, and moves focus there, so a
+     * keyboard visitor's next Tab stays on that screen.
+     */
+    onScrollToAudience() {
+        const home = this.up('portal-home-maincontainer');
+
+        home?.scrollToPart('home-audience-doors');
+        home?.getItem('home-audience-doors')?.focusHeader()
     }
 }
 
