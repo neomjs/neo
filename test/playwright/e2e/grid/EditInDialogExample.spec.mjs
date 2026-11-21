@@ -25,7 +25,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
         );
         expect(nestedHeaders.length).toBeGreaterThanOrEqual(2);
 
-        // Open dialog from row 0 Edit button and wait for animateShow() -> onDialogShow() focus
+        // Open dialog from row 0 Edit button and wait for the dialog's focus on its first field
         await firstRow.locator('.neo-button', {hasText: 'Edit'}).click();
 
         const dialog = page.locator('.neo-dialog');
@@ -77,7 +77,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
 
         await expect(editBtn).toBeVisible({timeout: 30000});
 
-        // Open by keyboard (focus Edit -> Enter) and wait for animateShow() -> onDialogShow() focus
+        // Open by keyboard (focus Edit -> Enter) and wait for the dialog's focus on its first field
         await editBtn.focus();
         await page.keyboard.press('Enter');
         await expect(dialog.locator('input.neo-textfield-input').first()).toBeFocused({timeout: 10000});

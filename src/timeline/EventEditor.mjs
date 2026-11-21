@@ -65,6 +65,11 @@ class EventEditor extends Dialog {
          */
         draggable: false,
         /**
+         * A form of five fields has no use for maximize: the header keeps its close action only.
+         * @member {Object} headerConfig={actions: ['close']}
+         */
+        headerConfig: {actions: ['close']},
+        /**
          * @member {Boolean} hidden=true
          */
         hidden: true,
@@ -239,7 +244,9 @@ class EventEditor extends Dialog {
 
     /**
      * @summary Builds the row that edits one bound of the bar: a `Neo.form.field.Date` and a `Neo.form.field.Time`
-     * in the owner's timeline clock, the time list stepping by the axis' `snapMinutes`.
+     * in the owner's timeline clock, the time list stepping by the axis' `snapMinutes`. Either field's message
+     * opens across the whole row, below it (`errorPositionAbsolute`, placed by `EventEditor.css`), so the row
+     * keeps its height.
      * @param {String} name Record field the pair writes
      * @param {String} label `'Start'` or `'End'`
      * @returns {Object} Container config
@@ -251,27 +258,29 @@ class EventEditor extends Dialog {
             module: Container,
             cls   : ['neo-timeline-event-editor-datetime'],
             id    : `${me.id}__datetime__${name}`,
-            layout: {ntype: 'hbox', align: 'end'},
+            layout: {ntype: 'hbox', align: 'start'},
             items : [{
-                module   : DateField,
-                clearable: false,
-                flex     : 1,
-                id       : `${me.id}__field__${name}`,
-                labelText: label,
+                module               : DateField,
+                clearable            : false,
+                errorPositionAbsolute: true,
+                flex                 : 1,
+                id                   : `${me.id}__field__${name}`,
+                labelText            : label,
                 name,
-                required : true
+                required             : true
             }, {
-                module   : TimeField,
-                clearable: false,
-                hideLabel: true,
-                id       : `${me.id}__field__${name}__time`,
-                labelText: `${label} time`,
-                maxValue : '23:59',
-                minValue : '00:00',
-                name     : `${name}__time`,
-                required : true,
-                stepSize : 60 * (me.owner?.timeAxis?.snapMinutes || 15),
-                width    : 120
+                module               : TimeField,
+                clearable            : false,
+                errorPositionAbsolute: true,
+                hideLabel            : true,
+                id                   : `${me.id}__field__${name}__time`,
+                labelText            : `${label} time`,
+                maxValue             : '23:59',
+                minValue             : '00:00',
+                name                 : `${name}__time`,
+                required             : true,
+                stepSize             : 60 * (me.owner?.timeAxis?.snapMinutes || 15),
+                width                : 120
             }]
         }
     }
@@ -323,13 +332,15 @@ class EventEditor extends Dialog {
             ];
 
         me.form = Neo.create({
-            module  : FormContainer,
+            module: FormContainer,
             appName,
-            cls     : ['neo-timeline-event-editor-form'],
-            flex    : 1,
-            id      : `${me.id}__form`,
-            items   : standardFields,
-            parentId: me.id,
+            cls   : ['neo-timeline-event-editor-form'],
+            flex  : 1,
+            id    : `${me.id}__form`,
+            // A row keeps its height, so a message below a field moves the rows under it instead of clipping it
+            itemDefaults: {flex: 'none'},
+            items       : standardFields,
+            parentId    : me.id,
             windowId
         });
 
