@@ -1,0 +1,402 @@
+{
+  "head": "43166356f2fefb0236d040b8ad684bdbf96d0273",
+  "stagedBoard": true,
+  "report": [
+    {
+      "group": "scheduler",
+      "mode": "desktop",
+      "theme": "Neo Dark",
+      "width": 1440,
+      "height": 900,
+      "file": "scheduler-desktop.png",
+      "covers": [
+        {
+          "id": "scheduler-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-event-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-time-zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-live-updates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    {
+      "group": "scheduler",
+      "mode": "phone",
+      "theme": "Neo Dark",
+      "width": 390,
+      "height": 844,
+      "file": "scheduler-phone.png",
+      "covers": [
+        {
+          "id": "scheduler-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-event-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-time-zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "scheduler-live-updates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    {
+      "group": "gantt",
+      "mode": "desktop",
+      "theme": "Neo Dark",
+      "width": 1440,
+      "height": 900,
+      "file": "gantt-desktop.png",
+      "covers": [
+        {
+          "id": "gantt-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-dependencies",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-task-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-task-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    {
+      "group": "gantt",
+      "mode": "phone",
+      "theme": "Neo Dark",
+      "width": 390,
+      "height": 844,
+      "file": "gantt-phone.png",
+      "covers": [
+        {
+          "id": "gantt-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-zoom",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-working-time",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-dependencies",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-task-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "gantt-task-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    {
+      "group": "board",
+      "mode": "desktop",
+      "theme": "Neo Dark",
+      "width": 1440,
+      "height": 900,
+      "file": "board-desktop.png",
+      "covers": [
+        {
+          "id": "board-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-swimlanes",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-swimlanes-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-big-data-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-wip-limits",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-wip-limits-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-card-designs",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-designs-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-card-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-editor-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-multi-select",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-multi-select-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-columns-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    {
+      "group": "board",
+      "mode": "phone",
+      "theme": "Neo Dark",
+      "width": 390,
+      "height": 844,
+      "file": "board-phone.png",
+      "covers": [
+        {
+          "id": "board-basic",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-swimlanes",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-swimlanes-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-big-data",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-big-data-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-wip-limits",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-wip-limits-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-card-designs",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-designs-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-card-editor",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-card-editor-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-multi-select",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-multi-select-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "board-columns",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-columns-14.jpg",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "id": "meridian-observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    }
+  ]
+}
