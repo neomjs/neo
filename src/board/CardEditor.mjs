@@ -307,7 +307,7 @@ class CardEditor extends Dialog {
             config.clearable = false
         }
 
-        return config
+        return me.labelOnTop(config)
     }
 
     /**
@@ -467,7 +467,7 @@ class CardEditor extends Dialog {
 
         me.laneControlName = configs.includes(laneControl) ? laneControl.name : null;
 
-        return configs
+        return configs.map(config => me.labelOnTop(config))
     }
 
     /**
@@ -674,6 +674,20 @@ class CardEditor extends Dialog {
             return nextValue.length === prevValue.length && nextValue.every((item, index) => item === prevValue[index])
         }
         return false
+    }
+
+    /**
+     * @summary A text-like field's config with its label on top, where the native status select draws its own. A
+     * config that names its `labelPosition` keeps it. The test reads the prototype chain: `instanceof` against a Neo
+     * class does not answer for a prototype.
+     * @param {Object} config
+     * @returns {Object}
+     * @protected
+     */
+    labelOnTop(config) {
+        const proto = config.module?.prototype;
+
+        return proto && (proto === TextField.prototype || TextField.prototype.isPrototypeOf(proto)) ? {labelPosition: 'top', ...config} : config
     }
 
     /**

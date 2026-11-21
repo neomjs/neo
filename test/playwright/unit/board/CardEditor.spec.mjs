@@ -509,6 +509,25 @@ test.describe('Neo.board.CardEditor follows the model it edits', () => {
         expect(editor.getField('allDay')).toBeInstanceOf(CheckBox)
     });
 
+    test('every text-like field labels on top, as the status select does, unless its config names its own side', () => {
+        store = createStore();
+        board = createBoard({store});
+
+        const editor = board.openCardEditor('c1');
+
+        expect(['title', 'description', 'assignees', 'tags', 'progress', 'color', 'dueDate'].map(name => editor.getField(name).labelPosition))
+            .toEqual(Array(7).fill('top'));
+
+        board.destroy();
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({store, cardEditorConfig: {fields: ['title', {module: TextField, name: 'resourceId', labelPosition: 'left'}, 'startDate']}});
+
+        const custom = board.openCardEditor('w1');
+
+        expect(['title', 'resourceId', 'startDate'].map(name => custom.getField(name).labelPosition), 'a model field takes the top too; a named side stays')
+            .toEqual(['top', 'left', 'top'])
+    });
+
     test('a Boolean field is a check box, and its save writes one Boolean', () => {
         store = createStore(workItems(), WorkItemModel);
         board = createBoard({store});
