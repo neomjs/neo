@@ -54,6 +54,23 @@ const
                 .evaluateAll(cards => cards.map(card => card.id)),
             push    : data => app.callMethod(storeId, 'onPipelinePush', [data])
         }
+    },
+    // Seeds windows of 20 cards, taller than a column's viewport, and rests Ready at its end. The window moves with the
+    // scroll and can re-measure its stride, so the end is read once it holds still.
+    readyAtEnd = async (page, {app, boardId, column, domOrder, storeId}) => {
+        const body   = column('ready').locator('.neo-board-column-body'),
+              scroll = () => body.evaluate(el => Math.round(el.scrollTop));
+
+        await seedSliced(app, boardId, storeId, 60, 20);
+        await expect.poll(async () => (await domOrder('ready')).length, {message: 'Ready windows its 60 cards'}).toBeLessThan(60);
+        await expect.poll(async () => {
+            const before = await body.evaluate(el => { el.scrollTop = el.scrollHeight; return Math.round(el.scrollTop) });
+            await page.waitForTimeout(250);
+            return before > 0 && before === await scroll()
+        }, {message: 'Ready rests at its end'}).toBe(true);
+        await expect(page.locator(`[id="${boardId}__card__ready-59"]`), 'the end renders the last card').toBeVisible();
+
+        return {body, scroll}
     };
 
 test.describe('Board, basic example: one store, two views', () => {
@@ -235,6 +252,57 @@ test.describe('Board, basic example: one store, two views', () => {
         await expect(proxy.locator('.neo-board-card'), 'the proxy clones the rendered window only').toHaveCount(rendered);
 
         await page.mouse.up()
+    });
+
+    test('a card drag that starts in a windowed column scrolled to its end keeps the column there, through the drag and after Escape', async ({page, neuralLink}) => {
+        const {body, scroll} = await readyAtEnd(page, await open(page, neuralLink)),
+              end            = await scroll(),
+              // The card nearest the column's middle: the middle itself can fall in the gap between two cards
+              cardId         = await body.evaluate(el => {
+                  const {height, top} = el.getBoundingClientRect(),
+                        offset        = card => {const rect = card.getBoundingClientRect(); return Math.abs(rect.top + rect.height / 2 - top - height / 2)};
+
+                  return [...el.querySelectorAll('.neo-board-card')].sort((a, b) => offset(a) - offset(b))[0]?.id
+              });
+
+        expect(cardId, 'a card sits in the middle of the column').toMatch(/__card__ready-/);
+
+        const {height, width, x, y} = await page.locator(`[id="${cardId}"]`).boundingBox();
+
+        await page.mouse.move(x + width / 2, y + height / 2);
+        await page.mouse.down();
+        await page.mouse.move(x + width / 2 + 20, y + height / 2 + 10, {steps: 4});
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+        expect(await scroll(), 'the drag keeps the column where it was scrolled to').toBe(end);
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        expect(await scroll(), 'and so does the cancel').toBe(end)
+    });
+
+    test('a drop out of a windowed column scrolled to its end leaves the column at its end', async ({page, neuralLink}) => {
+        const board            = await open(page, neuralLink),
+              {badge, boardId} = board,
+              {body}           = await readyAtEnd(page, board),
+              from             = await page.locator(`[id="${boardId}__card__ready-59"]`).boundingBox(),
+              to               = await board.column('backlog').boundingBox(),
+              x                = from.x + from.width / 2,
+              y                = from.y + from.height / 2;
+
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x - 20, y - 10, {steps: 4});
+        await page.mouse.move(to.x + to.width / 2, to.y + 200, {steps: 20});
+        await expect(page.locator(`[id="${boardId}__col__backlog"] .neo-board-card-slot`), 'the card enters Backlog').toHaveCount(1);
+        await page.mouse.up();
+
+        await expect(badge('ready'),   'Ready counts one less').toHaveText('59');
+        await expect(badge('backlog'), 'Backlog one more').toHaveText('61');
+        await expect(page.locator('.neo-dragproxy'), 'the proxy leaves with the drop').toHaveCount(0);
+        await expect.poll(() => body.evaluate(el => el.scrollHeight - el.clientHeight - el.scrollTop), {message: 'Ready still sits at its end'})
+            .toBeLessThanOrEqual(1);
+        await expect(page.locator(`[id="${boardId}__card__ready-58"]`), 'and shows its new last card').toBeVisible()
     });
 
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {

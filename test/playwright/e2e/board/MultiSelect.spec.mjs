@@ -166,6 +166,7 @@ test.describe('Board, multi-select example: select many reports, move them in on
 
             expect(coloredRest.borderLeftColor, `${theme}: S1 card left stripe at rest`).toBe(s1Accent);
             expect(uncoloredRest.borderLeftColor, `${theme}: S4 uncolored card left matches top at rest`).toBe(uncoloredRest.borderTopColor);
+            expect(coloredRest.mutedContrast, `${theme}: resting card muted-text contrast >= 4.5:1`).toBeGreaterThanOrEqual(4.5);
 
             // Hover unselected colored (1043) and uncolored (1046) cards
             await card(1043).hover();
@@ -191,6 +192,7 @@ test.describe('Board, multi-select example: select many reports, move them in on
             expect(coloredSelected.borderLeftColor, `${theme}: S1 card retains left stripe when selected`).toBe(s1Accent);
             expect(uncoloredSelected.borderLeftColor, `${theme}: S4 uncolored card left matches selected border`).toBe(uncoloredSelected.borderTopColor);
             expect(coloredSelected.backgroundColor, `${theme}: selected neighbours share selected background`).toBe(neighbourSelected.backgroundColor);
+            expect(coloredSelected.mutedContrast, `${theme}: .neo-selected card muted-text contrast >= 4.5:1`).toBeGreaterThanOrEqual(4.5);
 
             // Hover selected card 1043: retains S1 left stripe, adds selected-hover ring, and keeps WCAG contrast intact
             await card(1043).hover();
@@ -204,13 +206,36 @@ test.describe('Board, multi-select example: select many reports, move them in on
                 .toBeGreaterThanOrEqual(4.5);
             expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast never drops below .neo-selected`)
                 .toBeGreaterThanOrEqual(neighbourUnhovered.mutedContrast);
-            if (neighbourUnhovered.mutedContrast >= 4.5) {
-                expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast >= 4.5:1`)
-                    .toBeGreaterThanOrEqual(4.5)
-            }
+            expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast >= 4.5:1`)
+                .toBeGreaterThanOrEqual(4.5);
 
             expect(errors, `${theme}: zero console/page errors`).toEqual([])
         }
+    });
+
+    test('a drag that starts in the Inbox scrolled to its end keeps the Inbox there, through the drag and after Escape', async ({page}) => {
+        const {column, errors} = await open(page),
+              body             = column('inbox').locator('.neo-board-column-body'),
+              scroll           = () => body.evaluate(el => Math.round(el.scrollTop));
+
+        // Forty reports overflow the Inbox's body, so its end sits well below its top
+        await body.evaluate(el => { el.scrollTop = el.scrollHeight - el.clientHeight });
+        await expect.poll(scroll).toBeGreaterThan(0);
+
+        const end                   = await scroll(),
+              {height, width, x, y} = await body.boundingBox();
+
+        await page.mouse.move(x + width / 2, y + height / 2);
+        await page.mouse.down();
+        await page.mouse.move(x + width / 2 + 20, y + height / 2 + 10, {steps: 4});
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+        expect(await scroll(), 'the drag keeps the Inbox where it was scrolled to').toBe(end);
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        expect(await scroll(), 'and so does the cancel').toBe(end);
+        expect(errors).toEqual([])
     });
 
     for (const theme of THEMES) {

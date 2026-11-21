@@ -27,8 +27,9 @@ const BASELINE   = path.join(__dirname, 'check-class-module-scope-baseline.json'
  * class" — removes an override seam here. This is an operator ruling, not a style preference: the
  * pattern was spreading class by class, each instance locally justified.
  *
- * Module scope stays right for `import`s, constants and lookup tables, and the `Neo.setupClass`
- * export. Those are data and wiring, not behaviour anyone would override.
+ * Each module under `src`, `apps` and `examples` may declare at most one top-level class.
+ * Keep immutable internal constants such as regexes and private grammar tables at module scope.
+ * Use a static config descriptor with shallow merging or a static class field for consumer- or subclass-extensible maps, labels and options.
  *
  * ## Why the class gate, rather than a path allowlist
  *
@@ -68,13 +69,13 @@ const BASELINE   = path.join(__dirname, 'check-class-module-scope-baseline.json'
  * paths runs late and misattributed.
  * @type {String[]}
  */
-export const SCAN_SURFACE = Object.freeze(['src/**/*.mjs']);
+export const SCAN_SURFACE = Object.freeze(['src/**/*.mjs', 'apps/**/*.mjs', 'examples/**/*.mjs']);
 
 /**
  * The roots {@link SCAN_SURFACE} covers, in the form `git ls-files` takes.
  * @type {String[]}
  */
-const SCAN_ROOTS = Object.freeze(['src']);
+const SCAN_ROOTS = Object.freeze(['src', 'apps', 'examples']);
 
 /**
  * @summary Is this node a function value — the thing a class method would otherwise be?
@@ -118,17 +119,30 @@ export function findModuleScopeFunctions(source, file) {
 
     const body = ast.body ?? [];
 
-    const declaresClass = body.some(node =>
-        node.type === 'ClassDeclaration' ||
-        (node.type === 'ExportNamedDeclaration'   && node.declaration?.type === 'ClassDeclaration') ||
-        (node.type === 'ExportDefaultDeclaration' && node.declaration?.type === 'ClassDeclaration')
-    );
+    const classes = body.map(node => node.declaration ?? node).filter(node => node.type === 'ClassDeclaration');
 
-    if (!declaresClass) {
+    if (!classes.length) {
         return []
     }
 
-    const findings = [];
+    const exported = body.find(node => node.type === 'ExportDefaultDeclaration')?.declaration;
+    let primary = classes[0];
+
+    if (exported?.type === 'ClassDeclaration') {
+        primary = exported
+    } else {
+        const callee = exported?.callee,
+              isSetupClass = exported?.type === 'CallExpression' && callee.type === 'MemberExpression' &&
+                  !callee.computed && callee.object.name === 'Neo' && callee.property.name === 'setupClass',
+              reference = isSetupClass ? exported.arguments[0] : exported;
+
+        if (reference?.type === 'Identifier') {
+            primary = classes.find(node => node.id?.name === reference.name) ?? primary
+        }
+    }
+
+    const findings = classes.filter(node => node !== primary)
+        .map(node => ({file, name: `class:${node.id.name}`, line: node.loc.start.line}));
 
     for (const node of body) {
         // `export function f() {}`, `export const f = () => {}` and `export default function f() {}`
@@ -243,7 +257,9 @@ export function describeAddedHelpers(added, findings) {
 
     return findings
         .filter(entry => addedKeys.has(helperKey(entry)))
-        .map(entry => `  ${entry.file}:${entry.line} declares ${entry.name}() at module scope`)
+        .map(entry => entry.name.startsWith('class:')
+            ? `  ${entry.file}:${entry.line} declares extra class ${entry.name.slice(6)}. Move it to its own file.`
+            : `  ${entry.file}:${entry.line} declares ${entry.name}() at module scope`)
 }
 
 // A guard that passes because its CLI block never ran is the exact failure this file exists to prevent. Comparing
@@ -259,7 +275,7 @@ if (isEntryModule(import.meta.url)) {
     const {added, burnedDown} = diffAgainstBaseline(findings, baseline);
 
     if (added.length) {
-        console.error(`\x1b[31mcheck-class-module-scope: ${added.length} NEW module-scope function(s) beside a class:\x1b[0m`);
+        console.error(`\x1b[31mcheck-class-module-scope: ${added.length} NEW module-scope violation(s):\x1b[0m`);
         describeAddedHelpers(added, findings).forEach(line => console.error(line));
         console.error(`
 Neo is built for extension. A subclass, a mixin's consumer and \`Neo.overwrites\` can all reach a
@@ -267,14 +283,15 @@ method; none of them can reach a function at module scope, and neither can the N
 \`get_method_source\`. Move it onto the class — an instance method, a \`static\` method or a getter — or
 into a dedicated \`src/util/**\` module consumed by import.
 
-Constants and lookup tables at module scope stay fine: nobody overrides data.
+Keep immutable internal constants such as regexes and private grammar tables at module scope.
+Use a static config descriptor with shallow merging or a static class field for consumer- or subclass-extensible maps, labels and options.
 
 Do not add a baseline entry. The baseline records debt being paid down, not a place to put new debt.`)
     }
 
     if (burnedDown.length) {
         console.error(`\x1b[31mcheck-class-module-scope: ${burnedDown.length} baselined entr(ies) no longer present:\x1b[0m`);
-        burnedDown.forEach(entry => console.error(`  ${entry.file} no longer declares ${entry.name}() at module scope`));
+        burnedDown.forEach(entry => console.error(`  ${entry.file} no longer declares ${entry.name.startsWith('class:') ? `extra class ${entry.name.slice(6)}` : `${entry.name}() at module scope`}`));
         console.error(`
 This is the good direction — remove them from check-class-module-scope-baseline.json in the same
 commit that migrated them. A burndown baseline that only fails upward drifts above the real count,
@@ -287,5 +304,5 @@ and then it is a list of things that used to be true rather than a measurement.`
 
     const fileCount = new Set(findings.map(entry => entry.file)).size;
 
-    console.log(`check-class-module-scope: OK — ${findings.length} module-scope function(s) across ${fileCount} file(s), all baselined; ${files.length} file(s) scanned.`)
+    console.log(`check-class-module-scope: OK — ${findings.length} module-scope finding(s) across ${fileCount} file(s), all baselined; ${files.length} file(s) scanned.`)
 }
