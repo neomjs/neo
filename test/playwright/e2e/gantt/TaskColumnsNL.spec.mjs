@@ -153,7 +153,9 @@ test('opens cleanly at 1440 × 900 and 390 × 844 in every theme', async ({page}
         for (const theme of THEMES) {
             await page.goto(`${EXAMPLE_URL}?theme=${theme}`);
             await expect(page.locator(`.${theme}`).first()).toBeAttached();
-            await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeAttached();
+            // The bars render once the theme's sheet has loaded, which the class above does not wait for: a sheet
+            // held back 2 s drew them at 2.3 to 2.5 s, and a loaded CI runner went past the default 5 s twice
+            await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeAttached({timeout: 15000});
             await expect(page.locator('.tc-badge').first()).toBeVisible()
         }
     }
