@@ -807,7 +807,9 @@ class Container extends SchedulerContainer {
      * @summary Updates a task and cascades dependent task dates.
      * @param {Neo.data.Model|String|Number|Object} taskIdOrRecord Task, key, or an object containing a task key and changes.
      * @param {Object} [changes={}] Start, end, title, completion, or additional fields under `fields`.
-     * @param {Object} [meta={}] Source, resize edge, and optional clamp and cascade controls.
+     * @param {Object} [meta={}] Resize edge, and optional clamp and cascade controls.
+     * @param {String} [meta.source='api'] Origin of the edit (`drag`, `resize`, `keyboard`, `editor`, …);
+     * published as `changeSource` on the `taskChange` payload (`source` stays the sender's id)
      * @returns {Object|null} Updates and cascade details, an external service receipt, or null for a no-op.
      */
     moveTask(taskIdOrRecord, changes={}, meta={}) {
@@ -1119,16 +1121,16 @@ class Container extends SchedulerContainer {
         this.fire('taskChange', {
             action,
             cascaded,
-            changes   : updates,
+            changes     : updates,
             changesById,
+            changeSource: meta.source || 'api',
             cycles,
-            endDate   : new Date(endMs),
+            endDate     : new Date(endMs),
             previous,
             previousById,
             record,
-            resizeEdge: meta.resizeEdge || null,
-            source    : meta.source || 'api',
-            startDate : new Date(startMs),
+            resizeEdge  : meta.resizeEdge || null,
+            startDate   : new Date(startMs),
             updates
         });
 
@@ -1188,8 +1190,9 @@ class Container extends SchedulerContainer {
  * @param {Date} data.startDate Resulting start of the edited task.
  * @param {Date} data.endDate Resulting end of the edited task.
  * @param {String} data.action Edit action, e.g. `move` or `resize`.
- * @param {String} data.source Origin of the edit, e.g. `api`, `editor` or `keyboard`.
+ * @param {String} data.changeSource Origin of the edit, e.g. `api`, `drag`, `resize`, `keyboard` or `editor`.
  * @param {'start'|'end'|null} data.resizeEdge The edge moved for a resize.
+ * @param {String} data.source The sender's id, injected by {@link Neo.core.Observable#fire}.
  */
 
 /**

@@ -2467,7 +2467,9 @@ class Workspace extends Container {
             commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
-        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, source, workspaceKey});
+        // `source` stays reserved for the sender's id (injected by Observable#fire), so the
+        // originating interaction surface travels as the `source` method argument, not in the payload
+        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, workspaceKey});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         commitOptions       = me.getRefreshOptions(descriptor, source);

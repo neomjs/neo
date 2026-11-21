@@ -249,7 +249,8 @@ class ValueList extends ChipList {
      * @protected
      */
     onChipRemove({value}) {
-        this.fire('removevalue', {source: this, value})
+        // `source` stays reserved for the sender's id, which Observable#fire injects into the payload
+        this.fire('removevalue', {value})
     }
 
     /**
@@ -293,8 +294,8 @@ class ValueList extends ChipList {
 /**
  * Fired when one projected chip requests removal.
  * @event removevalue
- * @param {Neo.form.field.chip.ValueList} source
  * @param {*} value
+ * @param {String} source The sender's id, injected by {@link Neo.core.Observable#fire}.
  */
 
 export default Neo.setupClass(ValueList);

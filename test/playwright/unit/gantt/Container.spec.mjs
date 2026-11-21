@@ -731,4 +731,57 @@ test.describe('Neo.gantt.Container', () => {
         dependencyStore.destroy();
         taskStore.destroy()
     });
+
+    test('taskChange reports the edit origin as changeSource and keeps source as the sender id (#21649)', () => {
+        const taskStore = Neo.create(TaskStore, {
+            data: [
+                {id: 't-1', parentId: null, isLeaf: true, title: 'Origin Task', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T04:00:00Z', duration: 2, durationUnit: 'hour'}
+            ]
+        });
+
+        gantt = Neo.create(GanttContainer, {
+            appName,
+            store   : taskStore,
+            timeAxis: {
+                start      : '2026-11-09T00:00:00Z',
+                end        : '2026-11-10T00:00:00Z',
+                tickUnit   : 'hour',
+                tickStep   : 1,
+                pxPerMinute: 1,
+                snapMinutes: 15
+            }
+        });
+
+        const payloads = [];
+        gantt.on('taskChange', payload => payloads.push(payload));
+
+        // 1. Bare moveTask() API call: the origin defaults to 'api'
+        gantt.moveTask('t-1', {
+            startDate: '2026-11-09T03:00:00Z',
+            endDate  : '2026-11-09T05:00:00Z'
+        });
+        expect(payloads).toHaveLength(1);
+        expect(payloads[0].changeSource).toBe('api');
+        expect(payloads[0].action).toBe('move');
+        expect(payloads[0].source).toBe(gantt.id);
+
+        // 2. A caller-supplied meta.source (keyboard gesture) passes through under changeSource
+        gantt.moveTask('t-1', {
+            startDate: '2026-11-09T04:00:00Z',
+            endDate  : '2026-11-09T06:00:00Z'
+        }, {source: 'keyboard'});
+        expect(payloads).toHaveLength(2);
+        expect(payloads[1].changeSource).toBe('keyboard');
+        expect(payloads[1].action).toBe('move');
+        expect(payloads[1].source).toBe(gantt.id);
+
+        // 3. A resize gesture reports 'resize' as the origin, action 'resize'
+        gantt.moveTask('t-1', {endDate: '2026-11-09T07:00:00Z'}, {resizeEdge: 'end', source: 'resize'});
+        expect(payloads).toHaveLength(3);
+        expect(payloads[2].changeSource).toBe('resize');
+        expect(payloads[2].action).toBe('resize');
+        expect(payloads[2].source).toBe(gantt.id);
+
+        taskStore.destroy()
+    });
 });

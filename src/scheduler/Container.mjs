@@ -913,7 +913,8 @@ class Container extends GridContainer {
      * @param {String} [meta.action]
      * @param {Boolean} [meta.clamp=true]
      * @param {String|null} [meta.resizeEdge=null]
-     * @param {String} [meta.source='api']
+     * @param {String} [meta.source='api'] Origin of the edit (`drag`, `resize`, `keyboard`, `editor`, …);
+     * published as `changeSource` on the `eventChange` payload (`source` stays the sender's id)
      * @returns {Object|null} The applied `updates` object, or `null` if no-op/invalid
      */
     moveEvent(eventIdOrRecord, changes={}, meta={}) {
@@ -1067,14 +1068,14 @@ class Container extends GridContainer {
 
         me.fire('eventChange', {
             action,
-            changes   : updates,
-            endDate   : nextEnd,
+            changes     : updates,
+            changeSource: meta.source || 'api',
+            endDate     : nextEnd,
             previous,
             record,
-            resizeEdge: meta.resizeEdge || null,
-            resourceId: nextResource,
-            source    : meta.source || 'api',
-            startDate : nextStart,
+            resizeEdge  : meta.resizeEdge || null,
+            resourceId  : nextResource,
+            startDate   : nextStart,
             updates
         });
 
@@ -1421,5 +1422,24 @@ for (const configName of Object.keys(Container.timelineRelays)) {
         this.relayTimelineConfig(configName, value, oldValue)
     }
 }
+
+/**
+ * Fires once after an event edit has been applied through {@link #moveEvent}.
+ * @event eventChange
+ * @memberof Neo.scheduler.Container
+ * @instance
+ * @param {Object} data
+ * @param {Neo.data.Model} data.record Edited event record.
+ * @param {Object} data.changes Changed primary fields. `updates` is an alias for this object.
+ * @param {Object} data.updates Changed primary fields.
+ * @param {Object} data.previous Previous values of those fields.
+ * @param {Date} data.startDate Resulting start of the edited event.
+ * @param {Date} data.endDate Resulting end of the edited event.
+ * @param {String|Number} data.resourceId Resulting resource of the edited event.
+ * @param {String} data.action Edit action, e.g. `move` or `resize`.
+ * @param {String} data.changeSource Origin of the edit, e.g. `api`, `drag`, `resize`, `keyboard` or `editor`.
+ * @param {'start'|'end'|null} data.resizeEdge The edge moved for a resize.
+ * @param {String} data.source The sender's id, injected by {@link Neo.core.Observable#fire}.
+ */
 
 export default Neo.setupClass(Container);

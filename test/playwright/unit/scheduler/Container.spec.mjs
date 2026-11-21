@@ -768,4 +768,81 @@ test.describe('Neo.scheduler.Container', () => {
         expect(borrowedAxis.isDestroyed).not.toBe(true);
         borrowedStore.destroy(); borrowedAxis.destroy(); resources.destroy()
     });
+
+    test('eventChange reports the edit origin as changeSource and keeps source as the sender id (#21649)', () => {
+        const
+            resourceStore = Neo.create(Store, {
+                keyProperty: 'id',
+                model      : {fields: [{name: 'id', type: 'String'}, {name: 'name', type: 'String'}]},
+                data       : [{id: 'r-1', name: 'Resource 1'}]
+            }),
+            eventStore = Neo.create(EventStore, {
+                data: [
+                    {id: 'ev-1', resourceId: 'r-1', title: 'Origin Bar', startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T03:00:00Z'}
+                ]
+            });
+
+        scheduler = Neo.create(SchedulerContainer, {
+            appName,
+            eventStore,
+            store   : resourceStore,
+            timeAxis: {
+                start      : '2026-11-09T00:00:00Z',
+                end        : '2026-11-09T12:00:00Z',
+                tickUnit   : 'hour',
+                tickStep   : 1,
+                pxPerMinute: 1,
+                snapMinutes: 15
+            }
+        });
+
+        scheduler.body.set({
+            availableHeight: 200,
+            containerWidth : 600
+        });
+        scheduler.timelineColumn.refreshMountedRows();
+
+        const
+            record   = eventStore.get('ev-1'),
+            barNode  = getRowTrackBars(scheduler, 0)[0],
+            payloads = [];
+
+        scheduler.on('eventChange', payload => payloads.push(payload));
+
+        // 1. Bare moveEvent() API call: the origin defaults to 'api'
+        scheduler.moveEvent('ev-1', {
+            startDate: '2026-11-09T04:00:00Z',
+            endDate  : '2026-11-09T05:00:00Z'
+        });
+        expect(payloads).toHaveLength(1);
+        expect(payloads[0].changeSource).toBe('api');
+        expect(payloads[0].action).toBe('move');
+        expect(payloads[0].source).toBe(scheduler.id);
+
+        // 2. A caller-supplied meta.source passes through under changeSource
+        scheduler.moveEvent(record, {
+            startDate: '2026-11-09T05:00:00Z',
+            endDate  : '2026-11-09T06:00:00Z'
+        }, {source: 'drag'});
+        expect(payloads).toHaveLength(2);
+        expect(payloads[1].changeSource).toBe('drag');
+        expect(payloads[1].source).toBe(scheduler.id);
+
+        // 3. ArrowRight keyboard move reports 'keyboard' (Observable#fire keeps source as the sender id)
+        scheduler.onBarKeyDown({key: 'ArrowRight', path: [barNode], shiftKey: false});
+        expect(payloads).toHaveLength(3);
+        expect(payloads[2].changeSource).toBe('keyboard');
+        expect(payloads[2].action).toBe('move');
+        expect(payloads[2].source).toBe(scheduler.id);
+
+        // 4. Shift+ArrowRight keyboard resize reports 'keyboard' with action 'resize'
+        scheduler.onBarKeyDown({key: 'ArrowRight', path: [barNode], shiftKey: true});
+        expect(payloads).toHaveLength(4);
+        expect(payloads[3].changeSource).toBe('keyboard');
+        expect(payloads[3].action).toBe('resize');
+        expect(payloads[3].source).toBe(scheduler.id);
+
+        eventStore.destroy();
+        resourceStore.destroy()
+    });
 });

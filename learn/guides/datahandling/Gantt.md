@@ -68,8 +68,10 @@ class MainViewport extends Viewport {
         }]
     }
 
-    onTaskChange(data) {
-        // Handle persisted updates when tasks move or resize
+    onTaskChange({changeSource, record, source}) {
+        // Handle persisted updates when tasks move or resize.
+        // `changeSource` names where the edit came from ('drag', 'resize', 'keyboard', 'editor' or 'api');
+        // `source` stays the sender's component id, injected by Neo.core.Observable#fire.
     }
 }
 
