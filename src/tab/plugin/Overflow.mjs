@@ -932,6 +932,7 @@ class Overflow extends Plugin {
         // strip back in its finally, and an answer that comes later reaches nothing.
         let aborted    = signal && new Promise(resolve => signal.addEventListener('abort', resolve, {once: true})),
             settle     = promise => aborted ? Promise.race([promise, aborted]) : promise,
+            liftedCaps = [],
             measurable = false;
 
         // `break pass` leaves a pass that has nothing to project; the finally and the drain below still run.
@@ -991,6 +992,7 @@ class Overflow extends Plugin {
                 cappedButtons.forEach(button => {
                     let cap = me.appliedCaps.get(button.id);
 
+                    liftedCaps.push([button, cap.maxSize, button[cap.maxSize]]);
                     button[cap.maxSize] = cap.value
                 });
 
@@ -1205,7 +1207,7 @@ class Overflow extends Plugin {
             }
         } finally {
             // A pass the caller's supersession stopped hands the strip back as the last split left it.
-            signal?.aborted && me.rollBackAbortedPass(measurable);
+            signal?.aborted && me.rollBackAbortedPass(measurable, liftedCaps);
 
             // ALWAYS release the latch: a thrown getLayoutRect / applySplit must not strand `measuring` at
             // true, which would silently freeze every future projection (the header stops responding).
@@ -1391,15 +1393,15 @@ class Overflow extends Plugin {
 
     /**
      * @summary Hands the strip back as the last committed split left it, after the caller's supersession
-     * stopped a pass mid-measure: the withheld-action reveal closes, and the headers the measure restored
-     * hide again ({@link #restoreOpenMenuPartition}).
+     * stopped a pass mid-measure: the withheld-action reveal closes, the caps the measure lifted return, and
+     * the headers it restored hide again ({@link #restoreOpenMenuPartition}).
      *
-     * Nothing here waits: the channel that left a read unanswered must not hold the rollback too. A cap the
-     * measure lifted stays lifted until the next pass re-applies the split, as on the open-menu path.
+     * Nothing here waits: the channel that left a read unanswered must not hold the rollback too.
      * @param {Boolean} measurable The pass had restored headers or caps for its measure.
+     * @param {Array[]} liftedCaps `[button, maxSize, value]` for each cap the measure lifted.
      * @protected
      */
-    rollBackAbortedPass(measurable) {
+    rollBackAbortedPass(measurable, liftedCaps) {
         let me      = this,
             {owner} = me;
 
@@ -1408,7 +1410,10 @@ class Overflow extends Plugin {
             Promise.resolve(owner.setContextualActionMeasureReveal?.(false)).catch(() => {})
         }
 
-        measurable && !owner.isDestroyed && me.restoreOpenMenuPartition()
+        if (measurable && !owner.isDestroyed) {
+            liftedCaps.forEach(([button, maxSize, value]) => {button[maxSize] = value});
+            me.restoreOpenMenuPartition()
+        }
     }
 
     /**

@@ -406,6 +406,9 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         plugin.owner.getLayoutRect = () => new Promise(() => {}); // a read that never answers
         plugin.appliedHiddenIds    = ['b2'];                      // the last committed split withheld b2
         plugin.naturalWidths       = null;                        // uncached, so the measure restores it
+        buttons[0].maxWidth        = 72;                          // the split capped b1 below its caller's 192
+        plugin.appliedCaps         = new Map([['b1', {maxSize: 'maxWidth', value: 192}]]);
+        plugin.appliedCapButtons   = new Map([['b1', new WeakRef(buttons[0])]]);
 
         const pass = plugin.project(true, {signal: controller.signal});
 
@@ -413,6 +416,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(plugin.measuring, 'the pass waits on the read').toBe(true);
         expect(buttons[1].hidden, 'the measure restored the withheld header').toBe(false);
+        expect(buttons[0].maxWidth, 'the measure lifted the cap to the caller\'s width').toBe(192);
 
         controller.abort();
         await pass;
@@ -420,6 +424,7 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'the latch clears although the read never answered').toBe(false);
         expect(buttons[1].hidden, 'the strip is handed back as the last split left it').toBe(true);
         expect(buttons[1].vdom.removeDom).toBe(true);
+        expect(buttons[0].maxWidth, 'and so is the cap').toBe(72);
         plugin.destroy()
     });
 
