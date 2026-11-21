@@ -471,6 +471,35 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(state.resize.pendingTerminal).toBeNull()
     });
 
+    for (const [action, resizeConfig] of [['replaces', {axis: 'width', targetId: 'retired-target'}], ['cancels', null]]) {
+        test(`a stale handshake recovers a recreated root and never ${action} the active resize`, () => {
+            const {resize, style} = createState(),
+                  active          = resize.state,
+                  addon           = {dragResize: resize, gestureId: 2, offsetX: 12, zoneRegistrations: {}},
+                  path            = [{id: 'recreated-root'}];
+
+            resize.gesture = {dragZoneId: 'splitter-zone', clientX: 100, clientY: 0};
+            resize.createState = () => null; // A retired target has no measurable DOM node.
+            resize.apply({clientX: 150, clientY: 0});
+            expect(style.getPropertyValue('width')).toBe('250px');
+
+            expect(DragDrop.prototype.setConfigs.call(addon, {
+                dragElementRootId: path[0].id, dragZoneId: 'splitter-zone', gestureId: 1, offsetX: 99, resizeConfig
+            })).toEqual({boundaryContainerRect: null});
+            expect(DragDrop.prototype.resolveDragZoneId.call(addon, path)).toBe('splitter-zone');
+            expect(resize.resolve(path)).toBeNull();
+            expect(resize.state).toBe(active);
+            expect(style.getPropertyValue('width')).toBe('250px');
+            expect(addon.offsetX).toBe(12)
+        })
+    }
+
+    test('a cancelled handshake cannot displace the newer owner of a reused root', () => {
+        const addon = {dragCancelled: true, gestureId: 2, zoneRegistrations: {'reused-root': 'new-zone'}};
+        DragDrop.prototype.setConfigs.call(addon, {dragElementRootId: 'reused-root', dragZoneId: 'old-zone', gestureId: 2});
+        expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'reused-root'}])).toBe('new-zone')
+    });
+
     test('a same-gesture registration replaces a retired target and replays the latest pointer frame', () => {
         const
             first             = createState(),
