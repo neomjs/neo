@@ -1,5 +1,6 @@
 import {execFileSync}             from 'node:child_process';
 import {readFileSync}             from 'node:fs';
+import {createRequire}            from 'node:module';
 import {dirname, join, normalize} from 'node:path';
 
 /**
@@ -63,6 +64,137 @@ const UNBOUNDED_EXAMPLE_REFERENCE = /\bexamples\/\$\{/;
 const EXAMPLE_CSS    = /^resources\/css\/(?:src|theme-[^/]+)\/(examples\/.+)\.css$/,
       RUNTIME_SOURCE = /^(?:apps|docs|examples|src|test\/playwright\/component\/apps)\/.*\.(?:m?js|html)$|^(?:apps|examples)\/.*\/neo-config\.json$/;
 
+const require = createRequire(import.meta.url);
+
+/**
+ * @summary Reads a template suffix that can add only a query or fragment to an example pathname.
+ * @param {Object} node An Acorn expression.
+ * @returns {Boolean}
+ */
+function isRouteSuffix(node) {
+    if (node.type === 'ConditionalExpression') {
+        return isRouteSuffix(node.consequent) && isRouteSuffix(node.alternate)
+    }
+
+    return node.type === 'Literal' && typeof node.value === 'string' &&
+        (node.value === '' || /^[?#]/.test(node.value)) ||
+        node.type === 'TemplateLiteral' && /^[?#]/.test(node.quasis[0].value.cooked)
+}
+
+/**
+ * @summary Reads the fixed portion of a navigation argument that determines the visited pathname.
+ * @param {Object|null} node An Acorn expression.
+ * @param {Map<String, String>} constants Unshadowed, module-level string bindings.
+ * @returns {String|null}
+ */
+function routeValue(node, constants) {
+    if (node?.type === 'Literal') {
+        return typeof node.value === 'string' ? node.value : null
+    }
+    if (node?.type === 'Identifier') {
+        return constants.get(node.name) ?? null
+    }
+    if (node?.type !== 'TemplateLiteral') return null;
+
+    let value = node.quasis[0].value.cooked;
+
+    for (const [index, expression] of node.expressions.entries()) {
+        if (/[?#]/.test(value)) return value;
+
+        const suffix = node.quasis[index + 1].value.cooked,
+              known  = expression.type === 'TemplateLiteral' ? null : routeValue(expression, constants);
+
+        if (known !== null) {
+            value += known + suffix
+        } else {
+            return index === node.expressions.length - 1 && !suffix && isRouteSuffix(expression) ? value : null
+        }
+    }
+
+    return value
+}
+
+/**
+ * @summary Proves example entry visits from a spec's own Playwright navigation calls.
+ * @description Broad route expansion stays in the ordinary reach map. Only a fixed navigation pathname may
+ * qualify a stylesheet for narrower coverage. An unavailable parser or ambiguous binding leaves no witness.
+ * @param {String} source
+ * @param {Set<String>} tracked
+ * @returns {Set<String>}
+ */
+function navigationEntries(source, tracked) {
+    const entries = new Set();
+    let syntax;
+
+    try {
+        syntax = require('acorn').parse(source, {ecmaVersion: 'latest', sourceType: 'module'})
+    } catch {
+        return entries
+    }
+
+    const constants = new Map(),
+          bindings  = new Map(),
+          calls     = [],
+          scalar    = node => node?.type === 'Literal' && typeof node.value === 'string';
+
+    for (const statement of syntax.body) {
+        if (statement.type === 'VariableDeclaration' && statement.kind === 'const') {
+            for (const {id, init} of statement.declarations) {
+                if (id.type === 'Identifier' && scalar(init)) constants.set(id.name, init.value)
+            }
+        }
+    }
+
+    const bind = pattern => {
+        if (!pattern) return;
+
+        switch (pattern.type) {
+            case 'Identifier':
+                bindings.set(pattern.name, (bindings.get(pattern.name) || 0) + 1);
+                break;
+            case 'AssignmentPattern': bind(pattern.left); break;
+            case 'RestElement': bind(pattern.argument); break;
+            case 'ArrayPattern': pattern.elements.forEach(bind); break;
+            case 'ObjectPattern': pattern.properties.forEach(property => bind(property.type === 'RestElement' ? property : property.value)); break;
+            default: break;
+        }
+    };
+
+    const visit = node => {
+        if (!node?.type) return;
+
+        if (node.type === 'VariableDeclarator' || node.type.startsWith('Class')) bind(node.id);
+        if (node.type.includes('Function')) {
+            bind(node.id);
+            node.params?.forEach(bind)
+        }
+        if (node.type === 'CatchClause') bind(node.param);
+        if (node.type.startsWith('Import')) bind(node.local);
+
+        if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' &&
+            !node.callee.computed && node.callee.object.name === 'page' && node.callee.property.name === 'goto') {
+            calls.push(node.arguments[0])
+        }
+
+        for (const value of Object.values(node)) {
+            Array.isArray(value) ? value.forEach(visit) : visit(value)
+        }
+    };
+    visit(syntax);
+
+    for (const name of constants.keys()) {
+        if (bindings.get(name) !== 1) constants.delete(name)
+    }
+    for (const call of calls) {
+        const route    = routeValue(call, constants),
+              [, path] = /^\/?(examples\/[\w-]+(?:\/[\w-]+)*)\/index\.html(?:[?#]|$)/.exec(route || '') || [],
+              entry    = path && entryOf(path, tracked);
+
+        if (entry) entries.add(entry)
+    }
+
+    return entries
+}
 /**
  * @summary Every tracked `.mjs` file a module names by path.
  * @param {Object}      options
@@ -111,7 +243,7 @@ export function entryOf(reference, tracked) {
  * route is listed in `unnamed`, since its known entries cannot rule out a change.
  * @param {Object} [options]
  * @param {String} [options.root=process.cwd()] The repository root.
- * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, tracked: Set<String>, unnamed: String[], exampleCssOwner: Function}}
+ * @returns {{specs: Map<String, {entries: String[], reach: Set<String>}>, tracked: Set<String>, unnamed: String[], exampleCssOwner: Function, witnessesExample: Function}}
  */
 export function specReach({root = process.cwd()} = {}) {
     const files     = execFileSync('git', ['-C', root, 'ls-files'], {encoding: 'utf8'}).trim().split('\n'),
@@ -121,7 +253,8 @@ export function specReach({root = process.cwd()} = {}) {
           edges     = new Map(),
           edgesOf   = file => edges.get(file) ?? edges.set(file, moduleEdges({file, text: text(file), tracked})).get(file),
           closures  = new Map(),
-          cssOwners = new Map();
+          cssOwners = new Map(),
+          witnesses = new Map();
     let hasCssImports;
 
     // Every module an entry reaches, the entry included
@@ -243,5 +376,11 @@ export function specReach({root = process.cwd()} = {}) {
         specs.set(spec, {entries: [...entries].sort(), reach})
     }
 
-    return {specs, tracked, unnamed, exampleCssOwner}
+    const witnessesExample = (spec, entry) => {
+        if (!witnesses.has(spec)) witnesses.set(spec, navigationEntries(text(spec), tracked));
+
+        return witnesses.get(spec).has(entry)
+    };
+
+    return {specs, tracked, unnamed, exampleCssOwner, witnessesExample}
 }

@@ -481,6 +481,41 @@ test.describe('e2e CI selection — verified example styles', () => {
         withTree(check, {'examples/scheduler/demo/app.mjs': ''});
     });
 
+    for (const [label, source] of [
+        ['a computed route with a sibling-only value',
+            "for (const example of ['adjacent']) await page.goto(`/examples/scheduler/${example}/index.html`);"],
+        ['a literal reference outside navigation',
+            "const examplePath = '/examples/scheduler/demo/index.html';\nawait page.goto('/examples/scheduler/adjacent/index.html');"],
+        ['a shadowed route constant',
+            "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nasync function visit(EXAMPLE_URL) {await page.goto(EXAMPLE_URL)}\nawait visit('/examples/scheduler/adjacent/index.html');"]
+    ]) {
+        test(`${label} preserves full E2E for the apparent owner`, () => {
+            withTree(root => {
+                const map = specReach({root});
+
+                expect(map.specs.get(owner).entries).toContain('examples/scheduler/demo/app.mjs');
+                expect(selectSpecs({changed: [css], exampleCss: [css], map, root}).full).toBe(true);
+            }, {[owner]: source})
+        });
+    }
+
+    for (const source of [
+        "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nawait page.goto(`${EXAMPLE_URL}?theme=${theme}`);",
+        "await page.goto(`/examples/scheduler/demo/index.html${theme ? `?theme=${theme}` : ''}`);"
+    ]) {
+        test(`a fixed navigation pathname qualifies despite its dynamic query: ${source.split('\n').at(-1)}`, () => {
+            withTree(root => {
+                const {full, specs} = selectSpecs({changed: [css], exampleCss: [css], root});
+
+                expect(full).toBe(false);
+                expect([...specs.keys()].toSorted()).toEqual([owner, adjacent, bare].toSorted())
+            }, {
+                [owner]   : source,
+                [adjacent]: "await page.goto(`/examples/scheduler/${example}/index.html`);"
+            })
+        });
+    }
+
     test('explicit theme consumers, foreign class imports and CSS imports keep the full tier', () => {
         const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
 
