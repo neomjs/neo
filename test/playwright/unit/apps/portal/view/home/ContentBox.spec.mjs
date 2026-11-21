@@ -94,6 +94,8 @@ test.describe('Portal.view.home.ContentBox', () => {
 
         expect(cueItem.ui).toBe('secondary');
         expect(cueItem.handler).toBe('up.onScrollToAudience');
+        expect(cueItem.iconCls).toBe('fa fa-arrow-down');
+        expect(cueItem.iconPosition).toBe('right');
         expect(cueItem.url).toBeUndefined();
         expect(cueBlock).toContain('--button-secondary-background-color: var(--sem-color-bg-neutral-highlighted)');
         expect(cueBlock).toContain('--button-secondary-text-color      : var(--sem-color-text-neutral-default)');

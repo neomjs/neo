@@ -256,7 +256,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
                   buttons = page.locator('.portal-home-hero-content .button-group .neo-button');
 
             // Screen 1 keeps two controls, the cue shows without a scroll, and the doors start below it
-            await expect(buttons).toHaveText(['Get started', 'Who it\'s for ↓']);
+            await expect(buttons).toHaveText(['Get started', 'Who it\'s for']);
+            await expect(buttons.last().locator('.neo-button-glyph')).toHaveClass(/fa-arrow-down/);
             await expect(buttons.last()).toBeInViewport();
             await expect(page.locator(`#${doors.id}`)).not.toBeInViewport();
 

@@ -94,12 +94,14 @@ class Content extends BaseContainer {
                 text  : 'Get started',
                 ui    : 'primary'
             }, {
-                module : Button,
-                cls    : ['hero-audience-cue'],
-                flex   : 'none',
-                handler: 'up.onScrollToAudience',
-                text   : 'Who it\'s for ↓',
-                ui     : 'secondary'
+                module      : Button,
+                cls         : ['hero-audience-cue'],
+                flex        : 'none',
+                handler     : 'up.onScrollToAudience',
+                iconCls     : 'fa fa-arrow-down',
+                iconPosition: 'right',
+                text        : 'Who it\'s for',
+                ui          : 'secondary'
             }]
         }]
     }
