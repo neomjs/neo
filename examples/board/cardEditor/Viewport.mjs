@@ -1,5 +1,4 @@
-import BoardContainer  from '../../../src/board/Container.mjs';
-import CandidateEditor from './CandidateEditor.mjs';
+import BoardContainer from '../../../src/board/Container.mjs';
 import CandidateStore  from './CandidateStore.mjs';
 import Component       from '../../../src/component/Base.mjs';
 import Label           from '../../../src/component/Label.mjs';
@@ -28,7 +27,7 @@ const
  * and recruiter in the board's card editor.
  * @description The card's inline edit (`Neo.board.Card#startTitleEdit`) starts on a double-click of the name or on
  * `F2`; `Enter` or leaving the field saves, `Escape` restores. The `⋯` button, or `Enter` on a focused card, opens the
- * board's one card editor ({@link Neo.examples.board.cardEditor.CandidateEditor}), limited to the fields a card shows.
+ * board's one card editor ({@link Neo.board.CardEditor}), limited to the fields a card shows.
  * A new stage moves the card to that column through `moveCard`.
  * @class Neo.examples.board.cardEditor.Viewport
  * @extends Neo.container.Viewport
@@ -88,8 +87,11 @@ class CardEditorViewport extends Viewport {
             module           : BoardContainer,
             ariaLabel        : 'Hiring pipeline board',
             bind             : {store: 'stores.candidates'},
-            cardEditorConfig : {fields: ['title', 'status', 'tags', 'assignees'], title: 'Edit candidate'},
-            cardEditorModule : CandidateEditor,
+            cardEditorConfig : {
+                fieldLabels: {assignees: 'Recruiter', status: 'Stage', tags: 'Role', title: 'Name'},
+                fields     : ['title', 'status', 'tags', 'assignees'],
+                title      : 'Edit candidate'
+            },
             cardItems        : [{type: 'title'}, {type: 'tags'}, {type: 'avatars'}],
             cls              : ['pipeline-board'],
             columns,

@@ -10,6 +10,7 @@ import TextAreaField   from '../form/field/TextArea.mjs';
 import TextField       from '../form/field/Text.mjs';
 import Toolbar         from '../toolbar/Base.mjs';
 import {getTitleField} from './CardItems.mjs';
+import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
 /**
  * The model field types a Number field edits
@@ -87,6 +88,30 @@ class CardEditor extends Dialog {
          */
         draggable: false,
         /**
+         * A map of field name -> labelText overrides. Defaults to the standard English labels for the nine standard
+         * fields (`assignees`, `color`, `description`, `dueDate`, `lane`, `progress`, `status`, `tags`, `title`).
+         * Merged shallowly so callers can pass `{status: 'Stage'}` without losing the others.
+         * @example
+         * {module: CardEditor, fieldLabels: {assignees: 'Recruiter', status: 'Stage', tags: 'Role', title: 'Name'}}
+         * @member {Object} fieldLabels_
+         * @reactive
+         */
+        fieldLabels_: {
+            [isDescriptor]: true,
+            merge         : 'shallow',
+            value         : {
+                assignees  : 'Assignees',
+                color      : 'Color',
+                description: 'Description',
+                dueDate    : 'Due date',
+                lane       : 'Lane',
+                progress   : 'Progress',
+                status     : 'Status',
+                tags       : 'Tags',
+                title      : 'Title'
+            }
+        },
+        /**
          * The form's fields, in order. A name picks the standard field of that name, or the field the board's model
          * declares under it; an object is a field config of its own (`{module, name, labelText, ...}`). `null` builds
          * the standard fields the model declares, then the model's other fields. A board passes it through
@@ -94,6 +119,11 @@ class CardEditor extends Dialog {
          * @member {Array<String|Object>|null} fields=null
          */
         fields: null,
+        /**
+         * A compact form of card fields has no use for maximize: the header keeps its close action only.
+         * @member {Object} headerConfig={actions: ['close']}
+         */
+        headerConfig: {actions: ['close']},
         /**
          * @member {Boolean} hidden=true
          */
@@ -178,6 +208,21 @@ class CardEditor extends Dialog {
         this.animateTargetId = value?.id || null;
         if (value?.record && this.record !== value.record) {
             this.record = value.record
+        }
+    }
+
+    /**
+     * @summary Rebuilds form fields when `fieldLabels` changes at runtime
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetFieldLabels(value, oldValue) {
+        let me = this;
+
+        if (oldValue !== undefined && me.form) {
+            me.buildFields();
+            me.record && me.syncFormFields(me.record)
         }
     }
 
@@ -294,7 +339,7 @@ class CardEditor extends Dialog {
                 module,
                 appName  : me.appName,
                 id       : `${me.id}__field__${name}`,
-                labelText: Neo.capitalize(Neo.decamel(name).replace(/-/g, ' ')),
+                labelText: me.fieldLabels?.[name] ?? Neo.capitalize(Neo.decamel(name).replace(/-/g, ' ')),
                 name,
                 windowId : me.windowId
             };
@@ -525,6 +570,7 @@ class CardEditor extends Dialog {
      */
     getStandardFieldConfigs() {
         let me          = this,
+            labels      = me.fieldLabels || {},
             titleField  = me.getTitleField(),
             statusField = me.board?.statusField || 'status',
             laneField   = me.board?.laneField || 'lane';
@@ -534,21 +580,21 @@ class CardEditor extends Dialog {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__${titleField}`,
-                labelText: 'Title',
+                labelText: labels[titleField] ?? labels.title ?? 'Title',
                 name     : titleField
             },
             {
                 module   : TextAreaField,
                 clearable: false,
                 id       : `${me.id}__field__description`,
-                labelText: 'Description',
+                labelText: labels.description ?? 'Description',
                 name     : 'description'
             },
             {
                 module      : SelectField,
                 displayField: 'name',
                 id          : `${me.id}__field__${statusField}`,
-                labelText   : 'Status',
+                labelText   : labels[statusField] ?? labels.status ?? 'Status',
                 name        : statusField,
                 options     : me.getStatusOptions(me.record),
                 valueField  : 'id'
@@ -558,7 +604,7 @@ class CardEditor extends Dialog {
                 displayField: 'name',
                 hidden      : !me.board?.laneField,
                 id          : `${me.id}__field__${laneField}`,
-                labelText   : 'Lane',
+                labelText   : labels[laneField] ?? labels.lane ?? 'Lane',
                 name        : laneField,
                 options     : me.getLaneOptions(me.record),
                 valueField  : 'id'
@@ -567,14 +613,14 @@ class CardEditor extends Dialog {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__assignees`,
-                labelText: 'Assignees',
+                labelText: labels.assignees ?? 'Assignees',
                 name     : 'assignees'
             },
             {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__tags`,
-                labelText: 'Tags',
+                labelText: labels.tags ?? 'Tags',
                 name     : 'tags'
             },
             {
@@ -582,7 +628,7 @@ class CardEditor extends Dialog {
                 clearable     : false,
                 disabledChars : null,
                 id            : `${me.id}__field__progress`,
-                labelText     : 'Progress',
+                labelText     : labels.progress ?? 'Progress',
                 maxValue      : 100,
                 minValue      : 0,
                 name          : 'progress',
@@ -592,14 +638,14 @@ class CardEditor extends Dialog {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__color`,
-                labelText: 'Color',
+                labelText: labels.color ?? 'Color',
                 name     : 'color'
             },
             {
                 module   : DateField,
                 clearable: false,
                 id       : `${me.id}__field__dueDate`,
-                labelText: 'Due date',
+                labelText: labels.dueDate ?? 'Due date',
                 name     : 'dueDate',
                 triggers : []
             }
