@@ -416,10 +416,19 @@ function durationOf(durations) {
 /**
  * @summary One shard of a tier's selection, balanced by measured time rather than by test count.
  * @description Playwright's own `--shard` gives each shard the same number of tests, and a test costs anything from
- * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file,
- * longest first, joins the shard with
- * the least time so far: equal times fall to the lower shard and equal files to path order, so every shard of a run
- * computes the same split and every selected file runs in exactly one of them.
+ * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file joins
+ * the shard with the least time so far: equal times fall to the lower shard and equal files to path order, so every
+ * shard of a run computes the same split and every selected file runs in exactly one of them.
+ *
+ * Files the table does not list yet are dealt FIRST, before the measured files are balanced longest-first on top.
+ * They all plan at the same fallback ({@link durationOf}'s 90th percentile), so sorted among the measured files they
+ * sit ahead of every file below that percentile, and the greedy pass then hands the shards holding the longest
+ * measured specs ever fewer of the rest — a wave of new specs landing between table rebuilds concentrates the real
+ * measured work onto the one shard that holds the single longest spec, and that is the shard that runs into the
+ * ceiling. Dealt first, K unmeasured files distribute `floor(K/M)..ceil(K/M)` per shard, because every shard starts
+ * equal and the pass round-robins them, so the measured load stays spread no matter how many specs arrive unmeasured.
+ * A single missing file still plans at the fallback and leaves its own shard that much lighter in measured work,
+ * which is exactly the headroom the fallback exists to give.
  * @param {Object}   options
  * @param {String[]} options.paths The selection to split, relative to the repository root.
  * @param {String}   options.shard `N/M`, the shard to return.
@@ -432,7 +441,8 @@ export function balancedShard({paths, shard, durations}) {
           seconds        = durationOf(durations),
           shards         = Array.from({length: total}, () => ({paths: [], seconds: 0}));
 
-    for (const path of paths.toSorted((a, b) => seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
+    // Unmeasured files (`!(path in durations)`) sort ahead of measured ones, so the pass deals them first
+    for (const path of paths.toSorted((a, b) => (a in durations) - (b in durations) || seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
         const lightest = shards.reduce((min, candidate) => candidate.seconds < min.seconds ? candidate : min);
 
         lightest.paths.push(path);
