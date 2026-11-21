@@ -231,20 +231,23 @@
     },
     {
       "id": "grid-nested-record-fields",
-      "viewport": {"width":1280,"height":720},
+      "viewport": {"width": 960, "height": 540},
       "theme": "dark",
       "state": "Edit Partner Contact modal open over the 28-row partner directory.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='user.firstname']","text":"Amara"}
+        {"selector": ".neo-grid-cell[data-field='user.firstname']", "text": "Amara"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-grid-row .neo-button","text":"Edit","nth":1}
+        {"kind": "click", "selector": ".neo-grid-row .neo-button", "text": "Edit", "nth": 1}
       ],
       "after": [
-        {"selector":".neo-dialog .neo-header-toolbar","text":"Edit Partner Contact","inRegion":true},
-        {"selector":".neo-dialog .neo-countryfield","inRegion":true}
+        {"selector": ".neo-ripple", "count": 0},
+        {"selector": ".neo-edit-partner-dialog[style*=\"left:\"]:not(.animated-hiding-showing):not([style*=\"height:\"])", "inRegion": true},
+        {"selector": ".neo-edit-partner-dialog .neo-header-toolbar", "text": "Edit Partner Contact", "inRegion": true},
+        {"selector": ".neo-edit-partner-dialog input", "value": "Henrik", "inRegion": true},
+        {"selector": ".neo-edit-partner-dialog .neo-button", "text": "Save", "inRegion": true}
       ],
-      "region": {"selector":".neo-dialog","anchor":"top-left","width":640,"height":360}
+      "region": "viewport"
     },
     {
       "id": "grid-streaming",
@@ -270,13 +273,13 @@
     },
     {
       "id": "grid-tree",
-      "viewport": {"width": 960, "height": 640},
-      "theme": "default",
-      "state": "Core Platform's Runtime Engine team is expanded so its three budget items show under their rolled-up team and department totals.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Runtime Engine"}],
+      "viewport": {"width": 800, "height": 450},
+      "theme": "dark",
+      "state": "Dark-theme budget tree with Core Platform's Runtime Engine team expanded so its three budget items show under their rolled-up team and department totals.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Runtime Engine"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('Runtime Engine')) .neo-tree-toggle"}],
-      "after": [{"selector": ".neo-grid-cell[data-field='name']", "text": "V8 Worker Pool"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Virtual DOM Diffing"}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "V8 Worker Pool", "inRegion": true}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Virtual DOM Diffing", "inRegion": true}],
+      "region": "viewport"
     },
     {
       "id": "grid-server-side",
@@ -315,22 +318,24 @@
     },
     {
       "id": "table-container",
-      "viewport": {"width":1000,"height":420},
+      "viewport": {"width": 1200, "height": 675},
       "theme": "dark",
-      "state": "Sorted specification sheet showing content-sized columns and wrapped operational notes with the Inspector outside the frame.",
+      "state": "Dark-theme specification sheet sorted by Specification, showing content-sized columns and wrapped operational notes beside the workbench Inspector.",
       "ready": [
-        {"selector":".neo-table-cell.neo-table-spec-notes"}
+        {"selector": ".neo-table-cell.neo-table-spec-notes"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-configuration-header-toolbar .neo-button","text":"Theme Dark"},
-        {"kind":"click","selector":".neo-table-header-button","text":"Specification"}
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "click", "selector": ".neo-table-header-button", "text": "Specification"}
       ],
       "after": [
-        {"selector":"th[aria-sort='ascending']","text":"Specification","inRegion":true},
-        {"selector":".neo-table-cell","text":"Audit log retention","inRegion":true},
-        {"selector":".neo-table-cell","text":"Security","inRegion":true}
+        {"selector": ".neo-ripple", "count": 0},
+        {"selector": ".neo-theme-dark .neo-workbench-stage"},
+        {"selector": "th[aria-sort='ascending']", "text": "Specification", "inRegion": true},
+        {"selector": ".neo-table-cell", "text": "Audit log retention", "inRegion": true},
+        {"selector": ".neo-table-spec-notes", "text": "object storage.", "inRegion": true}
       ],
-      "region": {"x":20,"y":20,"width":640,"height":360}
+      "region": "viewport"
     },
     {
       "id": "grid-big-data",
