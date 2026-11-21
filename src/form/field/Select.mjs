@@ -186,7 +186,8 @@ class Select extends Field {
      */
     afterSetHideLabel(value) {
         this.vdom.cn[0].removeDom = value;
-        this.syncLabel()
+        this.syncLabel();
+        this.syncLabelWidth()
     }
 
     /**
@@ -511,12 +512,19 @@ class Select extends Field {
     }
 
     /**
-     * @summary Gives a label beside the select its `labelWidth`; a label above takes the field's width.
+     * @summary Sizes the column of a label beside the select from `labelWidth`, so a percentage resolves against the
+     * field as in a TextField. A hidden label or one above the select leaves no column.
      * @protected
      */
     syncLabelWidth() {
-        this.vdom.cn[0].width = this.labelPosition === 'left' ? this.labelWidth : null;
-        this.update()
+        const me = this, {labelWidth} = me;
+
+        me.style = {
+            ...me.style,
+            gridTemplateColumns: me.labelPosition === 'left' && !me.hideLabel
+                ? `${Neo.isNumber(labelWidth) ? `${labelWidth}px` : labelWidth} minmax(0, 1fr)`
+                : null
+        }
     }
 
     /**
