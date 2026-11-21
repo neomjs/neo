@@ -57,6 +57,10 @@
     /* The inline edit takes the title's line box and type, so the card keeps its height and the name its font. The
        field starts its border and padding (5px) left of the title, so the text stays where it was. */
     .neo-board-card-inline-editor {
+        /* The board's focus ring says the name is being edited, in themes whose field border barely shows. A focused
+           field paints its input's outline from this variable, so the ring outlasts `.neo-focus`. */
+        --textfield-outline-active: 2px solid var(--neo-board-focus-color);
+
         font-weight  : 600;
         height       : auto;
         line-height  : 1.3;
@@ -71,9 +75,8 @@
             min-height: 0;
             padding   : 0 4px;
 
-            /* The board's focus ring says the name is being edited, in themes whose field border barely shows */
             &:focus {
-                outline       : 2px solid var(--neo-board-focus-color);
+                outline       : var(--textfield-outline-active);
                 outline-offset: 1px;
             }
         }

@@ -41,3 +41,15 @@ test('a card keeps its height, and its name its font and place, while the title 
     await page.keyboard.press('Escape');
     await expect(card(page).locator('.neo-board-card-inline-editor')).toHaveCount(0)
 });
+
+test('the name being edited keeps the board\'s focus ring once its field is focused', async ({page}) => {
+    await page.goto('/test/playwright/component/apps/board-form-control/index.html');
+    await card(page).locator('.neo-board-card-title').dblclick();
+
+    // A focused field sets its input's outline from `--textfield-outline-active`, with `!important`
+    const input = card(page).locator('.neo-board-card-inline-editor.neo-focus input');
+
+    await expect(input).toBeFocused();
+    await expect(input).toHaveCSS('outline-style', 'solid');
+    await expect(input).toHaveCSS('outline-width', '2px')
+});
