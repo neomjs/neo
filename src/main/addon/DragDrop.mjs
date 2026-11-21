@@ -861,8 +861,9 @@ class DragDrop extends Base {
      * DragZones will set these configs inside their dragStart() method.
      * The gesture-scoped keys only persist until the end of a drag OP — with one exception:
      * the `dragElementRootId → dragZoneId` pair ALSO refreshes the zone registry
-     * ({@link zoneRegistrations}), which deliberately outlives the gesture (zones outlive
-     * drags, and the registry is what lets the next drag:start resolve its zone synchronously).
+     * ({@link zoneRegistrations}), which lets the next drag:start resolve its zone synchronously.
+     * A late handshake can fill a missing root mapping; only a current handshake can replace an owner
+     * or change the resize descriptor.
      * @param {Object}               data
      * @param {Boolean}              data.alwaysFireDragMove
      * @param {String|String[]|null} data.boundaryContainerId
@@ -880,6 +881,10 @@ class DragDrop extends Base {
             node, rects;
 
         if (data.gestureId != null && (data.gestureId !== me.gestureId || me.dragCancelled)) {
+            const {dragElementRootId, dragZoneId} = data;
+            if (dragElementRootId && dragZoneId) {
+                me.zoneRegistrations[dragElementRootId] ??= dragZoneId
+            }
             return {boundaryContainerRect: null}
         }
         delete data.gestureId;
