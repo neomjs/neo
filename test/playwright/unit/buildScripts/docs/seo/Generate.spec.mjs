@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import {execFileSync} from 'node:child_process';
 import fs             from 'fs-extra';
 import os             from 'os';
 import path           from 'path';
@@ -1310,6 +1311,120 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
             expect(liveSeoJson[`/learn/agentos/decisions/${adr}`]?.robots).toBe('noindex, follow');
         }
     });
+});
+
+test('preserves release cut lastmod through a later squash and uses Git dates for subsequent edits', async () => {
+    const tempDir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-release-cut-'));
+    const root         = path.join(tempDir, 'engine');
+    const noteSource   = '.github/RELEASE_NOTES/v14.0.0.md';
+    const portalSource = 'apps/portal/index.html';
+    const indexSource  = 'apps/portal/resources/data/releases.json';
+    const aboutSource  = 'apps/portal/view/about/Container.mjs';
+    const notePath     = path.join(root, noteSource);
+    const portalPath   = path.join(root, portalSource);
+    const seoJsonPath  = path.join(root, 'apps/portal/resources/data/seo.json');
+    const releaseRoute = '/news/releases/14.0.0';
+    const draftDate    = '2026-11-20';
+    const cutDate      = '2026-11-23';
+    const draftNote    = '# Neo.mjs v14.0.0 Release Notes\n\nEngine 14 highlights.\n';
+    const portalHtml   = '<html><head><title>Neo.mjs Engine 14</title><meta name="description" content="Engine 14."></head></html>';
+    const stampedNote  = [
+        '---',
+        `publishedAt: '${cutDate}T12:00:00Z'`,
+        'seoSourcePaths:',
+        ...[noteSource, portalSource, indexSource].map(source => `  - ${source}`),
+        '---',
+        draftNote
+    ].join('\n');
+
+    const git = (args, date=draftDate) => execFileSync('git', args, {
+        cwd     : root,
+        encoding: 'utf8',
+        env     : {
+            ...process.env,
+            GIT_AUTHOR_DATE    : `${date}T12:00:00Z`,
+            GIT_AUTHOR_EMAIL   : 'seo-fixture@example.invalid',
+            GIT_AUTHOR_NAME    : 'SEO Fixture',
+            GIT_COMMITTER_DATE : `${date}T12:00:00Z`,
+            GIT_COMMITTER_EMAIL: 'seo-fixture@example.invalid',
+            GIT_COMMITTER_NAME : 'SEO Fixture',
+            GIT_CONFIG_GLOBAL  : os.devNull,
+            GIT_CONFIG_NOSYSTEM: '1'
+        }
+    }).trim();
+
+    const commit = (date, message) => {
+        git(['add', '.']);
+        git(['commit', '--quiet', '-m', `${message} (#21808)`], date);
+    };
+
+    const index             = () => createReleaseIndex({outputFile: path.join(root, indexSource), releaseNotesRoot: path.dirname(notePath)});
+    const familyDefinitions = [{family: 'apps', route: '/examples/apps', title: 'Apps'}];
+    const generate          = (options={}) => getSeoJson({root, familyDefinitions, ...options});
+
+    try {
+        await fs.outputFile(notePath, draftNote);
+        await fs.outputFile(portalPath, portalHtml.replace('Engine 14', 'Engine 14 Draft'));
+        await fs.outputFile(path.join(root, aboutSource), '// About page source.\n');
+        await fs.outputJson(path.join(root, 'apps/portal/resources/data/examples.json'), [{
+            family   : 'apps',
+            image    : 'portal.jpg',
+            name     : 'Portal',
+            sourceUrl: 'apps/portal',
+            urls     : {dist_prod: 'dist/production/apps/portal/index.html'}
+        }]);
+        await fs.outputJson(seoJsonPath, {
+            '/about-us'     : {title: 'About Us', description: 'About the project.'},
+            '/news/releases': {title: 'Release Notes', description: 'Neo.mjs release notes.'}
+        });
+        await index();
+        git(['init', '--quiet']);
+        commit(draftDate, 'Track the draft');
+        const base = git(['rev-parse', 'HEAD']);
+
+        await fs.writeFile(notePath, stampedNote);
+        await fs.writeFile(portalPath, portalHtml);
+        await index();
+
+        const routes     = ['/', '/home', '/news/releases', releaseRoute, '/examples/apps'];
+        const defaultSeo = await generate();
+        const baked      = await generate({pendingReleaseNote: notePath});
+
+        expect(routes.map(route => defaultSeo[route]?.lastmod)).toEqual(routes.map(() => draftDate));
+        expect.soft(routes.map(route => baked[route]?.lastmod), 'prepared routes use the cut date').toEqual(routes.map(() => cutDate));
+        expect(baked['/about-us']?.lastmod).toBe(draftDate);
+
+        await fs.writeJson(seoJsonPath, baked);
+        const serializedSeo = JSON.stringify(baked);
+        commit(cutDate, 'Prepare the release');
+        expect.soft(JSON.stringify(await generate()), 'prepared commit matches its baked catalog').toBe(serializedSeo);
+
+        const tree   = git(['rev-parse', 'HEAD^{tree}']);
+        const squash = git(['commit-tree', tree, '-p', base, '-m', 'Squash the release (#21808)'], '2026-11-24');
+        git(['checkout', '--quiet', '--detach', squash]);
+        expect.soft(JSON.stringify(await generate()), 'later squash matches the same baked catalog').toBe(serializedSeo);
+
+        const packageRoot = path.join(tempDir, 'node_modules/neo.mjs');
+
+        await fs.copy(root, packageRoot, {filter: file => file !== path.join(root, '.git')});
+        expect(JSON.stringify(await generate({root: packageRoot}))).toBe(serializedSeo);
+
+        await fs.writeFile(notePath, stampedNote.replace('Engine 14 highlights.', 'Updated Engine 14 highlights.'));
+        await fs.writeFile(portalPath, portalHtml.replace('Engine 14.', 'Updated Engine 14.'));
+        commit('2026-11-25', 'Edit the release note and Portal');
+        const edited = await generate();
+        expect([edited['/'].lastmod, edited[releaseRoute].lastmod]).toEqual(['2026-11-25', '2026-11-25']);
+        expect(edited['/examples/apps'].lastmod).toBe('2026-11-25');
+
+        await fs.writeFile(notePath, stampedNote);
+        await fs.writeFile(portalPath, portalHtml);
+        commit('2026-11-26', 'Revert the later edits');
+        const reverted = await generate();
+        expect([reverted['/'].lastmod, reverted[releaseRoute].lastmod]).toEqual(['2026-11-26', '2026-11-26']);
+        expect(reverted['/news/releases'].lastmod).toBe(cutDate);
+    } finally {
+        await fs.remove(tempDir);
+    }
 });
 
 test.describe('docs SEO generator #20917: frontmatter seoTitle/seoDescription and search-intent titles', () => {

@@ -1,6 +1,7 @@
-import {execFileSync} from 'child_process';
-import fs             from 'fs-extra';
-import path           from 'path';
+import {execFileSync}        from 'child_process';
+import fs                    from 'fs-extra';
+import path                  from 'path';
+import {readReleaseSeoStamp} from '../../release/releaseNoteFrontmatter.mjs';
 
 /**
  * @module buildScripts.docs.seo.gitLastmod
@@ -101,13 +102,57 @@ export function extractFrontmatterDateOnly(rawContent='', fields=['publishedAt',
 }
 
 /**
+ * @summary Reads a file at a Git revision, including an empty result when it was absent from the tree.
+ * @param {String} revision
+ * @param {String} file
+ * @param {String} root
+ * @returns {String}
+ */
+function readGitFile(revision, file, root) {
+    try {
+        return execFileSync('git', ['show', `${revision}:${file}`], {
+            cwd: root, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore']
+        });
+    } catch {
+        return ''
+    }
+}
+
+/**
+ * @summary Resolves cut dates only for files changed in the commit that introduced their release stamp.
+ * @param {String} commit
+ * @param {String[]} files Paths changed in the commit
+ * @param {String} notesDir Repository-relative release-notes directory
+ * @param {String} root
+ * @returns {Map<String, String>}
+ */
+function getReleaseCommitDates(commit, files, notesDir, root) {
+    const dates = new Map();
+
+    for (const file of files) {
+        if (path.posix.dirname(file) !== notesDir || !/^v[^/]+\.md$/.test(path.posix.basename(file))) continue;
+
+        const stamp = readReleaseSeoStamp(readGitFile(commit, file, root));
+        if (!stamp) continue;
+
+        const previous = readReleaseSeoStamp(readGitFile(`${commit}^`, file, root));
+        if (JSON.stringify(stamp) === JSON.stringify(previous)) continue;
+
+        stamp.paths.forEach(source => dates.set(source, stamp.date))
+    }
+
+    return dates
+}
+
+/**
  * @summary Collects newest per-file `YYYY-MM-DD` commit dates across `scanPaths` in a single batched
- * `git log --format="commit:%cs" --name-only` pass instead of spawning per-file `git` subprocesses.
+ * Git log pass. A release note's stamp supplies the logical cut date for paths changed with that stamp.
  * @param {String[]} [scanPaths=[]] Repository-relative or absolute paths to include in the `git log` pass.
  * @param {String} [root=ROOT_DIR] Repository root.
+ * @param {String} [releaseNotesRoot] Absolute path to Engine release notes, when reading release stamps.
  * @returns {Map<String, String>} Map of repository-relative POSIX file path -> `YYYY-MM-DD`.
  */
-export function getGitLastmodDateMap(scanPaths=[], root=ROOT_DIR) {
+export function getGitLastmodDateMap(scanPaths=[], root=ROOT_DIR, releaseNotesRoot) {
     const dateMap = new Map();
 
     if (!hasReliableGitHistory(root)) {
@@ -129,11 +174,21 @@ export function getGitLastmodDateMap(scanPaths=[], root=ROOT_DIR) {
     try {
         const output = execFileSync(
             'git',
-            ['log', '--format=commit:%cs', '--name-only', '--', ...relativeScanPaths],
+            ['log', '--format=commit:%H%x09%cs', '--name-only', '--', ...relativeScanPaths],
             {cwd: root, encoding: 'utf-8', maxBuffer: GIT_LOG_MAX_BUFFER, stdio: ['pipe', 'pipe', 'ignore']}
         );
 
-        let currentDate = null;
+        const notesDir = releaseNotesRoot && getGitPath(releaseNotesRoot, root);
+        let commit, date, files = [];
+
+        const collect = () => {
+            const pending = files.filter(file => !dateMap.has(file));
+            if (!pending.length) return;
+
+            const releaseDates = notesDir && getReleaseCommitDates(commit, files, notesDir, root);
+
+            pending.forEach(file => dateMap.set(file, releaseDates?.get(file) || date))
+        };
 
         for (const rawLine of output.split('\n')) {
             const line = rawLine.trim();
@@ -143,14 +198,14 @@ export function getGitLastmodDateMap(scanPaths=[], root=ROOT_DIR) {
             }
 
             if (line.startsWith('commit:')) {
-                currentDate = line.slice('commit:'.length);
-                continue;
-            }
-
-            if (currentDate && !dateMap.has(line)) {
-                dateMap.set(line, currentDate);
+                collect();
+                [commit, date] = line.slice('commit:'.length).split('\t');
+                files = [];
+            } else if (date) {
+                files.push(line)
             }
         }
+        collect();
     } catch {
         // Return empty map on git execution errors so callers fall back gracefully.
     }
@@ -184,14 +239,15 @@ export function formatLastmodDate(date) {
 }
 
 /**
- * @summary Gets working-tree paths changed relative to `HEAD` when `root` has a reliable `.git` history.
+ * @summary Gets working-tree paths changed relative to `HEAD`.
  * @param {String} [root=ROOT_DIR] Repository root.
+ * @param {Boolean} [required=false] Require a Git status read when preparing an actual release.
  * @returns {Set<String>} Repository-relative POSIX paths.
  */
-export function getChangedGitPaths(root=ROOT_DIR) {
+export function getChangedGitPaths(root=ROOT_DIR, required=false) {
     const paths = new Set();
 
-    if (!hasReliableGitHistory(root)) {
+    if (!required && !hasReliableGitHistory(root)) {
         return paths;
     }
 
@@ -222,7 +278,8 @@ export function getChangedGitPaths(root=ROOT_DIR) {
                 paths.add(gitPath);
             }
         }
-    } catch {
+    } catch (error) {
+        if (required) throw error;
         // Git status is an optimization for uncommitted CI mutations; ignore if unavailable.
     }
 
