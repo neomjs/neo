@@ -244,6 +244,31 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(page.getByRole('heading', {level: 1, name: 'What Is Neo.mjs?'})).toBeVisible({timeout: 15000})
     });
 
+    for (const [viewport, cues] of [
+        [{width: 1440, height: 900}, ['Build an application ↓', 'Run an agent team ↓', 'Study the model ↓']],
+        [{width: 390,  height: 844}, ['Who it\'s for ↓']]
+    ]) {
+        test(`at ${viewport.width}x${viewport.height} the hero names what lies below and its cue scrolls to the doors`, async ({page, neuralLink}) => {
+            await page.setViewportSize(viewport);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const doors = await queryOne(app, {reference: 'home-audience-doors'}),
+                  row   = page.locator('.portal-home-hero-content .hero-doors .neo-button:visible');
+
+            // Screen 1 shows the cue without a scroll, and the doors start below it
+            await expect(row).toHaveText(cues);
+            await expect(row.first()).toBeInViewport();
+            await expect(page.locator(`#${doors.id}`)).not.toBeInViewport();
+
+            await row.last().click();
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
+            await expect(page).toHaveURL(/#\/home$/)
+        })
+    }
+
     test('fits all three cards without clipping at 900x700 snap-active and stacks cleanly at 390x844 mobile', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 900, height: 700});
         await page.goto(HOME_URL);

@@ -4,6 +4,7 @@ const
     HOME_URL  = '/apps/portal/index.html#/home',
     STATEMENT = {
         buttons : '.portal-home-hero-content .button-group',
+        doors   : '.portal-home-hero-content .hero-doors',
         headline: '.portal-home-hero-content .neo-magic-move-text',
         logo    : '.portal-home-hero-content .logo-container',
         sentence: '.portal-home-hero-content .neo-h3'

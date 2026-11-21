@@ -3,7 +3,8 @@ import Button            from '../../../../../../src/button/Base.mjs';
 import MagicMoveText     from '../../../../../../src/component/MagicMoveText.mjs';
 
 /**
- * @summary Hero foreground container holding the category headline, value proposition, and primary CTAs.
+ * @summary Hero foreground container holding the category headline, value proposition, primary CTAs, and a cue
+ * that names the audience doors below and scrolls to them.
  * @class Portal.view.home.parts.hero.Content
  * @extends Neo.container.Base
  */
@@ -100,6 +101,19 @@ class Content extends BaseContainer {
                 ui    : 'secondary',
                 url   : 'https://github.com/neomjs/neo'
             }]
+        }, {
+            ntype       : 'container',
+            cls         : ['hero-doors'],
+            flex        : 'none',
+            itemDefaults: {module: Button, handler: 'up.onScrollToAudience', size: 'medium', ui: 'ghost'},
+            layout      : {ntype: 'hbox', align: 'center', pack: 'center'},
+            // The next screen's three doors, named where a visitor decides whether to scroll; a phone shows one cue
+            items: [
+                {cls: ['hero-door'],     text: 'Build an application ↓'},
+                {cls: ['hero-door'],     text: 'Run an agent team ↓'},
+                {cls: ['hero-door'],     text: 'Study the model ↓'},
+                {cls: ['hero-door-all'], text: 'Who it\'s for ↓'}
+            ]
         }]
     }
 
@@ -157,6 +171,13 @@ class Content extends BaseContainer {
         }
 
         magicMove.autoCycle = true
+    }
+
+    /**
+     * @summary Scrolls Home to the audience doors, the continuation the hero's cue promises.
+     */
+    onScrollToAudience() {
+        this.up('portal-home-maincontainer')?.scrollToPart('home-audience-doors')
     }
 
     /**

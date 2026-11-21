@@ -22,6 +22,17 @@
         }
     }
 
+    .hero-doors {
+        background-color: transparent;
+        flex-wrap       : wrap;
+        gap             : 0.5rem;
+        margin-top      : -1.5rem;
+
+        .hero-door-all {
+            display: none;
+        }
+    }
+
     .logo-container {
         align-items     : center;
         background-color: transparent;
@@ -151,6 +162,16 @@
 
             .neo-button {
                 width: 100%;
+            }
+        }
+
+        .hero-doors {
+            .hero-door {
+                display: none;
+            }
+
+            .hero-door-all {
+                display: inline-flex;
             }
         }
     }
