@@ -212,7 +212,8 @@ class CardEditor extends Dialog {
     }
 
     /**
-     * @summary Rebuilds form fields when `fieldLabels` changes at runtime
+     * @summary Updates existing form field labels in place when `fieldLabels` changes at runtime, preserving current
+     * field values and the save comparison baseline
      * @param {Object} value
      * @param {Object} oldValue
      * @protected
@@ -220,9 +221,10 @@ class CardEditor extends Dialog {
     afterSetFieldLabels(value, oldValue) {
         let me = this;
 
-        if (oldValue !== undefined && me.form) {
-            me.buildFields();
-            me.record && me.syncFormFields(me.record)
+        if (oldValue !== undefined) {
+            me.fieldMap.forEach((field, name) => {
+                field.labelText = me.getFieldLabel(name)
+            })
         }
     }
 
@@ -234,6 +236,17 @@ class CardEditor extends Dialog {
      */
     afterSetRecord(value, oldValue) {
         this.form && this.syncFormFields(value)
+    }
+
+    /**
+     * @summary Merges runtime `fieldLabels` updates shallowly over the current label map
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Object}
+     * @protected
+     */
+    beforeSetFieldLabels(value, oldValue) {
+        return oldValue ? {...oldValue, ...value} : value
     }
 
     /**
@@ -339,7 +352,7 @@ class CardEditor extends Dialog {
                 module,
                 appName  : me.appName,
                 id       : `${me.id}__field__${name}`,
-                labelText: me.fieldLabels?.[name] ?? Neo.capitalize(Neo.decamel(name).replace(/-/g, ' ')),
+                labelText: me.getFieldLabel(name),
                 name,
                 windowId : me.windowId
             };
@@ -516,6 +529,32 @@ class CardEditor extends Dialog {
     }
 
     /**
+     * @summary Resolves the `labelText` for `name` from {@link #fieldLabels}, falling back to the role key for custom
+     * `title`, `status` or `lane` fields and to the decamelized field name for model-derived fields
+     * @param {String} name
+     * @returns {String}
+     */
+    getFieldLabel(name) {
+        let me          = this,
+            labels      = me.fieldLabels,
+            titleField  = me.getTitleField(),
+            statusField = me.board?.statusField || 'status',
+            laneField   = me.board?.laneField || 'lane';
+
+        if (name === titleField) {
+            return labels[titleField] ?? labels.title
+        }
+        if (name === statusField) {
+            return labels[statusField] ?? labels.status
+        }
+        if (name === laneField) {
+            return labels[laneField] ?? labels.lane
+        }
+
+        return labels[name] ?? Neo.capitalize(Neo.decamel(name).replace(/-/g, ' '))
+    }
+
+    /**
      * @summary Returns the current value of the form field `name`; a CheckBox answers whether it is checked
      * @param {String} name
      * @returns {*}
@@ -570,7 +609,7 @@ class CardEditor extends Dialog {
      */
     getStandardFieldConfigs() {
         let me          = this,
-            labels      = me.fieldLabels || {},
+            labels      = me.fieldLabels,
             titleField  = me.getTitleField(),
             statusField = me.board?.statusField || 'status',
             laneField   = me.board?.laneField || 'lane';
@@ -580,21 +619,21 @@ class CardEditor extends Dialog {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__${titleField}`,
-                labelText: labels[titleField] ?? labels.title ?? 'Title',
+                labelText: labels[titleField] ?? labels.title,
                 name     : titleField
             },
             {
                 module   : TextAreaField,
                 clearable: false,
                 id       : `${me.id}__field__description`,
-                labelText: labels.description ?? 'Description',
+                labelText: labels.description,
                 name     : 'description'
             },
             {
                 module      : SelectField,
                 displayField: 'name',
                 id          : `${me.id}__field__${statusField}`,
-                labelText   : labels[statusField] ?? labels.status ?? 'Status',
+                labelText   : labels[statusField] ?? labels.status,
                 name        : statusField,
                 options     : me.getStatusOptions(me.record),
                 valueField  : 'id'
@@ -604,7 +643,7 @@ class CardEditor extends Dialog {
                 displayField: 'name',
                 hidden      : !me.board?.laneField,
                 id          : `${me.id}__field__${laneField}`,
-                labelText   : labels[laneField] ?? labels.lane ?? 'Lane',
+                labelText   : labels[laneField] ?? labels.lane,
                 name        : laneField,
                 options     : me.getLaneOptions(me.record),
                 valueField  : 'id'
@@ -613,14 +652,14 @@ class CardEditor extends Dialog {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__assignees`,
-                labelText: labels.assignees ?? 'Assignees',
+                labelText: labels.assignees,
                 name     : 'assignees'
             },
             {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__tags`,
-                labelText: labels.tags ?? 'Tags',
+                labelText: labels.tags,
                 name     : 'tags'
             },
             {
@@ -628,7 +667,7 @@ class CardEditor extends Dialog {
                 clearable     : false,
                 disabledChars : null,
                 id            : `${me.id}__field__progress`,
-                labelText     : labels.progress ?? 'Progress',
+                labelText     : labels.progress,
                 maxValue      : 100,
                 minValue      : 0,
                 name          : 'progress',
@@ -638,14 +677,14 @@ class CardEditor extends Dialog {
                 module   : TextField,
                 clearable: false,
                 id       : `${me.id}__field__color`,
-                labelText: labels.color ?? 'Color',
+                labelText: labels.color,
                 name     : 'color'
             },
             {
                 module   : DateField,
                 clearable: false,
                 id       : `${me.id}__field__dueDate`,
-                labelText: labels.dueDate ?? 'Due date',
+                labelText: labels.dueDate,
                 name     : 'dueDate',
                 triggers : []
             }

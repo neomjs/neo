@@ -728,21 +728,49 @@ test.describe('Neo.board.CardEditor follows the model it edits', () => {
         expect(editor.getField('column').labelText).toBe('Role-keyed Stage')
     });
 
-    test('runtime fieldLabels mutation rebuilds form field labels and preserves bound record values', () => {
-        store = createStore();
-        board = createBoard({store});
+    test('runtime fieldLabels update merges shallowly, updates labels in place and preserves unsaved draft values', () => {
+        store = createStore(workItems(), WorkItemModel);
+        board = createBoard({
+            store,
+            cardEditorConfig: {
+                fieldLabels: {
+                    startDate: 'Begins',
+                    title    : 'Name'
+                }
+            }
+        });
 
-        const editor = board.openCardEditor('c1');
+        const editor = board.openCardEditor('w1');
 
-        expect(editor.getField('title').labelText).toBe('Title');
+        expect(editor.getField('title').labelText).toBe('Name');
+        expect(editor.getField('startDate').labelText).toBe('Begins');
         expect(editor.getField('status').labelText).toBe('Status');
-        expect(editor.getFieldValue('title')).toBe('Atlas feed');
+        expect(editor.getFieldValue('title')).toBe('Build the booking screens');
 
-        editor.fieldLabels = {status: 'State', title: 'Task'};
+        editor.setFieldValue('title', 'Unsaved title');
+        expect(store.get('w1').title).toBe('Build the booking screens');
 
-        expect(editor.getField('title').labelText).toBe('Task');
-        expect(editor.getField('status').labelText).toBe('State');
+        editor.set({fieldLabels: {status: 'Stage'}});
+
+        expect(editor.fieldLabels).toEqual({
+            assignees  : 'Assignees',
+            color      : 'Color',
+            description: 'Description',
+            dueDate    : 'Due date',
+            lane       : 'Lane',
+            progress   : 'Progress',
+            startDate  : 'Begins',
+            status     : 'Stage',
+            tags       : 'Tags',
+            title      : 'Name'
+        });
+        expect(editor.getField('title').labelText).toBe('Name');
+        expect(editor.getField('startDate').labelText).toBe('Begins');
+        expect(editor.getField('status').labelText).toBe('Stage');
         expect(editor.getField('description').labelText).toBe('Description');
-        expect(editor.getFieldValue('title'), 'bound record values re-sync').toBe('Atlas feed')
+        expect(editor.getFieldValue('title'), 'unsaved draft survives runtime label update').toBe('Unsaved title');
+
+        expect(editor.save()).toEqual({title: 'Unsaved title'});
+        expect(store.get('w1').title).toBe('Unsaved title')
     });
 });

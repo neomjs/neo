@@ -1,10 +1,10 @@
 import BoardContainer from '../../../src/board/Container.mjs';
-import CandidateStore  from './CandidateStore.mjs';
-import Component       from '../../../src/component/Base.mjs';
-import Label           from '../../../src/component/Label.mjs';
-import StateProvider   from '../../../src/state/Provider.mjs';
-import Toolbar         from '../../../src/toolbar/Base.mjs';
-import Viewport        from '../../../src/container/Viewport.mjs';
+import CandidateStore from './CandidateStore.mjs';
+import Component      from '../../../src/component/Base.mjs';
+import Label          from '../../../src/component/Label.mjs';
+import StateProvider  from '../../../src/state/Provider.mjs';
+import Toolbar        from '../../../src/toolbar/Base.mjs';
+import Viewport       from '../../../src/container/Viewport.mjs';
 
 const
     columns = [
