@@ -59,16 +59,19 @@ function focusedAppointment(page) {
 }
 
 /**
- * @summary Types a time into the End row's time field and leaves it.
+ * @summary Types a time into the End row's time field and leaves it, once the editor has arrived.
  * @param {import('@playwright/test').Page} page
  * @param {String} time `'HH:mm'`
  */
 async function typeEnd(page, time) {
     const input = page.locator(`${EDITOR} [id$="__field__endDate__time__input"]`);
 
+    // The editor focuses its Title when it has arrived: a user types after that, and so does this spec
+    await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toBeFocused();
     await input.click();
     await input.press('ControlOrMeta+a');
     await input.pressSequentially(time);
+    await expect(input).toHaveValue(time);
     await input.press('Tab')
 }
 
