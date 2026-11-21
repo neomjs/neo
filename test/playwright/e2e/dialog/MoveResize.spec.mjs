@@ -164,5 +164,30 @@ test.describe('dialog move and resize', () => {
 
         expect(near(after.width, before.width) && near(after.x, before.x), `${after.width} px wide at ${after.x}, ${before.width} px at ${before.x} before`).toBe(true);
         expect(await opacity(), 'the dialog is as opaque as before the gesture').toBe(initial)
+    });
+
+    // A dialog that never moved has no opacity in its style, which is the case the move above hides
+    test('Escape cancels a resize of a dialog that never moved, and its opacity comes back', async ({page}) => {
+        const dialog   = await openDialog(page),
+              opacity  = () => dialog.evaluate(node => getComputedStyle(node).opacity),
+              initial  = await opacity(),
+              {hx, hy} = await pressRightHandle(page, dialog);
+
+        await page.mouse.move(hx + 150, hy, {steps: 16});
+        await expect.poll(opacity, 'the gesture dims the dialog').toBe('0.3');
+
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        await expect.poll(opacity, 'the dialog is as opaque as before the gesture').toBe(initial)
+    });
+
+    test('a resize of a dialog that never moved ends at its opacity', async ({page}) => {
+        const dialog  = await openDialog(page),
+              opacity = () => dialog.evaluate(node => getComputedStyle(node).opacity),
+              initial = await opacity();
+
+        await resizeRightBy(page, dialog, 150);
+        await expect.poll(opacity, 'the dialog is as opaque as before the gesture').toBe(initial)
     })
 });
