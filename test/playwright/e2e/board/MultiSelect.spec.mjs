@@ -128,11 +128,29 @@ test.describe('Board, multi-select example: select many reports, move them in on
 
     test('colored cards retain their left accent across rest, hover, selection and selected-hover; uncolored cards follow all four borders across all five themes', async ({page}) => {
         const readPaint = locator => locator.evaluate(node => {
-            const style = getComputedStyle(node);
+            const parseSrgb = value => {
+                      const nums = (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number);
+                      return value.startsWith('color(srgb') ? nums : nums.map(c => c / 255)
+                  },
+                  lum       = srgb => srgb
+                      .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
+                  contrast  = (fg, bg) => {
+                      const l1 = lum(parseSrgb(fg)),
+                            l2 = lum(parseSrgb(bg));
+                      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+                  },
+                  style     = getComputedStyle(node),
+                  title     = node.querySelector('.neo-board-card-title'),
+                  menuBtn   = node.querySelector('.neo-board-card-menu-button');
+
             return {
                 backgroundColor: style.backgroundColor,
                 borderLeftColor: style.borderLeftColor,
-                borderTopColor : style.borderTopColor
+                borderTopColor : style.borderTopColor,
+                boxShadow      : style.boxShadow,
+                mutedContrast  : contrast(getComputedStyle(menuBtn).color, style.backgroundColor),
+                titleContrast  : contrast(getComputedStyle(title).color, style.backgroundColor)
             }
         });
 
@@ -174,14 +192,22 @@ test.describe('Board, multi-select example: select many reports, move them in on
             expect(uncoloredSelected.borderLeftColor, `${theme}: S4 uncolored card left matches selected border`).toBe(uncoloredSelected.borderTopColor);
             expect(coloredSelected.backgroundColor, `${theme}: selected neighbours share selected background`).toBe(neighbourSelected.backgroundColor);
 
-            // Hover selected card 1043: retains S1 left stripe and distinguishes background from unhovered selected 1042
+            // Hover selected card 1043: retains S1 left stripe, adds selected-hover ring, and keeps WCAG contrast intact
             await card(1043).hover();
             const coloredSelectedHover = await readPaint(card(1043)),
                   neighbourUnhovered   = await readPaint(card(1042));
 
             expect(coloredSelectedHover.borderLeftColor, `${theme}: S1 card retains left stripe on .neo-selected:hover`).toBe(s1Accent);
-            expect(coloredSelectedHover.backgroundColor, `${theme}: .neo-selected:hover background differs from unhovered .neo-selected neighbour`)
-                .not.toBe(neighbourUnhovered.backgroundColor);
+            expect(coloredSelectedHover.boxShadow, `${theme}: .neo-selected:hover boxShadow differs from unhovered .neo-selected neighbour`)
+                .not.toBe(neighbourUnhovered.boxShadow);
+            expect(coloredSelectedHover.titleContrast, `${theme}: .neo-selected:hover title contrast >= 4.5:1`)
+                .toBeGreaterThanOrEqual(4.5);
+            expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast never drops below .neo-selected`)
+                .toBeGreaterThanOrEqual(neighbourUnhovered.mutedContrast);
+            if (neighbourUnhovered.mutedContrast >= 4.5) {
+                expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast >= 4.5:1`)
+                    .toBeGreaterThanOrEqual(4.5)
+            }
 
             expect(errors, `${theme}: zero console/page errors`).toEqual([])
         }

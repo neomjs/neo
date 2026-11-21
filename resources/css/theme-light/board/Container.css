@@ -25,9 +25,8 @@
     --neo-board-card-background        : var(--grid-container-cell-background-color, #fff);
     --neo-board-card-border-color      : var(--grid-container-border-color, #ddd);
     --neo-board-card-hover-border-color: #bbb;
-    --neo-board-card-selected-background      : var(--grid-rowmodel-selected-cell-background-color, #cee8fc);
-    --neo-board-card-selected-hover-background: color-mix(in srgb, var(--neo-board-accent-color) 18%, var(--neo-board-card-selected-background));
-    --neo-board-card-selected-border-color    : var(--button-text-color, #1c60a0);
+    --neo-board-card-selected-background  : var(--grid-rowmodel-selected-cell-background-color, #cee8fc);
+    --neo-board-card-selected-border-color: var(--button-text-color, #1c60a0);
     --neo-board-card-color             : #2b2b2b;
     --neo-board-card-muted-color       : var(--panel-header-text-color, #666);
     --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.1);
