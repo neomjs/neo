@@ -27,7 +27,7 @@ const BASELINE   = path.join(__dirname, 'check-class-module-scope-baseline.json'
  * class" — removes an override seam here. This is an operator ruling, not a style preference: the
  * pattern was spreading class by class, each instance locally justified.
  *
- * Each src module may declare at most one top-level class.
+ * Each module under `src`, `apps` and `examples` may declare at most one top-level class.
  * Keep immutable internal constants such as regexes and private grammar tables at module scope.
  * Use a static config descriptor with shallow merging or a static class field for consumer- or subclass-extensible maps, labels and options.
  *
@@ -69,13 +69,13 @@ const BASELINE   = path.join(__dirname, 'check-class-module-scope-baseline.json'
  * paths runs late and misattributed.
  * @type {String[]}
  */
-export const SCAN_SURFACE = Object.freeze(['src/**/*.mjs']);
+export const SCAN_SURFACE = Object.freeze(['src/**/*.mjs', 'apps/**/*.mjs', 'examples/**/*.mjs']);
 
 /**
  * The roots {@link SCAN_SURFACE} covers, in the form `git ls-files` takes.
  * @type {String[]}
  */
-const SCAN_ROOTS = Object.freeze(['src']);
+const SCAN_ROOTS = Object.freeze(['src', 'apps', 'examples']);
 
 /**
  * @summary Is this node a function value — the thing a class method would otherwise be?
