@@ -106,17 +106,12 @@ class EditUserDialog extends Dialog {
     }
 
     /**
-     * Restores focus to the triggering row's `Edit` button once the dialog finishes hiding and unmounting.
-     * @param {Boolean} [animate=!!this.animateTargetId]
+     * @summary The row's `Edit` button that opened the dialog takes focus back, ahead of the component focus came
+     * from: the grid view takes focus on the way in. The engine hands it over as the dialog leaves the DOM.
+     * @returns {Neo.component.Base|null}
      */
-    async hide(animate=!!this.animateTargetId) {
-        let target = this.animateTarget;
-        await super.hide(animate);
-
-        if (!animate && target) {
-            await this.timeout(20);
-            target.focus(target.id)
-        }
+    getFocusReturnTarget() {
+        return this.animateTarget || super.getFocusReturnTarget()
     }
 
     /**
