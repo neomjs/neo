@@ -92,7 +92,8 @@ function startedGesture(opacity) {
 
 test.describe('Neo.plugin.Resizable gesture ends', () => {
     for (const opacity of [0.8, undefined]) {
-        const kept = opacity === undefined ? {} : {opacity};
+        // null removes the key on a single-node owner, where a deleted key keeps the gesture's 0.3
+        const kept = {opacity: opacity ?? null};
 
         test(`a release commits the preview's box and gives back the owner's opacity (${opacity ?? 'none'})`, () => {
             const plugin = startedGesture(opacity);
