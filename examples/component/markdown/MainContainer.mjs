@@ -1,7 +1,8 @@
-import Button         from '../../../src/button/Base.mjs';
-import MarkdownVdom   from '../../../src/component/markdown/Component.mjs';
-import Toolbar        from '../../../src/toolbar/Base.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import MarkdownVdom  from '../../../src/component/markdown/Component.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * The canonical markdown source the streaming demo replays chunk-wise — deliberately covering
@@ -100,6 +101,8 @@ class MainContainer extends Viewport {
                 handler: 'up.onResetButtonClick',
                 iconCls: 'fa fa-rotate-left',
                 text   : 'Reset'
+            }, '->', {
+                module: ThemeSwitcher
             }]
         }, {
             module   : MarkdownVdom,

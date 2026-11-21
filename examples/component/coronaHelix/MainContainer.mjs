@@ -1,12 +1,14 @@
-import BoxLabel     from '../../../src/component/BoxLabel.mjs';
-import CountryHelix from './CountryHelix.mjs';
-import Panel        from '../../../src/container/Panel.mjs';
-import RangeField   from '../../../src/form/field/Range.mjs';
-import Viewport     from '../../../src/container/Viewport.mjs';
+import BoxLabel      from '../../../src/component/BoxLabel.mjs';
+import CountryHelix  from './CountryHelix.mjs';
+import Panel         from '../../../src/container/Panel.mjs';
+import RangeField    from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.coronaHelix.MainContainer
  * @extends Neo.container.Viewport
+ * @summary 3D country indicators helix viewport with live theme-able controls panel.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -44,7 +46,7 @@ class MainContainer extends Viewport {
             module: Panel,
             cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout: {ntype: 'vbox',align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b', maxWidth: '50%'},
+            style : {maxWidth: '50%'},
             width : 250,
 
             containerConfig: {
@@ -52,10 +54,11 @@ class MainContainer extends Viewport {
             },
 
             headers: [{
-                dock: 'top',
-                items: [{
-                    ntype: 'button',
-                    text : 'X',
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype  : 'button',
+                    text   : 'X',
                     handler: function() {
                         const panel  = this.up('panel'),
                               expand = panel.width === 40;
@@ -66,6 +69,9 @@ class MainContainer extends Viewport {
                 }, {
                     ntype: 'label',
                     text : 'Helix Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
                 }]
             }],
 
