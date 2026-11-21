@@ -166,6 +166,7 @@ test.describe('Board, multi-select example: select many reports, move them in on
 
             expect(coloredRest.borderLeftColor, `${theme}: S1 card left stripe at rest`).toBe(s1Accent);
             expect(uncoloredRest.borderLeftColor, `${theme}: S4 uncolored card left matches top at rest`).toBe(uncoloredRest.borderTopColor);
+            expect(coloredRest.mutedContrast, `${theme}: resting card muted-text contrast >= 4.5:1`).toBeGreaterThanOrEqual(4.5);
 
             // Hover unselected colored (1043) and uncolored (1046) cards
             await card(1043).hover();
@@ -191,6 +192,7 @@ test.describe('Board, multi-select example: select many reports, move them in on
             expect(coloredSelected.borderLeftColor, `${theme}: S1 card retains left stripe when selected`).toBe(s1Accent);
             expect(uncoloredSelected.borderLeftColor, `${theme}: S4 uncolored card left matches selected border`).toBe(uncoloredSelected.borderTopColor);
             expect(coloredSelected.backgroundColor, `${theme}: selected neighbours share selected background`).toBe(neighbourSelected.backgroundColor);
+            expect(coloredSelected.mutedContrast, `${theme}: .neo-selected card muted-text contrast >= 4.5:1`).toBeGreaterThanOrEqual(4.5);
 
             // Hover selected card 1043: retains S1 left stripe, adds selected-hover ring, and keeps WCAG contrast intact
             await card(1043).hover();
@@ -204,10 +206,8 @@ test.describe('Board, multi-select example: select many reports, move them in on
                 .toBeGreaterThanOrEqual(4.5);
             expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast never drops below .neo-selected`)
                 .toBeGreaterThanOrEqual(neighbourUnhovered.mutedContrast);
-            if (neighbourUnhovered.mutedContrast >= 4.5) {
-                expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast >= 4.5:1`)
-                    .toBeGreaterThanOrEqual(4.5)
-            }
+            expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast >= 4.5:1`)
+                .toBeGreaterThanOrEqual(4.5);
 
             expect(errors, `${theme}: zero console/page errors`).toEqual([])
         }
