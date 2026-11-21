@@ -158,7 +158,7 @@ if (programOpts.info) {
     const scssClassName = getScssClassName(className, rootLowerCase);
 
     const classArgs = [
-        './buildScripts/create/class.mjs',
+        path.join(__dirname, 'create/class.mjs'),
         '-c',
         className,
         '-b',
@@ -180,7 +180,7 @@ if (programOpts.info) {
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
         let childProcess = spawnSync('node', [
-            './buildScripts/create/css.mjs',
+            path.join(__dirname, 'create/css.mjs'),
             '-c',
             className,
             '-b',
@@ -192,7 +192,7 @@ if (programOpts.info) {
     // create only example stub when it is a NEO component
     if (rootLowerCase === 'neo') {
         let childProcess = spawnSync('node', [
-            './buildScripts/create/example.mjs',
+            path.join(__dirname, 'create/example.mjs'),
             //        '--',
             '-c',
             className
@@ -202,7 +202,7 @@ if (programOpts.info) {
 
     //re-build the themes
     let buildThemes = spawnSync('node', [
-        './buildScripts/build/themes.mjs',
+        path.join(__dirname, 'build/themes.mjs'),
         //        '--',
         '-f',
         '-e',
