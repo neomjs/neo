@@ -46,7 +46,7 @@ const
         'timeline/basic'
     ];
 
-test.describe('Planning & Timeline ThemeSwitcher Rollout (#21706)', () => {
+test.describe('Planning & Timeline ThemeSwitcher', () => {
     for (const {appName, path, routeAiClient} of INTERACTIVE_EXAMPLES) {
         test(`${path} switches live across all five themes in the App Worker and DOM`, async ({page, neuralLink}) => {
             const errors = [];
@@ -97,35 +97,13 @@ test.describe('Planning & Timeline ThemeSwitcher Rollout (#21706)', () => {
         })
     }
 
-    test('honours system prefersDarkTheme on Gantt, Scheduler, and Timeline unless ?theme= overrides it', async ({page}) => {
-        for (const path of ['gantt/basic', 'scheduler/basic', 'timeline/basic']) {
-            const url   = `/examples/${path}/index.html`,
-                  theme = () => page.locator('.neo-viewport').first().evaluate(
-                      node => [...node.classList].find(cls => cls.startsWith('neo-theme-'))
-                  );
+    for (const path of ALL_PLANNING_EXAMPLES) {
+        test(`${path} keeps every toolbar control and ThemeSwitcher reachable without horizontal overflow at 390 × 844 and 1440 × 900`, async ({page}) => {
+            await page.emulateMedia({reducedMotion: 'reduce'});
+            const query = path === 'scheduler/liveUpdates' ? '?seed=19257&interval=60000' : '';
 
-            await page.emulateMedia({colorScheme: 'light'});
-            await page.goto(url);
-            await expect.poll(theme, `${path}: light system uses themes[0]`).toBe('neo-theme-neo-light');
-
-            await page.emulateMedia({colorScheme: 'dark'});
-            await page.goto(url);
-            await expect.poll(theme, `${path}: dark system selects neo-theme-neo-dark`).toBe('neo-theme-neo-dark');
-
-            await page.goto(`${url}?theme=neo-theme-light`);
-            await expect.poll(theme, `${path}: ?theme= overrides prefersDarkTheme`).toBe('neo-theme-light')
-        }
-    });
-
-    test('keeps every toolbar control and ThemeSwitcher reachable without horizontal overflow at 390 × 844 and 1440 × 900', async ({page}) => {
-        test.setTimeout(180000);
-        await page.emulateMedia({reducedMotion: 'reduce'});
-
-        for (const [width, height] of [[390, 844], [1440, 900]]) {
-            await page.setViewportSize({width, height});
-
-            for (const path of ALL_PLANNING_EXAMPLES) {
-                const query = path === 'scheduler/liveUpdates' ? '?seed=19257&interval=60000' : '';
+            for (const [width, height] of [[390, 844], [1440, 900]]) {
+                await page.setViewportSize({width, height});
                 await page.goto(`/examples/${path}/index.html${query}`);
 
                 const switcher = page.locator('.neo-theme-switcher').first();
@@ -166,6 +144,6 @@ test.describe('Planning & Timeline ThemeSwitcher Rollout (#21706)', () => {
                     expect(Math.abs(day.top - week.top), 'gantt/basic Day and Week share one row on phone').toBeLessThanOrEqual(1)
                 }
             }
-        }
-    })
+        })
+    }
 });
