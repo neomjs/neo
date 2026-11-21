@@ -320,17 +320,14 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Paints a Portal-local resource or a Pages-hosted cover over the loading gradient.
+     * @summary Paints the record's cover over the theme gradient that shows while it loads.
      * @param {Object} record
      * @returns {{backgroundImage: string}}
      */
     getBackgroundImageStyle(record) {
-        const {image} = record,
-              base    = image?.startsWith('./resources/images/') ? '' : `${this.imageBasePath}/`;
-
         return {
             backgroundImage: [
-                image ? `url('${base}${image}'),` : '',
+                record.image ? `url('${this.imageBasePath}/${record.image}'),` : '',
                 'linear-gradient(',
                 'var(--portal-examples-list-gradient-start),',
                 'var(--portal-examples-list-gradient-end)',

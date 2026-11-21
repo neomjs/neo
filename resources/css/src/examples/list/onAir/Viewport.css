@@ -35,7 +35,7 @@
         width       : 100%;
     }
 
-    :is(.air-mast, .air-heading, .air-layout, .air-vision, .air-rundown, .air-transport, .air-monitor-actions) {
+    :is(.air-mast, .air-clock, .air-heading, .air-layout, .air-vision, .air-rundown, .air-transport, .air-monitor-actions) {
         background-color: transparent;
         min-width       : 0;
     }

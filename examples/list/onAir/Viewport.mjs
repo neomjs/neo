@@ -1,7 +1,7 @@
 import Button        from '../../../src/button/Base.mjs';
 import Container     from '../../../src/container/Base.mjs';
 import StateProvider from '../../../src/state/Provider.mjs';
-import Viewport      from '../../../src/container/Viewport.mjs';
+import BaseViewport  from '../../../src/container/Viewport.mjs';
 import Monitor       from './Monitor.mjs';
 import Presenter     from './Presenter.mjs';
 import Rundown       from './Rundown.mjs';
@@ -21,21 +21,20 @@ function studioTime(elapsed) {
  * @class Neo.examples.list.onAir.Viewport
  * @extends Neo.container.Viewport
  */
-class Director extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
         className    : 'Neo.examples.list.onAir.Viewport',
         cls          : ['air-desk'],
         layout       : {ntype: 'base'},
-        stateProvider: {module: StateProvider, data: {cue: '', detail: ''}},
+        stateProvider: {module: StateProvider, data: {clock: studioTime(0), cue: '', detail: '', result: ''}},
         items        : [{
-            cls : ['air-mast'],
-            vdom: {cn: [
+            module: Container, cls: ['air-mast'], layout: 'base',
+            items : [
                 {cls: ['air-station'], text: 'Channel 08   /   Transmission control'},
-                {cls: ['air-clock'], cn: [
-                    {tag: 'span', text: 'Studio clock'}, {tag: 'strong', text: '19:59:50'}
+                {module: Container, cls: ['air-clock'], layout: 'base', items: [
+                    {tag: 'span', text: 'Studio clock'}, {tag: 'strong', bind: {text: 'clock'}}
                 ]}
-            ]},
-            reference: 'mast'
+            ]
         }, {
             cls : ['air-heading'],
             vdom: {cn: [
@@ -73,7 +72,7 @@ class Director extends Viewport {
                         {module: Button, cls: ['air-quiet'], text: 'Replay', handler: 'up.replay'}
                     ]
                 }, {
-                    cls: ['air-result'], reference: 'result', vdom: {role: 'status'}
+                    cls: ['air-result'], bind: {text: 'result'}, role: 'status'
                 }, {
                     cls: ['air-plan'], reference: 'timing'
                 }]
@@ -153,7 +152,7 @@ class Director extends Viewport {
     /** @summary Opens a presenter-only view linked to this desk. */
     async openPresenter() {
         if (!await Presenter.openWindow(this) && !this.isDestroyed) {
-            this.getReference('result').text = 'The presenter window could not open. The cue is also shown below Program.'
+            this.stateProvider.setData('result', 'The presenter window could not open. The cue is also shown below Program.')
         }
     }
 
@@ -213,12 +212,9 @@ class Director extends Viewport {
               next     = list.store.items[0],
               stopped  = this.#end === null,
               waiting  = this.#elapsed < guestReadyAt,
-              mast     = this.getReference('mast'),
               clock    = studioTime(this.#elapsed),
               filmNext = next?.id === 'film';
 
-        mast.getVdomRoot().cn[1].cn[1].text = clock;
-        mast.update();
         this.getReference('take').disabled = stopped;
         this.getReference('play').disabled = stopped;
         this.getReference('play').text     = this.#timer ? 'Hold clock' : 'Run clock';
@@ -241,9 +237,8 @@ class Director extends Viewport {
                 : filmNext ? 'Film is cued. Take the next cue or let the titles run out.'
                 : 'Titles end at 20:00:00. The ninety-second film is ready.'
         }
-        this.stateProvider.setData({cue, detail});
-        this.getReference('result').text = result
+        this.stateProvider.setData({clock, cue, detail, result})
     }
 }
 
-export default Neo.setupClass(Director);
+export default Neo.setupClass(Viewport);

@@ -4,6 +4,6 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
-    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+    "themes"          : ["neo-theme-neo-dark"],
     "useSharedWorkers": true
 }

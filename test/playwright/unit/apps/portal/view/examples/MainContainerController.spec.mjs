@@ -733,7 +733,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 127,
+      recordCount    = 128,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1194,7 +1194,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
         expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
-        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight')).backgroundImage).toContain("url('./resources/images/examples/on-air-at-eight-14.jpg')");
+        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
         expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')

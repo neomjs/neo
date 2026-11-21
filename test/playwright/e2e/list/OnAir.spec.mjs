@@ -34,6 +34,7 @@ test('a rundown drop changes the presenter cue and the next program picture in t
     await take.click();
     await expect(page.locator('.air-screen')).toHaveClass(/air-film/);
     await expect(page.locator('.air-clock strong')).toHaveText('20:00:00');
+    await expect(page.getByRole('status')).toHaveText('Film on air. The guest will be ready for the next cue.');
     await expect(presenter.locator('.air-cue')).toHaveText('Introduce Mara Lin');
     await take.click();
     await expect(page.locator('.air-screen')).toHaveClass(/air-guest/);
@@ -43,6 +44,8 @@ test('a rundown drop changes the presenter cue and the next program picture in t
     await expect(take).toBeDisabled();
     await page.getByRole('button', {name: 'Replay'}).click();
     await expect(rows).toHaveCount(2);
+    await expect(page.locator('.air-clock strong')).toHaveText('19:59:50');
+    await expect(page.getByRole('status')).toHaveText('Titles end at 20:00:00. The ninety-second film is ready.');
     await expect(page.locator('.air-margin')).toHaveText('Guest slot is 01:20 early');
     await expect(presenter.locator('.air-cue')).toHaveText('Introduce Mara Lin');
     await presenter.close()
@@ -53,6 +56,7 @@ test('titles expire into dead air, then the show can be rescued with a keyboard 
     await page.goto(entry);
     await page.getByRole('button', {name: 'Run clock'}).click();
     await expect(page.locator('.air-screen')).toHaveClass(/air-black/, {timeout: 20000});
+    await expect(page.getByRole('status')).toContainText('Dead air at 20:00:00');
     await expect(page.locator('.air-clock strong')).toHaveText('20:00:00');
     await page.getByRole('button', {name: 'Replay'}).click();
     const cueFilm = page.getByRole('button', {name: 'Cue film first'});
