@@ -288,6 +288,7 @@ test.describe('Neo.scheduler.Container', () => {
         expect(setCalls).toBe(1);
         expect(sortCalls).toBe(1);
         expect(changes.length).toBe(1);
+        expect(changes[0]).toMatchObject({changeSource: 'api', source: scheduler.id});
         expect(changes[0].action).toBe('move');
         expect(changes[0].record).toBe(record);
         expect(changes[0].changes).toEqual(moved);
@@ -308,8 +309,9 @@ test.describe('Neo.scheduler.Container', () => {
         scheduler.moveEvent(record, {
             startDate: '2026-11-08T22:00:00Z',
             endDate  : '2026-11-08T22:10:00Z'
-        });
+        }, {source: 'integration'});
 
+        expect(changes[1]).toMatchObject({changeSource: 'integration', source: scheduler.id});
         expect(record.startDate.toISOString()).toBe('2026-11-09T00:00:00.000Z');
         expect(record.endDate.toISOString()).toBe('2026-11-09T00:30:00.000Z');
 
@@ -553,6 +555,9 @@ test.describe('Neo.scheduler.Container', () => {
             record  = eventStore.get('ev-1'),
             barNode = getRowTrackBars(scheduler, 0)[0];
 
+        const changes = [];
+        scheduler.on('eventChange', payload => changes.push(payload));
+
         // ArrowRight shifts +15m -> 02:15..03:15
         scheduler.onBarKeyDown({
             key     : 'ArrowRight',
@@ -588,6 +593,13 @@ test.describe('Neo.scheduler.Container', () => {
         });
         expect(record.startDate.toISOString()).toBe('2026-11-09T02:00:00.000Z');
         expect(record.endDate.toISOString()).toBe('2026-11-09T03:00:00.000Z');
+
+        expect(changes.map(({action, changeSource, source}) => ({action, changeSource, source}))).toEqual([
+            {action: 'move',   changeSource: 'keyboard', source: scheduler.id},
+            {action: 'move',   changeSource: 'keyboard', source: scheduler.id},
+            {action: 'resize', changeSource: 'keyboard', source: scheduler.id},
+            {action: 'resize', changeSource: 'keyboard', source: scheduler.id}
+        ]);
 
         eventStore.destroy();
         resourceStore.destroy()
