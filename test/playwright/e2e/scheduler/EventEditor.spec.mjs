@@ -59,18 +59,17 @@ function focusedAppointment(page) {
 }
 
 /**
- * @summary Types a time into the End row's time field and leaves it, once the editor has arrived.
+ * @summary Sets the End row's time and leaves the field, once the editor has arrived. The field is a native time
+ * input, so the spec fills it: keystrokes edit the platform's segments, and on hosted runners they never landed.
  * @param {import('@playwright/test').Page} page
  * @param {String} time `'HH:mm'`
  */
-async function typeEnd(page, time) {
+async function setEnd(page, time) {
     const input = page.locator(`${EDITOR} [id$="__field__endDate__time__input"]`);
 
     // The editor focuses its Title when it has arrived: a user types after that, and so does this spec
     await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toBeFocused();
-    await input.click();
-    await input.press('ControlOrMeta+a');
-    await input.pressSequentially(time);
+    await input.fill(time);
     await expect(input).toHaveValue(time);
     await input.press('Tab')
 }
@@ -127,7 +126,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
         expect(await readBar(page, 'appt-3')).toEqual({minutes: 90, title: 'Deep cleaning'});
 
         await bar(page, 'appt-3').dblclick();
-        await typeEnd(page, '11:00');
+        await setEnd(page, '11:00');
         await clickButton(page, 'Save');
 
         await expect(page.locator(EDITOR)).toBeHidden();
@@ -143,7 +142,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
 
         // Crown preparation, 10:30–12:00, would end at 10:45
         await bar(page, 'appt-13').dblclick();
-        await typeEnd(page, '10:45');
+        await setEnd(page, '10:45');
         await clickButton(page, 'Save');
         await expect(page.locator(`${EDITOR} .neo-textfield-error`)).toHaveText(MINIMUM);
         await expect(page.locator(EDITOR)).toBeVisible();
@@ -153,7 +152,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
 
         // Exam, 08:00–08:30, already sits at the minimum
         await bar(page, 'appt-1').dblclick();
-        await typeEnd(page, '08:15');
+        await setEnd(page, '08:15');
         await clickButton(page, 'Save');
         await expect(page.locator(`${EDITOR} .neo-textfield-error`)).toHaveText(MINIMUM);
         await clickButton(page, 'Cancel');
@@ -182,7 +181,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
         expect(box.x, 'the dialog starts on screen').toBeGreaterThanOrEqual(0);
         expect(box.x + box.width, 'the dialog ends on screen').toBeLessThanOrEqual(390);
 
-        await typeEnd(page, '08:45');
+        await setEnd(page, '08:45');
         await clickButton(page, 'Save');
         await expect(page.locator('.dp-status')).toHaveText('Saved: Filling, Restorative, 08:00–08:45');
 
