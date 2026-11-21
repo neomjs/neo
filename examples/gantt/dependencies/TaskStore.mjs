@@ -25,28 +25,28 @@ export const SEED_TASKS = [
 ];
 
 /**
- * @summary Builds fresh records of the launch plan: three expanded phases and their fourteen tasks.
- * @returns {Object[]}
- */
-export function buildSeedTasks() {
-    return SEED_TASKS.map(([id, parentId, title, startDay, endDay]) => ({
-        id,
-        collapsed  : false,
-        endDate    : `${endDay}T00:00:00Z`,
-        isLeaf     : parentId !== null,
-        parentId,
-        percentDone: 0,
-        startDate  : `${startDay}T00:00:00Z`,
-        title
-    }))
-}
-
-/**
  * @summary The product launch's task tree: three phases of fourteen tasks in November 2026.
  * @class Neo.examples.gantt.dependencies.TaskStore
  * @extends Neo.gantt.TaskStore
  */
 class TaskStore extends BaseTaskStore {
+    /**
+     * @summary Builds fresh records of the launch plan: three expanded phases and their fourteen tasks.
+     * @returns {Object[]}
+     */
+    static buildSeedTasks() {
+        return SEED_TASKS.map(([id, parentId, title, startDay, endDay]) => ({
+            id,
+            collapsed  : false,
+            endDate    : `${endDay}T00:00:00Z`,
+            isLeaf     : parentId !== null,
+            parentId,
+            percentDone: 0,
+            startDate  : `${startDay}T00:00:00Z`,
+            title
+        }))
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.examples.gantt.dependencies.TaskStore'
@@ -62,8 +62,10 @@ class TaskStore extends BaseTaskStore {
     construct(config) {
         super.construct(config);
 
-        if (!this.getCount()) {
-            this.data = buildSeedTasks()
+        let me = this;
+
+        if (!me.getCount()) {
+            me.data = me.constructor.buildSeedTasks()
         }
     }
 }

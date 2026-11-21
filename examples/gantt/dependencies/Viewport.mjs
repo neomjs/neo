@@ -1,11 +1,10 @@
 import Button                            from '../../../src/button/Base.mjs';
 import Component                         from '../../../src/component/Base.mjs';
-import Container                         from '../../../src/container/Base.mjs';
 import DependencyStore, {SEED_DEPENDENCIES} from './DependencyStore.mjs';
 import Gantt                             from '../../../src/gantt/Container.mjs';
 import Label                             from '../../../src/component/Label.mjs';
 import StateProvider                     from '../../../src/state/Provider.mjs';
-import TaskStore, {buildSeedTasks}       from './TaskStore.mjs';
+import TaskStore                         from './TaskStore.mjs';
 import Toolbar                           from '../../../src/toolbar/Base.mjs';
 import Viewport                          from '../../../src/container/Viewport.mjs';
 
@@ -35,24 +34,6 @@ const LINK_TYPES = [
 ];
 
 /**
- * @summary Builds one legend entry: an SVG glyph of two bars and their connector, and the type's name.
- * @param {Object} entry An item of {@link LINK_TYPES}
- * @returns {Object} VDOM
- */
-function buildLegendItem({head: [x, y, dir], path, pred, succ, text, type}) {
-    return {tag: 'li', cls: ['launch-legend-item'], data: {linkType: type}, cn: [{
-        tag: 'svg', cls: ['launch-legend-glyph'], viewBox: '0 0 44 24', 'aria-hidden': 'true', cn: [
-            {tag: 'rect', cls: ['launch-legend-bar'], x: pred[0], y: 3,  width: pred[1] - pred[0], height: 6, rx: 2},
-            {tag: 'rect', cls: ['launch-legend-bar'], x: succ[0], y: 15, width: succ[1] - succ[0], height: 6, rx: 2},
-            {tag: 'path', cls: ['launch-legend-link'], d: path},
-            {tag: 'path', cls: ['launch-legend-head'], d: `M${x} ${y} L${x - 5 * dir} ${y - 3} L${x - 5 * dir} ${y + 3} Z`}
-        ]
-    }, {
-        tag: 'span', text
-    }]}
-}
-
-/**
  * @summary A product launch whose tasks a planner links by drag: eight links in all four types to begin with,
  * and six tasks still unlinked.
  * @description `dependencyCreation` puts a dot on each task's finish edge. A drag from that dot to another task
@@ -64,6 +45,24 @@ function buildLegendItem({head: [x, y, dir], path, pred, succ, text, type}) {
  * @extends Neo.container.Viewport
  */
 class LaunchViewport extends Viewport {
+    /**
+     * @summary Builds one legend entry: an SVG glyph of two bars and their connector, and the type's name.
+     * @param {Object} entry An item of {@link LINK_TYPES}
+     * @returns {Object} VDOM
+     */
+    static buildLegendItem({head: [x, y, dir], path, pred, succ, text, type}) {
+        return {tag: 'li', cls: ['launch-legend-item'], data: {linkType: type}, cn: [{
+            tag: 'svg', cls: ['launch-legend-glyph'], viewBox: '0 0 44 24', 'aria-hidden': 'true', cn: [
+                {tag: 'rect', cls: ['launch-legend-bar'], x: pred[0], y: 3,  width: pred[1] - pred[0], height: 6, rx: 2},
+                {tag: 'rect', cls: ['launch-legend-bar'], x: succ[0], y: 15, width: succ[1] - succ[0], height: 6, rx: 2},
+                {tag: 'path', cls: ['launch-legend-link'], d: path},
+                {tag: 'path', cls: ['launch-legend-head'], d: `M${x} ${y} L${x - 5 * dir} ${y - 3} L${x - 5 * dir} ${y + 3} Z`}
+            ]
+        }, {
+            tag: 'span', text
+        }]}
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.examples.gantt.dependencies.Viewport'
@@ -126,7 +125,7 @@ class LaunchViewport extends Viewport {
                 tag              : 'ul',
                 cls              : ['launch-legend'],
                 'aria-labelledby': 'launch-legend-title',
-                cn               : LINK_TYPES.map(buildLegendItem)
+                cn               : LINK_TYPES.map(entry => this.buildLegendItem(entry))
             }]}
         }, {
             module             : Gantt,
@@ -164,15 +163,16 @@ class LaunchViewport extends Viewport {
     onConstructed() {
         super.onConstructed();
 
-        const gantt = this.getReference('gantt');
+        let me    = this,
+            gantt = me.getReference('gantt');
 
-        this.getStateProvider().getStore('dependencies').on('mutate', this.onLinksChange, this);
+        me.getStateProvider().getStore('dependencies').on('mutate', me.onLinksChange, me);
 
         if (gantt?.body) {
-            this.observeConfig(gantt.body, 'containerWidth', width => this.syncViewportDensity(width));
+            me.observeConfig(gantt.body, 'containerWidth', width => me.syncViewportDensity(width));
 
             if (gantt.body.containerWidth > 0) {
-                this.syncViewportDensity(gantt.body.containerWidth)
+                me.syncViewportDensity(gantt.body.containerWidth)
             }
         }
     }
@@ -200,20 +200,20 @@ class LaunchViewport extends Viewport {
      * @summary Restores the fourteen tasks and the eight starting links.
      */
     onResetPlan() {
-        const
-            provider = this.getStateProvider(),
+        let me       = this,
+            provider = me.getStateProvider(),
             links    = provider.getStore('dependencies'),
             tasks    = provider.getStore('tasks');
 
         // A link a visitor adds leaves the store's `data` config as it was, so assigning the seed again would equal
         // it and change nothing: replace the records
-        this.getReference('gantt').cancelKeyboardLink();
+        me.getReference('gantt').cancelKeyboardLink();
         links.clear();
         tasks.clear();
-        tasks.add(buildSeedTasks());
+        tasks.add(TaskStore.buildSeedTasks());
         links.add(SEED_DEPENDENCIES.map(edge => ({...edge})));
 
-        this.getReference('status').text = HINT
+        me.getReference('status').text = HINT
     }
 
     /**
@@ -221,16 +221,18 @@ class LaunchViewport extends Viewport {
      * @param {Number} width The grid body's width
      */
     syncViewportDensity(width) {
-        const compact = width < 520;
+        let me      = this,
+            compact = width < 520,
+            axis;
 
-        if (!width || compact === this.#isCompact) {
+        if (!width || compact === me.#isCompact) {
             return
         }
 
-        this.#isCompact = compact;
-        this.toggleCls('launch-is-compact', compact);
+        me.#isCompact = compact;
+        me.toggleCls('launch-is-compact', compact);
 
-        const axis = this.getReference('gantt')?.timeAxis;
+        axis = me.getReference('gantt')?.timeAxis;
 
         if (axis) {
             axis.size = TOTAL_DAYS * (compact ? COMPACT_DAY_PX : DESKTOP_DAY_PX)
