@@ -95,14 +95,15 @@ test.describe('Board, multi-select example: select many reports, move them in on
         expect(errors).toEqual([])
     });
 
-    test('a drag on the first selected report carries the selection into This sprint, in board order', async ({page}) => {
+    test('a drag on a middle selected report carries the selection into This sprint in board order, its stack counting five', async ({page}) => {
         const {badge, card, column, errors, keys, line} = await open(page);
 
         await card(1042).click();
         await card(1046).click({modifiers: ['Shift']});
         await expect(line).toHaveText('5 selected');
 
-        const from = await card(1042).boundingBox(),
+        // The drag holds the third of the five
+        const from = await card(1044).boundingBox(),
               to   = await column('sprint').boundingBox();
 
         await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -110,9 +111,10 @@ test.describe('Board, multi-select example: select many reports, move them in on
         await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2, {steps: 4});
         await page.mouse.move(to.x + to.width / 2, to.y + 140, {steps: 16});
 
-        // The proxy is the held report in front of a stack of the other four
+        // The proxy is the held report in front of a stack of the other four, and says how many it carries
         await expect(page.locator('.neo-board-stack-proxy .neo-board-stack-lead')).toHaveCount(1);
         await expect(page.locator('.neo-board-stack-proxy .neo-board-stack-card')).toHaveCount(4);
+        await expect(page.locator('.neo-board-stack-proxy .neo-board-stack-count')).toHaveText('5');
         await page.mouse.up();
 
         await expect.poll(() => keys('sprint'), {message: 'the selection lands in This sprint, in board order'})
