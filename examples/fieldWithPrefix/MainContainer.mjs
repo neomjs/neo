@@ -24,36 +24,34 @@ class MainContainer extends ConfigurationViewport {
      * @summary Syncs inspector `pattern`, `slots`, and `accept` changes onto the first masked field's plugin.
      * @param {String} config
      * @param {Object} opts
+     * @returns {Promise<void>}
      */
-    onPluginConfigChange(config, opts) {
+    async onPluginConfigChange(config, opts) {
         const textfield = this.exampleComponent.items[0],
               plugin    = textfield.getPlugin('prefixfield');
 
         if (config === 'accept') {
-            plugin.accept = opts.record?.value ?? null
+            plugin.accept = opts.value?.value ?? null
         } else {
-            plugin[config]  = opts.value;
-            textfield.value = ''
+            textfield.reset();
+            await textfield.promiseUpdate();
+            plugin[config] = opts.value
         }
     }
 
     /**
-     * @summary Restores inspector controls and clears all five masked fields back to their initial state.
+     * @summary Clears all five masked fields on Main before restoring inspector controls to their initial state.
+     * @returns {Promise<void>}
      */
-    onReset() {
-        const firstPlugin = this.exampleComponent?.items?.[0]?.getPlugin('prefixfield');
+    async onReset() {
+        const {items} = this.exampleComponent;
 
-        firstPlugin?.set({
-            accept : null,
-            pattern: '+1 (___) ___-____',
-            slots  : '_'
+        items.forEach(field => {
+            field.reset()
         });
 
-        super.onReset();
-
-        this.exampleComponent?.items?.forEach(field => {
-            field.reset()
-        })
+        await Promise.all(items.map(field => field.promiseUpdate()));
+        super.onReset()
     }
 
     /**

@@ -183,6 +183,27 @@ test.describe('examples/fieldWithPrefix Input masks workbench', () => {
         // Workbench Reset clears masked fields back to empty initial state
         await page.getByRole('button', {name: /reset/i}).click();
         await expect(macInput).toHaveValue('');
+
+        // Inspector accept ComboBox updates the first field's mask, and Reset restores pattern + accept
+        const phoneInput  = container.locator('.neo-textfield input').first(),
+              inspector   = page.locator('.neo-configuration-panel-body'),
+              acceptCombo = inspector.locator('.neo-combobox'),
+              patternIn   = inspector.locator('.neo-textfield').filter({hasText: 'pattern'}).locator('input');
+
+        await acceptCombo.locator('.fa-caret-down').click();
+        await page.locator('.neo-picker-container .neo-list-item').filter({hasText: '[A-H]'}).click();
+
+        await phoneInput.click();
+        await phoneInput.pressSequentially('12ABC99', {delay: 0});
+        await expect(phoneInput).toHaveValue('+1 (ABC) ___-____');
+
+        await patternIn.fill('AB-___');
+        await page.getByRole('button', {name: /reset/i}).click();
+        await expect(phoneInput).toHaveValue('');
+
+        await phoneInput.click();
+        await phoneInput.pressSequentially('5552345678', {delay: 0});
+        await expect(phoneInput).toHaveValue('+1 (555) 234-5678');
     });
 
     test('fits 1440x900 (350px cap) and 390x844 phone width in light and dark themes with all five fields reachable', async ({page}) => {
