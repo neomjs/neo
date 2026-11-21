@@ -157,7 +157,8 @@ test('opens cleanly at 1440 × 900 and 390 × 844 in every theme', async ({page}
         const {url} = message.location();
         message.type() === 'error' && !url.endsWith('/favicon.ico') && errors.push(`${message.text()} ${url}`)
     });
-    page.on('response', response => response.status() >= 400 && errors.push(`${response.status()} ${response.url()}`));
+    page.on('response', response => response.status() >= 400 && !response.url().endsWith('/favicon.ico') && errors.push(`${response.status()} ${response.url()}`));
+    page.on('pageerror', error => errors.push(error.message));
 
     for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
         await page.setViewportSize(viewport);
@@ -173,4 +174,19 @@ test('opens cleanly at 1440 × 900 and 390 × 844 in every theme', async ({page}
     }
 
     expect(errors).toEqual([])
+});
+
+test('opens in the dark theme on a system that prefers dark, unless ?theme= names another', async ({page}) => {
+    const theme = () => page.locator('.task-columns-viewport').evaluate(node => [...node.classList].find(cls => cls.startsWith('neo-theme-')));
+
+    await page.emulateMedia({colorScheme: 'light'});
+    await page.goto(EXAMPLE_URL);
+    await expect.poll(theme, 'a light system gets the first configured theme').toBe('neo-theme-neo-light');
+
+    await page.emulateMedia({colorScheme: 'dark'});
+    await page.goto(EXAMPLE_URL);
+    await expect.poll(theme, 'a dark system gets the dark theme').toBe('neo-theme-neo-dark');
+
+    await page.goto(`${EXAMPLE_URL}?theme=neo-theme-light`);
+    await expect.poll(theme, '?theme= wins over the system').toBe('neo-theme-light')
 });
