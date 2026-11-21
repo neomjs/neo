@@ -44,8 +44,9 @@ Then try what a user would:
 ## One component, one store
 
 `Neo.desktop.Container` is a whole desktop in one component: a workspace holding the launcher, the taskbar beneath
-it, and the app windows, which open over the workspace and stay inside it when dragged or resized. Every part reads
-the same store, a tree of apps:
+it, and the app windows, which open over the workspace and stay inside it when dragged or resized. When the workspace
+shrinks, a window it would cut moves back in by the shortest distance, and shrinks only along an axis it no longer
+fits on. Every part reads the same store, a tree of apps:
 
 ```mermaid
 flowchart TD
