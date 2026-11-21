@@ -278,6 +278,22 @@ class Column extends BaseColumn {
     #projectedMinPx = 0
 
     /**
+     * The {@link #axisLeft} the last projected window was measured from.
+     * @member {Number} #projectedAxisLeft=0
+     * @private
+     */
+    #projectedAxisLeft = 0
+
+    /**
+     * @summary The center-content x in pixels where this column starts: the width of the columns before it in its
+     * scrolling region. The time axis has scrolled `scrollLeft - axisLeft` pixels.
+     * @returns {Number}
+     */
+    get axisLeft() {
+        return this.parent?.body?.columnPositions?.get(this.dataField)?.x || 0
+    }
+
+    /**
      * @summary Returns the horizontal space available to the timeline after accounting for locked grid bodies.
      * @returns {Number}
      */
@@ -539,8 +555,16 @@ class Column extends BaseColumn {
         me.recordProjectedWindow();
 
         if (body) {
+            // `passSizeToBody()` clears the positions, then adds them: only the second event carries the geometry
+            const onPositions = ({addedItems}) => {
+                if (addedItems?.length && me.axisLeft !== me.#projectedAxisLeft) me.refreshMountedRows()
+            };
+
+            body.columnPositions.on('mutate', onPositions);
+
             me.#gridCleanups.push(
-                me.observeConfig(body, 'containerWidth', () => me.refreshMountedRows())
+                me.observeConfig(body, 'containerWidth', () => me.refreshMountedRows()),
+                () => body.isDestroyed || body.columnPositions.un('mutate', onPositions)
             )
         }
 
@@ -1003,8 +1027,8 @@ class Column extends BaseColumn {
     }
 
     /**
-     * @summary Computes the horizontally buffered `{visibleStart, visibleEnd, minPx, maxPx}` window.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @summary Computes the horizontally buffered `{visibleStart, visibleEnd, minPx, maxPx}` window in axis pixels.
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.effectiveViewportWidth]
      * @returns {{visibleStart: Date, visibleEnd: Date, minPx: Number, maxPx: Number}}
      */
@@ -1013,7 +1037,7 @@ class Column extends BaseColumn {
             axis      = this.timeAxis,
             totalSize = axis?.totalSize || 0,
             buffer    = Math.max(0, this.bufferPx || 0),
-            left      = Math.max(0, Number(scrollLeft) || 0),
+            left      = Math.max(0, (Number(scrollLeft) || 0) - this.axisLeft),
             width     = Math.max(1, Number(viewportWidth) || 0),
             minPx     = Math.max(0, left - buffer),
             maxPx     = Math.min(totalSize, left + width + buffer);
@@ -1030,7 +1054,7 @@ class Column extends BaseColumn {
      * @summary Returns `true` when the visible viewport `[scrollLeft, scrollLeft + viewportWidth]`
      * extends outside the last projected `[#projectedMinPx, #projectedMaxPx]` window.
      * @description Delegates to {@link Neo.timeline.TimeAxis.needsReprojection}.
-     * @param {Number} [scrollLeft=this.scrollLeft]
+     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
      * @param {Number} [viewportWidth=this.effectiveViewportWidth]
      * @returns {Boolean}
      */
@@ -1040,7 +1064,7 @@ class Column extends BaseColumn {
             hasProjectedWindow: this.#hasProjectedWindow,
             projectedMaxPx    : this.#projectedMaxPx,
             projectedMinPx    : this.#projectedMinPx,
-            scrollLeft,
+            scrollLeft        : (Number(scrollLeft) || 0) - this.axisLeft,
             timeAxis          : this.timeAxis,
             viewportWidth
         })
@@ -1089,6 +1113,7 @@ class Column extends BaseColumn {
         }
 
         const {minPx, maxPx} = this.getVisibleDateRange();
+        this.#projectedAxisLeft  = this.axisLeft;
         this.#projectedMinPx     = minPx;
         this.#projectedMaxPx     = maxPx;
         this.#hasProjectedWindow = true
