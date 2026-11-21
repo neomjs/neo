@@ -45,6 +45,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/board',
     'test/playwright/e2e/code',
     'test/playwright/e2e/colors',
+    'test/playwright/e2e/component',
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
     'test/playwright/e2e/desktop',

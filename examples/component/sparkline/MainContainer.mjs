@@ -5,6 +5,7 @@ import MainContainerController from './MainContainerController.mjs';
 import {METRICS}               from './metrics.mjs';
 import Sparkline               from '../../../src/component/Sparkline.mjs';
 import SwitchField             from '../../../src/form/field/Switch.mjs';
+import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                 from '../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -74,6 +75,8 @@ class MainContainer extends Viewport {
                 module : Button,
                 handler: 'onRestartClick',
                 text   : 'Restart'
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module: Container,

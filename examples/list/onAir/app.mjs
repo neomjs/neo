@@ -28,6 +28,15 @@ export async function onStart() {
           owner = route?.targetWindowId === windowId && Neo.apps[route.ownerWindowId],
           desk  = owner?.name === 'OnAir' && !Neo.currentWorker.isWindowDeparted(owner.windowId) && owner.mainView;
 
+    if (desk) {
+        app.mainView.theme = desk.getTheme();
+        app.mainView.observeConfig(desk, 'theme', nextTheme => {
+            if (!app.isDestroyed && nextTheme) {
+                app.mainView.theme = nextTheme
+            }
+        })
+    }
+
     app.mainView.add({
         module          : Presenter,
         directorWindowId: desk ? owner.windowId : null,

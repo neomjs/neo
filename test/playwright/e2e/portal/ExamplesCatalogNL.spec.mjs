@@ -214,6 +214,18 @@ async function expectCardLayout(list, width) {
 }
 
 /**
+ * @summary Computes relative luminance from three sRGB channels in the 0–255 range.
+ * @param {Number[]} color
+ * @returns {Number}
+ */
+function luminance(color) {
+    return color.slice(0, 3).map(value => {
+        value /= 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
+}
+
+/**
  * @summary Measures the caption's text colors against the actual composited paint of scrim and cover behind them.
  * The first sampled row is where the title starts, the place the scrim has to hold against a white cover.
  * Below the text the scrim must paint its opaque surface: a cover that shows through fails.
@@ -234,10 +246,6 @@ async function expectCaptionContrast(caption, testInfo, name) {
                   const color = getComputedStyle(node).color, values = color.match(/[\d.]+/g).map(Number);
                   return color.startsWith('color(') ? [...values.slice(0, 3).map(value => value * 255), ...values.slice(3)] : values
               }));
-    const luminance = color => color.slice(0, 3).map(value => {
-        value /= 255;
-        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
-    }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
     // the pixel row above the title and one inside the bottom padding: both free of glyphs
     const rows      = [Math.max(0, Math.floor(titleTop) - 1), decoded.height - 8];
     const contrasts = rows.flatMap(row => [0.12, 0.5, 0.88].flatMap(fraction => {
@@ -669,6 +677,51 @@ test.describe('Portal examples section', () => {
     });
 
     for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+        test(`${theme}: the Examples sidebar keeps hovered labels and counts readable`, async ({page}) => {
+            await page.setViewportSize({width: 1440, height: 900});
+            await page.addInitScript(theme => localStorage.setItem('portalTheme', theme), theme);
+            await page.goto(`${PORTAL}#/examples`);
+            await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
+
+            const sidebar = page.locator(SIDEBAR),
+                  trees   = sidebar.getByRole('link', {name: /^Trees, /}),
+                  current = sidebar.getByRole('link', {name: 'All examples', exact: true}),
+                  paint   = link => link.evaluate(node => {
+                      const style = getComputedStyle(node);
+                      return {background: style.backgroundColor, marker: style.boxShadow}
+                  });
+
+            const resting = await paint(trees);
+            await trees.hover();
+            await expect.poll(async () => (await paint(trees)).background).not.toBe(resting.background);
+
+            const row = decodePng(await trees.screenshot({animations: 'disabled'})),
+                  // Sample the center of the right padding, clear of the count, glyph and rounded corners.
+                  pixel  = (Math.floor(row.height / 2) * row.width + row.width - 4) * row.channels,
+                  fill   = luminance([...row.pixels.subarray(pixel, pixel + 3)]),
+                  labels = trees.locator('.portal-examples-group-index-title, .portal-examples-group-index-count'),
+                  colors = await labels.evaluateAll(nodes => nodes.map(node =>
+                      getComputedStyle(node).color.match(/[\d.]+/g).map(Number)
+                  ));
+
+            expect(colors).toHaveLength(2);
+            for (const color of colors) {
+                const text = luminance(color);
+                expect((Math.max(fill, text) + 0.05) / (Math.min(fill, text) + 0.05)).toBeGreaterThanOrEqual(4.5)
+            }
+
+            const selected = await paint(current);
+            expect(selected.marker).not.toBe('none');
+            await current.hover();
+            await expect(current).toHaveAttribute('aria-current', 'page');
+            expect(await paint(current)).toEqual(selected);
+
+            await sidebar.getByRole('link', {name: /^Grid & Table, /}).focus();
+            await page.keyboard.press('Tab');
+            await expect(trees).toBeFocused();
+            await expect(trees).toHaveCSS('outline-style', 'solid')
+        });
+
         for (const viewport of [{width: 1440, height: 900}, {width: 375, height: 812}, {width: 390, height: 844}, {width: 844, height: 390}]) {
             test(`${theme} ${viewport.width}px: Start here cards and Grid and Table features are visible and fit their cards`, async ({page, neuralLink}, testInfo) => {
                 await page.setViewportSize(viewport);

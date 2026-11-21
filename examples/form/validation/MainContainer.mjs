@@ -6,6 +6,7 @@ import EmailField    from '../../../src/form/field/Email.mjs';
 import FormContainer from '../../../src/form/Container.mjs';
 import PasswordField from '../../../src/form/field/Password.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
@@ -69,11 +70,31 @@ class MainContainer extends Viewport {
             width : 440,
 
             items: [{
-                module: Component,
+                module: Container,
                 cls   : ['signup-heading'],
-                html  : '<h1>Create your account</h1>' +
-                        '<p>Every field checks itself as you type. Sign up stays blocked while anything ' +
-                        'is wrong, and the problems are listed beside the button.</p>'
+                flex  : 'none',
+                layout: {ntype: 'vbox', align: 'stretch'},
+
+                items: [{
+                    module: Container,
+                    cls   : ['signup-header'],
+                    flex  : 'none',
+                    layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+
+                    items: [{
+                        module: Component,
+                        flex  : 1,
+                        html  : '<h1>Create your account</h1>'
+                    }, {
+                        module: ThemeSwitcher,
+                        ui    : 'secondary'
+                    }]
+                }, {
+                    module: Component,
+                    flex  : 'none',
+                    html  : '<p>Every field checks itself as you type. Sign up stays blocked while anything ' +
+                            'is wrong, and the problems are listed beside the button.</p>'
+                }]
             }, {
                 module   : FormContainer,
                 cls      : ['signup-form'],

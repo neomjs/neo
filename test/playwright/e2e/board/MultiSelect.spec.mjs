@@ -126,6 +126,93 @@ test.describe('Board, multi-select example: select many reports, move them in on
         expect(errors).toEqual([])
     });
 
+    test('colored cards retain their left accent across rest, hover, selection and selected-hover; uncolored cards follow all four borders across all five themes', async ({page}) => {
+        const readPaint = locator => locator.evaluate(node => {
+            const parseSrgb = value => {
+                      const nums = (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number);
+                      return value.startsWith('color(srgb') ? nums : nums.map(c => c / 255)
+                  },
+                  lum       = srgb => srgb
+                      .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
+                  contrast  = (fg, bg) => {
+                      const l1 = lum(parseSrgb(fg)),
+                            l2 = lum(parseSrgb(bg));
+                      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+                  },
+                  style     = getComputedStyle(node),
+                  title     = node.querySelector('.neo-board-card-title'),
+                  menuBtn   = node.querySelector('.neo-board-card-menu-button');
+
+            return {
+                backgroundColor: style.backgroundColor,
+                borderLeftColor: style.borderLeftColor,
+                borderTopColor : style.borderTopColor,
+                boxShadow      : style.boxShadow,
+                mutedContrast  : contrast(getComputedStyle(menuBtn).color, style.backgroundColor),
+                titleContrast  : contrast(getComputedStyle(title).color, style.backgroundColor)
+            }
+        });
+
+        for (const theme of THEMES) {
+            const {card, errors, line} = await open(page, theme),
+                  s1Accent             = 'rgb(229, 72, 77)';
+
+            // Move pointer away from cards before reading rest styles
+            await page.mouse.move(10, 10);
+
+            const coloredRest   = await readPaint(card(1043)),
+                  uncoloredRest = await readPaint(card(1046));
+
+            expect(coloredRest.borderLeftColor, `${theme}: S1 card left stripe at rest`).toBe(s1Accent);
+            expect(uncoloredRest.borderLeftColor, `${theme}: S4 uncolored card left matches top at rest`).toBe(uncoloredRest.borderTopColor);
+
+            // Hover unselected colored (1043) and uncolored (1046) cards
+            await card(1043).hover();
+            const coloredHover = await readPaint(card(1043));
+            expect(coloredHover.borderLeftColor, `${theme}: S1 card retains left stripe on :hover`).toBe(s1Accent);
+            expect(coloredHover.borderTopColor, `${theme}: S1 card top border changes on :hover`).not.toBe(coloredRest.borderTopColor);
+
+            await card(1046).hover();
+            const uncoloredHover = await readPaint(card(1046));
+            expect(uncoloredHover.borderLeftColor, `${theme}: S4 uncolored card left matches hover border`).toBe(uncoloredHover.borderTopColor);
+            expect(uncoloredHover.borderTopColor, `${theme}: S4 uncolored card top border changes on :hover`).not.toBe(uncoloredRest.borderTopColor);
+
+            // Select 1042..1046 and move pointer away so 1042..1046 are unhovered .neo-selected
+            await card(1042).click();
+            await card(1046).click({modifiers: ['Shift']});
+            await expect(line).toHaveText('5 selected');
+            await page.mouse.move(10, 10);
+
+            const coloredSelected   = await readPaint(card(1043)),
+                  neighbourSelected = await readPaint(card(1042)),
+                  uncoloredSelected = await readPaint(card(1046));
+
+            expect(coloredSelected.borderLeftColor, `${theme}: S1 card retains left stripe when selected`).toBe(s1Accent);
+            expect(uncoloredSelected.borderLeftColor, `${theme}: S4 uncolored card left matches selected border`).toBe(uncoloredSelected.borderTopColor);
+            expect(coloredSelected.backgroundColor, `${theme}: selected neighbours share selected background`).toBe(neighbourSelected.backgroundColor);
+
+            // Hover selected card 1043: retains S1 left stripe, adds selected-hover ring, and keeps WCAG contrast intact
+            await card(1043).hover();
+            const coloredSelectedHover = await readPaint(card(1043)),
+                  neighbourUnhovered   = await readPaint(card(1042));
+
+            expect(coloredSelectedHover.borderLeftColor, `${theme}: S1 card retains left stripe on .neo-selected:hover`).toBe(s1Accent);
+            expect(coloredSelectedHover.boxShadow, `${theme}: .neo-selected:hover boxShadow differs from unhovered .neo-selected neighbour`)
+                .not.toBe(neighbourUnhovered.boxShadow);
+            expect(coloredSelectedHover.titleContrast, `${theme}: .neo-selected:hover title contrast >= 4.5:1`)
+                .toBeGreaterThanOrEqual(4.5);
+            expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast never drops below .neo-selected`)
+                .toBeGreaterThanOrEqual(neighbourUnhovered.mutedContrast);
+            if (neighbourUnhovered.mutedContrast >= 4.5) {
+                expect(coloredSelectedHover.mutedContrast, `${theme}: .neo-selected:hover muted-text contrast >= 4.5:1`)
+                    .toBeGreaterThanOrEqual(4.5)
+            }
+
+            expect(errors, `${theme}: zero console/page errors`).toEqual([])
+        }
+    });
+
     for (const theme of THEMES) {
         test(`at 1440 × 900 the four columns are in view, the Inbox holds forty reports (${theme})`, async ({page}, testInfo) => {
             const {badge, column, errors} = await open(page, theme);

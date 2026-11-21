@@ -1,4 +1,5 @@
 import Button                                                                                                              from '../../../src/button/Base.mjs';
+import ThemeSwitcher                                                                                                       from '../../../src/button/ThemeSwitcher.mjs';
 import Container                                                                                                           from '../../../src/container/Base.mjs';
 import Viewport                                                                                                            from '../../../src/container/Viewport.mjs';
 import TaskStore                                                                                                           from '../../../src/gantt/TaskStore.mjs';
@@ -34,10 +35,15 @@ class Observatory extends Viewport {
         className: 'Neo.examples.scheduler.meridian.Viewport',
         cls      : ['meridian-desk'], layout,
         items    : [{
-            cls: ['meridian-mast'], vdom: {cn: [
-                {cls: ['meridian-station'], text: 'MERIDIAN  /  SCIENCE OPERATIONS'},
-                {cls: ['meridian-night'], text: '23 NOV 2026   ·   NIGHT SHIFT   /   UTC'}
-            ]}
+            module: Container,
+            cls   : ['meridian-mast'],
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [
+                {ntype: 'component', cls: ['meridian-station'], text: 'MERIDIAN  /  SCIENCE OPERATIONS'},
+                {ntype: 'component', cls: ['meridian-mast-spacer'], flex: 1},
+                {ntype: 'component', cls: ['meridian-night'], text: '23 NOV 2026   ·   NIGHT SHIFT   /   UTC'},
+                {module: ThemeSwitcher, cls: ['meridian-theme-switcher']}
+            ]
         }, {
             cls: ['meridian-heading'], reference: 'masthead', vdom: {cn: [
                 {cls: ['meridian-kicker'], text: 'Campaign 17   /   Occultation'},

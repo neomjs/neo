@@ -1,12 +1,13 @@
-import Component  from '../../../src/component/Base.mjs';
-import EventModel from '../../../src/timeline/model/Event.mjs';
-import EventStore from '../../../src/timeline/store/Events.mjs';
-import Label      from '../../../src/component/Label.mjs';
-import Model      from '../../../src/data/Model.mjs';
-import Scheduler  from '../../../src/scheduler/Container.mjs';
-import Store      from '../../../src/data/Store.mjs';
-import Toolbar    from '../../../src/toolbar/Base.mjs';
-import Viewport   from '../../../src/container/Viewport.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import EventModel    from '../../../src/timeline/model/Event.mjs';
+import EventStore    from '../../../src/timeline/store/Events.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import Model         from '../../../src/data/Model.mjs';
+import Scheduler     from '../../../src/scheduler/Container.mjs';
+import Store         from '../../../src/data/Store.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 const
     OPEN_AT   = 8 * 60, // Monday 08:00 in minutes from the axis start, past the empty night
@@ -141,6 +142,8 @@ class FieldServiceViewport extends Viewport {
                         {tag: 'span', cls: ['fs-hint-narrow'], text: 'Swipe right for skill, region and booked hours'}
                     ]
                 }
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module      : Scheduler,

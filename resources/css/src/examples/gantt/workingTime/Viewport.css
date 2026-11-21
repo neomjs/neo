@@ -362,23 +362,28 @@
             .kitchen-working-switch {
                 font-size  : 11px;
                 gap        : 6px;
-                margin-left: auto;
+                margin-left: 0;
                 min-height : 28px;
-                order      : 2;
+                order      : 4;
                 padding    : 0 9px 0 6px;
             }
 
             .kitchen-reset-btn {
-                font-size : 11px;
-                min-height: 28px;
-                order     : 3;
-                padding   : 0 10px;
+                font-size  : 11px;
+                margin-left: auto;
+                min-height : 28px;
+                order      : 2;
+                padding    : 0 10px;
+            }
+
+            .neo-theme-switcher {
+                order: 3;
             }
 
             .kitchen-legend {
                 font-size: 10.5px;
                 gap      : 5px 6px;
-                order    : 4;
+                order    : 5;
                 width    : 100%;
             }
 

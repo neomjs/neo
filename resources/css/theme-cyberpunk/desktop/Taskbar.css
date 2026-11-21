@@ -1,0 +1,15 @@
+:where(.neo-theme-cyberpunk) { /* .neo-desktop-taskbar and its start menu: the toolbar's ground, cyan for the start button and the menu's edge */
+    --desktop-start-button-color                    : var(--cyber-bg);
+    --desktop-start-menu-background-color           : var(--cyber-bg-alt);
+    --desktop-start-menu-border-color               : var(--cyber-cyan);
+    --desktop-start-menu-color                      : var(--cyber-text);
+    --desktop-start-menu-icon-color                 : var(--cyber-cyan);
+    --desktop-start-menu-item-background-color-hover: color-mix(in srgb, var(--cyber-cyan) 10%, transparent);
+    --desktop-start-menu-shadow                     : var(--cyber-glow), 0 12px 32px rgba(0, 0, 0, .75);
+    --desktop-taskbar-accent-color                  : var(--cyber-cyan);
+    --desktop-taskbar-background-color              : var(--toolbar-background-color, var(--cyber-bg-alt));
+    --desktop-taskbar-border-color                  : var(--cyber-border);
+    --desktop-taskbar-color                         : var(--cyber-text);
+    --desktop-taskbar-item-background-color-active  : color-mix(in srgb, var(--cyber-cyan) 16%, transparent);
+    --desktop-taskbar-item-background-color-hover   : color-mix(in srgb, var(--cyber-cyan) 8%, transparent);
+}

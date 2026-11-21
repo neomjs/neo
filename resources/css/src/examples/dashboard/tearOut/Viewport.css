@@ -11,8 +11,13 @@
     border-bottom: 1px solid var(--dashboard-example-line);
     color        : var(--dashboard-example-ink-dim);
     font-size    : 13px;
+    gap          : 8px 12px;
     line-height  : 1.45;
     padding      : 10px 14px;
+
+    > .neo-component {
+        min-width: 220px;
+    }
 
     b {
         color: var(--dashboard-example-ink);

@@ -5,6 +5,7 @@ import ImageStore         from './ImageStore.mjs';
 import NumberField        from '../../../src/form/field/Number.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import RangeField         from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher      from '../../../src/button/ThemeSwitcher.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
@@ -79,6 +80,7 @@ class Viewport extends BaseViewport {
                 ntype: 'component',
                 html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
                 style: {
+                    color   : '#f8fafc',
                     position: 'absolute',
                     right   : '150px',
                     top     : '25px',
@@ -102,7 +104,6 @@ class Viewport extends BaseViewport {
             layout   : {ntype: 'vbox', align: 'stretch'},
             cls      : ['neo-helix-controls-panel'],
             reference: 'controls-panel',
-            style    : {backgroundColor: '#2b2b2b'},
             width    : 250,
 
             containerConfig: {
@@ -111,8 +112,16 @@ class Viewport extends BaseViewport {
             },
 
             headers: [{
-                dock: 'top',
-                text: 'Helix Controls'
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype: 'label',
+                    cls  : ['neo-panel-header-text', 'neo-label'],
+                    text : 'Helix Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
+                }]
             }],
 
             itemDefaults: {
@@ -245,12 +254,12 @@ class Viewport extends BaseViewport {
                 ].join(''),
 
                 style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
+                    border      : '1px solid var(--panel-border-color, rgba(128, 128, 128, 0.3))',
+                    borderRadius: '6px',
+                    fontSize    : '13px',
+                    margin      : '10px',
+                    padding     : '10px',
+                    whiteSpace  : 'normal'
                 }
             }]
         }]

@@ -113,17 +113,26 @@ class GridHorizontalScrollSync extends Base {
      * current value instead would pull a scrollbar that moved again since that write back to the older position.
      *
      * So is a header that cannot reach the scrollbar's position: layout clamped it, as a column drop does while its
-     * items are out of the flow. Routing that value would scroll the whole grid away.
+     * items are out of the flow. Routing that value would scroll the whole grid away. Layout also clamps a header
+     * whose content shrank under the position written last, as a zoom out does, even where the scrollbar has moved
+     * inside the header's range since: the header takes the scrollbar's position back.
      * @param {Object} registration
      * @param {Event}  event
      */
     onHeaderScroll(registration, event) {
         let headerNode   = event.target,
             scrollLeft   = headerNode.scrollLeft,
+            maxLeft      = headerNode.scrollWidth - headerNode.clientWidth + 1,
             scrollerNode = DomAccess.getElement(registration.scrollerId);
 
-        if (scrollerNode && scrollLeft !== registration.headerScrollLeft &&
-            scrollerNode.scrollLeft <= headerNode.scrollWidth - headerNode.clientWidth + 1) {
+        if (!scrollerNode || scrollLeft === registration.headerScrollLeft) {
+            return
+        }
+
+        if (registration.headerScrollLeft > maxLeft) {
+            headerNode.scrollLeft         = scrollerNode.scrollLeft;
+            registration.headerScrollLeft = headerNode.scrollLeft
+        } else if (scrollerNode.scrollLeft <= maxLeft) {
             scrollerNode.scrollLeft = scrollLeft
         }
     }

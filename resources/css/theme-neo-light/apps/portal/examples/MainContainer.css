@@ -4,7 +4,7 @@
     --portal-examples-bg-raised    : var(--sem-color-surface-neutral-default);
     --portal-examples-border       : var(--sem-color-border-subtle);
     --portal-examples-entry-current: color-mix(in srgb, var(--portal-headline-primary) 12%, transparent);
-    --portal-examples-entry-hover  : var(--sem-color-bg-neutral-hover);
+    --portal-examples-entry-hover  : var(--sem-color-surface-neutral-hover);
     --portal-examples-text         : var(--sem-color-text-neutral-default);
     --portal-examples-text-muted   : var(--sem-color-text-neutral-subdued);
 }
