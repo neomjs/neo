@@ -256,6 +256,32 @@ test.describe('e2e CI selection — the engine tier and the local-only specs', (
         }
     });
 
+    test('unmeasured files are dealt first, so a wave of them cannot concentrate measured work on shard 1', () => {
+        // One heavy measured outlier, smaller measured files (10-35 s), and K unmeasured files with K >= 2 * shards:
+        // the shape of a batch of new specs landing between duration-table rebuilds. Priced at the table's 90th
+        // percentile they all sort ahead of every measured file below it, so unless they are dealt before the measured
+        // files, the greedy pass hands shard 1 — the shard that starts with the 160 s outlier — almost no fallback
+        // headroom and piles the real measured seconds onto it, which is the shard that then runs into the ceiling.
+        const heavy      = 'heavy.spec.mjs',
+              durations  = Object.fromEntries(Array.from({length: 20}, (_, index) => [`m${String(index).padStart(2, '0')}.spec.mjs`, 10 + index])),
+              unmeasured = Array.from({length: 12}, (_, index) => `new${String(index).padStart(2, '0')}.spec.mjs`),
+              shards     = 5,
+              paths      = [heavy, ...Object.keys(durations), ...unmeasured];
+
+        durations[heavy] = 160;
+
+        const split   = () => Array.from({length: shards}, (_, index) => balancedShard({paths, shard: `${index + 1}/${shards}`, durations})),
+              sharded = split(),
+              counts  = sharded.map(shard => shard.paths.filter(path => !(path in durations)).length),
+              known   = sharded.map(shard => shard.paths.reduce((sum, path) => sum + (durations[path] ?? 0), 0));
+
+        expect(sharded.flatMap(shard => shard.paths).toSorted(), 'every file runs in exactly one shard').toEqual(paths.toSorted());
+        expect(split(), 'every shard computes the same split').toEqual(sharded);
+        expect(Math.max(...counts) - Math.min(...counts), 'unmeasured files differ by at most 1 across shards').toBeLessThanOrEqual(1);
+        expect(known[0], 'shard 1 does not carry a disproportionate share of the measured seconds')
+            .toBeLessThanOrEqual(known.reduce((sum, value) => sum + value) / shards);
+    });
+
 });
 
 /**
@@ -363,6 +389,158 @@ test.describe('e2e CI selection — what a pull request\'s change selects', () =
         expect(full).toBe(false);
         expect(specs.get(demo)).toBe('changed spec');
         expect(specs.get(other)).toBe('reaches src/form/Field.mjs')
+    });
+});
+
+test.describe('e2e CI selection — verified example styles', () => {
+    const stem          = 'examples/scheduler/demo/Viewport',
+          css           = `resources/css/src/${stem}.css`,
+          darkCss       = `resources/css/theme-neo-dark/${stem}.css`,
+          namespace     = 'Neo.examples.scheduler.demo.Viewport',
+          owner         = 'test/playwright/e2e/scheduler/Demo.spec.mjs',
+          adjacent      = 'test/playwright/e2e/scheduler/Adjacent.spec.mjs',
+          bare          = 'test/playwright/e2e/scheduler/Bare.spec.mjs',
+          fixtureImport = "import {test} from '../../fixtures.mjs';\n",
+          visit         = (body, prelude='') => fixtureImport + prelude + `test('example', async ({page}) => { ${body} });`;
+
+    /**
+     * @summary Builds a tracked tree whose owning spec goes through the actual Engine tier filter.
+     * @param {Function} run The assertion to run against the fixture root.
+     * @param {Object<String, String>} [extra={}] Source files or replacements for the fixture.
+     * @param {String} [ownerSpec=owner] The spec that opens the styled example.
+     * @returns {void}
+     */
+    function withTree(run, extra={}, ownerSpec=owner) {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-example-css-reach-')),
+              tree = {
+                  'examples/scheduler/demo/app.mjs'    : "import './Viewport.mjs';",
+                  'examples/scheduler/demo/index.html' : '<!doctype html>',
+                  [`${stem}.mjs`]                      : `class Viewport { static config = {className: '${namespace}'}; }\nexport default Neo.setupClass(Viewport);`,
+                  'examples/scheduler/adjacent/app.mjs': "import '../../../src/form/Field.mjs';",
+                  'src/form/Field.mjs'                 : '',
+                  'test/playwright/fixtures.mjs'       : '',
+                  [css]                                : '.row { color: blue }',
+                  [darkCss]                            : '.row { color: white }',
+                  [ownerSpec]                          : visit("await page.goto('/examples/scheduler/demo/index.html');"),
+                  [adjacent]                           : visit("await page.goto('/examples/scheduler/adjacent/index.html');"),
+                  [bare]                               : '',
+                  ...extra
+              };
+
+        try {
+            for (const runPath of RUN_PATHS) {
+                fs.mkdirSync(path.join(root, runPath.endsWith('.mjs') ? path.dirname(runPath) : runPath), {recursive: true})
+            }
+
+            for (const [file, content] of Object.entries(tree)) {
+                fs.mkdirSync(path.join(root, path.dirname(file)), {recursive: true});
+                fs.writeFileSync(path.join(root, file), content)
+            }
+
+            execFileSync('git', ['init', '-q'], {cwd: root});
+            execFileSync('git', ['add', '.'], {cwd: root});
+            run(root)
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true})
+        }
+    }
+
+    test('local theme variants select the owner and unnamed controls while other edits retain their reach', () => {
+        withTree(root => {
+            const exampleCss = [css, darkCss],
+                  selection  = selectSpecs({changed: exampleCss, exampleCss, root}),
+                  mixed      = selectSpecs({changed: [...exampleCss, 'src/form/Field.mjs'], exampleCss, root});
+
+            expect(selection.full).toBe(false);
+            expect([...selection.specs.keys()]).toEqual([owner, bare]);
+            expect(mixed.full).toBe(false);
+            expect([...mixed.specs.keys()]).toEqual([owner, adjacent, bare]);
+            expect(selectSpecs({changed: [css], root}).full, 'paths without PR status use the full tier').toBe(true);
+        })
+    });
+
+    for (const viaHelper of [false, true]) {
+        test(`a computed example route keeps a spec with a known app in the selection via ${viaHelper ? 'a helper' : 'the spec'}`, () => {
+            const helper     = 'test/playwright/exampleNavigation.mjs',
+                  literal    = "await page.goto('/examples/scheduler/adjacent/index.html');",
+                  navigation = 'await page.goto(`/examples/${example}/index.html`);',
+                  extra      = viaHelper
+                      ? {[adjacent]: `import '../../exampleNavigation.mjs';\n${literal}`, [helper]: navigation}
+                      : {[adjacent]: `${literal}\n${navigation}`};
+
+            withTree(root => {
+                const {full, specs} = selectSpecs({changed: [css], exampleCss: [css], root});
+
+                expect(full).toBe(false);
+                expect(specs.get(adjacent)).toBe('the map cannot place it')
+            }, extra)
+        });
+    }
+
+    test('ownership needs a deployed class and an executed owning spec', () => {
+        const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
+
+        withTree(check, {}, 'test/playwright/e2e/demo/LocalOnly.spec.mjs');
+        withTree(check, {[owner]: visit("await page.goto('/examples/scheduler/demo/index.html');\nawait neuralLink();")});
+        withTree(check, {'examples/scheduler/demo/app.mjs': ''});
+    });
+
+    for (const [label, source] of [
+        ['a computed route with a sibling-only value',
+            visit("for (const example of ['adjacent']) await page.goto(`/examples/scheduler/${example}/index.html`);")],
+        ['a literal reference outside navigation',
+            visit("const examplePath = '/examples/scheduler/demo/index.html';\nawait page.goto('/examples/scheduler/adjacent/index.html');")],
+        ['a shadowed route constant',
+            visit("await open(page, '/examples/scheduler/adjacent/index.html');",
+                "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\nconst open = async (page, EXAMPLE_URL) => {await page.goto(EXAMPLE_URL)};\n")],
+        ['a missing nested page under the owner',
+            visit("await page.goto('/examples/scheduler/demo/missing/index.html');")],
+        ['an unreachable owner visit', visit("if (false) await page.goto('/examples/scheduler/demo/index.html'); await page.goto('/examples/scheduler/adjacent/index.html');")],
+        ['a shadowed Playwright page',
+            fixtureImport + "test('example', async () => {const page = {goto() {}}; await page.goto('/examples/scheduler/demo/index.html');});"]
+    ]) {
+        test(`${label} preserves full E2E for the apparent owner`, () => {
+            withTree(root => {
+                const map = specReach({root});
+
+                expect(map.specs.get(owner).entries).toContain('examples/scheduler/demo/app.mjs');
+                expect(selectSpecs({changed: [css], exampleCss: [css], map, root}).full).toBe(true);
+            }, {[owner]: source})
+        });
+    }
+
+    for (const [label, source] of [
+        ['a module-level constant',
+            visit('await page.goto(`${EXAMPLE_URL}?theme=${theme}`);', "const EXAMPLE_URL = '/examples/scheduler/demo/index.html';\n")],
+        ['an awaited helper receiving the fixture',
+            visit('const result = await open(page, theme);', 'const open = async (page, theme) => { await page.goto(`/examples/scheduler/demo/index.html${theme ? `?theme=${theme}` : \'\'}`); };\n')]
+    ]) {
+        test(`a fixed pathname qualifies with a dynamic query through ${label}`, () => {
+            withTree(root => {
+                const {full, specs} = selectSpecs({changed: [css], exampleCss: [css], root});
+
+                expect(full).toBe(false);
+                expect([...specs.keys()].toSorted()).toEqual([owner, adjacent, bare].toSorted())
+            }, {
+                [owner]   : source,
+                [adjacent]: "await page.goto(`/examples/scheduler/${example}/index.html`);"
+            })
+        });
+    }
+
+    test('explicit theme consumers, foreign class imports and CSS imports keep the full tier', () => {
+        const check = root => expect(selectSpecs({changed: [css], exampleCss: [css], root}).full).toBe(true);
+
+        withTree(check, {'examples/scheduler/adjacent/app.mjs': `export default {additionalThemeFiles: ['${namespace}']};`});
+        withTree(check, {
+            'apps/other/Consumer.mjs'           : "import '../../examples/scheduler/demo/Helper.mjs';",
+            'examples/scheduler/demo/Helper.mjs': "export {default} from './Viewport.mjs';"
+        });
+        withTree(check, {
+            'apps/other/Consumer.mjs'               : "import {themeFiles} from '../../examples/scheduler/demo/ThemeFiles.mjs';\nexport default {additionalThemeFiles: themeFiles};",
+            'examples/scheduler/demo/ThemeFiles.mjs': `export const themeFiles = ['${namespace}'];`
+        });
+        withTree(check, {'resources/css/src/Global.css': '@import "examples/scheduler/demo/Viewport.css";'});
     });
 });
 

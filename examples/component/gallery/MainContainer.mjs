@@ -1,13 +1,15 @@
-import Gallery     from '../../../src/component/Gallery.mjs';
-import ImageStore  from './ImageStore.mjs';
-import NumberField from '../../../src/form/field/Number.mjs';
-import Panel       from '../../../src/container/Panel.mjs';
-import RangeField  from '../../../src/form/field/Range.mjs';
-import Viewport    from '../../../src/container/Viewport.mjs';
+import Gallery       from '../../../src/component/Gallery.mjs';
+import ImageStore    from './ImageStore.mjs';
+import NumberField   from '../../../src/form/field/Number.mjs';
+import Panel         from '../../../src/container/Panel.mjs';
+import RangeField    from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.gallery.MainContainer
  * @extends Neo.container.Viewport
+ * @summary 3D image gallery demonstration with live theme-able controls panel.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -41,6 +43,7 @@ class MainContainer extends Viewport {
                 ntype: 'component',
                 html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
                 style: {
+                    color   : '#f8fafc',
                     position: 'absolute',
                     right   : '150px',
                     top     : '25px',
@@ -60,8 +63,13 @@ class MainContainer extends Viewport {
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b', maxWidth: '50%'},
+            style : {maxWidth: '50%'},
             width : 260,
+
+            containerConfig: {
+                flex : null,
+                style: {overflowY: 'auto'}
+            },
 
             itemDefaults: {
                 ntype        : 'rangefield',
@@ -81,8 +89,16 @@ class MainContainer extends Viewport {
             },
 
             headers: [{
-                dock: 'top',
-                text: 'Gallery Controls'
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype: 'label',
+                    cls  : ['neo-panel-header-text', 'neo-label'],
+                    text : 'Gallery Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
+                }]
             }],
 
             items: [{
@@ -203,12 +219,12 @@ class MainContainer extends Viewport {
                 ].join(''),
 
                 style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
+                    border      : '1px solid var(--panel-border-color, rgba(128, 128, 128, 0.3))',
+                    borderRadius: '6px',
+                    fontSize    : '13px',
+                    margin      : '10px',
+                    padding     : '10px',
+                    whiteSpace  : 'normal'
                 }
             }]
         }]

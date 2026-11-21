@@ -234,8 +234,9 @@ class Dialog extends Panel {
 
             if (!me.dragListenersAdded) {
                 const dragListeners = [
-                    {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
-                    {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                    {'drag:cancel': me.onDragCancel, scope: me, delegate: '.neo-header-toolbar'},
+                    {'drag:end'   : me.onDragEnd,    scope: me, delegate: '.neo-header-toolbar'},
+                    {'drag:start' : me.onDragStart,  scope: me, delegate: '.neo-header-toolbar'}
                 ];
 
                 if (me.dragZoneConfig?.alwaysFireDragMove) {
@@ -598,6 +599,8 @@ class Dialog extends Panel {
     destroy(...args) {
         let me = this;
 
+        me.dragStartAbortController?.abort();
+        me.dragZone?.un('dragCancel', me.onDragCancel, me);
         me.mounted && me.modal && me.syncModalMask(me.id, false);
 
         super.destroy(...args)
@@ -765,6 +768,36 @@ class Dialog extends Panel {
     }
 
     /**
+     * @summary Restores pre-drag opacity and resets drag state when a header drag is cancelled without moving the dialog.
+     * @param {Object} [data]
+     */
+    onDragCancel(data) {
+        let me = this,
+            style;
+
+        if (!me.isDragging) {
+            return
+        }
+
+        me.dragStartAbortController?.abort();
+        me.dragStartAbortController = null;
+        me.isDragging               = false;
+
+        style                = me.style || {};
+        style.opacity        = me.dragStartOpacity ?? null;
+        me.dragStartOpacity  = undefined;
+        me.style             = style;
+
+        if (me.dragZone) {
+            if (!data?.dragZoneId || Neo.get(data.dragZoneId) !== me.dragZone) {
+                me.dragZone.dragEnd({...data, cancelled: true})
+            }
+
+            me.dragZone.boundaryContainerId = null
+        }
+    }
+
+    /**
      * @param data
      */
     onDragEnd(data) {
@@ -772,6 +805,9 @@ class Dialog extends Panel {
             initialTransitionProperty, style;
 
         if (!me.maximized) {
+            me.dragStartAbortController = null;
+            me.dragStartOpacity         = undefined;
+
             me.getDomRect(me.dragZone.dragProxy.id).then(rect => {
                 style = me.style;
 
@@ -828,7 +864,10 @@ class Dialog extends Panel {
             style                   = me.style || {};
 
         if (!me.maximized) {
-            me.isDragging = true;
+            me.dragStartAbortController?.abort();
+            me.dragStartAbortController = new AbortController();
+            me.dragStartOpacity         = style.opacity;
+            me.isDragging               = true;
 
             me.getPlugin('resizable')?.removeAllNodes();
 
@@ -846,12 +885,13 @@ class Dialog extends Panel {
                     ...me.dragZoneConfig
                 });
 
+                me.dragZone.on('dragCancel', me.onDragCancel, me);
                 me.fire('dragZoneCreated', {dragZone: me.dragZone, id})
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId
             }
 
-            me.dragZone.dragStart(data);
+            me.dragZone.dragStart(data, me.dragStartAbortController.signal);
 
             style.opacity = 0.7;
 

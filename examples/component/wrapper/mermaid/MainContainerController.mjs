@@ -18,13 +18,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Object} data
-     */
-    onDarkChange(data) {
-        this.component.theme = data.value ? 'neo-theme-neo-dark' : 'neo-theme-neo-light'
-    }
-
-    /**
      * @summary Loads a preset into the source; the source's change draws it.
      * @param {Object} data
      */

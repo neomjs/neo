@@ -50,14 +50,21 @@ async function readEdge(page) {
  * @returns {Promise<Object>} The settled {@link readEdge} reading
  */
 async function zoom(page, name, pxPerMinute) {
+    const before = await readEdge(page),
+          moves  = before.scrollLeft > 0 && before.pxPerMinute !== pxPerMinute;
+
     await page.getByRole('button', {name, exact: true}).click();
     await expect.poll(async () => (await readEdge(page)).pxPerMinute).toBe(pxPerMinute);
 
     let last = null;
 
-    // Settled: two reads in a row agree, and the worker has seen the DOM's scroll position
+    // Settled: two reads in a row agree, and the worker has seen the DOM's scroll position. A scrolled region also has
+    // to leave its old position, which looks settled until the zoom's scroll lands
     await expect.poll(async () => {
-        const reading = await readEdge(page), settled = reading.seen && last?.scrollLeft === reading.scrollLeft;
+        const
+            reading = await readEdge(page),
+            settled = reading.seen && last?.scrollLeft === reading.scrollLeft && (!moves || reading.scrollLeft !== before.scrollLeft);
+
         last = reading;
         return settled
     }).toBe(true);

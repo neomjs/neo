@@ -1,22 +1,25 @@
 .examples-videomove-maincontainer.neo-viewport {
-    padding: 50px;
-
     .video-wrapper {
+        overflow: auto;
+        padding : 24px;
+
         .neo-container {
-            background-color: rgb(139,166,255);
-            padding         : 50px;
+            background-color: color-mix(in srgb, rgb(139, 166, 255) 28%, transparent);
+            border          : 1px solid color-mix(in srgb, rgb(139, 166, 255) 60%, transparent);
+            border-radius   : 8px;
+            min-height      : 200px;
+            padding         : 24px;
 
             &:last-child {
-                margin-left: 50px;
+                margin-left: 24px;
             }
         }
     }
 
     @media (max-width: 840px) {
-        padding: 1em;
-
         .video-wrapper {
             flex-direction: column;
+            padding       : 1em;
 
             .neo-container {
                 padding: 1em;

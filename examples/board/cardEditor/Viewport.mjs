@@ -3,6 +3,7 @@ import CandidateStore from './CandidateStore.mjs';
 import Component      from '../../../src/component/Base.mjs';
 import Label          from '../../../src/component/Label.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
@@ -61,9 +62,12 @@ class CardEditorViewport extends Viewport {
             module: Toolbar,
             cls   : ['pipeline-toolbar'],
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [
                 {module: Label, cls: ['pipeline-title'],    text: 'Hiring pipeline'},
-                {module: Label, cls: ['pipeline-subtitle'], text: 'Rename a candidate on the card, change the rest in its editor'}
+                {module: Label, cls: ['pipeline-subtitle'], text: 'Rename a candidate on the card, change the rest in its editor'},
+                '->',
+                {module: ThemeSwitcher}
             ]
         }, {
             module: Component,

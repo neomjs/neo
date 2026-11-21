@@ -1,6 +1,5 @@
-import Controller  from '../../../../src/controller/Component.mjs';
-import HashHistory from '../../../../src/util/HashHistory.mjs';
-import folders     from './folders.mjs';
+import Controller from '../../../../src/controller/Component.mjs';
+import folders    from './folders.mjs';
 
 /**
  * @summary Shows the folder the hash route names. The breadcrumb follows the same route by itself, so a subfolder's
@@ -18,31 +17,13 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * Stops listening to the route.
-     * @param {...*} args
-     */
-    destroy(...args) {
-        HashHistory.un('change', this.onHashChange, this);
-        super.destroy(...args)
-    }
-
-    /**
-     * Listens to the route, and shows the folder of a route that arrived before this listener.
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        HashHistory.on('change', me.onHashChange, me);
-
-        me.onHashChange(HashHistory.first(me.windowId))
-    }
-
-    /**
      * @param {Object|null} value The new HashHistory entry
      */
     onHashChange(value) {
+        if (value?.windowId && value.windowId !== this.windowId) {
+            return
+        }
+
         let route = value?.hashString,
             folder;
 

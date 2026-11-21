@@ -6,6 +6,7 @@ import Gantt                       from '../../../src/gantt/Container.mjs';
 import Label                       from '../../../src/component/Label.mjs';
 import StateProvider               from '../../../src/state/Provider.mjs';
 import TaskStore, {buildSeedTasks} from './TaskStore.mjs';
+import ThemeSwitcher               from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                     from '../../../src/toolbar/Base.mjs';
 import Viewport                    from '../../../src/container/Viewport.mjs';
 
@@ -142,6 +143,8 @@ class KitchenWorkingTimeViewport extends Viewport {
                 reference: 'reset-btn',
                 text     : 'Reset',
                 ui       : 'secondary'
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module: Container,

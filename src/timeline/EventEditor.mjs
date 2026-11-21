@@ -320,14 +320,15 @@ class EventEditor extends Dialog {
                     useSpinButtons: false
                 },
                 {
-                    module      : SelectField,
-                    displayField: 'name',
-                    hidden      : !me.shouldShowResourceField(),
-                    id          : `${me.id}__field__resourceId`,
-                    labelText   : 'Resource',
-                    name        : 'resourceId',
-                    options     : me.getResourceOptions(me.record),
-                    valueField  : 'id'
+                    module       : SelectField,
+                    displayField : 'name',
+                    hidden       : !me.shouldShowResourceField(),
+                    id           : `${me.id}__field__resourceId`,
+                    labelPosition: 'left',
+                    labelText    : 'Resource',
+                    name         : 'resourceId',
+                    options      : me.getResourceOptions(me.record),
+                    valueField   : 'id'
                 }
             ];
 
@@ -440,6 +441,25 @@ class EventEditor extends Dialog {
         }
 
         return value ?? ''
+    }
+
+    /**
+     * @summary The field of one bound that a refused save marks: its time field when only its time changed since
+     * the editor opened, else its date field. As in {@link #validateBound}, the field the person has to fix carries
+     * the error.
+     * @param {String} name `'startDate'`, `'endDate'`, or the owner's configured field name
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    getBoundErrorField(name) {
+        const
+            me           = this,
+            field        = me.resolveDateField(name),
+            dateInput    = me.getField(field),
+            timeInput    = me.getField(`${field}__time`),
+            [date, time] = (me.initialValues[field] || '').split('T');
+
+        return timeInput && dateInput?.value === date && timeInput.value !== time ? timeInput : dateInput
     }
 
     /**
@@ -773,7 +793,8 @@ class EventEditor extends Dialog {
     }
 
     /**
-     * @summary Validates and commits changed fields through the owner hook or the record.
+     * @summary Validates and commits changed fields through the owner hook or the record. Each attempt starts
+     * without the last one's errors, so a refusal marks only the field it names, never beside an older one.
      * @returns {Object|Boolean|null}
      */
     save() {
@@ -781,13 +802,14 @@ class EventEditor extends Dialog {
             me              = this,
             {owner, record} = me,
             startDateField  = me.getStartDateField(),
-            endDateField    = me.getEndDateField(),
-            endInput        = me.getField(endDateField);
+            endDateField    = me.getEndDateField();
 
         if (!record) {
             me.hide();
             return null
         }
+
+        me.clearErrors();
 
         const
             startDate = me.parseDateValue(me.getDateTimeValue(startDateField)),
@@ -798,13 +820,13 @@ class EventEditor extends Dialog {
         }
 
         if (endDate.getTime() < startDate.getTime()) {
+            const endInput = me.getBoundErrorField(endDateField);
+
             if (endInput) {
                 endInput.error = 'End date must not precede start date'
             }
             return false
         }
-
-        me.clearErrors();
 
         const
             changes = me.getChanges({startDate, endDate}),
@@ -819,7 +841,7 @@ class EventEditor extends Dialog {
         if (typeof owner?.commitTimelineEdit === 'function') {
             result = owner.commitTimelineEdit(record, changes, {source: 'editor'});
             if (result === false || result?.status === 'refused') {
-                const field = me.getField(keys[0]);
+                const field = me.resolveDateField(keys[0]) ? me.getBoundErrorField(keys[0]) : me.getField(keys[0]);
                 if (field) field.error = result?.message || 'The edit could not be saved.';
                 return false
             }

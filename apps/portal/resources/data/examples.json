@@ -162,10 +162,10 @@
         "name": "Studio Bookings",
         "sourceUrl": "examples/scheduler/basic",
         "urls": {
-            "devmode": "examples/scheduler/basic/index.html",
-            "dist_dev": "dist/development/examples/scheduler/basic/index.html",
-            "dist_esm": "dist/esm/examples/scheduler/basic/index.html",
-            "dist_prod": "dist/production/examples/scheduler/basic/index.html"
+            "devmode": "examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "scheduler",
@@ -188,10 +188,10 @@
         "name": "Community Garden Plan",
         "sourceUrl": "examples/gantt/basic",
         "urls": {
-            "devmode": "examples/gantt/basic/index.html",
-            "dist_dev": "dist/development/examples/gantt/basic/index.html",
-            "dist_esm": "dist/esm/examples/gantt/basic/index.html",
-            "dist_prod": "dist/production/examples/gantt/basic/index.html"
+            "devmode": "examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/basic/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "gantt",
@@ -214,10 +214,10 @@
         "name": "Sprint Board",
         "sourceUrl": "examples/board/basic",
         "urls": {
-            "devmode": "examples/board/basic/index.html",
-            "dist_dev": "dist/development/examples/board/basic/index.html",
-            "dist_esm": "dist/esm/examples/board/basic/index.html",
-            "dist_prod": "dist/production/examples/board/basic/index.html"
+            "devmode": "examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/basic/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "board",
@@ -1991,10 +1991,10 @@
         "name": "A board by team, in rows that collapse",
         "sourceUrl": "examples/board/swimlanes",
         "urls": {
-            "devmode": "examples/board/swimlanes/index.html",
-            "dist_dev": "dist/development/examples/board/swimlanes/index.html",
-            "dist_esm": "dist/esm/examples/board/swimlanes/index.html",
-            "dist_prod": "dist/production/examples/board/swimlanes/index.html"
+            "devmode": "examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark"
         },
         "hiddenIn": [],
         "family": "board",
@@ -2057,6 +2057,310 @@
             "programme",
             "scale"
         ]
+    },
+    {
+        "id": "scheduler-drag-and-resize",
+        "image": "devmode/scheduler-drag-and-resize-14.jpg",
+        "name": "Re-plan a day by drag",
+        "sourceUrl": "examples/scheduler/dragAndResize",
+        "urls": {
+            "devmode": "examples/scheduler/dragAndResize/index.html",
+            "dist_dev": "dist/development/examples/scheduler/dragAndResize/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/dragAndResize/index.html",
+            "dist_prod": "dist/production/examples/scheduler/dragAndResize/index.html"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "lookFor": "Drag a stop onto another van, then pull its right edge: it lands on the 15-minute grid. Switch the grid to 30 minutes and try again."
+    },
+    {
+        "id": "scheduler-non-working-time",
+        "image": "devmode/scheduler-non-working-time-14.jpg",
+        "name": "Weekends and holidays in the plan",
+        "sourceUrl": "examples/scheduler/nonWorkingTime",
+        "urls": {
+            "devmode": "examples/scheduler/nonWorkingTime/index.html",
+            "dist_dev": "dist/development/examples/scheduler/nonWorkingTime/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/nonWorkingTime/index.html",
+            "dist_prod": "dist/production/examples/scheduler/nonWorkingTime/index.html"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "lookFor": "Switch the working week to Sunday to Thursday: the shaded days move. Find the holiday in the second week."
+    },
+    {
+        "id": "scheduler-bar-renderer",
+        "image": "devmode/scheduler-bar-renderer-14.jpg",
+        "name": "Bars that say more",
+        "sourceUrl": "examples/scheduler/barRenderer",
+        "urls": {
+            "devmode": "examples/scheduler/barRenderer/index.html",
+            "dist_dev": "dist/development/examples/scheduler/barRenderer/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/barRenderer/index.html",
+            "dist_prod": "dist/production/examples/scheduler/barRenderer/index.html"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "lookFor": "Find the late jobs by colour and glyph. Switch to plain bars and back to see what the renderer adds."
+    },
+    {
+        "id": "scheduler-event-editor",
+        "image": "devmode/scheduler-event-editor-14.jpg",
+        "name": "Edit a booking in a form",
+        "sourceUrl": "examples/scheduler/eventEditor",
+        "urls": {
+            "devmode": "examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "lookFor": "Double-click an appointment, or focus it and press Enter. Shorten it below 30 minutes: the editor refuses."
+    },
+    {
+        "id": "scheduler-zoom",
+        "image": "devmode/scheduler-zoom-14.jpg",
+        "name": "Zoom from hours to a week",
+        "sourceUrl": "examples/scheduler/zoom",
+        "urls": {
+            "devmode": "examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
+        "lookFor": "Switch from Hours to Week and back: the axis changes its units and the sessions keep their place."
+    },
+    {
+        "id": "scheduler-resource-columns",
+        "image": "devmode/scheduler-resource-columns-14.jpg",
+        "name": "A table beside the timeline",
+        "sourceUrl": "examples/scheduler/resourceColumns",
+        "urls": {
+            "devmode": "examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
+        "lookFor": "Sort by booked hours to find who has room. Scroll the timeline: the columns stay."
+    },
+    {
+        "id": "scheduler-time-zones",
+        "image": "devmode/scheduler-time-zones-14.jpg",
+        "name": "One plan, three time zones",
+        "sourceUrl": "examples/scheduler/timeZones",
+        "urls": {
+            "devmode": "examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "The same shifts read in Berlin, New York or Tokyo time",
+        "lookFor": "Switch the zone: every shift moves on the axis and the day boundary moves with it. The stored times do not change."
+    },
+    {
+        "id": "scheduler-live-updates",
+        "image": "devmode/scheduler-live-updates-14.jpg",
+        "name": "A plan that updates itself",
+        "sourceUrl": "examples/scheduler/liveUpdates",
+        "urls": {
+            "devmode": "examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "component": "Scheduler",
+        "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
+        "lookFor": "Watch a delayed flight slide along its gate. Scroll, or drag a flight, while the feed runs. Then pause it."
+    },
+    {
+        "id": "gantt-zoom",
+        "image": "devmode/gantt-zoom-14.jpg",
+        "name": "Zoom a plan in and out",
+        "sourceUrl": "examples/gantt/zoom",
+        "urls": {
+            "devmode": "examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "lookFor": "Switch to the wider scale: the bars shrink and every link still meets its tasks."
+    },
+    {
+        "id": "gantt-working-time",
+        "image": "devmode/gantt-working-time-14.jpg",
+        "name": "Durations in working days",
+        "sourceUrl": "examples/gantt/workingTime",
+        "urls": {
+            "devmode": "examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "lookFor": "Switch working days off: every task that crosses a weekend ends earlier, and its successors move up."
+    },
+    {
+        "id": "gantt-dependencies",
+        "image": "devmode/gantt-dependencies-14.jpg",
+        "name": "Link tasks by drag",
+        "sourceUrl": "examples/gantt/dependencies",
+        "urls": {
+            "devmode": "examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Dependencies drawn from one task's handle to another, in four link types",
+        "lookFor": "Hover a task and drag from its finish handle onto another task. Then move the first task: the linked one follows."
+    },
+    {
+        "id": "gantt-task-editor",
+        "image": "devmode/gantt-task-editor-14.jpg",
+        "name": "Edit a task in a form",
+        "sourceUrl": "examples/gantt/taskEditor",
+        "urls": {
+            "devmode": "examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "lookFor": "Double-click a task and move its end a week out: its successors shift. Then set it to 100 %."
+    },
+    {
+        "id": "gantt-task-columns",
+        "image": "devmode/gantt-task-columns-14.jpg",
+        "name": "Your columns beside the plan",
+        "sourceUrl": "examples/gantt/taskColumns",
+        "urls": {
+            "devmode": "examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
+        "lookFor": "Collapse a phase: its rows fold in the table and in the chart together. Scroll the chart: the columns stay."
+    },
+    {
+        "id": "board-big-data",
+        "image": "devmode/board-big-data-14.jpg",
+        "name": "A board of 10,000 cards",
+        "sourceUrl": "examples/board/bigData",
+        "urls": {
+            "devmode": "examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/bigData/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "10,000 seeded tickets in five columns, about 100 rendered per column",
+        "lookFor": "Scroll the first column to its end, then drag its last card into another column: the counts change and the DOM stays small."
+    },
+    {
+        "id": "board-wip-limits",
+        "image": "devmode/board-wip-limits-14.jpg",
+        "name": "Work-in-progress limits",
+        "sourceUrl": "examples/board/wipLimits",
+        "urls": {
+            "devmode": "examples/board/wipLimits/index.html",
+            "dist_dev": "dist/development/examples/board/wipLimits/index.html",
+            "dist_esm": "dist/esm/examples/board/wipLimits/index.html",
+            "dist_prod": "dist/production/examples/board/wipLimits/index.html"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Columns with a limit: the header counts against it, and an overloaded stage stands out",
+        "lookFor": "The bench is over its limit of 3. Move a repair on to Testing: the bench recovers, and Testing goes over."
+    },
+    {
+        "id": "board-card-designs",
+        "image": "devmode/board-card-designs-14.jpg",
+        "name": "Card designs",
+        "sourceUrl": "examples/board/cardDesigns",
+        "urls": {
+            "devmode": "examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "The same articles as compact, standard and detailed cards, built from five card items",
+        "lookFor": "Switch between the three designs: the cards re-draw in place and keep their columns."
+    },
+    {
+        "id": "board-card-editor",
+        "image": "devmode/board-card-editor-14.jpg",
+        "name": "Edit a card",
+        "sourceUrl": "examples/board/cardEditor",
+        "urls": {
+            "devmode": "examples/board/cardEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "A card's title edited in place, its stage, tags and owner in the card editor",
+        "lookFor": "Rename a candidate on the card itself. Open the card and move it to Interview from the editor: it changes column."
+    },
+    {
+        "id": "board-multi-select",
+        "image": "devmode/board-multi-select-14.jpg",
+        "name": "Select many, move once",
+        "sourceUrl": "examples/board/multiSelect",
+        "urls": {
+            "devmode": "examples/board/multiSelect/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Cards selected by click, Shift and a modifier key, dragged together into another column",
+        "lookFor": "Click a report, Shift-click one further down, then drag the selection into This sprint. Both headers' counts follow."
+    },
+    {
+        "id": "board-columns",
+        "image": "devmode/board-columns-14.jpg",
+        "name": "Arrange the columns",
+        "sourceUrl": "examples/board/columns",
+        "urls": {
+            "devmode": "examples/board/columns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/columns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/columns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/columns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Columns reordered by drag, folded to a strip, or locked in place",
+        "lookFor": "Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked."
     },
     {
         "id": "meridian-observatory",

@@ -3,6 +3,7 @@ import GridContainer  from '../../../src/grid/Container.mjs';
 import Label          from '../../../src/component/Label.mjs';
 import MainStore      from './MainStore.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
+import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
@@ -55,7 +56,9 @@ class BoardViewport extends Viewport {
             flex  : 'none',
             items : [
                 {module: Label, cls: ['board-example-title'],    text: 'Sprint board'},
-                {module: Label, cls: ['board-example-subtitle'], text: 'One store, two views'}
+                {module: Label, cls: ['board-example-subtitle'], text: 'One store, two views'},
+                '->',
+                {module: ThemeSwitcher}
             ]
         }, {
             ntype : 'container',

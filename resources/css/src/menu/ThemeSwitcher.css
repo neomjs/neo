@@ -1,0 +1,16 @@
+.neo-theme-switcher-menu [role="menuitemradio"]::after {
+    border             : solid currentColor;
+    border-width       : 0 2px 2px 0;
+    box-sizing         : border-box;
+    content            : '';
+    flex               : none;
+    height             : 9px;
+    margin-inline-start: 12px;
+    transform          : rotate(45deg);
+    visibility         : hidden;
+    width              : 5px;
+}
+
+.neo-theme-switcher-menu [role="menuitemradio"][aria-checked="true"]::after {
+    visibility: visible;
+}

@@ -1,14 +1,15 @@
-import Button     from '../../../src/button/Base.mjs';
-import Component  from '../../../src/component/Base.mjs';
-import Container  from '../../../src/container/Base.mjs';
-import EventModel from '../../../src/timeline/model/Event.mjs';
-import EventStore from '../../../src/timeline/store/Events.mjs';
-import Label      from '../../../src/component/Label.mjs';
-import Model      from '../../../src/data/Model.mjs';
-import Scheduler  from '../../../src/scheduler/Container.mjs';
-import Store      from '../../../src/data/Store.mjs';
-import Toolbar    from '../../../src/toolbar/Base.mjs';
-import Viewport   from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
+import EventModel    from '../../../src/timeline/model/Event.mjs';
+import EventStore    from '../../../src/timeline/store/Events.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import Model         from '../../../src/data/Model.mjs';
+import Scheduler     from '../../../src/scheduler/Container.mjs';
+import Store         from '../../../src/data/Store.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 const
     // Monday to Monday in Lisbon, which keeps UTC in December: the venue's clock and the stored times agree
@@ -241,6 +242,8 @@ class VenueViewport extends Viewport {
                     reference: `level-${preset}`,
                     text
                 }))
+            }, {
+                module: ThemeSwitcher
             }]
         }, {
             module: Component,

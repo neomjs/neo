@@ -22,7 +22,8 @@
 
     .neo-link-color {
         a {
-            color: #ddd;
+            color          : inherit;
+            text-decoration: underline;
         }
     }
 }

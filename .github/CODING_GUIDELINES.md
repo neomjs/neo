@@ -67,7 +67,7 @@ Neo.tab.header.Button
 
 ## 4. Anatomy of a neo class / JS module
 
-Between the imports and the class there are `import`s, constants and lookup tables — and nothing else.
+The guard `check-class-module-scope.mjs` enforces one top-level class per `{src,apps,examples}/**/*.mjs` file. Only immutable internal constants belong between imports and the class.
 Behaviour lives on the class, because module scope is not reachable by a subclass, a mixin or
 `Neo.overwrites`: see [§8 Class methods](#8-class-methods).
 
@@ -398,9 +398,10 @@ class does not tidy it; it removes an override seam and fragments the class's re
 So a helper becomes an instance method, a `static` method, or a getter — or, when it genuinely belongs
 to no class, its own module under `src/util/**` consumed by import.
 
-`import`s, constants and lookup tables stay at module scope: nobody overrides data.
+Keep immutable internal constants such as regexes and private grammar tables at module scope.
+Use a `static config` descriptor (`{[isDescriptor]: true, merge: 'shallow', value: {...}}`) or a static class field for consumer- or subclass-extensible maps, labels and options.
 
-`buildScripts/util/check-class-module-scope.mjs` enforces this over `src/**/*.mjs`, gated on the file
+`buildScripts/util/check-class-module-scope.mjs` enforces this over `{src,apps,examples}/**/*.mjs`, gated on the file
 declaring a class. A new helper fails `lint-staged` and CI. The baseline records debt being paid down —
 it is not a place to put new debt.
 

@@ -5,6 +5,7 @@ import FeedList          from './FeedList.mjs';
 import InspectorPane     from './InspectorPane.mjs';
 import MetricsPane       from './MetricsPane.mjs';
 import PlanPane          from './PlanPane.mjs';
+import ThemeSwitcher     from '../../../src/button/ThemeSwitcher.mjs';
 
 const stateCell = ({value}) => `<span class="neo-example-desk-state neo-example-desk-state-${value}">${value}</span>`;
 
@@ -123,6 +124,9 @@ class MainContainer extends DockMainContainer {
             cls  : ['neo-example-desk-hint'],
             flex : 1,
             text : 'Pick an agent in Swarm · drag any tab into another zone · switch perspectives'
+        }, {
+            module: ThemeSwitcher,
+            flex  : 'none'
         });
 
         return toolbar

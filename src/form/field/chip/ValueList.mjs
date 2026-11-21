@@ -249,7 +249,7 @@ class ValueList extends ChipList {
      * @protected
      */
     onChipRemove({value}) {
-        this.fire('removevalue', {source: this, value})
+        this.fire('removevalue', {value})
     }
 
     /**
@@ -293,8 +293,9 @@ class ValueList extends ChipList {
 /**
  * Fired when one projected chip requests removal.
  * @event removevalue
- * @param {Neo.form.field.chip.ValueList} source
- * @param {*} value
+ * @param {Object} data
+ * @param {String} data.source The sender's component id.
+ * @param {*} data.value The selected Store key to remove.
  */
 
 export default Neo.setupClass(ValueList);

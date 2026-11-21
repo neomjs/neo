@@ -258,8 +258,17 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
               guarded    = classifier.jobs.classify.steps.filter(step => String(step.if).includes('inputs.select_e2e'));
 
         expect(call.inputs.select_e2e).toEqual(expect.objectContaining({type: 'boolean', default: false}));
-        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'select']);
+        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'route-parser', 'select']);
         guarded.forEach(step => expect(String(step.if)).toContain("github.event_name == 'pull_request'"));
+        const parser = guarded.find(step => step.id === 'route-parser');
+
+        expect(parser.if).toContain("contains(steps.scope.outputs.e2e_example_css, '/examples/')");
+        expect(parser.run).toContain('npm ci --ignore-scripts');
+        expect(parser['continue-on-error']).toBe(true);
+        expect(guarded.at(-1).env).toEqual({
+            E2E_FILES      : '${{ steps.scope.outputs.e2e_files }}',
+            E2E_EXAMPLE_CSS: '${{ steps.scope.outputs.e2e_example_css }}'
+        });
         expect(guarded.at(-1).run).toContain('node buildScripts/util/e2eCiSelection.mjs --select | tee -a "$GITHUB_OUTPUT"');
         expect(guarded.at(-1).run, 'a failed selection fails the step, although tee succeeds').toContain('set -o pipefail');
 
@@ -275,7 +284,48 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         const files = JSON.parse(outputsOf(runtime).e2e_files);
 
         expect(files).toEqual(['src/grid/Body.mjs']);
+        expect(JSON.parse(outputsOf(runtime).e2e_example_css)).toEqual([]);
         expect(readWorkflow('test.yml').jobs.changes.with).toEqual({select_e2e: true});
+    });
+
+    test('a PR exposes only normalized added or modified stylesheet paths as candidates for CSS narrowing', async () => {
+        const added    = 'resources/css/src/examples/scheduler/zoom/Viewport.css',
+              modified = 'resources/css/theme-neo-dark/examples/scheduler/zoom/Viewport.css',
+              removed  = 'resources/css/src/examples/scheduler/zoom/Old.css',
+              unknown  = 'resources/css/src/examples/scheduler/zoom/Unknown.css',
+              copied   = 'resources/css/src/examples/scheduler/zoom/Copy.css',
+              previous = 'resources/css/src/examples/scheduler/zoom/Prior.css',
+              source   = 'examples/scheduler/zoom/Viewport.mjs',
+              runtime  = createRuntime({files: [
+                  {filename: added, status: 'added'},
+                  {filename: modified.replaceAll('/', '\\'), status: 'modified'},
+                  {filename: removed, status: 'removed'},
+                  {filename: unknown},
+                  {filename: copied, status: 'copied'},
+                  {filename: previous, status: 'modified', previous_filename: null},
+                  {filename: source, status: 'modified'}
+              ]});
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(JSON.parse(outputsOf(runtime).e2e_files)).toEqual([added, modified, removed, unknown, copied, previous, source]);
+        expect(JSON.parse(outputsOf(runtime).e2e_example_css)).toEqual([added, modified]);
+    });
+
+    test('renames retain the CSS side of an E2E boundary crossing without permitting narrowing', async () => {
+        const css  = 'resources/css/src/examples/scheduler/zoom/Viewport.css',
+              docs = 'README.md';
+
+        for (const [filename, previous] of [[docs, css], [css, docs]]) {
+            const runtime = createRuntime({files: [{filename, status: 'renamed', previous_filename: previous.replaceAll('/', '\\')}]});
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime).run_e2e, filename).toBe('true');
+            expect(JSON.parse(outputsOf(runtime).e2e_files), filename).toEqual([css]);
+            expect(JSON.parse(outputsOf(runtime).e2e_example_css), filename).toEqual([]);
+            expect(outputsOf(runtime).e2e_boundary_report, filename).toContain(`${css}: in`);
+        }
     });
 
     test('every job output is re-declared to callers', () => {
@@ -473,7 +523,7 @@ test.describe('Tests scope classifier — the dev push range', () => {
         // in no classified range. A cancelled run classified nothing, so it is skipped as a base.
         const runtime = createRuntime({
             eventName: 'push',
-            files    : ['src/grid/Body.mjs'],
+            files    : [{filename: 'resources/css/src/examples/scheduler/zoom/Viewport.css', status: 'modified'}],
             runs     : [
                 { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
                 { id: 2, conclusion: 'failure',   head_sha: 'completed-sha' }
@@ -484,6 +534,7 @@ test.describe('Tests scope classifier — the dev push range', () => {
 
         expect(runtime.calls.basehead).toBe('completed-sha...after-sha');
         expect(outputsOf(runtime).run_e2e).toBe('true');
+        expect(JSON.parse(outputsOf(runtime).e2e_example_css)).toEqual([]);
     });
 
     test('a push reads package.json at the base its files were diffed from, not at before', async () => {

@@ -830,6 +830,28 @@ export async function verifySeoArtifacts(options={}) {
 }
 
 /**
+ * @summary Finds corpus-derived `sitemap*.xml` and `llms*.txt` files left under `apps/portal/` in a corpus-less Engine checkout.
+ * @param {String} [root=process.cwd()]
+ * @returns {Promise<String[]>}
+ */
+export async function findDisallowedCorpusLessPortalFiles(root=process.cwd()) {
+    const portalDir = path.resolve(root, 'apps/portal');
+
+    if (!(await fs.pathExists(portalDir))) {
+        return [];
+    }
+
+    const matches = await fg(['sitemap*.xml', 'llms*.txt'], {
+        cwd      : portalDir,
+        onlyFiles: true
+    });
+
+    return matches
+        .sort((a, b) => a.localeCompare(b))
+        .map(file => `apps/portal/${file}`);
+}
+
+/**
  * @summary CLI entrypoint that verifies the live checkout's tracked `seo.json` parity and full in-memory
  * SEO/LLM bundle invariants.
  * @returns {Promise<void>}
@@ -852,6 +874,18 @@ async function runCli() {
     const releaseNotesRoot = opts.releaseNotes ? path.resolve(opts.releaseNotes) : getEngineReleaseNotesRoot(root);
     const robotsTxtPath    = path.resolve(root, 'apps/portal/robots.txt');
     const seoJsonPath      = path.resolve(root, 'apps/portal/resources/data/seo.json');
+
+    if (!opts.corpusRoot) {
+        const strayFiles = await findDisallowedCorpusLessPortalFiles(root);
+
+        if (strayFiles.length > 0) {
+            throw new Error(
+                `Disallowed corpus-derived Portal files present in Engine checkout: ${strayFiles.join(', ')}. ` +
+                'neomjs/pages builds sitemap*.xml and llms*.txt from --corpus-root at deploy time.'
+            );
+        }
+    }
+
     const tempWorkDir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-verify-cli-'));
     const corpusRoot       = opts.corpusRoot ? path.resolve(opts.corpusRoot) : path.join(tempWorkDir, 'corpus');
     const tempReleasesPath = path.join(tempWorkDir, 'releases.json');

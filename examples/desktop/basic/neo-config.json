@@ -4,5 +4,5 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DragDrop", "LocalStorage", "Navigator", "Stylesheet"],
-    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"]
+    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-dark", "neo-theme-light", "neo-theme-cyberpunk"]
 }

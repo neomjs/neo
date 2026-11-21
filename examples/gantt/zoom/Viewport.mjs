@@ -4,6 +4,7 @@ import DependencyStore from '../../../src/gantt/DependencyStore.mjs';
 import Gantt           from '../../../src/gantt/Container.mjs';
 import Label           from '../../../src/component/Label.mjs';
 import TaskStore       from '../../../src/gantt/TaskStore.mjs';
+import ThemeSwitcher   from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar         from '../../../src/toolbar/Base.mjs';
 import Viewport        from '../../../src/container/Viewport.mjs';
 
@@ -160,7 +161,8 @@ class ZoomViewport extends Viewport {
                     {module: Button, cls: ['zoom-level'], text: 'Day',   reference: 'level-day',   pressed: false, handler: 'up.onDay'},
                     {module: Button, cls: ['zoom-level'], text: 'Week',  reference: 'level-week',  pressed: true,  handler: 'up.onWeek'},
                     {module: Button, cls: ['zoom-level'], text: 'Month', reference: 'level-month', pressed: false, handler: 'up.onMonth'}
-                ]}
+                ]},
+                {module: ThemeSwitcher}
             ]
         }, {
             module         : Gantt,

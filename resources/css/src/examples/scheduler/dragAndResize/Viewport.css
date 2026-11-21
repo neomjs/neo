@@ -263,10 +263,12 @@ body:has(.depot-viewport.depot-is-resizing) .neo-scheduler-drag-preview {
 
             .depot-title {
                 font-size: 15px;
+                order    : 1;
             }
 
             .depot-badge {
                 font-size: 11px;
+                order    : 2;
                 padding  : 2px 8px;
             }
 
@@ -274,14 +276,22 @@ body:has(.depot-viewport.depot-is-resizing) .neo-scheduler-drag-preview {
                 display: none;
             }
 
+            .neo-theme-switcher {
+                margin-left: auto;
+                order      : 2;
+            }
+
             .depot-legend {
                 font-size  : 11px;
                 gap        : 8px;
                 margin-left: 0;
+                order      : 3;
+                width      : 100%;
             }
 
             .depot-snap-group.neo-container {
-                margin-left: auto;
+                margin-left: 0;
+                order      : 4;
             }
 
             .depot-snap-caption {

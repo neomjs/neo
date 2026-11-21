@@ -147,6 +147,8 @@ const readProjectionState = async (browser, page) => {
                 hostId   : id,
                 workspace: workspace.id,
                 cycle    : workspace.projectionCycle?.timing ?? null,
+                // The refresh the newest cycle waits on: its last stamp is the phase it never left
+                predecessor: workspace.projectionCycle?.predecessorTiming ?? null,
                 // 500 ms out-waits the refresh's own longest timer, the 300 ms chrome settle after its motion
                 refresh         : refreshPromise ? await Promise.race([
                     refreshPromise.then(() => 'settled', () => 'rejected'),
