@@ -5,6 +5,8 @@ import * as core          from '../../../../../src/core/_export.mjs';
 import Workspace          from '../../../../../apps/workstation/view/Workspace.mjs';
 import WorkspaceDocument  from '../../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import TransactionManager from '../../../../../src/manager/Transaction.mjs';
+import TourController     from '../../../../../apps/workstation/view/TourController.mjs';
+import Reconciler         from '../../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import {initialDocument}  from '../../../../../apps/workstation/tour/denseWorkstation.mjs';
 
 setup({appConfig: {name: 'WorkstationTourControllerTest'}});
@@ -444,6 +446,32 @@ test('a spec tour started while a reload hydrates its topology projects after it
         expect(refreshes, 'the entry projection starts once the hydrate one settled').toEqual(['enter 0', 'exit 0', 'enter 1', 'exit 1']);
         expect(result.completed).toBe(true)
     } finally {release.resolve(); workspace.destroy(); TransactionManager.retireGroup(binding.groupId)}
+});
+
+test('a direct projection queued behind a held refresh answers to the commit after it, not to a signal of its own', async () => {
+    // The first reconcile holds like an overflow read that never answers; the commit behind the queued
+    // direct projection must release it, or the projection's own read keeps that commit out.
+    const workspace = Neo.create(Workspace, {windowId: Neo.config.windowId}),
+          reconcile = Reconciler.reconcileProjection,
+          held      = deferred(),
+          signals   = [];
+    await settleRefreshTail(workspace);
+    Reconciler.reconcileProjection = function (projection) {
+        signals.push(projection.signal);
+        return signals.length === 1 ? held.promise.then(() => reconcile.call(this, projection)) : reconcile.call(this, projection)
+    };
+    try {
+        workspace.projectDockZoneDocument(WorkspaceDocument.clone(workspace.dockModel));
+        await expect.poll(() => signals.length, {message: 'the first commit reaches its reconcile'}).toBe(1);
+        const direct = TourController.queueDockRefresh(workspace, WorkspaceDocument.clone(workspace.dockModel));
+        workspace.projectDockZoneDocument(WorkspaceDocument.clone(workspace.dockModel));
+        held.resolve();
+        await direct;
+        await settleRefreshTail(workspace);
+        expect(signals, 'every queued projection reconciles').toHaveLength(3);
+        expect(signals[1].aborted, 'the direct projection starts superseded by the commit behind it').toBe(true);
+        expect(signals[2].aborted, 'the newest commit runs unsuperseded').toBe(false)
+    } finally {Reconciler.reconcileProjection = reconcile; held.resolve(); workspace.destroy()}
 });
 
 test('cancellation during final settlement returns cancellation rather than reading a disposed owner', async () => {

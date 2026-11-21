@@ -3381,6 +3381,7 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
 
 /**
  * @summary Runs the actual playback owner's probe against a borrowed workspace service fixture.
+ * The fixture also answers the refresh queue's supersession, which every queued projection takes.
  * @param {Object} workspace
  * @param {...*} args
  * @returns {Promise<Object>}
@@ -3388,6 +3389,7 @@ test.describe('cue settlement truth-binding (prototype-call)', () => {
 async function runTourProbe(workspace, ...args) {
     const service = Neo.create(DockService);
     workspace.dockService = service;
+    workspace.getProjectionAbort ??= () => new AbortController();
     try {
         return await TourController.prototype.runSpecTour.call({
             workspace, specRunners: new Set(), trap: promise => promise
