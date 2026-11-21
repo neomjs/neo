@@ -1,0 +1,32 @@
+:where(.neo-theme-cyberpunk) {
+    --studio-header-bg       : #090614;
+    --studio-subbar-bg       : #100b21;
+    --studio-border          : #2a1d4e;
+    --studio-title           : #e0f2fe;
+    --studio-muted           : #94a3b8;
+    --studio-focus           : #00f0ff;
+    --studio-grip-rest       : #7c3aed;
+
+    --studio-header-hover-bg : #1b1236;
+    --studio-header-drag-bg  : #0f263a;
+    --studio-folded-bg       : #0d081d;
+    --studio-locked-header-bg: #082726;
+
+    --studio-pill-bg         : #140e29;
+    --studio-pill-border     : #31235c;
+    --studio-pill-text       : #bae6fd;
+
+    --studio-lock-accent     : #00f0ff;
+    --studio-lock-bg         : #062b2d;
+    --studio-lock-border     : #00f0ff;
+
+    --studio-btn-bg          : #160f2e;
+    --studio-btn-border      : #4c1d95;
+    --studio-btn-text        : #e0f2fe;
+    --studio-btn-hover-bg    : #231747;
+    --studio-btn-hover-border: #00f0ff;
+    --studio-btn-active-bg   : #083344;
+    --studio-btn-active-text : #67e8f9;
+
+    --studio-drag-shadow     : 0 18px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 240, 255, 0.55);
+}
