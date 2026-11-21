@@ -112,6 +112,12 @@
         }
     }
 
+    /* A short snapping screen still holds the whole statement, the buttons and the replay strip below them */
+    @media (min-width: 841px) and (max-height: 820px) {
+        gap    : 1.75rem;
+        padding: 3em 2em;
+    }
+
     @media (max-width : 645px) {
         padding: 4em 1.5em;
         gap    : 2rem;
