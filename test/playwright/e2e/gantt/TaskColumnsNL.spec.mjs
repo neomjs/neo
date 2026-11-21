@@ -91,6 +91,17 @@ function measureLinks(page) {
     })
 }
 
+/**
+ * @summary Scrolls a phone-width Gantt past its six loose columns. The timeline starts past them, so the grid
+ * mounts its column, and with it the bars, only once it scrolls into view.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function scrollToTimeline(page) {
+    await page.locator('.neo-grid-horizontal-scrollbar').evaluate((el, value) => {el.scrollLeft = value}, LOOSE_WIDTH);
+    await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.scrollLeft)).toBe(LOOSE_WIDTH)
+}
+
 test('seven columns stand beside a chart that keeps at least half of 1440 px', async ({page}) => {
     await page.setViewportSize({width: 1440, height: 900});
     await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
@@ -127,13 +138,12 @@ test('collapsing a phase folds its rows in the table and in the chart together',
 test('at 390 × 844 only the task tree stays locked, and the links stay on their bars', async ({page}) => {
     await page.setViewportSize({width: 390, height: 844});
     await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
-    await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeAttached();
+    await expect(page.locator('.neo-grid-tree-cell', {hasText: 'Survey the meadow'})).toBeVisible();
 
     await expect.poll(() => lockedHeaders(page)).toEqual(['Task']);
 
     // The other six scroll with the chart: past them, the timeline starts at the region's left edge
-    await page.locator('.neo-grid-horizontal-scrollbar').evaluate((el, value) => {el.scrollLeft = value}, LOOSE_WIDTH);
-    await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.scrollLeft)).toBe(LOOSE_WIDTH);
+    await scrollToTimeline(page);
     await expect.poll(() => measureLinks(page)).toBe('on bars')
 });
 
@@ -153,10 +163,10 @@ test('opens cleanly at 1440 × 900 and 390 × 844 in every theme', async ({page}
         for (const theme of THEMES) {
             await page.goto(`${EXAMPLE_URL}?theme=${theme}`);
             await expect(page.locator(`.${theme}`).first()).toBeAttached();
-            // The bars render once the theme's sheet has loaded, which the class above does not wait for: a sheet
-            // held back 2 s drew them at 2.3 to 2.5 s, and a loaded CI runner went past the default 5 s twice
-            await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeAttached({timeout: 15000});
-            await expect(page.locator('.tc-badge').first()).toBeVisible()
+            await expect(page.locator('.tc-badge').first()).toBeVisible();
+
+            viewport.width < 1440 && await scrollToTimeline(page);
+            await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeAttached()
         }
     }
 
