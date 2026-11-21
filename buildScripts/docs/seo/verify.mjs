@@ -396,6 +396,48 @@ export function validateLlmsTxtContent(llmsTxt, {maxBytes=LLMS_TXT_MAX_BYTES, re
 }
 
 /**
+ * @summary Parses `<script type="application/ld+json">` blocks in `apps/portal/index.html` and rejects malformed JSON or `#/` hash-fragment URLs.
+ * @param {String} htmlContent
+ * @returns {String[]}
+ */
+export function validatePortalIndexJsonLd(htmlContent='') {
+    const errors        = [];
+    const scriptPattern = /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+    function checkValue(value) {
+        if (typeof value === 'string') {
+            if (/https?:\/\/[^/\s"']+\/#\//.test(value) || value.startsWith('#/')) {
+                errors.push(`apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "${value}".`);
+            }
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                checkValue(item);
+            }
+            return;
+        }
+
+        if (value && typeof value === 'object') {
+            for (const child of Object.values(value)) {
+                checkValue(child);
+            }
+        }
+    }
+
+    for (const [, rawJson] of String(htmlContent).matchAll(scriptPattern)) {
+        try {
+            checkValue(JSON.parse(rawJson));
+        } catch (error) {
+            errors.push(`apps/portal/index.html contains invalid application/ld+json JSON: ${error.message}`);
+        }
+    }
+
+    return errors;
+}
+
+/**
  * @summary Validates generated SEO and LLM artifacts in memory and throws an actionable `Error` on drift.
  * @param {Object} [options={}]
  * @param {String} [options.baseUrl='https://neomjs.com']
@@ -737,6 +779,12 @@ export async function verifySeoArtifacts(options={}) {
                 throw new Error(`seo.json route "${noindexHubRoute}" must set robots to "noindex, follow".`);
             }
         }
+    }
+
+    const portalIndexPath = path.resolve(root, 'apps/portal/index.html');
+
+    if (await fs.pathExists(portalIndexPath)) {
+        throwIfInvalid(validatePortalIndexJsonLd(await fs.readFile(portalIndexPath, 'utf-8')));
     }
 
     const blogIndexPath = path.resolve(root, 'apps/portal/resources/data/blog.json');
