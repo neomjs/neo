@@ -390,6 +390,7 @@ class Header extends Base {
             bufB[i] = centerY + sineB + offsetY + noiseB + shockY;
         }
 
+        // Move the helix with aria-current on the first frame. The old link resumes its ordinary wave at the same phase.
         const active = me.getNavRect(me.activeId);
         if (active) {
             const first  = Math.max(0, Math.ceil(active.x / step)),
@@ -536,16 +537,17 @@ class Header extends Base {
         const me = this, rect = me.getNavRect(me.activeId);
         if (!rect || !me.waveBuffers.helix) return;
 
-        const {fgA, fgB, helix}              = me.waveBuffers,
-              {helix: colors, selectionWash} = me.constructor.colors[me.theme],
-              step                           = 2,
-              first                          = Math.max(0, Math.ceil(rect.x / step)),
-              last                           = Math.min(Math.ceil(width / step) - 1, Math.floor((rect.x + rect.width) / step));
+        const {fgA, fgB, helix} = me.waveBuffers,
+              palette           = me.constructor.colors[me.theme],
+              colors            = palette.helix ?? palette.grad1,
+              step              = 2,
+              first             = Math.max(0, Math.ceil(rect.x / step)),
+              last              = Math.min(Math.ceil(width / step) - 1, Math.floor((rect.x + rect.width) / step));
 
         if (last <= first) return;
         ctx.save();
         ctx.lineJoin = ctx.lineCap = 'round';
-        ctx.fillStyle = selectionWash;
+        ctx.fillStyle = palette.selectionWash ?? palette.fgRibbon[1];
         ctx.beginPath();
         const centerY = me.canvasSize.height / 2;
         ctx.moveTo(first * step, centerY);

@@ -1,5 +1,5 @@
 import ComponentManager from '../../manager/Component.mjs';
-import SharedCanvas     from '../SharedCanvas.mjs';
+import MotionCanvas     from '../MotionCanvas.mjs';
 
 /**
  * @summary The App Worker component for the HeaderToolbar canvas overlay.
@@ -15,10 +15,10 @@ import SharedCanvas     from '../SharedCanvas.mjs';
  * ensuring the main thread and App Worker remain unblocked.
  *
  * @class Neo.app.header.Canvas
- * @extends Neo.app.SharedCanvas
+ * @extends Neo.app.MotionCanvas
  * @see Neo.canvas.Header
  */
-class Canvas extends SharedCanvas {
+class Canvas extends MotionCanvas {
     static config = {
         /**
          * @member {String} className='Neo.app.header.Canvas'
@@ -59,29 +59,6 @@ class Canvas extends SharedCanvas {
      */
     navRectsTimeoutId = null
 
-    /** @member {Number} motionRead=0 Identifies the latest read for this header. */
-    motionRead = 0
-
-    /**
-     * @summary Reads the mount's motion token. A failed read leaves the header still, and a departed graph's
-     * result cannot change its successor. The user's pulse setting is a separate input.
-     * @returns {Promise<void>}
-     * @protected
-     */
-    async syncMotion() {
-        const me = this, read = ++me.motionRead, graph = me.rendererGraph, {windowId} = me;
-        let duration;
-
-        try {
-            const styles = await Neo.main.DomAccess.getComputedStyle({id: me.id, style: '--motion-base', windowId});
-            duration = parseFloat(styles?.['--motion-base'])
-        } catch {}
-
-        if (read === me.motionRead && !me.isDestroyed && me.isCanvasReady && me.rendererGraph === graph && me.windowId === windowId) {
-            me.renderer.updateConfig?.({still: !(duration > 0), windowId})
-        }
-    }
-
     /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -92,19 +69,18 @@ class Canvas extends SharedCanvas {
         let me = this;
 
         if (value) {
-            me.syncMotion();
+            me.renderer.updateConfig({still: me.still, windowId: me.windowId});
             me.renderer.updateActiveId({id: me.activeId, windowId: me.windowId})
         }
     }
 
     /**
-     * @summary Rechecks the OS preference when the user returns to the window.
-     * @param {Object} data
+     * @summary Updates the renderer clock independently of the user's pulse setting.
+     * @param {Boolean} value
      * @protected
      */
-    onWindowVisibility(data) {
-        super.onWindowVisibility(data);
-        !data.hidden && this.isCanvasReady && this.syncMotion()
+    afterSetStill(value) {
+        this.isCanvasReady && this.renderer.updateConfig({still: value, windowId: this.windowId})
     }
 
     /**

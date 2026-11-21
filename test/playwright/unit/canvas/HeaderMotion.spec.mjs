@@ -54,14 +54,13 @@ test.describe('Header motion preference', () => {
     });
 
     test('only the current mounted graph receives the latest motion token from its own window', async () => {
-        const main = Neo.main, calls = [], reads = [], styles = [],
-              host = {id: 'header', windowId: 'one', rendererGraph: {}, isCanvasReady: true, motionRead: 0,
-                  renderer: {updateConfig: value => calls.push(value)}};
+        const main = Neo.main, reads = [], styles = [],
+              host = {id: 'header', windowId: 'one', rendererGraph: {}, mounted: true, motionRead: 0, still: true};
         Neo.main = {...main, DomAccess: {getComputedStyle: query => {
             reads.push(query);
             return new Promise(resolve => styles.push(resolve))
         }}};
-        const read = () => HeaderCanvas.prototype.syncMotion.call(host);
+        const read = () => HeaderCanvas.prototype.readMotion.call(host);
         try {
             const stale = read(), current = read();
             styles[1]({'--motion-base': '0ms'});
@@ -69,7 +68,7 @@ test.describe('Header motion preference', () => {
             styles[0]({'--motion-base': '200ms'});
             await stale;
             expect(reads[0]).toEqual({id: 'header', style: '--motion-base', windowId: 'one'});
-            expect(calls).toEqual([{still: true, windowId: 'one'}]);
+            expect(host.still).toBe(true);
 
             const allowed = read();
             styles[2]({'--motion-base': '200ms'});
@@ -78,7 +77,19 @@ test.describe('Header motion preference', () => {
             host.rendererGraph = {};
             styles[3]({'--motion-base': '0ms'});
             await retired;
-            expect(calls).toEqual([{still: true, windowId: 'one'}, {still: false, windowId: 'one'}])
+            expect(host.still).toBe(false);
+
+            const departed = read();
+            host.windowId = 'two';
+            styles[4]({'--motion-base': '0ms'});
+            await departed;
+            expect(host.still).toBe(false);
+
+            const unmounted = read();
+            host.mounted = false;
+            styles[5]({'--motion-base': '0ms'});
+            await unmounted;
+            expect(host.still).toBe(false)
         } finally {
             Neo.main = main
         }

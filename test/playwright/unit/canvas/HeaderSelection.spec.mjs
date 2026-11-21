@@ -36,7 +36,8 @@ test('only the current visible route gains distinct geometry while its neighbour
         ]});
         header.updateResources(width, height);
         const stream   = () => vertices(ctx => header.drawAuras(ctx, width, height)),
-              ordinary = new Set(stream().map(([x, y]) => `${x},${y}`)),
+              baseline = stream(),
+              ordinary = new Set(baseline.map(([x, y]) => `${x},${y}`)),
               selected = () => {
                   header.calculateStrandGeometry(width, height);
                   return vertices(ctx => header.drawActiveOverlay(ctx, width))
@@ -58,6 +59,8 @@ test('only the current visible route gains distinct geometry while its neighbour
 
         header.updateActiveId({id: 'news'});
         expectInside(selected(), news);
+        const inHome = ([x]) => x <= home.x + home.width;
+        expect(stream().filter(inHome), 'the former route resumes its ordinary wave on the same frame').toEqual(baseline.filter(inHome));
         header.updateActiveId({id: 'unmatched'});
         expect(selected()).toEqual([]);
 
@@ -68,5 +71,34 @@ test('only the current visible route gains distinct geometry while its neighbour
         expect(hovered()).toEqual([])
     } finally {
         header.clearGraph()
+    }
+});
+
+test('an existing theme override can keep its palette when it adds the selected helix', () => {
+    const {helix, selectionWash, ...original} = header.constructor.colors.light,
+          paints                              = [],
+          ctx                                 = new Proxy({}, {
+              get: () => () => {},
+              set(target, key, value) {
+                  if (key === 'fillStyle' || key === 'strokeStyle') paints.push(value);
+                  return true
+              }
+          });
+
+    class LegacyHeader extends header.constructor {
+        static config = {className: 'Neo.test.canvas.LegacyHeader', singleton: false}
+        static colors = {light: original}
+    }
+    const themed = Neo.create(Neo.setupClass(LegacyHeader));
+    try {
+        themed.updateNavRects({width, height, rects: [news]});
+        themed.updateResources(width, height);
+        themed.updateActiveId({id: 'news'});
+        themed.calculateStrandGeometry(width, height);
+        themed.drawActiveOverlay(ctx, width);
+        const [a, b, c] = original.grad1;
+        expect(paints).toEqual([original.fgRibbon[1], c, a, b, a])
+    } finally {
+        themed.destroy()
     }
 });
