@@ -1326,6 +1326,25 @@
       "region": {"x": 640, "y": 0, "width": 640, "height": 360}
     },
     {
+      "id": "board-big-data",
+      "viewport": {"width": 1440, "height": 810},
+      "theme": "dark",
+      "state": "The support desk opens with five columns and its live count in frame.",
+      "ready": [{"selector": ".desk-counter", "text": "10,000 cards · 550 in the DOM", "inRegion": true}],
+      "steps": [],
+      "after": [
+        {"selector": ".neo-theme-neo-dark .desk-board"},
+        {"selector": ".desk-title", "text": "Support desk", "inRegion": true},
+        {"selector": ".desk-counter", "text": "10,000 cards · 550 in the DOM", "inRegion": true},
+        {"selector": ".desk-board .neo-board-column-title", "text": "New", "inRegion": true},
+        {"selector": ".desk-board .neo-board-column-title", "text": "Triage", "inRegion": true},
+        {"selector": ".desk-board .neo-board-column-title", "text": "Waiting on customer", "inRegion": true},
+        {"selector": ".desk-board .neo-board-column-title", "text": "Solved", "inRegion": true},
+        {"selector": ".desk-board .neo-board-column-title", "text": "Closed", "inRegion": true}
+      ],
+      "region": "viewport"
+    },
+    {
       "id": "live-preview",
       "viewport": {"width": 672, "height": 523},
       "theme": "default",

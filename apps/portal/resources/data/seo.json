@@ -1113,7 +1113,7 @@
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
-        "description": "Explore 8 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
+        "description": "Explore 9 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1270,6 +1270,12 @@
     "/examples/board/basic/index.html": {
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table below the board shows its new status.",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-21"
+    },
+    "/examples/board/bigData/index.html": {
+        "title": "Support desk · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "10,000 seeded tickets in five columns, about 100 rendered per column. Scroll the first column to its end, then drag its last card into another column: the...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },

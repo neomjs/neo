@@ -2267,6 +2267,22 @@
         "lookFor": "Collapse a phase: its rows fold in the table and in the chart together. Scroll the chart: the columns stay."
     },
     {
+        "id": "board-big-data",
+        "image": "devmode/board-big-data-14.jpg",
+        "name": "A board of 10,000 cards",
+        "sourceUrl": "examples/board/bigData",
+        "urls": {
+            "devmode": "examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/bigData/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "10,000 seeded tickets in five columns, about 100 rendered per column",
+        "lookFor": "Scroll the first column to its end, then drag its last card into another column: the counts change and the DOM stays small."
+    },
+    {
         "id": "board-wip-limits",
         "image": "devmode/board-wip-limits-14.jpg",
         "name": "Work-in-progress limits",

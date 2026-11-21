@@ -152,8 +152,8 @@ export function validateCaptureRecipes(manifest, catalog) {
         const region = recipe.region;
         if (region === 'viewport') {
             const {width, height} = recipe.viewport;
-            insist(width >= WIDTH && width <= WIDTH * DPR && width * HEIGHT === height * WIDTH,
-                `${field}.viewport`, 'full viewport requires a 16:9 frame 640 to 1280 CSS pixels wide')
+            insist(width >= WIDTH && width <= 1440 && width * HEIGHT === height * WIDTH,
+                `${field}.viewport`, 'full viewport requires a 16:9 frame 640 to 1440 CSS pixels wide')
         } else {
             keys(region, region?.selector !== undefined ? ['selector', 'anchor', 'offsetX', 'offsetY', 'width', 'height'] : ['x', 'y', 'width', 'height'], `${field}.region`);
             insist(region.width === WIDTH && region.height === HEIGHT, `${field}.region`, 'capture region must be 640x360 CSS pixels');

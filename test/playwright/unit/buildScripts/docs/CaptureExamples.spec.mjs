@@ -96,8 +96,10 @@ test('full viewport capture accepts a bounded 16:9 frame', () => {
     recipe.region   = 'viewport';
     recipe.viewport = {width: 960, height: 540};
     expect(validateCaptureRecipes(raw, catalog()).recipes[0].region).toBe('viewport');
+    recipe.viewport = {width: 1440, height: 810};
+    expect(validateCaptureRecipes(raw, catalog()).recipes[0].viewport).toEqual(recipe.viewport);
 
-    for (const viewport of [{width: 960, height: 541}, {width: 320, height: 180}, {width: 1440, height: 810}]) {
+    for (const viewport of [{width: 960, height: 541}, {width: 320, height: 180}, {width: 1600, height: 900}]) {
         recipe.viewport = viewport;
         expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/viewport.*16:9/)
     }

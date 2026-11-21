@@ -148,7 +148,7 @@ test.describe('Portal examples overview and group pages', () => {
             'gantt-task-editor', 'gantt-task-columns', 'meridian-observatory'
         ]);
         expect(pageIds(view, 'board')).toEqual([
-            'board-basic', 'board-swimlanes', 'board-wip-limits', 'board-card-designs', 'board-card-editor',
+            'board-basic', 'board-swimlanes', 'board-big-data', 'board-wip-limits', 'board-card-designs', 'board-card-editor',
             'board-multi-select', 'board-columns', 'meridian-observatory'
         ]);
         // a group lists its home records and the records whose alsoIn names it, in catalog order
@@ -538,13 +538,13 @@ test.describe('Portal examples overview and group pages', () => {
 
         const dragIds = matchedIds();
         expect(dragIds).toEqual(expect.arrayContaining([
-            'board-basic', 'board-swimlanes', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
+            'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
             'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
         ]));
 
         const counts = view.getStateProvider().getData('matchCounts');
         expect(counts).toBeInstanceOf(Map);
-        expect(counts.get('board')).toEqual({home: 4, cross: 0, total: 4});
+        expect(counts.get('board')).toEqual({home: 5, cross: 0, total: 5});
         expect(counts.get('drag-drop')).toEqual({home: 0, cross: 3, total: 3});
         expect(counts.get('calendar')).toEqual({home: 0, cross: 0, total: 0});
 
@@ -730,7 +730,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           calendar      : [1, 0],
           scheduler     : [11, 0],
           gantt         : [7, 1],
-          board         : [7, 1],
+          board         : [8, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
           layouts       : [3, 0],
@@ -744,7 +744,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 146,
+      recordCount    = 147,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1017,7 +1017,7 @@ test.describe('Portal examples canonical catalog', () => {
                   'scheduler-drag-and-resize', 'scheduler-non-working-time', 'scheduler-bar-renderer',
                   'scheduler-event-editor', 'scheduler-zoom', 'scheduler-resource-columns', 'scheduler-time-zones',
                   'scheduler-live-updates', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
-                  'gantt-task-editor', 'gantt-task-columns', 'board-wip-limits', 'board-card-designs',
+                  'gantt-task-editor', 'gantt-task-columns', 'board-big-data', 'board-wip-limits', 'board-card-designs',
                   'board-card-editor', 'board-multi-select', 'board-columns', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', 'on-air-at-eight', ...newTileIds, ...layoutExampleIds
               ],
