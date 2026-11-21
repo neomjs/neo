@@ -652,6 +652,30 @@
     min-block-size: var(--dock-edge-band-bottom-min-block-size, var(--dock-edge-band-min-block-size, 6rem));
 }
 
+/* The center of an edge-zone whose pane left (`LayoutAdapter#createCenterWell`): a quiet inset place,
+   not a void. A hairline inside the dock's own background, mixed against inherited ink like the
+   reveal floor above, so it reads on any theme without a palette of its own; the one line says where
+   the pane is. The inset is a negative outline offset, never a margin: the well's box keeps the exact
+   geometry of the slot it holds, as the pane's did. Tokens stay at the consumption boundary, like the
+   edge bands. */
+.neo-dashboard-dock-center-well {
+    align-items    : center;
+    border-radius  : var(--dock-center-well-radius, 4px);
+    box-sizing     : border-box;
+    display        : flex;
+    justify-content: center;
+    min-inline-size: 0;
+    outline        : var(--dock-center-well-edge, 1px solid color-mix(in srgb, currentColor 16%, transparent));
+    outline-offset : calc(-1 * var(--dock-center-well-inset, 8px));
+    padding        : 24px;
+}
+
+.neo-dashboard-dock-center-well-text {
+    color     : var(--dock-center-well-text-color, color-mix(in srgb, currentColor 60%, transparent));
+    font-size : var(--dock-center-well-font-size, 13px);
+    text-align: center;
+}
+
 /* The reveal overlay's containing block, and the only reason this rule exists.
 
    An absolutely positioned overlay resolves its insets against the nearest positioned ancestor's

@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 
-import {Command}                  from 'commander';
-import fg                         from 'fast-glob';
-import fs                         from 'fs-extra';
-import os                         from 'os';
-import path                       from 'path';
+import {Command}                   from 'commander';
+import fg                          from 'fast-glob';
+import fs                          from 'fs-extra';
+import os                          from 'os';
+import {parse as parseHtml}        from 'parse5';
+import path                        from 'path';
 import {getEngineReleaseNotesRoot} from '../../util/contentRoot.mjs';
-import isEntryModule              from '../../util/isEntryModule.mjs';
-import {sanitizeInput}            from '../../util/sanitizer.mjs';
-import createReleaseIndex         from '../index/release.mjs';
+import isEntryModule               from '../../util/isEntryModule.mjs';
+import {sanitizeInput}             from '../../util/sanitizer.mjs';
+import createReleaseIndex          from '../index/release.mjs';
 import {
     getLlmsFullTxt,
     getLlmsTxt,
@@ -396,6 +397,75 @@ export function validateLlmsTxtContent(llmsTxt, {maxBytes=LLMS_TXT_MAX_BYTES, re
 }
 
 /**
+ * @summary Parses `<script type="application/ld+json">` elements in `apps/portal/index.html` via `parse5` and rejects malformed JSON or `#/` hash-fragment URLs.
+ * @param {String} htmlContent
+ * @returns {String[]}
+ */
+export function validatePortalIndexJsonLd(htmlContent='') {
+    const errors     = [];
+    const jsonBlocks = [];
+
+    function collectJsonLdScripts(node) {
+        if (!node || typeof node !== 'object') {
+            return;
+        }
+
+        if (node.tagName === 'script') {
+            const typeAttr = node.attrs?.find(attr => attr.name === 'type');
+            const mimeType = typeAttr?.value.replace(/^[\t\n\f\r ]+|[\t\n\f\r ]+$/g, '').toLowerCase();
+
+            if (mimeType === 'application/ld+json') {
+                const rawJson = (node.childNodes || [])
+                    .filter(child => child.nodeName === '#text')
+                    .map(child => child.value)
+                    .join('');
+
+                jsonBlocks.push(rawJson);
+            }
+            return;
+        }
+
+        for (const child of node.childNodes || []) {
+            collectJsonLdScripts(child);
+        }
+    }
+
+    function checkValue(value) {
+        if (typeof value === 'string') {
+            if (/https?:\/\/[^/\s"']+\/#\//.test(value) || value.startsWith('#/')) {
+                errors.push(`apps/portal/index.html JSON-LD must not contain "#/" hash-fragment URL "${value}".`);
+            }
+            return;
+        }
+
+        if (Array.isArray(value)) {
+            for (const item of value) {
+                checkValue(item);
+            }
+            return;
+        }
+
+        if (value && typeof value === 'object') {
+            for (const child of Object.values(value)) {
+                checkValue(child);
+            }
+        }
+    }
+
+    collectJsonLdScripts(parseHtml(String(htmlContent)));
+
+    for (const rawJson of jsonBlocks) {
+        try {
+            checkValue(JSON.parse(rawJson));
+        } catch (error) {
+            errors.push(`apps/portal/index.html contains invalid application/ld+json JSON: ${error.message}`);
+        }
+    }
+
+    return errors;
+}
+
+/**
  * @summary Validates generated SEO and LLM artifacts in memory and throws an actionable `Error` on drift.
  * @param {Object} [options={}]
  * @param {String} [options.baseUrl='https://neomjs.com']
@@ -737,6 +807,12 @@ export async function verifySeoArtifacts(options={}) {
                 throw new Error(`seo.json route "${noindexHubRoute}" must set robots to "noindex, follow".`);
             }
         }
+    }
+
+    const portalIndexPath = path.resolve(root, 'apps/portal/index.html');
+
+    if (await fs.pathExists(portalIndexPath)) {
+        throwIfInvalid(validatePortalIndexJsonLd(await fs.readFile(portalIndexPath, 'utf-8')));
     }
 
     const blogIndexPath = path.resolve(root, 'apps/portal/resources/data/blog.json');

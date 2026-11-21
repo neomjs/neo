@@ -50,14 +50,14 @@ const rawStatus = (base, rawPath, host) => new Promise((resolve, reject) => {
  * and how it reads its port and browser flags.
  */
 test.describe('buildScripts/util/fileServer (#21215)', () => {
-    const freshness = {
+    const createFreshness = () => ({
         listening: 0,
         requests : [],
         onListening() {this.listening++},
         onRequest(pathname) {this.requests.push(pathname)}
-    };
+    });
 
-    let base, root, server;
+    let base, freshness, root, server;
 
     test.beforeAll(async () => {
         root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-file-server-'));
@@ -78,8 +78,10 @@ test.describe('buildScripts/util/fileServer (#21215)', () => {
         write('.github/RELEASE_NOTES/v14.0.0.md', '# 14.0.0');
         write('.github/RELEASE_NOTES/.draft.md', 'draft');
 
-        server = createFileServer({root, freshness});
-        base   = `http://localhost:${await listen(server, {port: 0, strict: true})}`
+        // Playwright can run this hook again in a worker reused for another test group.
+        freshness = createFreshness();
+        server    = createFileServer({root, freshness});
+        base      = `http://localhost:${await listen(server, {port: 0, strict: true})}`
     });
 
     test.afterAll(() => {
@@ -283,8 +285,8 @@ test.describe('buildScripts/util/fileServer (#21215)', () => {
     test('a taken port fails when it was asked for, and is skipped when it was not', async () => {
         const blocker = net.createServer(),
               taken   = await new Promise(resolve => blocker.listen(0, () => resolve(blocker.address().port))),
-              strict  = createFileServer({root, freshness}),
-              lenient = createFileServer({root, freshness});
+              strict  = createFileServer({root, freshness: createFreshness()}),
+              lenient = createFileServer({root, freshness: createFreshness()});
 
         try {
             await expect(listen(strict, {port: taken, strict: true})).rejects.toMatchObject({code: 'EADDRINUSE'});
