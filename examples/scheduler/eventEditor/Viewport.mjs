@@ -2,15 +2,15 @@ import AppointmentEditor from './AppointmentEditor.mjs';
 import Component         from '../../../src/component/Base.mjs';
 import EventStore        from '../../../src/timeline/store/Events.mjs';
 import Label             from '../../../src/component/Label.mjs';
-import Model             from '../../../src/data/Model.mjs';
+import RoomModel         from './RoomModel.mjs';
 import Scheduler         from '../../../src/scheduler/Container.mjs';
 import Store             from '../../../src/data/Store.mjs';
 import Toolbar           from '../../../src/toolbar/Base.mjs';
 import Viewport          from '../../../src/container/Viewport.mjs';
 
 const
-    DAY   = '2026-11-24',
-    TIME  = new Intl.DateTimeFormat('en-GB', {hour: '2-digit', minute: '2-digit', timeZone: 'UTC'}),
+    DAY  = '2026-11-24',
+    TIME = new Intl.DateTimeFormat('en-GB', {hour: '2-digit', minute: '2-digit', timeZone: 'UTC'}),
     // [id, name, bar colour]
     ROOMS = [
         ['room-1', 'Hygiene 1',    'neo-scheduler-bar-emerald'],
@@ -55,22 +55,6 @@ const APPOINTMENTS = [
     startDate: `${DAY}T${start}:00Z`,
     title
 }));
-
-/**
- * @summary A treatment room of the practice.
- * @class Neo.examples.scheduler.eventEditor.RoomModel
- * @extends Neo.data.Model
- */
-class RoomModel extends Model {
-    static config = {
-        className: 'Neo.examples.scheduler.eventEditor.RoomModel',
-        fields   : [
-            {name: 'id',   type: 'String'},
-            {name: 'name', type: 'String'}
-        ]
-    }
-}
-RoomModel = Neo.setupClass(RoomModel);
 
 /**
  * @summary A dental practice's day in five treatment rooms. An appointment opens in its editor on a double-click, or
