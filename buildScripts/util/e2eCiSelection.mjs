@@ -75,6 +75,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/MountHookIsolation.spec.mjs',
     'test/playwright/e2e/rendering/NativeSelectNL.spec.mjs',
     'test/playwright/e2e/rendering/NestedComponentsNL.spec.mjs',
+    'test/playwright/e2e/rendering/ShallowUpdateFlags.spec.mjs',
     'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/rendering/StoreLoadingNL.spec.mjs',
     'test/playwright/e2e/rendering/TooltipMountFlightNL.spec.mjs',
