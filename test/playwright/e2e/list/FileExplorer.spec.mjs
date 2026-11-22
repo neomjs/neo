@@ -12,7 +12,7 @@ const
  * @returns {import('@playwright/test').Locator}
  */
 function item(page, name) {
-    return page.locator(items).filter({hasText: new RegExp(`^${name.replace(/\./g, '\\.')}$`)})
+    return page.locator(items).filter({has: page.getByText(name, {exact: true})})
 }
 
 /**
