@@ -22,17 +22,21 @@ async function inGantt(page, fn) {
  * @returns {Promise<{table: Object, chart: Object}>} Screenshot clips
  */
 async function regions(page) {
-    const {right, top} = await page.evaluate(() => {
+    const {innerWidth, right, top} = await page.evaluate(() => {
         const buttons = [...document.querySelectorAll('.neo-grid-header-button.neo-locked-start')];
 
-        return {right: Math.max(...buttons.map(button => button.getBoundingClientRect().right)), top: buttons[0].getBoundingClientRect().bottom}
+        return {
+            innerWidth: window.innerWidth,
+            right     : Math.max(...buttons.map(button => button.getBoundingClientRect().right)),
+            top       : buttons[0].getBoundingClientRect().bottom
+        }
     });
 
     const y = Math.ceil(top) + 1, height = 870 - y;
 
     return {
         table: {x: 0, y, width: Math.floor(right) - 1, height},
-        chart: {x: Math.ceil(right) + 1, y, width: 1430 - Math.ceil(right), height}
+        chart: {x: Math.ceil(right) + 1, y, width: innerWidth - 10 - Math.ceil(right), height}
     }
 }
 
@@ -69,17 +73,18 @@ test('gantt/zoom scrolled as its first link mounts draws its links in the chart'
 
             if (scrollbar && document.querySelector('path[data-dependency-id]')) {
                 observer.disconnect();
-                scrollbar.scrollLeft = 2400
+                scrollbar.scrollLeft = 200
             }
         });
 
         observer.observe(document, {childList: true, subtree: true})
     });
 
-    await page.setViewportSize({width: 1440, height: 900});
+    // At 800 px the 1,210 px Month axis exceeds the 580 px chart region, so 200 px scrolls the opening links out
+    await page.setViewportSize({width: 800, height: 900});
     await page.goto('/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark');
     await expect(page.locator('path[data-dependency-id]').first()).toBeAttached();
-    await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.scrollLeft)).toBe(2400);
+    await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.scrollLeft)).toBe(200);
 
     const {chart} = await regions(page);
 
@@ -92,6 +97,11 @@ for (const [example, scroll] of [['zoom', 2400], ['basic', 300]]) {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(`/examples/gantt/${example}/index.html?theme=neo-theme-neo-dark`);
         await expect(page.locator('path[data-dependency-id]').first()).toBeAttached();
+
+        if (example === 'zoom') {
+            await page.getByRole('button', {name: 'Week', exact: true}).click();
+            await expect.poll(() => inGantt(page, gantt => gantt.timeAxis.tickUnit)).toBe('day')
+        }
 
         await page.locator('.neo-grid-horizontal-scrollbar').evaluate((el, value) => {el.scrollLeft = value}, scroll);
         await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.scrollLeft)).toBe(scroll);

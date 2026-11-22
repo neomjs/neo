@@ -66,8 +66,8 @@ test('each zoom level draws its own header units and keeps every link on its bar
     await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
 
     await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Week', exact: true})).toHaveAttribute('aria-pressed', 'true');
-    expect(await readAxis(page)).toMatchObject({tickUnit: 'day', majorTickUnit: 'week'});
+    await expect(page.getByRole('button', {name: 'Month', exact: true})).toHaveAttribute('aria-pressed', 'true');
+    expect(await readAxis(page)).toMatchObject({tickUnit: 'week', majorTickUnit: 'month'});
 
     for (const [name, tickUnit, majorTickUnit, label] of LEVELS) {
         const button = page.getByRole('button', {name, exact: true});
@@ -125,7 +125,9 @@ test('a day whose start is scrolled out keeps its name in the minor row, an hour
         scrollbar = page.locator('.neo-grid-horizontal-scrollbar'),
         tickWidth = () => page.locator('.neo-timeline-header .neo-timeline-tick-minor').first().evaluate(el => el.getBoundingClientRect().width);
 
-    // The week level puts days in the minor row: one and a half days in, Tuesday has lost its start
+    // Switch to the week level so days sit in the minor row: one and a half days in, Tuesday has lost its start
+    await page.getByRole('button', {name: 'Week', exact: true}).click();
+    await expect(page.locator('.neo-timeline-header .neo-timeline-tick-minor[data-unit="day"]').first()).toBeVisible();
     await scrollbar.evaluate((el, left) => {el.scrollLeft = left}, Math.round(await tickWidth() * 1.5));
     await expect.poll(async () => (await readMinorTickAtEdge(page))?.unit).toBe('day');
     await expect.poll(async () => (await readMinorTickAtEdge(page)).offset, 'the day keeps its name at the edge').toBeGreaterThanOrEqual(-1);
@@ -147,20 +149,27 @@ test('a day whose start is scrolled out keeps its name in the minor row, an hour
     expect((await readMinorTickAtEdge(page)).offset, 'an hour is not pinned').toBeLessThan(-10)
 });
 
-test('the month level fits all ten weeks into a 1440 px window', async ({page}) => {
+test('the month level opens fitting all ten weeks into a 1440 px window, while the week level scrolls', async ({page}) => {
     await page.setViewportSize({width: 1440, height: 900});
     await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
     await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeVisible();
 
     const scrollbar = page.locator('.neo-grid-horizontal-scrollbar');
 
-    // At the week level the plan is wider than the window; at the month level it fits, with nothing to scroll
-    expect(await scrollbar.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
+    // Opens on Month: all ten weeks fit into 1440 px with nothing to scroll
+    await expect.poll(() => readAxis(page)).toMatchObject({tickUnit: 'week', majorTickUnit: 'month'});
+    await expect.poll(() => scrollbar.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await expect(page.locator('.neo-timeline-header-major').getByText('May 2027', {exact: true})).toBeVisible();
+    expect((await measureLinks(page)).off).toEqual([]);
+
+    // At the week level the plan is wider than the window; switching back to Month fits again
+    await page.getByRole('button', {name: 'Week', exact: true}).click();
+    await expect.poll(() => readAxis(page)).toMatchObject({tickUnit: 'day', majorTickUnit: 'week'});
+    await expect.poll(() => scrollbar.evaluate(el => el.scrollWidth > el.clientWidth)).toBe(true);
 
     await page.getByRole('button', {name: 'Month', exact: true}).click();
     await expect.poll(() => readAxis(page)).toMatchObject({tickUnit: 'week'});
     await expect.poll(() => scrollbar.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await expect(page.locator('.neo-timeline-header-major').getByText('May 2027', {exact: true})).toBeVisible();
     expect((await measureLinks(page)).off).toEqual([])
 });
 

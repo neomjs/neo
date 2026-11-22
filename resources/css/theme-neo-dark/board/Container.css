@@ -19,6 +19,9 @@
 
     --neo-board-badge-background       : #232c3a;
     --neo-board-badge-color            : #9aa6b8;
+    --neo-board-overdue-background     : rgba(248, 113, 113, 0.16);
+    --neo-board-overdue-border-color   : #ef4444;
+    --neo-board-overdue-color          : #fecaca;
     --neo-board-wip-color              : #f59e0b;
     --neo-board-wip-contrast-color     : #1a1206;
 

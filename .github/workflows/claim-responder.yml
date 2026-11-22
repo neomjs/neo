@@ -47,7 +47,11 @@ jobs:
         (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
       ) || (
         github.event_name == 'pull_request_target' &&
-        github.event.pull_request.user.type != 'Bot'
+        github.event.pull_request.user.type != 'Bot' &&
+        (
+          github.event.action == 'closed' ||
+          !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.pull_request.author_association)
+        )
       )
     concurrency:
       group: claim-responder

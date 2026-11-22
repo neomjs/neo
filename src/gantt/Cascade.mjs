@@ -108,9 +108,10 @@ class Cascade extends Base {
      * @param {Neo.gantt.Container} chart Chart owning the task and dependency stores.
      * @param {Neo.data.Model} rootRecord Changed task.
      * @param {String[]} [cyclesOut=[]] Receives detected dependency IDs.
+     * @param {Map|null} [pending=null] With store-owned phase dates, stage changes here for one store batch.
      * @returns {Object[]} Changed successors with dependency, dates, changes and previous values.
      */
-    static runDependencyCascade(chart, rootRecord, cyclesOut=[]) {
+    static runDependencyCascade(chart, rootRecord, cyclesOut=[], pending=null) {
         const
             depStore = chart.dependencyStore,
             axis     = chart.timeAxis,
@@ -121,18 +122,22 @@ class Cascade extends Base {
         }
 
         const
-            rootId    = String(chart.store.getKey(rootRecord)),
-            reachable = new Set([rootId]),
-            bfsQueue  = [rootId],
-            cycleSet  = new Set(),
-            outgoing  = new Map(),
-            incoming  = new Map();
+            rootId       = String(chart.store.getKey(rootRecord)),
+            reachable    = new Set([rootId]),
+            bfsQueue     = [rootId],
+            cycleSet     = new Set(),
+            outgoing     = new Map(),
+            incoming     = new Map(),
+            staged       = pending || (chart.store.rollupParents ? new Map() : null),
+            changedDates = staged ? new Set([rootId]) : null;
 
         // Index once per cascade so edits and filtering are observed without a persistent cache.
         for (let i = 0, count = depStore.getCount(); i < count; i++) {
             const edge = depStore.getAt(i);
             if (!edge) continue;
             const from = String(edge.fromId ?? ''), to = String(edge.toId ?? '');
+            // A derived phase takes its dates from its children. Only outgoing links schedule other tasks.
+            if (changedDates && chart.store.isDerivedParent(chart.resolveTaskRecord(to))) continue;
             if (!outgoing.has(from)) outgoing.set(from, []);
             if (!incoming.has(to)) incoming.set(to, []);
             outgoing.get(from).push(edge);
@@ -141,9 +146,16 @@ class Cascade extends Base {
 
         // 1. Discover the reachable downstream subgraph from rootId and flag direct back-edges into rootId
         for (let cursor = 0; cursor < bfsQueue.length; cursor++) {
-            const
-                currId   = bfsQueue[cursor],
-                outEdges = outgoing.get(currId) || [];
+            const currId   = bfsQueue[cursor];
+            const outEdges = outgoing.get(currId) || [];
+            if (changedDates) {
+                const parentId = chart.resolveTaskRecord(currId)?.parentId;
+                if (parentId != null && chart.resolveTaskRecord(parentId)) {
+                    // This edge orders the rollup. It carries no scheduling constraint or user dependency ID.
+                    outEdges.push({toId: parentId});
+                    outgoing.set(currId, outEdges)
+                }
+            }
 
             for (const edge of outEdges) {
                 const succId = String(edge.toId ?? '');
@@ -235,7 +247,15 @@ class Cascade extends Base {
             processed.add(succId);
 
             const succ = chart.resolveTaskRecord(succId);
-            if (succ) {
+            if (changedDates && chart.store.isDerivedParent(succ)) {
+                const receipt = chart.store.planParentRollup(succ, staged);
+                if (receipt) {
+                    staged.set(succ, receipt.changes);
+                    cascaded.push({...receipt, startDate: receipt.changes.startDate ?? succ.startDate,
+                        endDate: receipt.changes.endDate ?? succ.endDate});
+                    if (receipt.changes.startDate || receipt.changes.endDate) changedDates.add(succId)
+                }
+            } else if (succ && (!changedDates || incoming.get(succId)?.some(edge => changedDates.has(String(edge.fromId))))) {
                 const
                     useWorking   = Boolean(chart.useWorkingTime && axis?.hasWorkingCalendar()),
                     succStart    = new Date(succ[chart.startDateField]).getTime(),
@@ -271,9 +291,9 @@ class Cascade extends Base {
                             continue
                         }
 
-                        const
-                            predStart = new Date(pred[chart.startDateField]).getTime(),
-                            predEnd   = new Date(pred[chart.endDateField]).getTime();
+                        const planned   = staged?.get(pred),
+                              predStart = new Date(planned?.[chart.startDateField] ?? pred[chart.startDateField]).getTime(),
+                              predEnd   = new Date(planned?.[chart.endDateField] ?? pred[chart.endDateField]).getTime();
 
                         if (!Number.isFinite(predStart) || !Number.isFinite(predEnd)) {
                             continue
@@ -331,7 +351,12 @@ class Cascade extends Base {
                                 succPrevious[key] = val instanceof Date ? new Date(val.getTime()) : val
                             }
 
-                            succ.set(succChanges);
+                            if (staged) {
+                                staged.set(succ, succChanges)
+                            } else {
+                                succ.set(succChanges)
+                            }
+                            changedDates?.add(succId);
 
                             cascaded.push({
                                 changes     : succChanges,
@@ -350,6 +375,9 @@ class Cascade extends Base {
         }
         if (Array.isArray(cyclesOut)) {
             cyclesOut.push(...cycleSet)
+        }
+        if (staged && !pending && staged.size) {
+            chart.store.updateRows(Array.from(staged, ([record, values]) => ({key: chart.store.getKey(record), values})))
         }
 
         return cascaded
@@ -413,6 +441,7 @@ class Cascade extends Base {
 
         const
             depStore = chart.cascadeDependencies ? chart.dependencyStore : null,
+            rollups  = chart.store.rollupParents && !chart.schedule,
             outgoing = new Map(),
             incoming = new Map(),
             inDegree = new Map(),
@@ -424,12 +453,24 @@ class Cascade extends Base {
             inDegree.set(id, 0)
         }
 
+        if (rollups) {
+            for (const id of taskOrder) {
+                const record   = prevById.get(id).record,
+                      parentId = record.parentId == null ? '' : String(record.parentId);
+                if (prevById.has(parentId) && chart.store.isDerivedParent(prevById.get(parentId).record)) {
+                    outgoing.get(id).push({toId: parentId});
+                    inDegree.set(parentId, inDegree.get(parentId) + 1)
+                }
+            }
+        }
+
         if (depStore) {
             for (let i = 0, count = depStore.getCount(); i < count; i++) {
                 const edge = depStore.getAt(i);
                 if (!edge) continue;
                 const from = String(edge.fromId ?? ''), to = String(edge.toId ?? '');
                 if (!prevById.has(from) || !prevById.has(to)) continue;
+                if (rollups && chart.store.isDerivedParent(prevById.get(to).record)) continue;
                 if (from === to) {
                     cycleSet.add(String(edge.id ?? `${from}->${to}`));
                     continue
@@ -443,7 +484,8 @@ class Cascade extends Base {
         const
             topoQueue = taskOrder.filter(id => inDegree.get(id) === 0),
             processed = new Set(),
-            nextSpans = new Map();
+            nextSpans = new Map(),
+            pending   = rollups ? new Map() : null;
 
         let queueCursor = 0, cycleCursor = 0;
 
@@ -476,6 +518,8 @@ class Cascade extends Base {
 
             const
                 {durationMs, isMilestone, prevEndMs, prevStartMs, record} = prevById.get(id),
+                derived                                                   = rollups && chart.store.isDerivedParent(record),
+                phase                                                     = derived ? chart.store.planParentRollup(record, pending) : null,
                 inEdges                                                   = incoming.get(id) || [],
                 ownStartMs                                                = useWorking ? axis.snapToWorkingTime(prevStartMs, 1).getTime() : prevStartMs;
 
@@ -531,24 +575,29 @@ class Cascade extends Base {
 
             // Preserve hand-placed positive float (`prevStartMs > prevReqStart`) unless overtaken by a predecessor;
             // predecessor-bound tasks (`prevStartMs <= prevReqStart`) move with their governing link in both directions.
-            const
+            let startMs, endMs;
+            if (derived) {
+                startMs = toMs(phase?.changes[startField] ?? record[startField]);
+                endMs   = toMs(phase?.changes[endField] ?? record[endField])
+            } else {
                 startMs = !Number.isFinite(nextReqStart)
                     ? ownStartMs
                     : (Number.isFinite(prevReqStart) && prevStartMs > prevReqStart)
                         ? Math.max(nextReqStart, ownStartMs)
-                        : nextReqStart,
-                endMs   = isMilestone || durationMs === 0
+                        : nextReqStart;
+                endMs = isMilestone || durationMs === 0
                     ? startMs
                     : useWorking
                         ? axis.addWorkingMs(startMs, durationMs).getTime()
-                        : (startMs + durationMs);
+                        : (startMs + durationMs)
+            }
 
             nextSpans.set(id, {endMs, startMs});
 
-            if (startMs !== prevStartMs || endMs !== prevEndMs) {
+            if (phase || startMs !== prevStartMs || endMs !== prevEndMs) {
                 const
-                    changes       = {},
-                    previous      = {},
+                    changes       = phase?.changes || {},
+                    previous      = phase?.previous || {},
                     nextStartDate = new Date(startMs),
                     nextEndDate   = new Date(endMs);
 
@@ -563,6 +612,7 @@ class Cascade extends Base {
                     previous[endField] = val instanceof Date ? new Date(val.getTime()) : val
                 }
 
+                pending?.set(record, changes);
                 entries.push({
                     changes,
                     dependencyId: governingEdge ? String(governingEdge.id ?? `${governingPred}->${id}`) : null,

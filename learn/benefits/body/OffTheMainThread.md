@@ -132,7 +132,7 @@ your main App.
 
 * Your App will import your used Components
 * Meaning: your Component instances live within the App-Worker
-* View Models & View Controllers also live here
+* State Providers & View Controllers also live here
 * Most parts of the Neo.mjs application engine live here
 * You can directly communicate with other Actors via remote method access (RPC)
 

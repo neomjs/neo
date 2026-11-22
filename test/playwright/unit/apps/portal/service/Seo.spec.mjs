@@ -280,6 +280,10 @@ test.describe('Portal.service.Seo (#20945)', () => {
                       getStore(key) {
                           expect(key).toBe('tree');
                           return store
+                      },
+                      // The ViewportController writes the theme on screen here at boot
+                      setData(data) {
+                          Object.assign(this.data, data)
                       }
                   },
                   mainContent   = {layout: {activeIndex: null, ntype: 'card'}},

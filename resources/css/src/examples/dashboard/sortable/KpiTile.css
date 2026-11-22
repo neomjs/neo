@@ -1,0 +1,82 @@
+/* A key-figure tile of the sortable dashboard. The rules hang on the tile itself, not on the dashboard page, so a
+   tile keeps its look in a window of its own and in the drag proxy. */
+.sortable-kpi-tile.neo-dashboard-panel {
+    background   : color-mix(in srgb, var(--neo-color) 4%, var(--neo-background-color));
+    border       : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
+    border-radius: 10px;
+    color        : var(--neo-color);
+    min-height   : 64px;
+
+    /* The title bar is the handle: a grip and the label to drag by, the window button at its end */
+    .sortable-kpi-header.neo-toolbar {
+        background: transparent;
+        cursor    : grab;
+        gap       : 6px;
+        padding   : 4px 6px 0 10px;
+
+        .sortable-kpi-grip {
+            font-size: 12px;
+            opacity  : 0.45;
+        }
+
+        .neo-panel-header-text {
+            font-size  : 13px;
+            font-weight: 600;
+            opacity    : 0.8;
+        }
+
+        .sortable-kpi-window-button {
+            cursor : pointer;
+            opacity: 0.7;
+
+            &:hover,
+            &:focus-visible {
+                opacity: 1;
+            }
+        }
+    }
+
+    /* The body is a container, which paints the page colour; the tile's own tint shows through instead */
+    .sortable-kpi-body {
+        background: transparent;
+        gap       : 16px;
+        padding   : 0 14px 10px;
+    }
+
+    .sortable-kpi-value {
+        align-self          : center;
+        font-size           : 26px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 700;
+        min-width           : 7.5ch;
+    }
+
+    .sortable-kpi-change {
+        align-self          : center;
+        font-size           : 13px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+        min-width           : 8ch;
+
+        /* Mixed toward the text colour: darker on a light theme, lighter on a dark one, legible on both */
+        &.sortable-good {
+            color: color-mix(in srgb, var(--green-500, #22c55e) 65%, var(--neo-color));
+        }
+
+        &.sortable-bad {
+            color: color-mix(in srgb, var(--red-500, #ef4444) 70%, var(--neo-color));
+        }
+    }
+
+    /* The chart takes the body's whole height, so the line has room to show its shape */
+    .neo-sparkline-wrapper {
+        min-height: 40px;
+        min-width : 80px;
+    }
+
+    /* The renderer draws a 1 px line over a faint fill in fixed colours (`Neo.canvas.Sparkline.colors`). A shadow in
+       the line's own blue, twice, widens the line and deepens the fill, so the shape still reads at card width */
+    .neo-sparkline-canvas {
+        filter: drop-shadow(0 0 1px #3E63DD) drop-shadow(0 0 1px #3E63DD);
+    }
+}

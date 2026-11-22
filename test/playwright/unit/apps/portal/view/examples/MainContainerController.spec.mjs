@@ -493,12 +493,12 @@ test.describe('Portal examples overview and group pages', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        // Grid & Table held the only covered tree records via alsoIn, so removing grid-table withdraws tree as well
+        // Trees lends the tree grids from Grid & Table through alsoIn and keeps its own file explorer when they go
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(
-            publishedRoutes.filter(route => route !== '/examples/grid' && route !== '/examples/tree')
+            publishedRoutes.filter(route => route !== '/examples/grid')
         );
         expect(view.getGroupPage('grid-table')).toBeNull();
-        expect(view.getGroupPage('tree')).toBeNull()
+        expect(pageIds(view, 'tree')).toEqual(['file-explorer'])
     });
 
     test('a record with alsoIn shows once in each of its groups and counts once, in its home group', () => {
@@ -586,8 +586,10 @@ test.describe('Portal examples overview and group pages', () => {
         const dragIds = matchedIds();
         expect(dragIds).toEqual(expect.arrayContaining([
             'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
-            'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+            'dialog-drag-drop', 'workstation', 'webdesktop'
         ]));
+        // a pane popped out by its action is not a drag, so it no longer answers "drag" through the group's title
+        expect(dragIds).not.toContain('dock-tear-out');
 
         // every group counts its matching records at home and those lent to it, a group without a match at zero
         const counts = view.getStateProvider().getData('matchCounts'),
@@ -703,7 +705,7 @@ test.describe('Portal examples overview and group pages', () => {
 });
 
 const {records: catalog} = await readExampleCatalog(path.join(repoRoot, EXAMPLES_DIR)),
-      modes   = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
+      modes              = ['devmode', 'dist_dev', 'dist_esm', 'dist_prod'],
       // the 12 Start here demonstrations placed first in featured catalog order
       startHereIds = [
           'workstation', 'grid-big-data', 'grid-tree-big-data', 'devindex', 'shared-covid',
@@ -1124,9 +1126,11 @@ test.describe('Portal examples canonical catalog', () => {
             expect(list.createLink(devIndex).href, mode).toBe(devIndexUrls[mode]);
             expect(list.createLink(devIndex).target, mode).toBe('_blank');
             expect(Example.href(devIndex, mode), mode).toBe(devIndexUrls[mode]);
-            expect(list.createSourceLink(offscreen).href, mode).toBe(mode === 'devmode'
-                ? 'https://github.com/neomjs/offscreen-canvas/'
-                : 'https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp');
+            // The canvas example lives in this repository now, so its source link is the repository's in every mode
+            expect(list.createSourceLink(offscreen).href, mode).toBe(list.sourceBaseUrl + 'examples/worker/canvas');
+            // No catalog record carries a per-mode source any more; the override itself still wins over the common link
+            expect(list.createSourceLink({sourceUrl: 'examples/a', sourceUrls: {dist_prod: 'https://example.com/b'}}).href, mode)
+                .toBe(mode === 'dist_prod' ? 'https://example.com/b' : list.sourceBaseUrl + 'examples/a');
             expect(list.isHiddenItem(sharedOffscreen), mode).toBe(mode === 'dist_esm');
             expect(list.isHiddenItem(liquidGlass), mode).toBe(mode === 'devmode')
         });
@@ -1164,7 +1168,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(issues).toHaveLength(1);
         expect(issues[0].id).toBe('grid-issues');
         expect(issues[0].image).toBe('devmode/grid-issues-14.jpg');
-        const recipes = JSON.parse(fs.readFileSync(path.join(dataRoot, 'example-captures.json'), 'utf8')).recipes;
+        const recipes = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../../../../../../buildScripts/docs/captureExamples.json', import.meta.url)), 'utf8')).recipes;
         expect(recipes.filter(recipe => recipe.id === issues[0].id)).toHaveLength(1);
 
         modes.forEach(mode => {
@@ -1279,11 +1283,22 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
-        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
-        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('grid-tree'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
-        expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')
+        expect(list.getBackgroundImageStyle(uncovered)).toEqual({});
+
+        for (const extension of ['jpg', 'png']) {
+            const image = `devmode/example.${extension}`;
+            expect(list.getBackgroundImageStyle({image, hasLightCover:true})).toEqual({
+                '--portal-example-cover'      : `url('${list.imageBasePath}/${image}')`,
+                '--portal-example-cover-light': `url('${list.imageBasePath}/devmode/example-light.${extension}')`
+            });
+            expect(list.getBackgroundImageStyle({image})).toEqual({
+                '--portal-example-cover': `url('${list.imageBasePath}/${image}')`
+            })
+        }
     });
 
     test('Overview switches its intro lead between phoneLead (size: x-small) and desktop lead, and mobile-find flexes on one crumb row', () => {

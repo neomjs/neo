@@ -72,6 +72,7 @@
     {
         "id": "gantt-working-time",
         "image": "devmode/gantt-working-time-14.jpg",
+        "hasLightCover": true,
         "name": "Durations in working days",
         "sourceUrl": "examples/gantt/workingTime",
         "urls": {
@@ -99,6 +100,7 @@
         },
         "family": "gantt",
         "order": 1160,
+        "alsoIn": ["drag-drop"],
         "component": "Gantt",
         "feature": "Dependencies drawn from one task's handle to another, in four link types",
         "lookFor": "Hover a task and drag from its finish handle onto another task. Then move the first task: the linked one follows."
@@ -150,6 +152,7 @@
         },
         "family": "gantt",
         "order": 1185,
+        "alsoIn": ["drag-drop"],
         "component": "Gantt",
         "feature": "One task slips, and every task that depends on it follows to its new date",
         "lookFor": "Press 'Delay the cabling by a week', or drag its bar: the tasks behind it glide to their new dates, the two beside the chain stay, and the line above the plan says how far the move day slipped."

@@ -3,6 +3,7 @@
         "id": "layout-form",
         "kind": "component",
         "image": "devmode/tiles/layout-form-14.jpg",
+        "hasLightCover": true,
         "name": "Form layout",
         "sourceUrl": "examples/layout/form",
         "urls": {
