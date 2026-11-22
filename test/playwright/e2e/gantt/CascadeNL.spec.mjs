@@ -126,7 +126,12 @@ test.describe('Gantt office-move cascade example', () => {
         await expect(page.locator('.cascade-readout-text')).toContainText('slipped from Mon 16 Nov to Mon 23 Nov (+7 days)');
         await expect(page.locator('.cascade-readout-text')).toContainText('8 tasks moved (1 delayed + 7 dependent)');
 
-        // Reset restores the first frame
+        // A second +7d slip pushes move day past 30 Nov, exercising batched TimeAxis#set({end, size, tickStep})
+        await page.getByRole('button', {name: 'Delay the cabling by a week'}).click();
+        await expect(page.locator('.cascade-move-pill')).toHaveText('Move day: Mon 16 Nov to Mon 30 Nov (+14d)');
+        expect((await readTask('first-day')).startDate).toBe('2026-11-30T00:00:00.000Z');
+
+        // Reset restores the 28-day axis and first frame
         await page.getByRole('button', {name: 'Reset'}).click();
         await expect(page.locator('.cascade-move-pill')).toHaveText('Move day: Mon 16 Nov');
         await expect(page.locator('.cascade-readout-text')).toContainText('First day in the new office is Mon 16 Nov');

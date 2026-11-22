@@ -266,8 +266,7 @@ class OfficeMoveCascadeViewport extends Viewport {
 
         if (goalEndMs > axis.end.getTime()) {
             const extraDays = Math.ceil((goalEndMs - AXIS_START_MS) / MS_PER_DAY) + 1;
-            axis.end = new Date(AXIS_START_MS + extraDays * MS_PER_DAY);
-            this.syncAxisSize(this.#lastBodyWidth)
+            this.syncAxisSize(this.#lastBodyWidth, new Date(AXIS_START_MS + extraDays * MS_PER_DAY))
         }
 
         gantt.moveTask('cabling', {
@@ -277,7 +276,7 @@ class OfficeMoveCascadeViewport extends Viewport {
     }
 
     /**
-     * @summary Restores all 12 tasks, the 11 dependency links, the 24-day time axis, and the first-frame readout.
+     * @summary Restores all 12 tasks, the 11 dependency links, the 28-day time axis, and the first-frame readout.
      */
     onResetPlan() {
         clearTimeout(this.#motionPollTimer);
@@ -295,8 +294,7 @@ class OfficeMoveCascadeViewport extends Viewport {
         }
 
         if (axis && axis.end.getTime() !== Date.parse(`${AXIS_END}T00:00:00Z`)) {
-            axis.end = AXIS_END;
-            this.syncAxisSize(this.#lastBodyWidth)
+            this.syncAxisSize(this.#lastBodyWidth, AXIS_END)
         }
 
         tasks.clear();
@@ -319,29 +317,43 @@ class OfficeMoveCascadeViewport extends Viewport {
     }
 
     /**
-     * @summary Recomputes integer pixel-per-day width across the active axis span so the full move chain fits cleanly.
+     * @summary Recomputes integer pixel-per-day width (and optional new axis end) in one batched `TimeAxis#set` update.
      * @param {Number} width
+     * @param {Date|String|null} [nextEnd=null]
      */
-    syncAxisSize(width) {
+    syncAxisSize(width, nextEnd = null) {
         const
             gantt = this.getReference('gantt'),
             axis  = gantt?.timeAxis;
 
-        if (!axis || !width || width <= 0) {
+        if (!axis) {
             return
         }
 
-        const
-            colWidth  = this.#isCompact ? COMPACT_COL_WIDTH : DESKTOP_COL_WIDTH,
-            totalDays = Math.max(1, Math.round((axis.end.getTime() - axis.start.getTime()) / MS_PER_DAY)),
-            dayPx     = Math.max(8, Math.floor((width - colWidth - 2) / totalDays)),
-            tickStep  = dayPx < 20 ? 2 : 1;
+        const updates = {};
 
-        if (axis.tickStep !== tickStep) {
-            axis.tickStep = tickStep
+        if (nextEnd !== null) {
+            updates.end = nextEnd
         }
 
-        axis.size = totalDays * dayPx
+        if (width && width > 0) {
+            const
+                endMs     = nextEnd instanceof Date
+                    ? nextEnd.getTime()
+                    : typeof nextEnd === 'string'
+                        ? Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(nextEnd) ? `${nextEnd}T00:00:00Z` : nextEnd)
+                        : axis.end.getTime(),
+                colWidth  = this.#isCompact ? COMPACT_COL_WIDTH : DESKTOP_COL_WIDTH,
+                totalDays = Math.max(1, Math.round((endMs - axis.start.getTime()) / MS_PER_DAY)),
+                dayPx     = Math.max(8, Math.floor((width - colWidth - 2) / totalDays));
+
+            updates.size     = totalDays * dayPx;
+            updates.tickStep = dayPx < 20 ? 2 : 1
+        }
+
+        if (Object.keys(updates).length) {
+            axis.set(updates)
+        }
     }
 
     /**
