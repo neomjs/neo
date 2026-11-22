@@ -27,6 +27,7 @@ import path from 'node:path';
  */
 export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'board/BasicNL.spec.mjs',
+    'board/SalesPipelineNL.spec.mjs',
     'board/SwimlanesNL.spec.mjs',
     'code/LivePreviewExample.spec.mjs',
     'component/StandaloneThemeSwitcher.spec.mjs',
