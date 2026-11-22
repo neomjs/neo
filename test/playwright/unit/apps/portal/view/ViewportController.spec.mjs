@@ -142,41 +142,51 @@ test.describe('Portal.view.ViewportController — the theme switch survives its 
     })
 });
 
-test.describe('Portal.view.ViewportController — the theme button icon matches the theme on screen', () => {
+test.describe('Portal.view.ViewportController — the theme button icon and the state provider follow the theme on screen', () => {
     /**
-     * Runs a controller method against a stub button and reports the icon it ends up with.
+     * Runs a controller method against a stub button and state provider, and reports what each ends up with.
      * @param {String} method
      * @param {String} theme
-     * @returns {String}
+     * @returns {{icon: String, state: Object}}
      */
-    function iconAfter(method, theme) {
-        const btn = {iconCls: 'fa-solid fa-moon'};
+    function runOnStubs(method, theme) {
+        const btn   = {iconCls: 'fa-solid fa-moon'},
+              state = {};
 
         const context = {
             component            : {},
             getReference         : ref => ref === 'theme-switch-button' ? btn : null,
+            setState             : data => Object.assign(state, data),
+            syncTheme            : ViewportController.prototype.syncTheme,
             updateThemeSwitchIcon: ViewportController.prototype.updateThemeSwitchIcon,
             windowId             : 1
         };
 
         ViewportController.prototype[method].call(context, theme, false);
 
-        return btn.iconCls
+        return {icon: btn.iconCls, state}
     }
 
     test('a dark theme on screen shows the sun', () => {
         // The Portal's button starts as a moon, but it boots dark. This sync is what the
         // no-stored-theme path in `onConstructed` runs, so the first icon is right as well.
-        expect(iconAfter('updateThemeSwitchIcon', 'neo-theme-neo-dark')).toBe('fa-solid fa-sun')
+        expect(runOnStubs('syncTheme', 'neo-theme-neo-dark').icon).toBe('fa-solid fa-sun')
     });
 
     test('a light theme on screen shows the moon', () => {
-        expect(iconAfter('updateThemeSwitchIcon', 'neo-theme-neo-light')).toBe('fa-solid fa-moon')
+        expect(runOnStubs('syncTheme', 'neo-theme-neo-light').icon).toBe('fa-solid fa-moon')
     });
 
     test('setTheme keeps the icon in step with every switch', () => {
-        expect(iconAfter('setTheme', 'neo-theme-neo-dark')).toBe('fa-solid fa-sun');
-        expect(iconAfter('setTheme', 'neo-theme-neo-light')).toBe('fa-solid fa-moon')
+        expect(runOnStubs('setTheme', 'neo-theme-neo-dark').icon).toBe('fa-solid fa-sun');
+        expect(runOnStubs('setTheme', 'neo-theme-neo-light').icon).toBe('fa-solid fa-moon')
+    });
+
+    test('the boot sync and every switch give the state provider the theme the examples\' launch links pass on', () => {
+        ['syncTheme', 'setTheme'].forEach(method => {
+            expect(runOnStubs(method, 'neo-theme-neo-light').state, method).toEqual({theme: 'neo-theme-neo-light'});
+            expect(runOnStubs(method, 'neo-theme-neo-dark').state,  method).toEqual({theme: 'neo-theme-neo-dark'})
+        })
     })
 });
 

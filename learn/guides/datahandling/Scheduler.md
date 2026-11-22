@@ -20,11 +20,12 @@ Because `Neo.scheduler.Container` extends `Neo.grid.Container`, it partitions th
 
 ## 2. A Minimal Scheduler
 
-A complete, runnable scheduler requires only a resource store, an event store, and a time axis configuration:
+A complete, runnable scheduler requires only a resource store, an event store, and a time axis configuration. Open
+Preview to run it here, and drag a booking to another studio or time:
 
-```javascript
-import Scheduler from '../../../src/scheduler/Container.mjs';
-import Viewport  from '../../../src/container/Viewport.mjs';
+```javascript live-preview
+import Scheduler from '../scheduler/Container.mjs';
+import Viewport  from '../container/Viewport.mjs';
 
 const rooms = [
     {id: 'r-1', name: 'Recording Studio'},

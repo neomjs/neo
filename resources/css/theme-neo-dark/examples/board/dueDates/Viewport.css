@@ -1,0 +1,37 @@
+:where(.neo-theme-neo-dark) {
+    --due-avatar-bg         : #1c313d;
+    --due-avatar-border     : #2f5163;
+    --due-avatar-text       : #bae6fd;
+    --due-border            : #243042;
+    --due-btn-bg            : #151f2d;
+    --due-btn-border        : #2b3b52;
+    --due-btn-hover-bg      : #1e2c3f;
+    --due-btn-text          : #dbe4f0;
+    --due-canvas-bg         : #0c1118;
+    --due-card-bg           : #18212f;
+    --due-card-border       : #283548;
+    --due-card-hover-border : #3d526e;
+    --due-card-shadow       : 0 2px 6px rgba(0, 0, 0, 0.32);
+    --due-col-bg            : #121924;
+    --due-focus             : #5eead4;
+    --due-header-bg         : #101722;
+    --due-late-active-bg    : #7f1d1d;
+    --due-late-active-border: #f87171;
+    --due-late-active-text  : #fef2f2;
+    --due-late-bg           : rgba(248, 113, 113, 0.16);
+    --due-late-border       : #ef4444;
+    --due-late-text         : #fecaca;
+    --due-muted             : #94a3b8;
+    --due-pill-bg           : #172334;
+    --due-pill-border       : #2b3d56;
+    --due-pill-text         : #cbd5e1;
+    --due-progress-track    : #263346;
+    --due-subbar-bg         : #0e151f;
+    --due-tag-bg            : #202c3e;
+    --due-tag-border        : #30415a;
+    --due-tag-text          : #cbd5e1;
+    --due-text              : #dbe4f0;
+    --due-title             : #f8fafc;
+    --due-today-border      : #2dd4bf;
+    --due-today-text        : #99f6e4;
+}

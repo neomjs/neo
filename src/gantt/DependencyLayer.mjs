@@ -26,6 +26,15 @@ const ARROW_STUB_PX = 12;
 class DependencyLayer extends Component {
     /** Instances created from this layer's own configuration. */
     #ownedInputs = new WeakSet()
+
+    /**
+     * @summary Computes the integer half-diagonal in pixels of a Gantt milestone diamond for a given row height.
+     * @param {Number} [rowHeight=48]
+     * @returns {Number}
+     */
+    static milestoneHalfSize(rowHeight=48) {
+        return Math.max(7, Math.round((rowHeight || 48) * 0.28))
+    }
     /**
      * @summary Gets the same endpoint id as a native Record without materializing a plain-id task.
      * Other fields on a raw row may already have been derived by its Store.
@@ -311,17 +320,19 @@ class DependencyLayer extends Component {
 
     /**
      * @summary Computes an orthogonal SVG path string (`M ... L ...`) connecting `(x1, y1)` to `(x2, y2)` for dependency `type`.
-     * @description A finish-to-start link whose target starts less than two stubs to the right turns at the row
-     * boundary next to its source, where no bar stands, and drops in a stub left of its target: a run through the
-     * rows between them would cross the titles of the bars that start on the same date.
+     * @description A finish-to-start link whose target starts less than two stubs to the right — or whose source is a
+     * milestone whose label sits immediately to the right of its diamond — turns at the row boundary next to its source,
+     * where no bar or milestone label stands, and drops in a stub left of its target: a run through the source row or
+     * intermediate rows would cross milestone labels or bars starting on the same date.
      * @param {Number} x1
      * @param {Number} y1
      * @param {Number} x2
      * @param {Number} y2
      * @param {String} [type='FS'] `'FS' | 'SS' | 'FF' | 'SF'`
+     * @param {Boolean} [fromMilestone=false]
      * @returns {String}
      */
-    buildPathD(x1, y1, x2, y2, type='FS') {
+    buildPathD(x1, y1, x2, y2, type='FS', fromMilestone=false) {
         const
             normType = String(type || 'FS').toUpperCase(),
             r1       = Math.round(x1 * 100) / 100,
@@ -339,7 +350,7 @@ class DependencyLayer extends Component {
             return `M ${r1} ${ry1} L ${turnX} ${ry1} L ${turnX} ${ry2} L ${r2} ${ry2}`
         }
 
-        if (r2 >= r1 + ARROW_STUB_PX * 2) {
+        if (!fromMilestone && r2 >= r1 + ARROW_STUB_PX * 2) {
             const midX = Math.round(((r1 + r2) / 2) * 100) / 100;
             return `M ${r1} ${ry1} L ${midX} ${ry1} L ${midX} ${ry2} L ${r2} ${ry2}`
         }
@@ -481,15 +492,18 @@ class DependencyLayer extends Component {
             }
 
             const
-                type     = String(edge.type || 'FS').toUpperCase(),
-                fromSpan = me.drawnSpans?.get(fromId),
-                toSpan   = me.drawnSpans?.get(toId),
-                x1       = (type === 'SS' || type === 'SF')
-                    ? axis.dateToOffset(fromSpan?.[0] ?? fromStart)
-                    : axis.dateToOffset(fromSpan?.[1] ?? fromEnd),
-                x2       = (type === 'FF' || type === 'SF')
-                    ? axis.dateToOffset(toSpan?.[1] ?? toEnd)
-                    : axis.dateToOffset(toSpan?.[0] ?? toStart),
+                type          = String(edge.type || 'FS').toUpperCase(),
+                fromSpan      = me.drawnSpans?.get(fromId),
+                toSpan        = me.drawnSpans?.get(toId),
+                half          = me.constructor.milestoneHalfSize(rowHeight),
+                fromMilestone = Boolean(fromTask?.milestone),
+                toMilestone   = Boolean(toTask?.milestone),
+                x1            = (type === 'SS' || type === 'SF')
+                    ? axis.dateToOffset(fromSpan?.[0] ?? fromStart) - (fromMilestone ? half : 0)
+                    : axis.dateToOffset(fromSpan?.[1] ?? fromEnd)   + (fromMilestone ? half : 0),
+                x2            = (type === 'FF' || type === 'SF')
+                    ? axis.dateToOffset(toSpan?.[1] ?? toEnd)       + (toMilestone   ? half : 0)
+                    : axis.dateToOffset(toSpan?.[0] ?? toStart)     - (toMilestone   ? half : 0),
                 // A left or right turn can lie one stub beyond both anchors. Include the same
                 // rounded coordinates the SVG path uses at the edge of the buffered window.
                 spanMin = Math.round(Math.min(x1, x2) * 100) / 100 - ARROW_STUB_PX,
@@ -500,9 +514,9 @@ class DependencyLayer extends Component {
             }
 
             paths.push({
-                key: String(edge.id ?? `${fromId}-${toId}-${i}`), fromId, toId, type, x1, x2,
-                y1 : fromIndex * rowHeight + rowHeight / 2,
-                y2 : toIndex   * rowHeight + rowHeight / 2
+                fromMilestone, key: String(edge.id ?? `${fromId}-${toId}-${i}`), fromId, toId, type, x1, x2,
+                y1: fromIndex * rowHeight + rowHeight / 2,
+                y2: toIndex   * rowHeight + rowHeight / 2
             })
         }
 
@@ -523,7 +537,7 @@ class DependencyLayer extends Component {
             markerId          = `${me.id}__arrowhead`,
             highlightMarkerId = `${me.id}__arrowhead-highlighted`,
             esc               = val => StringUtil.escapeHtml(String(val)),
-            paths             = me.#routes.map(({key, fromId, toId, type, x1, y1, x2, y2}) => {
+            paths             = me.#routes.map(({fromMilestone, key, fromId, toId, type, x1, y1, x2, y2}) => {
                 const highlighted = me.#highlightedDependencySet.has(key),
                       cls         = ['neo-gantt-dependency-arrow', `neo-type-${type.toLowerCase()}`];
 
@@ -533,7 +547,7 @@ class DependencyLayer extends Component {
                     tag         : 'path',
                     id          : `${me.id}__dep__${key}`,
                     cls,
-                    d           : me.buildPathD(x1, y1 - me.#pageOffset, x2, y2 - me.#pageOffset, type),
+                    d           : me.buildPathD(x1, y1 - me.#pageOffset, x2, y2 - me.#pageOffset, type, fromMilestone),
                     'marker-end': `url(#${highlighted ? highlightMarkerId : markerId})`,
                     data        : {dependencyId: key, fromId, toId, type, ...(highlighted ? {highlighted: 'true'} : {})}
                 }

@@ -172,7 +172,9 @@ class Pipeline extends Base {
         store: null,
         /**
          * Emit one `telemetry` event per executed attempt, preserving all data results and events.
-         * Stage timestamps use the executing realm's performance clock. Bytes are measured only
+         * Stage timestamps use the executing realm's performance clock, and `worker` names that realm.
+         * With interceptors, `request`, `response` and `postParse` time their hook chains; a stream's
+         * `postParse` runs inside its parser stage and stays null. Bytes are measured only
          * for strings and binary values; arrays expose record counts, other sizes remain null.
          * Configure this at construction for Data-worker pushes. Request calls capture their choice
          * before awaiting remote setup, so a later flag change cannot change the result carrier.
@@ -685,7 +687,7 @@ class Pipeline extends Base {
                     && me.interceptorChain === localChain
             };
             if (operation !== 'push') {
-                params = context.params = await me.intercept('request', params, context)
+                params = context.params = await me.measureStage(telemetry, 'request', () => me.intercept('request', params, context))
             }
             return await me.runPrepared(operation, params, method, telemetry, context)
         } catch (error) {
@@ -815,7 +817,7 @@ class Pipeline extends Base {
                     rawData = error;
                     rejected = true
                 }
-                rawData = await me.interceptResponse(rawData, rejected, context)
+                rawData = await me.measureStage(telemetry, 'response', () => me.interceptResponse(rawData, rejected, context))
             } else rawData = await me.measureStage(telemetry, 'connection', invoke)
         }
         if (telemetry) telemetry.rawSize = me.getTelemetrySize(rawData);
@@ -830,7 +832,9 @@ class Pipeline extends Base {
             shapedData = await me.measureStage(telemetry, 'parser', () => parser[parserMethod](shapedData,
                 context && streaming ? {transformChunk: chunk => me.intercept('postParse', chunk, context)} : undefined))
         }
-        if (context && !streaming) shapedData = await me.intercept('postParse', shapedData, context);
+        if (context && !streaming) {
+            shapedData = await me.measureStage(telemetry, 'postParse', () => me.intercept('postParse', shapedData, context))
+        }
         if (telemetry) telemetry.parsedSize = me.getTelemetrySize(shapedData);
         const {normalizer}     = me;
         const normalizerMethod = operation === 'execute' && typeof normalizer?.[method] === 'function' ? method
@@ -995,10 +999,11 @@ class Pipeline extends Base {
         if (!['create', 'execute', 'read', 'update', 'push'].includes(operation)) throw new Error('Invalid Pipeline operation');
         const telemetry = {
             id: generateUUID(), pipelineId: this.appPipelineId || this.id,
-            operation, status: 'fulfilled',
-            connectionStart: null, connectionEnd: null, parserStart: null, parserEnd: null,
-            normalizerStart: null, normalizerEnd: null,
-            rawSize        : {bytes: null, records: null}, parsedSize: {bytes: null, records: null}
+            operation, status: 'fulfilled', worker: Neo.workerId ?? null,
+            requestStart  : null, requestEnd: null, connectionStart: null, connectionEnd: null,
+            responseStart : null, responseEnd: null, parserStart: null, parserEnd: null,
+            postParseStart: null, postParseEnd: null, normalizerStart: null, normalizerEnd: null,
+            rawSize       : {bytes: null, records: null}, parsedSize: {bytes: null, records: null}
         };
         try {
             return {result: await this.runLocal(operation, params, method, telemetry), telemetry}

@@ -18,6 +18,9 @@
 
     --neo-board-badge-background       : var(--neo-background-color, #323232);
     --neo-board-badge-color            : var(--neo-color, #bbb);
+    --neo-board-overdue-background     : rgba(239, 83, 80, 0.18);
+    --neo-board-overdue-border-color   : #ef5350;
+    --neo-board-overdue-color          : #ffcdd2;
     --neo-board-wip-color              : var(--textfield-border-color-alert, orange);
     --neo-board-wip-contrast-color     : var(--grid-container-border-color, #2b2b2b);
 

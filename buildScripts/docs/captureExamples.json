@@ -118,11 +118,9 @@
       "dependencies": ["https://hatscripts.github.io/circle-flags/flags/in.svg"],
       "ready": [
         {"selector": ".neo-grid-cell[data-field='country']", "text": "India"},
-        {"selector": ".countries-toolbar .neo-button", "text": "Dark theme"}
+        {"selector": ".neo-viewport.neo-theme-neo-dark"}
       ],
       "steps": [
-        {"kind": "click", "selector": ".countries-toolbar .neo-button", "text": "Dark theme"},
-        {"kind": "wait", "selector": ".countries-toolbar .neo-button", "text": "Light theme"},
         {"kind": "click", "selector": ".neo-grid-cell[data-field='population']", "nth": 1}
       ],
       "after": [
@@ -138,9 +136,8 @@
       "viewport": {"width": 640, "height": 360},
       "theme": "dark",
       "state": "Lighting picked in Category and amounts of at least 4,000 kept: 405 of 10,000 orders.",
-      "ready": [{"selector": ".grid-filtering-count", "text": "10,000 of 10,000 orders"}, {"selector": ".grid-filtering-toolbar .neo-button", "text": "Dark theme"}],
+      "ready": [{"selector": ".grid-filtering-count", "text": "10,000 of 10,000 orders"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".grid-filtering-toolbar .neo-button", "text": "Dark theme"},
         {"kind": "click", "selector": ".neo-grid-header-button input[id^='neo-combobox'][id$='__input']"},
         {"kind": "click", "selector": "[role='option']", "text": "Lighting"},
         {"kind": "fill", "selector": ".neo-grid-header-button input[type='number']", "value": "4000"},
@@ -159,10 +156,8 @@
       "viewport": {"width": 760, "height": 580},
       "theme": "dark",
       "state": "Dark-theme invoices with the CSV pane open beside them, the formula-like customer of INV-1004 escaped.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}, {"selector": ".neo-button", "text": "Dark theme"}],
+      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
-        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "click", "selector": ".export-controls .neo-button", "text": "Show CSV"}
       ],
       "after": [
@@ -177,9 +172,8 @@
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
       "state": "Month sorting under quarter headers, with Region locked at the start.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='region']"}, {"selector": ".header-groups-toolbar .neo-button", "text": "Dark theme"}],
+      "ready": [{"selector": ".neo-grid-cell[data-field='region']"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".header-groups-toolbar .neo-button", "text": "Dark theme"},
         {"kind": "click", "selector": ".neo-grid-header-button", "text": "Jan"}
       ],
       "after": [
@@ -196,11 +190,9 @@
       "state": "Dark-theme plan with the centre scrolled to its second year while product, region and total stay pinned.",
       "ready": [
         {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"},
-        {"selector":".neo-button","text":"Dark theme"}
+        {"selector":".neo-viewport.neo-theme-neo-dark"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-button","text":"Dark theme"},
-        {"kind":"wait","selector":".neo-button","text":"Light theme"},
         {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":1280,"y":0}
       ],
       "after": [
@@ -219,13 +211,11 @@
       "ready": [
         {"selector": ".neo-grid-cell[data-field='login']", "text": "tobiu"},
         {"selector": ".neo-sparkline-wrapper[data-drawn='true']"},
-        {"selector": ".cell-types-theme-button", "text": "Dark theme"}
+        {"selector": ".neo-viewport.neo-theme-neo-dark"}
       ],
       "steps": [
         {"kind": "click", "selector": ".cell-types-reset-button", "text": "Reset"},
-        {"kind": "click", "selector": ".cell-types-feed-button", "text": "Pause feed"},
-        {"kind": "click", "selector": ".cell-types-theme-button", "text": "Dark theme"},
-        {"kind": "wait", "selector": ".cell-types-theme-button", "text": "Light theme"}
+        {"kind": "click", "selector": ".cell-types-feed-button", "text": "Pause feed"}
       ],
       "after": [
         {"selector": ".cell-types-theme-button", "text": "Light theme"},
@@ -263,11 +253,10 @@
       "state": "50,000 settlement records streaming mid-flight with live footer progress.",
       "ready": [
         {"selector": ".neo-grid-cell[data-field='settlementId']", "text": "STL-100001"},
-        {"selector": ".streaming-toolbar .neo-button", "text": "Dark theme"},
+        {"selector": ".neo-viewport.neo-theme-neo-dark"},
         {"selector": ".streaming-reload-button", "text": "Load again"}
       ],
       "steps": [
-        {"kind": "click", "selector": ".streaming-toolbar .neo-button", "text": "Dark theme"},
         {"kind": "click", "selector": ".streaming-reload-button"},
         {"kind": "wait", "selector": ".streaming-status-label", "text": "Streaming 1"}
       ],
@@ -293,10 +282,8 @@
       "viewport": {"width": 640, "height": 600},
       "theme": "dark",
       "state": "Dark-theme first page of seeded orders, country filter off; the request line identifies the simulated server's completed read.",
-      "ready": [{"selector": ".server-side-request", "text": "50 of 100,000 rows"}],
+      "ready": [{"selector": ".server-side-request", "text": "50 of 100,000 rows"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".server-side-heading .neo-button", "text": "Dark theme"},
-        {"kind": "wait", "selector": ".server-side-heading .neo-button", "text": "Light theme"},
         {"kind": "wait", "selector": ".neo-grid-cell[data-field='customer']:text-is('Granite Co')"}
       ],
       "after": [
@@ -419,9 +406,8 @@
         "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/neo_issues.json",
         "https://github.com/"
       ],
-      "ready": [{"selector": ".neo-grid-cell[data-field='title']"}],
+      "ready": [{"selector": ".neo-grid-cell[data-field='title']"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".issues-theme-button"},
         {"kind": "click", "selector": ".neo-grid-header-button", "text": "#"}
       ],
       "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "#"}, {"selector": ".neo-grid-cell[data-field='summary']"}],
@@ -435,11 +421,9 @@
       "ready": [
         {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Customer"},
         {"selector": "#myTableFilterContainer .neo-table-body tr"},
-        {"selector": ".neo-button", "text": "Dark theme"}
+        {"selector": ".neo-viewport.neo-theme-neo-dark"}
       ],
       "steps": [
-        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
-        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "fill", "selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-textfield input", "nth": 0, "value": "Avery"}
       ],
       "after": [
@@ -958,11 +942,8 @@
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
       "state": "Dark-theme release checklist beside the wall of portraits, every item numbered by its place.",
-      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}, {"selector": ".neo-theme-switcher"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-theme-switcher"},
-        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"}
-      ],
+      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
+      "steps": [],
       "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
@@ -991,10 +972,8 @@
       "viewport": {"width": 960, "height": 540},
       "theme": "dark",
       "state": "The six metric cards on the dark theme at their opening readings, the feed stopped, the pulse and the smooth updates off.",
-      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}, {"selector": ".neo-theme-switcher"}],
+      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".neo-theme-switcher"},
-        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
@@ -1012,10 +991,8 @@
       "viewport": {"width": 1120, "height": 443},
       "theme": "dark",
       "state": "The sequence preset as Mermaid draws it from its source in its dark theme, fitted to the diagram's box.",
-      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}, {"selector": ".neo-theme-switcher"}],
+      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".neo-theme-switcher"},
-        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"},
         {"kind": "click", "selector": ".neo-button", "text": "Sequence"}
       ],
       "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
@@ -1390,10 +1367,8 @@
       "viewport": {"width": 672, "height": 523},
       "theme": "dark",
       "state": "The Source tab on the dark theme, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
-      "ready": [{"selector": ".view-lines", "text": "defineComponent"}, {"selector": ".neo-button", "text": "Dark theme"}],
+      "ready": [{"selector": ".view-lines", "text": "defineComponent"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [
-        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
-        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.vertical.invisible.fade"},
         {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.horizontal.invisible.fade"}
       ],

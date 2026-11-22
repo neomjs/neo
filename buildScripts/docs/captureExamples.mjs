@@ -29,7 +29,8 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     WIDTH            = 640, HEIGHT = 360, DPR = 2, MAX_BYTES = 150000,
     QUALITIES        = [90, 85, 80],
     STEP_KINDS       = new Set(['click', 'dblclick', 'fill', 'press', 'scroll', 'wait']),
-    TILE_VIEWPORT    ={width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
+    TILE_VIEWPORT    = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
+    FILENAME_ID      = /^[a-zA-Z0-9_-]+$/,
     LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
     LANDING_QUIET_MS = 1000,
     // The Portal shows a cover or tile in its own theme: the dark image keeps the base file name, its light partner adds
@@ -161,11 +162,10 @@ function catalogTiles(listed, catalog) {
 /**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
  * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
- * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
- * (`kind: 'component'`) takes its crop from the `tiles` list, so it needs no recipe in a declared family. A covered
- * card without a recipe gets a landing entry (`landing: true`) per scheme in `PAIR_THEMES`: its cover is the frame a
- * visitor lands on, dark under the base file name and light as its `-light` partner, opened on the scheme's first theme
- * and accepted on any theme it `accepts`.
+ * A recipe needs a declared family. A tile (`kind: 'component'`) takes its crop from the `tiles` list. A covered card
+ * without a recipe, in any family, gets a landing entry (`landing: true`) per scheme in `PAIR_THEMES`: its cover is the
+ * frame a visitor lands on, dark under the base file name and light as its `-light` partner, opened on the scheme's
+ * first theme and accepted on any theme it `accepts`; its catalog id names the cover file under a recipe's rule.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog The catalog's records, from `readExampleCatalog()`.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
@@ -183,7 +183,7 @@ export function validateCaptureRecipes(manifest, catalog) {
     const ids = new Set(), recipes = manifest.recipes.map((recipe, index) => {
         const field = `recipes[${index}]`;
         keys(recipe, ['id', 'viewport', 'theme', 'state', 'dependencies', 'ready', 'steps', 'after', 'region'], field);
-        insist(typeof recipe.id === 'string' && /^[a-zA-Z0-9_-]+$/.test(recipe.id), `${field}.id`, 'expected a filename-safe catalog id');
+        insist(typeof recipe.id === 'string' && FILENAME_ID.test(recipe.id), `${field}.id`, 'expected a filename-safe catalog id');
         insist(!ids.has(recipe.id), `${field}.id`, 'duplicate recipe id');
         ids.add(recipe.id);
         const record = records.get(recipe.id);
@@ -225,7 +225,8 @@ export function validateCaptureRecipes(manifest, catalog) {
         return {...structuredClone(recipe), family: record.family, url: record.urls.devmode, name: record.name || record.id}
     });
     for (const record of catalog) {
-        if (manifest.families.includes(record.family) && record.kind !== 'component' && record.image && !ids.has(record.id) && !/^https?:\/\//i.test(record.urls?.devmode || '')) {
+        if (record.kind !== 'component' && record.image && !ids.has(record.id) && !/^https?:\/\//i.test(record.urls?.devmode || '')) {
+            insist(typeof record.id === 'string' && FILENAME_ID.test(record.id), `catalog.${record.id}.id`, 'expected a filename-safe catalog id');
             text(record.urls?.devmode, `catalog.${record.id}.urls.devmode`);
             for (const {scheme, variant, themes} of PAIR_THEMES) {
                 recipes.push({id: record.id, ...structuredClone(LANDING), theme: scheme === 'dark' ? 'dark' : 'default', variant, accepts: [...themes], landing: true, family: record.family, url: landingUrl(record.urls.devmode, themes[0]), name: record.name || record.id})
@@ -248,7 +249,8 @@ export function selectTiles(manifest, tile) {
 }
 
 /**
- * @summary Selects one record, one family, or every validated recipe in authored order.
+ * @summary Selects one record, one family, or every validated recipe in authored order. A run of one family or of all
+ * keeps to the declared families; one named record is reached in any family.
  * @param {Object} manifest Validated manifest from validateCaptureRecipes.
  * @param {Object} options Optional mutually exclusive record/family selection.
  * @returns {Object[]} Selected recipes; refuses an unknown or empty explicit selection.
@@ -257,7 +259,8 @@ export function selectCaptureRecipes(manifest, {record, family} = {}) {
     if (record !== undefined) text(record, 'selection.record');
     if (family !== undefined) text(family, 'selection.family');
     insist(!(record && family), 'selection', 'use --record or --family, not both');
-    const selected = manifest.recipes.filter(recipe => record ? recipe.id === record : family ? recipe.family === family : true);
+    const selected = manifest.recipes.filter(recipe => record ? recipe.id === record :
+        manifest.families.includes(recipe.family) && (!family || recipe.family === family));
     insist(selected.length > 0, 'selection', 'no matching capture recipes');
     return selected
 }
@@ -462,15 +465,34 @@ function shownTheme() {
 }
 
 /**
+ * @summary Runs in the page, or on the document given: whether the app's view has mounted, as an element child of
+ * `<body>` that is shown and covers part of the frame. A stylesheet can set the theme on `<body>` before the App worker
+ * mounts the view, so a theme alone is no frame; the main thread's own measuring nodes are hidden or parked off it.
+ * @param {Document} [doc=document]
+ * @returns {Boolean}
+ */
+export function viewMounted(doc = document) {
+    const view = doc.defaultView;
+    return [...doc.body.children].some(node => {
+        if (['LINK', 'NOSCRIPT', 'SCRIPT', 'STYLE', 'TEMPLATE'].includes(node.tagName)) return false;
+        const style = view.getComputedStyle(node), box = node.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' &&
+            Math.min(box.right, view.innerWidth) > Math.max(box.left, 0) && Math.min(box.bottom, view.innerHeight) > Math.max(box.top, 0)
+    })
+}
+
+/**
  * @summary Waits until a landing frame holds still: the network is idle, the app shows a configured theme
- * ({@link shownTheme}), and the DOM has not changed for LANDING_QUIET_MS. One rule for every example, with no selector of
- * its own; an example that never settles fails, because its landing state is not a frame a cover can show.
+ * ({@link shownTheme}), its view has mounted ({@link viewMounted}), and the DOM has not changed for LANDING_QUIET_MS.
+ * One rule for every example, with no selector of its own; an example that never settles fails, because its landing
+ * state is not a frame a cover can show.
  * @param {Object} page
  * @returns {Promise<void>}
  */
-async function landingReady(page) {
+export async function landingReady(page) {
     await page.waitForLoadState('networkidle', {timeout: 15000});
     await page.waitForFunction(shownTheme, null, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: no configured theme shows on <body> or inside it (${error.message.split('\n')[0]})`)});
+    await page.waitForFunction(viewMounted, undefined, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: no view mounted in <body> (${error.message.split('\n')[0]})`)});
     await page.waitForFunction(quietMs => new Promise(resolve => {
         let timer;
         const observer = new MutationObserver(() => {clearTimeout(timer); timer = setTimeout(settled, quietMs)}),

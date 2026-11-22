@@ -125,8 +125,8 @@ function buildPlan() {
 }
 
 const
-    plan                                        = buildPlan(),
-    {majorTickStep, majorTickUnit, ...weekAxis} = LEVELS.week;
+    plan                                         = buildPlan(),
+    {majorTickStep, majorTickUnit, ...monthAxis} = LEVELS.month;
 
 /**
  * @summary A ten-week house build that reads at three scales: hours under days, days under weeks,
@@ -159,8 +159,8 @@ class ZoomViewport extends Viewport {
                 '->',
                 {module: Container, cls: ['zoom-levels'], role: 'group', layout: {ntype: 'hbox', align: 'stretch'}, items: [
                     {module: Button, cls: ['zoom-level'], text: 'Day',   reference: 'level-day',   pressed: false, handler: 'up.onDay'},
-                    {module: Button, cls: ['zoom-level'], text: 'Week',  reference: 'level-week',  pressed: true,  handler: 'up.onWeek'},
-                    {module: Button, cls: ['zoom-level'], text: 'Month', reference: 'level-month', pressed: false, handler: 'up.onMonth'}
+                    {module: Button, cls: ['zoom-level'], text: 'Week',  reference: 'level-week',  pressed: false, handler: 'up.onWeek'},
+                    {module: Button, cls: ['zoom-level'], text: 'Month', reference: 'level-month', pressed: true,  handler: 'up.onMonth'}
                 ]},
                 {module: ThemeSwitcher}
             ]
@@ -184,7 +184,7 @@ class ZoomViewport extends Viewport {
                 : tick.unit === 'week'
                     ? format(tick.date, {day: 'numeric', month: 'short'})
                     : format(tick.date, {weekday: 'short', day: 'numeric'}),
-            timeAxis       : {start: '2027-03-01', end: '2027-05-10', timeZone: 'UTC', ...weekAxis}
+            timeAxis       : {start: '2027-03-01', end: '2027-05-10', timeZone: 'UTC', ...monthAxis}
         }]
     }
 

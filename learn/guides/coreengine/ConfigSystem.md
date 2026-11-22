@@ -25,7 +25,7 @@ class MyComponent extends Base {
 
 Sometimes, a simple default value isn't enough. You might need to instruct the engine on *how* to handle a specific config when it is merged, cloned, or compared for equality. For advanced use cases, Neo.mjs allows you to define a reactive config using a **Descriptor Object** instead of a primitive value.
 
-You create a descriptor using the `[Neo.core.ConfigSymbols.isDescriptor]` symbol:
+You create a descriptor with the `isDescriptor` symbol, a named export of `src/core/ConfigSymbols.mjs`:
 
 ```javascript readonly
 import {isDescriptor} from '../core/ConfigSymbols.mjs';

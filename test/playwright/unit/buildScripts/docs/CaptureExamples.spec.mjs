@@ -3,11 +3,11 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
+    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
 import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
-/** @summary Gives the producer one covered local record and an unrelated legacy cover. */
+/** @summary Gives the producer one covered local record with a recipe, and one in a family no recipe covers. */
 function catalog() {
     return [
         {id: 'grid-one', family: 'grid-table', name: 'Grid one', image: 'legacy-grid.jpg', urls: {devmode: 'examples/grid/one/index.html'}},
@@ -39,7 +39,7 @@ function landingIds(valid) {
 
 test('a covered record without a recipe is captured from the frame a visitor lands on, dark and light, with no input of its own', () => {
     const records = catalog();
-    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
     records.push({id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
     const entries = validateCaptureRecipes(manifest(), records).recipes.filter(recipe => recipe.id === 'grid-two'),
           landing = {
@@ -65,25 +65,54 @@ test('a landing capture opens the record\'s link as the catalog in each theme do
 
 test('an external-origin covered record gets no landing capture, a same-origin one does', () => {
     const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
-    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
     records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
-    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['local-app'])
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one', 'local-app'])
 });
 
 test('a tile in a covered family takes no landing capture, a card beside it does', () => {
     const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', urls: {devmode: 'examples/grid/tile/index.html'}}];
-    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
     records.push({id: 'grid-card', family: 'grid-table', image: 'grid-card.jpg', urls: {devmode: 'examples/grid/card/index.html'}});
-    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['grid-card'])
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one', 'grid-card'])
 });
 
-test('a further family joins the covered families explicitly, and a recipe replaces a record\'s landing capture', () => {
-    const raw = manifest(); raw.families.push('forms');
-    expect(landingIds(validateCaptureRecipes(raw, catalog()))).toEqual(['form-one']);
-    raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'form-one'});
-    const valid = validateCaptureRecipes(raw, catalog());
-    expect(valid.recipes).toHaveLength(2);
-    expect(landingIds(valid)).toEqual([])
+test('a card in a family no recipe covers is captured by --record alone; a recipe needs a declared family and replaces it', () => {
+    const valid = validateCaptureRecipes(manifest(), catalog());
+    expect(selectCaptureRecipes(valid, {record: 'form-one'})).toMatchObject([
+        {id: 'form-one', landing: true, family: 'forms', variant: ''}, {id: 'form-one', landing: true, family: 'forms', variant: '-light'}
+    ]);
+    // A bulk run keeps to the declared families
+    expect(selectCaptureRecipes(valid).map(recipe => recipe.id)).toEqual(['grid-one']);
+    expect(() => selectCaptureRecipes(valid, {family: 'forms'})).toThrow(/no matching capture recipes/);
+    const raw = manifest(); raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'form-one'});
+    expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/outside declared families/);
+    raw.families.push('forms');
+    const recipes = validateCaptureRecipes(raw, catalog());
+    expect(recipes.recipes).toHaveLength(2);
+    expect(landingIds(recipes)).toEqual([])
+});
+
+test('a landing capture refuses a catalog id that cannot name its cover file, as a recipe does', () => {
+    const records = [...catalog(), {id: '../grid', family: 'grid-table', image: 'grid.jpg', urls: {devmode: 'examples/grid/up/index.html'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/catalog\.\.\.\/grid\.id: expected a filename-safe catalog id/)
+});
+
+/** @summary A document whose `<body>` holds `nodes` (`{tagName, style, box}`) in a 960×540 frame. */
+function frameDocument(nodes) {
+    const children = nodes.map(({tagName='DIV', style={}, box}) => ({tagName, style, getBoundingClientRect: () => box}));
+    return {body: {children}, defaultView: {innerWidth: 960, innerHeight: 540, getComputedStyle: node => ({display: 'block', visibility: 'visible', ...node.style})}}
+}
+
+test('a view counts as mounted once a shown element covers part of the frame; a theme, a script and the measuring nodes do not', () => {
+    const script = {tagName: 'SCRIPT', box: {left: 0, top: 0, right: 0, bottom: 0}},
+        probe    = {style: {visibility: 'hidden'}, box: {left: 0, top: 0, right: 1, bottom: 1}},
+        parked   = {box: {left: -10000, top: -10000, right: -9900, bottom: -9980}},
+        view     = {box: {left: 0, top: 0, right: 960, bottom: 540}};
+    expect(viewMounted(frameDocument([script]))).toBe(false);
+    expect(viewMounted(frameDocument([script, probe, parked]))).toBe(false);
+    expect(viewMounted(frameDocument([script, {...view, style: {display: 'none'}}]))).toBe(false);
+    expect(viewMounted(frameDocument([script, probe, parked, view]))).toBe(true)
 });
 
 test('duplicate recipes and unknown catalog identities are refused', () => {
