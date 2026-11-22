@@ -55,6 +55,7 @@ function makeHost(config = {}) {
         showDelay         : 20,
         showDelayTaskId   : null,
         stayOnHover       : true,
+        theme             : null,
         unmount           : () => { host.mounted = false },
         vdom              : {id, cn: [{id: `${id}__label`}]},
         warmWindow        : 60,

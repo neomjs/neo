@@ -48,6 +48,7 @@ function makeHost() {
         showDelay         : 20,
         showDelayTaskId   : null,
         stayOnHover       : true,
+        theme             : null,
         unmount           : () => { host.mounted = false },
         windowId          : ++hostWindows
     }).forEach(([key, value]) => Object.defineProperty(host, key, {configurable: true, enumerable: true, value, writable: true}));

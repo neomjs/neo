@@ -21,7 +21,8 @@ let
  * another of its targets in that window retargets the shown tooltip instead. A browser window shows one tooltip at a
  * time: the next one enters the DOM once the last one left it. While another one shows or for {@link #warmWindow} ms
  * after one hid, the next target shows its tooltip without {@link #showDelay}, so moving along neighbouring targets
- * stays prompt.
+ * stays prompt. The keyboard reaches the same targets: focus on one shows its tooltip, and focus leaving it or Escape
+ * hides it.
  * @class Neo.tooltip.Base
  * @extends Neo.container.Base
  */
@@ -139,6 +140,23 @@ class Tooltip extends Container {
      * @protected
      */
     retirement = null
+
+    /**
+     * A tooltip lies outside its targets' component paths, and focus events stop at the focused component
+     * (`Neo.manager.DomEvent#fire`): it hears focus and keys at its window's body.
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me = this;
+
+        me.addDomListeners([
+            {focusin : me.onTargetFocusIn,   scope: me, vnodeId: 'document.body'},
+            {focusout: me.onTargetFocusOut,  scope: me, vnodeId: 'document.body'},
+            {keydown : me.onDocumentKeyDown, scope: me, vnodeId: 'document.body'}
+        ])
+    }
 
     /**
      * @summary Listens for the delegated mouseenter and mouseleave on a component, once per instance. A target must lie
@@ -421,6 +439,32 @@ class Tooltip extends Container {
     }
 
     /**
+     * @summary The target a DOM event path names for this tooltip, matched as its pointer listeners match one: under one
+     * of its delegation roots, by its {@link #delegate}, or the root itself without one.
+     * @param {Object[]} path
+     * @returns {String|null}
+     * @protected
+     */
+    getTargetId(path) {
+        let me            = this,
+            componentPath = Neo.manager.Component.getParentPath(path.map(node => node.id)),
+            targetId, vnodeId;
+
+        for (const {root} of me.#delegations.values()) {
+            if (!root.isDestroyed && componentPath.includes(root.id)) {
+                vnodeId  = root.vdom?.id || root.id;
+                targetId = Neo.manager.DomEvent.verifyDelegationPath({delegate: me.delegate || '#' + vnodeId, vnodeId}, path, componentPath);
+
+                if (targetId) {
+                    return targetId
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
      * @summary Hides a mounted tooltip or records the hidden intent for its pending mount flight. Only a tooltip that
      * was painted warms its window for {@link #warmWindow}.
      */
@@ -502,6 +546,10 @@ class Tooltip extends Container {
                 data
             });
 
+            // An own tooltip renders under the document body, outside its target's themed root, so it wears the
+            // target's theme, as the shared one does through `applySingletonTargetConfig()`
+            me.isShared || (me.theme = Tooltip.resolveTargetTheme(me.activeTarget, data) || me.theme);
+
             me.align.target = currentTarget;
             me.align.targetMargin = 10;
             // Main writes the gap at every alignment, its own resyncs included, for the hit area to span it (`Base.css`)
@@ -540,6 +588,39 @@ class Tooltip extends Container {
                 me.hideDelayed(data)
             }
         }
+    }
+
+    /**
+     * Escape hides the tooltip that shows or is about to, as WCAG 2.1 SC 1.4.13 asks of content that opens on hover or
+     * focus
+     * @param {Object} data
+     */
+    onDocumentKeyDown(data) {
+        let me = this;
+
+        data.key === 'Escape' && (me.activeTargetId || me.mounted) && me.hide()
+    }
+
+    /**
+     * Keyboard focus on a target shows its tooltip, as the pointer entering it does
+     * @param {Object} data
+     */
+    onTargetFocusIn(data) {
+        let currentTarget = this.getTargetId(data.path);
+
+        currentTarget && this.onDelegateMouseEnter({...data, currentTarget})
+    }
+
+    /**
+     * Focus leaving a target hides its tooltip, as the pointer leaving it does. A move between two nodes of the target
+     * keeps it.
+     * @param {Object} data
+     */
+    onTargetFocusOut(data) {
+        let me            = this,
+            currentTarget = me.getTargetId(data.path);
+
+        currentTarget && !me.isNodeInTarget(data.relatedTarget, currentTarget) && me.onDelegateMouseLeave({...data, currentTarget})
     }
 
     /**

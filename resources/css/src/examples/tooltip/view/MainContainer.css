@@ -1,0 +1,77 @@
+.neo-tooltip-example {
+    gap: 12px;
+    padding: 16px;
+
+    > * {
+        margin-inline: auto;
+        max-width    : 920px;
+        width        : 100%;
+    }
+
+    /* Room for the hint of a focused toolbar button, so it covers no ticket; its buttons line up with the column */
+    .neo-tooltip-example-actions {
+        margin-bottom : 36px;
+        padding-inline: 0;
+    }
+
+    .neo-tooltip-example-header {
+        font-size: 20px;
+        font-weight: 700;
+        gap: 8px;
+    }
+
+    .neo-tooltip-example-hint {
+        opacity    : .8;
+        white-space: normal;
+    }
+
+    /* .neo-list zeroes its own inline margins */
+    .neo-tooltip-example-tickets {
+        margin-inline: auto;
+    }
+
+    .neo-tooltip-example-tickets .neo-list-item {
+        display: flex;
+        gap: 12px;
+    }
+
+    .neo-tooltip-example-ticket-id {
+        font-variant-numeric: tabular-nums;
+        opacity: .7;
+    }
+}
+
+/* The tooltip theme sets one line's height: a card with a table grows to its content */
+.neo-tooltip.neo-tooltip-example-velocity {
+    height : auto;
+    padding: 10px 14px;
+
+    strong {
+        font-size: 1.1em;
+    }
+
+    p {
+        color    : inherit;
+        font-size: .9em;
+        margin   : 4px 0 8px;
+    }
+
+    table {
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 2px 0;
+    }
+
+    th {
+        font-weight: 400;
+        padding-right: 16px;
+        text-align: left;
+    }
+
+    td {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+}

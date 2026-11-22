@@ -56,5 +56,28 @@
             "dist_prod": "dist/production/examples/popover/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "tooltip",
+        "family": "dialogs",
+        "order": 440,
+        "component": "Tooltip",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "feature": "Controls and tickets explain themselves: plain hints, a rich velocity card and tunable delays, by pointer or keyboard.",
+        "lookFor": "Hover a toolbar button or a ticket, or move there with Tab; open Velocity for the card, press Escape to close it, then change the delays.",
+        "hasLightCover": true,
+        "image": "devmode/tooltip-14.jpg",
+        "name": "Tooltips",
+        "sourceUrl": "examples/tooltip",
+        "urls": {
+            "devmode": "examples/tooltip/index.html",
+            "dist_dev": "dist/development/examples/tooltip/index.html",
+            "dist_esm": "dist/esm/examples/tooltip/index.html",
+            "dist_prod": "dist/production/examples/tooltip/index.html"
+        },
+        "hiddenIn": []
     }
 ]
