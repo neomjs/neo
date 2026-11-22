@@ -43,7 +43,7 @@ class MainContainer extends Viewport {
                 flex  : 1,
                 vdom  : {tag: 'header', cn: [
                     {tag: 'h1', cls: ['neo-examples-calendar-year-title'], text: 'The team\'s year'},
-                    {tag: 'p',  cls: ['neo-examples-calendar-year-hint'],  text: 'Shaded days have events. Click a day to open it.'}
+                    {tag: 'p',  cls: ['neo-examples-calendar-year-hint'],  text: 'Shaded days have events, the stronger the shade the busier the day. Click a day to open it.'}
                 ]}
             }, {
                 module: ThemeSwitcher,

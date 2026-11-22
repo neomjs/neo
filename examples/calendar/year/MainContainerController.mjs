@@ -65,8 +65,9 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @summary Scrolls the year view just far enough to show the month of today whole, once, as soon as the layout
-     * has settled and the year view is mounted. The two arrive in either order, so both call this.
+     * @summary Scrolls the year view just far enough to show today, once, as soon as the layout has settled and the
+     * year view is mounted. The two arrive in either order, so both call this. Today's cell, not its whole month: a
+     * view that already shows today keeps every month title in sight.
      * @returns {Promise<void>}
      */
     async showToday() {
@@ -81,7 +82,7 @@ class MainContainerController extends ComponentController {
 
             await Neo.main.DomAccess.scrollIntoView({
                 block        : 'nearest',
-                querySelector: `#${yearView.id} .neo-month:has(.neo-today)`,
+                querySelector: `#${yearView.id} .neo-cell:has(.neo-today)`,
                 windowId     : me.windowId
             })
         }
