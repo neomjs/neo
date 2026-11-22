@@ -8,8 +8,8 @@ import Viewport      from '../../../src/container/Viewport.mjs';
 /**
  * @summary The proof that a blocked main thread does not stop the picture. A million points move in a canvas the
  * canvas worker draws. One button blocks the page's main thread for five seconds: the clock, which is DOM text,
- * stands still, and the points keep moving. Afterwards the page says how long the main thread was away and how many
- * frames the canvas worker painted in that time.
+ * stands still, and the points keep moving. Afterwards the page says how long the main thread was away, how many
+ * frames the canvas worker painted in that time, and how often the app, which runs in the App Worker, set the clock.
  *
  * @class Neo.examples.worker.canvas.MainContainer
  * @extends Neo.container.Viewport
@@ -44,8 +44,8 @@ class MainContainer extends Viewport {
                 module: Component,
                 cls   : ['neo-examples-worker-canvas-intro'],
                 vdom  : {tag: 'header', cn: [
-                    {tag: 'h1', cls: ['neo-examples-worker-canvas-title'],       text: 'Stop the main thread'},
-                    {tag: 'p',  cls: ['neo-examples-worker-canvas-instruction'], text: 'Press the button. The clock is text in the page and stands still for five seconds. The points are drawn in a canvas worker and keep moving.'}
+                    {tag: 'h1', cls: ['neo-examples-worker-canvas-title'],       text: 'A canvas keeps moving while the main thread is blocked'},
+                    {tag: 'p',  cls: ['neo-examples-worker-canvas-instruction'], text: 'Press the button and watch the page clock. It is ordinary page text, so it stops for 5 seconds. The points are drawn in a worker and keep moving.'}
                 ]}
             }, {
                 module   : Component,
@@ -57,7 +57,8 @@ class MainContainer extends Viewport {
                 handler  : 'up.onBlockButtonClick',
                 iconCls  : 'fa-solid fa-hand',
                 reference: 'block-button',
-                text     : 'Block the main thread for 5 s'
+                text     : 'Block the main thread for 5 seconds',
+                ui       : 'primary'
             }, {
                 module  : ThemeSwitcher,
                 showText: false
@@ -97,19 +98,29 @@ class MainContainer extends Viewport {
         // The disabled button and the clock's last tick reach the screen before the page stops
         await me.timeout(100);
 
-        const before = await canvas.getStats();
+        const
+            before = await canvas.getStats(),
+            writes = me.clockWrites;
 
         await canvas.announceBlock(duration);
 
         const
             {duration: blocked} = await Neo.main.addon.MainThreadBlocker.block({duration, windowId: me.windowId}),
+            clockWrites         = me.clockWrites - writes,
             frames              = (await canvas.getStats()).frames - before.frames;
 
-        result.vdom['data-result'] = JSON.stringify({blockedMs: Math.round(blocked), frames});
-        result.text = `The main thread was blocked for ${(blocked / 1000).toFixed(1)} s. In that time the canvas worker painted ${frames} frames.`;
+        result.vdom['data-result'] = JSON.stringify({blockedMs: Math.round(blocked), clockWrites, frames});
+        result.text = `The main thread was blocked for ${(blocked / 1000).toFixed(1)} s. Meanwhile the canvas worker painted ${frames} frames, and this app, which runs in a worker too, set the clock ${clockWrites} times. The page caught up when its main thread came back.`;
 
         button.disabled = false
     }
+
+    /**
+     * How often the clock's text has been set. The app runs in the App Worker, so the count goes on while the
+     * main thread is blocked.
+     * @member {Number} clockWrites=0
+     */
+    clockWrites = 0
 
     /**
      * Starts the clock once the items exist.
@@ -135,6 +146,7 @@ class MainContainer extends Viewport {
                 const now = new Date();
 
                 clock.text = `Page clock ${now.toTimeString().slice(0, 8)}.${Math.floor(now.getMilliseconds() / 100)}`;
+                me.clockWrites++;
 
                 await me.timeout(100)
             }

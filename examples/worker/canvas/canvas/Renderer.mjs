@@ -61,8 +61,8 @@ class Renderer extends Base {
      * @static
      */
     static colors = {
-        dark : {ground: [9, 12, 22],     stops: [[52, 84, 178],   [112, 196, 255], [255, 250, 236]], text: '#e8ecf6', plate: 'rgba(9, 12, 22, .72)'},
-        light: {ground: [244, 246, 251], stops: [[150, 166, 208], [66, 88, 172],   [18, 24, 58]],    text: '#141a33', plate: 'rgba(244, 246, 251, .78)'}
+        dark : {ground: [9, 12, 22],     stops: [[52, 84, 178],   [112, 196, 255], [255, 250, 236]], text: '#e8ecf6', plate: 'rgba(9, 12, 22, .84)'},
+        light: {ground: [244, 246, 251], stops: [[150, 166, 208], [66, 88, 172],   [18, 24, 58]],    text: '#141a33', plate: 'rgba(244, 246, 251, .88)'}
     }
 
     /**
@@ -260,8 +260,8 @@ class Renderer extends Base {
     }
 
     /**
-     * @summary Writes the two lines only the canvas can still change: the count and the frame rate at the bottom,
-     * and, while a block runs, how long the main thread has been away.
+     * @summary Writes what only the canvas can still change: the count, the running frame number and the frame rate
+     * at the bottom, and, while a block runs, a panel that says how long the main thread has been away.
      * @param {Number} now
      * @protected
      */
@@ -272,31 +272,40 @@ class Renderer extends Base {
             {height, width}  = me.geometry,
             {plate, text}    = Renderer.colors[me.theme] || Renderer.colors.light,
             ratio            = context.canvas.width / width,
-            line             = (value, x, y, font, align) => {
-                context.font      = font;
-                context.textAlign = align;
-
-                const {width: textWidth} = context.measureText(value), left = align === 'center' ? x - textWidth / 2 : x;
+            seconds          = value => (value / 1000).toFixed(1),
+            // One plate behind `lines`, each `[text, font, lineHeight]`; `y` is the first line's baseline
+            panel            = (lines, x, y, align) => {
+                const
+                    widths      = lines.map(([value, font]) => (context.font = font, context.measureText(value).width)),
+                    panelWidth  = Math.max(...widths) + 28,
+                    panelHeight = lines.reduce((sum, [, , lineHeight]) => sum + lineHeight, 0) + 12;
 
                 context.fillStyle = plate;
                 context.beginPath();
-                context.roundRect(left - 10, y - 17, textWidth + 20, 26, 6);
+                context.roundRect(align === 'center' ? x - panelWidth / 2 : x - 14, y - lines[0][2] + 2, panelWidth, panelHeight, 8);
                 context.fill();
 
                 context.fillStyle = text;
-                context.fillText(value, x, y)
+                context.textAlign = align;
+
+                lines.forEach(([value, font, lineHeight]) => {
+                    context.font = font;
+                    context.fillText(value, x, y);
+                    y += lineHeight
+                })
             };
 
         context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-        line(`${me.pointCount.toLocaleString('en-US')} points · ${Math.round(me.fps)} fps · drawn in the canvas worker`,
-            16, height - 14, '500 12px system-ui, sans-serif', 'left');
+        // The frame number runs, so two stills of the page differ in it
+        panel([[`${me.pointCount.toLocaleString('en-US')} points · frame ${me.frames.toLocaleString('en-US')} · ${Math.round(me.fps)} fps`,
+            '500 12px system-ui, sans-serif', 18]], 22, height - 20, 'left');
 
         if (block) {
-            line(`Main thread blocked · ${((Math.min(now, block.end) - block.start) / 1000).toFixed(1)} s`,
-                width / 2, 34, '600 16px system-ui, sans-serif', 'center');
-            line('This canvas is drawn in a worker, so it keeps moving.',
-                width / 2, 64, '500 12px system-ui, sans-serif', 'center')
+            panel([
+                [`Main thread blocked · ${seconds(Math.min(now, block.end) - block.start)} of ${seconds(block.end - block.start)} s`, '600 18px system-ui, sans-serif', 26],
+                ['The page clock has stopped. This canvas keeps moving.', '500 13px system-ui, sans-serif', 20]
+            ], width / 2, 46, 'center')
         }
 
         context.setTransform(1, 0, 0, 1, 0, 0)
@@ -328,7 +337,8 @@ class Renderer extends Base {
             {canvas}        = me.context,
             {height, width} = canvas;
 
-        if (me.block && now >= me.block.end + 400) {
+        // The panel says the page clock has stopped, so it goes the moment the block is over
+        if (me.block && now >= me.block.end) {
             me.block = null
         }
         me.drawField(now / 1000);
@@ -364,7 +374,7 @@ class Renderer extends Base {
         // The disc is tilted towards the canvas's longer side, so it fills a wide window and a phone alike
         const
             tilt   = Math.min(1.4, Math.max(.5, height / width)),
-            scaleX = Math.min(width / 2 - 2, (height / 2 - 2) / tilt),
+            scaleX = Math.min(width / 2 - 2, (height / 2 - 2) / tilt) * .94,
             scaleY = scaleX * tilt;
 
         me.points     ??= Renderer.createPoints(me.pointCount);
