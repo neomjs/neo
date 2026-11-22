@@ -1,0 +1,54 @@
+.neo-tooltip-example {
+    gap: 12px;
+    padding: 16px;
+
+    .neo-tooltip-example-header {
+        font-size: 20px;
+        font-weight: 700;
+        gap: 8px;
+    }
+
+    .neo-tooltip-example-hint {
+        opacity    : .8;
+        white-space: normal;
+    }
+
+    .neo-tooltip-example-tickets .neo-list-item {
+        display: flex;
+        gap: 12px;
+    }
+
+    .neo-tooltip-example-ticket-id {
+        font-variant-numeric: tabular-nums;
+        opacity: .7;
+    }
+}
+
+/* The tooltip theme sets one line's height: a card with a table grows to its content */
+.neo-tooltip.neo-tooltip-example-velocity {
+    height: auto;
+
+    p {
+        color : inherit;
+        margin: 4px 0 6px;
+    }
+
+    table {
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 2px 0;
+    }
+
+    th {
+        font-weight: 400;
+        padding-right: 16px;
+        text-align: left;
+    }
+
+    td {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+}

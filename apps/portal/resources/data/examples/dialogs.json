@@ -55,5 +55,23 @@
             "dist_prod": "dist/production/examples/popover/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "tooltip",
+        "family": "dialogs",
+        "order": 440,
+        "component": "Tooltip",
+        "feature": "A sprint board whose controls and tickets explain themselves: plain hints, a rich velocity card and delays to tune, by pointer or keyboard.",
+        "lookFor": "Hover a toolbar button or a ticket, or move there with Tab; open Velocity for the card, press Escape to close it, then change the delays.",
+        "image": "devmode/tooltip-14.jpg",
+        "name": "tooltip.Base",
+        "sourceUrl": "examples/tooltip",
+        "urls": {
+            "devmode": "examples/tooltip/index.html",
+            "dist_dev": "dist/development/examples/tooltip/index.html",
+            "dist_esm": "dist/esm/examples/tooltip/index.html",
+            "dist_prod": "dist/production/examples/tooltip/index.html"
+        },
+        "hiddenIn": []
     }
 ]

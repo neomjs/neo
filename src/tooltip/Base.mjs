@@ -546,6 +546,10 @@ class Tooltip extends Container {
                 data
             });
 
+            // An own tooltip renders under the document body, outside its target's themed root, so it wears the
+            // target's theme, as the shared one does through `applySingletonTargetConfig()`
+            me.isShared || (me.theme = Tooltip.resolveTargetTheme(me.activeTarget, data) || me.theme);
+
             me.align.target = currentTarget;
             me.align.targetMargin = 10;
             // Main writes the gap at every alignment, its own resyncs included, for the hit area to span it (`Base.css`)

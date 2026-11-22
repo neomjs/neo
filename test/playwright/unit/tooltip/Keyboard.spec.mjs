@@ -136,6 +136,16 @@ test.describe('Neo.tooltip.Base keyboard', () => {
         expect(calls).toEqual(['show kb-pill'])
     });
 
+    test('an own tooltip wears the theme of the target it shows for', () => {
+        let {calls, tooltip} = mountOwnTooltip();
+
+        Neo.getComponent('kb-root').theme = 'neo-theme-neo-dark';
+
+        fire('focusin', inTarget('kb-target-a'));
+        expect(calls).toEqual(['show kb-target']);
+        expect(tooltip.theme).toBe('neo-theme-neo-dark')
+    });
+
     test('a destroyed tooltip stops listening at the body', () => {
         let {tooltip} = mountOwnTooltip(),
             listening = () => ['focusin', 'focusout', 'keydown'].map(eventName => !!DomEvent.bodyListenerOwners.get(eventName)?.has(tooltip.id));
