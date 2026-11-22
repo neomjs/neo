@@ -246,13 +246,24 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
     }
 });
 
-test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
+test('the committed Grid/Table catalog selects a capture for every covered card', async () => {
     const data    = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
         {records} = await readExampleCatalog(fileURLToPath(new URL('examples', data))),
         raw       = JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))),
-        valid     = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
+        valid     = validateCaptureRecipes(raw, records),
+        rows      = selectCaptureRecipes(valid, {family: 'grid-table'}),
+        recipeIds = new Set(raw.recipes.map(recipe => recipe.id));
+
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
-    expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
+
+    for (const row of rows) {
+        if (recipeIds.has(row.id)) {
+            expect(row.steps.length, row.id).toBeGreaterThan(0);
+            expect(row.after.length, row.id).toBeGreaterThan(0)
+        } else {
+            expect(row, row.id).toMatchObject({landing: true, steps: [], after: [], region: 'viewport'})
+        }
+    }
 });
 
 test('the command exposes help without starting a browser or requiring a running server', () => {
