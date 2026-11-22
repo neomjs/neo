@@ -373,7 +373,7 @@ import Viewport   from '../container/Viewport.mjs';
 
 class EditUserDialogController extends Controller {
     static config = {
-        className: 'Neo.examples.model.dialog.EditUserDialogController'
+        className: 'Neo.examples.stateProvider.dialog.EditUserDialogController'
     }
 
     onFirstnameTextFieldChange(data) {
@@ -388,7 +388,7 @@ EditUserDialogController = Neo.setupClass(EditUserDialogController);
 
 class EditUserDialog extends Dialog {
     static config = {
-        className      : 'Neo.examples.model.dialog.EditUserDialog',
+        className      : 'Neo.examples.stateProvider.dialog.EditUserDialog',
         containerConfig: {style: {padding: '1em'}},
         controller     : EditUserDialogController,
         title          : 'Edit User',
@@ -409,7 +409,7 @@ EditUserDialog = Neo.setupClass(EditUserDialog);
 
 class MainContainerController extends Controller {
     static config = {
-        className: 'Neo.examples.model.dialog.MainContainerController',
+        className: 'Neo.examples.stateProvider.dialog.MainContainerController',
         dialog   : null
     }
 
@@ -474,7 +474,7 @@ class MainView extends Viewport {
 
             items: [{
                 ntype: 'label',
-                text : 'Click the edit user button to edit the user data </br> inside this container view model.'
+                text : 'Click the edit user button to edit the user data inside the state provider of this container.'
             }]
         }]
     }

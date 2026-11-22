@@ -3,11 +3,11 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
+    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
 import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
-/** @summary Gives the producer one covered local record and an unrelated legacy cover. */
+/** @summary Gives the producer one covered local record with a recipe, and one in a family no recipe covers. */
 function catalog() {
     return [
         {id: 'grid-one', family: 'grid-table', name: 'Grid one', image: 'legacy-grid.jpg', urls: {devmode: 'examples/grid/one/index.html'}},
@@ -32,32 +32,78 @@ test('capture identity and URL come from the catalog without mutating either inp
     expect({raw, records}).toEqual(before)
 });
 
-test('a covered record without a recipe fails inside the migrated family, while other legacy families stay independent', () => {
+/** @summary The ids of the validated entries that capture their record's landing frame. */
+function landingIds(valid) {
+    return valid.recipes.filter(recipe => recipe.landing).map(recipe => recipe.id)
+}
+
+test('a covered record without a recipe is captured from the frame a visitor lands on, with no input of its own', () => {
     const records = catalog();
-    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
-    records.push({id: 'grid-two', family: 'grid-table', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
-    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
+    records.push({id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
+    const entry = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-two');
+    expect(entry).toEqual({
+        id      : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', url: 'examples/grid/two/?theme=neo-theme-neo-dark',
+        viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.',
+        ready   : [], steps: [], after: [], region: 'viewport'
+    });
+    expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual([entry])
 });
 
-test('external-origin covered records do not block a family while same-origin covered records still require recipes', () => {
+test('a landing capture opens the record\'s link as the dark catalog does, keeping its query and hash', () => {
+    const records = [...catalog(), {id: 'grid-three', family: 'grid-table', image: 'grid-three.jpg', urls: {devmode: 'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-light#/start'}}],
+        entry     = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-three');
+    expect(entry.url).toBe('examples/grid/three/index.html?rows=50&theme=neo-theme-neo-dark#/start')
+});
+
+test('an external-origin covered record gets no landing capture, a same-origin one does', () => {
     const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
-    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
     records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
-    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one', 'local-app'])
 });
 
-test('a tile in a covered family needs no recipe, a card beside it still does', () => {
+test('a tile in a covered family takes no landing capture, a card beside it does', () => {
     const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', urls: {devmode: 'examples/grid/tile/index.html'}}];
-    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
     records.push({id: 'grid-card', family: 'grid-table', image: 'grid-card.jpg', urls: {devmode: 'examples/grid/card/index.html'}});
-    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/grid-card.*image|recipe/i)
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one', 'grid-card'])
 });
 
-test('a further family joins the coverage guard explicitly', () => {
-    const raw = manifest(); raw.families.push('forms');
-    expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/form-one.*image|recipe/i);
-    raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'form-one'});
-    expect(validateCaptureRecipes(raw, catalog()).recipes).toHaveLength(2)
+test('a card in a family no recipe covers is captured by --record alone; a recipe needs a declared family and replaces it', () => {
+    const valid = validateCaptureRecipes(manifest(), catalog());
+    expect(selectCaptureRecipes(valid, {record: 'form-one'})).toMatchObject([{id: 'form-one', landing: true, family: 'forms'}]);
+    // A bulk run keeps to the declared families
+    expect(selectCaptureRecipes(valid).map(recipe => recipe.id)).toEqual(['grid-one']);
+    expect(() => selectCaptureRecipes(valid, {family: 'forms'})).toThrow(/no matching capture recipes/);
+    const raw = manifest(); raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'form-one'});
+    expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/outside declared families/);
+    raw.families.push('forms');
+    const recipes = validateCaptureRecipes(raw, catalog());
+    expect(recipes.recipes).toHaveLength(2);
+    expect(landingIds(recipes)).toEqual([])
+});
+
+test('a landing capture refuses a catalog id that cannot name its cover file, as a recipe does', () => {
+    const records = [...catalog(), {id: '../grid', family: 'grid-table', image: 'grid.jpg', urls: {devmode: 'examples/grid/up/index.html'}}];
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/catalog\.\.\.\/grid\.id: expected a filename-safe catalog id/)
+});
+
+/** @summary A document whose `<body>` holds `nodes` (`{tagName, style, box}`) in a 960×540 frame. */
+function frameDocument(nodes) {
+    const children = nodes.map(({tagName='DIV', style={}, box}) => ({tagName, style, getBoundingClientRect: () => box}));
+    return {body: {children}, defaultView: {innerWidth: 960, innerHeight: 540, getComputedStyle: node => ({display: 'block', visibility: 'visible', ...node.style})}}
+}
+
+test('a view counts as mounted once a shown element covers part of the frame; a theme, a script and the measuring nodes do not', () => {
+    const script = {tagName: 'SCRIPT', box: {left: 0, top: 0, right: 0, bottom: 0}},
+        probe    = {style: {visibility: 'hidden'}, box: {left: 0, top: 0, right: 1, bottom: 1}},
+        parked   = {box: {left: -10000, top: -10000, right: -9900, bottom: -9980}},
+        view     = {box: {left: 0, top: 0, right: 960, bottom: 540}};
+    expect(viewMounted(frameDocument([script]))).toBe(false);
+    expect(viewMounted(frameDocument([script, probe, parked]))).toBe(false);
+    expect(viewMounted(frameDocument([script, {...view, style: {display: 'none'}}]))).toBe(false);
+    expect(viewMounted(frameDocument([script, probe, parked, view]))).toBe(true)
 });
 
 test('duplicate recipes and unknown catalog identities are refused', () => {
@@ -153,7 +199,7 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
 test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
     const data    = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
         {records} = await readExampleCatalog(fileURLToPath(new URL('examples', data))),
-        raw       = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
+        raw       = JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))),
         valid     = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
@@ -174,6 +220,21 @@ test('a tile is named by its examples/ path, which gives its id and devmode URL'
     ]);
     expect(selectTiles(valid, 'examples/sitemap').map(tile => tile.id)).toEqual(['sitemap']);
     expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
+});
+
+test('a component record the frozen list does not name is a tile at its own size, after the listed ones', () => {
+    const records = [...catalog(),
+        {id: 'split', kind: 'component', family: 'buttons', image: 'devmode/tiles/button-split-14.jpg', sourceUrl: 'examples/button/split', urls: {devmode: 'examples/button/split/index.html'}},
+        {id: 'date',  kind: 'component', family: 'forms',   image: 'devmode/tiles/form-field-date-14.jpg', sourceUrl: 'examples/form/field/date', urls: {devmode: 'examples/form/field/date/index.html'}}
+    ],
+        valid = validateCaptureRecipes({...manifest(), tiles: [{path: 'examples/form/field/date', width: 220}]}, records);
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html', width: 220},
+        {id: 'button-split',    path: 'examples/button/split',    url: 'examples/button/split/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/button/split').map(tile => tile.id)).toEqual(['button-split']);
+    records.push({id: 'bad', kind: 'component', family: 'forms', sourceUrl: 'apps/form'});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/catalog\.bad\.sourceUrl/)
 });
 
 test('a tile entry may name the size its component takes for the capture', () => {
@@ -201,7 +262,7 @@ test('a tile path outside examples/, a duplicate tile, a bad capture size or an 
 
 test('the committed tile list names workbench entries that exist', async () => {
     const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
-        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), (await readExampleCatalog(fileURLToPath(new URL('examples', data)))).records);
+        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))), (await readExampleCatalog(fileURLToPath(new URL('examples', data)))).records);
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');

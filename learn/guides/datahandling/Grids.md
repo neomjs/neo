@@ -269,9 +269,9 @@ Grids can include header filters, allowing users to filter data directly from th
 set the `showHeaderFilters` config to `true` on the `Neo.grid.Container`.
 
 ```javascript live-preview
-import GridContainer from '../grid/Container.mjs';
-import Store         from '../data/Store.mjs';
-import Viewport      from '../container/Viewport.mjs';
+import GridContainer   from '../grid/Container.mjs';
+import NumberContainer from '../filter/NumberContainer.mjs';
+import Viewport        from '../container/Viewport.mjs';
 
 class MainView extends Viewport {
     static config = {
@@ -295,8 +295,21 @@ class MainView extends Viewport {
                 ]
             },
             columns: [
-                {text: 'City',       dataField: 'city',       filterable: true},
-                {text: 'Population', dataField: 'population', filterable: true}
+                {text: 'City', dataField: 'city'},
+                {
+                    text        : 'Population',
+                    dataField   : 'population',
+                    filterConfig: {operator: '>='},
+
+                    // The operator button cycles through `operators`, which must hold the one the filter starts with,
+                    // and the number field's default maxValue of 100 would clamp a typed population
+                    editorConfig: {
+                        module      : NumberContainer,
+                        buttonConfig: {operators: ['>=', '<=', '===']},
+                        fieldConfig : {maxValue: 10000000},
+                        operator    : '>='
+                    }
+                }
             ]
         }]
     }
@@ -304,9 +317,11 @@ class MainView extends Viewport {
 MainView = Neo.setupClass(MainView);
 ```
 
-For a column to be filterable, you must also set its `filterable` config to `true`. The grid automatically provides a
-text input filter for string fields and a number input filter for number fields. More complex filter types can be
-implemented by extending `Neo.grid.header.Filter`.
+Every column of such a grid gets a text field in its header, which keeps the rows whose value contains what you type
+(the `like` operator). A column chooses another field with `editorConfig`, as the population column does with
+`Neo.filter.NumberContainer`, and the comparison its filter applies with `filterConfig`. `Neo.filter` also holds a
+`DateContainer` and a `BooleanContainer`, and a `ComboBox` filters a column by a fixed set of values. The
+`examples/grid/filtering` example uses all four on 10,000 rows.
 
 ### Grid Search Toolbar
 
