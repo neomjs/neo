@@ -29,4 +29,12 @@
         border-top: 1px solid var(--panel-border-color);
         padding   : 10px 12px;
     }
+
+    /* A phone's stage holds the wizard at about 180 px high: the steps tighten, so no field is cut */
+    @media (max-width: 600px) {
+        .card-wizard-step {
+            gap        : 4px;
+            padding-top: 12px;
+        }
+    }
 }
