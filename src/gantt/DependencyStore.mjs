@@ -45,9 +45,10 @@ class DependencyStore extends Store {
      * @summary Checks a proposed finish-to-start link in a store of dependency records.
      * @param {Neo.data.Store} store Dependency store bound to the chart.
      * @param {Object} input Endpoints already resolved against the chart's task store.
+     * @param {Neo.gantt.TaskStore} [tasks] Structural parents also depend on their children in a rollup plan.
      * @returns {String|null} Refusal reason, or null when the gesture may offer this link.
      */
-    static getFinishToStartRefusal(store, {fromId, toId, id, type='FS', lag=0}) {
+    static getFinishToStartRefusal(store, {fromId, toId, id, type='FS', lag=0}, tasks) {
         if (store.isFiltered()) return 'filtered-dependencies';
         if (type !== 'FS' || lag !== 0) return 'unsupported-dependency';
         const from = String(fromId), to = String(toId), successors = new Map();
@@ -64,6 +65,10 @@ class DependencyStore extends Store {
             if (key === from) return 'cycle';
             if (visited.has(key)) continue;
             visited.add(key);
+            if (tasks?.rollupParents) {
+                const parentId = tasks.get(key)?.parentId;
+                if (parentId != null && tasks.get(parentId)) pending.push(String(parentId))
+            }
             for (const next of successors.get(key) || []) pending.push(next)
         }
         return id != null && store.get(id) ? 'duplicate-id' : null
@@ -74,8 +79,8 @@ class DependencyStore extends Store {
      * @param {Object} input Proposed link.
      * @returns {String|null} Refusal reason, or null if eligible.
      */
-    getFinishToStartRefusal(input) {
-        return this.constructor.getFinishToStartRefusal(this, input)
+    getFinishToStartRefusal(input, tasks) {
+        return this.constructor.getFinishToStartRefusal(this, input, tasks)
     }
 
     /**
@@ -83,8 +88,8 @@ class DependencyStore extends Store {
      * @param {Object} input Endpoints already resolved against the chart's task store.
      * @returns {Object} Committed edge or the reason for refusing the link.
      */
-    addFinishToStart(input) {
-        const reason = this.getFinishToStartRefusal(input);
+    addFinishToStart(input, tasks) {
+        const reason = this.getFinishToStartRefusal(input, tasks);
         if (reason) return {status: 'refused', reason};
 
         let edgeId = input.id;

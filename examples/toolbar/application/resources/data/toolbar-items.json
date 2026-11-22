@@ -5,7 +5,7 @@
             "text": "Insert",
             "iconCls": "fa fa-plus",
             "ui": "primary",
-            "handler": "onPrimaryInsert",
+            "handler": "onInsertHeading",
             "tooltip": {"html": "Insert a heading"},
             "triggerButtonConfig": {"vdom": {"aria-label": "Insert options"}},
             "menu": [

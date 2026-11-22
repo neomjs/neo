@@ -19,6 +19,7 @@ import {test, expect}     from '@playwright/test';
 import fs                 from 'node:fs';
 import path               from 'node:path';
 import {fileURLToPath}    from 'node:url';
+import {EXAMPLES_DIR, readExampleCatalog} from '../../../../../../../buildScripts/util/exampleCatalog.mjs';
 import Neo                from '../../../../../../../src/Neo.mjs';
 import * as core          from '../../../../../../../src/core/_export.mjs';
 import InstanceManager    from '../../../../../../../src/manager/Instance.mjs';
@@ -35,7 +36,7 @@ import Planning           from '../../../../../../../apps/portal/view/home/parts
 
 const brainDocUrl       = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
       currentDir        = path.dirname(fileURLToPath(import.meta.url)),
-      examplesJson      = path.resolve(currentDir, '../../../../../../../apps/portal/resources/data/examples.json'),
+      examplesDir       = path.resolve(currentDir, '../../../../../../../', EXAMPLES_DIR),
       featureSectionCss = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/FeatureSection.css'),
       heroCssPath       = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/parts/hero/Content.css');
 
@@ -166,7 +167,7 @@ test.describe('Portal.view.home.ContentBox', () => {
             }
 
             // Every link names an examples group that shows at least one card in the production build
-            const catalog = JSON.parse(fs.readFileSync(examplesJson, 'utf8'));
+            const {records: catalog} = await readExampleCatalog(examplesDir);
 
             for (const part of [Grid, Planning]) {
                 part.config.links.forEach(({route}) => {

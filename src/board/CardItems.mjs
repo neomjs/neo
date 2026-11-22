@@ -1,3 +1,5 @@
+import DateUtil from '../util/Date.mjs';
+
 /**
  * @summary The renderers of a card's body: one function per item type, each turning a record into one vdom node.
  * @description `Neo.board.Card` maps the board's `cardItems` config through {@link renderCardItem}. A renderer
@@ -9,7 +11,105 @@
  * @module Neo.board.CardItems
  */
 
-const warned = new Set();
+const
+    DAY_MS                = 86_400_000,
+    DEFAULT_DONE_STATUSES = ['done', 'completed', 'closed', 'shipped', 'published'],
+    warned                = new Set();
+
+/**
+ * @summary Parses a `Date` or date string into `{iso, wallDate}` without timezone rollover, or returns `null`
+ * @param {*} value
+ * @returns {{iso: String, wallDate: Date}|null}
+ */
+const parseDueDate = value => {
+    if (value == null || value === '') {
+        return null
+    }
+
+    if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) {
+            return null
+        }
+
+        return {
+            iso     : DateUtil.convertToyyyymmdd(value),
+            wallDate: new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()))
+        }
+    }
+
+    const raw = String(value).trim();
+
+    if (!raw) {
+        return null
+    }
+
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/);
+
+    if (match) {
+        const
+            y        = Number(match[1]),
+            m        = Number(match[2]),
+            d        = Number(match[3]),
+            wallDate = new Date(Date.UTC(y, m - 1, d));
+
+        if (wallDate.getUTCFullYear() !== y || wallDate.getUTCMonth() !== m - 1 || wallDate.getUTCDate() !== d) {
+            return null
+        }
+
+        return {iso: `${match[1]}-${match[2]}-${match[3]}`, wallDate}
+    }
+
+    return parseDueDate(new Date(raw))
+};
+
+/**
+ * @summary Checks whether a record sits in a completed state so past deadlines are not marked overdue
+ * @param {Object} record
+ * @param {Object} [item]
+ * @param {Neo.board.Card|null} [card=null]
+ * @returns {Boolean}
+ */
+const isDoneRecord = (record, item, card=null) => {
+    if (record?.done === true) {
+        return true
+    }
+
+    const
+        statusField = item?.statusField || card?.board?.statusField || 'status',
+        statusVal   = record?.[statusField],
+        doneList    = item?.doneStatuses || DEFAULT_DONE_STATUSES;
+
+    return statusVal != null && doneList.some(entry => String(entry).toLowerCase() === String(statusVal).toLowerCase())
+};
+
+/**
+ * @summary Evaluates whether a record's due date is strictly before `referenceDate` (default today) and not completed
+ * @param {Object} record
+ * @param {Object} [item={}]
+ * @param {Neo.board.Card|null} [card=null]
+ * @returns {Boolean}
+ */
+export function isCardOverdue(record, item={}, card=null) {
+    if (item?.overdue === false) {
+        return false
+    }
+
+    const
+        parsed = parseDueDate(record?.[item?.field || 'dueDate']),
+        today  = parsed && parseDueDate(item?.referenceDate ?? new Date());
+
+    if (!parsed || !today) {
+        return false
+    }
+
+    const dayDiff = Math.round((parsed.wallDate.getTime() - today.wallDate.getTime()) / DAY_MS);
+
+    if (typeof item?.overdue === 'function') {
+        return Boolean(item.overdue(record, {card, dayDiff, iso: parsed.iso, todayIso: today.iso}))
+    }
+
+    return !isDoneRecord(record, item, card) && dayDiff < 0
+}
 
 /**
  * @summary The first letters of a name, two at most
@@ -96,6 +196,88 @@ export const cardItems = {
             'aria-valuemax': 100,
             'aria-valuenow': percent,
             cn             : [{cls: ['neo-board-card-progress-bar'], style: {width: `${percent}%`}}]
+        }
+    },
+
+    /**
+     * @summary A due date badge rendered as a semantic `<time>` node with non-color-alone overdue and optional relative phrasing
+     * @param {Object} record
+     * @param {Object} item
+     * @param {String[]} [item.doneStatuses] Status values treated as completed (never overdue)
+     * @param {String} [item.field='dueDate']
+     * @param {Object} [item.formatOptions]
+     * @param {Function} [item.formatter]
+     * @param {String} [item.locale='en-US']
+     * @param {Boolean|Function} [item.overdue=true] `false` disables overdue detection; a function `(record, ctx) => Boolean` overrides it
+     * @param {String|Boolean} [item.overduePrefix='Overdue']
+     * @param {String|Boolean} [item.prefix='Due']
+     * @param {Date|String} [item.referenceDate] Anchor date for overdue/relative calculation (defaults to today)
+     * @param {Boolean} [item.relative=false] True to lead active dates within ±7 days with relative day phrasing
+     * @param {String} [item.statusField]
+     * @param {Neo.board.Card|null} [card=null]
+     * @returns {Object|null}
+     */
+    dueDate(record, item, card=null) {
+        const
+            raw    = record?.[item?.field || 'dueDate'],
+            parsed = parseDueDate(raw);
+
+        if (!parsed) {
+            return null
+        }
+
+        const
+            options       = item?.formatOptions || {month: 'short', day: 'numeric'},
+            formatted     = DateUtil.formatWall(item?.locale || 'en-US', options, parsed.wallDate),
+            today         = parseDueDate(item?.referenceDate ?? new Date()),
+            dayDiff       = today ? Math.round((parsed.wallDate.getTime() - today.wallDate.getTime()) / DAY_MS) : 0,
+            isDone        = isDoneRecord(record, item, card),
+            isOverdue     = isCardOverdue(record, item, card),
+            dueToday      = Boolean(!isOverdue && !isDone && item?.overdue !== false && today && dayDiff === 0),
+            prefix        = item?.prefix === undefined ? 'Due' : item.prefix,
+            overduePrefix = item?.overduePrefix === undefined ? 'Overdue' : item.overduePrefix;
+
+        let defaultText;
+
+        if (isOverdue) {
+            if (item?.relative && today) {
+                const daysLate = Math.abs(dayDiff);
+                defaultText = overduePrefix ? `${overduePrefix} ${daysLate}d · ${formatted}` : `${daysLate}d late · ${formatted}`
+            } else {
+                defaultText = overduePrefix ? `${overduePrefix} · ${formatted}` : formatted
+            }
+        } else if (item?.relative && !isDone && today && dayDiff >= 0 && dayDiff <= 7) {
+            defaultText = dayDiff === 0
+                ? `Today · ${formatted}`
+                : dayDiff === 1
+                    ? `Tomorrow · ${formatted}`
+                    : `In ${dayDiff}d · ${formatted}`
+        } else {
+            defaultText = prefix ? `${prefix} ${formatted}` : formatted
+        }
+
+        const text = typeof item?.formatter === 'function'
+            ? item.formatter(raw, record, {dayDiff, dueToday, formatted, isOverdue, iso: parsed.iso, todayIso: today?.iso || null})
+            : defaultText;
+
+        if (text == null || text === '') {
+            return null
+        }
+
+        const cls = ['neo-board-card-due-date'];
+
+        if (isOverdue) {
+            cls.push('neo-board-card-due-date-overdue')
+        } else if (dueToday) {
+            cls.push('neo-board-card-due-date-today')
+        }
+
+        return {
+            tag     : 'time',
+            cls,
+            datetime: parsed.iso,
+            title   : parsed.iso,
+            text    : String(text)
         }
     },
 

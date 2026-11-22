@@ -145,6 +145,19 @@
         }
     }
 
+    @media (min-width: 721px) and (max-width: 1100px) {
+        .venue-toolbar.neo-toolbar {
+            gap    : 4px 16px;
+            padding: 8px 20px;
+        }
+
+        .venue-hint {
+            flex       : 0 0 100% !important;
+            order      : 2;
+            white-space: normal;
+        }
+    }
+
     /* On a phone the hint gives the plan its height, and the three levels share the toolbar's width */
     @media (max-width: 720px) {
         .venue-hint {
@@ -156,7 +169,7 @@
         }
 
         .venue-levels {
-            flex : 1 0 100%;
+            flex : 1 0 100% !important;
             order: 2;
             width: 100%;
         }

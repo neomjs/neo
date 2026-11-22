@@ -12,6 +12,60 @@ import DependencyStore from '../../../../src/gantt/DependencyStore.mjs';
 setup({neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: false},
     appConfig: {name: 'GanttCascadeTest', isMounted: () => true}});
 
+test('a phase and its outgoing successor settle in the same store batch across two charts', () => {
+    Neo.ns('Neo.main.addon.DragDrop', true);
+    Neo.main.addon.DragDrop = {setConfigs: async () => ({})};
+    const at    = hour => new Date(Date.UTC(2026, 10, 9, hour));
+    const tasks = Neo.create(TaskStore, {rollupParents: true, data: [
+        {id: 'phase', isLeaf: false},
+        {id: 'child', parentId: 'phase', isLeaf: true, startDate: at(2), endDate: at(4), percentDone: 50},
+        {id: 'marker', parentId: 'phase', isLeaf: true, milestone: true, startDate: at(3), endDate: at(3), percentDone: 100},
+        {id: 'gate', isLeaf: true, milestone: true, startDate: at(4), endDate: at(4)},
+        {id: 'next', isLeaf: true, startDate: at(4), endDate: at(6)}
+    ]});
+    const edges = Neo.create(DependencyStore, {data: [
+        {id: 'phase-gate', fromId: 'phase', toId: 'gate', type: 'FS'},
+        {id: 'handoff', fromId: 'gate', toId: 'next', type: 'FS'}
+    ]});
+    const config = {appName: 'GanttCascadeTest', store: tasks, dependencyStore: edges,
+        timeAxis: {timeZone: 'UTC', start: at(0), end: at(24), snapMinutes: 15}};
+    const first   = Neo.create(Gantt, config), second = Neo.create(Gantt, config);
+    const batches = [], observations = [], phase = tasks.get('phase'), next = tasks.get('next');
+    tasks.on({
+        recordChange: () => observations.push([phase.endDate.getTime(), next.startDate.getTime()]),
+        rowsChange  : ({keys}) => batches.push(keys)
+    });
+
+    try {
+        const result = first.moveTask('child', {startDate: at(4), endDate: at(6)});
+        expect(result.cascaded.map(item => item.record.id)).toEqual(['phase', 'gate', 'next']);
+        expect(batches).toEqual([['child', 'phase', 'gate', 'next']]);
+        expect(observations.length).toBeGreaterThan(0);
+        for (const pair of observations) expect(pair).toEqual([+at(6), +at(6)]);
+        expect(second.store.get('phase')).toBe(phase);
+        expect(next.endDate).toEqual(at(8));
+
+        first.dependencyCreation = true;
+        expect(first.linkTasks({fromId: 'next', toId: 'child'}).reason).toBe('cycle');
+        expect(first.linkTasks({fromId: 'next', toId: 'phase'}).reason).toBe('invalid-endpoints');
+        expect(second.moveTask('phase', {startDate: at(7)})?.status).toBe('refused');
+        expect(second.getBarDragContext({getLinkTerminal: () => null}, [], phase)).toBeNull();
+        second.moveTask('child', {endDate: at(7)}, {resizeEdge: 'end'});
+        expect(first.store.get('phase').endDate).toEqual(at(7));
+        expect(next.startDate).toEqual(at(7));
+
+        second.moveTask('marker', {startDate: at(9)});
+        expect([phase.endDate, phase.percentDone]).toEqual([at(9), 50]);
+        const gate = tasks.get('gate');
+        expect([gate.startDate, gate.endDate, next.startDate]).toEqual([at(9), at(9), at(9)])
+    } finally {
+        second.destroy();
+        first.destroy();
+        edges.destroy();
+        tasks.destroy()
+    }
+});
+
 test('a cascade uses task keys and scans the dependency population once', () => {
     const count = 80, epoch = Date.UTC(2026, 0, 1),
         model   = Neo.create(TaskModel, {fields: [...TaskModel.config.fields, {name: 'key'}]}),

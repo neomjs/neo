@@ -1,4 +1,5 @@
 import Component                       from '../component/Base.mjs';
+import NeoArray                        from '../util/Array.mjs';
 import TextField                       from '../form/field/Text.mjs';
 import {getTitleField, renderCardItem} from './CardItems.mjs';
 
@@ -370,7 +371,13 @@ class Card extends Component {
             delete style['--neo-board-card-accent']
         }
 
-        me.style = style;
+        const
+            isOverdue = vdom.cn.some(node => node?.cls?.includes?.('neo-board-card-due-date-overdue')),
+            cls       = [...me.cls];
+
+        NeoArray.toggle(cls, 'neo-board-card-overdue', isOverdue);
+
+        me.set({cls, style});
         me.update()
     }
 

@@ -1149,7 +1149,7 @@
     },
     "/examples/buttons": {
         "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
-        "description": "Explore 6 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "description": "Explore 5 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1173,7 +1173,7 @@
     },
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
-        "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
+        "description": "Explore 3 live JavaScript state management examples: Nested state providers bind button texts through the formatters shown beside them.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1184,8 +1184,8 @@
         "lastmod": "2026-11-21"
     },
     "/examples/drag-drop": {
-        "title": "JavaScript Drag & Drop Examples — Across Windows | Neo.mjs",
-        "description": "Explore 3 live JavaScript drag and drop examples: A draggable dialog can move into a second browser window.",
+        "title": "JavaScript Drag & Drop Examples — Boards, Lists & Windows | Neo.mjs",
+        "description": "Explore 11 live JavaScript drag and drop examples: A kanban board and a table over one store of cards; A draggable dialog can move into a second browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -2310,12 +2310,6 @@
         "description": "Live runnable TodoList version2 example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-09-10"
-    },
-    "/examples/toolbar/application/index.html": {
-        "title": "Release notes editor · Neo Toolbar — JavaScript UI Demo | Neo.mjs",
-        "description": "A split button, a font toggle, and an action group loaded from one JSON file. Open Insert to add a checklist item. Toggle Monospace to change the draft’s...",
-        "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
     },
     "/examples/toolbar/breadcrumb/index.html": {
         "title": "Breadcrumb Toolbar — Web Worker JavaScript UI Demo | Neo.mjs",

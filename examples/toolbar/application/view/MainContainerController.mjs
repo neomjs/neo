@@ -38,19 +38,6 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @summary Inserts a heading when the click path includes the split button's primary element.
-     * The menu trigger has its own element and can bubble through the split button's logical ancestry.
-     * @param {Object} data
-     * @param {Neo.button.Split} data.component
-     * @param {Object[]} data.path
-     */
-    onPrimaryInsert({component, path}) {
-        if (path.some(node => node.id === component.id)) {
-            this.onInsertHeading()
-        }
-    }
-
-    /**
      * @summary Adds a heading to the draft.
      */
     onInsertHeading() {

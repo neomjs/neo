@@ -121,7 +121,7 @@ class MainContainer extends ConfigurationViewport {
             module : SplitButton,
             iconCls: 'fa fa-floppy-disk',
             text   : 'Save',
-            ui     : 'ghost',
+            ui     : 'secondary',
 
             handler: data => {
                 console.log('button click =>', data.component.id)

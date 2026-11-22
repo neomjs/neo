@@ -112,9 +112,9 @@
     }
 
     .launch-status {
-        flex-basis: 100%;
-        font-size : 12px;
-        order     : 3;
+        flex     : 0 0 100% !important;
+        font-size: 12px;
+        order    : 3;
     }
 
     .launch-legend-bar-row {
