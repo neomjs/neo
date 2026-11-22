@@ -418,6 +418,9 @@ test.describe('Portal examples section', () => {
             await expect(page.locator(`${CARDS} .neo-list-item`)).toHaveCount(count)
         }
 
+        await openGroup(page, 'Buttons, Menus & Toolbars');
+        await expect(page.locator(CARDS).getByRole('link', {name: 'A toolbar loaded from JSON', exact: true})).toHaveCount(1);
+
         // Apps shows its own examples and the ones other groups lend it, and its number counts the whole page
         const appsCount = Number(await apps.textContent());
         await openGroup(page, 'Apps');

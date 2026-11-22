@@ -435,26 +435,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "gantt-basic",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The garden plan's timeline in the Week view: the summary bar over four tasks in a staircase, with Survey the site linked to Design the beds and Design the beds to Gather materials.",
-      "ready": [{"selector": ".neo-timeline-bar", "text": "Build the beds"}, {"selector": ".neo-gantt-dependency-arrow", "count": 2}],
-      "steps": [],
-      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-gantt-bar-summary", "text": "Community garden"}, {"selector": ".neo-timeline-bar", "text": "Survey the site", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Design the beds", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Gather materials", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Build the beds"}],
-      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
-      "id": "scheduler-basic",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "Monday's bookings across the studios in the Day view, with two overlapping recording sessions packed into lanes of one row.",
-      "ready": [{"selector": ".neo-timeline-bar", "text": "Quartet recording"}],
-      "steps": [],
-      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-timeline-bar", "text": "Quartet recording", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Piano", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Orchestral mix", "inRegion": true}],
-      "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
       "id": "calendar",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -578,29 +558,6 @@
       "region": {"selector": ".air-layout", "anchor": "top-left", "offsetY": -10, "width": 640, "height": 360}
     },
     {
-      "id": "meridian-observatory",
-      "viewport": {"width": 640, "height": 900},
-      "theme": "default",
-      "state": "The night brief and both observatory domes sit above the request queue, where ARC-17 is cleared for a four-minute exposure.",
-      "ready": [{"selector": ".meridian-desk"}, {"selector": ".meridian-board .neo-board-card"}],
-      "steps": [],
-      "after": [
-        {"selector": ".meridian-heading h1", "text": "Meridian Observatory", "inRegion": true},
-        {"selector": ".meridian-board .neo-board-card", "text": "ARC-17", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "scheduler-big-data",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "300 people and 15,600 bookings opened on Week 1 in 3-week view, with locked resource names beside viewport-clipped colored timeline bars.",
-      "ready": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar"}],
-      "steps": [],
-      "after": [{"selector": ".year-plan-counts", "text": "300 people · 15,600 bookings"}, {"selector": ".neo-timeline-bar", "inRegion": true}],
-      "region": {"selector": ".neo-scheduler", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
       "id": "board-basic",
       "viewport": {"width": 640, "height": 800},
       "theme": "dark",
@@ -608,16 +565,6 @@
       "ready": [{"selector": ".neo-board-column-header", "text": "In progress"}, {"selector": ".neo-board-card-title", "text": "Design the search box"}],
       "steps": [{"kind": "scroll", "selector": ".neo-board", "x": 552}],
       "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".board-example-title", "text": "Sprint board", "inRegion": true}, {"selector": ".neo-board-column-wip-exceeded .neo-board-column-header", "text": "6/5", "inRegion": true}, {"selector": ".neo-board-column-header", "text": "2/3", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Design the search box", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Measure the export dialog", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "gantt-big-data",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "dark",
-      "state": "The programme as it opens: its title and counts, 2,000 tasks and 1,972 links, over the first phase, where Zone 1's first tasks step down in bars joined by their links.",
-      "ready": [{"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links"}, {"selector": ".neo-gantt-dependency-arrow"}],
-      "steps": [],
-      "after": [{"selector": ".neo-theme-neo-dark .neo-gantt"}, {"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links", "inRegion": true}, {"selector": ".neo-grid-tree-cell", "text": "Zone 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Survey · bay 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Clear · bay 1", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
@@ -642,47 +589,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "scheduler-non-working-time",
-      "viewport": {"width": 640, "height": 800},
-      "theme": "dark",
-      "state": "The three-week site plan, with both shaded weekends and the holiday in the middle week.",
-      "ready": [
-        {"selector": ".site-title", "text": "Northgate site plan"},
-        {"selector": ".neo-timeline-bar"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": ".neo-theme-neo-dark .neo-scheduler"},
-        {"selector": ".site-title", "text": "Northgate site plan", "inRegion": true},
-        {"selector": ".site-legend-holiday", "text": "Armistice Day · Wed 11 Nov", "inRegion": true},
-        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-07\"]", "inRegion": true},
-        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-11\"]", "inRegion": true},
-        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-14\"]", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "scheduler-bar-renderer",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The press schedule with the three job states, their legend, and progress and status drawn inside the bars.",
-      "ready": [
-        {"selector": ".print-legend-bar"},
-        {"selector": ".neo-timeline-bar[data-event-id=\"job-1\"]"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": ".neo-theme-neo-dark .neo-scheduler"},
-        {"selector": ".print-legend-pill.is-on-time", "text": "✓ On time", "inRegion": true},
-        {"selector": ".print-legend-pill.is-at-risk", "text": "◆ At risk", "inRegion": true},
-        {"selector": ".print-legend-pill.is-late", "text": "▲ Late", "inRegion": true},
-        {"selector": "[data-event-id=\"job-1\"] .print-bar-late-flag", "inRegion": true},
-        {"selector": "[data-event-id=\"job-6\"] .print-bar-ok-mark", "inRegion": true},
-        {"selector": "[data-event-id=\"job-11\"] .print-bar-risk-flag", "inRegion": true}
-      ],
-      "region": {"selector": ".print-legend-bar", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
       "id": "gantt-zoom",
       "viewport": {"width": 640, "height": 720},
       "theme": "dark",
@@ -704,69 +610,6 @@
         {"selector": ".neo-timeline-tick-major .neo-timeline-tick-label", "text": "March 2027", "inRegion": true},
         {"selector": ".neo-gantt-dependency-arrow", "inRegion": true}
       ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "gantt-working-time",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The kitchen renovation with its working calendar active and the five-day plumbing task crossing a shaded weekend.",
-      "ready": [{"selector": ".kitchen-title", "text": "Kitchen renovation"}, {"selector": ".kitchen-bar-hero"}],
-      "steps": [],
-      "after": [
-        {"selector": ".neo-theme-neo-dark .neo-gantt"},
-        {"selector": ".kitchen-mode-pill.is-working", "text": "Working calendar active"},
-        {"selector": ".kitchen-bar-hero", "inRegion": true},
-        {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-07\"]", "inRegion": true}
-      ],
-      "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
-      "id": "board-wip-limits",
-      "viewport": {"width": 640, "height": 800},
-      "theme": "dark",
-      "state": "The repair workshop with the bench over its limit at 4/3 and Testing at its limit.",
-      "ready": [
-        {"selector": ".workshop-title", "text": "Precision repair workshop"},
-        {"selector": ".neo-board-column-wip-exceeded .workshop-wip-over-banner", "text": "Over limit by 1"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": ".neo-theme-neo-dark .neo-board"},
-        {"selector": ".workshop-title", "text": "Precision repair workshop", "inRegion": true},
-        {"selector": ".neo-board-column-wip-exceeded .neo-board-column-count", "text": "4/3", "inRegion": true},
-        {"selector": ".neo-board-column-wip-exceeded .workshop-wip-over-banner", "text": "Over limit by 1", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "board-card-designs",
-      "viewport": {"width": 640, "height": 800},
-      "theme": "dark",
-      "state": "The editorial board in Detailed mode, with the article’s standfirst, tags, progress and avatars visible.",
-      "ready": [
-        {"selector": ".editorial-seg-btn[aria-pressed=\"true\"]", "text": "Detailed"},
-        {"selector": ".neo-board-card-title", "text": "North Sea tidal batteries"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": ".neo-theme-neo-dark .neo-board"},
-        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-title", "text": "North Sea tidal batteries", "inRegion": true},
-        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-text", "text": "Wilhelmshaven", "inRegion": true},
-        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-tag", "count": 2, "inRegion": true},
-        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-progress", "inRegion": true},
-        {"selector": "[id$=\"__card__art-1\"] .neo-board-card-avatar", "text": "ML", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "dock-layouts",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "default",
-      "state": "The operations desk's first frame: the perspectives bar over Strategy with today's plan, the Terminal and Logs feeds, and Cedar the builder in the Inspector.",
-      "ready": [{"selector": ".neo-example-desk-plan", "text": "Today's plan"}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder"}],
-      "steps": [],
-      "after": [{"selector": ".neo-dashboard-dock-perspective-toolbar", "text": "Perspectives", "inRegion": true}, {"selector": ".neo-example-desk-plan", "text": "Today's plan", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Terminal", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Logs", "inRegion": true}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
@@ -798,17 +641,6 @@
       "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Call #4512 back by noon"}],
       "after": [{"selector": ".neo-example-tearout-claim", "text": "A pane keeps its live state in its own window", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Queue", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Notes", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "open-street-maps",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "Iceland with the example's 51 earthquake markers from its local file, at zoom 6.",
-      "dependencies": ["https://tile.openstreetmap.org/", "https://cdn.jsdelivr.net/npm/ol@10.6.0/"],
-      "ready": [{"selector": ".neo-button", "text": "Fly to Iceland"}, {"selector": "[data-rendered='true'] .ol-viewport"}],
-      "steps": [],
-      "after": [{"selector": ".ol-attribution", "text": "OpenStreetMap"}, {"selector": "input", "value": "6"}],
-      "region": {"x": 320, "y": 110, "width": 640, "height": 360}
     },
     {
       "id": "dialog-drag-drop",
@@ -916,38 +748,6 @@
       "region": {"x": 200, "y": 180, "width": 640, "height": 360}
     },
     {
-      "id": "covid-gallery",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The economies largest population first, India's card with its flag and six figures in front.",
-      "dependencies": ["https://hatscripts.github.io/circle-flags/"],
-      "ready": [{"selector": ".neo-country-gallery-item", "text": "India"}],
-      "steps": [],
-      "after": [{"selector": ".neo-country-gallery-item", "text": "India", "inRegion": true}],
-      "region": {"x": 380, "y": 340, "width": 640, "height": 360}
-    },
-    {
-      "id": "covid-helix",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The economies coiling around the helix, Malaysia's turn curving away to the left.",
-      "dependencies": ["https://hatscripts.github.io/circle-flags/"],
-      "ready": [{"selector": ".neo-country-helix-item", "text": "India"}],
-      "steps": [],
-      "after": [{"selector": ".neo-country-helix-item", "text": "Malaysia", "inRegion": true}],
-      "region": {"x": 0, "y": 100, "width": 640, "height": 360}
-    },
-    {
-      "id": "list-reorder",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "Dark-theme release checklist beside the wall of portraits, every item numbered by its place.",
-      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
-      "steps": [],
-      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "list-animate",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
@@ -1010,16 +810,6 @@
       "region": {"selector": "[data-drawn='true']", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
-      "id": "layouts-side-by-side",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The hbox and vbox frames side by side at rest, align and pack at center: the same six items as a row and as a column.",
-      "ready": [{"selector": ".examples-layouts-frame-title", "text": "cube"}, {"selector": ".examples-layouts-cube .neo-face", "text": "6"}],
-      "steps": [],
-      "after": [{"selector": ".examples-layouts-frame-hbox", "inRegion": true}, {"selector": ".examples-layouts-frame-vbox", "inRegion": true}],
-      "region": {"selector": ".examples-layouts-frame-hbox", "anchor": "top-left", "offsetX": -8, "offsetY": -4, "width": 640, "height": 360}
-    },
-    {
       "id": "layout-cube",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -1033,16 +823,6 @@
       ],
       "after": [{"selector": ".neo-layout-cube", "inRegion": true}, {"selector": ".neo-button", "text": "Front", "inRegion": true}, {"selector": ".neo-button", "text": "Bottom", "inRegion": true}],
       "region": {"selector": ".neo-layout-cube", "anchor": "center", "offsetY": 30, "width": 640, "height": 360}
-    },
-    {
-      "id": "tab-browser",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "dark",
-      "state": "The opening strip: the tabs that fit, the overflow control and the + action, over the Inbox page.",
-      "ready": [{"selector": ".neo-tab-header-button", "text": "Inbox"}, {"selector": ".neo-tab-overflow-control"}],
-      "steps": [],
-      "after": [{"selector": ".neo-tab-header-button", "text": "Inbox", "inRegion": true}, {"selector": ".neo-example-browser-claim", "inRegion": true}, {"selector": ".neo-tab-overflow-control", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "form-validation",
@@ -1208,23 +988,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "gantt-dependencies",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The launch plan includes dependency arrows and the four-type legend.",
-      "ready": [
-        {"selector": ".neo-gantt-dependency-arrow"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
-        {"selector": ".launch-legend-item", "count": 4},
-        {"selector": ".neo-gantt-dependency-arrow"},
-        {"selector": ".neo-timeline-bar"}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "gantt-task-editor",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -1241,26 +1004,6 @@
         {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
       ],
       "region": {"selector": ".neo-timeline-event-editor", "anchor": "center", "width": 640, "height": 360}
-    },
-    {
-      "id": "gantt-task-columns",
-      "viewport": {"width": 960, "height": 540},
-      "theme": "dark",
-      "state": "The Festival production plan shows named tasks, owner badges and completion bars beside the chart.",
-      "ready": [
-        {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
-        {"selector": ".tc-title", "text": "Festival production plan", "inRegion": true},
-        {"selector": ".neo-grid-header-button", "text": "Task", "inRegion": true},
-        {"selector": ".neo-grid-tree-cell", "text": "Shortlist the headliners", "inRegion": true},
-        {"selector": ".tc-badge", "text": "ML", "inRegion": true},
-        {"selector": ".tc-done-value", "text": "100%", "inRegion": true},
-        {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]", "inRegion": true}
-      ],
-      "region": "viewport"
     },
     {
       "id": "gantt-cascade",
@@ -1325,42 +1068,6 @@
         {"selector": ".neo-board-card.neo-selected", "count": 5}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "board-columns",
-      "viewport": {"width": 1280, "height": 800},
-      "theme": "dark",
-      "state": "Archive is folded to a strip and Delivered shows the locked column.",
-      "ready": [
-        {"selector": ".neo-board-column-collapsed[id$=\"__col__archive\"]"},
-        {"selector": ".neo-board-column-locked[id$=\"__col__delivered\"]"}
-      ],
-      "steps": [],
-      "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
-        {"selector": "[id$=\"__col__archive\"] .neo-board-column-title", "text": "Archive", "inRegion": true},
-        {"selector": "[id$=\"__col__delivered\"] .neo-board-column-lock", "inRegion": true}
-      ],
-      "region": {"x": 640, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "board-big-data",
-      "viewport": {"width": 1440, "height": 810},
-      "theme": "dark",
-      "state": "The support desk opens with five columns and its live count in frame.",
-      "ready": [{"selector": ".desk-counter", "text": "10,000 cards · 550 in the DOM", "inRegion": true}],
-      "steps": [],
-      "after": [
-        {"selector": ".neo-theme-neo-dark .desk-board"},
-        {"selector": ".desk-title", "text": "Support desk", "inRegion": true},
-        {"selector": ".desk-counter", "text": "10,000 cards · 550 in the DOM", "inRegion": true},
-        {"selector": ".desk-board .neo-board-column-title", "text": "New", "inRegion": true},
-        {"selector": ".desk-board .neo-board-column-title", "text": "Triage", "inRegion": true},
-        {"selector": ".desk-board .neo-board-column-title", "text": "Waiting on customer", "inRegion": true},
-        {"selector": ".desk-board .neo-board-column-title", "text": "Solved", "inRegion": true},
-        {"selector": ".desk-board .neo-board-column-title", "text": "Closed", "inRegion": true}
-      ],
-      "region": "viewport"
     },
     {
       "id": "live-preview",

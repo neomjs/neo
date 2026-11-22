@@ -1,0 +1,38 @@
+.neo-toolbar-application {
+    gap: 12px;
+    padding: 16px;
+
+    .neo-toolbar-application-header {
+        gap: 8px;
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+    .neo-toolbar-application-actions {
+        min-height: 44px;
+    }
+
+    .neo-toolbar-application-divider {
+        background: currentColor;
+        flex: none;
+        height: 20px;
+        opacity: .35;
+        width: 1px;
+    }
+
+    .neo-toolbar-application-draft {
+        min-height: 120px;
+
+        textarea {
+            line-height: 1.5;
+        }
+    }
+
+    .neo-toolbar-application-monospace textarea {
+        font-family: ui-monospace, monospace;
+    }
+
+    .neo-toolbar-application-status {
+        min-height: 1.4em;
+    }
+}
