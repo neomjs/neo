@@ -25,6 +25,11 @@ class Component extends Markdown {
             record: data => data.currentPageRecord
         },
         /**
+         * @member {String[]} contentObserverSelectors=['.neo-h2','.neo-h3']
+         * @protected
+         */
+        contentObserverSelectors: ['.neo-h2', '.neo-h3'],
+        /**
          * The route prefix a relative Markdown link is rewritten onto, e.g. `'#/learn/'`.
          *
          * Null by default for the same reason issuesUrl is: this generic content base must not bake in
@@ -64,6 +69,12 @@ class Component extends Markdown {
     headlineData = null
 
     /**
+     * @member {Number} #contentRequest=0
+     * @private
+     */
+    #contentRequest = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -101,52 +112,58 @@ class Component extends Markdown {
     }
 
     /**
-     * Triggered after the nextPageRecord config got changed
+     * @summary Loads the selected article and scrolls only while its request remains current.
      * @param {Object} value
      * @param {Object} oldValue
      */
     async afterSetRecord(value, oldValue) {
+        const me      = this,
+              request = ++me.#contentRequest;
+
         if (value) {
-            let me = this;
+            await me.doFetchContent(value, request);
 
-            await me.doFetchContent(value);
+            if (oldValue && me.#isCurrentContentRequest(request)) {
+                await me.timeout(50).catch(error => {
+                    if (error !== Neo.isDestroyed) throw error
+                });
 
-            if (oldValue) {
-                await me.timeout(50);
-
-                Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id       : me.parentId,
-                    value    : 0,
-                    windowId : me.windowId
-                })
+                if (me.#isCurrentContentRequest(request)) {
+                    Neo.main.DomAccess.scrollTo({
+                        direction: 'top',
+                        id       : me.parentId,
+                        value    : 0,
+                        windowId : me.windowId
+                    })
+                }
             }
         }
     }
 
     /**
+     * @summary Loads the article body and publishes it only for the current content request.
      * @param {Object} record
+     * @param {Number} [request] Request already started by the record change
      * @returns {Promise<void>}
      */
-    async doFetchContent(record) {
-        let me         = this,
-            {windowId} = me,
-            content, data, path;
-
-        path = me.getContentPath(record);
+    async doFetchContent(record, request=++this.#contentRequest) {
+        const me         = this,
+              {windowId} = me,
+              path       = me.getContentPath(record);
 
         if (record.isLeaf && path) {
-            data    = await fetch(path);
-            content = await data.text();
+            const data    = await fetch(path),
+                  content = await data.text();
+
+            if (!me.#isCurrentContentRequest(request)) return;
 
             me.value = content;
-
             me.toggleCls('lab', record.name?.startsWith('Lab:'));
 
             Neo.main.addon.IntersectionObserver.observe({
                 disconnect: true,
                 id        : me.id,
-                observe   : ['.neo-h2', '.neo-h3'],
+                observe   : me.contentObserverSelectors,
                 windowId
             });
         }
@@ -158,6 +175,15 @@ class Component extends Markdown {
      */
     getContentPath(record) {
         return null
+    }
+
+    /**
+     * @summary Checks request identity across record changes, including returning to the same record.
+     * @param {Number} request
+     * @returns {Boolean}
+     */
+    #isCurrentContentRequest(request) {
+        return !this.isDestroyed && request === this.#contentRequest
     }
 
     /**

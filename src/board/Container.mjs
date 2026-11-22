@@ -65,7 +65,7 @@ class Board extends Container {
          * The items every card renders, in order: `{type, field}` per item ({@link Neo.board.CardItems})
          * @member {Object[]} cardItems_
          */
-        cardItems_: [{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'avatars'}],
+        cardItems_: [{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'dueDate'}, {type: 'avatars'}],
         /**
          * The class of a card
          * @member {Function} cardModule=Card
@@ -86,6 +86,13 @@ class Board extends Container {
          * @member {Object} columnSortZoneConfig={module: ColumnSortZone}
          */
         columnSortZoneConfig: {module: ColumnSortZone},
+        /**
+         * Shows the sum of a numeric model field in each column header. The total includes all records in
+         * the filtered column and lane, including offscreen cards. Only finite numbers contribute.
+         * An optional `formatter(total)` returns display text, for example a currency amount.
+         * @member {Object|null} columnSummary_=null
+         */
+        columnSummary_: null,
         /**
          * Column configs `{status, title, wipLimit, collapsed, color, locked}` in display order.
          * Null derives one column per distinct status value of the store, in first-seen order.
@@ -242,6 +249,14 @@ class Board extends Container {
     }
 
     /**
+     * @summary Refreshes header totals from the existing column memberships when their definition changes.
+     * @protected
+     */
+    afterSetColumnSummary() {
+        this.isProjectable && this.getColumns().forEach(column => column.syncSummary())
+    }
+
+    /**
      * @summary Updates the unassigned lane's header title when `emptyLaneTitle` changes after construction
      * @param {String} value
      * @param {String} oldValue
@@ -385,6 +400,7 @@ class Board extends Container {
                 if (!value) {
                     column.selectWindow([]);
                     column.count = 0;
+                    column.syncSummary();
                     column.updateSpacers()
                 }
             });
@@ -1234,6 +1250,8 @@ class Board extends Container {
             isVisible && target && me.reconcileColumn(target);
             from   && from   !== target && me.reconcileColumn(from);
             holder && holder !== target && holder !== from && me.reconcileColumn(holder)
+        } else if (isVisible && me.columnSummary && changed(me.columnSummary.field)) {
+            me.getColumn(record[statusField], laneField ? record[laneField] ?? null : null)?.syncSummary()
         }
 
         // One batch may move a card and change what it renders; the placement above never re-renders
@@ -1451,8 +1469,10 @@ class Board extends Container {
      * @description Render-all columns preserve parked card identity and lookup. Sliced columns retain only their
      * configured offscreen budget, and those cards are hidden from `getCard` until rendered again.
      * @param {Neo.board.Column} column
+     * @param {Object} [options]
+     * @param {Boolean} [options.windowOnly=false] Scrolling changes the rendered slice within the same membership.
      */
-    reconcileColumn(column) {
+    reconcileColumn(column, {windowOnly=false}={}) {
         let me          = this,
             {body}      = column,
             records     = me.getColumnRecords(column.status, column.laneValue),
@@ -1519,6 +1539,7 @@ class Board extends Container {
         });
 
         column.count = records.length;
+        !windowOnly && me.columnSummary && column.syncSummary();
         const laneRow = column.parent?.parent;
         laneRow instanceof LaneRow && laneRow.updateCount();
         me.selectionModel?.syncAnnotations(true);

@@ -14,15 +14,12 @@ const
     ]);
 
 /**
- * @param {String|null} searchString
- * @returns {Object}
+ * @summary Parses a browser query string for Portal consumers such as Learning deck selection.
+ * @param {String|null} searchString The browser's `location.search` value
+ * @returns {Object} Decoded query values. Repeated keys retain their last value.
  */
 export function getSearchParams(searchString) {
-    if (searchString?.startsWith('?')) {
-        searchString = searchString.substring(1)
-    }
-
-    return searchString ? JSON.parse(`{"${decodeURI(searchString.replace(/&/g, "\",\"").replace(/=/g, "\":\""))}"}`) : {}
+    return Object.fromEntries(new URLSearchParams(searchString ?? ''))
 }
 
 /**

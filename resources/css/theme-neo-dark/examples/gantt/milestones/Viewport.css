@@ -1,0 +1,38 @@
+:where(.neo-theme-neo-dark) {
+    --milestones-header-bg      : #121924;
+    --milestones-status-bg      : #151f2d;
+    --milestones-border         : #293649;
+    --milestones-title          : #f1f5f9;
+    --milestones-muted          : #94a3b8;
+    --milestones-control-bg     : #1c2738;
+    --milestones-hover-bg       : #27364c;
+    --milestones-focus          : #5eead4;
+
+    --milestones-cta-bg         : #3b240b;
+    --milestones-cta-hover      : #4f300e;
+    --milestones-cta-border     : #d97706;
+    --milestones-cta-text       : #fef3c7;
+
+    --milestones-goal-pill-bg   : #12332a;
+    --milestones-goal-pill-text : #6ee7b7;
+    --milestones-slip-pill-bg   : #3b220a;
+    --milestones-slip-pill-text : #fde68a;
+
+    --milestones-bar-text       : #f8fafc;
+    --milestones-bar-shadow     : 0 2px 6px rgba(2, 6, 23, 0.45);
+
+    --milestones-done-bg        : #14362d;
+    --milestones-done-border    : #10b981;
+
+    --milestones-trigger-bg     : #42260a;
+    --milestones-trigger-border : #f59e0b;
+    --milestones-trigger-accent : #fbbf24;
+    --milestones-trigger-shadow : 0 0 0 1px rgba(251, 191, 36, 0.36), 0 3px 10px rgba(2, 6, 23, 0.55);
+
+    --milestones-active-bg      : #103747;
+    --milestones-active-border  : #0ea5e9;
+    --milestones-active-accent  : #38bdf8;
+
+    --milestones-upcoming-bg    : #1e2d44;
+    --milestones-upcoming-border: #476288;
+}

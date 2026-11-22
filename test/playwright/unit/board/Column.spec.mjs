@@ -23,6 +23,113 @@ import Store           from '../../../../src/data/Store.mjs';
 import Board           from '../../../../src/board/Container.mjs';
 import CardModel       from '../../../../src/board/CardModel.mjs';
 
+class Deal extends CardModel {
+    static config = {
+        className: 'Test.Unit.Board.Column.Deal',
+        fields   : [{name: 'amount'}]
+    }
+}
+Deal = Neo.setupClass(Deal);
+
+test.describe('Neo.board column summaries', () => {
+    let board, store, replacement;
+
+    const summary = column => column.header.vdom.cn.find(node =>
+        node.cls?.includes('neo-board-column-summary'));
+
+    test.afterEach(() => {
+        board?.destroy();
+        store?.destroy();
+        replacement?.destroy();
+        board = store = replacement = null
+    });
+
+    test('sums finite numeric values in each visible lane and column, including offscreen records', () => {
+        store = Neo.create(Store, {keyProperty: 'id', model: Deal, data: [
+            {id: 'a', status: 'todo', lane: 'A', order: 1, amount: 10, progress: 1},
+            {id: 'b', status: 'todo', lane: 'A', order: 2, amount: 2.5, progress: 1},
+            {id: 'c', status: 'todo', lane: 'A', order: 3, amount: -3, progress: 0},
+            {id: 'd', status: 'todo', lane: 'A', order: 4, amount: '100', progress: 1},
+            {id: 'e', status: 'todo', lane: 'A', order: 5, amount: Infinity, progress: 1},
+            {id: 'f', status: 'todo', lane: 'A', order: 6, amount: NaN, progress: 1},
+            {id: 'g', status: 'todo', lane: 'B', order: 1, amount: 7, progress: 1},
+            {id: 'h', status: 'done', lane: 'A', order: 1, amount: 20, progress: 1}
+        ]});
+        board = Neo.create(Board, {appName, store, laneField: 'lane',
+            columnSummary: {field: 'amount'}, columns: [
+                {status: 'todo', maxRenderedCards: 1, overscan: 0}, {status: 'done'}
+            ]});
+
+        const a    = board.getColumn('todo', 'A'),
+              b    = board.getColumn('todo', 'B'),
+              done = board.getColumn('done', 'A');
+        expect(a.body.items).toHaveLength(1);
+        expect(summary(a).text).toBe('9.5');
+        expect(summary(b).text).toBe('7');
+        expect(summary(done).text).toBe('20');
+
+        store.filters = [{property: 'progress', operator: '>=', value: 1}];
+        expect(summary(a).text).toBe('12.5');
+        expect(summary(b).text).toBe('7');
+        store.clearFilters();
+        expect(summary(a).text).toBe('9.5');
+        expect(board.getCard('b')).toBeNull();
+        store.get('b').amount = 5;
+        expect(summary(a).text).toBe('12');
+        store.get('b').set({lane: 'B', amount: 8});
+        expect(summary(a).text).toBe('7');
+        expect(summary(b).text).toBe('15')
+    });
+
+    test('tracks edits, moves, store replacement, and runtime summary configuration without replacing header controls', () => {
+        store = Neo.create(Store, {keyProperty: 'id', model: Deal, data: [
+            {id: 'a', status: 'todo', order: 1, amount: 10},
+            {id: 'b', status: 'todo', order: 2, amount: 5},
+            {id: 'c', status: 'done', order: 1, amount: 2}
+        ]});
+        board = Neo.create(Board, {appName, store, columns: [
+            {status: 'todo', wipLimit: 1}, {status: 'done'}
+        ]});
+        const todo     = board.getColumn('todo'),
+              done     = board.getColumn('done'),
+              header   = todo.header,
+              controls = [...header.vdom.cn];
+        expect(summary(todo)).toBeUndefined();
+        expect(header.vdom.cn).toHaveLength(3);
+        expect(todo.isWipExceeded).toBe(true);
+
+        board.columnSummary = {field: 'amount', formatter: value => `Total: ${value}`};
+        expect(summary(todo).text).toBe('Total: 15');
+        expect(summary(done).text).toBe('Total: 2');
+        expect(todo.header).toBe(header);
+        controls.forEach((node, index) => expect(header.vdom.cn[index]).toBe(node));
+        expect(todo.isWipExceeded).toBe(true);
+
+        store.get('a').amount = 12;
+        expect(summary(todo).text).toBe('Total: 17');
+        store.get('a').status = 'done';
+        expect(summary(todo).text).toBe('Total: 5');
+        expect(summary(done).text).toBe('Total: 14');
+        expect(todo.isWipExceeded).toBe(false);
+
+        board.store = null;
+        expect(summary(todo).text).toBe('Total: 0');
+        replacement = Neo.create(Store, {keyProperty: 'id', model: Deal, data: [
+            {id: 'new', status: 'todo', order: 1, amount: 42}
+        ]});
+        board.store = replacement;
+        expect(summary(todo).text).toBe('Total: 42');
+        store.get('b').amount = 999;
+        expect(summary(todo).text).toBe('Total: 42');
+
+        board.columnSummary = null;
+        expect(summary(todo)).toBeUndefined();
+        expect(header.vdom.cn).toHaveLength(3);
+        expect(todo.header).toBe(header);
+        controls.forEach((node, index) => expect(header.vdom.cn[index]).toBe(node))
+    })
+});
+
 let allocations = 0;
 
 /**

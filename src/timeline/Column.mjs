@@ -629,9 +629,10 @@ class Column extends BaseColumn {
      * @param {Number} barDescriptor.top Percentage top offset (`0..100`)
      * @param {Number} barDescriptor.width Pixel width (`>= minBarWidthPx`)
      * @param {Object} context Renderer context (`{record, row, gridContainer}`)
+     * @param {Boolean} [draggable=true] A derived bar can still show its label and links while omitting move and resize handles.
      * @returns {Object} VDOM node for the bar
      */
-    buildBarVdom(barDescriptor, context) {
+    buildBarVdom(barDescriptor, context, draggable=true) {
         const
             me  = this,
             {
@@ -651,7 +652,7 @@ class Column extends BaseColumn {
             }   = barDescriptor,
             rowId  = context.row?.id || `${me.id}__row-${resourceId}`,
             barId  = `${rowId}__bar__${barKey}`,
-            cls    = ['neo-timeline-bar', 'neo-draggable'];
+            cls    = draggable ? ['neo-timeline-bar', 'neo-draggable'] : ['neo-timeline-bar'];
 
         if (me.barCls) {
             if (Array.isArray(me.barCls)) {
@@ -694,7 +695,7 @@ class Column extends BaseColumn {
             text: title
         });
 
-        if (me.resizableBars) {
+        if (draggable && me.resizableBars) {
             cn.push(
                 {
                     id : `${barId}__resize-start`,

@@ -1,5 +1,5 @@
 /* Neo.board.Card: one record as a card. The left edge carries the record's accent color when it has one; the
-   body is the card items in order (title, text, tags, progress, avatars). */
+   body is the card items in order (title, text, tags, progress, dueDate, avatars). */
 .neo-board-card {
     background   : var(--neo-board-card-background);
     border       : 1px solid var(--neo-board-card-border-color);
@@ -11,14 +11,26 @@
     cursor       : grab;
     display      : flex;
     flex         : none;
-    flex-direction: column;
+    flex-wrap    : wrap;
+    align-items  : center;
     gap          : 6px;
     padding      : 10px 12px;
     position     : relative;
 
+    > :not(.neo-board-card-menu-button) {
+        box-sizing: border-box;
+        flex      : 1 0 100%;
+        min-width : 0;
+    }
+
     &:hover {
         border-color     : var(--neo-board-card-hover-border-color);
         border-left-color: var(--neo-board-card-accent, var(--neo-board-card-hover-border-color));
+    }
+
+    &.neo-board-card-overdue {
+        border-color     : color-mix(in srgb, var(--neo-board-overdue-border-color) 55%, var(--neo-board-card-border-color));
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-overdue-border-color));
     }
 
     &.neo-selected {
@@ -150,6 +162,55 @@
     .neo-board-card-progress-bar {
         background: var(--neo-board-card-accent, var(--neo-board-accent-color));
         height    : 100%;
+    }
+
+    .neo-board-card-due-date {
+        align-items         : center;
+        border              : 1px solid var(--neo-board-card-hover-border-color);
+        border-radius       : 4px;
+        color               : var(--neo-board-badge-color);
+        display             : inline-flex;
+        flex                : 0 0 auto;
+        font-size           : 0.78em;
+        font-variant-numeric: tabular-nums;
+        gap                 : 4px;
+        line-height         : 1;
+        padding             : 3px 6px;
+
+        &.neo-board-card-due-date-today {
+            border-color: var(--neo-board-accent-color);
+            color       : var(--neo-board-card-color);
+            font-weight : 600;
+        }
+
+        &.neo-board-card-due-date-overdue {
+            background       : var(--neo-board-overdue-background);
+            border-color     : var(--neo-board-overdue-border-color);
+            border-left-width: 3px;
+            color            : var(--neo-board-overdue-color);
+            font-weight      : 700;
+
+            &::before {
+                align-items    : center;
+                background     : var(--neo-board-overdue-border-color);
+                border-radius  : 50%;
+                color          : var(--neo-board-card-background);
+                content        : '!';
+                display        : inline-flex;
+                flex           : 0 0 auto;
+                font-size      : 0.82em;
+                font-weight    : 800;
+                height         : 13px;
+                justify-content: center;
+                line-height    : 1;
+                width          : 13px;
+            }
+        }
+    }
+
+    .neo-board-card-due-date + .neo-board-card-avatars {
+        flex       : 0 0 auto;
+        margin-left: auto;
     }
 
     .neo-board-card-avatars {

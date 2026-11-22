@@ -66,10 +66,37 @@
         display: none;
     }
 
+    @media (min-width: 721px) and (max-width: 1080px) {
+        .fs-toolbar.neo-toolbar {
+            gap    : 4px 16px;
+            padding: 8px 20px;
+        }
+
+        .fs-hint {
+            flex : 0 0 100% !important;
+            order: 2;
+        }
+    }
+
     @media (max-width: 720px) {
         .fs-toolbar.neo-toolbar {
             gap    : 6px 10px;
             padding: 8px 12px;
+        }
+
+        .fs-title {
+            font-size: 16px;
+        }
+
+        .fs-legend {
+            flex : 0 0 100% !important;
+            order: 2;
+        }
+
+        .fs-hint {
+            flex     : 0 0 100% !important;
+            font-size: 12px;
+            order    : 3;
         }
 
         .fs-hint-wide {

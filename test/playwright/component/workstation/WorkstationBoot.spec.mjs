@@ -196,12 +196,27 @@ const readProjectionState = async (browser, page) => {
 
             if (!workspace) return {hostId: id, workspace: null};
 
-            const {dockModel, departedProjection, refreshPromise, scheduledProjection} = workspace;
+            const {dockModel, departedProjection, refreshPromise, scheduledProjection} = workspace,
+                  host                                                                 = globalThis.Neo.getComponent(id),
+                  inside                                                               = component => {
+                      for (let node = component; node; node = node.parent) if (node === workspace) return true;
+                      return false
+                  },
+                  // A stamp-less stop between `released` and `reconciled` is one of the reconcile's awaits: the
+                  // host's update round trip, or a tab strip's overflow pass
+                  overflow  = globalThis.Neo.manager.Component.items
+                      .filter(component => component.getPlugin?.('tab-overflow') && inside(component))
+                      .map(component => {
+                          const plugin = component.getPlugin('tab-overflow');
+                          return {strip: component.id, measuring: Boolean(plugin.measuring), projectQueued: Boolean(plugin.projectQueued)}
+                      });
 
             return {
-                hostId   : id,
-                workspace: workspace.id,
-                cycle    : workspace.projectionCycle?.timing ?? null,
+                hostId    : id,
+                hostUpdate: host ? {updating: Boolean(host.isVdomUpdating), needsUpdate: Boolean(host.needsVdomUpdate)} : null,
+                overflow,
+                workspace : workspace.id,
+                cycle     : workspace.projectionCycle?.timing ?? null,
                 // The refresh the newest cycle waits on: its last stamp is the phase it never left
                 predecessor: workspace.projectionCycle?.predecessorTiming ?? null,
                 // 500 ms out-waits the refresh's own longest timer, the 300 ms chrome settle after its motion
@@ -218,6 +233,25 @@ const readProjectionState = async (browser, page) => {
     } finally {
         await handle.close()
     }
+};
+
+/**
+ * @summary Attaches and logs the workspace's projection state for a failed wait, then rethrows its error. The DOM looks
+ * the same whether a projection was slow, starved, stuck, stood down or failed; the file sits beside
+ * error-context.md in the CI artifact, and the log line reaches a reader without it.
+ * @param {import('@playwright/test').Browser} browser
+ * @param {import('@playwright/test').Page} page
+ * @param {Error} error The failed wait's error
+ * @returns {Promise<never>}
+ */
+const failWithProjectionState = async (browser, page, error) => {
+    const state = await readProjectionState(browser, page),
+          file  = test.info().outputPath('app-worker-projection-state.json');
+
+    await fs.writeFile(file, JSON.stringify(state, null, 4));
+    await test.info().attach('app-worker-projection-state.json', {contentType: 'application/json', path: file});
+    console.log(`app-worker-projection-state ${JSON.stringify(state)}`);
+    throw error
 };
 
 test.describe('workstation boot — the rendered outcome of each URL mode', () => {
@@ -337,15 +371,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
                     .toBeVisible({timeout: 60000})
             } catch (error) {
-                // The DOM looks the same whether Reset's projection was starved, stuck, stood down or failed. The file
-                // sits beside error-context.md in the CI artifact, and the log line reaches a reader without it.
-                const state = await readProjectionState(browser, cold),
-                      file  = test.info().outputPath('app-worker-projection-state.json');
-
-                await fs.writeFile(file, JSON.stringify(state, null, 4));
-                await test.info().attach('app-worker-projection-state.json', {contentType: 'application/json', path: file});
-                console.log(`app-worker-projection-state ${JSON.stringify(state)}`);
-                throw error
+                await failWithProjectionState(browser, cold, error)
             }
         } finally {
             await coldContext.close()
@@ -355,7 +381,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
     test('a cold-boot Reset renders its pane while an older projection\'s overflow read is still unanswered', async ({baseURL, browser, page, context}) => {
         // A re-projection of the hydrated document reaches its overflow recapture, and the natural-width read it
         // awaits does not answer until the test lets it. Reset's projection must not queue behind that read.
-        test.setTimeout(150000);
+        test.setTimeout(210000);
 
         const {cold, coldContext} = await bootColdWithRetainedFeed({baseURL, browser, page, context});
         let probe;
@@ -375,8 +401,10 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
 
                 while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
 
-                // Each wait on the refresh chain is bounded and named, so a miss reports its phase, not the test timeout
-                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 20000))]);
+                // Setup, not the step under test: the cold boot's own projection settles first, read right before the
+                // held read goes in, as a follow-up projection replaces refreshPromise. A loaded runner took longer than
+                // 20 s for it, so it gets 60 s, and a miss leaves the projection state to tell slow from stuck.
+                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 60000))]);
 
                 held.workspace = workspace;
 
@@ -404,7 +432,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 };
 
                 workspace.projectDockZoneDocument(workspace.dockModel).catch(() => {})
-            }, hostId);
+            }, hostId).catch(error => failWithProjectionState(browser, cold, error));
 
             await expect.poll(() => probe.evaluate(() => typeof globalThis.__heldOverflowRead.release === 'function'),
                 {message: 'the older projection waits on its overflow read', timeout: 10000}).toBe(true);

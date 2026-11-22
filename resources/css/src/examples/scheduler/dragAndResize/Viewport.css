@@ -254,6 +254,19 @@ body:has(.depot-viewport.depot-is-resizing) .neo-scheduler-drag-preview {
     cursor      : ew-resize;
 }
 
+@media (min-width: 768px) and (max-width: 1080px) {
+    .depot-viewport.neo-viewport .depot-toolbar.neo-toolbar {
+        gap    : 4px 12px;
+        padding: 8px 20px;
+
+        .depot-legend {
+            flex       : 0 0 100% !important;
+            margin-left: 0;
+            order      : 2;
+        }
+    }
+}
+
 @media (max-width: 767px) {
     .depot-viewport.neo-viewport {
         .depot-toolbar.neo-toolbar {

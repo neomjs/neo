@@ -33,7 +33,7 @@
     },
     {
         "path": "apps/portal/resources/images/examples/devmode/dockDemo.png",
-        "why": "Superseded frame: apps/portal/resources/data/examples.json names the devmode images it uses (`devmode/workstation-13-2.jpg`, `devmode/DevIndex.png`, …) and not this one. Kept because removing an app's stale frame is a content decision, not this guard's."
+        "why": "Superseded frame: the examples catalog (apps/portal/resources/data/examples/) names the devmode images it uses (`devmode/workstation-13-2.jpg`, `devmode/DevIndex.png`, …) and not this one. Kept because removing an app's stale frame is a content decision, not this guard's."
     },
     {
         "path": "apps/portal/resources/images/examples/devmode/workstation.png",
