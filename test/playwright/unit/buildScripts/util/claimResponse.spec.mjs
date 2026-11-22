@@ -7,6 +7,7 @@ import * as yaml      from 'js-yaml';
 import {
     CLAIM_RELEASE_SINCE,
     CLAIM_WINDOW_DAYS,
+    TEAM_ASSOCIATIONS,
     changedCloseTargets,
     claimRecords,
     claimText,
@@ -1862,6 +1863,10 @@ test.describe('buildScripts/util/claimResponse', () => {
 
             expect(Object.keys(workflow.on).sort()).toEqual(['issue_comment', 'pull_request_target', 'workflow_call']);
             expect(workflow.on.workflow_call).toBeNull();
+
+            expect(respondJob.if.replace(/\s+/g, ' ')).toContain(
+                `github.event.action == 'closed' || !contains(fromJSON('${JSON.stringify(TEAM_ASSOCIATIONS)}'), github.event.pull_request.author_association)`
+            );
 
             expect(workflow.concurrency).toBeUndefined();
             expect(Object.keys(workflow.jobs)).toEqual(['respond']);

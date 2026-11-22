@@ -14,6 +14,7 @@
         ],
         "featured": false,
         "image": "devmode/tiles/tab-container-14.jpg",
+        "hasLightCover": true,
         "name": "Tab container",
         "sourceUrl": "examples/tab/container",
         "urls": {

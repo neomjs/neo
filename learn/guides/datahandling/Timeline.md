@@ -44,14 +44,15 @@ Use a Timeline Column when you want a timeline alongside the other columns in an
 
 A working timeline needs a grid store containing resource rows, a `Neo.timeline.TimeAxis` defining the visible time range, and an event store containing dated records associated with those rows.
 
-The following is a minimal, runnable `Viewport.mjs`. It creates a grid with a resource column and a Timeline Column backed by a time axis and an event store.
+The following minimal viewport creates a grid with a resource column and a Timeline Column backed by a time axis and an
+event store. Open Preview to run it here.
 
-```javascript
-import GridContainer  from '../../../src/grid/Container.mjs';
-import TimeAxis       from '../../../src/timeline/TimeAxis.mjs';
-import TimelineColumn from '../../../src/timeline/Column.mjs';
-import EventStore     from '../../../src/timeline/store/Events.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+```javascript live-preview
+import GridContainer  from '../grid/Container.mjs';
+import TimeAxis       from '../timeline/TimeAxis.mjs';
+import TimelineColumn from '../timeline/Column.mjs';
+import EventStore     from '../timeline/store/Events.mjs';
+import Viewport       from '../container/Viewport.mjs';
 
 const resources = [
     {id: 'r-1', name: 'Design Team'},

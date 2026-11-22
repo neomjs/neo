@@ -36,6 +36,11 @@
         font-size: 13px;
     }
 
+    .programme-zoom-group.neo-container {
+        align-items: center;
+        display    : inline-flex;
+    }
+
     .programme-zoom {
         --button-background-color-hover: var(--programme-hover-bg);
         --button-border-hover          : 1px solid var(--programme-border);
@@ -67,6 +72,16 @@
         &:focus-visible {
             outline       : 2px solid var(--programme-focus);
             outline-offset: 2px;
+        }
+    }
+}
+
+@media (max-width: 1120px) {
+    .programme-toolbar.neo-toolbar {
+        .programme-hint {
+            flex       : 0 0 100% !important;
+            order      : 2;
+            white-space: normal;
         }
     }
 }

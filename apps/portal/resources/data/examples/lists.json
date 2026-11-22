@@ -113,6 +113,7 @@
         "id": "carousel",
         "kind": "component",
         "image": "devmode/tiles/component-carousel-14.jpg",
+        "hasLightCover": true,
         "name": "Carousel",
         "sourceUrl": "examples/component/carousel",
         "urls": {
@@ -132,6 +133,7 @@
         "id": "list-base",
         "kind": "component",
         "image": "devmode/tiles/list-base-14.jpg",
+        "hasLightCover": true,
         "name": "List",
         "sourceUrl": "examples/list/base",
         "urls": {
@@ -151,6 +153,7 @@
         "id": "chip-list",
         "kind": "component",
         "image": "devmode/tiles/list-chip-14.jpg",
+        "hasLightCover": true,
         "name": "Chip list",
         "sourceUrl": "examples/list/chip",
         "urls": {
@@ -170,6 +173,7 @@
         "id": "color-list",
         "kind": "component",
         "image": "devmode/tiles/list-color-14.jpg",
+        "hasLightCover": true,
         "name": "Color list",
         "sourceUrl": "examples/list/color",
         "urls": {
@@ -189,6 +193,7 @@
         "id": "list-buffered",
         "kind": "component",
         "image": "devmode/tiles/list-buffered-14.jpg",
+        "hasLightCover": true,
         "name": "Buffered list",
         "sourceUrl": "examples/list/buffered",
         "urls": {
@@ -208,6 +213,7 @@
         "id": "list-circle",
         "kind": "component",
         "image": "devmode/tiles/list-circle-14.jpg",
+        "hasLightCover": true,
         "name": "Circle list",
         "sourceUrl": "examples/list/circle",
         "urls": {

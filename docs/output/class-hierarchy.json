@@ -469,6 +469,7 @@
  "Neo.main.addon.IntersectionObserver": "Neo.main.addon.Base",
  "Neo.main.addon.ListMotion": "Neo.main.addon.Base",
  "Neo.main.addon.LocalStorage": "Neo.main.addon.Base",
+ "Neo.main.addon.MainThreadBlocker": "Neo.main.addon.Base",
  "Neo.main.addon.MapboxGL": "Neo.main.addon.Base",
  "Neo.main.addon.Markdown": "Neo.main.addon.Base",
  "Neo.main.addon.Mermaid": "Neo.main.addon.Base",

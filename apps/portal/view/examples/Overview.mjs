@@ -25,7 +25,8 @@ class Overview extends Container {
          * @member {Object} bind
          */
         bind: {
-            compactLead: data => data.size === 'x-small'
+            compactLead : data => data.size === 'x-small',
+            exampleTheme: data => data.theme
         },
         /**
          * The build control's config, from `Portal.view.examples.MainContainer#createBuildControl()`. The overview
@@ -55,6 +56,12 @@ class Overview extends Container {
          * @reactive
          */
         compactLead_: false,
+        /**
+         * The theme the actions open their examples in: the Portal's theme on screen.
+         * @member {String|null} exampleTheme_=null
+         * @reactive
+         */
+        exampleTheme_: null,
         /**
          * The groups that publish in the selected build, from `Portal.view.examples.MainContainer#getGroupStore()`.
          * @member {Portal.store.ExampleGroups|null} groupStore=null
@@ -107,6 +114,16 @@ class Overview extends Container {
                 intro.update()
             }
         }
+    }
+
+    /**
+     * @summary Re-points the actions when the Portal switches its theme.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetExampleTheme(value, oldValue) {
+        oldValue !== undefined && this.groupStore?.getCount() > 0 && this.updateActions()
     }
 
     /**
@@ -165,7 +182,7 @@ class Overview extends Container {
             }]
         }, {
             module        : List,
-            bind          : {catalogMode: data => data.catalogMode},
+            bind          : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex          : 'none',
             groupTitles   : me.groupTitles,
             leadCard      : true,
@@ -235,9 +252,6 @@ class Overview extends Container {
     onGroupsLoad() {
         const me           = this,
               {groupStore} = me,
-              provider     = me.getStateProvider(),
-              catalogMode  = provider.getData('catalogMode'),
-              catalog      = provider.getStore('catalog'),
               intro        = me.down({reference: 'overview-intro'}),
               indexHeading = me.down({reference: 'overview-index-heading'}),
               groups       = groupStore.getCount();
@@ -251,12 +265,25 @@ class Overview extends Container {
         indexHeading.vdom.cn[0].text = `All ${groups} groups`;
         indexHeading.update();
 
+        me.updateActions()
+    }
+
+    /**
+     * @summary Points each action at its record in the selected build, opened in the Portal's theme, and hides an
+     * action whose record does not publish there.
+     */
+    updateActions() {
+        const me          = this,
+              provider    = me.getStateProvider(),
+              catalogMode = provider.getData('catalogMode'),
+              catalog     = provider.getStore('catalog');
+
         me.actions.forEach(({record}) => {
             const item = catalog.get(record);
 
             me.down({reference: 'overview-action-' + record}).set({
                 hidden: !item || !Example.publishes(item, catalogMode),
-                url   : item ? Example.href(item, catalogMode) : null
+                url   : item ? Example.href(item, catalogMode, {theme: me.exampleTheme}) : null
             })
         })
     }
