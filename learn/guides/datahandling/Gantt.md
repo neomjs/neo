@@ -105,6 +105,17 @@ A direct write on a record (`task.set(...)`) updates that record's data directly
 
 Because `TaskStore` is a hierarchical tree store, a parent folds through `gantt.store.collapse('phase1')` and opens through `gantt.store.expand('phase1')`, automatically toggling child row visibility in both the grid and timeline areas.
 
+To let the tasks determine when a phase starts and finishes, set `rollupParents: true` on the task store.
+Every chart sharing the store then sees the same phase dates. The earliest leaf starts the phase and the
+latest leaf finishes it, including tasks inside collapsed or filtered branches. Each leaf contributes to
+the phase's progress in proportion to its elapsed duration. A two-day task at 100% and a one-day task at
+10% give the phase 70% completion, even if the tasks are separated by a week.
+
+Move or resize a leaf to change the phase. An outgoing finish-to-start link uses the resulting phase finish
+in the same chart edit. A derived phase supplies its own dates, so use a leaf as the destination of a new
+dependency. Keep the store policy at its default of `false` for plans with independently scheduled parent
+dates or an application-owned schedule service.
+
 ## 4. The Dependency Record
 
 Precedence constraints between tasks are defined by `Neo.gantt.DependencyModel` records in `dependencyStore`. Each dependency specifies:

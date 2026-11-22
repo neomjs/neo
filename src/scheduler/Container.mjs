@@ -1155,7 +1155,7 @@ class Container extends GridContainer {
         }
 
         const zone    = me.ensureEventDragZone();
-        const gesture = me.getBarDragContext(zone, path);
+        const gesture = me.getBarDragContext(zone, path, record);
         if (!gesture) return;
 
         let trackOrigin = 0;

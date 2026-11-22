@@ -15,11 +15,11 @@ class Column extends TimelineColumn {
      * @returns {Object} Bar VDOM with the Gantt affordances.
      */
     buildBarVdom(descriptor, context) {
-        const node   = super.buildBarVdom(descriptor, context);
         const record = descriptor.bar;
+        const grid   = context.gridContainer;
+        const node   = super.buildBarVdom(descriptor, context, !grid?.store?.isDerivedParent?.(record));
         if (record.isLeaf === false) node.cls.push('neo-gantt-bar-summary');
         if (record.milestone) node.cls.push('neo-gantt-bar-milestone');
-        const grid = context.gridContainer;
         if (!grid) return node;
         if (grid.eventDragZone?.taskPreviewRecord === record) node.cls.push('neo-gantt-task-source');
         if (grid.eventDragZone?.linkTarget === record) node.cls.push('neo-gantt-link-target');
