@@ -815,7 +815,8 @@ class TourController extends Controller {
      *
      * The refresh joins the settled tail of the workspace's `refreshPromise`, as its commits do: a reconcile
      * started beside an in-flight one (the cold-hydrate projection after a reload) leaves a second shell in
-     * the dock host. Static, because a cancelled replay restores after its controller is destroyed.
+     * the dock host. It answers to the supersession current when it is queued, so a commit queued behind it
+     * releases its overflow reads. Static, because a cancelled replay restores after its controller is destroyed.
      * @param {Workstation.view.Workspace} workspace
      * @param {Object} document The document to project, held by identity.
      * @param {Object} [refreshOptions={}] The options `refreshDockWorkspace` receives.
@@ -824,10 +825,11 @@ class TourController extends Controller {
      * @static
      */
     static queueDockRefresh(workspace, document, refreshOptions={}) {
-        const tail = workspace.refreshPromise?.catch(() => {}) || Promise.resolve();
+        const abort = workspace.getProjectionAbort(),
+              tail  = workspace.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         return workspace.refreshPromise = tail.then(() => {
-            if (!workspace.isDestroyed) return workspace.refreshDockWorkspace(null, document, refreshOptions)
+            if (!workspace.isDestroyed) return workspace.refreshDockWorkspace(null, document, refreshOptions, null, abort)
         })
     }
 

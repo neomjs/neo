@@ -382,6 +382,161 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
     });
 
+    /**
+     * @summary A pass held on a read that never answers, over a strip whose last split withheld `b2` and
+     * capped `b1` at 72 below its caller's 192.
+     * @returns {Promise<Object>} {buttons, controller, pass, plugin}
+     */
+    const holdCappedPass = async () => {
+        const
+            makeButton = (id, hidden) => ({
+                hidden,
+                id,
+                setSilent(values) { Object.assign(this, values) },
+                show() {
+                    this.hidden = false;
+                    delete this.vdom.removeDom
+                },
+                vdom: hidden ? {removeDom: true} : {}
+            }),
+            buttons    = [makeButton('b1', false), makeButton('b2', true)],
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        plugin.owner.items         = buttons;
+        plugin.owner.promiseUpdate = async () => {};
+        plugin.owner.update        = () => {};
+        plugin.owner.getLayoutRect = () => new Promise(() => {}); // a read that never answers
+        plugin.appliedHiddenIds    = ['b2'];                      // the last committed split withheld b2
+        plugin.naturalWidths       = null;                        // uncached, so the measure restores it
+        buttons[0].maxWidth        = 72;                          // the split capped b1 below its caller's 192
+        plugin.appliedCaps         = new Map([['b1', {maxSize: 'maxWidth', value: 192}]]);
+        plugin.appliedCapButtons   = new Map([['b1', new WeakRef(buttons[0])]]);
+        Overflow.buttonCaps.set(buttons[0], {cap: plugin.appliedCaps.get('b1'), plugin});
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        return {buttons, controller, pass, plugin}
+    };
+
+    test('a superseded caller releases a pass whose read never answers: the latch clears and the strip is handed back', async () => {
+        const {buttons, controller, pass, plugin} = await holdCappedPass();
+
+        expect(plugin.measuring, 'the pass waits on the read').toBe(true);
+        expect(buttons[1].hidden, 'the measure restored the withheld header').toBe(false);
+        expect(buttons[0].maxWidth, 'the measure lifted the cap to the caller\'s width').toBe(192);
+
+        controller.abort();
+        await pass;
+
+        expect(plugin.measuring, 'the latch clears although the read never answered').toBe(false);
+        expect(buttons[1].hidden, 'the strip is handed back as the last split left it').toBe(true);
+        expect(buttons[1].vdom.removeDom).toBe(true);
+        expect(buttons[0].maxWidth, 'and so is the cap').toBe(72);
+        plugin.destroy()
+    });
+
+    test('an aborted pass hands back no cap that another strip\'s plugin owns by then', async () => {
+        const {buttons, controller, pass, plugin} = await holdCappedPass(),
+              successor                           = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        expect(buttons[0].maxWidth, 'the measure lifted the cap').toBe(192);
+
+        // The header moved to another strip mid-pass, whose split capped it at 54 and took the ledger entry
+        Overflow.buttonCaps.set(buttons[0], {cap: {maxSize: 'maxWidth', value: 192}, plugin: successor});
+        buttons[0].maxWidth = 54;
+
+        controller.abort();
+        await pass;
+
+        expect(buttons[0].maxWidth, 'the successor\'s cap stands').toBe(54);
+        expect(buttons[1].hidden, 'the strip is still handed back').toBe(true);
+        successor.destroy();
+        plugin.destroy()
+    });
+
+    test('a read that answers after its caller was superseded writes no cache and no split', async () => {
+        let answer;
+
+        const
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController(),
+            splits     = [];
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        const cache = plugin.naturalWidths;
+
+        plugin.applySplit          = (...args) => {splits.push(args)};
+        plugin.owner.getLayoutRect = ids => new Promise(resolve => {
+            // A narrow strip and wide headers: applied, this answer would withhold a header
+            answer = () => resolve(ids[0] === 'tab-overflow-test-owner' ? [{width: 5}] : [{width: 100}, {width: 100}])
+        });
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        controller.abort();
+        await pass;
+
+        answer();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(splits, 'the late answer applies no split').toEqual([]);
+        expect(plugin.naturalWidths, 'the late answer writes no cache').toBe(cache);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
+    test('a superseded pass hands its queued re-run to its successor instead of starting it', async () => {
+        let reads = 0;
+
+        const
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        plugin.owner.getLayoutRect = () => {reads++; return new Promise(() => {})}; // no read answers
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        plugin.project(false); // a resize while the read is held
+
+        expect(plugin.projectQueued, 'the resize queues behind the held read').toBe(true);
+
+        controller.abort();
+        await pass;
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(reads, 'no detached re-run starts a read of its own').toBe(1);
+        expect(plugin.projectQueued).toBe(false);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
+    test('a caller superseded before its recapture starts measures nothing', async () => {
+        const
+            reads      = [],
+            plugin     = createPlugin(async ids => {reads.push(ids); return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]}),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        reads.length = 0;
+        controller.abort();
+        await plugin.project(true, {signal: controller.signal});
+
+        expect(reads, 'no read starts for a superseded caller').toEqual([]);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
     test('the repartition lifecycle is published on the owner as one start/idle pair per transaction — a coalesced rerun keeps it open, a thrown measure still closes it', async () => {
         let release,
             callCount = 0;
