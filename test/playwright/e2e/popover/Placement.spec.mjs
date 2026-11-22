@@ -6,6 +6,7 @@ import {expect, test} from '../../fixtures.mjs';
  *
  * A unit spec cannot see this: CSS anchor positioning places the popover in the browser, from the anchor name the
  * plugin gives the button and the align class it gives the popover.
+ * Keyboard activation keeps the pointer off the button so the hover open cannot race the native click toggle.
  */
 
 const GAP = 8;
@@ -38,7 +39,7 @@ async function open(page, width, height) {
 }
 
 /**
- * Picks an align value in the inspector, which closes an open popover, then clicks the button, which opens it
+ * Picks an align value in the inspector, waits for the popover to close, and opens it from the keyboard.
  * @param {import('@playwright/test').Page} page
  * @param {String} align
  */
@@ -46,7 +47,7 @@ async function openWith(page, align) {
     await page.getByText(align, {exact: true}).click();
     await expect(page.locator('.neo-popover')).toHaveClass(new RegExp(`\\b${align}\\b`));
     await expect.poll(() => page.locator('.neo-popover').evaluate(node => node.matches(':popover-open'))).toBe(false);
-    await page.getByRole('button', {name: 'Click Me'}).click()
+    await page.getByRole('button', {name: 'Click Me'}).press('Space')
 }
 
 const centerX = box => box.x + box.width  / 2,
@@ -54,9 +55,9 @@ const centerX = box => box.x + box.width  / 2,
       near    = (actual, expected) => Math.abs(actual - expected) <= 2;
 
 test.describe('examples/popover: the popover opens against its button', () => {
-    test('a click opens it centred above the button', async ({page}) => {
+    test('keyboard activation opens it centred above the button', async ({page}) => {
         await open(page, 1440, 900);
-        await page.getByRole('button', {name: 'Click Me'}).click();
+        await page.getByRole('button', {name: 'Click Me'}).press('Space');
 
         const {button, popover} = await rects(page);
 

@@ -10,6 +10,7 @@
         "lookFor": "Press \"Block the main thread for 5 seconds\": the page clock stops, the app's clock in the canvas runs on, and the points keep moving.",
         "featured": false,
         "image": "devmode/offscreen-canvas-14.jpg",
+        "hasLightCover": true,
         "name": "Stop the main thread",
         "sourceUrl": "examples/worker/canvas",
         "urls": {
@@ -44,9 +45,10 @@
         "order": 510,
         "component": "Video",
         "feature": "A mounted video component moves between two containers without being recreated.",
-        "lookFor": "Press Move Video and watch the same player switch sides between the two panels.",
-        "scope": "Loads a sample MP4 from Apple's public media host.",
-        "image": null,
+        "lookFor": "Press Move Video and watch the same player switch panels while the readout tracks its continuing playback.",
+        "scope": "Streams the CC BY 3.0 Big Buck Bunny trailer from neomjs/pages via jsDelivr.",
+        "image": "devmode/video-move-14.jpg",
+        "hasLightCover": true,
         "name": "Moving a Video",
         "sourceUrl": "examples/videoMove",
         "urls": {
@@ -56,25 +58,5 @@
             "dist_prod": "dist/production/examples/videoMove/index.html"
         },
         "hiddenIn": []
-    },
-    {
-        "id": "sitemap",
-        "kind": "component",
-        "image": "devmode/tiles/sitemap-14.jpg",
-        "hasLightCover": true,
-        "name": "Sitemap",
-        "sourceUrl": "examples/sitemap",
-        "urls": {
-            "devmode": "examples/sitemap/index.html",
-            "dist_dev": "dist/development/examples/sitemap/index.html",
-            "dist_esm": "dist/esm/examples/sitemap/index.html",
-            "dist_prod": "dist/production/examples/sitemap/index.html"
-        },
-        "hiddenIn": [],
-        "family": "platform",
-        "order": 1450,
-        "component": "Sitemap",
-        "feature": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden",
-        "lookFor": "Resize the sitemap in the panel and follow an item's link."
     }
 ]

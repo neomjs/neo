@@ -26,5 +26,35 @@
             "week",
             "day"
         ]
+    },
+    {
+        "id": "calendar-year",
+        "family": "calendar",
+        "order": 125,
+        "component": "Calendar",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "feature": "A team's whole year in the year view: today marked, and every day with an event shaded, darker the busier.",
+        "lookFor": "Click a shaded day to open it in the day view. On a phone the year opens on the month of today.",
+        "image": "devmode/calendar-year-14.jpg",
+        "hasLightCover": true,
+        "keywords": [
+            "date",
+            "year",
+            "events",
+            "vacation",
+            "schedule"
+        ],
+        "name": "A Team's Year",
+        "sourceUrl": "examples/calendar/year",
+        "urls": {
+            "devmode": "examples/calendar/year/index.html",
+            "dist_dev": "dist/development/examples/calendar/year/index.html",
+            "dist_esm": "dist/esm/examples/calendar/year/index.html",
+            "dist_prod": "dist/production/examples/calendar/year/index.html"
+        },
+        "hiddenIn": []
     }
 ]

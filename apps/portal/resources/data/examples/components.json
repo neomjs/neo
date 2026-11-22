@@ -258,6 +258,26 @@
         "hiddenIn": []
     },
     {
+        "id": "sitemap",
+        "family": "components",
+        "order": 460,
+        "component": "Sitemap",
+        "feature": "A two-column sitemap groups real pages from the Neo.mjs Portal.",
+        "lookFor": "Follow a link in either group, or resize the sitemap in the inspector.",
+        "kind": "component",
+        "image": "devmode/tiles/sitemap-14.jpg",
+        "hasLightCover": true,
+        "name": "Sitemap",
+        "sourceUrl": "examples/sitemap",
+        "urls": {
+            "devmode": "examples/sitemap/index.html",
+            "dist_dev": "dist/development/examples/sitemap/index.html",
+            "dist_esm": "dist/esm/examples/sitemap/index.html",
+            "dist_prod": "dist/production/examples/sitemap/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "liquid-glass",
         "family": "components",
         "order": 590,

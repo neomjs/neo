@@ -3,8 +3,10 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted
+    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted, writePair
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
+import os                   from 'node:os';
+import path                 from 'node:path';
 import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
 /** @summary Gives the producer one covered local record with a recipe, and one in a family no recipe covers. */
@@ -34,26 +36,33 @@ test('capture identity and URL come from the catalog without mutating either inp
 
 /** @summary The ids of the validated entries that capture their record's landing frame. */
 function landingIds(valid) {
-    return valid.recipes.filter(recipe => recipe.landing).map(recipe => recipe.id)
+    return [...new Set(valid.recipes.filter(recipe => recipe.landing).map(recipe => recipe.id))]
 }
 
-test('a covered record without a recipe is captured from the frame a visitor lands on, with no input of its own', () => {
+test('a covered record without a recipe is captured from the frame a visitor lands on, dark and light, with no input of its own', () => {
     const records = catalog();
     expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one']);
     records.push({id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
-    const entry = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-two');
-    expect(entry).toEqual({
-        id      : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', url: 'examples/grid/two/?theme=neo-theme-neo-dark',
-        viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.',
-        ready   : [], steps: [], after: [], region: 'viewport'
-    });
-    expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual([entry])
+    const entries = validateCaptureRecipes(manifest(), records).recipes.filter(recipe => recipe.id === 'grid-two'),
+          landing = {
+              id   : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', viewport: {width: 960, height: 540},
+              state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'
+          };
+    // Each pass asks for the Neo theme and accepts the legacy one of its scheme, never a theme of the other scheme
+    expect(entries).toEqual([
+        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-dark',  theme: 'dark',    variant: '',       accepts: ['neo-theme-neo-dark',  'neo-theme-dark']},
+        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-light', theme: 'default', variant: '-light', accepts: ['neo-theme-neo-light', 'neo-theme-light']}
+    ]);
+    expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual(entries)
 });
 
-test('a landing capture opens the record\'s link as the dark catalog does, keeping its query and hash', () => {
+test('a landing capture opens the record\'s link as the catalog in each theme does, keeping its query and hash', () => {
     const records = [...catalog(), {id: 'grid-three', family: 'grid-table', image: 'grid-three.jpg', urls: {devmode: 'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-light#/start'}}],
-        entry     = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-three');
-    expect(entry.url).toBe('examples/grid/three/index.html?rows=50&theme=neo-theme-neo-dark#/start')
+        urls      = validateCaptureRecipes(manifest(), records).recipes.filter(recipe => recipe.id === 'grid-three').map(recipe => recipe.url);
+    expect(urls).toEqual([
+        'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-dark#/start',
+        'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-light#/start'
+    ])
 });
 
 test('an external-origin covered record gets no landing capture, a same-origin one does', () => {
@@ -72,7 +81,9 @@ test('a tile in a covered family takes no landing capture, a card beside it does
 
 test('a card in a family no recipe covers is captured by --record alone; a recipe needs a declared family and replaces it', () => {
     const valid = validateCaptureRecipes(manifest(), catalog());
-    expect(selectCaptureRecipes(valid, {record: 'form-one'})).toMatchObject([{id: 'form-one', landing: true, family: 'forms'}]);
+    expect(selectCaptureRecipes(valid, {record: 'form-one'})).toMatchObject([
+        {id: 'form-one', landing: true, family: 'forms', variant: ''}, {id: 'form-one', landing: true, family: 'forms', variant: '-light'}
+    ]);
     // A bulk run keeps to the declared families
     expect(selectCaptureRecipes(valid).map(recipe => recipe.id)).toEqual(['grid-one']);
     expect(() => selectCaptureRecipes(valid, {family: 'forms'})).toThrow(/no matching capture recipes/);
@@ -104,6 +115,45 @@ test('a view counts as mounted once a shown element covers part of the frame; a 
     expect(viewMounted(frameDocument([script, probe, parked]))).toBe(false);
     expect(viewMounted(frameDocument([script, {...view, style: {display: 'none'}}]))).toBe(false);
     expect(viewMounted(frameDocument([script, probe, parked, view]))).toBe(true)
+});
+
+test('a pair is written whole or not at all: a failed second write leaves no first image, and a file the run did not create stays', async () => {
+    const output = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-pair-')),
+        shots    = [{image: 'dark.jpg', bytes: Buffer.from('d')}, {image: 'light.jpg', bytes: Buffer.from('l')}];
+
+    try {
+        await writePair(output, shots);
+        expect(fs.readdirSync(output).sort()).toEqual(['dark.jpg', 'light.jpg']);
+
+        const failing = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-pair-'));
+        let   opens   = 0;
+
+        // The second exclusive open succeeds and its write fails: both files this call opened go
+        await expect(writePair(failing, shots, async (file, flags) => {
+            const handle = await fs.promises.open(file, flags);
+            if (++opens === 2) return {writeFile: async () => {await handle.writeFile('partial'); throw new Error('I/O error')}, close: () => handle.close()};
+            return handle
+        })).rejects.toThrow('I/O error');
+        expect(fs.readdirSync(failing)).toEqual([]);
+
+        // The second open fails for a reason other than EEXIST: that path was never this call's and stays, the dark file goes
+        fs.writeFileSync(path.join(failing, 'light.jpg'), 'foreign');
+        opens = 0;
+        await expect(writePair(failing, shots, async (file, flags) => {
+            if (++opens === 2) throw Object.assign(new Error('permission denied'), {code: 'EACCES'});
+            return fs.promises.open(file, flags)
+        })).rejects.toThrow('permission denied');
+        expect(fs.readdirSync(failing)).toEqual(['light.jpg']);
+        expect(fs.readFileSync(path.join(failing, 'light.jpg'), 'utf8')).toBe('foreign');
+
+        // A light file from an earlier run fails the real exclusive open: the old file stays, the dark file this call created goes
+        await expect(writePair(failing, shots)).rejects.toThrow(/EEXIST/);
+        expect(fs.readdirSync(failing)).toEqual(['light.jpg']);
+        expect(fs.readFileSync(path.join(failing, 'light.jpg'), 'utf8')).toBe('foreign');
+        fs.rmSync(failing, {recursive: true, force: true})
+    } finally {
+        fs.rmSync(output, {recursive: true, force: true})
+    }
 });
 
 test('duplicate recipes and unknown catalog identities are refused', () => {
@@ -196,13 +246,31 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
     }
 });
 
-test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
+test('the committed Grid/Table catalog selects a capture for every covered card', async () => {
     const data    = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
         {records} = await readExampleCatalog(fileURLToPath(new URL('examples', data))),
         raw       = JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))),
-        valid     = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
-    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
-    expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
+        valid     = validateCaptureRecipes(raw, records),
+        rows      = selectCaptureRecipes(valid, {family: 'grid-table'}),
+        recipeIds = new Set(raw.recipes.map(recipe => recipe.id));
+
+    const ids = [...new Set(rows.map(row => row.id))];
+
+    expect(ids.sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
+
+    for (const id of ids) {
+        const own = rows.filter(row => row.id === id);
+
+        if (recipeIds.has(id)) {
+            expect(own, id).toHaveLength(1);
+            expect(own[0].steps.length, id).toBeGreaterThan(0);
+            expect(own[0].after.length, id).toBeGreaterThan(0)
+        } else {
+            // A landing cover is shot with its light partner
+            expect(own.map(row => row.variant).sort(), id).toEqual(['', '-light']);
+            own.forEach(row => expect(row, id).toMatchObject({landing: true, steps: [], after: [], region: 'viewport'}))
+        }
+    }
 });
 
 test('the command exposes help without starting a browser or requiring a running server', () => {
@@ -298,6 +366,21 @@ test('a tile refuses a blank stage and a component no tile-aspect region inside 
     expect(() => fitTileRegion({left: 139, top: 19, right: 361, bottom: 581}, stage)).toThrow(/222×562 component does not fit/)
 });
 
+test('a tile pair shares one region: both themes\' content, inside the stage both themes show', () => {
+    const stage = {x: 300, y: 100, width: 1000, height: 700},
+        dark    = {left: 700, top: 400, right: 900, bottom: 500},
+        light   = {left: 690, top: 405, right: 930, bottom: 498}, // a light theme that draws the control wider
+        region  = pairTileRegion([{content: dark, stage}, {content: light, stage}]);
+    expect(holds(region, dark)).toBe(true);
+    expect(holds(region, light)).toBe(true);
+    expect(region).toEqual(fitTileRegion({left: 690, top: 400, right: 930, bottom: 500}, stage));
+    // A stage that moves between themes leaves the region only the area both show: alone, the dark stage would start it at 300
+    const corner = {left: 330, top: 120, right: 410, bottom: 180};
+    expect(pairTileRegion([{content: corner, stage}]).x).toBe(300);
+    expect(pairTileRegion([{content: corner, stage}, {content: {...corner, right: 420}, stage: {...stage, x: 320}}]).x).toBe(320);
+    expect(() => pairTileRegion([{content: dark, stage}, {content: null, stage}])).toThrow(/renders nothing/)
+});
+
 /** @summary A theme switch like the workbench's: a click shows the next offered theme; with nothing else to show, it times out. */
 function themeSwitch(offered, active) {
     const state = {clicks: 0, index: offered.indexOf(active)};
@@ -312,17 +395,20 @@ function themeSwitch(offered, active) {
     }
 }
 
-test('a tile takes the preferred dark theme a workbench offers, clicking only while it is inactive', async () => {
-    for (const [offered, active, theme, clicks] of [
-        [['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-light', 'neo-theme-dark', 1],     // the engine default
-        [['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-dark'],  'neo-theme-light', 'neo-theme-neo-dark', 2], // neo-dark wins
-        [['neo-theme-dark'],                                           'neo-theme-dark',  'neo-theme-dark', 0]      // its only theme, already on
+test('a tile takes the preferred theme of each pass a workbench offers, clicking only while it is inactive', async () => {
+    for (const [scheme, offered, active, theme, clicks] of [
+        ['dark',  ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-light', 'neo-theme-dark', 1],      // the engine default
+        ['dark',  ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-dark'],  'neo-theme-light', 'neo-theme-neo-dark', 2],  // neo-dark wins
+        ['dark',  ['neo-theme-dark'],                                           'neo-theme-dark',  'neo-theme-dark', 0],      // its only theme, already on
+        ['light', ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-dark',  'neo-theme-neo-light', 1], // neo-light wins
+        ['light', ['neo-theme-light', 'neo-theme-dark'],                        'neo-theme-dark',  'neo-theme-light', 1]      // the legacy partner
     ]) {
         const fake = themeSwitch(offered, active);
-        expect(await applyTileTheme(offered, fake.themeOf, fake.next), offered.join()).toBe(theme);
+        expect(await applyTileTheme(offered, scheme, fake.themeOf, fake.next), offered.join()).toBe(theme);
         expect(fake.state.clicks, offered.join()).toBe(clicks)
     }
-    const light = themeSwitch(['neo-theme-light'], 'neo-theme-light');
-    await expect(applyTileTheme(['neo-theme-light'], light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
-    await expect(applyTileTheme(undefined, light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
+    const light = themeSwitch(['neo-theme-light'], 'neo-theme-light'), dark = themeSwitch(['neo-theme-dark'], 'neo-theme-dark');
+    await expect(applyTileTheme(['neo-theme-light'], 'dark', light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
+    await expect(applyTileTheme(['neo-theme-dark'], 'light', dark.themeOf, dark.next)).rejects.toThrow(/offers no light theme/);
+    await expect(applyTileTheme(undefined, 'dark', light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
 });
