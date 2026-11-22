@@ -375,7 +375,8 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
 
                 while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
 
-                await workspace.refreshPromise;
+                // Each wait on the refresh chain is bounded and named, so a miss reports its phase, not the test timeout
+                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 20000))]);
 
                 held.workspace = workspace;
 
@@ -419,7 +420,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 const held              = globalThis.__heldOverflowRead,
                       {plugin, toolbar} = held;
 
-                await held.workspace.refreshPromise;
+                await Promise.race([held.workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the refresh after Reset')), 20000))]);
 
                 return {
                     busy   : Boolean(plugin && (plugin.measuring || plugin.projectQueued)),
