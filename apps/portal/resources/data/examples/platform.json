@@ -56,25 +56,5 @@
             "dist_prod": "dist/production/examples/videoMove/index.html"
         },
         "hiddenIn": []
-    },
-    {
-        "id": "sitemap",
-        "kind": "component",
-        "image": "devmode/tiles/sitemap-14.jpg",
-        "hasLightCover": true,
-        "name": "Sitemap",
-        "sourceUrl": "examples/sitemap",
-        "urls": {
-            "devmode": "examples/sitemap/index.html",
-            "dist_dev": "dist/development/examples/sitemap/index.html",
-            "dist_esm": "dist/esm/examples/sitemap/index.html",
-            "dist_prod": "dist/production/examples/sitemap/index.html"
-        },
-        "hiddenIn": [],
-        "family": "platform",
-        "order": 1450,
-        "component": "Sitemap",
-        "feature": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden",
-        "lookFor": "Resize the sitemap in the panel and follow an item's link."
     }
 ]
