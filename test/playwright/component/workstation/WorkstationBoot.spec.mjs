@@ -220,6 +220,25 @@ const readProjectionState = async (browser, page) => {
     }
 };
 
+/**
+ * @summary Attaches and logs the workspace's projection state for a failed wait, then rethrows its error. The DOM looks
+ * the same whether a projection was slow, starved, stuck, stood down or failed; the file sits beside
+ * error-context.md in the CI artifact, and the log line reaches a reader without it.
+ * @param {import('@playwright/test').Browser} browser
+ * @param {import('@playwright/test').Page} page
+ * @param {Error} error The failed wait's error
+ * @returns {Promise<never>}
+ */
+const failWithProjectionState = async (browser, page, error) => {
+    const state = await readProjectionState(browser, page),
+          file  = test.info().outputPath('app-worker-projection-state.json');
+
+    await fs.writeFile(file, JSON.stringify(state, null, 4));
+    await test.info().attach('app-worker-projection-state.json', {contentType: 'application/json', path: file});
+    console.log(`app-worker-projection-state ${JSON.stringify(state)}`);
+    throw error
+};
+
 test.describe('workstation boot — the rendered outcome of each URL mode', () => {
     test('default boot mounts the dock host', async ({page}) => {
         await page.goto(APP);
@@ -337,15 +356,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 await expect(cold.locator(FEED_PANE).first(), 'Reset returns the retained pane to the default arrangement')
                     .toBeVisible({timeout: 60000})
             } catch (error) {
-                // The DOM looks the same whether Reset's projection was starved, stuck, stood down or failed. The file
-                // sits beside error-context.md in the CI artifact, and the log line reaches a reader without it.
-                const state = await readProjectionState(browser, cold),
-                      file  = test.info().outputPath('app-worker-projection-state.json');
-
-                await fs.writeFile(file, JSON.stringify(state, null, 4));
-                await test.info().attach('app-worker-projection-state.json', {contentType: 'application/json', path: file});
-                console.log(`app-worker-projection-state ${JSON.stringify(state)}`);
-                throw error
+                await failWithProjectionState(browser, cold, error)
             }
         } finally {
             await coldContext.close()
@@ -355,7 +366,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
     test('a cold-boot Reset renders its pane while an older projection\'s overflow read is still unanswered', async ({baseURL, browser, page, context}) => {
         // A re-projection of the hydrated document reaches its overflow recapture, and the natural-width read it
         // awaits does not answer until the test lets it. Reset's projection must not queue behind that read.
-        test.setTimeout(150000);
+        test.setTimeout(210000);
 
         const {cold, coldContext} = await bootColdWithRetainedFeed({baseURL, browser, page, context});
         let probe;
@@ -364,6 +375,16 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
             const hostId = await cold.locator(DOCK_HOST).getAttribute('id');
 
             probe = await attachPageSharedAppWorker({browser, page: cold});
+
+            // Setup, not the step under test: the cold boot's own projection settles first. A loaded runner took
+            // longer than 20 s for it, so it gets 60 s, and a miss leaves the projection state to tell slow from stuck.
+            await probe.evaluate(async id => {
+                let workspace = globalThis.Neo.getComponent(id);
+
+                while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
+
+                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 60000))])
+            }, hostId).catch(error => failWithProjectionState(browser, cold, error));
 
             await probe.evaluate(async id => {
                 const {Neo} = globalThis,
