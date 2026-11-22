@@ -2,8 +2,9 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * @summary `examples/form/checkout`: one checkout form with Country, ZipCode, Phone, Currency and IBAN. The postal
- * code follows the chosen country, the IBAN checks its format by its own prefix and its check digits always, and
- * Check order names what still needs a fix or what would be ordered. The phone frame completes it by keyboard.
+ * code follows the chosen country, the phone checks its format, the amount its range, the IBAN its format by its own
+ * prefix and its check digits always, and Check order names what still needs a fix or what would be ordered. The
+ * phone frame completes it by keyboard.
  */
 const CARD   = '.neo-examples-form-checkout .checkout-card',
       RESULT = '.neo-examples-form-checkout .checkout-result',
@@ -64,6 +65,15 @@ test.describe('Checkout form example', () => {
         // A change takes the result back to the hint; a complete order is ready
         await form.name.fill('Jane Doe');
         await expect(page.locator(RESULT)).toHaveText('Fill in the form, then check the order.');
+
+        // The phone checks its format, the amount its range
+        await form.phone.fill('call me');
+        await form.phone.press('Tab');
+        await expect(fieldError(page, 'Not a valid phone number')).toBeVisible();
+        await form.amount.fill('20000');
+        await form.amount.press('Tab');
+        await expect(fieldError(page, 'Max value violation')).toBeVisible();
+
         await form.phone.fill('+43 1 2345678');
         await form.amount.fill('49.90');
         await form.iban.fill('AT61 1904 3002 3457 3201');
