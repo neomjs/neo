@@ -133,6 +133,14 @@ test('a pair is written whole or not at all: a failed second write leaves no fir
         })).rejects.toThrow('disk full');
         expect(fs.readdirSync(failing)).toEqual([]);
 
+        // The second exclusive open succeeds and its write fails: the half-written light file goes too
+        calls = 0;
+        await expect(writePair(failing, shots, async (file, bytes, options) => {
+            if (++calls === 2) {await fs.promises.writeFile(file, 'partial', options); throw new Error('I/O error')}
+            return fs.promises.writeFile(file, bytes, options)
+        })).rejects.toThrow('I/O error');
+        expect(fs.readdirSync(failing)).toEqual([]);
+
         // A light file from an earlier run is not this run's: the pair fails, the dark file it created goes, the old one stays
         fs.rmSync(path.join(failing, 'dark.jpg'), {force: true});
         fs.writeFileSync(path.join(failing, 'light.jpg'), 'old');

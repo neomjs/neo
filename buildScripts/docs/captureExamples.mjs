@@ -583,8 +583,9 @@ async function shoot(page, clip, id) {
 
 /**
  * @summary Writes a pair's images, or none of them: each file is created new (`wx`), and when one write fails the files
- * this call created are removed before the error goes on, so a failed pair leaves no half behind. A file that already
- * existed was not this call's, and stays.
+ * this call created are removed before the error goes on, so a failed pair leaves no half behind. That includes the
+ * failing file when its exclusive open succeeded and the write then failed; only `EEXIST` means the file was not this
+ * call's, and then it stays.
  * @param {String} output The run's output directory
  * @param {Object[]} shots `{image, bytes}` each, `image` relative to `output`
  * @param {Function} [writeFile=fs.writeFile]
@@ -593,16 +594,18 @@ async function shoot(page, clip, id) {
 export async function writePair(output, shots, writeFile=fs.writeFile) {
     const written = [];
 
-    try {
-        for (const {image, bytes} of shots) {
-            const file = path.join(output, image);
+    for (const {image, bytes} of shots) {
+        const file = path.join(output, image);
 
-            await writeFile(file, bytes, {flag: 'wx'});
-            written.push(file)
+        try {
+            await writeFile(file, bytes, {flag: 'wx'})
+        } catch (error) {
+            const created = error.code === 'EEXIST' ? written : [...written, file];
+            await Promise.all(created.map(created => fs.rm(created, {force: true})));
+            throw error
         }
-    } catch (error) {
-        await Promise.all(written.map(file => fs.rm(file, {force: true})));
-        throw error
+
+        written.push(file)
     }
 }
 
