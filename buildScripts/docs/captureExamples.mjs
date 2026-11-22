@@ -582,30 +582,33 @@ async function shoot(page, clip, id) {
 }
 
 /**
- * @summary Writes a pair's images, or none of them: each file is created new (`wx`), and when one write fails the files
- * this call created are removed before the error goes on, so a failed pair leaves no half behind. That includes the
- * failing file when its exclusive open succeeded and the write then failed; only `EEXIST` means the file was not this
- * call's, and then it stays.
+ * @summary Writes a pair's images, or none of them. A file is this call's once its exclusive open (`wx`) succeeds; when a
+ * later open or write fails, the files this call opened are removed before the error goes on, so a failed pair leaves no
+ * half behind. A path whose open failed was never this call's and stays, whatever the error.
  * @param {String} output The run's output directory
  * @param {Object[]} shots `{image, bytes}` each, `image` relative to `output`
- * @param {Function} [writeFile=fs.writeFile]
+ * @param {Function} [open=fs.open]
  * @returns {Promise<void>}
  */
-export async function writePair(output, shots, writeFile=fs.writeFile) {
-    const written = [];
+export async function writePair(output, shots, open=fs.open) {
+    const created = [];
 
-    for (const {image, bytes} of shots) {
-        const file = path.join(output, image);
+    try {
+        for (const {image, bytes} of shots) {
+            const file   = path.join(output, image),
+                  handle = await open(file, 'wx');
 
-        try {
-            await writeFile(file, bytes, {flag: 'wx'})
-        } catch (error) {
-            const created = error.code === 'EEXIST' ? written : [...written, file];
-            await Promise.all(created.map(created => fs.rm(created, {force: true})));
-            throw error
+            created.push(file);
+
+            try {
+                await handle.writeFile(bytes)
+            } finally {
+                await handle.close()
+            }
         }
-
-        written.push(file)
+    } catch (error) {
+        await Promise.all(created.map(file => fs.rm(file, {force: true})));
+        throw error
     }
 }
 

@@ -126,27 +126,30 @@ test('a pair is written whole or not at all: a failed second write leaves no fir
         expect(fs.readdirSync(output).sort()).toEqual(['dark.jpg', 'light.jpg']);
 
         const failing = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-pair-'));
-        let   calls   = 0;
-        await expect(writePair(failing, shots, async (...args) => {
-            if (++calls === 2) throw new Error('disk full');
-            return fs.promises.writeFile(...args)
-        })).rejects.toThrow('disk full');
-        expect(fs.readdirSync(failing)).toEqual([]);
+        let   opens   = 0;
 
-        // The second exclusive open succeeds and its write fails: the half-written light file goes too
-        calls = 0;
-        await expect(writePair(failing, shots, async (file, bytes, options) => {
-            if (++calls === 2) {await fs.promises.writeFile(file, 'partial', options); throw new Error('I/O error')}
-            return fs.promises.writeFile(file, bytes, options)
+        // The second exclusive open succeeds and its write fails: both files this call opened go
+        await expect(writePair(failing, shots, async (file, flags) => {
+            const handle = await fs.promises.open(file, flags);
+            if (++opens === 2) return {writeFile: async () => {await handle.writeFile('partial'); throw new Error('I/O error')}, close: () => handle.close()};
+            return handle
         })).rejects.toThrow('I/O error');
         expect(fs.readdirSync(failing)).toEqual([]);
 
-        // A light file from an earlier run is not this run's: the pair fails, the dark file it created goes, the old one stays
-        fs.rmSync(path.join(failing, 'dark.jpg'), {force: true});
-        fs.writeFileSync(path.join(failing, 'light.jpg'), 'old');
+        // The second open fails for a reason other than EEXIST: that path was never this call's and stays, the dark file goes
+        fs.writeFileSync(path.join(failing, 'light.jpg'), 'foreign');
+        opens = 0;
+        await expect(writePair(failing, shots, async (file, flags) => {
+            if (++opens === 2) throw Object.assign(new Error('permission denied'), {code: 'EACCES'});
+            return fs.promises.open(file, flags)
+        })).rejects.toThrow('permission denied');
+        expect(fs.readdirSync(failing)).toEqual(['light.jpg']);
+        expect(fs.readFileSync(path.join(failing, 'light.jpg'), 'utf8')).toBe('foreign');
+
+        // A light file from an earlier run fails the real exclusive open: the old file stays, the dark file this call created goes
         await expect(writePair(failing, shots)).rejects.toThrow(/EEXIST/);
         expect(fs.readdirSync(failing)).toEqual(['light.jpg']);
-        expect(fs.readFileSync(path.join(failing, 'light.jpg'), 'utf8')).toBe('old');
+        expect(fs.readFileSync(path.join(failing, 'light.jpg'), 'utf8')).toBe('foreign');
         fs.rmSync(failing, {recursive: true, force: true})
     } finally {
         fs.rmSync(output, {recursive: true, force: true})
