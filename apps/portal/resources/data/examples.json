@@ -157,6 +157,7 @@
     },
     {
         "id": "scheduler-basic",
+        "hasLightCover": true,
         "featured": true,
         "image": "devmode/scheduler-basic-14.jpg",
         "name": "Studio Bookings",
@@ -1421,6 +1422,7 @@
     },
     {
         "id": "grid-tree",
+        "hasLightCover": true,
         "image": "devmode/grid-tree-14.jpg",
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
@@ -1987,6 +1989,7 @@
     },
     {
         "id": "board-swimlanes",
+        "hasLightCover": true,
         "image": "devmode/board-swimlanes-14.jpg",
         "name": "A board by team, in rows that collapse",
         "sourceUrl": "examples/board/swimlanes",
@@ -2010,6 +2013,7 @@
     },
     {
         "id": "scheduler-big-data",
+        "hasLightCover": true,
         "image": "devmode/scheduler-big-data-14.jpg",
         "name": "A year for 300 people",
         "sourceUrl": "examples/scheduler/bigData",
@@ -2076,6 +2080,7 @@
     },
     {
         "id": "scheduler-non-working-time",
+        "hasLightCover": true,
         "image": "devmode/scheduler-non-working-time-14.jpg",
         "name": "Weekends and holidays in the plan",
         "sourceUrl": "examples/scheduler/nonWorkingTime",
@@ -2204,6 +2209,7 @@
     },
     {
         "id": "gantt-working-time",
+        "hasLightCover": true,
         "image": "devmode/gantt-working-time-14.jpg",
         "name": "Durations in working days",
         "sourceUrl": "examples/gantt/workingTime",

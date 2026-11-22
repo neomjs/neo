@@ -1228,11 +1228,22 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
-        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
-        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('grid-tree'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
-        expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')
+        expect(list.getBackgroundImageStyle(uncovered)).toEqual({});
+
+        for (const extension of ['jpg', 'png']) {
+            const image = `devmode/example.${extension}`;
+            expect(list.getBackgroundImageStyle({image, hasLightCover:true})).toEqual({
+                '--portal-example-cover'      : `url('${list.imageBasePath}/${image}')`,
+                '--portal-example-cover-light': `url('${list.imageBasePath}/devmode/example-light.${extension}')`
+            });
+            expect(list.getBackgroundImageStyle({image})).toEqual({
+                '--portal-example-cover': `url('${list.imageBasePath}/${image}')`
+            })
+        }
     });
 
     test('Overview switches its intro lead between phoneLead (size: x-small) and desktop lead, and mobile-find flexes on one crumb row', () => {
