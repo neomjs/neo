@@ -1,0 +1,42 @@
+/* The sortable dashboard example: a header above a column of key-figure tiles. Colours come from the theme's own
+   tokens, so the page follows neo-light and neo-dark without a theme file of its own. */
+.sortable-dashboard-viewport {
+    background: var(--neo-background-color);
+    box-sizing: border-box;
+    color     : var(--neo-color);
+    gap       : 16px;
+    padding   : 20px 24px;
+
+    .sortable-header {
+        column-gap: 20px;
+        row-gap   : 6px;
+    }
+
+    .sortable-title {
+        font-size     : 22px;
+        font-weight   : 700;
+        letter-spacing: -0.01em;
+        margin        : 0;
+    }
+
+    .sortable-hint {
+        flex     : 1 1 320px;
+        font-size: 14px;
+        opacity  : 0.8;
+    }
+
+    .sortable-board {
+        gap       : 10px;
+        min-height: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .sortable-dashboard-viewport {
+        padding: 12px;
+
+        .sortable-title {
+            font-size: 19px;
+        }
+    }
+}
