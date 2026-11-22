@@ -66,8 +66,11 @@ test.describe('examples/dialog: a closed dialog takes its mask along and hands f
 
     test.beforeEach(async ({page}) => {
         await page.goto('/examples/dialog/index.html');
-        opener = page.getByRole('button', {name: 'Create Dialog', exact: true});
-        await expect(opener).toBeVisible()
+        opener = page.getByRole('button', {name: 'Edit selected contact', exact: true});
+        await expect(page.locator('.neo-dialog input[name="name"]')).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-dialog')).toHaveCount(0);
+        await expect(opener).toBeFocused()
     });
 
     test('Escape after a pointer open', async ({page}) => {
@@ -110,7 +113,7 @@ test.describe('examples/dialog: a closed dialog takes its mask along and hands f
 
     test('closing the second dialog leaves the mask below the first, and focus on the button that opened the second', async ({page}) => {
         const first  = await openFrom(page, opener),
-              inner  = first.getByRole('button', {name: 'Create Dialog 2'}),
+              inner  = first.getByRole('button', {name: 'Edit another contact', exact: true}),
               mask   = page.locator('.neo-dialog-modal-mask'),
               second = await openFrom(page, inner);
 
@@ -126,5 +129,28 @@ test.describe('examples/dialog: a closed dialog takes its mask along and hands f
         await page.keyboard.press('Escape');
 
         await expectClosedOnto(page, opener)
+    });
+
+    test('only Save writes the contact draft back to the list', async ({page}) => {
+        const contacts = page.locator('.neo-dialog-contact-list');
+
+        let editor = await openFrom(page, opener);
+        await editor.locator('input[name="name"]').fill('Unsaved name');
+        await editor.getByRole('button', {name: 'Cancel', exact: true}).click();
+        await expect(editor).toHaveCount(0);
+        await expect(contacts.getByText('Avery Chen', {exact: true})).toBeVisible();
+
+        editor = await openFrom(page, opener, 'keyboard');
+        await editor.locator('input[name="name"]').fill('Another unsaved name');
+        await page.keyboard.press('Escape');
+        await expect(editor).toHaveCount(0);
+        await expect(contacts.getByText('Avery Chen', {exact: true})).toBeVisible();
+
+        editor = await openFrom(page, opener, 'keyboard');
+        await editor.locator('input[name="name"]').fill('Avery Riley');
+        await editor.getByRole('button', {name: 'Save', exact: true}).click();
+        await expect(editor).toHaveCount(0);
+        await expect(contacts.getByText('Avery Riley', {exact: true})).toBeVisible();
+        await expect(opener).toBeFocused()
     })
 });

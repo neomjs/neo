@@ -6,11 +6,12 @@
         "alsoIn": [
             "drag-drop"
         ],
-        "feature": "Dialogs that drag by their header and open further dialogs",
-        "lookFor": "Press Create Dialog, drag the dialog by its header, then create a second one from inside it.",
+        "feature": "Edit contacts in dialogs you can move, resize, or open together.",
+        "lookFor": "Save a name back to the list, drag the editor by its title bar, or open another contact.",
         "featured": false,
         "image": "devmode/dialog-drag-drop-14.jpg",
-        "name": "Dialog drag&drop",
+        "hasLightCover": true,
+        "name": "Contact Editor Dialogs",
         "sourceUrl": "examples/dialog",
         "urls": {
             "devmode": "examples/dialog/",

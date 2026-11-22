@@ -7,15 +7,9 @@ import {expect, test} from '../../fixtures.mjs';
 test('examples/dialog opens its dialog on the first field', async ({page}) => {
     await page.goto('/examples/dialog/index.html');
 
-    const opener = page.getByRole('button', {name: 'Create Dialog', exact: true});
-
-    await expect(opener).toBeVisible();
-    await opener.click();
-
     const dialog = page.locator('.neo-dialog');
 
-    // The combo box's first input is its disabled type-ahead hint
-    await expect(dialog.locator('input:not([disabled])').first()).toBeFocused();
+    await expect(dialog.locator('input[name="name"]')).toBeFocused();
     await expect(dialog.getByRole('button', {name: 'maximize'})).not.toBeFocused()
 });
 

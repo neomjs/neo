@@ -193,6 +193,9 @@ test.describe('Dialog and Menu Layering', () => {
     test('AC-2 & AC-3: body-level and dialog-hosted button menus, submenus, explicit menu.zIndex across reopen, and modal mask coherence', async ({page, neuralLink}) => {
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         await page.goto('/examples/dialog/index.html');
+        await expect(page.locator('.neo-dialog input[name="name"]')).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-dialog')).toHaveCount(0);
 
         const app = await neuralLink.connectToApp('Neo.examples.dialog');
 
@@ -253,10 +256,10 @@ test.describe('Dialog and Menu Layering', () => {
         expect(subFollowsRoot).toBe(true);
 
         // 1a. Interactive path: opening a modal dialog captures focus, automatically unmounting focused background menus
-        const createRootBtn = page.getByRole('button', {name: 'Create Dialog', exact: true}),
+        const createRootBtn = page.getByRole('button', {name: 'Edit selected contact', exact: true}),
               focusedDialog = await appWorker.evaluate(rootId => {
                   const mainView  = Neo.getComponent(rootId).app.mainView,
-                        createBtn = mainView.down({text: 'Create Dialog'});
+                        createBtn = mainView.down({text: 'Edit selected contact'});
 
                   mainView.createDialog({component: createBtn});
                   return mainView.dialog.id
@@ -425,16 +428,19 @@ test.describe('Dialog and Menu Layering', () => {
     test('AC-4: examples/dialog nested modals preserve ComboBox picker layering, Picker Escape isolation, focus wrapping, and mask teardown', async ({page, neuralLink}) => {
         await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
         await page.goto('/examples/dialog/index.html');
+        await expect(page.locator('.neo-dialog input[name="name"]')).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-dialog')).toHaveCount(0);
 
         await neuralLink.connectToApp('Neo.examples.dialog');
 
-        const createRootBtn = page.getByRole('button', {name: 'Create Dialog', exact: true}),
+        const createRootBtn = page.getByRole('button', {name: 'Edit selected contact', exact: true}),
               dialogs       = page.locator('.neo-dialog'),
               mask          = page.locator('.neo-dialog-modal-mask');
 
         const dialog1 = await openSettledDialog(page, createRootBtn),
-              dialog2 = await openSettledDialog(page, dialog1.getByRole('button', {name: 'Create Dialog 2', exact: true})),
-              dialog3 = await openSettledDialog(page, dialog2.getByRole('button', {name: 'Create Dialog 3', exact: true}));
+              dialog2 = await openSettledDialog(page, dialog1.getByRole('button', {name: 'Edit another contact', exact: true})),
+              dialog3 = await openSettledDialog(page, dialog2.getByRole('button', {name: 'Edit another contact', exact: true}));
 
         await expect(dialogs).toHaveCount(3);
         await expect(mask).toHaveCount(1);
