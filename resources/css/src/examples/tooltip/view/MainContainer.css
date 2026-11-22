@@ -2,6 +2,15 @@
     gap: 12px;
     padding: 16px;
 
+    > * {
+        max-width: 920px;
+    }
+
+    /* Room for the hint of a focused toolbar button, so it covers no ticket */
+    .neo-tooltip-example-actions {
+        margin-bottom: 36px;
+    }
+
     .neo-tooltip-example-header {
         font-size: 20px;
         font-weight: 700;

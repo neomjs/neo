@@ -53,6 +53,7 @@ class MainContainer extends Viewport {
             text  : 'Hover a control or a ticket, or move with Tab: its tooltip says what it does. Escape closes it.'
         }, {
             module: Toolbar,
+            cls   : ['neo-tooltip-example-actions'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '8px'},
             items : [{
@@ -65,11 +66,6 @@ class MainContainer extends Viewport {
                 iconCls: 'fa fa-user-plus',
                 text   : 'Assign',
                 tooltip: 'Assign the selected ticket to a teammate'
-            }, {
-                module : Button,
-                iconCls: 'fa fa-box-archive',
-                text   : 'Archive',
-                tooltip: 'Move the finished tickets to the archive'
             }, {
                 module   : Button,
                 iconCls  : 'fa fa-chart-line',
@@ -91,6 +87,12 @@ class MainContainer extends Viewport {
                         ]}
                     }]
                 }
+            }, {
+                module   : Button,
+                iconCls  : 'fa fa-box-archive',
+                reference: 'archive',
+                text     : 'Archive',
+                tooltip  : 'Move the finished tickets to the archive'
             }]
         }, {
             module: TicketList,
@@ -123,7 +125,8 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @summary The board opens with the velocity card showing: focus on its button shows it, as the keyboard does.
+     * @summary The board opens with the last toolbar button's hint showing, in the gap below the toolbar: focus on the
+     * button shows it, as the keyboard does.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -131,7 +134,7 @@ class MainContainer extends Viewport {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && this.down({reference: 'velocity'}).focus()
+        value && this.down({reference: 'archive'}).focus()
     }
 }
 
