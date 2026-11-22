@@ -332,6 +332,9 @@ test('the committed tile list names workbench entries that exist', async () => {
     const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
         valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))), (await readExampleCatalog(fileURLToPath(new URL('examples', data)))).records);
     expect(valid.tiles.length).toBeGreaterThan(0);
+    expect(selectTiles(valid, 'examples/component/video')).toEqual([
+        {id: 'component-video', path: 'examples/component/video', url: 'examples/component/video/index.html'}
+    ]);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
         // A field entry extends the workbench through its states template
