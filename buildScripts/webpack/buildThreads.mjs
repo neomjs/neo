@@ -1,5 +1,4 @@
 import chalk                     from 'chalk';
-import {spawnSync}               from 'child_process';
 import {Command}                 from 'commander';
 import envinfo                   from 'envinfo';
 import fs                        from 'fs-extra';
@@ -7,6 +6,7 @@ import inquirer                  from 'inquirer';
 import path                      from 'path';
 import {createRequire}           from 'node:module';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {runSteps}                from '../util/runSteps.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 import * as BuildId              from '../util/buildId.mjs';
 
@@ -87,47 +87,53 @@ if (programOpts.info) {
         questions
     });
 
-    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(answers => {
-        const env       = answers.env     || programOpts.env     || 'all',
-              threads   = answers.threads || programOpts.threads || 'all',
-              insideNeo = programOpts.framework || false,
-              startDate = new Date();
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(async answers => {
+        const env        = answers.env     || programOpts.env     || 'all',
+              threads    = answers.threads || programOpts.threads || 'all',
+              insideNeo  = programOpts.framework || false,
+              startDate  = new Date(),
+              builtDists = [],
+              steps      = [];
 
         /**
-         * @summary Builds selected threads with the resolved webpack entry and literal arguments.
-         * @param {String} tPath Configuration filename prefix for one environment.
+         * @summary The webpack run of each selected thread in one environment, as `runSteps` steps. Each thread
+         * writes only its own bundle, chunk folder and copies, so the runs share no output.
+         * @param {String} folder `development` or `production`
+         * @returns {Array[]}
          */
-        function parseThreads(tPath) {
-            for (const worker of ['main', 'app', 'canvas', 'data', 'service', 'task', 'vdom']) {
-                if (threads !== 'all' && threads !== worker) continue;
+        function threadSteps(folder) {
+            return ['main', 'app', 'canvas', 'data', 'service', 'task', 'vdom']
+                .filter(worker => threads === 'all' || threads === worker)
+                .map(worker => {
+                    const suffix = worker === 'main' ? 'main' : worker === 'app' ? 'appworker' : 'worker',
+                          args   = [webpack, '--config', `${webpackPath}/${folder}/webpack.config.${suffix}.mjs`];
 
-                const suffix = worker === 'main' ? 'main' : worker === 'app' ? 'appworker' : 'worker',
-                      args   = [webpack, '--config', `${tPath}.${suffix}.mjs`];
+                    if (worker !== 'main') {
+                        args.push('--env', `insideNeo=${insideNeo}`);
+                        worker !== 'app' && args.push(`worker=${worker}`)
+                    }
 
-                if (worker !== 'main') {
-                    args.push('--env', `insideNeo=${insideNeo}`);
-                    worker !== 'app' && args.push(`worker=${worker}`)
-                }
-
-                const childProcess = spawnSync(process.execPath, args, cpOpts);
-
-                if (childProcess.error) throw childProcess.error;
-                if (childProcess.status !== 0) process.exit(childProcess.status ?? 1)
-            }
+                    return [`${folder} ${worker}`, process.execPath, args]
+                })
         }
 
-        const builtDists = [];
-
         if (env === 'all' || env === 'dev') {
-            console.log(chalk.blue(`${programName} starting dist/development`));
-            parseThreads(`${webpackPath}/development/webpack.config`);
+            steps.push(...threadSteps('development'));
             builtDists.push('dist/development')
         }
 
         if (env === 'all' || env === 'prod') {
-            console.log(chalk.blue(`${programName} starting dist/production`));
-            parseThreads(`${webpackPath}/production/webpack.config`);
+            steps.push(...threadSteps('production'));
             builtDists.push('dist/production')
+        }
+
+        console.log(chalk.blue(`${programName} starting ${builtDists.join(' and ')}`));
+
+        const failed = (await runSteps(steps, cpOpts)).find(result => result.status);
+
+        if (failed) {
+            console.error(chalk.red(`${failed.label} failed`));
+            process.exit(failed.status)
         }
 
         // A failed thread exits before this line, so the id is published only once every selected environment built,

@@ -112,5 +112,27 @@
       {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]", "inRegion": true}
     ],
     "region": "viewport"
+  },
+  {
+    "id": "gantt-cascade",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "dark",
+    "state": "The office move plan after delaying cabling by a week, with the readout above the plan naming both move days.",
+    "ready": [
+      {"selector": ".neo-timeline-bar[data-event-id=\"first-day\"]"},
+      {"selector": ".cascade-move-pill.is-on-plan", "text": "Move day: Mon 16 Nov"}
+    ],
+    "steps": [
+      {"kind": "click", "selector": ".cascade-delay-btn"}
+    ],
+    "after": [
+      {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+      {"selector": ".cascade-viewport.is-slipped:not(.is-cascading)"},
+      {"selector": ".cascade-move-pill.is-slipped", "text": "Mon 16 Nov to Mon 23 Nov", "inRegion": true},
+      {"selector": ".cascade-readout-text", "text": "8 tasks moved", "inRegion": true},
+      {"selector": ".neo-timeline-bar[data-event-id=\"first-day\"]", "inRegion": true},
+      {"selector": ".neo-timeline-bar[data-event-id=\"handback\"]", "inRegion": true}
+    ],
+    "region": "viewport"
   }
 ]

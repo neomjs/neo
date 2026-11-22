@@ -192,6 +192,41 @@ test.describe('Rectangle', () => {
         });
     });
 
+    test.describe('fitTo — inside the bounds by the smallest move, shrunk only where it cannot fit', () => {
+        const bounds = new Rectangle(0, 0, 1000, 800);
+
+        test('a rectangle inside the bounds comes back as it is, as a copy', () => {
+            const subject = new Rectangle(100, 100, 400, 300),
+                  result  = subject.fitTo(bounds);
+
+            expect(result.equals(subject)).toBe(true);
+            expect(result).not.toBe(subject)
+        });
+
+        test('a rectangle across an edge moves back by the overlap, and keeps its size', () => {
+            expect(new Rectangle(700, 100, 400, 300).fitTo(bounds).equals(new Rectangle(600, 100, 400, 300)), 'right').toBe(true);
+            expect(new Rectangle(100, 600, 400, 300).fitTo(bounds).equals(new Rectangle(100, 500, 400, 300)), 'bottom').toBe(true);
+            expect(new Rectangle(-50, -20, 400, 300).fitTo(bounds).equals(new Rectangle(0, 0, 400, 300)), 'top-left').toBe(true)
+        });
+
+        test('only the dimension that cannot fit shrinks, where constrainTo() refuses without minima', () => {
+            const subject = new Rectangle(100, 100, 1200, 300);
+
+            expect(subject.constrainTo(bounds)).toBe(false);
+            expect(subject.fitTo(bounds).equals(new Rectangle(0, 100, 1000, 300))).toBe(true)
+        });
+
+        test('a minimum holds, and one larger than the bounds keeps the leading edge inside', () => {
+            const subject = new Rectangle(300, 100, 1200, 300);
+
+            subject.minWidth = 900;
+            expect(subject.fitTo(bounds).equals(new Rectangle(0, 100, 1000, 300)), 'room for the minimum').toBe(true);
+
+            subject.minWidth = 1100;
+            expect(subject.fitTo(bounds).equals(new Rectangle(0, 100, 1100, 300)), 'no room').toBe(true)
+        });
+    });
+
     test('expand should work', () => {
         expect(new Rectangle(10, 10, 10, 10).expand(5).equals(new Rectangle(5, 5, 20, 20))).toBe(true);
         expect(new Rectangle(10, 10, 10, 10).expand([5, 6]).equals(new Rectangle(4, 5, 22, 20))).toBe(true);
