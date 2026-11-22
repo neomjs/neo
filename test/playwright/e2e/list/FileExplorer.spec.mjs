@@ -151,5 +151,35 @@ test.describe('File explorer example', () => {
         // pages stays closed under the drop; opened, it holds the file
         await item(page, 'pages').click();
         await expect.poll(() => inside(page, 'pages')).toContain('Button.mjs')
+    });
+
+    test('a file dropped into an unopened folder does not stand in for its listing', async ({page}) => {
+        const requests = [];
+
+        page.on('request', request => request.url().includes('/fileExplorer/logs.json') && requests.push(request.url()));
+
+        // Tall enough to show README, the tree's last row, and logs at once
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(url);
+        await expect(item(page, 'README.md')).toBeVisible();
+
+        const from = await item(page, 'README.md').boundingBox(),
+              to   = await item(page, 'logs').boundingBox();
+
+        await page.mouse.move(from.x + 40, from.y + from.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(from.x + 44, from.y + from.height / 2 - 6, {steps: 4});
+        // The whole tree's height to cross: small steps, so the zone reads every row on the way
+        await page.mouse.move(to.x + 50, to.y + to.height / 2, {steps: 60});
+        await page.mouse.up();
+
+        await expect.poll(() => shown(page)).not.toContain('README.md');
+        expect(requests).toHaveLength(0);
+
+        // logs holds the dropped file, and still loads its own 365 the first time it opens
+        await item(page, 'logs').click();
+        await expect.poll(async () => (await inside(page, 'logs'))?.length).toBe(366);
+        expect(await inside(page, 'logs')).toContain('README.md');
+        expect(requests).toHaveLength(1)
     })
 });

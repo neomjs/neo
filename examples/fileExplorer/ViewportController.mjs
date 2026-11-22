@@ -62,7 +62,7 @@ class ViewportController extends ComponentController {
             path: '/' + names.join('/'),
             rows: [
                 ['Kind',     'Folder'],
-                ['Contents', children.length > 0 || !record.listing
+                ['Contents', !record.listing || record.loaded
                     ? `${children.filter(child => !child.isLeaf).length} folders, ${children.filter(child => child.isLeaf).length} files`
                     : 'Loads when the folder first opens']
             ]

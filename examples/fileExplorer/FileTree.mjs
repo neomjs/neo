@@ -75,6 +75,9 @@ class FileTree extends TreeList {
 
         let entries = await response.json();
 
+        // Before the add, so the store's load event already reads the folder as loaded
+        folder.setSilent({loaded: true});
+
         this.store.add(entries.map((entry, index) => ({
             ...entry,
             id      : `${folder.id}-${index}`,
@@ -83,7 +86,9 @@ class FileTree extends TreeList {
     }
 
     /**
-     * @summary Loads a folder's listing the first time it opens. A folder whose listing failed stays closed.
+     * @summary Loads a folder's listing the first time it opens. A folder whose listing failed stays closed and loads
+     * again on the next open. Whether the listing arrived is the record's `loaded`, not whether the folder holds
+     * anything: a file dropped into an unopened folder must not stand in for its listing.
      * @param {Neo.data.Model} record
      * @returns {Promise<Boolean|void>} false cancels the toggle
      */
@@ -91,7 +96,7 @@ class FileTree extends TreeList {
         let me     = this,
             isOpen = !record.collapsed;
 
-        if (!record.listing || me.store.find('parentId', record.id).length > 0) {
+        if (!record.listing || record.loaded) {
             return
         }
 
@@ -106,7 +111,7 @@ class FileTree extends TreeList {
             return false
         }
 
-        // A folder can show as open before it holds anything (clearing the filter opens every folder): the toggle
+        // A folder can show as open before its listing arrived (clearing the filter opens every folder): the toggle
         // would close it the moment its listing arrives
         if (isOpen) {
             return false

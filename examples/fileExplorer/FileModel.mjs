@@ -3,7 +3,8 @@ import Model from '../../src/data/Model.mjs';
 /**
  * @summary One entry of the file explorer: a folder or a file, linked to its folder by `parentId`, the shape
  * `Neo.tree.List` renders. A file's icon follows its name, so a rename to another extension changes it.
- * A folder with a `listing` holds no children until it is first opened: the tree loads them from that URL.
+ * A folder with a `listing` holds no children until it is first opened: the tree loads them from that URL and sets
+ * `loaded`.
  * @class Neo.examples.fileExplorer.FileModel
  * @extends Neo.data.Model
  */
@@ -45,6 +46,7 @@ class FileModel extends Model {
             {name: 'id',        type: 'String'},
             {name: 'isLeaf',    type: 'Boolean', defaultValue: true},
             {name: 'listing',   type: 'String',  defaultValue: null},
+            {name: 'loaded',    type: 'Boolean', defaultValue: false},
             {name: 'modified',  type: 'String'},
             {name: 'name',      type: 'String'},
             {name: 'parentId',  type: 'String',  defaultValue: null},
