@@ -252,21 +252,22 @@ export default defineComponent({
         };
 
         return {
+            style: {display: 'flex'},
             cn: [{
-                // 5. The List Component
+                // 5. The List Component, with an id of its own so each re-render keeps the same instance
                 module        : List,
+                id            : 'task-list',
                 displayField  : 'title',
                 selectionModel: {module: ListModel},
                 store         : TaskStore,
-                width         : 250,
+                width         : 300,
                 style         : paneStyle,
                 listeners     : {
                     select: onSelect
                 }
             }, {
                 // 6. The Details Pane (with conditional rendering)
-                flex: 1,
-                style: paneStyle,
+                style: {...paneStyle, flex: 1},
                 cn: selectedTask ? [
                     {tag: 'h2', text: selectedTask.title},
                     {tag: 'p',  text: selectedTask.description}
