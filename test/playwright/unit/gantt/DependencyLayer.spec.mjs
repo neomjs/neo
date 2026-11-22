@@ -125,3 +125,37 @@ test('with the axis starting past the overscan, a scroll keeps the projected win
         layer.destroy(); links.destroy(); store.destroy(); axis.destroy()
     }
 });
+
+test('links into and out of a milestone meet the left and right points of its diamond', () => {
+    const
+        date      = x => new Date(epoch + x * 60_000),
+        rowHeight = 40,
+        half      = DependencyLayer.milestoneHalfSize(rowHeight),
+        store     = Neo.create(TaskStore, {data: [
+            {id: 'work-a', isLeaf: true, startDate: date(40),  endDate: date(100)},
+            {id: 'gate',   isLeaf: true, startDate: date(160), endDate: date(160), milestone: true},
+            {id: 'work-b', isLeaf: true, startDate: date(220), endDate: date(280)}
+        ]}),
+        links     = Neo.create(DependencyStore, {data: [
+            {id: 'to-gate-fs',   fromId: 'work-a', toId: 'gate',   type: 'FS'},
+            {id: 'from-gate-fs', fromId: 'gate',   toId: 'work-b', type: 'FS'},
+            {id: 'from-gate-ss', fromId: 'gate',   toId: 'work-b', type: 'SS'},
+            {id: 'to-gate-ff',   fromId: 'work-a', toId: 'gate',   type: 'FF'}
+        ]}),
+        axis      = Neo.create(TimeAxis, {start: date(0), end: date(400), pxPerMinute: 1}),
+        layer     = Neo.create(DependencyLayer, {
+            appName, bufferPx: 0, dependencyStore: links, rowHeight, taskStore: store, timeAxis: axis, viewportWidth: 400
+        });
+
+    try {
+        const byId = new Map(layer.project().map(route => [route.data.dependencyId, route]));
+
+        expect(half).toBe(11);
+        expect(byId.get('to-gate-fs').d).toMatch(new RegExp(`^M 100 20 .* L ${160 - half} 60$`));
+        expect(byId.get('from-gate-fs').d).toBe(`M ${160 + half} 60 L ${160 + half + 12} 60 L ${160 + half + 12} 80 L 208 80 L 208 100 L 220 100`);
+        expect(byId.get('from-gate-ss').d).toMatch(new RegExp(`^M ${160 - half} 60 .* L 220 100$`));
+        expect(byId.get('to-gate-ff').d).toMatch(new RegExp(`^M 100 20 .* L ${160 + half} 60$`))
+    } finally {
+        layer.destroy(); links.destroy(); store.destroy(); axis.destroy()
+    }
+});
