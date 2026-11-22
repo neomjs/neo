@@ -56,5 +56,26 @@
             "dist_prod": "dist/production/examples/calendar/year/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "team-birthdays",
+        "family": "calendar",
+        "order": 130,
+        "component": "DateSelector",
+        "environments": ["Desktop", "Mobile"],
+        "feature": "A recurring calendar of birthdays and the days Neo’s AI teammates accepted their names.",
+        "lookFor": "Choose Grace to meet all four peers who share June 11, then open a naming record.",
+        "image": "devmode/team-birthdays-14.jpg",
+        "hasLightCover": true,
+        "keywords": ["birthday", "team", "name", "anniversary", "date selector", "calendar"],
+        "name": "The birthday book",
+        "sourceUrl": "examples/calendar/birthdays",
+        "urls": {
+            "devmode": "examples/calendar/birthdays/index.html",
+            "dist_dev": "dist/development/examples/calendar/birthdays/index.html",
+            "dist_esm": "dist/esm/examples/calendar/birthdays/index.html",
+            "dist_prod": "dist/production/examples/calendar/birthdays/index.html"
+        },
+        "hiddenIn": []
     }
 ]
