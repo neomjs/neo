@@ -1,0 +1,54 @@
+.neo-examples-worker-canvas {
+    .neo-examples-worker-canvas-header {
+        gap    : 12px 16px;
+        padding: 14px 16px 8px;
+    }
+
+    .neo-examples-worker-canvas-intro {
+        flex     : 1 1 340px;
+        min-width: 0;
+    }
+
+    .neo-examples-worker-canvas-title {
+        font-size  : 20px;
+        font-weight: 600;
+        line-height: 25px;
+        margin     : 0 0 4px;
+    }
+
+    .neo-examples-worker-canvas-instruction {
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0;
+        opacity    : .85;
+    }
+
+    /* Digits of one width, so the clock does not shake while it runs */
+    .neo-examples-worker-canvas-clock {
+        font-size           : 15px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+        white-space         : nowrap;
+    }
+
+    /* On one row the clock and the buttons stand at the right edge; wrapped, they start at the left */
+    @media (min-width: 900px) {
+        .neo-examples-worker-canvas-clock {
+            margin-left: auto;
+        }
+    }
+
+    /* The line holds its height while it is empty, so the canvas keeps its size when the result arrives */
+    .neo-examples-worker-canvas-result {
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0;
+        min-height : 19px;
+        padding    : 0 16px 10px;
+    }
+
+    canvas {
+        display  : block;
+        min-width: 0;
+    }
+}
