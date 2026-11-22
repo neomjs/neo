@@ -362,10 +362,16 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
     });
 
     test('Retained Decisions in learn/tree.json shows all 7 substantive Engine ADRs and hides the 5 moved redirect stubs (#20526)', async () => {
-        const treeData  = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'learn/tree.json'), 'utf8')).data,
-              decisions = treeData.filter(node => node.parentId === 'AgentInterfaces/Decisions'),
-              visible   = decisions.filter(node => !node.hidden).map(node => node.id),
-              hidden    = decisions.filter(node => node.hidden === true).map(node => node.id);
+        const treeData            = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'learn/tree.json'), 'utf8')).data,
+              usingTheseTopics    = fs.readFileSync(path.resolve(process.cwd(), 'learn/UsingTheseTopics.md'), 'utf8'),
+              visibleEngineLeaves = treeData.filter(node => node.isLeaf !== false && !node.hidden),
+              decisions           = treeData.filter(node => node.parentId === 'AgentInterfaces/Decisions'),
+              visible             = decisions.filter(node => !node.hidden).map(node => node.id),
+              hidden              = decisions.filter(node => node.hidden === true).map(node => node.id);
+
+        expect(visibleEngineLeaves).toHaveLength(127);
+        expect(usingTheseTopics).toContain('composes `222` visible topics across ten sections (`127` Engine topics plus `95` federated guides');
+        expect(usingTheseTopics).toContain('and `7` retained Architectural Decision Records (`77` topics).');
 
         expect(visible).toEqual([
             'agentos/decisions/0004-github-content-architecture',
