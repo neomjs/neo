@@ -483,47 +483,68 @@ export function viewMounted(doc = document) {
 }
 
 /**
- * @summary Records, from before its navigation, the requests a page has open and when its network last moved: the
- * ledger {@link networkQuiet} reads.
+ * @summary Records, from before its navigation, the requests a page has open and when its network last moved, as
+ * Playwright reports them, plus the requests Chromium names a SharedWorker's start-up (`Sec-Fetch-Dest: sharedworker`,
+ * which only its own network events carry): the ledger {@link networkQuiet} reads.
  * @param {Object} page
- * @returns {{lastActivity: Number, pending: Set<Object>}}
+ * @returns {Promise<{lastActivity: Number, pending: Set<Object>, startups: Map<String, String>}>}
  */
-export function trackNetwork(page) {
-    const network = {lastActivity: Date.now(), pending: new Set()},
-          settle  = request => {network.pending.delete(request); network.lastActivity = Date.now()};
+export async function trackNetwork(page) {
+    const cdp     = await page.context().newCDPSession(page),
+          network = {lastActivity: Date.now(), pending: new Set(), startups: new Map()},
+          urls    = new Map(),
+          workers = new Set(),
+          settle  = request => {network.pending.delete(request); network.lastActivity = Date.now()},
+          name    = requestId => urls.has(requestId) && workers.has(requestId) && network.startups.set(requestId, urls.get(requestId));
 
     page.on('request', request => {network.pending.add(request); network.lastActivity = Date.now()});
     page.on('requestfinished', settle);
     page.on('requestfailed', settle);
+    cdp.on('Network.requestWillBeSent', ({requestId, request}) => {urls.set(requestId, request.url); name(requestId)});
+    cdp.on('Network.requestWillBeSentExtraInfo', ({requestId, headers}) => {
+        Object.entries(headers).some(([key, value]) => key.toLowerCase() === 'sec-fetch-dest' && value === 'sharedworker') && workers.add(requestId) && name(requestId)
+    });
+    await cdp.send('Network.enable');
 
     return network
 }
 
 /**
- * @summary Waits until no request has been open for NETWORK_QUIET_MS, apart from the start-up script of a SharedWorker
- * the browser runs: Chromium hands that script to the worker, and Playwright never reports it finished, so its
- * `networkidle` never arrives for a SharedWorker example. Any other open request keeps the page waiting, and a timeout
- * names both kinds.
- * @param {{lastActivity: Number, pending: Set<Object>}} network The ledger of {@link trackNetwork}
+ * @summary Waits until no request has been open for NETWORK_QUIET_MS, apart from the start-up scripts of SharedWorkers:
+ * requests Chromium names one, for a worker the browser runs. Chromium hands that script to the worker, and the page
+ * never sees it finish, so Playwright's `networkidle` never arrives for a SharedWorker example. A URL only passes as
+ * often as Chromium named it, so a request that shares a worker's URL keeps the page waiting, as does any other open
+ * request, and a timeout names both kinds.
+ * @param {{lastActivity: Number, pending: Set<Object>, startups: Map<String, String>}} network The ledger of
+ * {@link trackNetwork}
  * @param {Function} sharedWorkerUrls Resolves the script URLs of the SharedWorkers the browser runs
  * @param {Number} [timeout=15000]
  * @returns {Promise<String[]>} The start-up scripts it did not wait for
  */
 export async function networkQuiet(network, sharedWorkerUrls, timeout=15000) {
     const deadline = Date.now() + timeout;
-    let open, workers;
+    let open, startups;
 
     while (true) {
-        workers = new Set(await sharedWorkerUrls());
-        open    = [...network.pending].filter(request => !workers.has(request.url()));
+        const workers = new Set(await sharedWorkerUrls()),
+              named   = new Map();
+
+        [...network.startups.values()].filter(url => workers.has(url)).forEach(url => named.set(url, (named.get(url) ?? 0) + 1));
+        open     = [];
+        startups = [];
+
+        network.pending.forEach(request => {
+            const url = request.url();
+
+            named.get(url) > 0 ? (named.set(url, named.get(url) - 1), startups.push(url)) : open.push(url)
+        });
 
         if (!open.length && Date.now() - network.lastActivity >= NETWORK_QUIET_MS) {
-            return [...network.pending].map(request => request.url())
+            return startups
         }
 
         if (Date.now() > deadline) {
-            const startups = [...network.pending].filter(request => workers.has(request.url())).map(request => request.url());
-            throw new Error(`landing: the network never went quiet; open: ${open.map(request => request.url()).join(', ') || 'none'}; SharedWorker start-up scripts not waited for: ${startups.join(', ') || 'none'}`)
+            throw new Error(`landing: the network never went quiet; open: ${open.join(', ') || 'none'}; SharedWorker start-up scripts not waited for: ${startups.join(', ') || 'none'}`)
         }
 
         await new Promise(resolve => setTimeout(resolve, 100))
@@ -536,8 +557,8 @@ export async function networkQuiet(network, sharedWorkerUrls, timeout=15000) {
  * LANDING_QUIET_MS. One rule for every example, with no selector of its own; an example that never settles fails,
  * because its landing state is not a frame a cover can show.
  * @param {Object} page
- * @param {{lastActivity: Number, pending: Set<Object>}} network The ledger of {@link trackNetwork}, started before the page
- * navigated
+ * @param {{lastActivity: Number, pending: Set<Object>, startups: Map<String, String>}} network The ledger of
+ * {@link trackNetwork}, started before the page navigated
  * @param {Function} [sharedWorkerUrls] Resolves the script URLs of the SharedWorkers the browser runs
  * @returns {Promise<String[]>} The SharedWorker start-up scripts it did not wait for
  */
@@ -591,7 +612,7 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
           row               = {id: recipe.id, name: recipe.name, url: url.href, viewport: recipe.viewport, deviceScaleFactor, theme: recipe.theme, state: recipe.state, dependencies: recipe.dependencies ?? [], ready: recipe.ready, steps: recipe.steps, after: recipe.after, requestedRegion: recipe.region};
     let cdp;
     try {
-        const page = await context.newPage(), errors = [], network = trackNetwork(page);
+        const page = await context.newPage(), errors = [], network = await trackNetwork(page);
         page.setDefaultTimeout(15000);
         page.on('pageerror', error => errors.push(error.message));
         await page.goto(url.href, {waitUntil: 'domcontentloaded', timeout: 30000});

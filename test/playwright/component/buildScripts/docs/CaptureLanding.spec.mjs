@@ -27,7 +27,7 @@ function lateMount(mountMs, startup='') {
 
 test('a landing capture waits for the view a themed page mounts late, then for the frame to hold still', async ({page}) => {
     await page.setViewportSize({width: 960, height: 540});
-    const network = trackNetwork(page);
+    const network = await trackNetwork(page);
     await page.setContent(lateMount(2000));
     await landingReady(page, network);
     expect(await page.locator('.neo-viewport').count()).toBe(1)
@@ -38,7 +38,7 @@ test('an ordinary request left open keeps a mounted, still page from counting as
     await page.setViewportSize({width: 960, height: 540});
     // Never answered: the request stays open, as a slow data load would
     await page.route('http://capture.test/held.json', () => {});
-    const network = trackNetwork(page);
+    const network = await trackNetwork(page);
     await page.setContent(lateMount(0, `fetch('http://capture.test/held.json').catch(() => {});`));
     await expect(landingReady(page, network)).rejects.toThrow('landing: the network never went quiet; open: http://capture.test/held.json')
 });
