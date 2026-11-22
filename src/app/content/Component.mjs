@@ -289,20 +289,26 @@ class Component extends Markdown {
      * @returns {String}
      */
     modifyMarkdown(content) {
-        this.headlineData  = [];
-        this.#sectionSlugs = this.routeSections ? new Set() : null;
+        const {routeSections} = this;
+
+        this.headlineData = [];
+
+        if (routeSections) this.#sectionSlugs = new Set();
+
         const result = super.modifyMarkdown(content);
 
         if (this.updateSectionsStore) {
-            if (this.routeSections) {
+            if (routeSections) {
                 this.#renderedSections = this.headlineData
             } else {
                 this.getStateProvider().getStore('sections').data = this.headlineData
             }
         }
 
-        this.headlineData  = null;
-        this.#sectionSlugs = null;
+        this.headlineData = null;
+
+        if (routeSections) this.#sectionSlugs = null;
+
         return result
     }
 
@@ -410,7 +416,7 @@ class Component extends Markdown {
               headline     = marked.parseInline(text),
               section      = {id: index, name: sideNavTitle, sourceId: this.id, tag};
 
-        if (this.#sectionSlugs) {
+        if (this.routeSections) {
             const slug = headline.replace(/<[^>]*>|&(?:#\w+|[a-z][\da-z]*);/gi, '')
                                  .trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}_ -]/gu, '').replaceAll(' ', '-');
 
