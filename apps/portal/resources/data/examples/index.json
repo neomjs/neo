@@ -1,6 +1,7 @@
 [
     "apps",
     "grid-table",
+    "tree",
     "lists",
     "charts",
     "calendar",

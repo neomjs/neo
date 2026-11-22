@@ -493,12 +493,12 @@ test.describe('Portal examples overview and group pages', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        // Grid & Table held the only covered tree records via alsoIn, so removing grid-table withdraws tree as well
+        // Trees lends the tree grids from Grid & Table through alsoIn and keeps its own file explorer when they go
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(
-            publishedRoutes.filter(route => route !== '/examples/grid' && route !== '/examples/tree')
+            publishedRoutes.filter(route => route !== '/examples/grid')
         );
         expect(view.getGroupPage('grid-table')).toBeNull();
-        expect(view.getGroupPage('tree')).toBeNull()
+        expect(pageIds(view, 'tree')).toEqual(['file-explorer'])
     });
 
     test('a record with alsoIn shows once in each of its groups and counts once, in its home group', () => {

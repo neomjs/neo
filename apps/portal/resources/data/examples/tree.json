@@ -1,0 +1,25 @@
+[
+    {
+        "id": "file-explorer",
+        "family": "tree",
+        "alsoIn": [
+            "drag-drop"
+        ],
+        "order": 1490,
+        "component": "Tree List",
+        "feature": "A project's folders and files: a file moves into another folder by drag and renames in place, and the filter keeps the folders around a match",
+        "lookFor": "Drag a file onto another folder, double-click a name to rename it, type into the filter, then open logs: its 365 files load when it first opens.",
+        "featured": false,
+        "image": "devmode/file-explorer-14.jpg",
+        "name": "File Explorer",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/fileExplorer",
+        "urls": {
+            "devmode": "examples/fileExplorer/index.html",
+            "dist_dev": "dist/development/examples/fileExplorer/index.html",
+            "dist_esm": "dist/esm/examples/fileExplorer/index.html",
+            "dist_prod": "dist/production/examples/fileExplorer/index.html"
+        },
+        "hiddenIn": []
+    }
+]
