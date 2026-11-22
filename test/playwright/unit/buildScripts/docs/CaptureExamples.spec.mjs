@@ -70,9 +70,12 @@ test('a tile in a covered family takes no landing capture, a card beside it does
     expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['form-one', 'grid-card'])
 });
 
-test('a card in a family no recipe covers is captured by --record from its landing frame; a recipe needs a declared family and replaces it', () => {
+test('a card in a family no recipe covers is captured by --record alone; a recipe needs a declared family and replaces it', () => {
     const valid = validateCaptureRecipes(manifest(), catalog());
     expect(selectCaptureRecipes(valid, {record: 'form-one'})).toMatchObject([{id: 'form-one', landing: true, family: 'forms'}]);
+    // A bulk run keeps to the declared families
+    expect(selectCaptureRecipes(valid).map(recipe => recipe.id)).toEqual(['grid-one']);
+    expect(() => selectCaptureRecipes(valid, {family: 'forms'})).toThrow(/no matching capture recipes/);
     const raw = manifest(); raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'form-one'});
     expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/outside declared families/);
     raw.families.push('forms');

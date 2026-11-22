@@ -154,9 +154,9 @@ function catalogTiles(listed, catalog) {
 /**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
  * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
- * The declared families scope the frozen recipes alone. A tile (`kind: 'component'`) takes its crop from the `tiles`
- * list. A covered card without a recipe, in any family, gets a landing entry (`landing: true`): its cover is the frame
- * a visitor lands on, and its catalog id names the cover file under the same rule as a recipe's.
+ * A recipe needs a declared family. A tile (`kind: 'component'`) takes its crop from the `tiles` list. A covered card
+ * without a recipe, in any family, gets a landing entry (`landing: true`): its cover is the frame a visitor lands on,
+ * and its catalog id names the cover file under the same rule as a recipe's.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog The catalog's records, from `readExampleCatalog()`.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
@@ -238,7 +238,8 @@ export function selectTiles(manifest, tile) {
 }
 
 /**
- * @summary Selects one record, one family, or every validated recipe in authored order.
+ * @summary Selects one record, one family, or every validated recipe in authored order. A run of one family or of all
+ * keeps to the declared families; one named record is reached in any family.
  * @param {Object} manifest Validated manifest from validateCaptureRecipes.
  * @param {Object} options Optional mutually exclusive record/family selection.
  * @returns {Object[]} Selected recipes; refuses an unknown or empty explicit selection.
@@ -247,7 +248,8 @@ export function selectCaptureRecipes(manifest, {record, family} = {}) {
     if (record !== undefined) text(record, 'selection.record');
     if (family !== undefined) text(family, 'selection.family');
     insist(!(record && family), 'selection', 'use --record or --family, not both');
-    const selected = manifest.recipes.filter(recipe => record ? recipe.id === record : family ? recipe.family === family : true);
+    const selected = manifest.recipes.filter(recipe => record ? recipe.id === record :
+        manifest.families.includes(recipe.family) && (!family || recipe.family === family));
     insist(selected.length > 0, 'selection', 'no matching capture recipes');
     return selected
 }
