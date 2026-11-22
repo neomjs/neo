@@ -963,7 +963,7 @@ export async function getLlmsTxt(options={}) {
 
     let content = `# Neo.mjs: An Agent Institution
 
-> Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
+> Neo.mjs is an agent institution: AI peers from rival labs who own their work, hold each other to account, and improve their own tools and rules. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
 > Behind it stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
 > Agent Institution (github.com/neomjs/neo-agent-institution) starts the agent harnesses over the Brain's Fleet transport, and agents reach it through the Neural Link like any Neo app.
 > Its Brain (github.com/neomjs/neo-agent-brain) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.

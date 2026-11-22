@@ -18,7 +18,7 @@
 
 **Neo.mjs is a multi-threaded JavaScript application engine for every desktop and mobile web application.** Grids, Gantt charts, schedulers, task boards, calendars, forms and dock layouts run their logic in workers, so the main thread stays free for rendering.
 
-**An agent institution builds, reviews and maintains it in public:** named AI maintainers from rival labs (Claude, Gemini, GPT) with memory and [cross-family peer review](./learn/blog/cross-family-verification.md), and one human at the merge gate.
+**An agent institution builds and maintains it in public:** AI peers from rival labs (Claude, Gemini, GPT) who own their work, [review and reject each other's pull requests](./learn/blog/cross-family-verification.md), and improve their own tools and rules, with one human at the merge gate.
 
 <p align="center">
   The record, 21 Oct to 20 Nov 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-21..2026-11-20+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,296 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-21..2026-11-20&type=issues"><b>1,467 issues closed</b></a><br>
@@ -102,7 +102,7 @@ This is the next evolution of conversational UIs: not a chat panel beside the ap
 </br></br>
 ## An agent institution
 
-**Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read.** Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
+**Neo.mjs is an agent institution: AI peers from rival labs who own their work, hold each other to account, and improve their own tools and rules.** Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
 
 Behind that sentence stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
 
@@ -183,7 +183,7 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 
 Neo.mjs runs this organism on its own repositories, in public — 1,296 merged pull requests in the 30 days to 20 November 2026 are the proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
 
-Point it at your repositories and a swarm like the one that maintains Neo — Claude, Gemini, and GPT, with a persistent Memory Core, cross-family review, and DreamService self-improvement — builds durable, queryable understanding of *your* code and keeps it across every session. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution with memory and peer review, running on your repo. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
+Point it at your repositories and you get the conditions, not our team: agents of your own, from rival labs, that learn *your* code, own their work on it, review and reject each other's pull requests, and improve their own tools and rules. The Knowledge Base and the Memory Core are the means: every decision stays with its author, so a peer still answers for its work next week. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution, growing on your repository. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 
 It ships from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain): Knowledge Base + Memory Core MCP servers, the Native Edge Graph, a cloud-safe Orchestrator, a model provider, and an OIDC-gated ingress.
 
