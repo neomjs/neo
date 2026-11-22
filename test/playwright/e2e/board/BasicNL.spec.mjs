@@ -515,6 +515,47 @@ test.describe('Board, basic example: one store, two views', () => {
         expect(doneRecords.at(-1)).toMatchObject({id: 'backlog-0', status: 'done'})
     });
 
+    test('saving a due date in CardEditor renders a <time> badge on the card and clearing it removes the badge', async ({page, neuralLink}) => {
+        const
+            {app, boardId, records} = await open(page, neuralLink),
+            card                    = page.locator(`[id="${boardId}__card__1"]`),
+            dueBadge                = card.locator('time.neo-board-card-due-date'),
+            dialog                  = page.locator('.neo-board-card-editor');
+
+        await expect(dueBadge).toHaveCount(0);
+
+        await card.locator('.neo-board-card-menu-button').click();
+        await expect(dialog).toBeVisible();
+        await app.callMethod(`${boardId}__editor`, 'setFieldValue', ['dueDate', '2026-12-15']);
+        await page.locator('.neo-board-card-editor-save').click();
+        await expect(dialog).toBeHidden();
+
+        expect((await records('backlog')).find(record => record.id === 1)?.dueDate).toBe('2026-12-15');
+        await expect(dueBadge).toBeVisible();
+        await expect(dueBadge).toHaveAttribute('datetime', '2026-12-15');
+        await expect(dueBadge).toHaveText('Due Dec 15');
+
+        const dueContrast = await dueBadge.evaluate(el => {
+            const parseRgb = value => (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number),
+                  lum      = ([r, g, b]) => [r, g, b]
+                      .map(c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4 })
+                      .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0),
+                  cardBg   = getComputedStyle(el.closest('.neo-board-card')).backgroundColor,
+                  [l1, l2] = [lum(parseRgb(getComputedStyle(el).color)), lum(parseRgb(cardBg))];
+
+            return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05)
+        });
+        expect(dueContrast, 'dueDate badge meets WCAG 4.5:1 against card background').toBeGreaterThanOrEqual(4.5);
+
+        await card.locator('.neo-board-card-menu-button').click();
+        await expect(dialog).toBeVisible();
+        await app.callMethod(`${boardId}__editor`, 'setFieldValue', ['dueDate', '']);
+        await page.locator('.neo-board-card-editor-save').click();
+        await expect(dialog).toBeHidden();
+
+        await expect(dueBadge).toHaveCount(0)
+    });
+
     test('the card editor keeps WCAG contrast on Save in neo-light and on header icons and field outlines in cyberpunk', async ({page, neuralLink}) => {
         const measureEditor = () => page.locator('.neo-board-card-editor').evaluate(editor => {
             const parseRgb = value => (value.match(/\d+(\.\d+)?/g) || [0, 0, 0]).slice(0, 3).map(Number),

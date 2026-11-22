@@ -1,3 +1,5 @@
+import DateUtil from '../util/Date.mjs';
+
 /**
  * @summary The renderers of a card's body: one function per item type, each turning a record into one vdom node.
  * @description `Neo.board.Card` maps the board's `cardItems` config through {@link renderCardItem}. A renderer
@@ -10,6 +12,52 @@
  */
 
 const warned = new Set();
+
+/**
+ * @summary Parses a `Date` or date string into `{iso, wallDate}` without timezone rollover, or returns `null`
+ * @param {*} value
+ * @returns {{iso: String, wallDate: Date}|null}
+ */
+const parseDueDate = value => {
+    if (value == null || value === '') {
+        return null
+    }
+
+    if (value instanceof Date) {
+        if (Number.isNaN(value.getTime())) {
+            return null
+        }
+
+        return {
+            iso     : DateUtil.convertToyyyymmdd(value),
+            wallDate: new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()))
+        }
+    }
+
+    const raw = String(value).trim();
+
+    if (!raw) {
+        return null
+    }
+
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/);
+
+    if (match) {
+        const
+            y        = Number(match[1]),
+            m        = Number(match[2]),
+            d        = Number(match[3]),
+            wallDate = new Date(Date.UTC(y, m - 1, d));
+
+        if (wallDate.getUTCFullYear() !== y || wallDate.getUTCMonth() !== m - 1 || wallDate.getUTCDate() !== d) {
+            return null
+        }
+
+        return {iso: `${match[1]}-${match[2]}-${match[3]}`, wallDate}
+    }
+
+    return parseDueDate(new Date(raw))
+};
 
 /**
  * @summary The first letters of a name, two at most
@@ -96,6 +144,43 @@ export const cardItems = {
             'aria-valuemax': 100,
             'aria-valuenow': percent,
             cn             : [{cls: ['neo-board-card-progress-bar'], style: {width: `${percent}%`}}]
+        }
+    },
+
+    /**
+     * @summary A due date badge rendered as a semantic `<time>` node
+     * @param {Object} record
+     * @param {Object} item
+     * @param {String} [item.field='dueDate']
+     * @param {Object} [item.formatOptions]
+     * @param {Function} [item.formatter]
+     * @param {String} [item.locale='en-US']
+     * @param {String|Boolean} [item.prefix='Due']
+     * @returns {Object|null}
+     */
+    dueDate(record, item) {
+        const
+            raw    = record?.[item?.field || 'dueDate'],
+            parsed = parseDueDate(raw);
+
+        if (!parsed) {
+            return null
+        }
+
+        const
+            options   = item?.formatOptions || {month: 'short', day: 'numeric'},
+            formatted = DateUtil.formatWall(item?.locale || 'en-US', options, parsed.wallDate),
+            prefix    = item?.prefix === undefined ? 'Due' : item.prefix,
+            text      = typeof item?.formatter === 'function'
+                ? item.formatter(raw, record)
+                : prefix ? `${prefix} ${formatted}` : formatted;
+
+        return text == null || text === '' ? null : {
+            tag     : 'time',
+            cls     : ['neo-board-card-due-date'],
+            datetime: parsed.iso,
+            title   : parsed.iso,
+            text    : String(text)
         }
     },
 
