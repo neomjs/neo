@@ -40,12 +40,12 @@ test.describe('Portal.view.learn.Component — rewriteLinks spoke & repo routing
         expect(rewritten).toContain('href="#/learn/agentos/NeuralLink"');
     });
 
-    test('tolerates minimal stateProvider stubs that expose getData without getStore', () => {
+    test('falls back to external target="_blank" links when no tree store is loaded', () => {
         const ctx = {
             contentRoute    : '#/learn/',
             record          : {id: 'benefits/Introduction'},
             getContentPath  : LearnComponent.prototype.getContentPath,
-            getStateProvider: () => ({getData: () => `${Neo.config.basePath}learn/`}),
+            getStateProvider: () => ({getData: () => `${Neo.config.basePath}learn/`, getStore: () => null}),
             resolveContentId: LearnComponent.prototype.resolveContentId
         };
 

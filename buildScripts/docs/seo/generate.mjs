@@ -8,20 +8,19 @@ import {requireContentRoot} from '../../util/contentRoot.mjs';
 import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
     NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes,
-    collectExampleRoutes, composeLearnSpokes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly,
-    extractFrontmatterField, extractMarkdownSeoMetadata, extractPortalIndexMetadata, findUnlistedLearnMarkdownFiles,
-    formatLastmodDate, formatLearnSeoTitle, formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod,
-    getGitLastModifiedBatch, getGitPath, getIndexableReleaseVersions, getMaxReleaseMajor, getPreservedFileLastmod,
-    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion, isRedirectMarkdown,
-    normalizeIsoDateOnly, readSpokeLastmodMap, resolveLearnTreeLeaves
+    collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
+    extractMarkdownSeoMetadata, extractPortalIndexMetadata, findUnlistedLearnMarkdownFiles, formatLastmodDate,
+    formatLearnSeoTitle, formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch,
+    getGitPath, getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson,
+    hasReliableGitHistory, isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
     NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes,
-    composeLearnSpokes, extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
+    extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
     extractPortalIndexMetadata, findUnlistedLearnMarkdownFiles, formatLearnSeoTitle, formatStandaloneExampleSeo,
-    getIndexableReleaseVersions, getMaxReleaseMajor, getPreservedFileLastmod, getPublishedExampleFamilies, getSeoJson,
-    hasReliableGitHistory, isIndexableReleaseVersion, isRedirectMarkdown, readSpokeLastmodMap, resolveLearnTreeLeaves
+    getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
+    isIndexableReleaseVersion, isRedirectMarkdown, resolveLearnTreeLeaves
 };
 
 /**
@@ -743,15 +742,12 @@ export async function getSitemapXml(options={}) {
     });
 
     const normalizedBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-    const resolvedLearnDir  = options.learnDir || path.resolve(root, 'learn');
 
     let changedGitPaths       = new Set();
     let existingLastmodMap    = new Map();
     let frontmatterLastmodMap = new Map();
-    let gitHistoryReliable    = false;
     let lastModMap            = new Map();
     let resolvedSeoJson       = seoJson || null;
-    let spokeLastmodMap       = new Map();
 
     if (!resolvedSeoJson && !onlyArchives && !onlyDiscussions) {
         const candidateSeoPath = seoJsonPath || path.resolve(root, 'apps/portal/resources/data/seo.json');
@@ -781,11 +777,9 @@ export async function getSitemapXml(options={}) {
             }
         }
 
-        gitHistoryReliable    = hasReliableGitHistory(root);
         changedGitPaths       = getChangedGitPaths(root);
         lastModMap            = getGitLastModifiedBatch(gitTargetPaths, root);
         frontmatterLastmodMap = await getCorpusFrontmatterLastmodBatch(archiveFilePaths);
-        spokeLastmodMap       = (!onlyArchives && !onlyDiscussions) ? await readSpokeLastmodMap(resolvedLearnDir) : new Map();
 
         if (existingSitemapPath) {
             existingLastmodMap = await getExistingSitemapLastmodMap(existingSitemapPath);
@@ -815,32 +809,27 @@ export async function getSitemapXml(options={}) {
             const candidatePaths = filePaths || (filePath ? [filePath] : []);
             const isArchiveRoute = ARCHIVE_ROUTE_CATEGORIES.has(category);
 
-            if (spokeLastmodMap.has(routePath)) {
-                lastmod = spokeLastmodMap.get(routePath);
-            } else {
-                for (const candidatePath of candidatePaths) {
-                    const key            = category === 'file' ? path.dirname(candidatePath) : candidatePath;
-                    const gitPath        = getGitPath(key, root);
-                    const changedLastmod = gitPath.startsWith('../')
-                        ? null
-                        : getChangedLastmod(gitPath, changedGitPaths, category === 'file', root);
+            for (const candidatePath of candidatePaths) {
+                const key            = category === 'file' ? path.dirname(candidatePath) : candidatePath;
+                const gitPath        = getGitPath(key, root);
+                const changedLastmod = gitPath.startsWith('../')
+                    ? null
+                    : getChangedLastmod(gitPath, changedGitPaths, category === 'file', root);
 
-                    const candidateLastmod = isArchiveRoute
-                        ? (frontmatterLastmodMap.get(candidatePath) || changedLastmod || lastModMap.get(key) || null)
-                        : (changedLastmod || lastModMap.get(key) || null);
+                const candidateLastmod = isArchiveRoute
+                    ? (frontmatterLastmodMap.get(candidatePath) || changedLastmod || lastModMap.get(key) || null)
+                    : (changedLastmod || lastModMap.get(key) || null);
 
-                    lastmod = pickNewerLastmod(lastmod, candidateLastmod);
+                lastmod = pickNewerLastmod(lastmod, candidateLastmod);
+            }
+
+            if (isArchiveRoute) {
+                if (!lastmod) {
+                    lastmod = existingLastmodMap.get(url) || null;
                 }
-
-                if (isArchiveRoute) {
-                    if (!lastmod) {
-                        lastmod = existingLastmodMap.get(url) || null;
-                    }
-                } else if (!lastmod) {
-                    const seoJsonLastmod = getSeoJsonRouteLastmod(resolvedSeoJson, routePath) || frontmatterLastmod ||
-                        (!gitHistoryReliable && options.preserveSpokeMtime && filePath ? getPreservedFileLastmod(filePath) : null);
-                    lastmod = pickNewerLastmod(existingLastmodMap.get(url) || null, seoJsonLastmod);
-                }
+            } else if (!lastmod) {
+                const seoJsonLastmod = getSeoJsonRouteLastmod(resolvedSeoJson, routePath) || frontmatterLastmod || null;
+                lastmod = pickNewerLastmod(existingLastmodMap.get(url) || null, seoJsonLastmod);
             }
         }
 
@@ -1335,7 +1324,6 @@ export default {
     collectBlogRoutes,
     collectExampleFamilyRoutes,
     collectExampleRoutes,
-    composeLearnSpokes,
     extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
     extractPortalIndexMetadata,
@@ -1351,7 +1339,6 @@ export default {
     getLlmsTxt,
     getIndexableReleaseVersions,
     getMaxReleaseMajor,
-    getPreservedFileLastmod,
     getPublishedExampleFamilies,
     getReleaseNotePriority,
     getSeoJson,
@@ -1362,6 +1349,5 @@ export default {
     hasReliableGitHistory,
     isIndexableReleaseVersion,
     isRedirectMarkdown,
-    readSpokeLastmodMap,
     resolveLearnTreeLeaves
 };

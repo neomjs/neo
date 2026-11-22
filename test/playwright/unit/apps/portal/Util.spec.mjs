@@ -161,7 +161,7 @@ test.describe('Portal Markdown views — engine pass, then rewriteRepoLinks()', 
         const context = {
             contentRoute    : '#/learn/',
             getContentPath  : LearnComponent.prototype.getContentPath,
-            getStateProvider: () => ({getData: () => Neo.config.basePath + 'learn/'}),
+            getStateProvider: () => ({getData: () => Neo.config.basePath + 'learn/', getStore: () => null}),
             record          : {id: 'benefits/Introduction'},
             resolveContentId: ContentComponent.prototype.resolveContentId
         };
@@ -179,7 +179,7 @@ test.describe('Portal Markdown views — engine pass, then rewriteRepoLinks()', 
         const context = {
             contentRoute    : '#/learn/',
             getContentPath  : LearnComponent.prototype.getContentPath,
-            getStateProvider: () => ({getData: () => Neo.config.basePath + 'resources/data/deck/training/'}),
+            getStateProvider: () => ({getData: () => Neo.config.basePath + 'resources/data/deck/training/', getStore: () => null}),
             record          : {id: 'Overview'},
             resolveContentId: ContentComponent.prototype.resolveContentId
         };
