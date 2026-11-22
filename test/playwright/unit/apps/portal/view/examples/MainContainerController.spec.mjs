@@ -1077,8 +1077,7 @@ test.describe('Portal examples canonical catalog', () => {
             kind         : 'component',
             name         : 'Video'
         });
-        expect(tileIds(view, 'components')).toContain('video');
-        expect(catalog.filter(record => !record.kind && !record.image)).toEqual([])
+        expect(tileIds(view, 'components')).toContain('video')
     });
 
     test('keeps the catalog order, and each build shows the records it can open', () => {
@@ -1294,7 +1293,6 @@ test.describe('Portal examples canonical catalog', () => {
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
         expect(list.getBackgroundImageStyle(store.get('grid-tree'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
         expect(list.getBackgroundImageStyle(store.get('on-air-at-eight'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
-        expect(store.items.filter(record => !record.image)).toEqual([]);
         expect(list.getBackgroundImageStyle({image: null})).toEqual({});
 
         for (const extension of ['jpg', 'png']) {

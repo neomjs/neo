@@ -502,7 +502,7 @@ export async function landingReady(page) {
     }), LANDING_QUIET_MS, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: the frame never held still for ${LANDING_QUIET_MS} ms (${error.message.split('\n')[0]})`)})
 }
 
-/** @summary Waits for fonts, stylesheets and visible capture-region images or videos to finish loading. */
+/** @summary Waits for fonts, stylesheets and visible capture-region images or videos (past Chromium's ~1.5s initial `<video controls>` overlay at 1800ms) to finish loading. */
 async function paintReady(page, clip) {
     await page.evaluate(async () => { await document.fonts.ready });
     await page.waitForFunction(rect => {
