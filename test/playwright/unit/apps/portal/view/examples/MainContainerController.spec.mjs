@@ -586,8 +586,10 @@ test.describe('Portal examples overview and group pages', () => {
         const dragIds = matchedIds();
         expect(dragIds).toEqual(expect.arrayContaining([
             'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
-            'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+            'dialog-drag-drop', 'workstation', 'webdesktop'
         ]));
+        // a pane popped out by its action is not a drag, so it no longer answers "drag" through the group's title
+        expect(dragIds).not.toContain('dock-tear-out');
 
         // every group counts its matching records at home and those lent to it, a group without a match at zero
         const counts = view.getStateProvider().getData('matchCounts'),

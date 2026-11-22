@@ -43,7 +43,7 @@ class Seo extends Base {
             '/examples/components'  : 'JavaScript UI Component Examples — Off the Main Thread | Neo.mjs',
             '/examples/dashboard'   : 'JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs',
             '/examples/dialogs'     : 'JavaScript Dialogs & Overlays — Live Examples | Neo.mjs',
-            '/examples/drag-drop'   : 'JavaScript Drag & Drop Examples — Across Windows | Neo.mjs',
+            '/examples/drag-drop'   : 'JavaScript Drag & Drop Examples — Boards, Lists & Windows | Neo.mjs',
             '/examples/forms'       : 'JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs',
             '/examples/functional'  : 'JavaScript Functional Component Examples | Neo.mjs',
             '/examples/gantt'       : 'MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs',

@@ -97,7 +97,7 @@ class MainContainer extends Container {
             {family: 'platform',     band: 'Platform',   title: 'Workers & Platform',        route: '/examples/platform',     iconCls: 'fa fa-microchip',          sentence: 'Worker tasks, remote method access, asset preloading, a canvas drawn off the main thread'},
             {family: 'state',        band: 'Platform',   title: 'State & Data',              route: '/examples/state',        iconCls: 'fa fa-database',           sentence: 'State providers, nested and two-way bindings, a data pipeline'},
             {family: 'functional',   band: 'Platform',   title: 'Functional Components',     route: '/examples/functional',   iconCls: 'fa fa-code',               sentence: 'Function components and templates beside classes, nested both ways'},
-            {family: 'drag-drop',    band: 'Platform',   title: 'Drag & Drop',               route: '/examples/drag-drop',    iconCls: 'fa fa-up-down-left-right', sentence: 'Dragging across the platform: dialogs, dock panes, drops between browser windows'}
+            {family: 'drag-drop',    band: 'Platform',   title: 'Drag & Drop',               route: '/examples/drag-drop',    iconCls: 'fa fa-up-down-left-right', sentence: 'Cards between columns, a day re-planned, tasks linked, lists and tabs reordered, panes docked, dialogs across windows'}
         ],
         /**
          * Shell CSS grid placing the mobile crumb across the top, the desktop group rail on the left, and the
