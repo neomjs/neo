@@ -122,7 +122,7 @@ class Component extends Markdown {
         if (value) {
             me.timeout(50).then(() => {
                 Neo.main.addon.IntersectionObserver.register({
-                    callback: 'findTopmostItem',
+                    callback: me.routeSections ? 'findActiveContentSection' : 'findTopmostItem',
                     id      : me.id,
                     root    : `#${me.parentId}`,
                     windowId: me.windowId

@@ -125,7 +125,13 @@ test.describe('learn link routing', () => {
     test('clicking a guide link scrolls to its section', async ({page}) => {
         await page.goto(GUIDE);
         await page.locator(`${CONTENT} a[href="${DECISION_3_ROUTE}"]`).click();
-        await expectDecisionArrival(page)
+        await expectDecisionArrival(page);
+
+        const nextTitle = 'Decision 4 — skin it with tokens, on the right scope',
+              next      = page.locator(CONTENT).getByRole('heading', {level: 2, name: nextTitle, exact: true});
+
+        await next.evaluate(node => node.scrollIntoView({behavior: 'instant'}));
+        await expect(page.locator(`${SECTIONS} .neo-selected`)).toHaveText(nextTitle)
     });
 
     test('opening a guide section URL scrolls after loading the article', async ({page}) => {

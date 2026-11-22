@@ -89,7 +89,8 @@ class SectionsList extends List {
 
             try {
                 await Neo.main.DomAccess.scrollIntoView({behavior, querySelector: selector, windowId: me.windowId});
-                await me.timeout(200)
+
+                if (behavior === 'smooth') await me.timeout(200)
             } catch (error) {
                 if (error !== Neo.isDestroyed) throw error
             } finally {
