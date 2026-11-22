@@ -873,8 +873,12 @@ class Overflow extends Plugin {
      * A measure without layout (getLayoutRect answers one object instead of a list, as on a server-side
      * render) skips the pass: no split is applied and nothing is logged.
      * @param {Boolean} recapture  Re-read natural widths (mount, or the tab set changed).
+     * @param {Object} [options={}]
+     * @param {AbortSignal|null} [options.signal=null] The caller's supersession. Once it aborts, the pass stops
+     *     waiting on its reads, hands the strip back as the last split left it and releases the latch; a read
+     *     that answers later reaches nothing, so it writes no cache and no split.
      */
-    async project(recapture) {
+    async project(recapture, {signal=null}={}) {
         let me       = this,
             {owner}  = me,
             buttons  = me.getTabButtons(),
@@ -905,6 +909,12 @@ class Overflow extends Plugin {
             return
         }
 
+        // A superseded caller's recapture is its successor's to make.
+        if (signal?.aborted) {
+            !me.measuring && me.resolveProjectionIdle();
+            return
+        }
+
         // Re-entrancy: getLayoutRect is an async main-thread round-trip, so a resize / activation / tab-set
         // storm can overlap passes. Coalesce instead of dropping — remember a re-run is owed (recapture is
         // sticky) and apply it ONCE after the in-flight pass, so the last state wins over a stale split.
@@ -917,6 +927,14 @@ class Overflow extends Plugin {
         me.measuring = true;
         me.publishProjectionState();
 
+        // A read can outlive the caller's projection, and an answer that never comes would hold the latch
+        // and the caller for good. Each await races the caller's abort: a pass that stops there hands the
+        // strip back in its finally, and an answer that comes later reaches nothing.
+        let aborted    = signal && new Promise(resolve => signal.addEventListener('abort', resolve, {once: true})),
+            settle     = promise => aborted ? Promise.race([promise, aborted]) : promise,
+            liftedCaps = [],
+            measurable = false;
+
         // `break pass` leaves a pass that has nothing to project; the finally and the drain below still run.
         pass: try {
             let controlIconCls = geometry.dimension === 'height'
@@ -926,8 +944,10 @@ class Overflow extends Plugin {
             if (me.control && me.control.iconCls !== controlIconCls) {
                 me.control.iconCls       = controlIconCls;
                 me.measuredControlWidth = null;
-                me.control.mounted && await me.control.promiseUpdate?.()
+                me.control.mounted && await settle(me.control.promiseUpdate?.())
             }
+
+            if (signal?.aborted) break pass;
 
             // Adopt any plugin-installed cap carried across a toolbar move (e.g. a dock pop-out or
             // cross-zone drag drop reusing the same tab.header.Button instance in a new strip) so the
@@ -967,9 +987,12 @@ class Overflow extends Plugin {
                 // fresh numbers (the recorded caller value stays authoritative) or clears via its ordinary
                 // restore branch. Only ledger members are touched — a consumer-configured maxWidth is not
                 // plugin residue and measures as part of the button's real constraint set.
+                measurable = removedButtons.length > 0 || cappedButtons.length > 0;
+
                 cappedButtons.forEach(button => {
                     let cap = me.appliedCaps.get(button.id);
 
+                    liftedCaps.push([button, cap.maxSize, button[cap.maxSize]]);
                     button[cap.maxSize] = cap.value
                 });
 
@@ -986,12 +1009,14 @@ class Overflow extends Plugin {
                         delete button.vdom.removeDom
                     });
                     owner.updateDepth = -1;
-                    await owner.promiseUpdate()
+                    await settle(owner.promiseUpdate())
                 }
 
-                let rects = await owner.getLayoutRect(buttons.map(button => button.id));
+                if (signal?.aborted) break pass;
 
-                if (!Array.isArray(rects)) break pass;
+                let rects = await settle(owner.getLayoutRect(buttons.map(button => button.id)));
+
+                if (signal?.aborted || !Array.isArray(rects)) break pass;
 
                 me.naturalWidths      = {};
                 me.naturalWidthLabels = {};
@@ -1022,15 +1047,22 @@ class Overflow extends Plugin {
 
             if (needRevealProbe) {
                 me.measuringWithheldActions = true;
-                await owner.setContextualActionMeasureReveal?.(true)
+                await settle(owner.setContextualActionMeasureReveal?.(true))
             }
+
+            if (signal?.aborted) break pass;
 
             let controlId = me.control?.mounted ? me.control.id : null,
                 ids       = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],
-                rects     = await owner.getLayoutRect(ids);
+                rects     = await settle(owner.getLayoutRect(ids));
+
+            if (signal?.aborted) break pass;
 
             if (needRevealProbe) {
-                await owner.setContextualActionMeasureReveal?.(false);
+                await settle(owner.setContextualActionMeasureReveal?.(false));
+
+                if (signal?.aborted) break pass;
+
                 me.measuringWithheldActions = false
             }
 
@@ -1140,6 +1172,9 @@ class Overflow extends Plugin {
                         : activeButton && me.naturalWidths[activeButton.id] > extent ? extent : null
                 });
 
+                // The split re-hid and re-capped what the measure restored: nothing is left to hand back.
+                measurable = false;
+
                 // When an initial recapture pass had all tabs visible, the action cluster was pushed beyond
                 // the owner's trailing edge, so `coordinateExtent` fell back to `sizeExtent` (which omits
                 // the toolbar's trailing padding / action-cluster gaps). Once `applySplit` hides the
@@ -1150,7 +1185,7 @@ class Overflow extends Plugin {
                     && clusterEnd > ownerStart + ownerSize + 1) {
                     me.revealedClusterSpan   = null;
                     me.revealedTrailingInset = null;
-                    await owner.promiseUpdate?.();
+                    await settle(owner.promiseUpdate?.());
                     me.projectQueued = true
                 }
             }
@@ -1171,9 +1206,19 @@ class Overflow extends Plugin {
                 console.error('Neo.tab.plugin.Overflow: project() threw against a live owner', error)
             }
         } finally {
+            // A pass the caller's supersession stopped hands the strip back as the last split left it.
+            signal?.aborted && me.rollBackAbortedPass(measurable, liftedCaps);
+
             // ALWAYS release the latch: a thrown getLayoutRect / applySplit must not strand `measuring` at
             // true, which would silently freeze every future projection (the header stops responding).
             me.measuring = false
+        }
+
+        // A superseded pass hands its queued re-run to the projection that superseded it, which recaptures
+        // under its own signal; a detached re-run here could wait on an unanswered read again.
+        if (signal?.aborted) {
+            me.projectQueued   = false;
+            me.queuedRecapture = false
         }
 
         // Drain a coalesced re-run: an event that arrived mid-pass is applied once here, against the
@@ -1196,8 +1241,23 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary Whether this plugin still owns `button`'s plugin-installed cap: the ledger names it, and no
+     * other live Overflow plugin holds the strip the button sits in now.
+     * @param {Neo.tab.header.Button|null} button
+     * @returns {Boolean}
+     * @protected
+     */
+    ownsCap(button) {
+        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== this) return false;
+
+        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
+
+        return !currentPlugin || currentPlugin === this || currentPlugin.isDestroying || currentPlugin.isDestroyed
+    }
+
+    /**
      * Restores a plugin-installed cap on a departed or retiring button unless another live
-     * Overflow plugin now owns the button or its cap.
+     * Overflow plugin now owns the button or its cap ({@link #ownsCap}).
      * @param {String} buttonId
      * @param {{maxSize: String, value: *}} cap
      * @protected
@@ -1208,15 +1268,7 @@ class Overflow extends Plugin {
                 || me.getTabButtons().find(item => item.id === buttonId)
                 || Neo.getComponent(buttonId);
 
-        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== me) {
-            return
-        }
-
-        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
-
-        if (currentPlugin && currentPlugin !== me && !currentPlugin.isDestroying && !currentPlugin.isDestroyed) {
-            return
-        }
+        if (!me.ownsCap(button)) return;
 
         button.removeCls?.('neo-tab-overflow-capped');
         button[cap.maxSize] = cap.value;
@@ -1344,6 +1396,32 @@ class Overflow extends Plugin {
 
         me.appliedHiddenIds = [...hidden];
         me.syncControl(hiddenMeta, tabContainer)
+    }
+
+    /**
+     * @summary Hands the strip back as the last committed split left it, after the caller's supersession
+     * stopped a pass mid-measure: the withheld-action reveal closes, the caps the measure lifted return while
+     * this plugin still owns them ({@link #ownsCap}), and the headers it restored hide again
+     * ({@link #restoreOpenMenuPartition}). A header that moved strips mid-pass keeps its new strip's cap.
+     *
+     * Nothing here waits: the channel that left a read unanswered must not hold the rollback too.
+     * @param {Boolean} measurable The pass had restored headers or caps for its measure.
+     * @param {Array[]} liftedCaps `[button, maxSize, value]` for each cap the measure lifted.
+     * @protected
+     */
+    rollBackAbortedPass(measurable, liftedCaps) {
+        let me      = this,
+            {owner} = me;
+
+        if (me.measuringWithheldActions) {
+            me.measuringWithheldActions = false;
+            Promise.resolve(owner.setContextualActionMeasureReveal?.(false)).catch(() => {})
+        }
+
+        if (measurable && !owner.isDestroyed) {
+            liftedCaps.forEach(([button, maxSize, value]) => {me.ownsCap(button) && (button[maxSize] = value)});
+            me.restoreOpenMenuPartition()
+        }
     }
 
     /**

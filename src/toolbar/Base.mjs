@@ -169,6 +169,12 @@ class Toolbar extends Container {
      */
     measuringContextualActions = false
     /**
+     * Counts measurement reveals, so a restore that resumes after a newer reveal began leaves that reveal on.
+     * @member {Number} measureRevealGeneration=0
+     * @protected
+     */
+    measureRevealGeneration = 0
+    /**
      * Reasons a focus-gated reveal is held back — a press on the tab overflow control, an open overflow
      * menu. While any holds, {@link #applyContextualActionState} keeps a withdrawn action withdrawn and
      * owes the reveal to {@link #releaseContextualReveal}, so the actions a focus inserts cannot move
@@ -511,6 +517,7 @@ class Toolbar extends Container {
                 touched = true
             });
 
+            me.measureRevealGeneration++;
             me.measuringContextualActions = true;
             me.applyContextualActionState(true);
 
@@ -519,6 +526,8 @@ class Toolbar extends Container {
                 return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
             }
         } else {
+            let generation = me.measureRevealGeneration;
+
             me.getActionItems().forEach(item => {
                 if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
                     return
@@ -544,6 +553,9 @@ class Toolbar extends Container {
                 me.updateDepth = -1;
                 await me.promiseUpdate()
             }
+
+            // A reveal that began while this restore waited owns the state now; its own restore ends it
+            if (generation !== me.measureRevealGeneration) return;
 
             me.measuringContextualActions = false;
             me.applyContextualActionState(true);

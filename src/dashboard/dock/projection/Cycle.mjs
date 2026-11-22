@@ -13,8 +13,10 @@ import Base from '../../../core/Base.mjs';
  *   consumer that needs the settled surface keeps awaiting the refresh. It never rejects: a cycle that is
  *   skipped, superseded, destroyed or repaired settles it with `null`, and the refresh stays the gate.
  * - **`timing`** is the receipt, in epoch milliseconds: `queuedAt` (the commit chained the cycle),
- *   `startedAt` (the settled tail and the one-tick deferral behind it), `reconciled`, `settledAt`, and
- *   `flipPlayed` once the motion window closes; `waitedForTail` says whether an earlier cycle was still
+ *   `startedAt` (the settled tail and the one-tick deferral behind it), then one stamp per awaited step
+ *   before the reconcile (`hostMounted` when the host had to mount first, `captured` after the FLIP
+ *   capture, `released` after the stale reveal panes), `reconciled`, `settledAt`, and `flipPlayed` once
+ *   the motion window closes; `waitedForTail` says whether an earlier cycle was still
  *   in flight when this one was chained, `landedInPlace` what the reconciler reported.
  * - **`predecessorTiming`** is the earlier cycle's live `timing` while this one waits on it. Read during a
  *   stall, its last stamp names the phase the earlier refresh never left. It is dropped once the tail

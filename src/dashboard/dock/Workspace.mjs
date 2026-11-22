@@ -548,6 +548,16 @@ class Workspace extends Container {
     projectionCycle = null
 
     /**
+     * The newest commit's supersession. {@link #projectDockZoneDocument} creates one per commit and aborts the one
+     * before it, whether that refresh is in flight or still queued; a refresh queued outside a commit joins the one
+     * current when it is queued ({@link #getProjectionAbort}). The reconciler hands its signal to the overflow
+     * recaptures it starts, so a read that never answers cannot hold a newer projection behind it.
+     * @member {AbortController|null} projectionAbort=null
+     * @protected
+     */
+    projectionAbort = null
+
+    /**
      * @summary The Group-owned native lifecycle; this view contributes effects, not native state.
      * @member {Neo.manager.transaction.NativeLifecycle|null} nativeWindows=null
      * @protected
@@ -2500,7 +2510,13 @@ class Workspace extends Container {
         // commit as the newer one and stands down — a `null` document, the clear, included.
         me.scheduledProjection = {document};
 
-        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle));
+        // Every refresh this commit replaces is superseded, the one in flight or one still queued: its overflow
+        // recaptures stop waiting on their reads, so this projection never queues behind a read that may not answer.
+        me.projectionAbort?.abort();
+
+        const projectionAbort = me.projectionAbort = new AbortController();
+
+        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle, projectionAbort));
         return me.refreshPromise
     }
 
@@ -2666,10 +2682,12 @@ class Workspace extends Container {
      * @param {Neo.dashboard.dock.projection.Cycle|null} [cycle=null] The scheduling commit's record of
      *     this one cycle, kept out of the options the hooks receive: the refresh stamps its receipt and
      *     settles its adoption once the reconcile has landed.
+     * @param {AbortController|null} [abort=null] The supersession this refresh answers to, taken where it was queued,
+     *     so a commit queued behind it has aborted it before it starts. A call outside the queue takes the current one.
      * @returns {Promise<void>}
      * @protected
      */
-    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null) {
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null, abort=null) {
         const
             me                 = this,
             host               = me.getDockHost(),
@@ -2677,6 +2695,7 @@ class Workspace extends Container {
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions,
+            projectionAbort    = abort || me.getProjectionAbort(),
             superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
@@ -2692,7 +2711,8 @@ class Workspace extends Container {
 
         if (!host.mounted) {
             try {
-                await host.promiseUpdate()
+                await host.promiseUpdate();
+                cycle?.stamp('hostMounted')
             } catch (error) {
                 if (error === Neo.isDestroyed || me.isDestroyed || host.isDestroyed) {
                     return
@@ -2713,6 +2733,8 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
+        cycle?.stamp('captured');
+
         if (me.isDestroyed || superseded()) {
             return
         }
@@ -2720,6 +2742,7 @@ class Workspace extends Container {
         me.beforeRefreshDockWorkspace(document, refreshOptions);
 
         await me.releaseStaleRevealPanes(document);
+        cycle?.stamp('released');
 
         if (me.isDestroyed || superseded()) {
             return
@@ -2767,6 +2790,7 @@ class Workspace extends Container {
             ),
             retainTopology: forcedRetainTopology ?? retainTopology,
             shellIndex    : me.dockShellIndex,
+            signal        : projectionAbort.signal,
             waitForOverflowProjection
         };
 
@@ -2788,6 +2812,14 @@ class Workspace extends Container {
         // over a shell the committed document does not describe would animate the recovery itself,
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
+
+        // A newer committed document is queued behind this one. Its refresh releases panes and runs the
+        // presentation against the catalog that is current then, so this obsolete catalog cannot retire a
+        // pane the newer document restarts. The landed document still adopts: it is in the host.
+        if (projectionAbort.signal.aborted || superseded()) {
+            cycle?.adopt(result);
+            return
+        }
 
         me.releaseDeclaredPanes(document);
 
@@ -2909,18 +2941,30 @@ class Workspace extends Container {
      * @protected
      */
     chainProjection({document, refreshOptions, tabInsertDescriptor}) {
-        const me   = this,
-              tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
+        const me    = this,
+              abort = me.getProjectionAbort(),
+              tail  = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.refreshPromise = tail
             .then(() => me.timeout(0).catch(error => {if (error !== Neo.isDestroyed) throw error}))
             .then(() => {
                 if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
 
-                return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+                return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, null, abort)
             });
 
         return me.refreshPromise
+    }
+
+    /**
+     * @summary The supersession a refresh queued now answers to, which the next commit aborts.
+     * A repair, a parked replay or a direct projection supersedes nothing, so it joins the one current when it is
+     * queued: bound when it starts, it would hold a live signal while a newer commit waits behind it.
+     * @returns {AbortController} The newest commit's, or one bound now when no commit has bound one yet.
+     * @protected
+     */
+    getProjectionAbort() {
+        return this.projectionAbort ??= new AbortController()
     }
 
     /**
