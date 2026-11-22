@@ -1,0 +1,90 @@
+{
+  "head": "763c09aa85595da113b868eec6c3dfed60ae48b2",
+  "cdpWindowIds": [
+    451218270,
+    451218273,
+    451218275
+  ],
+  "neoWindowIds": [
+    "d39c2bb7-d4f1-4117-9892-8e966c8020e4",
+    "68fe4229-7256-4d56-8f82-33284b2a7e5a",
+    "baf97908-8776-46fe-b998-518c24f87ca0"
+  ],
+  "workerTargetId": "31CEC714B2456C707B142CDC00BE0F65",
+  "initial": {
+    "paneIds": {
+      "scheduler": "neo-dock-pane-1",
+      "gantt": "neo-dock-pane-2",
+      "board": "neo-dock-pane-3"
+    },
+    "same": true,
+    "lighting": {
+      "start": 1794355200000,
+      "end": 1794528000000,
+      "resource": "mara"
+    },
+    "sound": {
+      "start": 1794528000000,
+      "end": 1794787200000,
+      "resource": "noor"
+    },
+    "labels": {
+      "start": 1794268800000,
+      "end": 1794441600000,
+      "resource": "eli"
+    }
+  },
+  "moved": {
+    "lighting": {
+      "start": 1794441600000,
+      "end": 1794614400000,
+      "resource": "mara"
+    },
+    "sound": {
+      "start": 1794614400000,
+      "end": 1794873600000,
+      "resource": "noor"
+    },
+    "labels": {
+      "start": 1794268800000,
+      "end": 1794441600000,
+      "resource": "eli"
+    },
+    "lightingChanges": 1,
+    "soundChanges": 1,
+    "events": 1,
+    "stable": true
+  },
+  "reassigned": {
+    "lighting": {
+      "start": 1794441600000,
+      "end": 1794614400000,
+      "resource": "noor"
+    },
+    "sound": {
+      "start": 1794614400000,
+      "end": 1794873600000,
+      "resource": "noor"
+    },
+    "labels": {
+      "start": 1794268800000,
+      "end": 1794441600000,
+      "resource": "eli"
+    },
+    "lightingChanges": 2,
+    "soundChanges": 1,
+    "events": 2,
+    "stable": true
+  },
+  "recordIdBeforeReturn": "lighting",
+  "retained": {
+    "same": true,
+    "ids": {
+      "scheduler": "neo-dock-pane-1",
+      "gantt": "neo-dock-pane-2",
+      "board": "neo-dock-pane-3"
+    },
+    "record": true
+  },
+  "recordIdAfterReturn": "lighting"
+}
