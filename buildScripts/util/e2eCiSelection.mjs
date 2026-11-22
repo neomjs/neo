@@ -63,6 +63,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs',
     'test/playwright/e2e/rendering/CalendarPhoneAndFold.spec.mjs',
     'test/playwright/e2e/rendering/CalendarWeekViewSwitch.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarYearExample.spec.mjs',
     'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
