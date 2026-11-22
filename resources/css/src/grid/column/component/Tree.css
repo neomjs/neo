@@ -13,7 +13,7 @@
         cursor    : pointer;
         flex      : none;
         text-align: center;
-        width     : 24px;
+        width     : var(--tree-toggle-width, 24px);
 
         &.is-leaf {
             cursor: default;

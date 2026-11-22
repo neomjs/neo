@@ -67,7 +67,8 @@
                 var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% + 8px),
                 var(--tree-helper-line-color, var(--grid-container-border-color)) 100%
             );
-            background-position: center;
+            /* Same x as the .neo-tree-indent lanes: `center` would put the 1px line 1px further right */
+            background-position: calc(var(--tree-toggle-width, 24px) / 2 - 1px) 0;
             background-repeat  : no-repeat;
             background-size    : 1px 100%;
 

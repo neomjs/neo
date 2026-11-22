@@ -8,6 +8,33 @@ const URL = '/examples/grid/tree/index.html';
  */
 const parseMoney = text => Number(String(text).replace(/[^0-9.-]+/g, ''));
 
+/**
+ * x of the folder's 1px toggle stem, and x of the same depth's lane in its child row's .neo-tree-indent
+ * @param {import('@playwright/test').Page} page
+ * @param {String} folderText
+ * @param {String} childText
+ * @returns {Promise<{laneX: Number, stemX: Number, toggleWidth: Number}>}
+ */
+const helperLineXs = (page, folderText, childText) => page.evaluate(([folderText, childText]) => {
+    const row          = text => [...document.querySelectorAll('.neo-grid-row')].find(el => el.textContent.includes(text)),
+          folderToggle = row(folderText).querySelector('.neo-tree-toggle'),
+          folderIndent = row(folderText).querySelector('.neo-tree-indent'),
+          childIndent  = row(childText) .querySelector('.neo-tree-indent'),
+          style        = getComputedStyle(folderToggle),
+          indent       = parseFloat(style.getPropertyValue('--tree-indent')) || 16,
+          toggleWidth  = folderToggle.getBoundingClientRect().width,
+          depth        = folderIndent.getBoundingClientRect().width / indent,
+          position     = style.backgroundPositionX,
+          // A % position places the 1px image at (box width - 1px) * %
+          stemOffset   = position.endsWith('%') ? (toggleWidth - 1) * parseFloat(position) / 100 : parseFloat(position);
+
+    return {
+        laneX: childIndent.getBoundingClientRect().left + depth * indent + toggleWidth / 2 - 1,
+        stemX: folderToggle.getBoundingClientRect().left + stemOffset,
+        toggleWidth
+    }
+}, [folderText, childText]);
+
 test.describe('Tree Grid E2E', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
@@ -133,6 +160,24 @@ test.describe('Tree Grid E2E', () => {
         await expect(nameHeader).toHaveClass(/neo-sort-hidden/);
         await expect(rows.nth(0)).toContainText('Core Platform');
         await expect(rows.nth(1)).toContainText('Runtime Engine');
+    });
+
+    test('an expanded folder\'s toggle stem lines up with the lane its children draw at that depth (#21966)', async ({page}) => {
+        const toggle = page.locator('.neo-grid-row', {hasText: 'Runtime Engine'}).locator('.neo-tree-toggle');
+
+        await toggle.click();
+        await expect(page.locator('.neo-grid-row', {hasText: 'V8 Worker Pool'})).toBeVisible();
+
+        let {laneX, stemX, toggleWidth} = await helperLineXs(page, 'Runtime Engine', 'V8 Worker Pool');
+        expect(toggleWidth).toBe(24);
+        expect(stemX).toBe(laneX);
+
+        // A custom toggle width moves the indent lanes, so the toggle has to follow it
+        await page.locator('.neo-grid-container').evaluate(el => el.style.setProperty('--tree-toggle-width', '30px'));
+
+        ({laneX, stemX, toggleWidth} = await helperLineXs(page, 'Runtime Engine', 'V8 Worker Pool'));
+        expect(toggleWidth).toBe(30);
+        expect(stemX).toBe(laneX);
     });
 
     test('Deep state interactions: expand, parent collapse/re-expand memory, phone width, and both themes', async ({page}) => {
