@@ -61,6 +61,31 @@ async function linksPaintIn(page, clip) {
     return !shown.equals(hidden)
 }
 
+// The scroll lands as the first link mounts, before the grid registers its scroll sync, which loads on demand
+test('gantt/zoom scrolled as its first link mounts draws its links in the chart', async ({page}) => {
+    await page.addInitScript(() => {
+        const observer = new MutationObserver(() => {
+            const scrollbar = document.querySelector('.neo-grid-horizontal-scrollbar');
+
+            if (scrollbar && document.querySelector('path[data-dependency-id]')) {
+                observer.disconnect();
+                scrollbar.scrollLeft = 2400
+            }
+        });
+
+        observer.observe(document, {childList: true, subtree: true})
+    });
+
+    await page.setViewportSize({width: 1440, height: 900});
+    await page.goto('/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark');
+    await expect(page.locator('path[data-dependency-id]').first()).toBeAttached();
+    await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.scrollLeft)).toBe(2400);
+
+    const {chart} = await regions(page);
+
+    await expect.poll(() => linksPaintIn(page, chart)).toBe(true)
+});
+
 // Scrolled so links whose bars left the chart cross the locked task column
 for (const [example, scroll] of [['zoom', 2400], ['basic', 300]]) {
     test(`gantt/${example} scrolled ${scroll} px draws its links in the chart, never over the locked columns`, async ({page}) => {

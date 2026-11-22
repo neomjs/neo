@@ -138,34 +138,12 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
-     * @summary Copies the scrollbar's position onto the centre body, the centre header, every registered follower
-     * row outside grid.body (`registration.followerIds`) and, while the grid has header groups, the centre part of
-     * its group row.
+     * @summary Moves the grid to its scrollbar's new position, see {@link #syncFromScroller}.
      * @param {Object} registration
      * @param {Event}  event
      */
     onScroll(registration, event) {
-        let scrollerNode    = event.target,
-            bodyNode        = DomAccess.getElement(registration.bodyId),
-            headerNode      = DomAccess.getElement(registration.headerId),
-            groupHeaderNode = registration.groupHeaderId && DomAccess.getElement(registration.groupHeaderId),
-            scrollLeft      = scrollerNode.scrollLeft;
-
-        // Synchronously update every node in the identical animation frame
-        if (bodyNode)   { bodyNode.style.setProperty('--grid-scroll-left', scrollLeft + 'px'); }
-        if (headerNode) {
-            headerNode.scrollLeft         = scrollLeft;
-            // What the header actually holds: it may clamp a value past its own range
-            registration.headerScrollLeft = headerNode.scrollLeft
-        }
-        // Looked up per scroll: the group row comes and goes with the grid's groups, under one id
-        if (groupHeaderNode) { groupHeaderNode.scrollLeft = scrollLeft }
-
-        if (registration.followerIds) {
-            for (let followerId of registration.followerIds) {
-                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollLeft + 'px');
-            }
-        }
+        this.syncFromScroller(registration, event.target)
     }
 
     /**
@@ -186,6 +164,8 @@ class GridHorizontalScrollSync extends Base {
     /**
      * @summary Registers a grid's scrollbar, centre header and view, replacing an earlier registration of `id`. The
      * nodes need not be in the document yet: {@link #onDocumentScroll} and {@link #onDocumentWheel} find them by id.
+     * A scrollbar that is in the document takes its grid to its position at once: this addon loads on demand, so a
+     * scroll before the registration reached the App worker but no listener here.
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.scrollerId
@@ -220,13 +200,7 @@ class GridHorizontalScrollSync extends Base {
         me.nodes.set(viewId || bodyId, {registration, role: 'view'});
 
         scrollerNode = DomAccess.getElement(scrollerId);
-
-        if (scrollerNode && registration.followerIds.size > 0) {
-            let scrollLeft = scrollerNode.scrollLeft;
-            for (let followerId of registration.followerIds) {
-                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollLeft + 'px');
-            }
-        }
+        scrollerNode && me.syncFromScroller(registration, scrollerNode);
 
         me.registrations.set(id, registration);
     }
@@ -248,6 +222,36 @@ class GridHorizontalScrollSync extends Base {
             let scrollerNode = DomAccess.getElement(registration.scrollerId);
             if (scrollerNode) {
                 DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollerNode.scrollLeft + 'px');
+            }
+        }
+    }
+
+    /**
+     * @summary Copies the scrollbar's position onto the centre body, the centre header, every registered follower
+     * row outside grid.body (`registration.followerIds`) and, while the grid has header groups, the centre part of
+     * its group row.
+     * @param {Object}      registration
+     * @param {HTMLElement} scrollerNode
+     */
+    syncFromScroller(registration, scrollerNode) {
+        let bodyNode        = DomAccess.getElement(registration.bodyId),
+            headerNode      = DomAccess.getElement(registration.headerId),
+            groupHeaderNode = registration.groupHeaderId && DomAccess.getElement(registration.groupHeaderId),
+            scrollLeft      = scrollerNode.scrollLeft;
+
+        // Synchronously update every node in the identical animation frame
+        if (bodyNode)   { bodyNode.style.setProperty('--grid-scroll-left', scrollLeft + 'px'); }
+        if (headerNode) {
+            headerNode.scrollLeft         = scrollLeft;
+            // What the header actually holds: it may clamp a value past its own range
+            registration.headerScrollLeft = headerNode.scrollLeft
+        }
+        // Looked up per scroll: the group row comes and goes with the grid's groups, under one id
+        if (groupHeaderNode) { groupHeaderNode.scrollLeft = scrollLeft }
+
+        if (registration.followerIds) {
+            for (let followerId of registration.followerIds) {
+                DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollLeft + 'px');
             }
         }
     }

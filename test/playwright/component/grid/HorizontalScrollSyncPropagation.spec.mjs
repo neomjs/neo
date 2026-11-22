@@ -3,6 +3,7 @@ import {test, expect} from '@playwright/test';
 /**
  * @summary `Neo.main.addon.GridHorizontalScrollSync` in a real page:
  * - a grid that registers before its nodes are in the document syncs its body and header once they are;
+ * - a grid whose scrollbar moved before it registered takes that position at once;
  * - a wheel that a nested control consumes stays with that control;
  * - an unregistered grid no longer follows its scrollbar.
  *
@@ -134,6 +135,56 @@ test.describe('Neo.main.addon.GridHorizontalScrollSync in the browser', () => {
                 scroller: node('probe-data-scroller').scrollLeft
             }
         })).toEqual({body: '40px', header: 40, scroller: 40})
+    });
+
+    test('a grid whose scrollbar moved before it registered takes that position at once (#21841)', async ({page}) => {
+        const readLate = () => page.evaluate(() => ({
+            body    : document.getElementById('late-body').style.getPropertyValue('--grid-scroll-left'),
+            header  : document.getElementById('late-header').scrollLeft,
+            scroller: document.getElementById('late-scroller').scrollLeft
+        }));
+
+        // The nodes and a scroll first: the addon loads on demand, so no listener of its own heard this one
+        await page.evaluate(() => {
+            const node = (id, style, parent = document.body) => {
+                const element = document.createElement('div');
+
+                element.id = id;
+                Object.assign(element.style, style);
+                parent.appendChild(element);
+                return element
+            };
+
+            node('late-scroller-content', {height: '1px', width: '1000px'}, node('late-scroller', {height: '20px', overflowX: 'auto', width: '300px'}));
+            node('late-header-content',   {height: '1px', width: '1000px'}, node('late-header',   {height: '20px', overflowX: 'hidden', width: '300px'}));
+            node('late-body', {height: '20px', width: '300px'});
+            node('late-view', {height: '100px', width: '300px'});
+
+            document.getElementById('late-scroller').scrollLeft = 120
+        });
+
+        expect(await readLate(), 'control: the scroll reached no grid node').toEqual({body: '', header: 0, scroller: 120});
+
+        await page.evaluate(() => Neo.main.addon.GridHorizontalScrollSync.register({
+            id        : 'late__h_scroll',
+            scrollerId: 'late-scroller',
+            bodyId    : 'late-body',
+            headerId  : 'late-header',
+            viewId    : 'late-view'
+        }));
+
+        expect(await readLate()).toEqual({body: '120px', header: 120, scroller: 120});
+
+        // A re-registration seeds the scrollbar's position as it is now, zero included
+        await page.evaluate(() => {
+            const sync = Neo.main.addon.GridHorizontalScrollSync;
+
+            sync.unregister({id: 'late__h_scroll'});
+            document.getElementById('late-scroller').scrollLeft = 0;
+            sync.register({id: 'late__h_scroll', scrollerId: 'late-scroller', bodyId: 'late-body', headerId: 'late-header', viewId: 'late-view'})
+        });
+
+        expect(await readLate(), 'a re-registration at zero').toEqual({body: '0px', header: 0, scroller: 0})
     });
 
     test('an unregistered grid no longer follows its scrollbar', async ({page}) => {
