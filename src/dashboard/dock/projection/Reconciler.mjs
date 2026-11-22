@@ -38,48 +38,19 @@ class Reconciler extends Base {
     }
 
     /**
-     * How long {@link #reconcileProjection} waits for an overflow recapture before it leaves that read behind, in ms:
-     * the strip recaptures on its next pass. A component update is never left behind: its flight holds the update
-     * latch, so a successor would park behind it anyway, and a swap that has not landed must not read as landed.
-     * @member {Number} flightBound=10000
-     * @static
-     */
-    static flightBound = 10000
-
-    /**
-     * @summary Awaits one reconcile flight and stamps the cycle with its name once it settles, so a reconcile that
-     * never returns names the flight it stopped in. With a `bound`, the wait ends after that many ms and stamps
-     * `<name>TimedOut` instead; the flight left behind may still land, and its late rejection is nobody's to handle.
-     * A rejection within the wait reaches the caller as before.
+     * @summary Awaits one reconcile flight and stamps the cycle twice: `<name>Started` as the wait begins, `<name>` once
+     * the flight settles. A reconcile that never returns names the flight it waits on: the `…Started` stamp without its
+     * pair. No flight is left behind: a held component update keeps its update latch, and a held overflow read keeps
+     * the strip mid-measure until its owner aborts the pass. A rejection reaches the caller without the settle stamp.
      * @param {Promise|*} flight
      * @param {String} name The stamp, e.g. `reconcileHost`
      * @param {Neo.dashboard.dock.projection.Cycle|null} cycle
-     * @param {Number|null} [bound=null] Ms to wait at most; `null` waits for the flight however long it takes
-     * @returns {Promise<*>} The flight's value, or `undefined` when it was left behind
+     * @returns {Promise<*>} The flight's value
      * @static
      */
-    static async settleFlight(flight, name, cycle, bound=null) {
-        if (bound === null) {
-            const result = await flight;
-
-            cycle?.stamp(name);
-            return result
-        }
-
-        const expired = Symbol('expired');
-        let   result, timer;
-
-        try {
-            result = await Promise.race([flight, new Promise(resolve => {timer = setTimeout(resolve, bound, expired)})])
-        } finally {
-            clearTimeout(timer)
-        }
-
-        if (result === expired) {
-            Promise.resolve(flight).catch(() => {});
-            cycle?.stamp(`${name}TimedOut`);
-            return undefined
-        }
+    static async settleFlight(flight, name, cycle) {
+        cycle?.stamp(`${name}Started`);
+        const result = await flight;
 
         cycle?.stamp(name);
         return result
@@ -489,8 +460,8 @@ class Reconciler extends Base {
      * outside this method. `onProjectionStaged` can decorate retained chrome before the first commit.
      * @param {Object} options
      * @param {Neo.dashboard.dock.projection.Cycle|null} [options.cycle=null] The refresh's cycle. Each awaited
-     *     flight below stamps its receipt as it settles (`reconcileHost`, `reconcileOverflow`, …), so a stall names
-     *     its flight; an overflow recapture still unanswered after {@link #flightBound} stamps `<name>TimedOut`.
+     *     flight below stamps `<name>Started` and, once it settles, `<name>` (`reconcileHost`, `reconcileOverflow`, …),
+     *     so a stall names its flight ({@link #settleFlight}).
      * @param {Neo.container.Base} options.host Dock host containing the current shell, or the empty
      *     destination for a first projection.
      * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.
@@ -531,9 +502,7 @@ class Reconciler extends Base {
         const
             oldShell          = host?.items?.[shellIndex] || null,
             initialProjection = !oldShell,
-            settle            = (flight, name) => this.settleFlight(flight, name, cycle),
-            // A recapture's reads may be left behind; the strip measures again on its next pass
-            settleRead        = (flight, name) => this.settleFlight(flight, name, cycle, this.flightBound);
+            settle            = (flight, name) => this.settleFlight(flight, name, cycle);
 
         const stableProjection = oldShell && (geometryOnly || retainTopology)
             ? this.reconcileStableTopology(oldShell, nextConfig, placeholders, {
@@ -573,10 +542,10 @@ class Reconciler extends Base {
                 .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
                 .filter(Boolean))];
 
-            await settleRead(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
+            await settle(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
 
             if (waitForOverflowProjection) {
-                await settleRead(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
+                await settle(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
             }
 
             // `landedInPlace` reports the path this call ACTUALLY took, so a caller never has to
@@ -771,10 +740,10 @@ class Reconciler extends Base {
         overflowPlugins.forEach(plugin => {
             !plugin.projectAsAction && plugin.control?.hidden && (plugin.control.hidden = false)
         });
-        await settleRead(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
+        await settle(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
 
         if (waitForOverflowProjection) {
-            await settleRead(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
+            await settle(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
         }
 
         // A staged transaction replaced the shell or a first projection created it, so any

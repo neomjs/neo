@@ -135,34 +135,28 @@ const reconcileModel = async (model, mutate, {beforeReconcile=null, cycle=null, 
 /** @summary A cycle's receipt without a workspace: the stamps it took, by name. */
 const stampingCycle = () => ({stamps: {}, stamp(name) {this.stamps[name] = Date.now()}});
 
-test.describe('Neo.dashboard.dock.projection.Reconciler: a flight that never settles', () => {
-    let bound;
-
-    test.beforeEach(() => {bound = DockProjectionReconciler.flightBound; DockProjectionReconciler.flightBound = 50});
-    test.afterEach(() => {DockProjectionReconciler.flightBound = bound});
-
-    test('settleFlight passes a settled flight through, a rejection too, and leaves a silent one behind after the bound', async () => {
+test.describe('Neo.dashboard.dock.projection.Reconciler: the flight a reconcile waits on', () => {
+    test('settleFlight stamps a wait as it starts and a flight as it settles; a rejection and a held flight keep only the start', async () => {
         const cycle = stampingCycle();
 
         expect(await DockProjectionReconciler.settleFlight(Promise.resolve('landed'), 'reconcileHost', cycle)).toBe('landed');
+        expect(cycle.stamps).toHaveProperty('reconcileHostStarted');
         expect(cycle.stamps).toHaveProperty('reconcileHost');
 
         await expect(DockProjectionReconciler.settleFlight(Promise.reject(new Error('rejected')), 'reconcileBars', cycle)).rejects.toThrow('rejected');
+        expect(cycle.stamps).toHaveProperty('reconcileBarsStarted');
         expect(cycle.stamps).not.toHaveProperty('reconcileBars');
 
-        let rejectLate;
-        const silent = new Promise((resolve, reject) => {rejectLate = reject});
-
-        // Unbounded, a silent flight is simply awaited; with a bound it is left behind and named
-        expect(await DockProjectionReconciler.settleFlight(silent, 'reconcileOverflow', cycle, DockProjectionReconciler.flightBound)).toBeUndefined();
-        expect(cycle.stamps).toHaveProperty('reconcileOverflowTimedOut');
-        expect(cycle.stamps).not.toHaveProperty('reconcileOverflow');
-        // A rejection after the bound is nobody's: it must not surface as an unhandled rejection
-        rejectLate(new Error('late'));
-        await new Promise(resolve => setTimeout(resolve, 10))
+        // A held flight is waited on for as long as it is held, and the receipt names it
+        let settled = false;
+        DockProjectionReconciler.settleFlight(new Promise(() => {}), 'reconcileOverflow', cycle).then(() => {settled = true});
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(settled).toBe(false);
+        expect(cycle.stamps).toHaveProperty('reconcileOverflowStarted');
+        expect(cycle.stamps).not.toHaveProperty('reconcileOverflow')
     });
 
-    test('each flight of a projection stamps the cycle as it settles, in place and staged, none of them timed out', async () => {
+    test('each flight of a projection stamps the cycle as its wait starts and as it settles, in place and staged', async () => {
         for (const [mutate, options, expected] of [
             [model => {model.nodes['root-split'].sizes = [0.5, 0.5]}, {geometryOnly: true}, ['reconcileHost', 'reconcileOverflow']],
             [model => {model.nodes['root-split'].orientation = 'vertical'}, {}, ['reconcileShellStaged', 'reconcileHost', 'reconcileSwapped', 'reconcileOutgoing', 'reconcileReveals', 'reconcileOverflow']]
@@ -170,8 +164,12 @@ test.describe('Neo.dashboard.dock.projection.Reconciler: a flight that never set
             const cycle  = stampingCycle(),
                   {host} = await reconcileModel(createSplitModel(), mutate, {...options, cycle});
 
-            expected.forEach(name => expect(cycle.stamps, name).toHaveProperty(name));
-            expect(Object.keys(cycle.stamps).filter(name => name.endsWith('TimedOut'))).toEqual([]);
+            expected.forEach(name => {
+                expect(cycle.stamps, name).toHaveProperty(`${name}Started`);
+                expect(cycle.stamps, name).toHaveProperty(name)
+            });
+            // Every wait that started has settled
+            expect(Object.keys(cycle.stamps).filter(name => name.endsWith('Started') && !(name.slice(0, -'Started'.length) in cycle.stamps))).toEqual([]);
 
             host.destroy()
         }
