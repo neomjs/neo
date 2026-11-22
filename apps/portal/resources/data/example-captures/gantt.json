@@ -1,0 +1,116 @@
+[
+  {
+    "id": "gantt-basic",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "dark",
+    "state": "The garden plan's timeline in the Week view: the summary bar over four tasks in a staircase, with Survey the site linked to Design the beds and Design the beds to Gather materials.",
+    "ready": [{"selector": ".neo-timeline-bar", "text": "Build the beds"}, {"selector": ".neo-gantt-dependency-arrow", "count": 2}],
+    "steps": [],
+    "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-gantt-bar-summary", "text": "Community garden"}, {"selector": ".neo-timeline-bar", "text": "Survey the site", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Design the beds", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Gather materials", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Build the beds"}],
+    "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
+  },
+  {
+    "id": "gantt-big-data",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "dark",
+    "state": "The programme as it opens: its title and counts, 2,000 tasks and 1,972 links, over the first phase, where Zone 1's first tasks step down in bars joined by their links.",
+    "ready": [{"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links"}, {"selector": ".neo-gantt-dependency-arrow"}],
+    "steps": [],
+    "after": [{"selector": ".neo-theme-neo-dark .neo-gantt"}, {"selector": ".programme-counts", "text": "2,000 tasks · 1,972 links", "inRegion": true}, {"selector": ".neo-grid-tree-cell", "text": "Zone 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Survey · bay 1", "inRegion": true}, {"selector": ".neo-timeline-bar", "text": "Clear · bay 1", "inRegion": true}],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "gantt-zoom",
+    "viewport": {"width": 640, "height": 720},
+    "theme": "dark",
+    "state": "The house build in Month view, with the Day, Week and Month controls above named tasks and links.",
+    "ready": [
+      {"selector": ".zoom-level", "text": "Month"},
+      {"selector": ".neo-gantt-dependency-arrow"}
+    ],
+    "steps": [
+      {"kind": "click", "selector": ".zoom-level", "text": "Month"}
+    ],
+    "after": [
+      {"selector": ".neo-theme-neo-dark .neo-gantt"},
+      {"selector": ".zoom-level", "text": "Day", "inRegion": true},
+      {"selector": ".zoom-level", "text": "Week", "inRegion": true},
+      {"selector": ".zoom-level[aria-pressed=\"true\"]", "text": "Month", "inRegion": true},
+      {"selector": ".neo-grid-tree-cell", "text": "Site and foundation", "inRegion": true},
+      {"selector": ".neo-grid-tree-cell", "text": "Survey and stake out", "inRegion": true},
+      {"selector": ".neo-timeline-tick-major .neo-timeline-tick-label", "text": "March 2027", "inRegion": true},
+      {"selector": ".neo-gantt-dependency-arrow", "inRegion": true}
+    ],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "gantt-working-time",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "dark",
+    "state": "The kitchen renovation with its working calendar active and the five-day plumbing task crossing a shaded weekend.",
+    "ready": [{"selector": ".kitchen-title", "text": "Kitchen renovation"}, {"selector": ".kitchen-bar-hero"}],
+    "steps": [],
+    "after": [
+      {"selector": ".neo-theme-neo-dark .neo-gantt"},
+      {"selector": ".kitchen-mode-pill.is-working", "text": "Working calendar active"},
+      {"selector": ".kitchen-bar-hero", "inRegion": true},
+      {"selector": ".neo-timeline-header .neo-timeline-non-working[data-day-key=\"2026-11-07\"]", "inRegion": true}
+    ],
+    "region": {"selector": ".neo-timeline-header", "anchor": "top-left", "width": 640, "height": 360}
+  },
+  {
+    "id": "gantt-dependencies",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "dark",
+    "state": "The launch plan includes dependency arrows and the four-type legend.",
+    "ready": [
+      {"selector": ".neo-gantt-dependency-arrow"}
+    ],
+    "steps": [],
+    "after": [
+      {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+      {"selector": ".launch-legend-item", "count": 4},
+      {"selector": ".neo-gantt-dependency-arrow"},
+      {"selector": ".neo-timeline-bar"}
+    ],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "gantt-task-editor",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "dark",
+    "state": "The wireframes task editor is open over the linked plan.",
+    "ready": [
+      {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
+    ],
+    "steps": [
+      {"kind": "dblclick", "selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
+    ],
+    "after": [
+      {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+      {"selector": ".neo-timeline-event-editor input[name=\"title\"]", "value": "Sketch the wireframes", "inRegion": true},
+      {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
+    ],
+    "region": {"selector": ".neo-timeline-event-editor", "anchor": "center", "width": 640, "height": 360}
+  },
+  {
+    "id": "gantt-task-columns",
+    "viewport": {"width": 960, "height": 540},
+    "theme": "dark",
+    "state": "The Festival production plan shows named tasks, owner badges and completion bars beside the chart.",
+    "ready": [
+      {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]"}
+    ],
+    "steps": [],
+    "after": [
+      {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+      {"selector": ".tc-title", "text": "Festival production plan", "inRegion": true},
+      {"selector": ".neo-grid-header-button", "text": "Task", "inRegion": true},
+      {"selector": ".neo-grid-tree-cell", "text": "Shortlist the headliners", "inRegion": true},
+      {"selector": ".tc-badge", "text": "ML", "inRegion": true},
+      {"selector": ".tc-done-value", "text": "100%", "inRegion": true},
+      {"selector": ".neo-timeline-bar[data-event-id=\"shortlist\"]", "inRegion": true}
+    ],
+    "region": "viewport"
+  }
+]

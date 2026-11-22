@@ -496,6 +496,28 @@ async function preview(baseUrl, output, rows) {
     } finally { await browser.close() }
 }
 
+/**
+ * @summary Reads the recipe manifest from its folder: `index.json` holds the version, the suffix and the tiles, and
+ * each `<family>.json` beside it that family's recipes, so a change to one family edits only its own file. The
+ * families are the files present, in name order.
+ * @param {String} dir The manifest folder
+ * @returns {Promise<Object>} `{manifest, bytes}`: the raw manifest {@link validateCaptureRecipes} takes, and the
+ * bytes of every file read, for the capture report's input hash
+ */
+export async function readCaptureManifest(dir) {
+    const names    = (await fs.readdir(dir)).filter(name => name.endsWith('.json') && name !== 'index.json').sort(),
+          index    = await fs.readFile(path.join(dir, 'index.json')),
+          families = await Promise.all(names.map(name => fs.readFile(path.join(dir, name)))),
+          manifest = JSON.parse(index);
+
+    insist(!('families' in manifest) && !('recipes' in manifest), 'manifest.index', 'the families and their recipes live in their own files');
+
+    return {
+        bytes   : Buffer.concat([index, ...families]),
+        manifest: {...manifest, families: names.map(name => name.slice(0, -'.json'.length)), recipes: families.flatMap(bytes => JSON.parse(bytes))}
+    }
+}
+
 /** @summary Runs validated one/all captures, writes receipts even for individual failures, and releases the browser. */
 async function runCli() {
     const {values} = parseArgs({options: {'base-url': {type: 'string', default: 'http://localhost:8080/'}, 'output-dir': {type: 'string'}, record: {type: 'string'}, family: {type: 'string'}, tiles: {type: 'boolean'}, tile: {type: 'string'}, preview: {type: 'boolean'}, help: {type: 'boolean'}}});
@@ -505,9 +527,10 @@ async function runCli() {
     }
     const tiles = values.tiles || values.tile !== undefined;
     insist(!(tiles && (values.record || values.family)), 'selection', 'use tiles or recipes, not both');
-    const manifestPath = path.join(DATA, 'example-captures.json'),
-        sources        = {recipes: await fs.readFile(manifestPath), catalog: await fs.readFile(path.join(DATA, 'examples.json')), producer: await fs.readFile(fileURLToPath(import.meta.url))},
-        manifest       = validateCaptureRecipes(JSON.parse(sources.recipes), JSON.parse(sources.catalog)),
+    const manifestPath = path.join(DATA, 'example-captures'),
+        read           = await readCaptureManifest(manifestPath),
+        sources        = {recipes: read.bytes, catalog: await fs.readFile(path.join(DATA, 'examples.json')), producer: await fs.readFile(fileURLToPath(import.meta.url))},
+        manifest       = validateCaptureRecipes(read.manifest, JSON.parse(sources.catalog)),
         recipes        = tiles ? selectTiles(manifest, values.tile) : selectCaptureRecipes(manifest, values), baseUrl = new URL(values['base-url']);
     insist(['http:', 'https:'].includes(baseUrl.protocol) && !baseUrl.username && !baseUrl.password, 'base-url', 'expected HTTP(S) origin without credentials');
     if (!baseUrl.pathname.endsWith('/')) baseUrl.pathname += '/';

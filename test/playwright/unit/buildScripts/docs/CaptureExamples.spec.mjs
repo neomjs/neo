@@ -1,10 +1,14 @@
 import {test, expect}  from '@playwright/test';
 import fs              from 'node:fs';
+import os              from 'node:os';
+import path            from 'node:path';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
+    applyTileTheme, fitTileRegion, readCaptureManifest, validateCaptureRecipes, selectCaptureRecipes, selectTiles
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
+
+const DATA = fileURLToPath(new URL('../../../../../apps/portal/resources/data/', import.meta.url));
 
 /** @summary Gives the producer one covered local record and an unrelated legacy cover. */
 function catalog() {
@@ -149,13 +153,44 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
     }
 });
 
-test('the committed Grid/Table manifest covers every current family record with a real feature action', () => {
-    const data  = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
-        records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
-        raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
-        valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
+test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
+    const records    = JSON.parse(fs.readFileSync(path.join(DATA, 'examples.json'))),
+        {manifest}   = await readCaptureManifest(path.join(DATA, 'example-captures')),
+        valid        = validateCaptureRecipes(manifest, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
+});
+
+test('each family file holds only that family\'s recipes, so a change to one family edits one file', async () => {
+    const records  = JSON.parse(fs.readFileSync(path.join(DATA, 'examples.json'))),
+        family     = Object.fromEntries(records.map(record => [record.id, record.family])),
+        dir        = path.join(DATA, 'example-captures'),
+        {manifest} = await readCaptureManifest(dir);
+    expect(manifest.families.length).toBeGreaterThan(0);
+    for (const name of manifest.families) {
+        const recipes = JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`)));
+        expect(recipes.filter(recipe => family[recipe.id] !== name).map(recipe => recipe.id), name).toEqual([])
+    }
+});
+
+test('the manifest folder derives its families from its files and keeps them out of index.json', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-capture-manifest-')),
+        write = (name, value) => fs.writeFileSync(path.join(dir, name), JSON.stringify(value)),
+        {recipes: [recipe]} = manifest();
+    try {
+        write('index.json', {version: 1, suffix: '14'});
+        write('grid-table.json', [recipe]);
+        write('forms.json', []);
+        const read = await readCaptureManifest(dir);
+        expect(read.manifest.families).toEqual(['forms', 'grid-table']);
+        expect(read.manifest.recipes.map(row => row.id)).toEqual(['grid-one']);
+        expect(validateCaptureRecipes({...read.manifest, families: ['grid-table']}, catalog()).recipes[0].family).toBe('grid-table');
+
+        write('index.json', {version: 1, suffix: '14', families: ['grid-table']});
+        await expect(readCaptureManifest(dir)).rejects.toThrow('manifest.index')
+    } finally {
+        fs.rmSync(dir, {recursive: true, force: true})
+    }
 });
 
 test('the command exposes help without starting a browser or requiring a running server', () => {
@@ -198,9 +233,9 @@ test('a tile path outside examples/, a duplicate tile, a bad capture size or an 
     expect(() => selectTiles(valid, 'examples/form/field/date')).toThrow(/no matching tiles/)
 });
 
-test('the committed tile list names workbench entries that exist', () => {
-    const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
-        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), JSON.parse(fs.readFileSync(new URL('examples.json', data))));
+test('the committed tile list names workbench entries that exist', async () => {
+    const {manifest} = await readCaptureManifest(path.join(DATA, 'example-captures')),
+        valid        = validateCaptureRecipes(manifest, JSON.parse(fs.readFileSync(path.join(DATA, 'examples.json'))));
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');

@@ -1,0 +1,105 @@
+[
+  {
+    "id": "webdesktop",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "default",
+    "state": "Signed in as Alex Morgan, with Mail open on its inbox and a message in the reading pane beside the permission-filtered launcher and the taskbar.",
+    "ready": [
+      {"selector": ".webdesktop-sign-in-card"},
+      {"selector": ".webdesktop-account-name", "text": "Alex Morgan"}
+    ],
+    "steps": [
+      {"kind": "click", "selector": ".webdesktop-account-name", "text": "Alex Morgan"},
+      {"kind": "dblclick", "selector": ".neo-desktop-launcher .neo-list-item", "text": "Mail"}
+    ],
+    "after": [
+      {"selector": ".neo-desktop-workspace"},
+      {"selector": ".webdesktop-mail-inbox"}
+    ],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "covid-dashboard",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "default",
+    "state": "Country statistics table with USA selected alongside the global summary header.",
+    "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/"],
+    "ready": [
+      {"selector": ".covid-header-container"},
+      {"selector": ".neo-country-column", "text": "USA"}
+    ],
+    "steps": [
+      {"kind": "click", "selector": ".neo-country-column", "text": "USA"}
+    ],
+    "after": [
+      {"selector": ".covid-numberbox", "text": "Cases", "inRegion": true},
+      {"selector": ".neo-country-column", "text": "USA"}
+    ],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "portal",
+    "viewport": {"width": 1280, "height": 720},
+    "theme": "dark",
+    "state": "Portal Learn section opened from the top header toolbar.",
+    "ready": [
+      {"selector": ".portal-header-toolbar"},
+      {"selector": ".portal-home-hero-content .neo-h1", "text": "Neo.mjs"}
+    ],
+    "steps": [
+      {"kind": "click", "selector": ".portal-header-toolbar .neo-button", "text": "Learn"}
+    ],
+    "after": [
+      {"selector": ".portal-header-toolbar .neo-button", "text": "Learn", "inRegion": true},
+      {"selector": "h1"}
+    ],
+    "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "finance",
+    "viewport": {"width": 1020, "height": 560},
+    "theme": "default",
+    "state": "Nasdaq-100 market desk filtered by Tech and paused at 41 of 101 equities with green and red percent deltas.",
+    "ready": [
+      {"selector": ".finance-viewport"},
+      {"selector": ".neo-grid-cell[data-field='symbol']", "text": "ADBE"}
+    ],
+    "steps": [
+      {"kind": "fill", "selector": ".finance-search input", "value": "Tech"},
+      {"kind": "click", "selector": ".finance-toolbar .neo-button", "text": "Stop"}
+    ],
+    "after": [
+      {"selector": ".finance-status", "text": "41 of 101 equities · Paused", "inRegion": true},
+      {"selector": ".neo-grid-cell[data-field='changePercent']", "inRegion": true}
+    ],
+    "region": {"x": 380, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "email",
+    "viewport": {"width": 960, "height": 560},
+    "theme": "default",
+    "state": "Inbox list and functional reader side by side after selecting Project conversation 2.",
+    "ready": [
+      {"selector": ".email-workspace"},
+      {"selector": ".email-detail-view h1", "text": "Project conversation 1"}
+    ],
+    "steps": [
+      {"kind": "click", "selector": ".email-inbox .neo-grid-row", "nth": 1}
+    ],
+    "after": [
+      {"selector": ".email-inbox .neo-grid-cell[data-field='sender']", "text": "Sam Rivera"},
+      {"selector": ".email-detail-view h1", "text": "Project conversation 2", "inRegion": true}
+    ],
+    "region": {"x": 320, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "on-air-at-eight",
+    "viewport": {"width": 694, "height": 800},
+    "theme": "default",
+    "state": "The director’s opening desk with the show titles on the program monitor and the rundown ready to reorder.",
+    "ready": [{"selector": ".air-desk"}, {"selector": ".air-list .neo-list-item"}],
+    "steps": [],
+    "after": [{"selector": ".air-titles .air-feed-title", "text": "Night Edition", "inRegion": true}, {"selector": ".air-list .neo-list-item", "text": "Night Service", "inRegion": true}],
+    "region": {"selector": ".air-layout", "anchor": "top-left", "offsetY": -10, "width": 640, "height": 360}
+  }
+]

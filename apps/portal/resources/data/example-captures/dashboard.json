@@ -1,0 +1,42 @@
+[
+  {
+    "id": "dock-layouts",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "default",
+    "state": "The operations desk's first frame: the perspectives bar over Strategy with today's plan, the Terminal and Logs feeds, and Cedar the builder in the Inspector.",
+    "ready": [{"selector": ".neo-example-desk-plan", "text": "Today's plan"}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder"}],
+    "steps": [],
+    "after": [{"selector": ".neo-dashboard-dock-perspective-toolbar", "text": "Perspectives", "inRegion": true}, {"selector": ".neo-example-desk-plan", "text": "Today's plan", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Terminal", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Logs", "inRegion": true}, {"selector": ".neo-example-desk-inspector-role", "text": "Builder", "inRegion": true}],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "dock-cross-window",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "default",
+    "state": "The cross-window dock's first layout three seconds in: the Tour bar over the Workbench pane with its counter running, and the Inspector, Timeline and Console tabs beside it.",
+    "ready": [{"selector": ".agentos-dockdemo-counter-label", "text": "Workbench"}],
+    "steps": [{"kind": "wait", "selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken"}],
+    "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-note", "text": "same worker instance", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Inspector", "inRegion": true}],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "dock-choreography",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "default",
+    "state": "The choreography's first frame, as its 13.2 cover showed it: the Tour bar over the Editor pane with its live clock, and the Preview pane beside it.",
+    "ready": [{"selector": ".agentos-dockdemo-clock-note", "text": "live through every transition"}],
+    "steps": [],
+    "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-clock-note", "text": "live through every transition", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Editor", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Preview", "inRegion": true}],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "dock-tear-out",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "default",
+    "state": "The support desk with a draft typed in Notes, under the line that says what popping the pane out proves.",
+    "ready": [{"selector": ".neo-example-tearout-queue .neo-list-item", "text": "#4512"}, {"selector": ".neo-tab-header-button", "text": "Notes"}],
+    "steps": [{"kind": "fill", "selector": ".neo-textfield input", "value": "Call #4512 back by noon"}],
+    "after": [{"selector": ".neo-example-tearout-claim", "text": "A pane keeps its live state in its own window", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Queue", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Notes", "inRegion": true}],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  }
+]

@@ -1,0 +1,27 @@
+[
+  {
+    "id": "markdown",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "default",
+    "state": "The end of the document the page streamed on open: the code block, the table under its head, and a script tag and a javascript: link rendered as plain text.",
+    "ready": [{"selector": "p", "text": "render as plain text"}],
+    "steps": [],
+    "after": [{"selector": "th", "text": "Surface", "inRegion": true}, {"selector": "p", "text": "render as plain text", "inRegion": true}],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "live-preview",
+    "viewport": {"width": 672, "height": 523},
+    "theme": "dark",
+    "state": "The Source tab on the dark theme, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
+    "ready": [{"selector": ".view-lines", "text": "defineComponent"}, {"selector": ".neo-button", "text": "Dark theme"}],
+    "steps": [
+      {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
+      {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
+      {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.vertical.invisible.fade"},
+      {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.horizontal.invisible.fade"}
+    ],
+    "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
+    "region": {"selector": ".neo-code-live-preview", "anchor": "top-left", "offsetX": 0, "offsetY": 0, "width": 640, "height": 360}
+  }
+]

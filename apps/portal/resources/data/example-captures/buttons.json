@@ -1,0 +1,36 @@
+[
+  {
+    "id": "context-menu-files",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "dark",
+    "state": "Budget 2027.xlsx selected by a right-click, its context menu open at the pointer with Move to showing the two other folders.",
+    "ready": [{"selector": ".neo-context-files-list .neo-list-item", "text": "Budget 2027.xlsx"}],
+    "steps": [
+      {"kind": "click", "selector": ".neo-context-files-list .neo-list-item", "text": "Budget 2027.xlsx", "button": "right"},
+      {"kind": "click", "selector": ".neo-menu-list .neo-list-item", "text": "Move to"}
+    ],
+    "after": [
+      {"selector": ".neo-menu-list .neo-list-item", "text": "Duplicate", "inRegion": true},
+      {"selector": ".neo-menu-list .neo-list-item", "text": "Archive", "inRegion": true},
+      {"selector": ".neo-context-files-list .neo-list-item", "text": "Budget 2027.xlsx", "inRegion": true}
+    ],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  },
+  {
+    "id": "breadcrumb",
+    "viewport": {"width": 640, "height": 360},
+    "theme": "dark",
+    "state": "The guides folder three levels down, its crumbs neo, learn and guides above its description and its two subfolders.",
+    "ready": [{"selector": ".neo-breadcrumb-folders-children .neo-button", "text": "toolbar"}],
+    "steps": [
+      {"kind": "click", "selector": ".neo-breadcrumb-toolbar .neo-button", "text": "neo"},
+      {"kind": "click", "selector": ".neo-breadcrumb-folders-children .neo-button", "text": "learn"},
+      {"kind": "click", "selector": ".neo-breadcrumb-folders-children .neo-button", "text": "guides"}
+    ],
+    "after": [
+      {"selector": ".neo-breadcrumb-toolbar .neo-button", "text": "learn", "inRegion": true},
+      {"selector": ".neo-breadcrumb-folders-children .neo-button", "text": "uibuildingblocks", "inRegion": true}
+    ],
+    "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+  }
+]
