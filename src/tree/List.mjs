@@ -73,12 +73,6 @@ class Tree extends Base {
          */
         sortZoneConfig: null,
         /**
-         * A tree item's id carries its record's key, so a record resolves to the id the tree renders: a selection
-         * model handed a record, `selectionModel.select(record)`, finds its item.
-         * @member {Boolean} useInternalId=false
-         */
-        useInternalId: false,
-        /**
          * @member {String[]} wrapperCls=[]
          * @reactive
          */
@@ -557,6 +551,17 @@ class Tree extends Base {
         }
 
         return cn[0]
+    }
+
+    /**
+     * @summary A tree renders each item under its record's key, so a record resolves to that item:
+     * `selectionModel.select(record)` finds it. A rendered id still resolves back through `store.get()`, which
+     * reads every key the Store does.
+     * @param {Object} record
+     * @returns {Number|String}
+     */
+    getRecordId(record) {
+        return this.store.getKey(record)
     }
 
     /**
