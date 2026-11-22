@@ -1077,7 +1077,7 @@
     },
     "/examples/tree": {
         "title": "JavaScript Trees — Tree Grids, Lists & Accordions | Neo.mjs",
-        "description": "Explore 3 live JavaScript tree and tree grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
+        "description": "Explore 5 live JavaScript tree and tree grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -2319,13 +2319,13 @@
     },
     "/examples/tree/index.html": {
         "title": "Tree — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable Tree example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "A music library whose tracks, or whole albums, drag into a playlist. Drag a track onto the playlist, then drag an album: it brings every track it holds...",
         "schemaType": "WebPage",
         "lastmod": "2025-12-11"
     },
     "/examples/treeAccordion/index.html": {
         "title": "TreeAccordion — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Live runnable TreeAccordion example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
+        "description": "An app's settings in sections that open and close, headed by the setting selected. Open Notifications and pick Quiet hours, then move through the settings...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-16"
     },

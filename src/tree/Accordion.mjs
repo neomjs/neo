@@ -154,12 +154,11 @@ class AccordionTree extends TreeList {
               hide    = !value;
 
         store.forEach(record => {
-            const itemId   = me.getItemId(me.store.getKey(record)),
-                  vdom     = me.getVdomChild(itemId),
-                  itemVdom = VDomUtil.getByFlag(vdom, 'iconCls');
+            const vdom = me.getVdomChild(me.getItemId(me.store.getKey(record)));
 
-            if (record.isLeaf) {
-                itemVdom.removeDom = hide
+            // An item not rendered yet takes showIcon when createItems() renders it
+            if (vdom && record.isLeaf) {
+                VDomUtil.getByFlag(vdom, 'iconCls').removeDom = hide
             }
         })
 
@@ -221,7 +220,9 @@ class AccordionTree extends TreeList {
                     tag: 'ul',
                     cls: ['neo-list'],
                     cn : [],
-                    id : `${me.id}__${parentId}__ul`
+                    id : `${me.id}__${parentId}__ul`,
+                    // A collapsed folder keeps its children out of the DOM, as tree.List#createItemLevel does
+                    removeDom: !!me.store.get(parentId)?.collapsed
                 });
 
                 tmpRoot = vdomRoot.cn[vdomRoot.cn.length - 1]
