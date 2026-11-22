@@ -38,10 +38,11 @@ class Reconciler extends Base {
     }
 
     /**
-     * @summary Awaits one reconcile flight and stamps the cycle twice: `<name>Started` as the wait begins, `<name>` once
-     * the flight settles. A reconcile that never returns names the flight it waits on: the `…Started` stamp without its
-     * pair. No flight is left behind: a held component update keeps its update latch, and a held overflow read keeps
-     * the strip mid-measure until its owner aborts the pass. A rejection reaches the caller without the settle stamp.
+     * @summary Awaits one reconcile flight: the cycle stamps `<name>Started` as the wait begins and `<name>` once the
+     * flight settles, and `timing.awaiting` names the wait until it ends either way ({@link Neo.dashboard.dock.projection.Cycle#beginWait}),
+     * so a reconcile that never returns names the flight it waits on. No flight is left behind: a held component
+     * update keeps its update latch, and a held overflow read keeps the strip mid-measure until its owner aborts the
+     * pass. A rejection reaches the caller without the settle stamp.
      * @param {Promise|*} flight
      * @param {String} name The stamp, e.g. `reconcileHost`
      * @param {Neo.dashboard.dock.projection.Cycle|null} cycle
@@ -49,11 +50,18 @@ class Reconciler extends Base {
      * @static
      */
     static async settleFlight(flight, name, cycle) {
-        cycle?.stamp(`${name}Started`);
-        const result = await flight;
+        const endWait = cycle?.beginWait(name);
 
-        cycle?.stamp(name);
-        return result
+        cycle?.stamp(`${name}Started`);
+
+        try {
+            const result = await flight;
+
+            cycle?.stamp(name);
+            return result
+        } finally {
+            endWait?.()
+        }
     }
 
     /**
@@ -461,7 +469,7 @@ class Reconciler extends Base {
      * @param {Object} options
      * @param {Neo.dashboard.dock.projection.Cycle|null} [options.cycle=null] The refresh's cycle. Each awaited
      *     flight below stamps `<name>Started` and, once it settles, `<name>` (`reconcileHost`, `reconcileOverflow`, …),
-     *     so a stall names its flight ({@link #settleFlight}).
+     *     and `timing.awaiting` names the one in flight, so a stall names its flight ({@link #settleFlight}).
      * @param {Neo.container.Base} options.host Dock host containing the current shell, or the empty
      *     destination for a first projection.
      * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.

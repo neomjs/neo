@@ -11,6 +11,7 @@ import Neo                      from '../../../../src/Neo.mjs';
 import * as core                from '../../../../src/core/_export.mjs';
 import Component                from '../../../../src/component/Base.mjs';
 import Container                from '../../../../src/container/Base.mjs';
+import Cycle                    from '../../../../src/dashboard/dock/projection/Cycle.mjs';
 import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
@@ -132,28 +133,44 @@ const reconcileModel = async (model, mutate, {beforeReconcile=null, cycle=null, 
     return {host, nextModel, oldShell, panes, result, stagedCount}
 };
 
-/** @summary A cycle's receipt without a workspace: the stamps it took, by name. */
-const stampingCycle = () => ({stamps: {}, stamp(name) {this.stamps[name] = Date.now()}});
-
 test.describe('Neo.dashboard.dock.projection.Reconciler: the flight a reconcile waits on', () => {
-    test('settleFlight stamps a wait as it starts and a flight as it settles; a rejection and a held flight keep only the start', async () => {
-        const cycle = stampingCycle();
+    test('settleFlight stamps a wait as it starts and as it settles, and names it in flight until it ends either way', async () => {
+        const cycle = Neo.create(Cycle);
 
         expect(await DockProjectionReconciler.settleFlight(Promise.resolve('landed'), 'reconcileHost', cycle)).toBe('landed');
-        expect(cycle.stamps).toHaveProperty('reconcileHostStarted');
-        expect(cycle.stamps).toHaveProperty('reconcileHost');
+        expect(cycle.timing).toHaveProperty('reconcileHostStarted');
+        expect(cycle.timing).toHaveProperty('reconcileHost');
+        expect(cycle.timing).not.toHaveProperty('awaiting');
 
         await expect(DockProjectionReconciler.settleFlight(Promise.reject(new Error('rejected')), 'reconcileBars', cycle)).rejects.toThrow('rejected');
-        expect(cycle.stamps).toHaveProperty('reconcileBarsStarted');
-        expect(cycle.stamps).not.toHaveProperty('reconcileBars');
+        expect(cycle.timing).toHaveProperty('reconcileBarsStarted');
+        expect(cycle.timing).not.toHaveProperty('reconcileBars');
+        expect(cycle.timing).not.toHaveProperty('awaiting');
 
         // A held flight is waited on for as long as it is held, and the receipt names it
         let settled = false;
         DockProjectionReconciler.settleFlight(new Promise(() => {}), 'reconcileOverflow', cycle).then(() => {settled = true});
         await new Promise(resolve => setTimeout(resolve, 20));
         expect(settled).toBe(false);
-        expect(cycle.stamps).toHaveProperty('reconcileOverflowStarted');
-        expect(cycle.stamps).not.toHaveProperty('reconcileOverflow')
+        expect(cycle.timing.awaiting).toBe('reconcileOverflow');
+        expect(cycle.timing).not.toHaveProperty('reconcileOverflow');
+
+        cycle.destroy()
+    });
+
+    test('a held wait stays named after an earlier wait of the same name has stamped its pair', async () => {
+        const cycle = Neo.create(Cycle);
+
+        // An ancestor loop: the first commit lands, the second is held
+        await DockProjectionReconciler.settleFlight(Promise.resolve(), 'reconcileAncestors', cycle);
+        DockProjectionReconciler.settleFlight(new Promise(() => {}), 'reconcileAncestors', cycle);
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(cycle.timing).toHaveProperty('reconcileAncestorsStarted');
+        expect(cycle.timing).toHaveProperty('reconcileAncestors');
+        expect(cycle.timing.awaiting).toBe('reconcileAncestors');
+
+        cycle.destroy()
     });
 
     test('each flight of a projection stamps the cycle as its wait starts and as it settles, in place and staged', async () => {
@@ -161,17 +178,17 @@ test.describe('Neo.dashboard.dock.projection.Reconciler: the flight a reconcile 
             [model => {model.nodes['root-split'].sizes = [0.5, 0.5]}, {geometryOnly: true}, ['reconcileHost', 'reconcileOverflow']],
             [model => {model.nodes['root-split'].orientation = 'vertical'}, {}, ['reconcileShellStaged', 'reconcileHost', 'reconcileSwapped', 'reconcileOutgoing', 'reconcileReveals', 'reconcileOverflow']]
         ]) {
-            const cycle  = stampingCycle(),
+            const cycle  = Neo.create(Cycle),
                   {host} = await reconcileModel(createSplitModel(), mutate, {...options, cycle});
 
             expected.forEach(name => {
-                expect(cycle.stamps, name).toHaveProperty(`${name}Started`);
-                expect(cycle.stamps, name).toHaveProperty(name)
+                expect(cycle.timing, name).toHaveProperty(`${name}Started`);
+                expect(cycle.timing, name).toHaveProperty(name)
             });
-            // Every wait that started has settled
-            expect(Object.keys(cycle.stamps).filter(name => name.endsWith('Started') && !(name.slice(0, -'Started'.length) in cycle.stamps))).toEqual([]);
+            expect(cycle.timing).not.toHaveProperty('awaiting');
 
-            host.destroy()
+            host.destroy();
+            cycle.destroy()
         }
     })
 });
