@@ -27,10 +27,6 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton=true
-         */
-        showGitHubStarButton: true,
-        /**
          * @member {Object[]} items
          */
         items: [{
@@ -45,18 +41,9 @@ class MainContainer extends Viewport {
                 style: {
                     color   : '#f8fafc',
                     position: 'absolute',
-                    right   : '150px',
+                    right   : '20px',
                     top     : '25px',
                     width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
                     zIndex  : 1
                 }
             }]
@@ -245,18 +232,7 @@ class MainContainer extends Viewport {
             ...me.galleryConfig
         });
 
-        me.items[0].items.unshift(me.gallery);
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async   : true,
-                    defer   : true,
-                    src     : 'https://buttons.github.io/buttons.js',
-                    windowId: me.windowId
-                })
-            })
-        }
+        me.items[0].items.unshift(me.gallery)
     }
 
     /**

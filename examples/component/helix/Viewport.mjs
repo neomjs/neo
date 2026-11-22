@@ -15,7 +15,7 @@ import ViewportController from './ViewportController.mjs';
  * integrated into a standard application layout. It demonstrates several key Neo.mjs concepts:
  *
  * - **Component Lifecycle:** The `construct` method is used to dynamically create the `Helix` instance and inject it into the items array before the component tree is mounted.
- * - **Reactivity & Hooks:** `afterSet` hooks (`afterSetMounted`, `afterSetShowGitHubStarButton`) are used to trigger side effects when configs change, such as adding external scripts or showing/hiding components.
+ * - **Reactivity & Hooks:** `afterSetMounted` turns on render delta counting once the view is live, which feeds the DeltaUpdates counter.
  * - **Controller-View Interaction:** It delegates all event handling and business logic to its `ViewportController`.
  * - **Advanced Layouts:** It uses a combination of `hbox` and `fit` layouts to create a responsive UI with a main content area and a side control panel.
  *
@@ -27,14 +27,6 @@ import ViewportController from './ViewportController.mjs';
  * @see Neo.examples.component.helix.ViewportController
  */
 class Viewport extends BaseViewport {
-    /**
-     * Internally storing the windowIds, into which this container got mounted
-     * @member {Number[]} windowIds=[]
-     * @protected
-     * @static
-     */
-    static windowIds = []
-
     static config = {
         /**
          * @member {String} className='Neo.examples.component.helix.Viewport'
@@ -61,12 +53,6 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * Controls the visibility of the GitHub star button.
-         * @member {Boolean} showGitHubStarButton_=true
-         * @reactive
-         */
-        showGitHubStarButton_: true,
-        /**
          * @member {Object[]} items
          * @protected
          */
@@ -82,20 +68,9 @@ class Viewport extends BaseViewport {
                 style: {
                     color   : '#f8fafc',
                     position: 'absolute',
-                    right   : '150px',
+                    right   : '20px',
                     top     : '25px',
                     width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype    : 'component',
-                html     : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                reference: 'github-button',
-
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
                     zIndex  : 1
                 }
             }]
@@ -302,43 +277,13 @@ class Viewport extends BaseViewport {
         if (value) {
             let me = this;
 
-            // Enable render delta logging for performance monitoring.
+            // Enable render delta logging, which feeds the DeltaUpdates counter.
             Neo.Main.setNeoConfig({
                 key     : 'renderCountDeltas',
                 value   : true,
                 windowId: me.windowId
-            });
-
-            // Dynamically load the GitHub buttons script if the star button is visible.
-            if (me.showGitHubStarButton) {
-                me.timeout(200).then(() => {
-                    let {windowId}  = me,
-                        {windowIds} = Viewport;
-
-                    if (!windowIds.includes(windowId)) {
-                        windowIds.push(windowId);
-
-                        Neo.main.DomAccess.addScript({
-                            async: true,
-                            defer: true,
-                            src  : 'https://buttons.github.io/buttons.js',
-                            windowId
-                        })
-                    }
-                })
-            }
+            })
         }
-    }
-
-    /**
-     * A hook that fires after the `showGitHubStarButton` config is changed.
-     * It toggles the visibility of the GitHub button component.
-     * @param {Boolean} value The new value
-     * @param {Boolean} oldValue The old value
-     * @protected
-     */
-    afterSetShowGitHubStarButton(value, oldValue) {
-        this.getItem('github-button').hidden = !value
     }
 }
 
