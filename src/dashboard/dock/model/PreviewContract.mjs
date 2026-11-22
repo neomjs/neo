@@ -270,7 +270,7 @@ class PreviewContract extends Base {
         let nodeId = target.nodeId;
 
         if (this.ZONE_KINDS.has(kind)) {
-            return groupNodeId ? null : {operation: 'restoreTab', itemId, tabsNodeId: placement.tabsNodeId, home: {parentId: nodeId, slot: 'center'}}
+            return groupNodeId ? null : {operation: 'restoreTab', itemId, tabsNodeId: placement.tabsNodeId, home: {parentId: nodeId, slot: 'center'}, rebuild: true}
         }
 
         if (groupNodeId) {

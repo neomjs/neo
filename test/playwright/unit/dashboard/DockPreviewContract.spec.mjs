@@ -167,7 +167,7 @@ test.describe('Neo.dashboard.dock.model.PreviewContract', () => {
 
         test('maps to restoreTab into the free center; a whole stack and a malformed preview map to nothing', () => {
             expect(PreviewContract.previewToOperation(zonePreview())).toEqual({
-                operation: 'restoreTab', itemId: 'strategy', tabsNodeId: 'root-center-0', home: {parentId: 'root', slot: 'center'}
+                operation: 'restoreTab', itemId: 'strategy', tabsNodeId: 'root-center-0', home: {parentId: 'root', slot: 'center'}, rebuild: true
             });
             expect(PreviewContract.previewToOperation(zonePreview({groupNodeId: 'side-tabs'}))).toBeNull();
             expect(PreviewContract.previewToOperation(zonePreview({placement: {kind: 'zone-center'}}))).toBeNull()

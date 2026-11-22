@@ -2494,6 +2494,41 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             expect(document.nodes['side-tabs'].items, 'the tab left its band').toEqual(['strategy'])
         });
 
+        test('a stale well drop never joins the node that took its id, and a center taken meanwhile refuses it', () => {
+            const {document: detached} = tearOut(centerAlone(), 'swarm'),
+                  tabsNodeId           = WorkspaceDocument.genId(detached, 'root-center'),
+                  descriptor           = PreviewContract.previewToOperation({
+                      schema   : 'neo.dock.preview.v1',
+                      itemId   : 'terminal',
+                      target   : {nodeId: 'root'},
+                      placement: {kind: 'zone-center', tabsNodeId},
+                      feedback : {state: 'accepted'}
+                  });
+
+            // Between the hover and the drop, the band holding the tab claims the id the hover found free
+            detached.nodes[tabsNodeId]      = detached.nodes['side-tabs'];
+            detached.nodes.root.zones.right = {nodeId: tabsNodeId};
+            delete detached.nodes['side-tabs'];
+
+            const {document, errors} = Operations.applyOperation(detached, descriptor),
+                  centerId           = WorkspaceDocument.getZoneNodeId(document.nodes.root.zones.center);
+
+            expect(errors).toEqual([]);
+            expect(centerId, 'the center is rebuilt').toBeTruthy();
+            expect(centerId, 'under a fresh id').not.toBe(tabsNodeId);
+            expect(document.nodes[centerId].items).toEqual(['terminal']);
+            expect(document.nodes[tabsNodeId].items, 'the band that took the id keeps only its own tab').toEqual(['strategy']);
+
+            detached.nodes['other-tabs']     = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+            detached.nodes.root.zones.center = {nodeId: 'other-tabs'};
+
+            const before = JSON.stringify(detached),
+                  taken  = Operations.applyOperation(detached, descriptor);
+
+            expect(taken.errors, 'a center taken meanwhile refuses the drop').toEqual([expect.stringContaining('no longer resolves')]);
+            expect(JSON.stringify(taken.document), 'the document stays as it was').toBe(before)
+        });
+
         test('a locked tab still in the tree is refused at the well, while a locked pane that is away still comes home', () => {
             const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
 
