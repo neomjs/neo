@@ -9,18 +9,18 @@ import {sanitizeInput}      from '../../util/sanitizer.mjs';
 import {
     NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, chunkArray, collectExampleFamilyRoutes,
     collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
-    extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLastmodDate, formatLearnSeoTitle,
-    formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath,
-    getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
-    isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
+    extractMarkdownSeoMetadata, extractPortalIndexMetadata, findUnlistedLearnMarkdownFiles, formatLastmodDate,
+    formatLearnSeoTitle, formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch,
+    getGitPath, getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson,
+    hasReliableGitHistory, isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
     NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes,
     extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
-    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getIndexableReleaseVersions, getMaxReleaseMajor,
-    getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
-    isRedirectMarkdown, resolveLearnTreeLeaves
+    extractPortalIndexMetadata, findUnlistedLearnMarkdownFiles, formatLearnSeoTitle, formatStandaloneExampleSeo,
+    getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
+    isIndexableReleaseVersion, isRedirectMarkdown, resolveLearnTreeLeaves
 };
 
 /**
@@ -1327,6 +1327,7 @@ export default {
     extractExampleFamilyDefinitions,
     extractMarkdownSeoMetadata,
     extractPortalIndexMetadata,
+    findUnlistedLearnMarkdownFiles,
     formatLearnSeoTitle,
     getContentRouteObjects,
     getContentRoutes,

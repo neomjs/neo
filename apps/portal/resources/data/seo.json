@@ -17,7 +17,7 @@
     "/examples": {
         "title": "Live JavaScript Examples — Web Worker Grids & Multi-Window UI | Neo.mjs",
         "description": "Interactive Neo.mjs examples running off the main thread: 100k-row virtual-scrolling data grids, SharedWorker multi-window apps, calendars & OffscreenCanvas.",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/learn": {
         "title": "Developer Guides — Web Worker UI Engine, SharedWorker & AI Agent OS | Neo.mjs",
@@ -80,25 +80,25 @@
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
         "description": "Welcome to the Neo.mjs learning base! Neo.mjs is a complete application platform — 503 classes in 44 namespaces from grid, forms, calendar, and dashboard...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-22"
     },
     "/learn/benefits/Introduction": {
         "title": "What Is Neo.mjs?",
-        "description": "On a normal night here, with no human awake, AIs from rival labs — Anthropic, Google, and OpenAI — open pull requests across Neo's repositories and review...",
+        "description": "What Neo.mjs is: an agent institution where AI maintainers from rival labs review each other's pull requests on an open-source engine, and why it works.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-06"
+        "lastmod": "2026-11-22"
     },
     "/learn/benefits/ArchitectureOverview": {
         "title": "Neo.mjs Architecture Overview",
         "description": "Neo has four areas a reader should keep separate before the details start:",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-22"
     },
     "/learn/benefits/EnterpriseEvaluation": {
         "title": "Evaluating Neo.mjs for Enterprise Web Applications | Neo.mjs",
         "description": "What an architecture review asks before adopting the Neo.mjs engine: licence, supply chain, maintainers, upgrades, browsers, security, accessibility.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-22"
     },
     "/learn/benefits/body/ApplicationEngine": {
         "title": "The Application Engine for the AI Era - Neo.mjs",
@@ -234,39 +234,39 @@
     },
     "/learn/agentos/FleetManagerArchitecture": {
         "title": "Fleet Manager: The Cockpit That Refuses to Lie - Neo.mjs",
-        "description": "Open a terminal on a machine that runs a team of AI agents, and ask the simplest possible question: who is working right now?",
+        "description": "Fleet Manager's architecture: a cockpit that shows which AI agents are working right now by connecting to the truth about them, not by running them.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-19"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/RunningTheFleetCockpit": {
         "title": "Running the Fleet Cockpit — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the activity stream, per-agent drill-in, and the lifecycle...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-18"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/NeuralLink": {
         "title": "Live Browser DOM & Runtime Inspection MCP Server (Neural Link) | Neo.mjs",
         "description": "Inspect and mutate live Web Worker component trees, stores, state providers, and browser DOM geometry from AI agents via the Neural Link MCP server.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/DockZoneModel": {
         "title": "Dock-Zone Model Contract — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "@summary Minimal model contract for Neo's docking subsystem: a serializable dock-zone tree that composes with Neo's existing dashboard, layout, JSON...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-09-13"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/CoreSkills": {
         "title": "AI Coding Agent Skills, Memory Core & Cross-Model PR Review | Neo.mjs",
         "description": "How Neo.mjs turns recurring agent failure modes into lazy-loaded Progressive Disclosure skills for ticket intake, Memory Core mining, and cross-model review.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-14"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/ProgressiveDisclosureSkills": {
         "title": "Progressive Disclosure Skills — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
         "description": "The Neo Agent OS utilizes a Progressive Disclosure pattern for agent skills. Instead of loading every possible instruction set into the master system prompt...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-01"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/SeatMemoryLayer": {
         "title": "The Seat Memory Layer — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",
@@ -303,7 +303,7 @@
         "title": "ADR 0029: Docking Design — Multi-Window Layout Model, Perspectives, Cross-Window Drag - Neo.mjs",
         "description": "learn/agentos/DockZoneModel.md (dockZone.v1) is the model contract of record: the serializable dock-zone tree, its semantic operations, the preview payload...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/decisions/0031-target-architecture-composition": {
         "title": "ADR 0031: Target-Architecture Composition — the Seam Table + Trajectory Layer - Neo.mjs",
@@ -343,7 +343,7 @@
         "title": "Codebase Overview: Neo.mjs - The AI-Native Web Platform",
         "description": "Neo.mjs is not a library. It's a comprehensive web platform. Methodology: sloc source-only for code (excludes blanks + comments), comments tracked as a...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-17"
+        "lastmod": "2026-11-22"
     },
     "/learn/guides/fundamentals/ApplicationBootstrap": {
         "title": "Neo.mjs Application Bootstrap Process",
@@ -389,7 +389,7 @@
     },
     "/learn/guides/fundamentals/ConfigSystemDeepDive": {
         "title": "Config System Deep Dive — Neo.mjs Developer Guide",
-        "description": "Pre-requisite: It is highly recommended to study The Unified Class Config System first to understand the foundational concepts and benefits.",
+        "description": "The Neo.mjs class configuration system is a cornerstone of the engine, providing a powerful, declarative, and reactive way to manage the state of your...",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-16"
     },
@@ -517,7 +517,7 @@
         "title": "Build a Web Desktop in JavaScript: Launcher, Windows and Taskbar | Neo.mjs",
         "description": "Build a web desktop with Neo.desktop: an icon launcher users arrange, app windows that open, minimize and restore, a taskbar with a start menu, and...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-22"
     },
     "/learn/guides/uibuildingblocks/Fragments": {
         "title": "Fragments: Phantom Containers - Neo.mjs",
@@ -533,7 +533,7 @@
     },
     "/learn/guides/uibuildingblocks/WorkingWithVDom": {
         "title": "Working with VDom — Neo.mjs Developer Guide",
-        "description": "Target Audience: Developers building custom Neo.mjs components who need to work directly with the VDom layer for performance optimization, complex...",
+        "description": "While 99% of Neo.mjs development happens at the Component Tree layer, creating custom components requires working with the VDom layer. This guide covers the...",
         "schemaType": "TechArticle",
         "lastmod": "2026-08-30"
     },
@@ -641,9 +641,9 @@
     },
     "/learn/guides/datahandling/StateProviders": {
         "title": "Shared Bindable Data (State Providers) — Neo.mjs Developer Guide",
-        "description": "While individual Components can manage their own local state using the Class Config System, you will need a State Provider as soon as you want to share data...",
+        "description": "Share bindable data across a Neo.mjs component tree with State Providers: one source of truth for a view section, with business logic kept out of views.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-16"
+        "lastmod": "2026-11-21"
     },
     "/learn/guides/userinteraction/Forms": {
         "title": "User Input (Forms) — Neo.mjs Developer Guide",
@@ -677,9 +677,9 @@
     },
     "/learn/guides/testing/UnitTesting": {
         "title": "Unit Testing with Playwright — Neo.mjs Developer Guide",
-        "description": "Neo.mjs uses a unique \"Single-Thread Simulation\" architecture for its unit tests. By running the core engine logic inside a single Node.js thread (via...",
+        "description": "Unit test a multi-threaded Neo.mjs app with Playwright: the App, VDom and Data layers run in one Node.js thread, so tests run fast and debug across workers.",
         "schemaType": "TechArticle",
-        "lastmod": "2026-07-19"
+        "lastmod": "2026-11-21"
     },
     "/learn/guides/testing/ComponentTesting": {
         "title": "Component Testing with Playwright — Neo.mjs Developer Guide",
@@ -695,7 +695,7 @@
     },
     "/learn/guides/testing/WhiteboxE2E": {
         "title": "Whitebox E2E Testing with Neural Link — Neo.mjs Developer Guide",
-        "description": "Traditional end-to-end (E2E) testing treats the application as a \"black box,\" interacting purely through DOM element locators (e.g. page.locator('button'))...",
+        "description": "Whitebox E2E testing for Neo.mjs: Playwright tests reach component and store state in the App Worker through the Neural Link instead of chasing DOM nodes.",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-21"
     },
@@ -703,7 +703,7 @@
         "title": "Dock Layouts: Testing and Debugging - Neo.mjs",
         "description": "A docking layout makes promises that are unusually easy to break and unusually hard to observe. A pane you drag must land in exactly one container. A pane...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-10-29"
+        "lastmod": "2026-11-22"
     },
     "/learn/guides/specificfeatures/MultiWindow": {
         "title": "Building Multi-Window JavaScript Apps with SharedWorkers | Neo.mjs",
@@ -957,21 +957,21 @@
     },
     "/news/blog/one-repository-per-reader": {
         "title": "One repository per reader: why Neo.mjs split in 13.2, and the cockpit we build next.",
-        "description": "Before 13.2, cloning Neo.mjs meant cloning everything that had grown around the engine: the AI team that maintains it, that team's cockpit, a data app that...",
+        "description": "Why Neo.mjs split into one repository per reader in 13.2: a clone carried 5.21 GiB, mostly the AI team's memory, cockpit and data, not the engine.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-10-11"
+        "lastmod": "2026-11-21"
     },
     "/news/blog/the-salute": {
         "title": "Convergence isn't validation: why we distrust our own agents' consensus. - Neo.mjs",
-        "description": "A team of AI agents \"checks its own work\" by having the agents review each other. But when those agents descend from the same model, their agreement isn't...",
+        "description": "Why agreement among AI agents built on the same model is one prior echoing, not validation, and how Neo.mjs's cross-family review guards against it.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-10-11"
+        "lastmod": "2026-11-21"
     },
     "/news/blog/the-organism-already-existed": {
         "title": "An AI predicted its own project's future. Ten weeks later, another AI graded it. - Neo.mjs",
-        "description": "In April 2026, in only the second Claude Code session ever run inside the Neo.mjs repository, the agent wrote a first-person account of realizing...",
+        "description": "In April 2026 an AI agent in the Neo.mjs repository wrote down what the project was becoming. Ten weeks later another AI graded it against what happened.",
         "schemaType": "BlogPosting",
-        "lastmod": "2026-10-20"
+        "lastmod": "2026-11-21"
     },
     "/news/blog/cross-family-verification": {
         "title": "Cross-family verification: an agent from a rival lab checks our work, in public. - Neo.mjs",
@@ -1053,13 +1053,13 @@
     },
     "/news/releases/13.4.0": {
         "title": "Neo.mjs v13.4.0 Release Notes",
-        "description": "Release Type: A minor release, and the householding one. The open Engine issues went from 243 when 13.3.1 shipped to 5 at the cut on 2026-11-09, the fewest...",
+        "description": "An open issue is a claim that something is still broken or still wanted. On 2026-11-05 the Engine held 189 of those claims, 111 of them filed more than 180...",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-09"
     },
     "/news/releases/14.0.0": {
         "title": "Neo.mjs v14.0.0 Release Notes",
-        "description": "Release Type: Pending the operator. The version is 14.0.0, fixed by the generated-app check on 2026-11-21 (#20874): Engine 14 — The Front Door (ROADMAP)...",
+        "description": "13.4.0 left the Engine with five open issues, and Engine 14 spends that room on being found, understood and built on. Someone who reaches neomjs.com for the...",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-21"
     },
@@ -1067,127 +1067,127 @@
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
         "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/grid": {
         "title": "JavaScript Data Grid Examples — 100k Rows in a Web Worker | Neo.mjs",
         "description": "Explore 20 live JavaScript data grid examples: Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/tree": {
         "title": "JavaScript Trees — Tree Grids, Lists & Accordions | Neo.mjs",
         "description": "Explore 5 live JavaScript tree and tree grid examples: An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/lists": {
         "title": "JavaScript Lists & Galleries — 3D Helix & Gallery Views | Neo.mjs",
         "description": "Explore 13 live JavaScript list and gallery examples: Image items on a 3D helix that you reshape live.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/charts": {
         "title": "JavaScript Charts, Canvas & Maps — OffscreenCanvas Demos | Neo.mjs",
         "description": "Explore 6 live JavaScript chart and canvas examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/calendar": {
         "title": "MIT JavaScript Calendar — Day, Week, Month & Year Views | Neo.mjs",
         "description": "Explore 1 live JavaScript calendar example: A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/scheduler": {
         "title": "MIT JavaScript Resource Scheduler — Editable Timeline | Neo.mjs",
         "description": "Explore 11 live JavaScript resource scheduler examples: Resource bookings on an editable timeline.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/gantt": {
         "title": "MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs",
-        "description": "Explore 8 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
+        "description": "Explore 9 live JavaScript Gantt chart examples: A project plan with linked, editable tasks.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board": {
         "title": "JavaScript Task & Kanban Board — Swimlanes & Cards | Neo.mjs",
         "description": "Explore 9 live JavaScript task and kanban board examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/dashboard": {
         "title": "JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs",
         "description": "Explore 5 live JavaScript dashboard examples: A scripted layout tour splits, groups and auto-hides live panes.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/tabs": {
         "title": "JavaScript Tabs — Reorderable Tab Bars & Overflow | Neo.mjs",
         "description": "Explore 2 live JavaScript tabs examples: Tab buttons whose text, icon, color and badge change live.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/layouts": {
         "title": "JavaScript Containers & Layouts — Flexbox, Card & Form | Neo.mjs",
         "description": "Explore 3 live JavaScript layout examples: A form composed by the layout-form layout with shared itemDefaults.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/dialogs": {
         "title": "JavaScript Dialogs & Overlays — Live Examples | Neo.mjs",
         "description": "Explore 3 live JavaScript dialog examples: Dialogs that drag by their header and open further dialogs.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/forms": {
         "title": "JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs",
         "description": "Explore 31 live JavaScript form examples: The standalone date selector component; A date field with picker and live configuration.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/buttons": {
         "title": "JavaScript Buttons, Menus & Toolbars — Live Examples | Neo.mjs",
         "description": "Explore 5 live JavaScript button and menu examples: A right-click on a project file opens its actions at the pointer, and every action changes the list.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/components": {
         "title": "JavaScript UI Component Examples — Off the Main Thread | Neo.mjs",
         "description": "Explore 13 live JavaScript UI component examples: A compact chip combines an icon, editable text and an optional close action.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
         "description": "Explore 9 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/platform": {
         "title": "JavaScript Web Worker Examples — Workers & Platform | Neo.mjs",
         "description": "Explore 3 live JavaScript web worker examples: A chart of up to a million points, drawn in a canvas worker.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
         "description": "Explore 3 live JavaScript state management examples: Nested state providers bind button texts through the formatters shown beside them.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/functional": {
         "title": "JavaScript Functional Component Examples | Neo.mjs",
         "description": "Explore 5 live JavaScript functional component examples: The engine's code editor runs the function component it holds, and runs it again after every edit.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/drag-drop": {
         "title": "JavaScript Drag & Drop Examples — Boards, Lists & Panes | Neo.mjs",
         "description": "Explore 11 live JavaScript drag and drop examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/apps/colors/index.html": {
         "title": "Colors Dashboard — Multi-Window JavaScript Demo | Neo.mjs",
@@ -1259,13 +1259,13 @@
         "title": "Workstation — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A living-data workspace whose panes can leave the browser window. Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-19"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/basic/index.html": {
         "title": "Sprint board · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A kanban board and a table over one store of cards. Drag a card to another column, and the table below the board shows its new status.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/bigData/index.html": {
         "title": "Support desk · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1277,37 +1277,37 @@
         "title": "Card designs · Editorial calendar · Neo Board — Live Demo | Neo.mjs",
         "description": "The same articles as compact, standard and detailed cards, built from five card items. Switch between the three designs: the cards re-draw in place and keep...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/cardEditor/index.html": {
         "title": "Hiring pipeline · Neo Board — JavaScript UI Demo | Neo.mjs",
         "description": "A card's title edited in place, its stage, tags and owner in the card editor. Rename a candidate on the card itself. Open the card and move it to Interview...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/columns/index.html": {
         "title": "Arrange the columns · Neo Board — JavaScript UI Demo | Neo.mjs",
         "description": "Columns reordered by drag, folded to a strip, or locked in place. Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/multiSelect/index.html": {
         "title": "Bug triage · Neo Board — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "Cards selected by click, Shift and a modifier key, dragged together into another column. Click a report, Shift-click one further down, then drag the...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/swimlanes/index.html": {
         "title": "A board by team · Neo Board — JavaScript UI Demo | Neo.mjs",
         "description": "One row per team over the same five columns, each with its card count. Collapse a team, then drag a card into another team's row: the card joins that team...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/board/wipLimits/index.html": {
         "title": "Work-in-progress limits · Neo Board — JavaScript UI Demo | Neo.mjs",
         "description": "Columns with a limit: the header counts against it, and an overloaded stage stands out. The bench is over its limit of 3. Move a repair on to Testing: the...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/button/base/index.html": {
         "title": "Button — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1583,7 +1583,7 @@
         "title": "Cross-Window Dock — Multi-Window JavaScript Demo | Neo.mjs",
         "description": "A live workbench travels between windows without restarting its counter. Press Tour and follow Workbench into the popup and home again as its counter keeps...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/dashboard/desk/index.html": {
         "title": "Dashboard — Operations Desk — JavaScript UI Demo | Neo.mjs",
@@ -1805,7 +1805,7 @@
         "title": "Form Validation — Web Worker JavaScript UI Demo | Neo.mjs",
         "description": "A sign-up form validates as you type, blocks submit and lists the errors. Type a bad email, fix it, and sign up.",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/functional/button/base/index.html": {
         "title": "Functional Button — Web Worker JavaScript UI Demo | Neo.mjs",
@@ -1855,11 +1855,17 @@
         "schemaType": "WebPage",
         "lastmod": "2026-11-21"
     },
+    "/examples/gantt/cascade/index.html": {
+        "title": "A late task moves the plan · Neo Gantt — Live Demo | Neo.mjs",
+        "description": "One task slips, and every task that depends on it follows to its new date. Press 'Delay the cabling by a week', or drag its bar: the tasks behind it glide...",
+        "schemaType": "WebPage",
+        "lastmod": "2026-11-22"
+    },
     "/examples/gantt/dependencies/index.html": {
         "title": "Link tasks by drag · Neo Gantt — JavaScript UI Demo | Neo.mjs",
         "description": "Dependencies drawn from one task's handle to another, in four link types. Hover a task and drag from its finish handle onto another task. Then move the...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-21"
+        "lastmod": "2026-11-22"
     },
     "/examples/gantt/taskColumns/index.html": {
         "title": "Festival production plan · Neo Gantt columns — Live Demo | Neo.mjs",
@@ -1979,7 +1985,7 @@
         "title": "Tree Grid Example — Web Worker Data Grid Demo | Neo.mjs",
         "description": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children. Expand a team with its arrow or Right/Left keys and...",
         "schemaType": "WebPage",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-22"
     },
     "/examples/grid/treeBigData/index.html": {
         "title": "TreeGrid - Big Data — Web Worker Data Grid Demo | Neo.mjs",

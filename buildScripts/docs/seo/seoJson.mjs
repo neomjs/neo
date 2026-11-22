@@ -10,10 +10,12 @@ import {
     getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory,
     lookupNewestGitDate, normalizeIsoDateOnly
 } from './gitLastmod.mjs';
+import {findUnlistedLearnMarkdownFiles} from './learnSpokes.mjs';
 
 export {
-    chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths, getChangedLastmod,
-    getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory, normalizeIsoDateOnly
+    chunkArray, extractFrontmatterDateOnly, findUnlistedLearnMarkdownFiles, formatLastmodDate,
+    getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath,
+    hasReliableGitHistory, normalizeIsoDateOnly
 };
 
 /**
@@ -319,6 +321,9 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs',
             }
             if (/^(?:benefits|agentos)\//i.test(relId)) {
                 return `${cleanTitle} — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs`;
+            }
+            if (/^institution\//i.test(relId)) {
+                return `${cleanTitle} — AI Agent Institution & Fleet Cockpit | Neo.mjs`;
             }
             if (/^guides\//i.test(relId)) {
                 return `${cleanTitle} — Neo.mjs Developer Guide`;

@@ -21,6 +21,7 @@ import {
 import {
     NON_INDEXABLE_STANDALONE_PATHS,
     collectExampleRoutes,
+    findUnlistedLearnMarkdownFiles,
     getIndexableReleaseVersions,
     getSeoJson,
     hasReliableGitHistory,
@@ -29,6 +30,8 @@ import {
     readReleaseIndex,
     resolveLearnTreeLeaves
 } from './seoJson.mjs';
+
+export {findUnlistedLearnMarkdownFiles};
 
 /**
  * @module buildScripts.docs.seo.verify
@@ -763,7 +766,14 @@ export async function verifySeoArtifacts(options={}) {
     const treeFilePath = path.resolve(root, 'learn/tree.json');
 
     if (await fs.pathExists(treeFilePath)) {
-        const leaves = await resolveLearnTreeLeaves({root, treeFilePath});
+        const [leaves, unlistedLearnFiles] = await Promise.all([
+            resolveLearnTreeLeaves({root, treeFilePath}),
+            findUnlistedLearnMarkdownFiles({root, treeFilePath})
+        ]);
+
+        if (unlistedLearnFiles.length > 0) {
+            throw new Error(`Unlisted markdown orphan(s) under learn/ absent from learn/tree.json: ${unlistedLearnFiles.join(', ')}.`);
+        }
 
         for (const leaf of leaves) {
             const rawContent    = await fs.readFile(leaf.filePath, 'utf-8');

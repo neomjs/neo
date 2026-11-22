@@ -1993,4 +1993,10 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
         expect(new Set(repoRoutes.map(route => route.name)).size).toBe(repoRoutes.length);
         expect(new Set(repoRoutes.map(route => route.sourceTitle)).size).toBe(repoRoutes.length);
     });
+
+    test('formatLearnSeoTitle qualifies Agent Institution spoke routes (#21848)', () => {
+        expect(formatLearnSeoTitle('Cockpit Tour', '/learn/institution/CockpitTour')).toBe(
+            'Cockpit Tour — AI Agent Institution & Fleet Cockpit | Neo.mjs'
+        );
+    });
 });

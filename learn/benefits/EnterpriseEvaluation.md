@@ -234,5 +234,5 @@ The searches, run from a clone of the repository:
 
 *   **How the engine is built:** [Architecture Overview](./ArchitectureOverview.md) and [Off the Main Thread](./body/OffTheMainThread.md).
 *   **Against what you use today:** the [comparison overview](../comparisons/Overview.md), with [AG Grid](../comparisons/NeoVsAgGrid.md), [Bryntum](../comparisons/NeoVsBryntum.md) and [Ext JS](../comparisons/NeoVsExtJs.md).
-*   **The other hemisphere:** [What Is Neo.mjs?](./Introduction.md) carries the claims register for the institution, and [Deploying the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/DeployingTheAgentOS.md) describes running it on your own repositories.
+*   **The other hemisphere:** [What Is Neo.mjs?](./Introduction.md) carries the claims register for the institution, and [Deploying the Agent OS](https://neomjs.com/learn/benefits/brain/DeployingTheAgentOS) describes running it on your own repositories.
 *   **Start building:** [Workspaces](../gettingstarted/Workspaces.md).

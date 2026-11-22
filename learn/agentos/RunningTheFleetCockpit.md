@@ -1,8 +1,6 @@
 # Running the Fleet Cockpit
 
-> **Concepts:** the architecture this runbook operates — the topology, roles, identity facts, and
-> the truth pipeline — is taught at [Fleet Manager Architecture](FleetManagerArchitecture.md);
-> the decisions behind it live in [ADR 0038](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0038-fm-client-topology.md).
+> **Concepts & companion guides:** this runbook owns launching the supervised `npm run cockpit` local session, per-seat Memory/KB target switching, and MCP/wake health checks. If you are booting the browser app or native Electron vessel directly from an `neomjs/neo-agent-institution` checkout and binding `NEO_FLEET_PLANE_*`, open [Running the Institution](https://neomjs.com/learn/institution/RunningTheInstitution); to learn how each pane distinguishes transport connection from source capability, read [Tour the Cockpit](https://neomjs.com/learn/institution/CockpitTour). The credential and truth-pipeline architecture is taught at [Fleet Manager Architecture](FleetManagerArchitecture.md), and the client-topology decisions live in [ADR 0038](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0038-fm-client-topology.md).
 
 The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the
 activity stream, per-agent drill-in, and the lifecycle controls (start / stop / restart, the
@@ -138,8 +136,8 @@ projection and removes the receipt, leaving no remote bearer reference behind. U
 Fleet-owned transport fields fail closed instead of being overwritten.
 
 For deployment-side auth, identity, and readiness details, continue with
-[Cloud deployment security](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Security.md) and the
-[Day-0 tutorial](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Day0Tutorial.md).
+[Cloud deployment security](https://neomjs.com/learn/agentos/cloud-deployment/Security) and the
+[Day-0 tutorial](https://neomjs.com/learn/agentos/cloud-deployment/Day0Tutorial).
 
 ## The one command against the live plane
 
