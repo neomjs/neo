@@ -1065,7 +1065,7 @@
     },
     "/examples/apps": {
         "title": "JavaScript Web App Examples — Full Apps on Worker Threads | Neo.mjs",
-        "description": "Explore 12 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
+        "description": "Explore 11 live JavaScript web app examples: A living-data workspace whose panes can leave the browser window; GitHub contributor rankings in a buffered grid.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1161,7 +1161,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 10 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 9 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1184,8 +1184,8 @@
         "lastmod": "2026-11-21"
     },
     "/examples/drag-drop": {
-        "title": "JavaScript Drag & Drop Examples — Boards, Lists & Windows | Neo.mjs",
-        "description": "Explore 12 live JavaScript drag and drop examples: A kanban board and a table over one store of cards; A draggable dialog can move into a second browser window.",
+        "title": "JavaScript Drag & Drop Examples — Boards, Lists & Panes | Neo.mjs",
+        "description": "Explore 11 live JavaScript drag and drop examples: A kanban board and a table over one store of cards.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1248,12 +1248,6 @@
         "description": "A historical country-data chart can move into its own window. Maximise Historical Data, inspect its chart in the popup, then close the popup to return it...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-05"
-    },
-    "/apps/shareddialog/index.html": {
-        "title": "SharedDialog — Multi-Window JavaScript Demo | Neo.mjs",
-        "description": "A draggable dialog can move into a second browser window. Open the docked window, create a dialog and drag its header across into the other window.",
-        "schemaType": "WebPage",
-        "lastmod": "2026-06-14"
     },
     "/apps/webdesktop/index.html": {
         "title": "Web Desktop — Multi-Threaded JavaScript App | Neo.mjs",

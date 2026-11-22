@@ -103,31 +103,6 @@
         "hiddenIn": []
     },
     {
-        "id": "multi-window-drag-drop",
-        "family": "multi-window",
-        "order": 180,
-        "alsoIn": [
-            "apps",
-            "drag-drop"
-        ],
-        "component": "Dialog",
-        "feature": "A draggable dialog can move into a second browser window",
-        "lookFor": "Open the docked window, create a dialog and drag its header across into the other window.",
-        "scope": "Allow popups. The side selector places the companion window beside the main one.",
-        "featured": false,
-        "image": "devmode/multi_window_dd.png",
-        "name": "Multi-Window Drag&Drop",
-        "sharedWorkers": true,
-        "sourceUrl": "apps/shareddialog",
-        "urls": {
-            "devmode": "apps/shareddialog/index.html",
-            "dist_dev": "dist/development/apps/shareddialog/index.html",
-            "dist_esm": "dist/esm/apps/shareddialog/index.html",
-            "dist_prod": "dist/production/apps/shareddialog/index.html"
-        },
-        "hiddenIn": []
-    },
-    {
         "id": "colors-dashboard",
         "family": "multi-window",
         "order": 230,
