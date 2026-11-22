@@ -7,6 +7,7 @@ import Radio                 from '../../../../src/form/field/Radio.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
 
 /**
+ * @summary Workbench for {@link Neo.functional.button.Base} where clicks increment the button's badge counter.
  * @class Neo.examples.functional.button.base.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
@@ -18,6 +19,10 @@ class MainContainer extends ConfigurationViewport {
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
+    /**
+     * @summary Builds inspector controls for badge, icon, ripple, sizing, text, tooltip, and UI configs.
+     * @returns {Object[]}
+     */
     createConfigurationComponents() {
         let me = this;
 
@@ -178,17 +183,25 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.component.Base}
+     * @summary Creates the functional button at rest on the stage and increments `badgeText` on each click.
+     * @returns {Neo.functional.button.Base}
      */
     createExampleComponent() {
+        let me = this;
+
         return Neo.create({
             module   : FunctionalButton,
             badgeText: '0',
             flex     : 'none',
             handler  : data => {
-                const badge = data.component.getBadgeText();
-                const count = badge === '0' ? 1 : parseInt(badge) + 1;
-                data.component.setBadgeText(count.toString());
+                const next  = String((Number.parseInt(data.component.badgeText, 10) || 0) + 1),
+                      field = me.down({labelText: 'badgeText'});
+
+                data.component.badgeText = next;
+
+                if (field) {
+                    field.value = next
+                }
             },
             height   : 50,
             iconCls  : 'fa fa-home',
@@ -196,14 +209,6 @@ class MainContainer extends ConfigurationViewport {
             ui       : 'primary',
             width    : 150
         })
-    }
-
-    /**
-     * @param {String} config
-     * @param {Object} opts
-     */
-    onConfigRecordChange(config, opts) {
-        this.exampleComponent[config] = opts.value['id']
     }
 }
 
