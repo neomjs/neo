@@ -178,7 +178,18 @@ test.describe('Gantt office-move cascade example', () => {
         expect((await readTask('mail')).startDate).toBe('2026-11-05T00:00:00.000Z');
         expect((await readTask('handback')).startDate).toBe('2026-11-08T00:00:00.000Z');
         await expect(page.locator('.cascade-readout-text')).toContainText('slipped from Mon 16 Nov to Mon 23 Nov (+7 days)');
-        await expect(page.locator('.cascade-readout-text')).toContainText('8 tasks moved');
+        await expect(page.locator('.cascade-readout-text')).toContainText('8 tasks moved (1 delayed + 7 dependent); 2 beside the chain kept their dates.');
+
+        // Moving a beside-the-chain task updates the side-task clause and labels the latest move separately
+        const mailBox = await page.locator('.neo-timeline-bar[data-event-id="mail"]').boundingBox();
+        await page.mouse.move(mailBox.x + mailBox.width / 2, mailBox.y + mailBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(mailBox.x + mailBox.width / 2 + 24, mailBox.y + mailBox.height / 2, {steps: 8});
+        await expect(page.locator('.neo-dragproxy')).toBeVisible();
+        await page.mouse.move(mailBox.x + mailBox.width / 2 + dayPx, mailBox.y + mailBox.height / 2, {steps: 10});
+        await page.mouse.up();
+        await expect(page.locator('.cascade-viewport.is-slipped:not(.is-cascading)')).toBeVisible();
+        await expect(page.locator('.cascade-readout-text')).toContainText('10 tasks moved (latest move: 2, 1 moved + 1 dependent); both beside the chain also moved.');
 
         await page.getByRole('button', {name: 'Reset'}).click();
         await expect(page.locator('.cascade-move-pill')).toHaveText('Move day: Mon 16 Nov');

@@ -366,22 +366,44 @@ class OfficeMoveCascadeViewport extends Viewport {
             newDayText    = this.formatMoveDay(currentGoalMs),
             slipDays      = Math.round((currentGoalMs - baseGoalMs) / MS_PER_DAY);
 
-        let movedFromSeed = 0;
+        let besideKept    = 0,
+            besideTotal   = 0,
+            movedFromSeed = 0;
 
         store.forEach(task => {
-            const seed = SEED_BY_ID.get(task.id);
-            if (seed && (
-                new Date(task.startDate).getTime() !== seed.startMs ||
-                new Date(task.endDate).getTime() !== seed.endMs
-            )) {
+            const
+                seed    = SEED_BY_ID.get(task.id),
+                changed = Boolean(seed && (
+                    new Date(task.startDate).getTime() !== seed.startMs ||
+                    new Date(task.endDate).getTime() !== seed.endMs
+                ));
+
+            if (changed) {
                 movedFromSeed++
+            }
+            if (task.role === 'beside') {
+                besideTotal++;
+                if (!changed) {
+                    besideKept++
+                }
             }
         });
 
         const
             eventMovedCount = lastChange?.changesById ? Object.keys(lastChange.changesById).length : 0,
             movedCount      = movedFromSeed || eventMovedCount,
-            cascadedCount   = Array.isArray(lastChange?.cascaded) ? lastChange.cascaded.length : Math.max(0, movedCount - 1);
+            cascadedCount   = Array.isArray(lastChange?.cascaded) ? lastChange.cascaded.length : 0,
+            singleGesture   = eventMovedCount > 0 && movedCount === eventMovedCount,
+            besideClause    = besideKept === besideTotal
+                ? `; ${besideTotal} beside the chain kept their dates.`
+                : besideKept === 1
+                    ? '; 1 beside the chain kept its date, 1 moved.'
+                    : '; both beside the chain also moved.',
+            detail          = singleGesture
+                ? (cascadedCount > 0 ? ` (1 ${slipDays > 0 ? 'delayed' : 'moved'} + ${cascadedCount} dependent)` : '')
+                : eventMovedCount > 0
+                    ? ` (latest move: ${eventMovedCount}${cascadedCount > 0 ? `, 1 moved + ${cascadedCount} dependent` : ''})`
+                    : '';
 
         if (movedFromSeed === 0) {
             this.removeCls('is-slipped');
@@ -400,21 +422,20 @@ class OfficeMoveCascadeViewport extends Viewport {
                 sign      = slipDays > 0 ? `+${slipDays}` : `${slipDays}`,
                 dayWord   = Math.abs(slipDays) === 1 ? 'day' : 'days',
                 direction = slipDays > 0 ? 'slipped' : 'moved earlier',
-                taskWord  = movedCount === 1 ? 'task' : 'tasks',
-                detail    = cascadedCount > 0 ? ` (1 delayed + ${cascadedCount} dependent)` : '';
+                taskWord  = movedCount === 1 ? 'task' : 'tasks';
 
             movePill.set({
                 cls : ['cascade-move-pill', slipDays > 0 ? 'is-slipped' : 'is-on-plan'],
                 text: `Move day: ${oldDayText} to ${newDayText} (${sign}d)`
             });
-            readoutText.text = `First day in the new office ${direction} from ${oldDayText} to ${newDayText} (${sign} ${dayWord}) · ${movedCount} ${taskWord} moved${detail}; 2 beside the chain kept their dates.`
+            readoutText.text = `First day in the new office ${direction} from ${oldDayText} to ${newDayText} (${sign} ${dayWord}) · ${movedCount} ${taskWord} moved${detail}${besideClause}`
         } else {
             const taskWord = movedCount === 1 ? 'task' : 'tasks';
             movePill.set({
                 cls : ['cascade-move-pill', 'is-on-plan'],
                 text: `Move day: ${newDayText} (unchanged)`
             });
-            readoutText.text = `First day in the new office stays ${newDayText} · ${movedCount} ${taskWord} moved without shifting the move day.`
+            readoutText.text = `First day in the new office stays ${newDayText} · ${movedCount} ${taskWord} moved${detail}${besideClause}`
         }
     }
 
