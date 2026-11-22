@@ -574,8 +574,8 @@ class DeltaUpdates extends Base {
      *
      * **Fragment Support:**
      * If the target `id` refers to a Fragment (which has no single DOM node), this method uses XPath
-     * to find the "Start Anchor", extracts the full range of nodes (Start...End) into a `DocumentFragment`,
-     * and moves that lightweight wrapper to the new location.
+     * to find the "Start Anchor" and moves the full range of nodes (Start...End): node by node with
+     * `moveBefore()`, which takes no `DocumentFragment`, else as one `DocumentFragment` by `insertBefore`.
      *
      * @param {Object} delta
      * @param {String} delta.id       The ID of the DOM node to move.
@@ -623,8 +623,25 @@ class DeltaUpdates extends Base {
                 const fragmentData = this.getFragmentNodes(startNode.parentNode, id);
 
                 if (fragmentData) {
+                    const rangeNodes = [fragmentData.startNode, ...fragmentData.nodes, fragmentData.endNode];
+
+                    if (this.nativeMoveBefore === null) {
+                        this.nativeMoveBefore = typeof parentNode.moveBefore === 'function'
+                    }
+
+                    // moveBefore() takes no DocumentFragment: the range moves node by node, each keeping its state.
+                    // A target inside the range is where the range already is.
+                    if (this.nativeMoveBefore) {
+                        if (!rangeNodes.includes(siblingRef)) {
+                            rangeNodes.forEach(rangeNode => parentNode.moveBefore(rangeNode, siblingRef || null));
+                            (this.pendingLayoutHeals ||= new Set()).add(parentNode)
+                        }
+
+                        return
+                    }
+
                     const fragment = document.createDocumentFragment();
-                    fragment.append(fragmentData.startNode, ...fragmentData.nodes, fragmentData.endNode);
+                    fragment.append(...rangeNodes);
                     node = fragment
                 }
             }
