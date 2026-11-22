@@ -157,6 +157,20 @@
         }
     }
 
+    .preview-image {
+        background-image: var(--portal-example-cover, none);
+    }
+
+    :where(.neo-theme-neo-light, .neo-theme-light) & .neo-list-item.portal-example-paired-cover {
+        --portal-examples-list-pill-bg    : var(--sem-color-surface-neutral-highlighted);
+        --portal-examples-list-pill-border: var(--sem-color-border-default);
+        --portal-examples-list-pill-text  : var(--sem-color-text-neutral-default);
+
+        .preview-image {
+            background-image: var(--portal-example-cover-light, var(--portal-example-cover, none));
+        }
+    }
+
     /* The selection's ring. Where masks cannot be composited it is a plain border that fades in. */
     .neo-list-item::before {
         border    : 2px solid var(--portal-examples-list-selected);

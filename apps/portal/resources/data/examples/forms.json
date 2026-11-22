@@ -4,6 +4,7 @@
         "featured": false,
         "kind": "component",
         "image": "devmode/tiles/component-dateSelector-14.jpg",
+        "hasLightCover": true,
         "name": "Date selector",
         "sourceUrl": "examples/component/dateSelector",
         "urls": {
@@ -24,6 +25,7 @@
         "featured": false,
         "kind": "component",
         "image": "devmode/tiles/form-field-date-14.jpg",
+        "hasLightCover": true,
         "name": "Date field",
         "sourceUrl": "examples/form/field/date",
         "urls": {
@@ -44,6 +46,7 @@
         "featured": false,
         "kind": "component",
         "image": "devmode/tiles/form-field-combobox-14.jpg",
+        "hasLightCover": true,
         "name": "Combo box",
         "sourceUrl": "examples/form/field/combobox",
         "urls": {
@@ -63,6 +66,7 @@
         "id": "checkbox-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-checkbox-14.jpg",
+        "hasLightCover": true,
         "name": "Checkbox",
         "sourceUrl": "examples/form/field/checkbox",
         "urls": {
@@ -82,6 +86,7 @@
         "id": "chip-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-chip-14.jpg",
+        "hasLightCover": true,
         "name": "Chip field",
         "sourceUrl": "examples/form/field/chip",
         "urls": {
@@ -101,6 +106,7 @@
         "id": "color-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-color-14.jpg",
+        "hasLightCover": true,
         "name": "Color field",
         "sourceUrl": "examples/form/field/color",
         "urls": {
@@ -120,6 +126,7 @@
         "id": "email-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-email-14.jpg",
+        "hasLightCover": true,
         "name": "Email field",
         "sourceUrl": "examples/form/field/email",
         "urls": {
@@ -139,6 +146,7 @@
         "id": "fileupload-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-fileupload-14.jpg",
+        "hasLightCover": true,
         "name": "File upload",
         "sourceUrl": "examples/form/field/fileupload",
         "urls": {
@@ -159,6 +167,7 @@
         "id": "number-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-number-14.jpg",
+        "hasLightCover": true,
         "name": "Number field",
         "sourceUrl": "examples/form/field/number",
         "urls": {
@@ -178,6 +187,7 @@
         "id": "radio-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-radio-14.jpg",
+        "hasLightCover": true,
         "name": "Radio button",
         "sourceUrl": "examples/form/field/radio",
         "urls": {
@@ -197,6 +207,7 @@
         "id": "select-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-select-14.jpg",
+        "hasLightCover": true,
         "name": "Select field",
         "sourceUrl": "examples/form/field/select",
         "urls": {
@@ -216,6 +227,7 @@
         "id": "switch-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-switch-14.jpg",
+        "hasLightCover": true,
         "name": "Switch",
         "sourceUrl": "examples/form/field/switch",
         "urls": {
@@ -235,6 +247,7 @@
         "id": "text-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-text-14.jpg",
+        "hasLightCover": true,
         "name": "Text field",
         "sourceUrl": "examples/form/field/text",
         "urls": {
@@ -254,6 +267,7 @@
         "id": "textarea-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-textarea-14.jpg",
+        "hasLightCover": true,
         "name": "Text area",
         "sourceUrl": "examples/form/field/textarea",
         "urls": {
@@ -273,6 +287,7 @@
         "id": "time-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-time-14.jpg",
+        "hasLightCover": true,
         "name": "Time field",
         "sourceUrl": "examples/form/field/time",
         "urls": {
@@ -292,6 +307,7 @@
         "id": "url-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-url-14.jpg",
+        "hasLightCover": true,
         "name": "URL field",
         "sourceUrl": "examples/form/field/url",
         "urls": {
@@ -311,6 +327,7 @@
         "id": "country-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-country-14.jpg",
+        "hasLightCover": true,
         "name": "Country field",
         "sourceUrl": "examples/form/field/country",
         "urls": {
@@ -330,6 +347,7 @@
         "id": "currency-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-currency-14.jpg",
+        "hasLightCover": true,
         "name": "Currency field",
         "sourceUrl": "examples/form/field/currency",
         "urls": {
@@ -349,6 +367,7 @@
         "id": "display-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-display-14.jpg",
+        "hasLightCover": true,
         "name": "Display field",
         "sourceUrl": "examples/form/field/display",
         "urls": {
@@ -368,6 +387,7 @@
         "id": "iban-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-iban-14.jpg",
+        "hasLightCover": true,
         "name": "IBAN field",
         "sourceUrl": "examples/form/field/iban",
         "urls": {
@@ -387,6 +407,7 @@
         "id": "password-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-password-14.jpg",
+        "hasLightCover": true,
         "name": "Password field",
         "sourceUrl": "examples/form/field/password",
         "urls": {
@@ -406,6 +427,7 @@
         "id": "phone-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-phone-14.jpg",
+        "hasLightCover": true,
         "name": "Phone field",
         "sourceUrl": "examples/form/field/phone",
         "urls": {
@@ -425,6 +447,7 @@
         "id": "range-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-range-14.jpg",
+        "hasLightCover": true,
         "name": "Range slider",
         "sourceUrl": "examples/form/field/range",
         "urls": {
@@ -444,6 +467,7 @@
         "id": "search-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-search-14.jpg",
+        "hasLightCover": true,
         "name": "Search field",
         "sourceUrl": "examples/form/field/search",
         "urls": {
@@ -463,6 +487,7 @@
         "id": "zipcode-field",
         "kind": "component",
         "image": "devmode/tiles/form-field-zipcode-14.jpg",
+        "hasLightCover": true,
         "name": "ZIP code field",
         "sourceUrl": "examples/form/field/zipcode",
         "urls": {
@@ -482,6 +507,7 @@
         "id": "copy-to-clipboard-trigger",
         "kind": "component",
         "image": "devmode/tiles/form-field-trigger-copyToClipboard-14.jpg",
+        "hasLightCover": true,
         "name": "Copy-to-clipboard trigger",
         "sourceUrl": "examples/form/field/trigger/copyToClipboard",
         "urls": {
@@ -501,6 +527,7 @@
         "id": "fieldset",
         "kind": "component",
         "image": "devmode/tiles/form-fieldset-14.jpg",
+        "hasLightCover": true,
         "name": "Fieldset",
         "sourceUrl": "examples/form/fieldset",
         "urls": {

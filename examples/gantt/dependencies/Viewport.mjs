@@ -103,6 +103,7 @@ class LaunchViewport extends Viewport {
             }, {
                 module   : Component,
                 cls      : ['launch-status'],
+                flex     : 1,
                 reference: 'status',
                 role     : 'status',
                 text     : HINT

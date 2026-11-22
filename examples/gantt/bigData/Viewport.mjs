@@ -1,5 +1,6 @@
 import Button          from '../../../src/button/Base.mjs';
 import Component       from '../../../src/component/Base.mjs';
+import Container       from '../../../src/container/Base.mjs';
 import DependencyStore from '../../../src/gantt/DependencyStore.mjs';
 import Gantt           from '../../../src/gantt/Container.mjs';
 import Label           from '../../../src/component/Label.mjs';
@@ -164,8 +165,17 @@ class BigDataViewport extends Viewport {
                 },
                 {module: Label, cls: ['programme-hint'], text: 'Expand a phase and scroll: the tree, the bars and the links keep up.'},
                 {module: Component, cls: ['programme-spacer'], flex: 1},
-                {module: Button, cls: ['programme-zoom'], reference: 'zoom-days',  text: 'Days',  pressed: false, handler: 'up.onDays'},
-                {module: Button, cls: ['programme-zoom'], reference: 'zoom-weeks', text: 'Weeks', pressed: true,  handler: 'up.onWeeks'},
+                {
+                    module: Container,
+                    cls   : ['programme-zoom-group'],
+                    flex  : 'none',
+                    layout: {ntype: 'hbox', align: 'center'},
+                    role  : 'group',
+                    items : [
+                        {module: Button, cls: ['programme-zoom'], reference: 'zoom-days',  text: 'Days',  pressed: false, handler: 'up.onDays'},
+                        {module: Button, cls: ['programme-zoom'], reference: 'zoom-weeks', text: 'Weeks', pressed: true,  handler: 'up.onWeeks'}
+                    ]
+                },
                 {module: ThemeSwitcher}
             ]
         }, {

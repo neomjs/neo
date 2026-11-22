@@ -175,6 +175,7 @@
     {
         "id": "grid-content-sized-rows",
         "image": "devmode/grid-content-sized-rows-14.jpg",
+        "hasLightCover": true,
         "name": "Content-Sized Grid Rows",
         "sourceUrl": "examples/grid/contentSizedRows",
         "urls": {
@@ -241,7 +242,8 @@
         "family": "grid-table",
         "order": 660,
         "alsoIn": [
-            "buttons"
+            "buttons",
+            "state"
         ],
         "component": "Grid",
         "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
@@ -349,6 +351,9 @@
         "hiddenIn": [],
         "family": "grid-table",
         "order": 710,
+        "alsoIn": [
+            "state"
+        ],
         "component": "Grid",
         "feature": "50,000 NDJSON rows arriving in chunks with a live footer progress bar",
         "lookFor": "Scroll, sort or select while batches arrive, then press Load again to empty the grid and stream from zero.",
@@ -357,6 +362,7 @@
     {
         "id": "grid-tree",
         "image": "devmode/grid-tree-14.jpg",
+        "hasLightCover": true,
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
         "urls": {

@@ -500,6 +500,35 @@ test.describe('Neo.gantt.Container', () => {
         taskStore.destroy()
     });
 
+    test('working-calendar flip rolls structural children before the parent successor in one batch', () => {
+        const at        = (day, hour) => TimeAxis.parseDayKey(`2026-11-${day}`, hour, 0),
+              taskStore = Neo.create(TaskStore, {rollupParents:true, data:[
+                  {id:'P', isLeaf:false, startDate:at('13', 0), endDate:at('14', 12)},
+                  {id:'A', parentId:'P', isLeaf:true, startDate:at('13', 0), endDate:at('14', 0)},
+                  {id:'C', parentId:'P', isLeaf:true, startDate:at('13', 12), endDate:at('14', 12)},
+                  {id:'B', isLeaf:true, startDate:at('14', 12), endDate:at('15', 12)}
+              ]}),
+              dependencyStore = Neo.create(DependencyStore, {data:[{id:'PB', fromId:'P', toId:'B', type:'FS', lag:0}]});
+        gantt = Neo.create(GanttContainer, {appName, store:taskStore, dependencyStore, timeAxis:{
+            start:at('12', 0), end:at('21', 0), nonWorkingDays:[0,6], tickUnit:'hour', tickStep:6, pxPerMinute:0.5
+        }});
+        const observations = [], batches = [];
+        taskStore.on('recordChange', () => observations.push([
+            taskStore.get('P').endDate.getTime(), taskStore.get('B').startDate.getTime()
+        ]));
+        taskStore.on('rowsChange', event => batches.push(event.keys));
+        gantt.useWorkingTime = true;
+        expect(taskStore.get('P').endDate.getTime()).toBe(at('16', 12).getTime());
+        expect(taskStore.get('B').startDate.getTime()).toBe(at('16', 12).getTime());
+        expect(taskStore.get('B').endDate.getTime()).toBe(at('17', 12).getTime());
+        expect(observations.length).toBeGreaterThan(0);
+        expect(observations.every(([parent, successor]) => parent === at('16', 12).getTime() && successor === parent)).toBe(true);
+        expect(batches).toHaveLength(1);
+        expect(batches[0]).toEqual(expect.arrayContaining(['P','C','B']));
+        dependencyStore.destroy();
+        taskStore.destroy()
+    });
+
     test('a store batch re-projects the links once', () => {
         const
             taskStore = Neo.create(TaskStore, {

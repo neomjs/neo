@@ -3,6 +3,7 @@
         "id": "functional-define-component",
         "kind": "component",
         "image": "devmode/tiles/functional-defineComponent-14.jpg",
+        "hasLightCover": true,
         "name": "Function component",
         "sourceUrl": "examples/functional/defineComponent",
         "urls": {
@@ -41,6 +42,7 @@
         "id": "functional-nested-template",
         "kind": "component",
         "image": "devmode/tiles/functional-nestedTemplateComponent-14.jpg",
+        "hasLightCover": true,
         "name": "Nested templates",
         "sourceUrl": "examples/functional/nestedTemplateComponent",
         "urls": {
