@@ -79,7 +79,14 @@ const DomApiRenderer = {
             for (const key in vnode.attributes) {
                 const value = vnode.attributes[key];
                 if (voidAttributes.has(key)) {
-                    domNode.toggleAttribute(key, value === 'true' || value === true)
+                    const enabled = value === 'true' || value === true;
+
+                    domNode.toggleAttribute(key, enabled);
+
+                    // HTMLMediaElement.muted is live state; toggleAttribute('muted') updates defaultMuted only
+                    if (key === 'muted') {
+                        domNode.muted = enabled
+                    }
                 } else if (key === 'value') {
                     domNode.value = value
                 } else if (value !== null && value !== undefined) {
