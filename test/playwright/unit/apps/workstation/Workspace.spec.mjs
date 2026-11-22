@@ -74,6 +74,35 @@ test('a second binding of the vessel window joins the mount in flight', async ()
     expect(state.mountInFlight, 'a settled mount leaves no join target behind').toBe(false)
 });
 
+test('a superseded refresh leaves its suppressed tab bars to the next one, which restores them and only them', async () => {
+    const bar        = cls => ({cls, setSilent({cls}) {this.cls = cls}}),
+          plansOf    = (...bars) => new Map(bars.map((tabBar, i) => [`item-${i}`, {tab: {getTabBar: () => tabBar}}])),
+          shared     = bar(['neo-toolbar']),
+          suppressed = bar(['neo-toolbar', 'neo-no-animation']),
+          gone       = bar(['neo-toolbar']),
+          host       = {update() {}, promiseUpdate: async () => {}},
+          workspace  = {
+              animationSuppressedBars: [],
+              getDockHost            : () => host,
+              timeout                : async () => {},
+              waitForOverflowMenu    : async () => {}
+          };
+
+    // The first refresh stages over both bars, then a newer commit supersedes it before its presentation
+    Workspace.prototype.getReconcileOptions.call(workspace, null, {}).onProjectionStaged({plans: plansOf(shared, suppressed, gone)});
+    expect(shared.cls, 'the first refresh suppresses the retained bar').toContain('neo-no-animation');
+
+    // The newer refresh retains the same bar, which still carries the class, and destroys another
+    gone.isDestroyed = true;
+    Workspace.prototype.getReconcileOptions.call(workspace, null, {}).onProjectionStaged({plans: plansOf(shared, suppressed)});
+    await Workspace.prototype.afterRefreshDockWorkspace.call(workspace, {played: null, result: null});
+
+    expect(shared.cls, 'the newer refresh restores the bar the superseded one suppressed').toEqual(['neo-toolbar']);
+    expect(suppressed.cls, 'a bar that carried the class before either refresh keeps it').toContain('neo-no-animation');
+    expect(gone.cls, 'a destroyed bar is left alone').toContain('neo-no-animation');
+    expect(workspace.animationSuppressedBars).toEqual([])
+});
+
 test('a mount that parented the host and failed keeps reporting the failure', async () => {
     const mainView = {}, failure = new Error('the committed projection failed'),
           state    = {host: {parent: null}, document: {items: {}}};
