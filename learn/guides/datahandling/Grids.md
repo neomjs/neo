@@ -301,11 +301,13 @@ class MainView extends Viewport {
                     dataField   : 'population',
                     filterConfig: {operator: '>='},
 
-                    // The number field's default maxValue of 100 would clamp a typed population
+                    // The operator button cycles through `operators`, which must hold the one the filter starts with,
+                    // and the number field's default maxValue of 100 would clamp a typed population
                     editorConfig: {
-                        module     : NumberContainer,
-                        fieldConfig: {maxValue: 10000000},
-                        operator   : '>='
+                        module      : NumberContainer,
+                        buttonConfig: {operators: ['>=', '<=', '===']},
+                        fieldConfig : {maxValue: 10000000},
+                        operator    : '>='
                     }
                 }
             ]
