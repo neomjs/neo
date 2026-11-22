@@ -59,8 +59,9 @@ class Viewport extends BaseViewport {
             }, {
                 module: Component,
                 cls   : ['sortable-hint'],
+                flex  : 1,
                 text  : canOpenWindows
-                    ? 'Drag a tile by its title to reorder the board. Drag it out of the window to open it on its own, and back to return it.'
+                    ? 'Drag a tile by its title to reorder the board, or out of the window to open it on its own.'
                     : 'Drag a tile by its title to reorder the board.'
             }, {
                 module: ThemeSwitcher

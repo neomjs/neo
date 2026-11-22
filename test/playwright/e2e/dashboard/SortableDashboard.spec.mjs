@@ -48,7 +48,7 @@ test.describe('Sortable dashboard example', () => {
 
         await expect(page.locator(tiles)).toHaveCount(6);
         await expect(page.locator(titles)).toHaveText(startOrder);
-        await expect(page.locator('.sortable-hint')).toContainText('Drag it out of the window');
+        await expect(page.locator('.sortable-hint')).toContainText('out of the window to open it on its own');
 
         // The feed extends every figure once a second
         const revenue = page.locator('.sortable-kpi-value').first();

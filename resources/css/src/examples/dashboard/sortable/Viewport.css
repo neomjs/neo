@@ -4,8 +4,8 @@
     background: var(--neo-background-color);
     box-sizing: border-box;
     color     : var(--neo-color);
-    gap       : 16px;
-    padding   : 20px 24px;
+    gap       : 12px;
+    padding   : 16px 20px;
 
     .sortable-header {
         column-gap: 20px;
@@ -20,13 +20,13 @@
     }
 
     .sortable-hint {
-        flex     : 1 1 320px;
         font-size: 14px;
+        min-width: 240px;
         opacity  : 0.8;
     }
 
     .sortable-board {
-        gap       : 10px;
+        gap       : 8px;
         min-height: 0;
     }
 }
