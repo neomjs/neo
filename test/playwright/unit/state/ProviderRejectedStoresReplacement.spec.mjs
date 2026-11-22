@@ -132,6 +132,31 @@ test.describe('Neo.state.Provider rejected stores replacement', () => {
         foreign.destroy()
     });
 
+    test('a passed-through value between a built successor and the failure leaves the rollback whole', () => {
+        const
+            storeId                 = 'provider-rejected-replacement-mixed-store',
+            {child, original, root} = createPair({module: Store, id: storeId, keyProperty: 'id', data: [{id: 'task'}]});
+
+        // The string passes through beforeSetInstance as it is; the null entry then throws its own error
+        expect(() => {
+            root.stores = {plan: {module: Store, id: storeId, keyProperty: 'id'}, typo: 'oops', invalid: null}
+        }).toThrow(/reading 'listeners'/);
+
+        expect(child.getStore('plan')).toBe(original);
+        expect(original.isDestroyed).toBeFalsy();
+        expect(registered(storeId)).toEqual({instance: original, store: original});
+
+        // The failed map left the generation where it was
+        root.stores = {plan: {module: Store, id: storeId, keyProperty: 'id'}, extra: {module: Store, keyProperty: 'id'}};
+
+        expect(child.getStore('extra').id).toBe(`${root.id}__extra__1`);
+        expect(registered(storeId)).toEqual({instance: child.getStore('plan'), store: child.getStore('plan')});
+        expect(original.isDestroyed).toBe(true);
+
+        child.destroy();
+        root.destroy()
+    });
+
     test('an explicit id the failed map reused goes back to the original store', () => {
         const
             storeId                 = 'provider-rejected-replacement-explicit-store',

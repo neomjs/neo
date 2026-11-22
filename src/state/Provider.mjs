@@ -293,7 +293,9 @@ class Provider extends Base {
             created    = [],
             released   = [],
             storeIds   = {},
-            unregister = store => {Neo.manager.Instance.unregister(store); StoreManager.unregister(store)};
+            unregister = store => {Neo.manager.Instance.unregister(store); StoreManager.unregister(store)},
+            // A rollback teardown that throws still frees its registrations, so the restore always runs
+            retire     = store => {try {store.destroy()} catch {unregister(store)}};
 
         let pendingHolder = null,
             pendingId     = null;
@@ -334,9 +336,12 @@ class Provider extends Base {
                         me.bindCallback(listener, listenerKey, me, storeValue.listeners)
                     });
 
-                    instances[key] = ClassSystemUtil.beforeSetInstance(storeValue, Store);
+                    const store = ClassSystemUtil.beforeSetInstance(storeValue, Store);
 
-                    providerCreates && created.push(instances[key])
+                    instances[key] = store;
+
+                    // Only an instance this build made is the provider's to own, or to destroy on a rollback
+                    providerCreates && Neo.typeOf(store) === 'NeoInstance' && created.push(store)
                 });
 
                 Object.assign(value, instances);
@@ -346,16 +351,8 @@ class Provider extends Base {
             // A store that threw while its configs applied took its id, and nothing else reaches it
             const halfBuilt = pendingId && Neo.get(pendingId);
 
-            created.forEach(store => store.destroy());
-
-            if (halfBuilt && halfBuilt !== pendingHolder) {
-                try {
-                    halfBuilt.destroy()
-                } catch {
-                    // Its teardown may not complete; its registrations go regardless, and the original error stands
-                    unregister(halfBuilt)
-                }
-            }
+            created.forEach(retire);
+            halfBuilt && halfBuilt !== pendingHolder && retire(halfBuilt);
 
             released.forEach(store => {Neo.manager.Instance.register(store); StoreManager.register(store)});
             me.#storesGeneration = generation;
