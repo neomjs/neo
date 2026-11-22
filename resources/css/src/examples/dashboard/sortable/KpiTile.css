@@ -1,5 +1,5 @@
 /* A key-figure tile of the sortable dashboard. The rules hang on the tile itself, not on the dashboard page, so a
-   tile keeps its look in a window of its own. */
+   tile keeps its look in a window of its own and in the drag proxy. */
 .sortable-kpi-tile.neo-dashboard-panel {
     background   : color-mix(in srgb, var(--neo-color) 4%, var(--neo-background-color));
     border       : 1px solid color-mix(in srgb, var(--neo-color) 12%, transparent);
@@ -7,15 +7,32 @@
     color        : var(--neo-color);
     min-height   : 64px;
 
+    /* The title bar is the handle: a grip and the label to drag by, the window button at its end */
     .sortable-kpi-header.neo-toolbar {
         background: transparent;
         cursor    : grab;
-        padding   : 6px 14px 0;
+        gap       : 6px;
+        padding   : 4px 6px 0 10px;
+
+        .sortable-kpi-grip {
+            font-size: 12px;
+            opacity  : 0.45;
+        }
 
         .neo-panel-header-text {
             font-size  : 13px;
             font-weight: 600;
             opacity    : 0.8;
+        }
+
+        .sortable-kpi-window-button {
+            cursor : pointer;
+            opacity: 0.7;
+
+            &:hover,
+            &:focus-visible {
+                opacity: 1;
+            }
         }
     }
 
@@ -23,11 +40,11 @@
     .sortable-kpi-body {
         background: transparent;
         gap       : 16px;
-        padding   : 2px 14px 8px;
+        padding   : 0 14px 10px;
     }
 
     .sortable-kpi-value {
-        flex                : none;
+        align-self          : center;
         font-size           : 26px;
         font-variant-numeric: tabular-nums;
         font-weight         : 700;
@@ -35,7 +52,7 @@
     }
 
     .sortable-kpi-change {
-        flex                : none;
+        align-self          : center;
         font-size           : 13px;
         font-variant-numeric: tabular-nums;
         font-weight         : 600;
@@ -51,9 +68,9 @@
         }
     }
 
-    /* A size-contained wrapper has no height of its own to keep, so it would shrink with its tile */
+    /* The chart takes the body's whole height, so the line has room to show its shape */
     .neo-sparkline-wrapper {
-        height   : 40px;
-        min-width: 80px;
+        min-height: 40px;
+        min-width : 80px;
     }
 }

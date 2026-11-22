@@ -36,8 +36,9 @@ async function pressTitle(page, index) {
 
 /**
  * @summary The sortable dashboard example: six live key-figure tiles in a `Neo.dashboard.Container`, a drag that
- * reorders them, and a drag out of the window that opens a tile in a window of its own, still live, which a drag
- * back returns. Headless runs prove the wiring; where an OS window lands stays with the headed tear-out suite
+ * reorders them, and a drag out of the window, or a tile's window button, that opens a tile in a window of its own,
+ * still live, which a drag back or the same button returns. Headless runs prove the wiring; where an OS window lands
+ * stays with the headed tear-out suite
  * (`test/playwright/e2e/colors/tearOutMatrix.spec.mjs`).
  */
 test.describe('Sortable dashboard example', () => {
@@ -48,7 +49,7 @@ test.describe('Sortable dashboard example', () => {
 
         await expect(page.locator(tiles)).toHaveCount(6);
         await expect(page.locator(titles)).toHaveText(startOrder);
-        await expect(page.locator('.sortable-hint')).toContainText('out of the window to open it on its own');
+        await expect(page.locator('.sortable-hint')).toContainText('or out of the window');
 
         // The feed extends every figure once a second
         const revenue = page.locator('.sortable-kpi-value').first();
@@ -100,5 +101,30 @@ test.describe('Sortable dashboard example', () => {
 
         await expect.poll(() => popup.isClosed(), {timeout: 10000}).toBe(true);
         await expect(page.locator(titles)).toHaveText(startOrder)
+    });
+
+    test('a tile\'s window button opens it in its own window, and the same button there brings it back', async ({context, page}) => {
+        await page.goto(url);
+        await expect(page.locator(titles)).toHaveText(startOrder);
+
+        const button      = page.locator('.sortable-kpi-window-button').nth(1),
+              popupOpened = context.waitForEvent('page', {timeout: 30000});
+
+        await expect(button).toHaveAttribute('aria-label', 'Open in its own window');
+        await button.click();
+
+        const popup = await popupOpened;
+
+        await expect(popup.locator(titles)).toHaveText(['Orders'], {timeout: 15000});
+        await expect(page.locator(titles)).toHaveText(startOrder.filter(title => title !== 'Orders'));
+
+        const back = popup.locator('.sortable-kpi-window-button');
+
+        await expect(back).toHaveAttribute('aria-label', 'Return to the dashboard');
+        await back.click();
+
+        await expect.poll(() => popup.isClosed(), {timeout: 10000}).toBe(true);
+        await expect(page.locator(titles)).toHaveText(startOrder);
+        await expect(button).toHaveAttribute('aria-label', 'Open in its own window')
     })
 });

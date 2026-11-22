@@ -51,7 +51,8 @@ class ViewportController extends ComponentController {
     }
 
     /**
-     * @summary Fills the store with every figure's opening readings, hands it to each tile and starts the feed.
+     * @summary Fills the store with every figure's opening readings, hands each tile the store and its dashboard, and
+     * starts the feed.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
@@ -76,8 +77,11 @@ class ViewportController extends ComponentController {
             })
         });
 
-        me.getReference('dashboard').items.forEach(tile => {
-            tile.store = me.store
+        const dashboard = me.getReference('dashboard');
+
+        dashboard.items.forEach(tile => {
+            tile.dashboard = dashboard;
+            tile.store     = me.store
         });
 
         me.feedTimer = setInterval(() => me.tick(), 1000)

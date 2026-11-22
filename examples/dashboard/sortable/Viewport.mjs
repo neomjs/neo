@@ -61,7 +61,7 @@ class Viewport extends BaseViewport {
                 cls   : ['sortable-hint'],
                 flex  : 1,
                 text  : canOpenWindows
-                    ? 'Drag a tile by its title to reorder the board, or out of the window to open it on its own.'
+                    ? 'Drag a tile by its title to reorder the board, or out of the window.'
                     : 'Drag a tile by its title to reorder the board.'
             }, {
                 module: ThemeSwitcher
@@ -70,6 +70,7 @@ class Viewport extends BaseViewport {
             module           : Dashboard,
             cls              : ['sortable-board'],
             detachToNewWindow: canOpenWindows,
+            dragProxyExtraCls: ['sortable-drag-proxy'],
             flex             : 1,
             layout           : {ntype: 'vbox', align: 'stretch'},
             popupUrl         : tile => {
@@ -81,11 +82,12 @@ class Viewport extends BaseViewport {
             reference        : 'dashboard',
 
             items: KPIS.map(kpi => ({
-                module   : KpiTile,
-                flex     : 1,
-                headers  : [{dock: 'top', cls: ['neo-draggable', 'sortable-kpi-header'], text: kpi.label}],
-                kpiId    : kpi.id,
-                reference: `tile-${kpi.id}`
+                module       : KpiTile,
+                canOpenWindow: canOpenWindows,
+                flex         : 1,
+                kpiId        : kpi.id,
+                label        : kpi.label,
+                reference    : `tile-${kpi.id}`
             }))
         }]
     }
