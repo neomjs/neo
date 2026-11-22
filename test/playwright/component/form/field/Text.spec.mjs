@@ -112,6 +112,36 @@ test.describe('Neo.form.field.Text', () => {
         await expect(field).toHaveClass(/label-inline/);
     });
 
+    test('top-labelled fields contain their inputs in consecutive grid rows', async ({page}) => {
+        const grid = await page.evaluate(() => Neo.worker.App.createNeoInstance({
+            importPath: '../container/Base.mjs',
+            ntype     : 'container',
+            parentId  : 'component-test-viewport',
+            flex      : 'none',
+            layout    : 'grid',
+            style     : {gridTemplateColumns: '300px', rowGap: '4px'}
+        }));
+
+        expect(grid.success).toBe(true);
+        componentId = grid.id;
+
+        const firstId  = await createTextField(page, {parentId: grid.id, labelPosition: 'top', labelText: 'First',  style: {}}),
+              secondId = await createTextField(page, {parentId: grid.id, labelPosition: 'top', labelText: 'Second', style: {}}),
+              first    = page.locator(`#${firstId}`),
+              second   = page.locator(`#${secondId}`);
+
+        await expect(page.locator(`#${grid.id}`)).toHaveCSS('display', 'grid');
+        await expect(second.locator('input')).toBeVisible();
+
+        const firstBox  = await first.boundingBox(),
+              inputBox  = await first.locator('input').boundingBox(),
+              nextLabel = await second.locator('.neo-textfield-label').boundingBox(),
+              inputEnd  = inputBox.y + inputBox.height;
+
+        expect(inputEnd).toBeLessThanOrEqual(firstBox.y + firstBox.height + 1);
+        expect(inputEnd).toBeLessThan(nextLabel.y)
+    });
+
     // `value` is trimmed, the DOM is not: a render between a typed space and the next character used to write the
     // trimmed value back over the input. The wrapped setter sees every programmatic write, and none of the typing.
     test('a space typed at the end survives a render that lands before the next character', async ({page}) => {
