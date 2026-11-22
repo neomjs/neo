@@ -55,6 +55,26 @@
         "lookFor": "Move the icon or the badge, change the text, and toggle disabled in the panel."
     },
     {
+        "id": "button-split",
+        "kind": "component",
+        "image": "devmode/tiles/button-split-14.jpg",
+        "hasLightCover": true,
+        "name": "Split button",
+        "sourceUrl": "examples/button/split",
+        "urls": {
+            "devmode": "examples/button/split/index.html",
+            "dist_dev": "dist/development/examples/button/split/index.html",
+            "dist_esm": "dist/esm/examples/button/split/index.html",
+            "dist_prod": "dist/production/examples/button/split/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "order": 1355,
+        "component": "SplitButton",
+        "feature": "A button with a menu of its own: the main part runs its handler, the arrow opens the alternatives",
+        "lookFor": "Press Save for the main action or the arrow for Save as…, Export and Print, and move the icon in the panel."
+    },
+    {
         "id": "menu-list",
         "kind": "component",
         "image": "devmode/tiles/menu-list-14.jpg",
@@ -73,5 +93,25 @@
         "component": "MenuList",
         "feature": "A menu list over a store",
         "lookFor": "Move through the items with the arrow keys, and resize the menu in the panel."
+    },
+    {
+        "id": "menu-tree",
+        "kind": "component",
+        "image": "devmode/tiles/menu-tree-14.jpg",
+        "hasLightCover": true,
+        "name": "Menu tree",
+        "sourceUrl": "examples/menu/tree",
+        "urls": {
+            "devmode": "examples/menu/tree/index.html",
+            "dist_dev": "dist/development/examples/menu/tree/index.html",
+            "dist_esm": "dist/esm/examples/menu/tree/index.html",
+            "dist_prod": "dist/production/examples/menu/tree/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "order": 1365,
+        "component": "MenuList",
+        "feature": "A cascading menu read from a tree store, three levels deep",
+        "lookFor": "Open File and then New with the pointer, or step in with the arrow keys and open a submenu with the right arrow."
     }
 ]
