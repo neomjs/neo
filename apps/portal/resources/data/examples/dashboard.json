@@ -27,6 +27,7 @@
         "name": "Operations Desk",
         "family": "dashboard",
         "order": 1270,
+        "alsoIn": ["drag-drop"],
         "component": "Dock Workspace",
         "feature": "Ten docked panes are views of one data set: a selection and an edit cross them",
         "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
@@ -69,8 +70,7 @@
         "family": "dashboard",
         "order": 1290,
         "alsoIn": [
-            "multi-window",
-            "drag-drop"
+            "multi-window"
         ],
         "component": "Dock Workspace",
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
