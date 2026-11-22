@@ -86,27 +86,40 @@ class MainContainer extends Viewport {
                 flex  : 'none',
                 layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
 
+                // The filters choose a view, the commands change the list: two groups, the commands at the row's end
                 items: [{
                     module: Component,
                     bind  : {text: data => `${data.openCount} ${data.openCount === 1 ? 'item' : 'items'} left`},
                     cls   : ['neo-examples-todo-count'],
                     flex  : 1
-                }, ...['All', 'Open', 'Done'].map(text => ({
-                    module : Button,
-                    bind   : {pressed: data => data.filter === text.toLowerCase()},
-                    handler: 'onFilterClick',
-                    text,
-                    ui     : 'ghost'
-                })), {
-                    module : Button,
-                    handler: 'onClearDone',
-                    text   : 'Clear done',
-                    ui     : 'ghost'
                 }, {
-                    module : Button,
-                    handler: 'onReset',
-                    text   : 'Start over',
-                    ui     : 'ghost'
+                    module: Container,
+                    cls   : ['neo-examples-todo-filters'],
+                    flex  : 'none',
+                    layout: {ntype: 'hbox', align: 'center'},
+                    items : ['All', 'Open', 'Done'].map(text => ({
+                        module : Button,
+                        bind   : {pressed: data => data.filter === text.toLowerCase()},
+                        handler: 'onFilterClick',
+                        text,
+                        ui     : 'ghost'
+                    }))
+                }, {
+                    module: Container,
+                    cls   : ['neo-examples-todo-commands'],
+                    flex  : 'none',
+                    layout: {ntype: 'hbox', align: 'center'},
+                    items : [{
+                        module : Button,
+                        handler: 'onClearDone',
+                        text   : 'Clear done',
+                        ui     : 'ghost'
+                    }, {
+                        module : Button,
+                        handler: 'onReset',
+                        text   : 'Start over',
+                        ui     : 'ghost'
+                    }]
                 }]
             }]
         }],
