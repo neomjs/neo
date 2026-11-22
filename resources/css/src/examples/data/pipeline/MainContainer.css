@@ -191,10 +191,15 @@
         opacity    : .8;
     }
 
-    /* The table is the component's root: it takes the page's width instead of its columns' default widths */
+    /* The table is the component's root: it takes the page's width, and its columns share it instead of each
+       holding the theme's minimum, which is wider than a phone */
     .neo-examples-data-pipeline-report {
         margin: 0 16px 16px;
         width : calc(100% - 32px);
+
+        th {
+            min-width: 0;
+        }
     }
 
     @media (max-width: 900px) {
@@ -239,9 +244,9 @@
             grid-column: 1 / span 3;
         }
 
-        /* Four columns fit a phone: the average and the customers stay on the wide page */
+        /* Three columns fit a phone: the orders, the average and the customers stay on the wide page */
         .neo-examples-data-pipeline-report {
-            th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) {
+            th:nth-child(2), td:nth-child(2), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) {
                 display: none;
             }
         }

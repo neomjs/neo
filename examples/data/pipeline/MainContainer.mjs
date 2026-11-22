@@ -137,7 +137,7 @@ class MainContainer extends Viewport {
                 {dataField: 'revenue',   text: 'Revenue (€)',       renderer: data => MainContainer.formatNumber(data.value)},
                 {dataField: 'average',   text: 'Average order (€)', renderer: data => MainContainer.formatNumber(data.value)},
                 {dataField: 'customers', text: 'Customers',         renderer: data => MainContainer.formatNumber(data.value)},
-                {dataField: 'bestMonth', text: 'Strongest month'}
+                {dataField: 'bestMonth', text: 'Top month'}
             ]
         }],
         /**
