@@ -241,7 +241,8 @@
         "family": "grid-table",
         "order": 660,
         "alsoIn": [
-            "buttons"
+            "buttons",
+            "state"
         ],
         "component": "Grid",
         "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
@@ -349,6 +350,9 @@
         "hiddenIn": [],
         "family": "grid-table",
         "order": 710,
+        "alsoIn": [
+            "state"
+        ],
         "component": "Grid",
         "feature": "50,000 NDJSON rows arriving in chunks with a live footer progress bar",
         "lookFor": "Scroll, sort or select while batches arrive, then press Load again to empty the grid and stream from zero.",

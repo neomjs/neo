@@ -1173,7 +1173,7 @@
     },
     "/examples/state": {
         "title": "JavaScript State Management Examples — Reactive Stores | Neo.mjs",
-        "description": "Explore 1 live JavaScript state management example: Nested state providers bind button texts through the formatters shown beside them.",
+        "description": "Explore 3 live JavaScript state management examples: Nested state providers bind button texts through the formatters shown beside them.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1185,7 +1185,7 @@
     },
     "/examples/drag-drop": {
         "title": "JavaScript Drag & Drop Examples — Boards, Lists & Windows | Neo.mjs",
-        "description": "Explore 12 live JavaScript drag and drop examples: A kanban board and a table over one store of cards; A draggable dialog can move into a second browser window.",
+        "description": "Explore 11 live JavaScript drag and drop examples: A kanban board and a table over one store of cards; A draggable dialog can move into a second browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },

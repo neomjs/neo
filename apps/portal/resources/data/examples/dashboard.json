@@ -70,8 +70,7 @@
         "family": "dashboard",
         "order": 1290,
         "alsoIn": [
-            "multi-window",
-            "drag-drop"
+            "multi-window"
         ],
         "component": "Dock Workspace",
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
