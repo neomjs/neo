@@ -43,6 +43,24 @@ async function expectTheme(page, theme, label) {
     await expect(page.locator('.neo-viewport').first(), `${label}: viewport`).toHaveClass(pattern)
 }
 
+test('a tile opened in its own window follows its dashboard switched to Neo Dark', async ({context, page}) => {
+    await page.goto('/examples/dashboard/sortable/index.html');
+    await expectTheme(page, LIGHT, 'dashboard at start');
+
+    await page.locator('.neo-theme-switcher').first().click();
+    await expectTheme(page, DARK, 'dashboard after the switch');
+
+    // The dashboard's popupUrl passes the tile's current theme as `?theme=`
+    const popupOpened = context.waitForEvent('page');
+
+    await page.locator('.sortable-kpi-window-button').nth(1).click();
+
+    const popup = await popupOpened;
+
+    await expect(popup.locator('.sortable-kpi-tile')).toHaveCount(1);
+    await expectTheme(popup, DARK, 'the tile\'s window')
+});
+
 test.describe('A SharedWorker example starts each window on its own requested theme', () => {
     for (const {first, name, second} of WINDOWS) {
         for (const [firstTheme, secondTheme] of [[LIGHT, DARK], [DARK, LIGHT]]) {
