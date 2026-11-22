@@ -582,6 +582,31 @@ async function shoot(page, clip, id) {
 }
 
 /**
+ * @summary Writes a pair's images, or none of them: each file is created new (`wx`), and when one write fails the files
+ * this call created are removed before the error goes on, so a failed pair leaves no half behind. A file that already
+ * existed was not this call's, and stays.
+ * @param {String} output The run's output directory
+ * @param {Object[]} shots `{image, bytes}` each, `image` relative to `output`
+ * @param {Function} [writeFile=fs.writeFile]
+ * @returns {Promise<void>}
+ */
+export async function writePair(output, shots, writeFile=fs.writeFile) {
+    const written = [];
+
+    try {
+        for (const {image, bytes} of shots) {
+            const file = path.join(output, image);
+
+            await writeFile(file, bytes, {flag: 'wx'});
+            written.push(file)
+        }
+    } catch (error) {
+        await Promise.all(written.map(file => fs.rm(file, {force: true})));
+        throw error
+    }
+}
+
+/**
  * @summary Crops one workbench entry's component with the whole workbench on its dark theme, then on its light theme,
  * in one region that holds the component in both, so the pair lines up. A failure in either publishes neither tile.
  * @returns {Promise<Object[]|Object>} One report row per theme, or one failed row.
@@ -624,7 +649,7 @@ async function captureTile(browser, tile, manifest, baseUrl, output) {
             shots.unshift({theme, image: `devmode/tiles/${tile.id}-${manifest.suffix}${variant}.jpg`, ...await shoot(page, row.region, tile.id)})
         }
         insist(!errors.length, tile.id, `page errors: ${errors.join('; ')}`);
-        for (const {image, bytes} of shots) await fs.writeFile(path.join(output, image), bytes, {flag: 'wx'});
+        await writePair(output, shots);
         return shots.map(({bytes, ...shot}) => ({...row, status: 'captured', ...shot, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex')}))
     } catch (error) {
         return {...row, status: 'failed', error: error.message}

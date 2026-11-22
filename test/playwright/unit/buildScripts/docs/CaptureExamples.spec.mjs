@@ -3,8 +3,10 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted
+    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted, writePair
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
+import os                   from 'node:os';
+import path                 from 'node:path';
 import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
 /** @summary Gives the producer one covered local record with a recipe, and one in a family no recipe covers. */
@@ -113,6 +115,34 @@ test('a view counts as mounted once a shown element covers part of the frame; a 
     expect(viewMounted(frameDocument([script, probe, parked]))).toBe(false);
     expect(viewMounted(frameDocument([script, {...view, style: {display: 'none'}}]))).toBe(false);
     expect(viewMounted(frameDocument([script, probe, parked, view]))).toBe(true)
+});
+
+test('a pair is written whole or not at all: a failed second write leaves no first image, and a file the run did not create stays', async () => {
+    const output = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-pair-')),
+        shots    = [{image: 'dark.jpg', bytes: Buffer.from('d')}, {image: 'light.jpg', bytes: Buffer.from('l')}];
+
+    try {
+        await writePair(output, shots);
+        expect(fs.readdirSync(output).sort()).toEqual(['dark.jpg', 'light.jpg']);
+
+        const failing = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-pair-'));
+        let   calls   = 0;
+        await expect(writePair(failing, shots, async (...args) => {
+            if (++calls === 2) throw new Error('disk full');
+            return fs.promises.writeFile(...args)
+        })).rejects.toThrow('disk full');
+        expect(fs.readdirSync(failing)).toEqual([]);
+
+        // A light file from an earlier run is not this run's: the pair fails, the dark file it created goes, the old one stays
+        fs.rmSync(path.join(failing, 'dark.jpg'), {force: true});
+        fs.writeFileSync(path.join(failing, 'light.jpg'), 'old');
+        await expect(writePair(failing, shots)).rejects.toThrow(/EEXIST/);
+        expect(fs.readdirSync(failing)).toEqual(['light.jpg']);
+        expect(fs.readFileSync(path.join(failing, 'light.jpg'), 'utf8')).toBe('old');
+        fs.rmSync(failing, {recursive: true, force: true})
+    } finally {
+        fs.rmSync(output, {recursive: true, force: true})
+    }
 });
 
 test('duplicate recipes and unknown catalog identities are refused', () => {
