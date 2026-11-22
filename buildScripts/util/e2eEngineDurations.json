@@ -38,6 +38,7 @@
     "test/playwright/e2e/core/SharedWorkerRemoteReplay.spec.mjs": 3.9,
     "test/playwright/e2e/core/SourceMoveWorkspaceNL.spec.mjs": 21,
     "test/playwright/e2e/core/SplitterLiveResizeNL.spec.mjs": 23.3,
+    "test/playwright/e2e/core/StateProviderSurfacesNL.spec.mjs": 2.1,
     "test/playwright/e2e/core/WorkbenchCodeViewNL.spec.mjs": 14.9,
     "test/playwright/e2e/core/WorkbenchReset.spec.mjs": 16.2,
     "test/playwright/e2e/core/WorkerErrorGate.spec.mjs": 3.9,

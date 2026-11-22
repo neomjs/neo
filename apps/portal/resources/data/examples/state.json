@@ -24,11 +24,30 @@
         "id": "state-provider",
         "family": "state",
         "order": 210,
-        "feature": "Nested state providers bind button texts through the formatters shown beside them",
-        "lookFor": "Edit data.button2Text and watch both buttons follow: the first reads from two providers. Then press Add a third button & textfield.",
+        "alsoIn": [
+            "multi-window"
+        ],
+        "component": "State Provider",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "feature": "A profile form, a dialog and a second browser window edit the same member record, while one preview card keeps its own compact density.",
+        "lookFor": "Type in Full name and watch the header follow; open Edit in dialog and Open second window, change a field in either one, then flip the preview card's density.",
+        "scope": "Allow popups on desktop to launch the companion window.",
         "featured": false,
-        "image": "devmode/model-component-example.png",
-        "name": "State Provider Example",
+        "image": "devmode/state-provider-14.jpg",
+        "hasLightCover": true,
+        "keywords": [
+            "state",
+            "provider",
+            "record",
+            "dialog",
+            "multi-window",
+            "sharedworker"
+        ],
+        "name": "One state, every surface",
+        "sharedWorkers": true,
         "sourceUrl": "examples/stateProvider/advanced",
         "urls": {
             "devmode": "examples/stateProvider/advanced/index.html",
