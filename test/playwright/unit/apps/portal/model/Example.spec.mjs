@@ -6,13 +6,13 @@ setup({
     }
 });
 
-import {test, expect}  from '@playwright/test';
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import Example         from '../../../../../../apps/portal/model/Example.mjs';
+import {test, expect}                     from '@playwright/test';
+import path                               from 'node:path';
+import {fileURLToPath}                    from 'node:url';
+import Neo                                from '../../../../../../src/Neo.mjs';
+import * as core                          from '../../../../../../src/core/_export.mjs';
+import Example                            from '../../../../../../apps/portal/model/Example.mjs';
+import {EXAMPLES_DIR, readExampleCatalog} from '../../../../../../buildScripts/util/exampleCatalog.mjs';
 
 /**
  * @summary Pins `Portal.model.Example.href` on published catalog records: a local link carries the catalog's theme
@@ -24,7 +24,7 @@ import Example         from '../../../../../../apps/portal/model/Example.mjs';
  */
 const
     directory = path.dirname(fileURLToPath(import.meta.url)),
-    examples  = JSON.parse(fs.readFileSync(path.resolve(directory, '../../../../../../apps/portal/resources/data/examples.json'), 'utf8')),
+    examples  = (await readExampleCatalog(path.resolve(directory, '../../../../../../', EXAMPLES_DIR))).records,
     record    = id => examples.find(example => example.id === id),
     baseUrl   = 'https://neomjs.com/',
     dark      = 'neo-theme-neo-dark',
