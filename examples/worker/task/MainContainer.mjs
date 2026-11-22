@@ -77,6 +77,7 @@ class MainContainer extends Viewport {
                     text  : name
                 }, {
                     module   : Button,
+                    flex     : 'none',
                     handler,
                     reference: `${prefix}-run`,
                     text     : `Run in ${name}`

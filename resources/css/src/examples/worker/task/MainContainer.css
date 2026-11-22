@@ -21,7 +21,7 @@
     p {
         color: var(--sem-color-text-neutral-subdued);
         line-height: 1.5;
-        margin: 0;
+        margin-block: 0;
     }
 
     .neo-task-worker-header {
@@ -69,6 +69,7 @@
         font-size: 14px;
         font-variant-numeric: tabular-nums;
         line-height: 1.4;
+        white-space: normal;
     }
 
     .neo-task-worker-input {
