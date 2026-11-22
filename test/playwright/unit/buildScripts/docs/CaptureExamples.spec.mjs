@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {
     applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
+import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
 /** @summary Gives the producer one covered local record and an unrelated legacy cover. */
 function catalog() {
@@ -149,11 +150,11 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
     }
 });
 
-test('the committed Grid/Table manifest covers every current family record with a real feature action', () => {
-    const data  = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
-        records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
-        raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
-        valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
+test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
+    const data    = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
+        {records} = await readExampleCatalog(fileURLToPath(new URL('examples', data))),
+        raw       = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
+        valid     = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
 });
@@ -198,9 +199,9 @@ test('a tile path outside examples/, a duplicate tile, a bad capture size or an 
     expect(() => selectTiles(valid, 'examples/form/field/date')).toThrow(/no matching tiles/)
 });
 
-test('the committed tile list names workbench entries that exist', () => {
+test('the committed tile list names workbench entries that exist', async () => {
     const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
-        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), JSON.parse(fs.readFileSync(new URL('examples.json', data))));
+        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), (await readExampleCatalog(fileURLToPath(new URL('examples', data)))).records);
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');

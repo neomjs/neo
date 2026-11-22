@@ -26,7 +26,8 @@
             padding       : 12px 0;
         }
 
-        .neo-board-column-title {
+        .neo-board-column-title,
+        .neo-board-column-summary {
             flex            : 0 1 auto;
             min-height      : 0;
             text-orientation: mixed;
@@ -59,10 +60,21 @@
 
     .neo-board-column-title {
         flex         : 1;
+        order        : -2;
         min-width    : 0;
         overflow     : hidden;
         text-overflow: ellipsis;
         white-space  : nowrap;
+    }
+
+    .neo-board-column-summary {
+        font-size           : 0.85em;
+        font-variant-numeric: tabular-nums;
+        min-width           : 0;
+        order               : -1;
+        overflow            : hidden;
+        text-overflow       : ellipsis;
+        white-space         : nowrap;
     }
 
     .neo-board-column-count {
