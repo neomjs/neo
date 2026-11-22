@@ -59,6 +59,33 @@
         "hiddenIn": []
     },
     {
+        "id": "shared-planning",
+        "family": "multi-window",
+        "order": 145,
+        "alsoIn": [
+            "scheduler",
+            "gantt",
+            "board",
+            "drag-drop"
+        ],
+        "name": "One plan, three windows",
+        "component": "Dock Workspace",
+        "environments": ["Desktop", "Mobile"],
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "lookFor": "Move Focus lighting one day later. Sound check follows on the Gantt, and the card shows the new dates. Close a detached window to return its view.",
+        "scope": "Allow popups for separate windows. On a phone, use the three tabs.",
+        "image": "devmode/shared-planning-14.jpg",
+        "hasLightCover": true,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/planning",
+        "urls": {
+            "devmode": "examples/dashboard/planning/index.html",
+            "dist_dev": "dist/development/examples/dashboard/planning/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/planning/index.html",
+            "dist_prod": "dist/production/examples/dashboard/planning/index.html"
+        }
+    },
+    {
         "id": "multi-window-covid-gallery",
         "family": "multi-window",
         "order": 150,
