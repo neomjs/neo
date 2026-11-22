@@ -196,12 +196,27 @@ const readProjectionState = async (browser, page) => {
 
             if (!workspace) return {hostId: id, workspace: null};
 
-            const {dockModel, departedProjection, refreshPromise, scheduledProjection} = workspace;
+            const {dockModel, departedProjection, refreshPromise, scheduledProjection} = workspace,
+                  host                                                                 = globalThis.Neo.getComponent(id),
+                  inside                                                               = component => {
+                      for (let node = component; node; node = node.parent) if (node === workspace) return true;
+                      return false
+                  },
+                  // A stamp-less stop between `released` and `reconciled` is one of the reconcile's awaits: the
+                  // host's update round trip, or a tab strip's overflow pass
+                  overflow  = globalThis.Neo.manager.Component.items
+                      .filter(component => component.getPlugin?.('tab-overflow') && inside(component))
+                      .map(component => {
+                          const plugin = component.getPlugin('tab-overflow');
+                          return {strip: component.id, measuring: Boolean(plugin.measuring), projectQueued: Boolean(plugin.projectQueued)}
+                      });
 
             return {
-                hostId   : id,
-                workspace: workspace.id,
-                cycle    : workspace.projectionCycle?.timing ?? null,
+                hostId    : id,
+                hostUpdate: host ? {updating: Boolean(host.isVdomUpdating), needsUpdate: Boolean(host.needsVdomUpdate)} : null,
+                overflow,
+                workspace : workspace.id,
+                cycle     : workspace.projectionCycle?.timing ?? null,
                 // The refresh the newest cycle waits on: its last stamp is the phase it never left
                 predecessor: workspace.projectionCycle?.predecessorTiming ?? null,
                 // 500 ms out-waits the refresh's own longest timer, the 300 ms chrome settle after its motion
