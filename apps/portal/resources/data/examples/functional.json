@@ -23,6 +23,7 @@
         "id": "functional-host-component",
         "kind": "component",
         "image": "devmode/tiles/functional-hostComponent-14.jpg",
+        "hasLightCover": true,
         "name": "Hosting a class component",
         "sourceUrl": "examples/functional/hostComponent",
         "urls": {
