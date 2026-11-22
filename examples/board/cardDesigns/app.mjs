@@ -1,26 +1,12 @@
-import Viewport from './Viewport.mjs';
+import {resolveStartTheme} from '../../../src/util/Theme.mjs';
+import Viewport            from './Viewport.mjs';
 
 /**
  * @summary Boots the editorial calendar board example in the `?theme=` query theme, else dark when preferred, else the
  * first configured theme.
  * @returns {Neo.controller.Application}
  */
-export const onStart = () => {
-    const
-        {prefersDarkTheme, themes, url} = Neo.config,
-        requested                       = new URLSearchParams(url?.search).get('theme'),
-        dark                            = 'neo-theme-neo-dark';
-
-    let theme = themes[0];
-
-    if (themes.includes(requested)) {
-        theme = requested
-    } else if (prefersDarkTheme && themes.includes(dark)) {
-        theme = dark
-    }
-
-    return Neo.app({
-        mainView: {module: Viewport, theme},
-        name    : 'BoardCardDesigns'
-    })
-};
+export const onStart = () => Neo.app({
+    mainView: {module: Viewport, theme: resolveStartTheme(Neo.config)},
+    name    : 'BoardCardDesigns'
+});
