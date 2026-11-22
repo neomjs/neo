@@ -48,7 +48,7 @@ class Field extends Component {
         isTouched_: false,
         /**
          * Event name which sets isTouched to true. Valid options are 'focusEnter' & 'focusLeave'
-         * @member {String} isTouched_=false
+         * @member {String} isTouchedEvent_='focusLeave'
          * @reactive
          */
         isTouchedEvent_: 'focusLeave',
