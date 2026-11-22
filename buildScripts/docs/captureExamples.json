@@ -30,7 +30,10 @@
     {"path": "examples/sitemap", "width": 224, "height": 160},
     {"path": "examples/tab/container", "width": 264, "height": 176},
     {"path": "examples/tree", "width": 300, "height": 350},
-    {"path": "examples/treeAccordion", "width": 300, "height": 270}
+    {"path": "examples/treeAccordion", "width": 300, "height": 270},
+    {"path": "examples/container/accordion", "width": 300, "height": 380},
+    {"path": "examples/layout/card", "width": 300, "height": 240},
+    {"path": "examples/container/fragment", "width": 440, "height": 240}
   ],
   "recipes": [
     {
