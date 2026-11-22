@@ -116,6 +116,23 @@ in the same chart edit. A derived phase supplies its own dates, so use a leaf as
 dependency. Keep the store policy at its default of `false` for plans with independently scheduled parent
 dates or an application-owned schedule service.
 
+### Sharing tasks with a Scheduler and a Task Board
+
+Folding a phase should hide its bars in the Gantt while its crew still sees their bookings. Give the
+Gantt the full task tree and borrow its flat view of leaf records for the other two components:
+
+```javascript
+const bookings = gantt.store.getBookingStore();
+scheduler.eventStore = bookings;
+board.store = bookings;
+```
+
+The booking view has its own filters. Its records keep their identity when a phase is collapsed,
+a task changes person, or a pane moves into another window. Add and remove tasks through the
+owning task store. For date edits that must also reschedule a successor, use the same
+`gantt.moveTask()` operation from either timeline. [One plan, three windows](https://github.com/neomjs/neo/blob/dev/examples/dashboard/planning/Workspace.mjs)
+shows the wiring and the Scheduler's edit handler.
+
 ## 4. The Dependency Record
 
 Precedence constraints between tasks are defined by `Neo.gantt.DependencyModel` records in `dependencyStore`. Each dependency specifies:
