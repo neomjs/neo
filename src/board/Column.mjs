@@ -112,6 +112,8 @@ class Column extends Container {
     windowStart = 0
     /** @member {Boolean} isSliced=false Whether the canonical column population exceeds the configured limit. */
     isSliced = false
+    /** @member {String|null} Summary text for the current column population. */
+    #summaryText = null
     /** @member {Object[]} windowRecords=[] Current sorted record references; the Store remains authoritative. */
     windowRecords = []
     /** @member {Number} averageCardHeight=100 Bootstrap stride estimate, replaced by measured card heights and gaps. */
@@ -283,7 +285,7 @@ class Column extends Container {
      */
     setWindowStart(index) {
         this.windowStart = Math.max(0, Math.floor(index));
-        this.board?.reconcileColumn(this)
+        this.board?.reconcileColumn(this, {windowOnly: true})
     }
 
     /**
@@ -531,6 +533,28 @@ class Column extends Container {
     }
 
     /**
+     * @summary Updates the optional total without allocating or visiting card components.
+     */
+    syncSummary() {
+        const summary = this.board?.columnSummary;
+        let   text    = null;
+
+        if (summary) {
+            let total = 0;
+            for (const record of this.windowRecords) {
+                const value = record[summary.field];
+                if (Number.isFinite(value)) total += value
+            }
+            text = String(summary.formatter ? summary.formatter(total) : total)
+        }
+
+        if (text !== this.#summaryText) {
+            this.#summaryText = text;
+            this.updateHeader()
+        }
+    }
+
+    /**
      * @summary Creates the header's three nodes once: the title, the count badge, the collapse toggle.
      * @description The nodes are created once and mutated afterwards (`button.Base` keeps its text and badge nodes
      * the same way). Rebuilding them per update made every count change a remove + insert, and two updates in
@@ -604,6 +628,7 @@ class Column extends Container {
         toggle['aria-label']    = collapsed ? 'Expand column' : 'Collapse column';
         toggle.text             = collapsed ? '›' : '‹';
 
+        header.vdom.cn.length = 3;
         if (locked) {
             header.vdom['aria-disabled'] = 'true';
             header.vdom.cn[3]            = me.lockNode ||= {
@@ -615,7 +640,14 @@ class Column extends Container {
             }
         } else {
             delete header.vdom['aria-disabled'];
-            header.vdom.cn.length = 3
+        }
+
+        if (me.#summaryText !== null) {
+            const node = me.summaryNode ||= {
+                tag: 'span', id: `${id}__summary`, cls: ['neo-board-column-summary']
+            };
+            node.text = me.#summaryText;
+            header.vdom.cn.push(node)
         }
 
         header.update();

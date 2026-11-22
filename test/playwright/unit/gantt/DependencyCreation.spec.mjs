@@ -46,14 +46,49 @@ test.beforeEach(() => {
     Neo.main.addon.DragDrop = {setConfigs: async () => ({})}
 });
 
-test('summary and milestone bars identify the record they represent', () => {
-    const gantt = chart(['prepare', 'build', 'inspect'], [0, 6]);
+test('summary and milestone bars identify the record they represent, and milestones render a centred diamond with no resize handles', () => {
+    const gantt = chart(['prepare', 'build', 'inspect'], [0, 6], true, {rowHeight: 40});
     try {
         expect(bar(gantt, 'build').cls).toContain('neo-gantt-bar-summary');
         expect(bar(gantt, 'inspect').cls).not.toContain('neo-gantt-bar-summary');
-        const inspection = gantt.store.get('inspect');
+        expect(bar(gantt, 'inspect').cn.some(node => node.cls?.includes('neo-resizable-end'))).toBe(true);
+
+        const
+            inspection = gantt.store.get('inspect'),
+            dateOffset = gantt.timeAxis.dateToOffset(inspection.startDate);
+
         inspection.set({milestone: true, endDate: inspection.startDate});
-        expect(bar(gantt, 'inspect').cls).toContain('neo-gantt-bar-milestone')
+
+        const
+            milestoneBar = bar(gantt, 'inspect'),
+            diamond      = milestoneBar.cn.find(node => node.cls?.includes('neo-gantt-milestone-diamond')),
+            label        = milestoneBar.cn.find(node => node.cls?.includes('neo-gantt-milestone-label'));
+
+        expect(milestoneBar.cls).toContain('neo-gantt-bar-milestone');
+        expect(milestoneBar.style).toMatchObject({
+            height: '22px',
+            left  : `${dateOffset - 11}px`,
+            top   : 'calc(50% - 11px)',
+            width : '22px'
+        });
+        expect(diamond).toMatchObject({
+            tag    : 'svg',
+            viewBox: '0 0 22 22'
+        });
+        expect(diamond.cn[0].points).toBe('11,1 21,11 11,21 1,11');
+        expect(label?.text).toBe('inspect');
+        expect(milestoneBar.cn.some(node => node.cls?.includes('neo-timeline-bar-handle'))).toBe(false);
+
+        const beforeStart = +inspection.startDate;
+        gantt.onBarKeyDown({key: 'ArrowRight', shiftKey: true, path: [milestoneBar, root(gantt)]});
+        expect(+inspection.endDate).toBe(beforeStart);
+
+        gantt.moveTask('inspect', {endDate: new Date(beforeStart + 3_600_000)}, {resizeEdge: 'end', source: 'resize'});
+        expect(+inspection.endDate).toBe(beforeStart);
+
+        gantt.moveTask('inspect', {startDate: new Date(beforeStart + 7_200_000)});
+        expect(+inspection.startDate).toBe(beforeStart + 7_200_000);
+        expect(+inspection.endDate).toBe(beforeStart + 7_200_000)
     } finally {
         gantt.destroy()
     }

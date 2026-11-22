@@ -872,7 +872,18 @@ class Container extends SchedulerContainer {
             minMs       = isMilestone ? 0 : Math.max(1, me.minimumDuration || axis?.snapMinutes || 15) * MS_PER_MINUTE,
             useWorking  = Boolean(me.useWorkingTime && axis?.hasWorkingCalendar());
 
-        if (hasStartInput || hasEndInput) {
+        if (isMilestone && (meta.resizeEdge === 'start' || meta.resizeEdge === 'end' || meta.source === 'resize')) {
+            startMs = prevStartMs;
+            endMs   = prevEndMs
+        } else if (hasStartInput || hasEndInput) {
+            if (isMilestone) {
+                if (hasStartInput && !hasEndInput) {
+                    endMs = startMs
+                } else if (!hasStartInput && hasEndInput) {
+                    startMs = endMs
+                }
+            }
+
             if (useWorking) {
                 const
                     isEndResize   = meta.resizeEdge === 'end'   || (!hasStartInput && hasEndInput),
@@ -935,7 +946,7 @@ class Container extends SchedulerContainer {
                     axisEndMs   = axis.end.getTime(),
                     durationMs  = Math.max(0, endMs - startMs);
 
-                if (hasStartInput && hasEndInput && meta.source !== 'resize') {
+                if (isMilestone || (hasStartInput && hasEndInput && meta.source !== 'resize')) {
                     startMs = Math.max(axisStartMs, Math.min(startMs, Math.max(axisStartMs, axisEndMs - durationMs)));
                     endMs   = startMs + durationMs
                 } else if (hasStartInput && !hasEndInput) {

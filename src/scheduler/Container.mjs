@@ -1241,7 +1241,7 @@ class Container extends GridContainer {
             endMs       = new Date(record[me.endDateField]).getTime();
 
         if (data.shiftKey) {
-            if (!me.resizableBars) {
+            if (!me.resizableBars || record.milestone) {
                 return
             }
 

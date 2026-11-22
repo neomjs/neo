@@ -1,0 +1,30 @@
+[
+    {
+        "id": "calendar",
+        "featured": true,
+        "image": "devmode/calendar-14.jpg",
+        "name": "Calendar",
+        "sourceUrl": "src/calendar",
+        "urls": {
+            "devmode": "examples/calendar/basic/index.html",
+            "dist_dev": "dist/development/examples/calendar/basic/index.html",
+            "dist_esm": "dist/esm/examples/calendar/basic/index.html",
+            "dist_prod": "dist/production/examples/calendar/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "calendar",
+        "order": 100,
+        "component": "Calendar",
+        "feature": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
+        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events.",
+        "keywords": [
+            "date",
+            "schedule",
+            "events",
+            "appointment",
+            "month",
+            "week",
+            "day"
+        ]
+    }
+]

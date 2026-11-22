@@ -18,6 +18,9 @@
 
     --neo-board-badge-background       : var(--cyber-border);
     --neo-board-badge-color            : var(--cyber-text);
+    --neo-board-overdue-background     : color-mix(in srgb, var(--cyber-red) 18%, var(--cyber-bg));
+    --neo-board-overdue-border-color   : var(--cyber-red);
+    --neo-board-overdue-color          : color-mix(in srgb, var(--cyber-red) 72%, var(--cyber-text));
     --neo-board-wip-color              : var(--cyber-gold);
     --neo-board-wip-contrast-color     : var(--cyber-bg);
 

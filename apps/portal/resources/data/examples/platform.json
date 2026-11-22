@@ -1,0 +1,68 @@
+[
+    {
+        "id": "offscreen-canvas",
+        "family": "platform",
+        "order": 160,
+        "alsoIn": [
+            "charts"
+        ],
+        "feature": "A chart of up to a million points, drawn in a canvas worker",
+        "lookFor": "Choose 1,000,000 items, then press Stop Main: the toolbar clock stops while the chart keeps moving.",
+        "scope": "External demo. Requires OffscreenCanvas and WebGL support.",
+        "featured": false,
+        "image": "devmode/offscreenCanvas.png",
+        "name": "OffscreenCanvas",
+        "sourceUrl": "https://github.com/neomjs/offscreen-canvas/",
+        "sourceUrls": {
+            "devmode": "https://github.com/neomjs/offscreen-canvas/",
+            "dist_dev": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
+            "dist_esm": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
+            "dist_prod": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp"
+        },
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/apps/myapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/development/apps/myapp/index.html",
+            "dist_esm": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/esm/apps/myapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/production/apps/myapp/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video-move",
+        "family": "platform",
+        "order": 510,
+        "component": "Video",
+        "feature": "A mounted video component moves between two containers without being recreated.",
+        "lookFor": "Press Move Video and watch the same player switch sides between the two panels.",
+        "scope": "Loads a sample MP4 from Apple's public media host.",
+        "image": null,
+        "name": "Moving a Video",
+        "sourceUrl": "examples/videoMove",
+        "urls": {
+            "devmode": "examples/videoMove/index.html",
+            "dist_dev": "dist/development/examples/videoMove/index.html",
+            "dist_esm": "dist/esm/examples/videoMove/index.html",
+            "dist_prod": "dist/production/examples/videoMove/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "sitemap",
+        "kind": "component",
+        "image": "devmode/tiles/sitemap-14.jpg",
+        "name": "Sitemap",
+        "sourceUrl": "examples/sitemap",
+        "urls": {
+            "devmode": "examples/sitemap/index.html",
+            "dist_dev": "dist/development/examples/sitemap/index.html",
+            "dist_esm": "dist/esm/examples/sitemap/index.html",
+            "dist_prod": "dist/production/examples/sitemap/index.html"
+        },
+        "hiddenIn": [],
+        "family": "platform",
+        "order": 1450,
+        "component": "Sitemap",
+        "feature": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden",
+        "lookFor": "Resize the sitemap in the panel and follow an item's link."
+    }
+]

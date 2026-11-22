@@ -1,0 +1,193 @@
+[
+    {
+        "id": "workstation",
+        "family": "multi-window",
+        "order": 10,
+        "alsoIn": [
+            "apps"
+        ],
+        "component": "Dock Workspace",
+        "keywords": [
+            "drag",
+            "dock",
+            "popout",
+            "tear-out",
+            "ide",
+            "multi-window"
+        ],
+        "feature": "A living-data workspace whose panes can leave the browser window",
+        "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
+        "scope": "Allow popups; the displayed work items and signals are demonstration data.",
+        "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/workstation-13-2.jpg",
+        "name": "Workstation",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/workstation",
+        "urls": {
+            "devmode": "apps/workstation/index.html",
+            "dist_dev": "dist/development/apps/workstation/index.html",
+            "dist_esm": "dist/esm/apps/workstation/index.html",
+            "dist_prod": "dist/production/apps/workstation/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "shared-covid",
+        "family": "multi-window",
+        "order": 50,
+        "alsoIn": [
+            "apps"
+        ],
+        "component": "Shared Views",
+        "feature": "A historical country-data chart can move into its own window",
+        "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
+        "scope": "Allow popups. Country data depends on the example's external data source.",
+        "featured": true,
+        "image": "devmode/sharedcovid.png",
+        "name": "Multi Window Covid App",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/sharedcovid",
+        "urls": {
+            "devmode": "apps/sharedcovid/index.html#mainview=table",
+            "dist_dev": "dist/development/apps/sharedcovid/index.html#mainview=table",
+            "dist_esm": "dist/esm/apps/sharedcovid/index.html#mainview=table",
+            "dist_prod": "dist/production/apps/sharedcovid/index.html#mainview=table"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "multi-window-covid-gallery",
+        "family": "multi-window",
+        "order": 150,
+        "component": "Gallery",
+        "feature": "Gallery controls move into a second window while still controlling the gallery",
+        "lookFor": "Maximise Gallery Controls, change Translate X in the popup, then close it to return the controls.",
+        "scope": "Allow popups. Reads the World Bank file the country grid ships with.",
+        "featured": false,
+        "image": "devmode/mwCoronaGallery.png",
+        "name": "Multi Window Country Gallery",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/component/multiWindowCoronaGallery",
+        "urls": {
+            "devmode": "examples/component/multiWindowCoronaGallery/index.html",
+            "dist_dev": "dist/development/examples/component/multiWindowCoronaGallery/index.html",
+            "dist_esm": "dist/esm/examples/component/multiWindowCoronaGallery/index.html",
+            "dist_prod": "dist/production/examples/component/multiWindowCoronaGallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "shared-offscreen-canvas",
+        "family": "multi-window",
+        "order": 170,
+        "alsoIn": [
+            "platform"
+        ],
+        "component": "OffscreenCanvas",
+        "feature": "A rendered canvas moves into a second browser window",
+        "lookFor": "Press Move Canvas and find the colored point scene in the popup.",
+        "scope": "External Chromium demo; allow popups. Requires SharedWorker, OffscreenCanvas and WebGL support.",
+        "featured": false,
+        "image": "devmode/sharedOffscreenCanvas.png",
+        "name": "Multi-Window OffscreenCanvas",
+        "sourceUrl": "https://github.com/neomjs/shared-offscreen",
+        "sharedWorkers": true,
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/apps/mainapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/development/apps/mainapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/production/apps/mainapp/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "multi-window-drag-drop",
+        "family": "multi-window",
+        "order": 180,
+        "alsoIn": [
+            "apps",
+            "drag-drop"
+        ],
+        "component": "Dialog",
+        "feature": "A draggable dialog can move into a second browser window",
+        "lookFor": "Open the docked window, create a dialog and drag its header across into the other window.",
+        "scope": "Allow popups. The side selector places the companion window beside the main one.",
+        "featured": false,
+        "image": "devmode/multi_window_dd.png",
+        "name": "Multi-Window Drag&Drop",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/shareddialog",
+        "urls": {
+            "devmode": "apps/shareddialog/index.html",
+            "dist_dev": "dist/development/apps/shareddialog/index.html",
+            "dist_esm": "dist/esm/apps/shareddialog/index.html",
+            "dist_prod": "dist/production/apps/shareddialog/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "colors-dashboard",
+        "family": "multi-window",
+        "order": 230,
+        "alsoIn": [
+            "apps",
+            "dashboard"
+        ],
+        "component": "Dashboard",
+        "feature": "The dashboard's color grid keeps updating in its own window",
+        "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
+        "scope": "Allow popups. The color data streams from a WebSocket backend; when that backend does not answer, the app generates the same data itself.",
+        "featured": false,
+        "image": "dist_prod/colorsApp.png",
+        "name": "Colors Dashboard",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/colors",
+        "urls": {
+            "devmode": "apps/colors/index.html",
+            "dist_dev": "dist/development/apps/colors/index.html",
+            "dist_esm": "dist/esm/apps/colors/index.html",
+            "dist_prod": "dist/production/apps/colors/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "multi-window-helix",
+        "name": "Multi-Window Helix",
+        "family": "multi-window",
+        "order": 1300,
+        "component": "Helix",
+        "feature": "Helix controls stay connected from their own window",
+        "lookFor": "Maximise Helix Controls, change Translate X in the popup, then close it to return the controls.",
+        "scope": "Allow popups.",
+        "image": null,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/component/multiWindowHelix",
+        "urls": {
+            "devmode": "examples/component/multiWindowHelix/index.html",
+            "dist_dev": "dist/development/examples/component/multiWindowHelix/index.html",
+            "dist_esm": "dist/esm/examples/component/multiWindowHelix/index.html",
+            "dist_prod": "dist/production/examples/component/multiWindowHelix/index.html"
+        }
+    },
+    {
+        "id": "multi-window-state-provider",
+        "name": "State Shared Between Windows",
+        "family": "multi-window",
+        "order": 1310,
+        "component": "State Provider",
+        "feature": "Two windows bind their user labels to one shared state provider",
+        "lookFor": "Press Open second window, use Edit user and watch Current user change in both windows.",
+        "scope": "Allow popups.",
+        "image": null,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/stateProvider/multiWindow",
+        "urls": {
+            "devmode": "examples/stateProvider/multiWindow/index.html",
+            "dist_dev": "dist/development/examples/stateProvider/multiWindow/index.html",
+            "dist_esm": "dist/esm/examples/stateProvider/multiWindow/index.html",
+            "dist_prod": "dist/production/examples/stateProvider/multiWindow/index.html"
+        }
+    }
+]

@@ -166,6 +166,9 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
     });
 
     test('row 1 probe — boundary-exit fires on a slow crossing, popup acquired MID-GESTURE, persists the drop terminal, Neo content renders (ratio-trace + instance-identity receipts pending)', async ({context, page}, testInfo) => {
+        // The first batch settles the data-source label, which can wrap the toolbar and resize the dashboard.
+        await expect(page.locator('.neo-grid-body .neo-grid-cell[data-field="columnA"]').first()).toBeVisible({timeout: 15000});
+
         const panelsBefore = await readUnion(page, panels),
               panelId      = await recordPanelDeltas(page);
 

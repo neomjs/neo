@@ -26,6 +26,15 @@ test.describe('Neo.util.Date', () => {
         expect(DateUtil.convertToyyyymmdd(new Date(2024, 0, 9))).toBe('2024-01-09')
     });
 
+    test('formatWall formats UTC wall-clock dates and inclusive ranges without local-zone rollover', () => {
+        const start = new Date(Date.UTC(2026, 11, 1)),
+              end   = new Date(Date.UTC(2026, 11, 7)),
+              plain = label => label.replace(/\s+/g, ' ');
+
+        expect(DateUtil.formatWall('en-US', {month: 'short', day: 'numeric'}, start)).toBe('Dec 1');
+        expect(plain(DateUtil.formatWall('en-US', {month: 'short', day: 'numeric'}, start, end))).toBe('Dec 1 – 7')
+    });
+
     test('getDaysInMonth covers leap years and every month length', () => {
         expect(DateUtil.getDaysInMonth(new Date(2024, 1, 15))).toBe(29); // leap year February
         expect(DateUtil.getDaysInMonth(new Date(2023, 1, 15))).toBe(28); // common year February
