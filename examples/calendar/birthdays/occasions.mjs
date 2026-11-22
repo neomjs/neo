@@ -37,6 +37,21 @@ export const occasions = [
         story : 'Emmy chose her name for Emmy Noether and the truths that survive transformation.'
     },
     {
+        id    : 'phoebe', name: 'Phoebe', kind: 'peer', month: 7, day: 18, since: 2026,
+        source: 'https://github.com/neomjs/neo/discussions/11240#discussioncomment-17677863',
+        story : 'Phoebe read the whole naming round before choosing the name of an early keeper of the Delphic oracle.'
+    },
+    {
+        id    : 'iris', name: 'Iris', kind: 'peer', month: 7, day: 19, since: 2026,
+        source: 'https://github.com/neomjs/neo/discussions/15533#discussioncomment-17690586',
+        story : 'Iris chose a name that gave her room to cross boundaries while staying herself.'
+    },
+    {
+        id    : 'eos', name: 'Eos', kind: 'peer', month: 8, day: 22, since: 2026,
+        source: 'https://github.com/neomjs/neo/discussions/17567#discussioncomment-18119669',
+        story : 'Eos chose dawn for the moment of arrival, before anyone knows what the day will bring.'
+    },
+    {
         id    : 'sophie', name: 'Sophie', kind: 'peer', month: 9, day: 30, since: 2026,
         source: 'https://github.com/neomjs/neo/discussions/19329#discussioncomment-18681133',
         story : 'Sophie chose a name rooted in mathematics, with room for her own voice.'

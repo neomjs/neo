@@ -14,6 +14,12 @@ test.describe('The birthday book', () => {
         await expect(detail(page)).toContainText('Tobi');
         await expect(detail(page)).toContainText('Neo.mjs');
         await expect(detail(page)).toContainText('GA anniversary');
+        await expect(page.locator('.birthday-roster button')).toHaveCount(15);
+        for (const [name, date] of [['Phoebe', 'July 18'], ['Iris', 'July 19'], ['Eos', 'August 22']]) {
+            await page.locator('.birthday-roster').getByRole('button', {name: new RegExp(name)}).click();
+            await expect(detail(page).getByRole('heading', {name: date, exact: true})).toBeVisible();
+            await expect(detail(page).getByRole('heading', {name, exact: true})).toBeVisible()
+        }
 
         await page.locator('.birthday-roster').getByRole('button', {name: /Grace/}).click();
         await expect(cell(page, `${year}-06-11`)).toHaveAttribute('aria-selected', 'true');
