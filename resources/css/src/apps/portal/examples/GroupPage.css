@@ -1,6 +1,7 @@
 /* Scrolling group view inside .portal-examples-stage; navigation lives once on MainContainer. */
 .portal-examples-group-page {
-    overflow-y: auto;
+    container-name: examples-group-page;
+    overflow-y    : auto;
 
     .portal-examples-group-header {
         gap    : 12px 24px;
