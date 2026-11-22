@@ -1131,7 +1131,7 @@
     },
     "/examples/layouts": {
         "title": "JavaScript Containers & Layouts — Flexbox, Card & Form | Neo.mjs",
-        "description": "Explore 6 live JavaScript layout examples: A form composed by the layout-form layout with shared itemDefaults.",
+        "description": "Explore 3 live JavaScript layout examples: A form composed by the layout-form layout with shared itemDefaults.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-21"
     },
@@ -1551,7 +1551,7 @@
     },
     "/examples/container/accordion/index.html": {
         "title": "Accordion — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A shop's help center: questions that open one answer at a time, or as many as maxExpandedItems allows. Open another question by its arrow, then raise...",
+        "description": "Live runnable Accordion example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2024-08-17"
     },
@@ -1562,8 +1562,8 @@
         "lastmod": "2024-08-17"
     },
     "/examples/container/fragment/index.html": {
-        "title": "Fragment — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "Fields grouped without a wrapper: they keep their places in the form's grid, and the form's DOM beside it shows no extra element. Hide the address from the...",
+        "title": "Fragment Example — Web Worker JavaScript UI Demo | Neo.mjs",
+        "description": "Live runnable Fragment Example example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2026-01-14"
     },
@@ -2001,7 +2001,7 @@
     },
     "/examples/layout/card/index.html": {
         "title": "Card Layout — Web Worker JavaScript UI Demo | Neo.mjs",
-        "description": "A three-step setup wizard: one card per step, sliding in the direction you choose. Go through the steps with Next and Back, by pointer or with the keyboard...",
+        "description": "Live runnable Card Layout example in Neo.mjs, the multi-threaded JavaScript application engine running UI components and state in Web Workers.",
         "schemaType": "WebPage",
         "lastmod": "2025-11-19"
     },
