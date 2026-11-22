@@ -188,11 +188,12 @@
         justify-content: space-between;
     }
 
-    /* Digits of one width, so a card does not shift between two runs */
+    /* Digits of one width, so a card does not shift between two runs; a duration of a second or more stays one line */
     .neo-examples-data-pipeline-stage-duration {
         font-family: ui-monospace, Menlo, Consolas, monospace;
         font-size  : 15px;
         font-weight: 600;
+        white-space: nowrap;
     }
 
     .neo-examples-data-pipeline-stage-detail {
