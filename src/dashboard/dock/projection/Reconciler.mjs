@@ -38,30 +38,39 @@ class Reconciler extends Base {
     }
 
     /**
-     * How long {@link #reconcileProjection} waits for one flight (a component update, the held reveals, an overflow
-     * recapture) before it leaves that flight behind, in ms. Every later projection queues behind this one, so a
-     * flight that never settles would otherwise freeze the workspace for good.
+     * How long {@link #reconcileProjection} waits for an overflow recapture before it leaves that read behind, in ms:
+     * the strip recaptures on its next pass. A component update is never left behind: its flight holds the update
+     * latch, so a successor would park behind it anyway, and a swap that has not landed must not read as landed.
      * @member {Number} flightBound=10000
      * @static
      */
     static flightBound = 10000
 
     /**
-     * @summary Awaits one reconcile flight for at most {@link #flightBound} ms, then stamps the cycle with its name,
-     * or with `<name>TimedOut` when the bound ran out first. A flight left behind may still land; nothing waits for
-     * it, and its late rejection is nobody's to handle. A rejection within the bound reaches the caller as before.
+     * @summary Awaits one reconcile flight and stamps the cycle with its name once it settles, so a reconcile that
+     * never returns names the flight it stopped in. With a `bound`, the wait ends after that many ms and stamps
+     * `<name>TimedOut` instead; the flight left behind may still land, and its late rejection is nobody's to handle.
+     * A rejection within the wait reaches the caller as before.
      * @param {Promise|*} flight
      * @param {String} name The stamp, e.g. `reconcileHost`
      * @param {Neo.dashboard.dock.projection.Cycle|null} cycle
+     * @param {Number|null} [bound=null] Ms to wait at most; `null` waits for the flight however long it takes
      * @returns {Promise<*>} The flight's value, or `undefined` when it was left behind
      * @static
      */
-    static async settleFlight(flight, name, cycle) {
+    static async settleFlight(flight, name, cycle, bound=null) {
+        if (bound === null) {
+            const result = await flight;
+
+            cycle?.stamp(name);
+            return result
+        }
+
         const expired = Symbol('expired');
         let   result, timer;
 
         try {
-            result = await Promise.race([flight, new Promise(resolve => {timer = setTimeout(resolve, this.flightBound, expired)})])
+            result = await Promise.race([flight, new Promise(resolve => {timer = setTimeout(resolve, bound, expired)})])
         } finally {
             clearTimeout(timer)
         }
@@ -480,8 +489,8 @@ class Reconciler extends Base {
      * outside this method. `onProjectionStaged` can decorate retained chrome before the first commit.
      * @param {Object} options
      * @param {Neo.dashboard.dock.projection.Cycle|null} [options.cycle=null] The refresh's cycle. Each awaited
-     *     flight below stamps its receipt as it settles (`reconcileHost`, `reconcileOverflow`, …), or as
-     *     `<name>TimedOut` when {@link #flightBound} runs out first and the projection goes on without it.
+     *     flight below stamps its receipt as it settles (`reconcileHost`, `reconcileOverflow`, …), so a stall names
+     *     its flight; an overflow recapture still unanswered after {@link #flightBound} stamps `<name>TimedOut`.
      * @param {Neo.container.Base} options.host Dock host containing the current shell, or the empty
      *     destination for a first projection.
      * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.
@@ -522,7 +531,9 @@ class Reconciler extends Base {
         const
             oldShell          = host?.items?.[shellIndex] || null,
             initialProjection = !oldShell,
-            settle            = (flight, name) => this.settleFlight(flight, name, cycle);
+            settle            = (flight, name) => this.settleFlight(flight, name, cycle),
+            // A recapture's reads may be left behind; the strip measures again on its next pass
+            settleRead        = (flight, name) => this.settleFlight(flight, name, cycle, this.flightBound);
 
         const stableProjection = oldShell && (geometryOnly || retainTopology)
             ? this.reconcileStableTopology(oldShell, nextConfig, placeholders, {
@@ -562,10 +573,10 @@ class Reconciler extends Base {
                 .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
                 .filter(Boolean))];
 
-            await settle(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
+            await settleRead(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
 
             if (waitForOverflowProjection) {
-                await settle(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
+                await settleRead(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
             }
 
             // `landedInPlace` reports the path this call ACTUALLY took, so a caller never has to
@@ -760,10 +771,10 @@ class Reconciler extends Base {
         overflowPlugins.forEach(plugin => {
             !plugin.projectAsAction && plugin.control?.hidden && (plugin.control.hidden = false)
         });
-        await settle(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
+        await settleRead(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
 
         if (waitForOverflowProjection) {
-            await settle(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
+            await settleRead(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
         }
 
         // A staged transaction replaced the shell or a first projection created it, so any

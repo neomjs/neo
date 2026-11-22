@@ -153,7 +153,8 @@ test.describe('Neo.dashboard.dock.projection.Reconciler: a flight that never set
         let rejectLate;
         const silent = new Promise((resolve, reject) => {rejectLate = reject});
 
-        expect(await DockProjectionReconciler.settleFlight(silent, 'reconcileOverflow', cycle)).toBeUndefined();
+        // Unbounded, a silent flight is simply awaited; with a bound it is left behind and named
+        expect(await DockProjectionReconciler.settleFlight(silent, 'reconcileOverflow', cycle, DockProjectionReconciler.flightBound)).toBeUndefined();
         expect(cycle.stamps).toHaveProperty('reconcileOverflowTimedOut');
         expect(cycle.stamps).not.toHaveProperty('reconcileOverflow');
         // A rejection after the bound is nobody's: it must not surface as an unhandled rejection
@@ -161,42 +162,19 @@ test.describe('Neo.dashboard.dock.projection.Reconciler: a flight that never set
         await new Promise(resolve => setTimeout(resolve, 10))
     });
 
-    test('a host flight that never lands does not hold the projection: it finishes, and its receipt names the flight', async () => {
-        const cycle          = stampingCycle(),
-              {host, result} = await reconcileModel(createSplitModel(), model => {
-                  model.nodes['root-split'].sizes = [0.5, 0.5]
-              }, {
-                  beforeReconcile: ({host}) => {host.promiseUpdate = () => new Promise(() => {})},
-                  cycle,
-                  geometryOnly   : true
-              });
+    test('each flight of a projection stamps the cycle as it settles, in place and staged, none of them timed out', async () => {
+        for (const [mutate, options, expected] of [
+            [model => {model.nodes['root-split'].sizes = [0.5, 0.5]}, {geometryOnly: true}, ['reconcileHost', 'reconcileOverflow']],
+            [model => {model.nodes['root-split'].orientation = 'vertical'}, {}, ['reconcileShellStaged', 'reconcileHost', 'reconcileSwapped', 'reconcileOutgoing', 'reconcileReveals', 'reconcileOverflow']]
+        ]) {
+            const cycle  = stampingCycle(),
+                  {host} = await reconcileModel(createSplitModel(), mutate, {...options, cycle});
 
-        expect(result.landedInPlace).toBe(true);
-        expect(cycle.stamps).toHaveProperty('reconcileHostTimedOut');
-        expect(cycle.stamps).not.toHaveProperty('reconcileHost');
-        expect(cycle.stamps, 'the steps after the host flight still ran').toHaveProperty('reconcileOverflow');
-        // The geometry still landed on the nodes, the splitter between them aside
-        expect(host.items[0].items.map(item => item.flex).filter(flex => flex !== undefined)).toEqual([0.5, 0.5]);
+            expected.forEach(name => expect(cycle.stamps, name).toHaveProperty(name));
+            expect(Object.keys(cycle.stamps).filter(name => name.endsWith('TimedOut'))).toEqual([]);
 
-        host.destroy()
-    });
-
-    test('a staged transaction whose host flights never land still swaps to its next shell', async () => {
-        const cycle                    = stampingCycle(),
-              {host, oldShell, result} = await reconcileModel(createSplitModel(), model => {
-                  model.nodes['root-split'].orientation = 'vertical'
-              }, {
-                  beforeReconcile: ({host}) => {host.promiseUpdate = () => new Promise(() => {})},
-                  cycle
-              });
-
-        expect(result.landedInPlace).toBe(false);
-        expect(result.nextShell).not.toBe(oldShell);
-        expect(Object.keys(cycle.stamps).filter(name => name.endsWith('TimedOut')).sort())
-            .toEqual(['reconcileHostTimedOut', 'reconcileOutgoingTimedOut', 'reconcileShellStagedTimedOut', 'reconcileSwappedTimedOut']);
-        expect(cycle.stamps).toHaveProperty('reconcileOverflow');
-
-        host.destroy()
+            host.destroy()
+        }
     })
 });
 
