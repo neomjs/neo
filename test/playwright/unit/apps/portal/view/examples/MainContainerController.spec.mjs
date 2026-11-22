@@ -963,6 +963,20 @@ test.describe('Portal examples canonical catalog', () => {
         expect(catalog.find(record => record.id === 'helix').name).toBe('3D Helix')
     });
 
+    // The counts and pages above derive through this rule, so it gets an oracle of its own
+    test('a record publishes in a build when it names a cover, is not hidden there, and names a URL for it', () => {
+        const record = {image: 'devmode/example.jpg', urls: Object.fromEntries(modes.map(mode => [mode, `${mode}/example/index.html`]))};
+
+        for (const mode of modes) {
+            expect(Example.publishes(record, mode), mode).toBe(true);
+            expect(Example.publishes({...record, image: null}, mode), `${mode}: no cover`).toBe(false);
+            expect(Example.publishes({...record, hidden: true}, mode), `${mode}: hidden`).toBe(false);
+            expect(Example.publishes({...record, hiddenIn: [mode]}, mode), `${mode}: hidden in this build`).toBe(false);
+            expect(Example.publishes({...record, hiddenIn: modes.filter(other => other !== mode)}, mode), `${mode}: hidden in the others`).toBe(true);
+            expect(Example.publishes({...record, urls: {...record.urls, [mode]: undefined}}, mode), `${mode}: no URL`).toBe(false)
+        }
+    });
+
     test('every record that publishes a card has both a feature and an observation, with rejecting controls', () => {
         function check(records) {
             records.filter(record => modes.some(mode => Example.publishes(record, mode))).forEach(record => {
