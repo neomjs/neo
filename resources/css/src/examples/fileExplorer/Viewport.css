@@ -57,13 +57,15 @@
             flex-direction: column;
         }
 
+        /* The flex layout writes each item's flex inline: on a phone the tree takes the free height, and the
+           detail pane the height of what it shows */
         .fe-sidebar {
-            flex : 1 1 0%;
+            flex : 1 1 0% !important;
             width: auto;
         }
 
         .fe-detail {
-            flex: none;
+            flex: none !important;
         }
     }
 }

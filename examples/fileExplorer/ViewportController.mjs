@@ -98,12 +98,10 @@ class ViewportController extends ComponentController {
             scope       : me
         });
 
-        // The tree renders its items once it is mounted
+        // The tree renders its items once it is mounted. The selection takes the item's id, the one the tree renders
         tree.on('mounted', () => {
-            let record = store.get('cart');
-
-            tree.selectionModel.select(record);
-            me.onTreeItemClick({record})
+            tree.selectionModel.select(tree.getItemId('cart'));
+            me.onTreeItemClick({record: store.get('cart')})
         }, me, {once: true})
     }
 
