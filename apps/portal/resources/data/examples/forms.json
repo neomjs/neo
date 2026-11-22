@@ -603,5 +603,24 @@
         "component": "TextField",
         "feature": "The PrefixField plugin masks a phone number, a date, a MAC address, a code and a card number",
         "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
+    },
+    {
+        "id": "form-checkout",
+        "image": "devmode/form-checkout-14.jpg",
+        "hasLightCover": true,
+        "name": "Address and payment",
+        "sourceUrl": "examples/form/checkout",
+        "urls": {
+            "devmode": "examples/form/checkout/index.html",
+            "dist_dev": "dist/development/examples/form/checkout/index.html",
+            "dist_esm": "dist/esm/examples/form/checkout/index.html",
+            "dist_prod": "dist/production/examples/form/checkout/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 1020,
+        "component": "Form Container",
+        "feature": "Country, ZipCode, Phone, Currency and IBAN in one checkout form, where the postal code follows the country",
+        "lookFor": "Enter 1010 as the postal code, then pick Austria. Check an IBAN with one wrong check digit."
     }
 ]
