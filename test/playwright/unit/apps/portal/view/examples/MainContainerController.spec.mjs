@@ -1326,5 +1326,18 @@ test.describe('Portal examples canonical catalog', () => {
         view.getStateProvider().setData({size: 'large'});
         expect(overview.compactLead).toBe(false);
         expect(intro.vdom.cn[2].text).toBe(overview.lead)
+    });
+
+    test('pairs the Button and hosted-button tiles and gives published records visitor-facing names', () => {
+        const {store}     = createList(),
+              dottedNames = store.items
+                  .filter(record => modes.some(mode => Example.publishes(record, mode)) && /^[a-z][a-zA-Z0-9]*\.[A-Z]/.test(record.name || ''))
+                  .map(record => record.id);
+
+        expect(store.get('button-base').hasLightCover).toBe(true);
+        expect(store.get('functional-host-component').hasLightCover).toBe(true);
+        expect(store.get('toast').name).toBe('Toast Notifications');
+        expect(store.get('popover').name).toBe('Popover');
+        expect(dottedNames).toEqual([])
     })
 });

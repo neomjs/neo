@@ -57,6 +57,7 @@
         "id": "button-base",
         "kind": "component",
         "image": "devmode/tiles/button-base-14.jpg",
+        "hasLightCover": true,
         "name": "Button",
         "sourceUrl": "examples/button/base",
         "urls": {
