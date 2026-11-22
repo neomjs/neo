@@ -42,11 +42,17 @@ test('a covered record without a recipe is captured from the frame a visitor lan
     records.push({id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
     const entry = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-two');
     expect(entry).toEqual({
-        id      : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', url: 'examples/grid/two/',
-        viewport: {width: 1280, height: 720}, theme: 'dark', state: 'The frame a visitor lands on.',
+        id      : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', url: 'examples/grid/two/?theme=neo-theme-neo-dark',
+        viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.',
         ready   : [], steps: [], after: [], region: 'viewport'
     });
     expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual([entry])
+});
+
+test('a landing capture opens the record\'s link as the dark catalog does, keeping its query and hash', () => {
+    const records = [...catalog(), {id: 'grid-three', family: 'grid-table', image: 'grid-three.jpg', urls: {devmode: 'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-light#/start'}}],
+        entry     = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-three');
+    expect(entry.url).toBe('examples/grid/three/index.html?rows=50&theme=neo-theme-neo-dark#/start')
 });
 
 test('an external-origin covered record gets no landing capture, a same-origin one does', () => {

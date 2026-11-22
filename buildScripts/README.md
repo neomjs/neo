@@ -64,8 +64,8 @@ npm run capture-examples -- --base-url http://localhost:8080/ --family grid-tabl
 ```
 
 **A cover is the frame a visitor lands on.** A covered record without a recipe is captured from its landing frame:
-a 1280×720 viewport on the dark scheme, the whole frame, once the themed root is painted, the network is idle and the
-DOM has held still for a second. An example whose cover needs a state (an open editor, a selection, a zoom) starts in
+a 960×540 viewport at device scale 1⅓ (a 1280×720 JPEG), the whole frame, opened with `?theme=neo-theme-neo-dark` as
+the dark catalog opens it, once the themed root is painted, the network is idle and the DOM has held still for a second. An example whose cover needs a state (an open editor, a selection, a zoom) starts in
 that state, set in its own code, so the visitor lands on it too. The recipes in `buildScripts/docs/captureExamples.json`,
 beside this script and out of the published package, are frozen: add none, and delete an example's recipe once it
 lands on its state. The catalog owns IDs and development URLs; each remaining

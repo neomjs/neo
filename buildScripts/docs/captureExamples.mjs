@@ -29,8 +29,22 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     QUALITIES        = [90, 85, 80],
     STEP_KINDS       = new Set(['click', 'dblclick', 'fill', 'press', 'scroll', 'wait']),
     TILE_THEMES      = ['neo-theme-neo-dark', 'neo-theme-dark'], TILE_VIEWPORT = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
-    LANDING          = {viewport: {width: 1280, height: 720}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
-    LANDING_QUIET_MS = 1000;
+    LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
+    LANDING_QUIET_MS = 1000,
+    LANDING_THEME    = 'neo-theme-neo-dark';
+
+/**
+ * @summary The link a landing capture opens: the record's devmode URL with `?theme=` set to the dark theme, as the dark
+ * catalog opens an example, so the cover shows the theme a visitor lands on.
+ * @param {String} devmode The record's `urls.devmode`, relative to the base URL
+ * @returns {String}
+ */
+function landingUrl(devmode) {
+    const url = new URL(devmode, 'http://capture.invalid/');
+
+    url.searchParams.set('theme', LANDING_THEME);
+    return url.pathname.slice(1) + url.search + url.hash
+}
 
 /** @summary Refuses malformed input with its recipe field, before any browser opens. */
 function insist(condition, field, message) {
@@ -203,7 +217,7 @@ export function validateCaptureRecipes(manifest, catalog) {
     for (const record of catalog) {
         if (manifest.families.includes(record.family) && record.kind !== 'component' && record.image && !ids.has(record.id) && !/^https?:\/\//i.test(record.urls?.devmode || '')) {
             text(record.urls?.devmode, `catalog.${record.id}.urls.devmode`);
-            recipes.push({id: record.id, ...structuredClone(LANDING), landing: true, family: record.family, url: record.urls.devmode, name: record.name || record.id})
+            recipes.push({id: record.id, ...structuredClone(LANDING), landing: true, family: record.family, url: landingUrl(record.urls.devmode), name: record.name || record.id})
         }
     }
     return {...structuredClone(manifest), recipes, tiles: catalogTiles(tileList(manifest.tiles), catalog)}
