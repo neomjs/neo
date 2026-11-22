@@ -36,6 +36,19 @@ import createReleaseIndex from '../../../../../../buildScripts/docs/index/releas
 import verifySeoArtifacts from '../../../../../../buildScripts/docs/seo/verify.mjs';
 
 import {EXAMPLE_FAMILY_SEO, getExampleFamilySeo} from '../../../../../../buildScripts/docs/seo/seoJson.mjs';
+import {EXAMPLES_DIR}                            from '../../../../../../buildScripts/util/exampleCatalog.mjs';
+
+/**
+ * @summary Writes fixture records as a catalog folder, all of them in one group file in the order given.
+ * @param {String} dir
+ * @param {Object[]} records
+ * @returns {Promise<String>} The folder
+ */
+async function outputCatalog(dir, records) {
+    await fs.outputJson(path.join(dir, 'index.json'), ['fixture']);
+    await fs.outputJson(path.join(dir, 'fixture.json'), records);
+    return dir
+}
 
 test.describe('docs SEO generator release-note link guard', () => {
     test('getDisallowedReleaseNoteGithubLinks returns only mutable or release-ref Neo source links', () => {
@@ -291,16 +304,16 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
 
     test('a group publishes through alsoIn, and a record counts only where production can open it', async () => {
         const examplesMainContainerPath = path.resolve(process.cwd(), 'apps/portal/view/examples/MainContainer.mjs'),
-              examplesPath              = path.join(tempDir, 'examples.json'),
+              examplesDir               = path.join(tempDir, 'examples'),
               urls                      = {dist_prod: 'dist/production/examples/dialog/index.html'};
 
-        await fs.writeJSON(examplesPath, [
+        await outputCatalog(examplesDir, [
             {id: 'dialog-drag-drop', family: 'dialogs', alsoIn: ['drag-drop'], image: 'devmode/dialog.png', urls, feature: 'Draggable dialogs'},
             {id: 'tree-hidden-in-prod', family: 'tree', image: 'devmode/tree.png', hiddenIn: ['dist_prod'], urls, feature: 'Hidden in production'},
             {id: 'tree-dev-only', family: 'tree', image: 'devmode/tree.png', urls: {devmode: 'examples/tree/index.html'}, feature: 'No production build'}
         ]);
 
-        const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
+        const published = await getPublishedExampleFamilies({examplesDir, examplesMainContainerPath, root: tempDir});
 
         // Definition order, with the alsoIn member counted in both groups; neither tree record is one production opens
         expect(published.map(item => item.route)).toEqual(['/examples/dialogs', '/examples/drag-drop']);
@@ -336,10 +349,10 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         expect(() => extractExampleFamilyDefinitions('const config = {familyDefinitions: SOME_IDENTIFIER};')).toThrow(/ArrayExpression/);
         expect(() => extractExampleFamilyDefinitions('const config = {familyDefinitions: [{family: "grid-table", route: "/examples/grid"}]};')).toThrow(/Incomplete familyDefinitions entry/);
 
-        const examplesPath = path.join(tempDir, 'examples.json');
+        const examplesDir  = path.join(tempDir, 'examples');
         const seoJsonPath  = path.join(tempDir, 'seo.json');
 
-        await fs.writeJSON(examplesPath, [
+        await outputCatalog(examplesDir, [
             {
                 id     : 'grid-big-data',
                 name   : 'Buffered Data Grid with 5M cells',
@@ -379,16 +392,16 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
             }
         });
 
-        await expect(getPublishedExampleFamilies({examplesPath, root: tempDir})).rejects.toThrow();
+        await expect(getPublishedExampleFamilies({examplesDir, root: tempDir})).rejects.toThrow();
 
-        const published = await getPublishedExampleFamilies({examplesPath, examplesMainContainerPath, root: tempDir});
+        const published = await getPublishedExampleFamilies({examplesDir, examplesMainContainerPath, root: tempDir});
         expect(published.map(item => item.route)).toEqual(['/examples/grid']);
 
-        const familyRoutes = await collectExampleFamilyRoutes({examplesPath, examplesMainContainerPath, root: tempDir});
+        const familyRoutes = await collectExampleFamilyRoutes({examplesDir, examplesMainContainerPath, root: tempDir});
         expect(familyRoutes).toEqual([
             {
                 category: 'example-family',
-                filePath: examplesPath,
+                filePath: examplesDir,
                 id      : '/examples/grid',
                 name    : 'Grid & Table Examples'
             }
@@ -396,7 +409,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
 
         const seoJson = await getSeoJson({
             blogIndexPath   : path.join(tempDir, 'no-blog.json'),
-            examplesPath,
+            examplesDir,
             examplesMainContainerPath,
             learnDir        : path.join(tempDir, 'no-learn'),
             releaseNotesRoot: path.join(tempDir, 'no-notes'),
@@ -421,7 +434,7 @@ test.describe('docs SEO generator example family routes (#20727)', () => {
         const roots = {
             baseUrl       : 'https://neomjs.com/',
             corpusRoot,
-            examplesPath,
+            examplesDir,
             examplesMainContainerPath,
             includeLastmod: false,
             releaseNotesRoot
@@ -777,7 +790,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
 
         const validSeoJson = await getSeoJson({
             blogIndexPath,
-            examplesPath: path.join(tempDir, 'no-examples.json'),
+            examplesDir : path.join(tempDir, 'no-examples'),
             learnDir,
             releaseNotesRoot,
             releasesPath: path.join(tempDir, 'no-releases.json'),
@@ -799,7 +812,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             .rejects.toThrow(/guides\/Missing/);
         await expect(getSeoJson({
             blogIndexPath,
-            examplesPath: path.join(tempDir, 'no-examples.json'),
+            examplesDir : path.join(tempDir, 'no-examples'),
             learnDir,
             releaseNotesRoot,
             releasesPath: path.join(tempDir, 'no-releases.json'),
@@ -810,7 +823,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         await expect(getContentRoutes({
             blogIndexPath,
             corpusRoot,
-            examplesPath: path.join(tempDir, 'no-examples.json'),
+            examplesDir : path.join(tempDir, 'no-examples'),
             learnDir,
             releaseNotesRoot,
             root        : tempDir,
@@ -820,7 +833,7 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             baseUrl       : 'https://neomjs.com/',
             blogIndexPath,
             corpusRoot,
-            examplesPath  : path.join(tempDir, 'no-examples.json'),
+            examplesDir   : path.join(tempDir, 'no-examples'),
             includeLastmod: false,
             learnDir,
             releaseNotesRoot,
@@ -1204,7 +1217,7 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/blog.json'), {
             data: [{id: 'blog/json-ld-xss', isLeaf: true, name: 'JSON-LD XSS', path: 'learn/blog/json-ld-xss.md'}]
         });
-        await fs.outputJson(path.join(noGitRoot, 'apps/portal/resources/data/examples.json'), [
+        await outputCatalog(path.join(noGitRoot, EXAMPLES_DIR), [
             {id: 'grid-big-data', name: 'Big Data Grid', family: 'grid-table', image: 'devmode/grid-big-data.png', urls: {dist_prod: 'dist/production/examples/grid/bigData/index.html'}, feature: 'Buffered rendering'}
         ]);
         await fs.outputFile(
@@ -1456,7 +1469,7 @@ test('preserves release cut lastmod through a later squash and uses Git dates fo
         await fs.outputFile(notePath, draftNote);
         await fs.outputFile(portalPath, portalHtml.replace('Engine 14', 'Engine 14 Draft'));
         await fs.outputFile(path.join(root, aboutSource), '// About page source.\n');
-        await fs.outputJson(path.join(root, 'apps/portal/resources/data/examples.json'), [{
+        await outputCatalog(path.join(root, EXAMPLES_DIR), [{
             family   : 'apps',
             image    : 'portal.jpg',
             name     : 'Portal',
@@ -1887,7 +1900,7 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
         const rootDir      = process.cwd();
         const isolatedRoot = path.join(tempDir, 'standalone-seo');
         const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
-        const examplesPath = path.join(isolatedRoot, 'apps/portal/resources/data/examples.json');
+        const examplesDir  = path.join(isolatedRoot, EXAMPLES_DIR);
 
         await fs.outputFile(path.join(isolatedRoot, 'apps/portal/index.html'), '<!DOCTYPE html><html><head><title>Portal</title></head></html>');
         await fs.outputFile(path.join(isolatedRoot, 'apps/ai/neural-link/index.html'), '<!DOCTYPE html><html><head><title>Neo.mjs Neural Link Testbed</title></head></html>');
@@ -1917,7 +1930,7 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
                 urls   : {devmode: 'examples/panel/index.html'}
             }
         ];
-        await fs.outputJson(examplesPath, fixtureCatalog);
+        await outputCatalog(examplesDir, fixtureCatalog);
 
         const routes = await collectExampleRoutes(isolatedRoot);
         expect(routes.map(route => route.id)).toEqual([
@@ -1928,7 +1941,7 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
 
         const fixtureSeo = await getSeoJson({
             blogIndexPath    : path.join(isolatedRoot, 'no-blog.json'),
-            examplesPath,
+            examplesDir,
             familyDefinitions: [],
             learnDir         : path.join(isolatedRoot, 'no-learn'),
             releaseNotesRoot : path.join(isolatedRoot, 'no-notes'),
@@ -1946,7 +1959,7 @@ test.describe('docs SEO generator #20919: News hub routes and SharedWorker WebSo
             description: 'Historical country data can move into its own window. Maximize Historical Data to open the chart popup.',
             schemaType : 'WebPage'
         });
-        expect((await fs.readJSON(examplesPath))[0].urls.devmode).toBe('apps/sharedcovid/index.html?view=chart#mainview=table');
+        expect((await fs.readJSON(path.join(examplesDir, 'fixture.json')))[0].urls.devmode).toBe('apps/sharedcovid/index.html?view=chart#mainview=table');
         expect(fixtureSeo['/examples/grid/bigData/index.html']).toEqual({
             title      : 'JavaScript Data Grid — 100k Rows | Neo.mjs',
             description: 'Explicit big data description.',

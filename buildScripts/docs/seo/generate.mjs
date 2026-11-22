@@ -521,7 +521,7 @@ const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['disc
  * @param {Object} roots
  * @param {String} [roots.blogIndexPath] Optional custom `blog.json` path (test seam).
  * @param {String} roots.corpusRoot The conversation corpus root (`--corpus-root`).
- * @param {String} [roots.examplesPath] Optional custom `examples.json` path (test seam).
+ * @param {String} [roots.examplesDir] Optional custom catalog folder (test seam).
  * @param {String} [roots.examplesTabContainerPath] Optional custom `TabContainer.mjs` path (test seam).
  * @param {Array}  [roots.familyDefinitions] Optional custom `familyDefinitions` array (test seam).
  * @param {Boolean} [roots.includeArchives=true] Whether to collect ticket, pull-request, and discussion archive routes.
@@ -536,7 +536,7 @@ const collectDiscussionRoutes = root => collectNumberedCorpusRoutes(root, ['disc
 async function collectAllRoutes({
     blogIndexPath,
     corpusRoot,
-    examplesPath,
+    examplesDir,
     examplesTabContainerPath,
     familyDefinitions,
     includeArchives  = true,
@@ -559,7 +559,7 @@ async function collectAllRoutes({
 
     return (await Promise.all([
         shouldCollectCore                 ? collectTopLevelRoutes(root)                                                                   : [],
-        shouldCollectCore                 ? collectExampleFamilyRoutes({examplesPath, examplesTabContainerPath, familyDefinitions, root}) : [],
+        shouldCollectCore                 ? collectExampleFamilyRoutes({examplesDir, examplesTabContainerPath, familyDefinitions, root})  : [],
         shouldCollectCore                 ? collectRoutesFromTree({learnDir, root, treeFilePath})                                         : [],
         shouldCollectCore                 ? collectExampleRoutes(root)                                                                    : [],
         shouldCollectCore                 ? collectReleaseRoutes(releaseNotesRoot, root)                                                  : [],

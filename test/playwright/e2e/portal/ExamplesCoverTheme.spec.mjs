@@ -24,7 +24,8 @@ test.describe('Portal example cover themes', () => {
     test('a visible group card follows both switches without replacement or losing selection', async ({page}) => {
         await page.setViewportSize({width:1440, height:900});
         await page.addInitScript(() => localStorage.setItem('portalTheme', 'neo-theme-neo-dark'));
-        const requests = await interceptPair(page), loaded = page.waitForResponse(response => response.url().endsWith(BASE));
+        const requests = await interceptPair(page), single = await interceptPair(page, 'board-basic-14'),
+              loaded   = page.waitForResponse(response => response.url().endsWith(BASE));
         await page.goto(`${PORTAL}#/examples/board`);
         const item = card(page), cover = image(item);
         await expect(item).toBeVisible();
@@ -38,6 +39,8 @@ test.describe('Portal example cover themes', () => {
         const scroll = await page.locator(PAGE).evaluate(node => node.scrollTop);
         await switchTheme(page);
         await expect.poll(() => url(cover)).toContain(LIGHT_IMAGE);
+        await expect.poll(() => single).toContain('board-basic-14.jpg');
+        expect(single).not.toContain('board-basic-14-light.jpg');
         await expect(item).toHaveAttribute('data-cover-identity-probe','retained');
         await expect(item).toHaveClass(/neo-selected/);
         expect(await page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(scroll);
@@ -47,12 +50,11 @@ test.describe('Portal example cover themes', () => {
         await expect(item).toHaveClass(/neo-selected/)
     });
 
-    test('restored light uses only its active cover; search and an unpaired tile keep their paths', async ({page}) => {
+    test('restored light uses only its active cover; search switches both a paired tile and a full example', async ({page}) => {
         await page.setViewportSize({width:1440, height:900});
         await page.addInitScript(() => localStorage.setItem('portalTheme', 'neo-theme-neo-light'));
-        const requests = await interceptPair(page), tileRequests = [],
+        const requests = await interceptPair(page), tileRequests = await interceptPair(page, 'form-field-date-14'),
               loaded   = page.waitForResponse(response => response.url().endsWith(LIGHT_IMAGE));
-        page.on('request', request => {if (request.url().includes('form-field-date-14')) tileRequests.push(request.url())});
         await page.goto(`${PORTAL}#/examples/board`);
         await expect(page.locator(`.neo-viewport.${LIGHT}`)).toBeVisible();
         await expect.poll(() => url(image(card(page)))).toContain(LIGHT_IMAGE);
@@ -66,11 +68,13 @@ test.describe('Portal example cover themes', () => {
         const tile = results.locator('.portal-examples-tiles .neo-list-item').filter({has: page.locator('[data-record-id="date-field"]')});
         await tile.scrollIntoViewIfNeeded();
         await expect(tile).toBeVisible();
-        await expect.poll(() => url(tile.locator('.preview-image'))).toContain('form-field-date-14.jpg');
+        await expect.poll(() => url(tile.locator('.preview-image'))).toContain('form-field-date-14-light.jpg');
+        await expect.poll(() => tileRequests).toContain('form-field-date-14-light.jpg');
+        expect(tileRequests).not.toContain('form-field-date-14.jpg');
         await switchTheme(page);
         await expect(page.locator(`.neo-viewport.${DARK}`)).toBeVisible();
         await expect.poll(() => url(tile.locator('.preview-image'))).toContain('form-field-date-14.jpg');
-        expect(tileRequests.some(value => value.includes('form-field-date-14-light'))).toBe(false);
+        await expect.poll(() => tileRequests).toContain('form-field-date-14.jpg');
 
         await find.fill('board by team');
         const searchCard = results.locator('.portal-examples-search-cards .neo-list-item')
