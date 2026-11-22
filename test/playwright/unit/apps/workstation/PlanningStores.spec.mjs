@@ -210,6 +210,87 @@ test.describe('the planning panes', () => {
         return node && {days: node.cn[0].text, person: node.cn[1]?.cn?.[0]?.title ?? null}
     };
 
+    /** The avatar that a card currently renders for its person. */
+    const avatar = card => card.vdom.cn.find(item => item.cls?.includes('workstation-card-plan'))?.cn[1]?.cn[0];
+
+    test('a direct or batched People rename only repaints cards assigned to those people', () => {
+        const people    = Neo.create(People),
+              workItems = Neo.create(WorkItems, {baseDate: BASE});
+
+        stores = [people, workItems];
+        board  = Neo.create(BoardPane, {appName, people, store: workItems});
+
+        const maya        = board.getCard('wi-1'),
+              jonas       = board.getCard('wi-3'),
+              untouched   = avatar(jonas),
+              renderItems = maya.renderItems,
+              workChanges = [];
+        let paints = 0;
+
+        maya.renderItems = function() {
+            paints++;
+            renderItems.call(this)
+        };
+        workItems.on('recordChange', ({record}) => workChanges.push(record.id));
+        expect(avatar(maya)).toMatchObject({title: 'Maya Chen', text: 'MC'});
+
+        people.get('maya').name = 'Zara Vale';
+        expect(avatar(maya)).toMatchObject({title: 'Zara Vale', text: 'ZV'});
+        expect(paints).toBe(1);
+
+        people.updateRows([{key: 'maya', values: {name: 'Avery Stone'}}]);
+        expect(avatar(maya)).toMatchObject({title: 'Avery Stone', text: 'AS'});
+        expect(paints).toBe(2);
+        expect(avatar(jonas)).toBe(untouched);
+        expect(avatar(jonas)).toMatchObject({title: 'Jonas Berg', text: 'JB'});
+        expect(workChanges).toEqual([])
+    });
+
+    test('People replacement and membership changes clear stale avatars and release borrowed listeners', () => {
+        const people      = Neo.create(People),
+              replacement = Neo.create(People, {data: [{id: 'maya', name: 'Casey Jones'}]}),
+              workItems   = Neo.create(WorkItems, {baseDate: BASE});
+
+        stores = [people, replacement, workItems];
+        board  = Neo.create(BoardPane, {appName, people, store: workItems});
+
+        const card    = board.getCard('wi-1'),
+              un      = replacement.un,
+              removed = [];
+
+        replacement.un = function(listeners, ...args) {
+            if (listeners.scope === board) removed.push(...Object.keys(listeners));
+            return un.call(this, listeners, ...args)
+        };
+
+        board.people = replacement;
+        const current = avatar(card);
+        expect(current).toMatchObject({title: 'Casey Jones', text: 'CJ'});
+
+        people.get('maya').name = 'Old store edit';
+        expect(avatar(card)).toBe(current);
+
+        replacement.remove('maya');
+        expect(avatar(card)).toBeUndefined();
+
+        replacement.data = [{id: 'maya', name: 'Morgan Quinn'}];
+        expect(avatar(card)).toMatchObject({title: 'Morgan Quinn', text: 'MQ'});
+
+        replacement.updateKey(replacement.get('maya'), 'elsewhere');
+        expect(avatar(card)).toBeUndefined();
+
+        replacement.add({id: 'maya', name: 'Taylor Lee'});
+        expect(avatar(card)).toMatchObject({title: 'Taylor Lee', text: 'TL'});
+
+        board.destroy();
+        expect(removed.sort()).toEqual(['filter', 'load', 'recordChange', 'rowsChange', 'scope', 'updateKey']);
+        expect(replacement.isDestroyed).toBeFalsy();
+        expect(people.isDestroyed).toBeFalsy();
+        replacement.get('maya').name = 'Still writable';
+        expect(replacement.get('maya').name).toBe('Still writable');
+        board = null
+    });
+
     test('the board and the schedule are two views of one store: a card move is one record change its bar shows, a bar move changes the days its card shows', () => {
         const people    = Neo.create(People),
               workItems = Neo.create(WorkItems, {baseDate: BASE}),
