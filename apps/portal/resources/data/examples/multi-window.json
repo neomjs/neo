@@ -153,43 +153,5 @@
             "dist_prod": "dist/production/apps/colors/index.html"
         },
         "hiddenIn": []
-    },
-    {
-        "id": "multi-window-helix",
-        "name": "Multi-Window Helix",
-        "family": "multi-window",
-        "order": 1300,
-        "component": "Helix",
-        "feature": "Helix controls stay connected from their own window",
-        "lookFor": "Maximise Helix Controls, change Translate X in the popup, then close it to return the controls.",
-        "scope": "Allow popups.",
-        "image": null,
-        "sharedWorkers": true,
-        "sourceUrl": "examples/component/multiWindowHelix",
-        "urls": {
-            "devmode": "examples/component/multiWindowHelix/index.html",
-            "dist_dev": "dist/development/examples/component/multiWindowHelix/index.html",
-            "dist_esm": "dist/esm/examples/component/multiWindowHelix/index.html",
-            "dist_prod": "dist/production/examples/component/multiWindowHelix/index.html"
-        }
-    },
-    {
-        "id": "multi-window-state-provider",
-        "name": "State Shared Between Windows",
-        "family": "multi-window",
-        "order": 1310,
-        "component": "State Provider",
-        "feature": "Two windows bind their user labels to one shared state provider",
-        "lookFor": "Press Open second window, use Edit user and watch Current user change in both windows.",
-        "scope": "Allow popups.",
-        "image": null,
-        "sharedWorkers": true,
-        "sourceUrl": "examples/stateProvider/multiWindow",
-        "urls": {
-            "devmode": "examples/stateProvider/multiWindow/index.html",
-            "dist_dev": "dist/development/examples/stateProvider/multiWindow/index.html",
-            "dist_esm": "dist/esm/examples/stateProvider/multiWindow/index.html",
-            "dist_prod": "dist/production/examples/stateProvider/multiWindow/index.html"
-        }
     }
 ]

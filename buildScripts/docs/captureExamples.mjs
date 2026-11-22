@@ -577,15 +577,19 @@ export async function landingReady(page, network, sharedWorkerUrls=async () => [
     return startups
 }
 
-/** @summary Waits for fonts, stylesheets and visible capture-region images to finish loading. */
+/** @summary Waits for fonts, stylesheets and visible capture-region images or videos (past Chromium's ~1.5s initial `<video controls>` overlay at 1800ms) to finish loading. */
 async function paintReady(page, clip) {
     await page.evaluate(async () => { await document.fonts.ready });
     await page.waitForFunction(rect => {
+        const visible = el => {
+            const box = el.getBoundingClientRect();
+            return box.width && box.height && box.right > rect.x && box.bottom > rect.y && box.left < rect.x + rect.width && box.top < rect.y + rect.height
+        };
         const styles = [...document.querySelectorAll('link[rel="stylesheet"]')].every(link => !!link.sheet);
-        return styles && [...document.images].every(image => {
-            const box = image.getBoundingClientRect(), visible = box.width && box.height && box.right > rect.x && box.bottom > rect.y && box.left < rect.x + rect.width && box.top < rect.y + rect.height;
-            return !visible || image.complete && image.naturalWidth > 0
-        })
+        const images = [...document.images].every(image => !visible(image) || image.complete && image.naturalWidth > 0);
+        const videos = [...document.querySelectorAll('video')].every(video => !visible(video) || !(video.currentSrc || video.querySelector('source[src]')) ||
+            video.readyState >= 2 && video.videoWidth > 0 && (!video.controls || video.paused || Number(document.timeline?.currentTime ?? 2000) >= 1800));
+        return styles && images && videos
     }, clip, {timeout: 15000})
 }
 

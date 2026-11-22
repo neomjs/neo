@@ -32,6 +32,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'code/LivePreviewExample.spec.mjs',
     'component/ApplicationToolbarNL.spec.mjs',
     'component/StandaloneThemeSwitcher.spec.mjs',
+    'component/VideoTile.spec.mjs',
     'core/DistEsmWorkspaceBoot.spec.mjs',
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SourceMoveWorkspaceNL.spec.mjs',

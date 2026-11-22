@@ -1065,7 +1065,19 @@ test.describe('Portal examples canonical catalog', () => {
         }
 
         expect(catalogStore.get('dock-layouts').sharedWorkers).toBe(false);
-        expect(catalogStore.get('dock-tear-out').sharedWorkers).toBe(true)
+        expect(catalogStore.get('dock-tear-out').sharedWorkers).toBe(true);
+        expect(catalogStore.get('multi-window-helix')).toBeNull();
+        expect(catalogStore.get('multi-window-state-provider')).toBeNull();
+        expect(fs.existsSync(path.join(repoRoot, 'examples/component/multiWindowHelix/index.html'))).toBe(true);
+        expect(fs.existsSync(path.join(repoRoot, 'examples/stateProvider/multiWindow/index.html'))).toBe(true);
+        expect(catalogStore.get('video')).toMatchObject({
+            family       : 'components',
+            hasLightCover: true,
+            image        : 'devmode/tiles/component-video-14.jpg',
+            kind         : 'component',
+            name         : 'Video'
+        });
+        expect(tileIds(view, 'components')).toContain('video')
     });
 
     test('keeps the catalog order, and each build shows the records it can open', () => {
@@ -1281,9 +1293,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
         expect(list.getBackgroundImageStyle(store.get('grid-tree'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
         expect(list.getBackgroundImageStyle(store.get('on-air-at-eight'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
-        const uncovered = store.items.find(record => !record.image);
-        expect(uncovered).toBeDefined();
-        expect(list.getBackgroundImageStyle(uncovered)).toEqual({});
+        expect(list.getBackgroundImageStyle({image: null})).toEqual({});
 
         for (const extension of ['jpg', 'png']) {
             const image = `devmode/example.${extension}`;
