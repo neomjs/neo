@@ -20,6 +20,11 @@
         text-align: center;
         width     : 100%;
 
+        /* A programmatic focus target (the hero's cue), not a control: no ring */
+        &:focus {
+            outline: none;
+        }
+
         .neo-h1 {
             color      : var(--portal-headline-primary);
             font-family: "GT-Planar", sans-serif;
@@ -129,6 +134,12 @@
             line-height: 1.4;
             margin     : 0.75rem 0 0;
             padding-top: 0.75rem;
+
+            /* Inline, not inline-block: the label's last word and the icon then share a line when the text wraps */
+            span + .fa {
+                --fa-display: inline;
+                margin-left : 0.35em;
+            }
         }
 
         .portal-door-cta {

@@ -142,9 +142,12 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(doorBuild?.id).toBeTruthy();
         expect(doorAgents?.id).toBeTruthy();
         expect(doorStudy?.id).toBeTruthy();
-        expect(doorBuildCta?.properties?.text ?? doorBuildCta?.text).toBe('Explore the Engine ↓');
-        expect(doorAgentsCta?.properties?.text ?? doorAgentsCta?.text).toBe('Explore the Agent OS ↓');
-        expect(doorStudyCta?.properties?.text ?? doorStudyCta?.text).toBe('Read What Is Neo.mjs? →');
+        expect(doorBuildCta?.properties?.text ?? doorBuildCta?.text).toBe('Explore the Engine');
+        expect(doorAgentsCta?.properties?.text ?? doorAgentsCta?.text).toBe('Explore the Agent OS');
+        await expect(page.locator(`#${doorBuildCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-down/);
+        await expect(page.locator(`#${doorAgentsCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-down/);
+        expect(doorStudyCta?.properties?.text ?? doorStudyCta?.text).toBe('Read What Is Neo.mjs?');
+        await expect(page.locator(`#${doorStudyCta.id} .neo-button-glyph`)).toHaveClass(/fa-arrow-right/);
         expect(doorStudyCta?.properties?.route ?? doorStudyCta?.route).toBe('/learn/benefits/Introduction');
 
         const heroRoot  = page.locator(`#${hero.id}`);
@@ -244,6 +247,55 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         await expect(page.getByRole('heading', {level: 1, name: 'What Is Neo.mjs?'})).toBeVisible({timeout: 15000})
     });
 
+    for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+        test(`at ${viewport.width}x${viewport.height} the hero's second button is the cue and scrolls to the doors`, async ({page, neuralLink}) => {
+            await page.setViewportSize(viewport);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const doors   = await queryOne(app, {reference: 'home-audience-doors'}),
+                  buttons = page.locator('.portal-home-hero-content .button-group .neo-button');
+
+            // Screen 1 keeps two controls, the cue shows without a scroll, and the doors start below it
+            await expect(buttons).toHaveText(['Get started', 'Who it\'s for']);
+            await expect(buttons.last().locator('.neo-button-glyph')).toHaveClass(/fa-arrow-down/);
+            await expect(buttons.last()).toBeInViewport();
+            await expect(page.locator(`#${doors.id}`)).not.toBeInViewport();
+
+            await buttons.last().click();
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
+            await expect(page).toHaveURL(/#\/home$/)
+        })
+    }
+
+    for (const viewport of [{width: 1440, height: 900}, {width: 646, height: 844}]) {
+        test(`at ${viewport.width}x${viewport.height} a keyboard visitor who takes the cue lands on the doors' header and stays there with Tab`, async ({page, neuralLink}) => {
+            await page.setViewportSize(viewport);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const home  = await queryOne(app, {className: 'Portal.view.home.MainContainer'}),
+                  doors = await queryOne(app, {reference: 'home-audience-doors'});
+
+            await page.locator('.portal-home-hero-content .hero-audience-cue').focus();
+            await page.keyboard.press('Enter');
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
+            await waitForScrollSettled(page, home.id);
+
+            // Focus follows the scroll: a cue left holding focus off-screen would hide where the visitor now is
+            await expect(page.locator(`#${doors.id} .portal-audience-header`)).toBeFocused();
+
+            // The next stop is inside the doors, and the screen does not jump back to the cue's sibling
+            await page.keyboard.press('Tab');
+            await expect.poll(() => page.evaluate(id => document.getElementById(id).contains(document.activeElement), doors.id)).toBe(true);
+            await expect(page.locator(`#${doors.id}`)).toBeInViewport()
+        })
+    }
+
     test('fits all three cards without clipping at 900x700 snap-active and stacks cleanly at 390x844 mobile', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 900, height: 700});
         await page.goto(HOME_URL);
@@ -300,7 +352,17 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(
             await page.locator(`#${home.id}`).evaluate(node => node.scrollWidth <= node.clientWidth + 1),
             '390x844 mobile viewport has zero horizontal overflow'
-        ).toBe(true)
+        ).toBe(true);
+
+        // A proof link's icon stays after its label's last word: an icon alone on a line reads as a stray mark
+        for (const proof of await page.locator(`#${doors.id} .portal-door-proof a`).all()) {
+            expect(await proof.evaluate(link => {
+                const last = [...link.querySelector('span').getClientRects()].at(-1),
+                      icon = link.querySelector('.fa').getBoundingClientRect();
+
+                return icon.left >= last.right - 1 && Math.abs(icon.top + icon.height / 2 - (last.top + last.height / 2)) < last.height / 2
+            }), 'the proof icon shares its label\'s last line').toBe(true)
+        }
     });
 
     test('a hovered or keyboard-focused door lights in place: it never moves, its border stays whole, and reduced motion skips the glint and the lap', async ({page, neuralLink}) => {
@@ -399,9 +461,9 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             expect(snapshot.text).toContain('$ npx neo-app@latest');
             expect(snapshot.text).toContain('neo-agent-brain · neo-agent-institution');
             expect(snapshot.text).toContain('MX · Two Hemispheres · Gated RSI');
-            expect(snapshot.text).toContain('Explore the Engine ↓');
-            expect(snapshot.text).toContain('Explore the Agent OS ↓');
-            expect(snapshot.text).toContain('Read What Is Neo.mjs? →');
+            expect(snapshot.text).toContain('Explore the Engine');
+            expect(snapshot.text).toContain('Explore the Agent OS');
+            expect(snapshot.text).toContain('Read What Is Neo.mjs?');
 
             const buildIdx  = snapshot.text.indexOf('Build an application');
             const agentsIdx = snapshot.text.indexOf('Run an agent team');

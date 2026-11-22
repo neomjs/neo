@@ -471,6 +471,10 @@
                           border-color var(--motion-fast) var(--ease-out-soft),
                           color var(--motion-fast) var(--ease-out-soft);
         white-space     : nowrap;
+
+        span + .fa {
+            margin-left: 0.3em;
+        }
     }
 
     .neo-list-item.neo-selected .portal-example-open-cue {

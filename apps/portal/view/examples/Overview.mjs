@@ -88,7 +88,7 @@ class Overview extends Container {
          */
         actions: [
             {record: 'grid-big-data', text: 'Open the 100,000 × 200 grid', iconCls: 'fa fa-play', ui: 'primary'},
-            {record: 'workstation',   text: 'or the Workstation →',                             ui: 'tertiary'}
+            {record: 'workstation',   text: 'or the Workstation',          iconCls: 'fa fa-arrow-right', iconPosition: 'right', ui: 'tertiary'}
         ]
     }
 

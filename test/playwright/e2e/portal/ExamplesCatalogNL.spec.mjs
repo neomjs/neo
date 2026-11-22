@@ -575,7 +575,8 @@ test.describe('Portal examples section', () => {
             await expect(tiles.first().locator('.neo-title')).toHaveText('Checkbox');
             await expect(tiles.last().locator('.neo-title')).toHaveText('ZIP code field');
             // at rest the caption says the tile opens a running example, through the name's own link
-            await expect(tiles.first().locator('.portal-example-open-cue')).toHaveText('↗');
+            await expect(tiles.first().locator('.portal-example-open-cue')).toHaveText('');
+            await expect(tiles.first().locator('.portal-example-open-cue .fa')).toHaveClass(/fa-arrow-up-right-from-square/);
             await expect(tiles.first().locator('.portal-example-open-cue'))
                 .toHaveAttribute('href', await tiles.first().locator('.neo-title').getAttribute('href'));
             // the form app's card stands above the tiles, and a page of both kinds heads each
@@ -656,7 +657,7 @@ test.describe('Portal examples section', () => {
             await selectBuild(page, label);
             await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'Open the 100,000 × 200 grid'}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/bigData/index.html`);
-            await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation →'}))
+            await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation'}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
 
             await openGroup(page, 'Grid & Table');
@@ -681,7 +682,7 @@ test.describe('Portal examples section', () => {
         for (const [mode, prefix] of [['dist_prod', 'dist/production/'], ['dist_esm', 'dist/esm/'], ['dist_dev', 'dist/development/'], ['devmode', '']]) {
             await page.goto(`${PORTAL}#/examples/${mode}`);
             await expect(page.locator(FEATURED)).toBeVisible();
-            await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation →'}))
+            await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation'}))
                 .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`)
         }
     });

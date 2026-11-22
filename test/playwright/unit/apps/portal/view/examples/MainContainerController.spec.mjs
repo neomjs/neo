@@ -1163,7 +1163,7 @@ test.describe('Portal examples canonical catalog', () => {
                 href         : link.href,
                 'aria-hidden': true,
                 tabIndex     : -1,
-                text         : 'Open live ↗'
+                cn           : [{tag: 'span', text: 'Open live'}, {tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]
             });
             expect(cue.target, record.id).toBe(link.target);
             expect(byCls(more, 'neo-github-image'), record.id).toBeUndefined();

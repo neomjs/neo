@@ -240,12 +240,12 @@ class List extends BaseList {
             imageStyle = index < 6 ? me.getBackgroundImageStyle(record) : null;
 
         if (me.tiles) {
-            // A tile is too narrow for the card's "Open live ↗": its caption keeps the arrow alone
+            // A tile is too narrow for the card's "Open live" cue: its caption keeps the icon alone
             return [{cls: ['content', 'portal-example-tile'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['preview-image'], flag: `image-${record.id}`, style: imageStyle},
                 {cls: ['portal-example-title-row'], cn: [
                     {...me.createLink(record)},
-                    {...me.createOpenCue(record), text: '↗'}
+                    {...me.createOpenCue(record), cn: [{tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]}
                 ]}
             ]}]
         }
@@ -329,7 +329,7 @@ class List extends BaseList {
                 href,
                 'aria-hidden': true,
                 tabIndex     : -1,
-                text         : 'Open live ↗'
+                cn           : [{tag: 'span', text: 'Open live'}, {tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]
             };
 
         if (target) {
