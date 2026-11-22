@@ -39,4 +39,22 @@ test.describe('Portal.view.learn.Component — rewriteLinks spoke & repo routing
         expect(rewritten).toContain('<a href="https://neomjs.com/learn/guides/devindex/Engine" target="_blank">');
         expect(rewritten).toContain('href="#/learn/agentos/NeuralLink"');
     });
+
+    test('tolerates minimal stateProvider stubs that expose getData without getStore', () => {
+        const ctx = {
+            contentRoute    : '#/learn/',
+            record          : {id: 'benefits/Introduction'},
+            getContentPath  : LearnComponent.prototype.getContentPath,
+            getStateProvider: () => ({getData: () => `${Neo.config.basePath}learn/`}),
+            resolveContentId: LearnComponent.prototype.resolveContentId
+        };
+
+        const rewritten = LearnComponent.prototype.rewriteLinks.call(
+            ctx,
+            '<a href="https://neomjs.com/learn/agentos/MemoryCore">Memory Core</a><a href="../agentos/NeuralLink.md">Neural Link</a>'
+        );
+
+        expect(rewritten).toContain('<a href="https://neomjs.com/learn/agentos/MemoryCore" target="_blank">Memory Core</a>');
+        expect(rewritten).toContain('href="#/learn/agentos/NeuralLink"');
+    });
 });

@@ -42,9 +42,10 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     rewriteLinks(html) {
-        let me    = this,
-            path  = me.getContentPath(me.record),
-            store = me.getStateProvider()?.getStore('tree');
+        let me       = this,
+            path     = me.getContentPath(me.record),
+            provider = me.getStateProvider(),
+            store    = typeof provider?.getStore === 'function' ? provider.getStore('tree') : null;
 
         // Less the base path, the fetch path is the file's path in the repository
         html = rewriteRepoLinks(super.rewriteLinks(html), path.slice(Neo.config.basePath.length));
