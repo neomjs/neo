@@ -15,7 +15,7 @@ Neo.mjs introduces a **Streaming Data Architecture** that solves these problems 
 
 1.  **Stream:** We use the modern `fetch` API with `ReadableStream` to process bytes as they arrive from the network.
 2.  **NDJSON (JSONL):** We use **Newline Delimited JSON** format. Instead of one giant array `[{...}, {...}]`, the server sends one JSON object per line.
-3.  **Chunking:** The proxy buffers incoming records into manageable chunks (e.g., 500 items).
+3.  **Chunking:** The parser buffers incoming records into manageable chunks (e.g., 500 items).
 4.  **Progressive Rendering:** The Store ingests these chunks immediately and the Grid renders them *while the rest of the data is still downloading*.
 
 ### The Flow
@@ -23,40 +23,48 @@ Neo.mjs introduces a **Streaming Data Architecture** that solves these problems 
 ```mermaid
 sequenceDiagram
     participant S as Server
-    participant P as StreamProxy (App Worker)
+    participant C as Stream Connection (App Worker)
+    participant P as Stream Parser (App Worker)
     participant St as Store
     participant G as Grid
 
-    S->>P: Stream Bytes (NDJSON)
+    S->>C: Stream Bytes (NDJSON)
+    C->>P: ReadableStream
     loop Every Chunk (e.g. 500 items)
         P->>P: Parse Lines -> Buffer
-        P->>St: fire('data', chunk)
+        P->>St: fire('data', chunk) via the Pipeline
         St->>St: add(chunk)
         St->>St: fire('load')
         St->>G: onStoreLoad()
         G->>G: Render New Rows
     end
-    S->>P: End of Stream
+    S->>C: End of Stream
     P->>St: Promise Resolve
 ```
 
 ## Implementation
 
-To enable streaming, you simply configure your Store to use the `Neo.data.proxy.Stream` module and point it to a `.jsonl` resource.
+To enable streaming, give your Store a `pipeline`: a `Neo.data.connection.Stream` pointed at a `.jsonl` resource, and a `Neo.data.parser.Stream` that turns its bytes into chunks of records.
 
 ### 1. The Store Configuration
 
 ```javascript
-import Store       from '../../src/data/Store.mjs';
-import StreamProxy from '../../src/data/proxy/Stream.mjs';
+import Store            from '../../src/data/Store.mjs';
+import StreamConnection from '../../src/data/connection/Stream.mjs';
+import StreamParser     from '../../src/data/parser/Stream.mjs';
 
 const myStore = Neo.create(Store, {
-    model: MyModel,
-    // Use the proxy config instead of 'url'
-    proxy: {
-        module   : StreamProxy,
-        url      : '../resources/data.jsonl',
-        chunkSize: 500 // Optional: Adjust batch size (default: 500)
+    model   : MyModel,
+    // The pipeline replaces a plain 'url'
+    pipeline: {
+        connection: {
+            module: StreamConnection,
+            url   : '../resources/data.jsonl'
+        },
+        parser: {
+            module   : StreamParser,
+            chunkSize: 500 // Optional: records per chunk (default: 500)
+        }
     }
 });
 
