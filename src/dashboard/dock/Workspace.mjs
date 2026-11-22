@@ -2772,6 +2772,7 @@ class Workspace extends Container {
             me.getReconcileOptions(document, refreshOptions) || {};
 
         const projection = {
+            cycle,
             geometryOnly,
             host,
             nextConfig,

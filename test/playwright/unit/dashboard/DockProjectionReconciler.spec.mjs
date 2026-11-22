@@ -83,7 +83,7 @@ const createThreeChildSplitModel = () => {
 };
 
 // `beforeReconcile` runs on the live host after projection and before the transaction starts.
-const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
+const reconcileModel = async (model, mutate, {beforeReconcile=null, cycle=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
     const
         panes = Object.fromEntries(Object.entries(model.items)
             .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
@@ -116,6 +116,7 @@ const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly
     beforeReconcile?.({host, oldShell, panes});
 
     const result = await DockProjectionReconciler.reconcileProjection({
+        cycle,
         geometryOnly,
         host,
         nextConfig,
@@ -130,6 +131,74 @@ const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly
 
     return {host, nextModel, oldShell, panes, result, stagedCount}
 };
+
+/** @summary A cycle's receipt without a workspace: the stamps it took, by name. */
+const stampingCycle = () => ({stamps: {}, stamp(name) {this.stamps[name] = Date.now()}});
+
+test.describe('Neo.dashboard.dock.projection.Reconciler: a flight that never settles', () => {
+    let bound;
+
+    test.beforeEach(() => {bound = DockProjectionReconciler.flightBound; DockProjectionReconciler.flightBound = 50});
+    test.afterEach(() => {DockProjectionReconciler.flightBound = bound});
+
+    test('settleFlight passes a settled flight through, a rejection too, and leaves a silent one behind after the bound', async () => {
+        const cycle = stampingCycle();
+
+        expect(await DockProjectionReconciler.settleFlight(Promise.resolve('landed'), 'reconcileHost', cycle)).toBe('landed');
+        expect(cycle.stamps).toHaveProperty('reconcileHost');
+
+        await expect(DockProjectionReconciler.settleFlight(Promise.reject(new Error('rejected')), 'reconcileBars', cycle)).rejects.toThrow('rejected');
+        expect(cycle.stamps).not.toHaveProperty('reconcileBars');
+
+        let rejectLate;
+        const silent = new Promise((resolve, reject) => {rejectLate = reject});
+
+        expect(await DockProjectionReconciler.settleFlight(silent, 'reconcileOverflow', cycle)).toBeUndefined();
+        expect(cycle.stamps).toHaveProperty('reconcileOverflowTimedOut');
+        expect(cycle.stamps).not.toHaveProperty('reconcileOverflow');
+        // A rejection after the bound is nobody's: it must not surface as an unhandled rejection
+        rejectLate(new Error('late'));
+        await new Promise(resolve => setTimeout(resolve, 10))
+    });
+
+    test('a host flight that never lands does not hold the projection: it finishes, and its receipt names the flight', async () => {
+        const cycle          = stampingCycle(),
+              {host, result} = await reconcileModel(createSplitModel(), model => {
+                  model.nodes['root-split'].sizes = [0.5, 0.5]
+              }, {
+                  beforeReconcile: ({host}) => {host.promiseUpdate = () => new Promise(() => {})},
+                  cycle,
+                  geometryOnly   : true
+              });
+
+        expect(result.landedInPlace).toBe(true);
+        expect(cycle.stamps).toHaveProperty('reconcileHostTimedOut');
+        expect(cycle.stamps).not.toHaveProperty('reconcileHost');
+        expect(cycle.stamps, 'the steps after the host flight still ran').toHaveProperty('reconcileOverflow');
+        // The geometry still landed on the nodes, the splitter between them aside
+        expect(host.items[0].items.map(item => item.flex).filter(flex => flex !== undefined)).toEqual([0.5, 0.5]);
+
+        host.destroy()
+    });
+
+    test('a staged transaction whose host flights never land still swaps to its next shell', async () => {
+        const cycle                    = stampingCycle(),
+              {host, oldShell, result} = await reconcileModel(createSplitModel(), model => {
+                  model.nodes['root-split'].orientation = 'vertical'
+              }, {
+                  beforeReconcile: ({host}) => {host.promiseUpdate = () => new Promise(() => {})},
+                  cycle
+              });
+
+        expect(result.landedInPlace).toBe(false);
+        expect(result.nextShell).not.toBe(oldShell);
+        expect(Object.keys(cycle.stamps).filter(name => name.endsWith('TimedOut')).sort())
+            .toEqual(['reconcileHostTimedOut', 'reconcileOutgoingTimedOut', 'reconcileShellStagedTimedOut', 'reconcileSwappedTimedOut']);
+        expect(cycle.stamps).toHaveProperty('reconcileOverflow');
+
+        host.destroy()
+    })
+});
 
 test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
     test('preparing a dormant lazy card preserves its slot identity without loading or duplicating it', async () => {

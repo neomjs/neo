@@ -38,6 +38,45 @@ class Reconciler extends Base {
     }
 
     /**
+     * How long {@link #reconcileProjection} waits for one flight (a component update, the held reveals, an overflow
+     * recapture) before it leaves that flight behind, in ms. Every later projection queues behind this one, so a
+     * flight that never settles would otherwise freeze the workspace for good.
+     * @member {Number} flightBound=10000
+     * @static
+     */
+    static flightBound = 10000
+
+    /**
+     * @summary Awaits one reconcile flight for at most {@link #flightBound} ms, then stamps the cycle with its name,
+     * or with `<name>TimedOut` when the bound ran out first. A flight left behind may still land; nothing waits for
+     * it, and its late rejection is nobody's to handle. A rejection within the bound reaches the caller as before.
+     * @param {Promise|*} flight
+     * @param {String} name The stamp, e.g. `reconcileHost`
+     * @param {Neo.dashboard.dock.projection.Cycle|null} cycle
+     * @returns {Promise<*>} The flight's value, or `undefined` when it was left behind
+     * @static
+     */
+    static async settleFlight(flight, name, cycle) {
+        const expired = Symbol('expired');
+        let   result, timer;
+
+        try {
+            result = await Promise.race([flight, new Promise(resolve => {timer = setTimeout(resolve, this.flightBound, expired)})])
+        } finally {
+            clearTimeout(timer)
+        }
+
+        if (result === expired) {
+            Promise.resolve(flight).catch(() => {});
+            cycle?.stamp(`${name}TimedOut`);
+            return undefined
+        }
+
+        cycle?.stamp(name);
+        return result
+    }
+
+    /**
      * @summary The shell that holds the dock area: the one at `shellIndex`, or, from a projection's
      * visibility swap until its cleanup, the incoming shell beside it.
      *
@@ -440,6 +479,9 @@ class Reconciler extends Base {
      * Workspace-specific FLIP capture/play, animation timing, pane creation, and menu readiness stay
      * outside this method. `onProjectionStaged` can decorate retained chrome before the first commit.
      * @param {Object} options
+     * @param {Neo.dashboard.dock.projection.Cycle|null} [options.cycle=null] The refresh's cycle. Each awaited
+     *     flight below stamps its receipt as it settles (`reconcileHost`, `reconcileOverflow`, …), or as
+     *     `<name>TimedOut` when {@link #flightBound} runs out first and the projection goes on without it.
      * @param {Neo.container.Base} options.host Dock host containing the current shell, or the empty
      *     destination for a first projection.
      * @param {Boolean} [options.geometryOnly=false] Explicitly admits strict in-place geometry reconciliation.
@@ -463,6 +505,7 @@ class Reconciler extends Base {
      * @static
      */
     static async reconcileProjection({
+        cycle=null,
         geometryOnly=false,
         host,
         nextConfig,
@@ -478,7 +521,8 @@ class Reconciler extends Base {
     }) {
         const
             oldShell          = host?.items?.[shellIndex] || null,
-            initialProjection = !oldShell;
+            initialProjection = !oldShell,
+            settle            = (flight, name) => this.settleFlight(flight, name, cycle);
 
         const stableProjection = oldShell && (geometryOnly || retainTopology)
             ? this.reconcileStableTopology(oldShell, nextConfig, placeholders, {
@@ -491,37 +535,37 @@ class Reconciler extends Base {
 
         if (stableProjection) {
             stableProjection.reconciledItems &&
-                await onProjectionStaged?.({
+                await settle(onProjectionStaged?.({
                     currentTabs: stableProjection.currentTabs,
                     nextShell  : oldShell,
                     oldShell,
                     plans      : stableProjection.plans
-                });
+                }), 'reconcileStaged');
             for (const ancestor of stableProjection.commitAncestors) {
                 ancestor.updateDepth = -1;
-                await ancestor.promiseUpdate()
+                await settle(ancestor.promiseUpdate(), 'reconcileAncestors')
             }
-            await Promise.all([...stableProjection.commitBars].map(bar => {
+            await settle(Promise.all([...stableProjection.commitBars].map(bar => {
                 bar.sortZone?.adjustItemCls(true);
                 bar.updateDepth = -1;
                 return bar.promiseUpdate()
-            }));
+            })), 'reconcileBars');
             // Geometry lands with the host commit, after the commits above that wait on their own flights.
             stableProjection.geometry.forEach(({flex, node}) => {
                 node.setSilent({flex, wrapperStyle: {...node.wrapperStyle, flex: flex ?? null}})
             });
             host.updateDepth = -1;
             host.update();
-            await host.promiseUpdate();
+            await settle(host.promiseUpdate(), 'reconcileHost');
 
             const overflowPlugins = [...new Set([...stableProjection.plans.values()]
                 .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
                 .filter(Boolean))];
 
-            await Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal})));
+            await settle(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
 
             if (waitForOverflowProjection) {
-                await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
+                await settle(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
             }
 
             // `landedInPlace` reports the path this call ACTUALLY took, so a caller never has to
@@ -564,11 +608,11 @@ class Reconciler extends Base {
         try {
             nextShell = host.insert(shellIndex + (initialProjection ? 0 : 1), preparedConfig, true);
 
-            await onProjectionStaged?.({currentTabs, nextShell, oldShell, plans});
+            await settle(onProjectionStaged?.({currentTabs, nextShell, oldShell, plans}), 'reconcileStaged');
 
             host.updateDepth = -1;
             host.update();
-            await host.promiseUpdate()
+            await settle(host.promiseUpdate(), 'reconcileShellStaged')
         } catch (error) {
             // The destroy sentinel is a Symbol; annotating it throws, and a destroyed host has nothing to repair into.
             if (!initialProjection || error === Neo.isDestroyed) {
@@ -619,7 +663,7 @@ class Reconciler extends Base {
 
             for (const ancestor of commitAncestors) {
                 ancestor.updateDepth = -1;
-                await ancestor.promiseUpdate()
+                await settle(ancestor.promiseUpdate(), 'reconcileAncestors')
             }
 
         // Existing pane/button pairs move through the host's common-ancestor transaction below.
@@ -629,11 +673,11 @@ class Reconciler extends Base {
         // leave the toolbar's VDOM change invisible to the main-thread delta boundary. Silent
         // insertion also bypasses the SortZone's insert listener, so restore its delegated marker
         // before that one owner commit.
-            await Promise.all([...commitBars].map(bar => {
+            await settle(Promise.all([...commitBars].map(bar => {
                 bar.sortZone?.adjustItemCls(true);
                 bar.updateDepth = -1;
                 return bar.promiseUpdate()
-            }));
+            })), 'reconcileBars');
 
             // A removed logical tab can be the source of a returning pane. Hide that now-empty source in
             // the descendant commit; the ancestor/cleanup phases destroy it with its retiring shell once.
@@ -644,7 +688,7 @@ class Reconciler extends Base {
             });
             host.updateDepth = -1;
             host.update();
-            await host.promiseUpdate();
+            await settle(host.promiseUpdate(), 'reconcileHost');
 
             this.moveRetainedTabChrome(plans);
             this.moveRetainedRails(railPlans);
@@ -673,7 +717,7 @@ class Reconciler extends Base {
             host.update();
             // The swap is only true once this flight LANDS: a rejection here leaves the visibility
             // change unadopted, so recovery must treat the outgoing shell as the one still on screen.
-            await host.promiseUpdate();
+            await settle(host.promiseUpdate(), 'reconcileSwapped');
 
             swapped = Boolean(oldShell && !retainedRoot);
 
@@ -681,7 +725,7 @@ class Reconciler extends Base {
                 host.remove(outgoing, true, true);
                 host.updateDepth = -1;
                 host.update();
-                await host.promiseUpdate()
+                await settle(host.promiseUpdate(), 'reconcileOutgoing')
             }
         } catch (error) {
             // As in the staging catch above: annotating the Symbol sentinel would cost both it and the recovery.
@@ -702,7 +746,7 @@ class Reconciler extends Base {
             throw error
         }
 
-        await this.restoreHeldReveals(carriedHolds, currentRails, nextShell);
+        await settle(this.restoreHeldReveals(carriedHolds, currentRails, nextShell), 'reconcileReveals');
 
         const overflowPlugins = [...new Set([...plans.values()]
             .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
@@ -716,10 +760,10 @@ class Reconciler extends Base {
         overflowPlugins.forEach(plugin => {
             !plugin.projectAsAction && plugin.control?.hidden && (plugin.control.hidden = false)
         });
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal})));
+        await settle(Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal}))), 'reconcileOverflow');
 
         if (waitForOverflowProjection) {
-            await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
+            await settle(Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin))), 'reconcileOverflowIdle')
         }
 
         // A staged transaction replaced the shell or a first projection created it, so any
