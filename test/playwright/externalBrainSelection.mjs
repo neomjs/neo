@@ -64,6 +64,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'dialog/MenuLayerNL.spec.mjs',
     'gantt/BasicNL.spec.mjs',
     'gantt/BigDataNL.spec.mjs',
+    'gantt/CascadeNL.spec.mjs',
     'gantt/CascadeTransitionNL.spec.mjs',
     'grid/AnimateRowsRecordChangeNL.spec.mjs',
     'grid/BigDataMultiBodyNL.spec.mjs',

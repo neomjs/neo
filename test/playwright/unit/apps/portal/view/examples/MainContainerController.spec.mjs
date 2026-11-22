@@ -145,7 +145,7 @@ test.describe('Portal examples overview and group pages', () => {
         ]);
         expect(pageIds(view, 'gantt')).toEqual([
             'gantt-basic', 'gantt-big-data', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
-            'gantt-task-editor', 'gantt-task-columns', 'meridian-observatory'
+            'gantt-task-editor', 'gantt-task-columns', 'gantt-cascade', 'meridian-observatory'
         ]);
         expect(pageIds(view, 'board')).toEqual([
             'board-basic', 'board-swimlanes', 'board-big-data', 'board-wip-limits', 'board-card-designs', 'board-card-editor',
@@ -729,7 +729,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           charts        : [5, 1],
           calendar      : [1, 0],
           scheduler     : [11, 0],
-          gantt         : [7, 1],
+          gantt         : [8, 1],
           board         : [8, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
@@ -744,7 +744,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 147,
+      recordCount    = 148,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1017,7 +1017,7 @@ test.describe('Portal examples canonical catalog', () => {
                   'scheduler-drag-and-resize', 'scheduler-non-working-time', 'scheduler-bar-renderer',
                   'scheduler-event-editor', 'scheduler-zoom', 'scheduler-resource-columns', 'scheduler-time-zones',
                   'scheduler-live-updates', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
-                  'gantt-task-editor', 'gantt-task-columns', 'board-big-data', 'board-wip-limits', 'board-card-designs',
+                  'gantt-task-editor', 'gantt-task-columns', 'gantt-cascade', 'board-big-data', 'board-wip-limits', 'board-card-designs',
                   'board-card-editor', 'board-multi-select', 'board-columns', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', 'on-air-at-eight', ...newTileIds, ...layoutExampleIds
               ],

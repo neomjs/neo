@@ -41,6 +41,7 @@ const
         'scheduler/zoom',
         'gantt/basic',
         'gantt/bigData',
+        'gantt/cascade',
         'gantt/dependencies',
         'gantt/taskColumns',
         'gantt/taskEditor',
