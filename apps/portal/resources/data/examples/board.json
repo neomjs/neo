@@ -29,6 +29,7 @@
     {
         "id": "board-swimlanes",
         "image": "devmode/board-swimlanes-14.jpg",
+        "hasLightCover": true,
         "name": "A board by team, in rows that collapse",
         "sourceUrl": "examples/board/swimlanes",
         "urls": {
@@ -70,6 +71,7 @@
     {
         "id": "board-wip-limits",
         "image": "devmode/board-wip-limits-14.jpg",
+        "hasLightCover": true,
         "name": "Work-in-progress limits",
         "sourceUrl": "examples/board/wipLimits",
         "urls": {
@@ -87,6 +89,7 @@
     {
         "id": "board-card-designs",
         "image": "devmode/board-card-designs-14.jpg",
+        "hasLightCover": true,
         "name": "Card designs",
         "sourceUrl": "examples/board/cardDesigns",
         "urls": {

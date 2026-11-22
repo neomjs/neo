@@ -62,6 +62,11 @@ class Example extends Model {
             type        : 'Boolean',
             defaultValue: false
         }, {
+            /** A published light sibling shares the base image name with `-light` before its extension. */
+            name        : 'hasLightCover',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
             name        : 'hidden',
             type        : 'Boolean',
             defaultValue: false

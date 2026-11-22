@@ -58,6 +58,7 @@
         "id": "menu-list",
         "kind": "component",
         "image": "devmode/tiles/menu-list-14.jpg",
+        "hasLightCover": true,
         "name": "Menu list",
         "sourceUrl": "examples/menu/list",
         "urls": {

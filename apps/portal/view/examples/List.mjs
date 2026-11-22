@@ -218,6 +218,13 @@ class List extends BaseList {
         value && this.registerIntersectionObserver()
     }
 
+    /** @summary Marks a card whose published opening frame and caption can follow the Portal theme. */
+    createItem(record, ...args) {
+        const item = super.createItem(record, ...args);
+        if (item && record.hasLightCover) item.cls.push('portal-example-paired-cover');
+        return item
+    }
+
     /**
      * @summary Renders a cover and a stationary footer with progressive selection details.
      *
@@ -363,12 +370,18 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Names the record's cover. The card's state lights are the stylesheet's, layered over the image.
+     * @summary Supplies the published image URLs on eager or lazy admission. CSS chooses the active resource.
      * @param {Object} record
-     * @returns {{backgroundImage: string}}
+     * @returns {Object} Image variables for the card or tile.
      */
     getBackgroundImageStyle(record) {
-        return {backgroundImage: record.image ? `url('${this.imageBasePath}/${record.image}')` : 'none'}
+        if (!record.image) return {};
+        const path  = `${this.imageBasePath}/${record.image}`,
+              style = {'--portal-example-cover': `url('${path}')`};
+        if (record.hasLightCover) {
+            style['--portal-example-cover-light'] = `url('${path.replace(/(\.[^./?#]+)(?=[?#]|$)/, '-light$1')}')`
+        }
+        return style
     }
 
     /**

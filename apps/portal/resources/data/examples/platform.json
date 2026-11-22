@@ -43,6 +43,7 @@
         "id": "sitemap",
         "kind": "component",
         "image": "devmode/tiles/sitemap-14.jpg",
+        "hasLightCover": true,
         "name": "Sitemap",
         "sourceUrl": "examples/sitemap",
         "urls": {
