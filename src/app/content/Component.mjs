@@ -48,6 +48,11 @@ class Component extends Markdown {
          */
         record_: null,
         /**
+         * Gives the article's section records URL anchors and enables routed section selection.
+         * @member {Boolean} routeSections=false
+         */
+        routeSections: false,
+        /**
          * @member {Boolean} replaceTicketIds=true
          */
         replaceTicketIds: true,
@@ -73,6 +78,21 @@ class Component extends Markdown {
      * @private
      */
     #contentRequest = 0
+
+    /** @member {Promise|null} #contentRender The current Markdown render. */
+    #contentRender = null
+
+    /** @member {Object|null} #renderedRecord The article that has reached the DOM. */
+    #renderedRecord = null
+
+    /** @member {Object[]} #renderedSections Section rows awaiting publication with the article. */
+    #renderedSections = []
+
+    /** @member {Object|null} #routeSection The route's record and decoded fragment. */
+    #routeSection = null
+
+    /** @member {Set|null} #sectionSlugs Slugs assigned during the current Markdown parse. */
+    #sectionSlugs = null
 
     /**
      * @param {Object} config
@@ -120,24 +140,95 @@ class Component extends Markdown {
         const me      = this,
               request = ++me.#contentRequest;
 
+        me.#renderedRecord = null;
+
         if (value) {
             await me.doFetchContent(value, request);
 
-            if (oldValue && me.#isCurrentContentRequest(request)) {
-                await me.timeout(50).catch(error => {
+            if (!me.#isCurrentContentRequest(request)) return;
+
+            if (me.routeSections && value.isLeaf) {
+                await me.#contentRender;
+
+                if (!me.#isCurrentContentRequest(request)) return;
+
+                await me.promiseUpdate().catch(error => {
                     if (error !== Neo.isDestroyed) throw error
                 });
 
-                if (me.#isCurrentContentRequest(request)) {
-                    Neo.main.DomAccess.scrollTo({
-                        direction: 'top',
-                        id       : me.parentId,
-                        value    : 0,
-                        windowId : me.windowId
-                    })
+                if (!me.#isCurrentContentRequest(request)) return;
+
+                me.#renderedRecord = value;
+
+                if (me.updateSectionsStore) {
+                    me.getStateProvider().getStore('sections').data = me.#renderedSections
                 }
+
+                me.#observeSections();
+
+                if (me.#selectRouteSection()) return
+            } else if (oldValue) {
+                await me.timeout(50).catch(error => {
+                    if (error !== Neo.isDestroyed) throw error
+                })
+            }
+
+            if (oldValue && me.#isCurrentContentRequest(request)) {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.parentId,
+                    value    : 0,
+                    windowId : me.windowId
+                })
             }
         }
+    }
+
+    /**
+     * @summary Tracks the Markdown render so route scrolling can wait for its DOM update.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {Promise<void>}
+     */
+    afterSetValue(value, oldValue) {
+        return this.#contentRender = super.afterSetValue(value, oldValue)
+    }
+
+    /**
+     * @summary Selects the section requested by the route, including navigation within the current article.
+     * @param {Object} record
+     * @param {String} [fragment]
+     */
+    setRouteSection(record, fragment) {
+        if (fragment) {
+            try {
+                fragment = decodeURIComponent(fragment)
+            } catch {
+                fragment = null
+            }
+        }
+
+        this.#routeSection = fragment ? {record, fragment} : null;
+
+        if (record === this.#renderedRecord) this.#selectRouteSection()
+    }
+
+    /**
+     * @summary Uses the contents panel's section record once its article has reached the DOM.
+     * @returns {Boolean}
+     */
+    #selectRouteSection() {
+        const section = this.#routeSection;
+
+        if (!section || section.record !== this.#renderedRecord) return false;
+
+        const record = this.getStateProvider().getStore('sections').find('anchor', section.fragment, true);
+
+        if (!record) return false;
+
+        this.fire('routeSection', {record});
+
+        return true
     }
 
     /**
@@ -147,9 +238,8 @@ class Component extends Markdown {
      * @returns {Promise<void>}
      */
     async doFetchContent(record, request=++this.#contentRequest) {
-        const me         = this,
-              {windowId} = me,
-              path       = me.getContentPath(record);
+        const me   = this,
+              path = me.getContentPath(record);
 
         if (record.isLeaf && path) {
             const data    = await fetch(path),
@@ -160,13 +250,20 @@ class Component extends Markdown {
             me.value = content;
             me.toggleCls('lab', record.name?.startsWith('Lab:'));
 
-            Neo.main.addon.IntersectionObserver.observe({
-                disconnect: true,
-                id        : me.id,
-                observe   : me.contentObserverSelectors,
-                windowId
-            });
+            if (!me.routeSections) me.#observeSections()
         }
+    }
+
+    /** @summary Watches the headings owned by this article. */
+    #observeSections() {
+        const {id, windowId, contentObserverSelectors} = this;
+
+        Neo.main.addon.IntersectionObserver.observe({
+            disconnect: true,
+            id,
+            observe   : this.routeSections ? contentObserverSelectors.map(selector => `#${id} ${selector}`) : contentObserverSelectors,
+            windowId
+        })
     }
 
     /**
@@ -192,15 +289,20 @@ class Component extends Markdown {
      * @returns {String}
      */
     modifyMarkdown(content) {
-        this.headlineData = [];
+        this.headlineData  = [];
+        this.#sectionSlugs = this.routeSections ? new Set() : null;
         const result = super.modifyMarkdown(content);
 
-        // Using 'sections' store (generic name)
         if (this.updateSectionsStore) {
-            this.getStateProvider().getStore('sections').data = this.headlineData
+            if (this.routeSections) {
+                this.#renderedSections = this.headlineData
+            } else {
+                this.getStateProvider().getStore('sections').data = this.headlineData
+            }
         }
 
-        this.headlineData = null;
+        this.headlineData  = null;
+        this.#sectionSlugs = null;
         return result
     }
 
@@ -296,6 +398,7 @@ class Component extends Markdown {
     }
 
     /**
+     * @summary Creates the rendered heading and its matching contents-panel record.
      * @param {String} tag
      * @param {String} text
      * @param {Number} index
@@ -303,11 +406,26 @@ class Component extends Markdown {
      */
     onHeadline(tag, text, index) {
         // Markdown titles can contain inline code, which we don't want to display inside SectionsList.
-        const sideNavTitle = text.replaceAll('`', '');
+        const sideNavTitle = text.replaceAll('`', ''),
+              headline     = marked.parseInline(text),
+              section      = {id: index, name: sideNavTitle, sourceId: this.id, tag};
 
-        this.headlineData.push({id: index, name: sideNavTitle, sourceId: this.id, tag});
+        if (this.#sectionSlugs) {
+            const slug = headline.replace(/<[^>]*>|&(?:#\w+|[a-z][\da-z]*);/gi, '')
+                                 .trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}_ -]/gu, '').replaceAll(' ', '-');
 
-        const headline = marked.parseInline(text);
+            let anchor = slug,
+                suffix = 1;
+
+            while (this.#sectionSlugs.has(anchor)) {
+                anchor = `${slug}-${suffix++}`
+            }
+
+            this.#sectionSlugs.add(anchor);
+            section.anchor = anchor
+        }
+
+        this.headlineData.push(section);
 
         return `<${tag} class="neo-${tag}" data-record-id="${index}">${headline}</${tag}>`
     }

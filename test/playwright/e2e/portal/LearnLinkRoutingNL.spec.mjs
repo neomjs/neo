@@ -13,14 +13,36 @@ import {expect, test} from '../../fixtures.mjs';
  * "does clicking it arrive".
  */
 
-const GUIDE       = '/apps/portal/index.html#/learn/guides/uibuildingblocks/DockLayouts',
-      ADOPTION_ID = 'guides/uibuildingblocks/DockLayoutsAdoption';
+const PORTAL           = '/apps/portal/index.html',
+      GUIDE            = `${PORTAL}#/learn/guides/uibuildingblocks/DockLayouts`,
+      ADOPTION_ROUTE   = '#/learn/guides/uibuildingblocks/DockLayoutsAdoption',
+      DECISION_3_ROUTE = `${ADOPTION_ROUTE}#decision-3--policies-live-in-the-model-not-in-your-ui`,
+      DECISION_3_TITLE = 'Decision 3 — policies live in the model, not in your UI';
 
 /** The content component's own class, so the assertions cannot drift onto sidebar or chrome links. */
-const CONTENT = '.neo-app-content-component';
+const CONTENT  = '.neo-app-content-component',
+      SECTIONS = '.neo-app-content-sections-list';
 
 /** The sidebar tree, whose navigation owes nothing to the rewrite — see the control arm below. */
 const TREE = '.neo-app-content-tree-list';
+
+/**
+ * @summary Checks that the destination is visible and selected in On this page.
+ * @param {import('@playwright/test').Page} page
+ */
+async function expectDecisionArrival(page) {
+    const heading = page.locator(CONTENT).getByRole('heading', {level: 2, name: DECISION_3_TITLE, exact: true});
+
+    await expect(heading).toBeVisible();
+    await expect.poll(() => heading.evaluate(node => {
+        const article = node.closest('.neo-app-content-page-container').getBoundingClientRect(),
+              bounds  = node.getBoundingClientRect();
+
+        return bounds.top >= Math.max(0, article.top) - 1 &&
+               bounds.bottom <= Math.min(innerHeight, article.bottom) + 1
+    }), {message: 'Decision 3 is fully visible inside the article scroller'}).toBe(true);
+    await expect(page.locator(`${SECTIONS} .neo-selected`)).toHaveText(DECISION_3_TITLE)
+}
 
 test.describe('learn link routing', () => {
     test('a relative guide link is rendered as a route, not a file path', async ({page}) => {
@@ -34,7 +56,7 @@ test.describe('learn link routing', () => {
 
         // The corpus authors this as `DockLayoutsAdoption.md`; only the rewrite can turn it into a
         // route. Deleting the hook leaves the raw `.md` href here.
-        await expect(content.locator(`a[href="#/learn/${ADOPTION_ID}"]`).first()).toHaveCount(1)
+        await expect(content.locator(`a[href="${ADOPTION_ROUTE}"]`).first()).toHaveCount(1)
     });
 
     test('a fragment-bearing link keeps its anchor on the route', async ({page}) => {
@@ -46,7 +68,7 @@ test.describe('learn link routing', () => {
         // Authored as `DockLayoutsAdoption.md#decision-3--...`. The router's `{*itemId}` captures the
         // whole suffix, so the id and the anchor must both survive for the controller to split them.
         await expect(
-            content.locator(`a[href^="#/learn/${ADOPTION_ID}#"]`).first()
+            content.locator(`a[href="${DECISION_3_ROUTE}"]`).first()
         ).toHaveCount(1)
     });
 
@@ -80,7 +102,7 @@ test.describe('learn link routing', () => {
         const content = page.locator(CONTENT);
         await expect(content.locator('h1')).toContainText('Dock Layouts:');
 
-        await content.locator(`a[href="#/learn/${ADOPTION_ID}"]`).first().click();
+        await content.locator(`a[href="${ADOPTION_ROUTE}"]`).first().click();
 
         // The source page is 'Dock Layouts: One Application, Many Windows', so the destination's own
         // subtitle is the discriminator — 'Dock Layouts:' alone would pass without navigating.
@@ -98,6 +120,41 @@ test.describe('learn link routing', () => {
         // wait through. The default stays, because a longer one buys a slower failure and no more
         // information.
         await expect(content.locator('h1')).toContainText('Adopting in Your App')
+    });
+
+    test('clicking a guide link scrolls to its section', async ({page}) => {
+        await page.goto(GUIDE);
+        await page.locator(`${CONTENT} a[href="${DECISION_3_ROUTE}"]`).click();
+        await expectDecisionArrival(page)
+    });
+
+    test('opening a guide section URL scrolls after loading the article', async ({page}) => {
+        await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+        await expectDecisionArrival(page)
+    });
+
+    test('changing the fragment scrolls within the loaded article', async ({page}) => {
+        await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+
+        const heading = page.locator(CONTENT).getByRole('heading', {level: 2, name: DECISION_3_TITLE, exact: true});
+
+        await expect(heading).toBeVisible();
+        await expect(heading).not.toBeInViewport();
+
+        await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+        await expectDecisionArrival(page)
+    });
+
+    test('clicking a heading in On this page still scrolls to it', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+        await page.locator(SECTIONS).getByText(DECISION_3_TITLE, {exact: true}).click();
+        await expectDecisionArrival(page)
+    });
+
+    test('opening an unknown section keeps the start of the article visible', async ({page}) => {
+        await page.goto(`${PORTAL}${ADOPTION_ROUTE}#unknown-section`);
+        await expect(page.locator(`${CONTENT} h1`, {hasText: 'Adopting in Your App'})).toBeInViewport()
     });
 
 });
