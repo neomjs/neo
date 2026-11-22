@@ -21,11 +21,13 @@ class SectionsContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            ntype  : 'button',
-            cls    : ['sections-container-button'],
-            handler: 'onPageSectionsToggleButtonClick',
-            iconCls: 'fas fa-bars',
-            ui     : 'secondary',
+            ntype    : 'button',
+            ariaLabel: 'On this page',
+            cls      : ['sections-container-button'],
+            handler  : 'onPageSectionsToggleButtonClick',
+            iconCls  : 'fas fa-bars',
+            reference: 'sections-disclosure',
+            ui       : 'secondary',
 
             bind: {
                 disabled: data => data.countSections < 1,

@@ -46,12 +46,13 @@ class MainContainer extends Container {
                             reference  : 'tree'
                         },
                         toggleBtn: {
-                            ntype  : 'button',
-                            bind   : {hidden: data => data.size !== 'x-small'},
-                            cls    : ['sidenav-button'],
-                            handler: 'onSideNavToggleButtonClick',
-                            iconCls: 'fas fa-bars',
-                            ui     : 'secondary'
+                            ntype    : 'button',
+                            ariaLabel: 'Browse topics',
+                            bind     : {hidden: data => data.size !== 'x-small'},
+                            cls      : ['sidenav-button'],
+                            handler  : 'onSideNavToggleButtonClick',
+                            iconCls  : 'fas fa-bars',
+                            ui       : 'secondary'
                         }
                     }
                 },
@@ -104,6 +105,29 @@ class MainContainer extends Container {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : null
+        }
+    }
+
+    /**
+     * @summary Announces the shared panels' CSS disclosure state on their buttons.
+     * Article navigation and section selection can close a panel without pressing its button.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        for (const [panelRef, buttonRef] of [
+            ['sidenav-container', 'toggleBtn'],
+            ['page-sections-container', 'sections-disclosure']
+        ]) {
+            const panel  = this.getReference(panelRef),
+                  button = panel?.getReference(buttonRef);
+
+            if (button) {
+                const sync = () => button.changeVdomRootKey('aria-expanded', String(panel.cls.includes('neo-expanded')));
+
+                this.observeConfig(panel, 'cls', sync);
+                sync()
+            }
         }
     }
 }
