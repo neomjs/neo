@@ -200,9 +200,9 @@ class ViewportController extends Controller {
                 me.setTheme('neo-theme-neo-dark', false)
             } else {
                 // Nothing stored and no dark preference: the Portal keeps the theme it booted with
-                // (`themes[0]` in neo-config.json). The button's static icon does not know that
-                // theme, so sync it here without setting a theme or writing to storage.
-                me.updateThemeSwitchIcon(me.component.getTheme())
+                // (`themes[0]` in neo-config.json). The button's static icon and the state provider
+                // do not know that theme, so sync them here without setting a theme or writing to storage.
+                me.syncTheme(me.component.getTheme())
             }
         })
     }
@@ -373,7 +373,7 @@ class ViewportController extends Controller {
 
         me.component.theme = theme;
 
-        me.updateThemeSwitchIcon(theme);
+        me.syncTheme(theme);
 
         if (updateStorage) {
             Neo.main.addon.LocalStorage.updateLocalStorageItem({
@@ -382,6 +382,16 @@ class ViewportController extends Controller {
                 windowId: me.windowId
             })
         }
+    }
+
+    /**
+     * @summary Passes the theme on screen to what follows it: the switch button's icon, and the state provider's
+     * `theme`, which the examples' launch links hand to the example they open.
+     * @param {String} theme The theme currently on screen
+     */
+    syncTheme(theme) {
+        this.updateThemeSwitchIcon(theme);
+        this.setState({theme})
     }
 
     /**

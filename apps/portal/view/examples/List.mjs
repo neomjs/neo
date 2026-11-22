@@ -38,6 +38,13 @@ class List extends BaseList {
          */
         catalogMode_: 'dist_prod',
         /**
+         * The theme an opened example starts in: the Portal's theme on screen. Every local launch link passes it as
+         * `?theme=`, so a dark catalog opens a dark example. null leaves each link as its record names it.
+         * @member {String|null} exampleTheme_=null
+         * @reactive
+         */
+        exampleTheme_: null,
+        /**
          * Optional map from `family` to group title shown as a pill when {@link showGroup} is `true`.
          * @member {Object|null} groupTitles=null
          */
@@ -149,6 +156,16 @@ class List extends BaseList {
             this.createItems();
             this.mounted && this.registerIntersectionObserver()
         }
+    }
+
+    /**
+     * @summary Re-renders the launch links when the Portal switches its theme.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetExampleTheme(value, oldValue) {
+        oldValue !== undefined && this.store?.isConstructed && this.createItems()
     }
 
     /**
@@ -303,7 +320,7 @@ class List extends BaseList {
         vdom = {
             tag : 'a',
             cls : ['neo-title'],
-            href: Example.href(record, this.catalogMode, this.baseUrl),
+            href: Example.href(record, this.catalogMode, {baseUrl: this.baseUrl, theme: this.exampleTheme}),
             text: record.name.replace(List.nameRegEx, '$1')
         };
 

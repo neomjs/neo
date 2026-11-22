@@ -105,6 +105,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'portal/ConnectNL.spec.mjs',
     'portal/DocsMixinsNL.spec.mjs',
     'portal/ExamplesCatalogNL.spec.mjs',
+    'portal/ExamplesCatalogTheme.spec.mjs',
     'portal/HeaderToolbarPhoneNL.spec.mjs',
     'portal/HomeAudienceDoorsNL.spec.mjs',
     'portal/HomeComponentPreviews.spec.mjs',

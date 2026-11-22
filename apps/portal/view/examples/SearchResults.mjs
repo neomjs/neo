@@ -127,7 +127,7 @@ class SearchResults extends Container {
 
         return {
             module  : List,
-            bind    : {catalogMode: data => data.catalogMode},
+            bind    : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex    : 'none',
             leadCard: false,
             ...(tiles ? {tiles: true} : {}),
