@@ -585,9 +585,10 @@ test.describe('Portal examples overview and group pages', () => {
 
         const dragIds = matchedIds();
         expect(dragIds).toEqual(expect.arrayContaining([
-            'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
+            'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns',
             'dialog-drag-drop', 'workstation', 'webdesktop'
         ]));
+        expect(dragIds).not.toContain('multi-window-drag-drop');
         // a pane popped out by its action is not a drag, so it no longer answers "drag" through the group's title
         expect(dragIds).not.toContain('dock-tear-out');
 
