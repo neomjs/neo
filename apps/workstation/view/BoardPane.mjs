@@ -58,14 +58,17 @@ class BoardPane extends BoardContainer {
     }
 
     /**
-     * @summary Names the card editor's fields for a work item, its person chosen among the team, and re-renders
-     * every card when the team changes after construction. A work item's days are the schedule's to move.
+     * @summary Binds the borrowed team Store to the card footers and uses it as the editor's person picker.
+     * The planning provider keeps ownership of the Store.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
      * @protected
      */
     afterSetPeople(value, oldValue) {
         let me = this;
+
+        if (oldValue && !oldValue.isDestroyed) oldValue.un(me.#peopleListeners());
+        value?.on(me.#peopleListeners());
 
         me.cardEditorConfig = {...me.cardEditorConfig, fields: [
             'title',
@@ -78,8 +81,96 @@ class BoardPane extends BoardContainer {
         if (oldValue !== undefined) {
             me.cardEditor?.destroy();
             me.cardEditor = null;
-            me.cardMap.forEach(card => card.renderItems())
+            me.#renderPeopleCards()
         }
+    }
+
+    /**
+     * @summary Releases the People subscriptions before the Board tears down its cards.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        const {people} = this;
+
+        if (people && !people.isDestroyed) people.un(this.#peopleListeners());
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Returns fresh listener options because Observable consumes their scope on registration and removal.
+     * @returns {Object}
+     * @private
+     */
+    #peopleListeners() {
+        return {
+            filter      : this.onPeopleLoad,
+            load        : this.onPeopleLoad,
+            recordChange: this.onPeopleRecordChange,
+            rowsChange  : this.onPeopleRowsChange,
+            scope       : this,
+            updateKey   : this.onPeopleKeyChange
+        }
+    }
+
+    /**
+     * @summary Refreshes card labels when the visible People population changes.
+     * @param {Object} event
+     * @param {Boolean} [event.isSort]
+     * @param {String} event.source
+     */
+    onPeopleLoad({isSort, source}) {
+        if (source === this.people?.id && !isSort) this.#renderPeopleCards()
+    }
+
+    /**
+     * @summary Repaints cards that refer to either key when a person changes Store keys.
+     * @param {Object} event
+     * @param {String|Number} event.newKey
+     * @param {String|Number} event.oldKey
+     * @param {String} event.source
+     */
+    onPeopleKeyChange({newKey, oldKey, source}) {
+        if (source === this.people?.id) this.#renderPeopleCards(new Set([oldKey, newKey]))
+    }
+
+    /**
+     * @summary Repaints the cards of a renamed person. A batched event is handled once by rowsChange.
+     * @param {Object} event
+     * @param {Object[]} event.fields
+     * @param {Boolean} [event.isBatch]
+     * @param {Object} event.record
+     * @param {String} event.source
+     */
+    onPeopleRecordChange({fields, isBatch, record, source}) {
+        const {people} = this;
+
+        if (source === people?.id && !isBatch && fields.some(field => field.name === 'name')) {
+            this.#renderPeopleCards(new Set([people.getKey(record)]))
+        }
+    }
+
+    /**
+     * @summary Uses the settled batch's keys to repaint cards after a bulk rename.
+     * @param {Object} event
+     * @param {String[]} event.fields
+     * @param {Array<String|Number>} event.keys
+     * @param {String} event.source
+     */
+    onPeopleRowsChange({fields, keys, source}) {
+        if (source === this.people?.id && fields.includes('name')) {
+            this.#renderPeopleCards(new Set(keys))
+        }
+    }
+
+    /**
+     * @summary Refreshes matching card footers, including retained cards that can reattach without rendering again.
+     * @param {Set} [keys] People Store keys, or omit to refresh the entire visible lookup.
+     * @private
+     */
+    #renderPeopleCards(keys) {
+        this.cardMap.forEach(card => {
+            if (!keys || keys.has(card.record.resourceId)) card.renderItems()
+        })
     }
 }
 

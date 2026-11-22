@@ -90,6 +90,41 @@ test.describe('Workstation planning desk (Neural Link)', () => {
     test.setTimeout(180000);
     test.use({viewport: VIEWPORT});
 
+    test('renaming a person updates the painted Board avatar without editing the work item', async ({browser, page, neuralLink}) => {
+        const {app, boardId, id} = await openPlanningDesk(page, neuralLink),
+              stores             = await app.getComponent(id, ['stateProvider.stores.people.id', 'stateProvider.stores.workItems.id']),
+              peopleId           = stores['stateProvider.stores.people.id'],
+              workItemsId        = stores['stateProvider.stores.workItems.id'],
+              maya               = page.locator(`[id="${boardId}__card__wi-1"] .neo-board-card-avatar`),
+              jonas              = page.locator(`[id="${boardId}__card__wi-3"] .neo-board-card-avatar`),
+              before             = await readRecord(app, workItemsId, 'wi-1');
+
+        expect((await app.getComponent(boardId, ['people.id']))['people.id']).toBe(peopleId);
+        await expect(maya).toHaveAttribute('title', 'Maya Chen');
+        await expect(maya).toHaveText('MC');
+
+        const observer = await attachPageSharedAppWorker({browser, page});
+
+        try {
+            await observer.evaluate(boardId => {
+                Neo.getComponent(boardId).people.get('maya').name = 'Zara Vale'
+            }, boardId);
+            await expect(maya).toHaveAttribute('title', 'Zara Vale');
+            await expect(maya).toHaveText('ZV');
+
+            await observer.evaluate(boardId => {
+                Neo.getComponent(boardId).people.updateRows([{key: 'maya', values: {name: 'Avery Stone'}}])
+            }, boardId);
+            await expect(maya).toHaveAttribute('title', 'Avery Stone');
+            await expect(maya).toHaveText('AS');
+            await expect(jonas).toHaveAttribute('title', 'Jonas Berg');
+            await expect(jonas).toHaveText('JB');
+            expect(await readRecord(app, workItemsId, 'wi-1')).toEqual(before)
+        } finally {
+            await observer.close()
+        }
+    });
+
     test('a card released over the schedule stays put; returning to a collapsed board column commits once', async ({browser, page, neuralLink}) => {
         const {app, boardId, id} = await openPlanningDesk(page, neuralLink),
               storeId            = (await app.getComponent(id, ['stateProvider.stores.workItems.id']))['stateProvider.stores.workItems.id'],
