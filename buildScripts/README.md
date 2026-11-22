@@ -63,7 +63,10 @@ npm run capture-examples -- --base-url http://localhost:8080/ --record grid-cell
 npm run capture-examples -- --base-url http://localhost:8080/ --family grid-table
 ```
 
-Recipes live beside the catalog in `apps/portal/resources/data/example-captures/`: one `<family>.json` per
+The catalog lives in `apps/portal/resources/data/examples/`: one `<group>.json` per group, and `index.json`
+naming them. A record's `order` places it among all records, so a group's file can hold a featured card or one
+another group borrows through `alsoIn`; a record without `order` comes after the others. Recipes live beside the
+catalog in `apps/portal/resources/data/example-captures/`: one `<family>.json` per
 family, and `index.json` for the version, the file suffix and the tiles. The catalog owns
 IDs and development URLs; each recipe supplies its viewport, theme action, feature-state checks and
 640×360 CSS region. Captures use device scale 2 and produce 1280×720 JPEGs of at most 150,000 bytes.

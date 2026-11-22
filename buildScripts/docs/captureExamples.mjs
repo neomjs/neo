@@ -6,6 +6,7 @@ import {fileURLToPath}    from 'node:url';
 import {parseArgs}        from 'node:util';
 import {chromium, expect} from '@playwright/test';
 import isEntryModule      from '../util/isEntryModule.mjs';
+import {EXAMPLES_DIR, readExampleCatalog} from '../util/exampleCatalog.mjs';
 
 /**
  * @module buildScripts.docs.captureExamples
@@ -109,7 +110,7 @@ function tileList(value) {
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
  * (`kind: 'component'`) takes its crop from the `tiles` list, so it needs no recipe in a declared family.
  * @param {Object} manifest Raw version1 recipe manifest.
- * @param {Object[]} catalog Canonical examples.json records.
+ * @param {Object[]} catalog The catalog's records, from `readExampleCatalog()`.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
  */
 export function validateCaptureRecipes(manifest, catalog) {
@@ -529,8 +530,9 @@ async function runCli() {
     insist(!(tiles && (values.record || values.family)), 'selection', 'use tiles or recipes, not both');
     const manifestPath = path.join(DATA, 'example-captures'),
         read           = await readCaptureManifest(manifestPath),
-        sources        = {recipes: read.bytes, catalog: await fs.readFile(path.join(DATA, 'examples.json')), producer: await fs.readFile(fileURLToPath(import.meta.url))},
-        manifest       = validateCaptureRecipes(read.manifest, JSON.parse(sources.catalog)),
+        catalog        = await readExampleCatalog(path.join(ROOT, EXAMPLES_DIR)),
+        sources        = {recipes: read.bytes, catalog: catalog.bytes, producer: await fs.readFile(fileURLToPath(import.meta.url))},
+        manifest       = validateCaptureRecipes(read.manifest, catalog.records),
         recipes        = tiles ? selectTiles(manifest, values.tile) : selectCaptureRecipes(manifest, values), baseUrl = new URL(values['base-url']);
     insist(['http:', 'https:'].includes(baseUrl.protocol) && !baseUrl.username && !baseUrl.password, 'base-url', 'expected HTTP(S) origin without credentials');
     if (!baseUrl.pathname.endsWith('/')) baseUrl.pathname += '/';

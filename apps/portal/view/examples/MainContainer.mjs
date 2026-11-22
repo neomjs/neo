@@ -124,7 +124,7 @@ class MainContainer extends Container {
                 matchCounts: null
             },
             stores: {
-                catalog: {module: ExampleStore, url: '../../apps/portal/resources/data/examples.json'},
+                catalog: {module: ExampleStore, url: '../../apps/portal/resources/data/examples/index.json'},
                 groups : {module: ExampleGroupStore}
             }
         }

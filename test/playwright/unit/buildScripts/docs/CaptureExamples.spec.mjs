@@ -7,6 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {
     applyTileTheme, fitTileRegion, readCaptureManifest, validateCaptureRecipes, selectCaptureRecipes, selectTiles
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
+import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
 const DATA = fileURLToPath(new URL('../../../../../apps/portal/resources/data/', import.meta.url));
 
@@ -154,7 +155,7 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
 });
 
 test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
-    const records    = JSON.parse(fs.readFileSync(path.join(DATA, 'examples.json'))),
+    const {records}  = await readExampleCatalog(path.join(DATA, 'examples')),
         {manifest}   = await readCaptureManifest(path.join(DATA, 'example-captures')),
         valid        = validateCaptureRecipes(manifest, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
@@ -162,7 +163,7 @@ test('the committed Grid/Table manifest covers every current family record with 
 });
 
 test('each family file holds only that family\'s recipes, so a change to one family edits one file', async () => {
-    const records  = JSON.parse(fs.readFileSync(path.join(DATA, 'examples.json'))),
+    const {records} = await readExampleCatalog(path.join(DATA, 'examples')),
         family     = Object.fromEntries(records.map(record => [record.id, record.family])),
         dir        = path.join(DATA, 'example-captures'),
         {manifest} = await readCaptureManifest(dir);
@@ -235,7 +236,7 @@ test('a tile path outside examples/, a duplicate tile, a bad capture size or an 
 
 test('the committed tile list names workbench entries that exist', async () => {
     const {manifest} = await readCaptureManifest(path.join(DATA, 'example-captures')),
-        valid        = validateCaptureRecipes(manifest, JSON.parse(fs.readFileSync(path.join(DATA, 'examples.json'))));
+        valid        = validateCaptureRecipes(manifest, (await readExampleCatalog(path.join(DATA, 'examples'))).records);
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
