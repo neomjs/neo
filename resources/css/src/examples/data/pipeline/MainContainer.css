@@ -36,6 +36,16 @@
         padding: 0 16px 14px;
     }
 
+    /* A run that did not finish: the text keeps its colour, the edge carries the pause's red */
+    .neo-examples-data-pipeline-error {
+        border-left: 3px solid #e5484d;
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0 16px 12px;
+        max-width  : 1000px;
+        padding    : 2px 0 2px 10px;
+    }
+
     /* The app moves the dot on every frame: it stops for as long as the app stands still */
     .neo-examples-data-pipeline-pulse {
         align-items: center;

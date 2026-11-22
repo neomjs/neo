@@ -2,8 +2,8 @@ import Component from '../../../src/component/Base.mjs';
 
 /**
  * @summary What one pipeline run cost the app: the worker the run was on, the app's heartbeat during it as a bar, and
- * the time the app stood still as a number. The bar is filled for as long as the run took and red wherever two
- * beats were further apart than they should be.
+ * the time the app stood still as a number. The bar is filled for as long as the heartbeat went on and red wherever
+ * two beats were at least `threshold` milliseconds apart.
  *
  * @class Neo.examples.data.pipeline.HeartbeatRow
  * @extends Neo.component.Base
@@ -40,6 +40,11 @@ class HeartbeatRow extends Component {
          * @reactive
          */
         scale_: 1,
+        /**
+         * From how many milliseconds on a gap between two beats is a pause. The row names it where a run had none.
+         * @member {Number} threshold=20
+         */
+        threshold: 20,
         /**
          * @member {Object} _vdom
          */
@@ -119,7 +124,7 @@ class HeartbeatRow extends Component {
             ];
 
             number.text   = `${Math.round(run.paused)} ms`;
-            sentence.text = count ? `the app stood still, in ${count} ${count === 1 ? 'pause' : 'pauses'}` : 'the app never stood still'
+            sentence.text = count ? `the app stood still, in ${count} ${count === 1 ? 'pause' : 'pauses'}` : `no pause of ${me.threshold} ms or more`
         } else {
             bar.cn        = [];
             number.text   = '–';

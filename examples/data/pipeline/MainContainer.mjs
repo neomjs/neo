@@ -17,7 +17,9 @@ const
     /** How far apart the app's heartbeats are, in milliseconds. */
     BEAT  = 5,
     /** A gap between two beats counts as a pause, and gets its mark in the bar, from this many milliseconds on. */
-    PAUSE = 20;
+    PAUSE = 20,
+    /** How long the heartbeat goes on after a run, in milliseconds, so that a bar ends on a living app. */
+    TAIL  = 60;
 
 /**
  * @summary One data pipeline, run on the data worker or on the app worker, with every stage on the page.
@@ -104,16 +106,27 @@ class MainContainer extends Viewport {
             tag      : 'p',
             text     : 'Generating the orders …'
         }, {
+            // Only there after a run that did not finish
+            module   : Component,
+            cls      : ['neo-examples-data-pipeline-error'],
+            flex     : 'none',
+            hidden   : true,
+            reference: 'error',
+            role     : 'alert',
+            tag      : 'p'
+        }, {
             // What a run cost the app comes first, where the time went below it
             module   : HeartbeatRow,
             flex     : 'none',
             mode     : 'app',
-            reference: 'heartbeat-app'
+            reference: 'heartbeat-app',
+            threshold: PAUSE
         }, {
             module   : HeartbeatRow,
             flex     : 'none',
             mode     : 'data',
-            reference: 'heartbeat-data'
+            reference: 'heartbeat-data',
+            threshold: PAUSE
         }, {
             module   : Component,
             cls      : ['neo-examples-data-pipeline-legend'],
@@ -157,7 +170,41 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * The worker the store's pipeline runs on: 'app', 'data', or `null` before the first run.
+     * @summary Reads a heartbeat: how long it went on, and every pause in it.
+     *
+     * A pause is a gap of `PAUSE` milliseconds or more between two beats. Its length is the gap, because no beat
+     * arrived in it.
+     * @param {Number[]} beats The times the beats arrived at, in milliseconds
+     * @returns {{duration: Number, paused: Number, pauses: Object[]}} A pause is `{duration, start}`, `start`
+     * counted from the first beat; `paused` is the sum of the pauses
+     * @static
+     */
+    static readHeartbeat(beats) {
+        const
+            start  = beats[0],
+            pauses = [];
+        let paused = 0;
+
+        for (let index = 1; index < beats.length; index++) {
+            const duration = beats[index] - beats[index - 1];
+
+            if (duration >= PAUSE) {
+                paused += duration;
+                pauses.push({duration, start: beats[index - 1] - start})
+            }
+        }
+
+        return {duration: beats.at(-1) - start, paused, pauses}
+    }
+
+    /**
+     * The heartbeat of the run in flight, `null` between two runs.
+     * @member {Object|null} heartbeat=null
+     */
+    heartbeat = null
+    /**
+     * The worker the store's pipeline runs on: 'app', 'data', or `null` before the first run and after a run that
+     * did not finish.
      * @member {String|null} mode=null
      */
     mode = null
@@ -201,6 +248,11 @@ class MainContainer extends Viewport {
 
             const blob = await createOrdersBlob(me.orderCount, () => me.timeout(0));
 
+            // The view can be gone by now, and an address made after `destroy()` would never be taken back
+            if (me.isDestroyed) {
+                return
+            }
+
             me.payloadBytes = blob.size;
             me.payloadUrl   = URL.createObjectURL(blob);
 
@@ -208,10 +260,24 @@ class MainContainer extends Viewport {
 
             await me.run('data')
         } catch (error) {
-            if (error !== Neo.isDestroyed) {
-                throw error
+            if (error !== Neo.isDestroyed && !me.isDestroyed) {
+                me.showError(`The orders could not be generated: ${error?.message || error}. Reload the page to try again.`)
             }
         }
+    }
+
+    /**
+     * @summary Leaves the page as it was before a run that did not finish, and says so. The store's pipeline is
+     * given up, so the next run builds a new one.
+     * @param {String} mode 'app' or 'data'
+     * @param {String} reason
+     * @protected
+     */
+    failRun(mode, reason) {
+        const me = this;
+
+        me.mode = null;
+        me.showError(`The run on the ${mode} worker did not finish: ${reason}. The numbers on this page are from the runs before it. Press a button to run again.`)
     }
 
     /**
@@ -254,7 +320,10 @@ class MainContainer extends Viewport {
      * @protected
      */
     onTelemetry(data) {
-        this.samples[data.worker === 'data' ? 'data' : 'app'] = data
+        // An attempt that failed is no run: the page keeps the last sample of a run that finished
+        if (data.status === 'fulfilled') {
+            this.samples[data.worker === 'data' ? 'data' : 'app'] = data
+        }
     }
 
     /**
@@ -262,6 +331,10 @@ class MainContainer extends Viewport {
      *
      * The store gets a new pipeline when the worker changes: `workerExecution` decides at construction where the
      * connection and the interceptor live.
+     *
+     * A run counts when its load brought a report and the pipeline published a sample for it. A load that
+     * throws, or that resolves with nothing, leaves the runs and the samples on the page as they were, and the
+     * page says so. Either way the heartbeat stops and the buttons come back.
      * @param {String} mode 'app' or 'data'
      * @returns {Promise<void>}
      */
@@ -271,31 +344,49 @@ class MainContainer extends Viewport {
             {store} = me.getReference('report');
 
         me.setButtonsDisabled(true);
+        me.showError(null);
 
-        if (me.mode !== mode) {
-            store.pipeline = {
-                connection     : {className: 'Neo.data.connection.Fetch', url: me.payloadUrl},
-                interceptors   : [{module: Report, modulePath: 'examples/data/pipeline/Report.mjs'}],
-                normalizer     : {className: 'Neo.data.normalizer.Base'},
-                telemetry      : true,
-                workerExecution: mode
-            };
+        try {
+            if (me.mode !== mode) {
+                store.pipeline = {
+                    connection     : {className: 'Neo.data.connection.Fetch', url: me.payloadUrl},
+                    interceptors   : [{module: Report, modulePath: 'examples/data/pipeline/Report.mjs'}],
+                    normalizer     : {className: 'Neo.data.normalizer.Base'},
+                    telemetry      : true,
+                    workerExecution: mode
+                };
 
-            store.pipeline.on('telemetry', me.onTelemetry, me);
+                store.pipeline.on('telemetry', me.onTelemetry, me);
 
-            me.mode = mode
+                me.mode = mode
+            }
+
+            const before = me.samples[mode];
+
+            me.heartbeat = me.startHeartbeat();
+
+            const report = await store.load();
+            // A few beats after the run, so the bar shows the app alive again
+            await me.timeout(TAIL);
+
+            const run = me.stopHeartbeat();
+
+            if (report == null) {
+                me.failRun(mode, 'its load brought no report')
+            } else if (me.samples[mode] === before) {
+                me.failRun(mode, 'the pipeline published no sample for it')
+            } else {
+                me.runs[mode] = {...run, sequence: ++me.runCount};
+                me.showRuns()
+            }
+        } catch (error) {
+            if (error !== Neo.isDestroyed && !me.isDestroyed) {
+                me.failRun(mode, error?.message || String(error))
+            }
+        } finally {
+            me.stopHeartbeat();
+            me.isDestroyed || me.setButtonsDisabled(false)
         }
-
-        const heartbeat = me.startHeartbeat();
-
-        await store.load();
-        // A few beats after the run, so the bar shows the app alive again
-        await me.timeout(60);
-
-        me.runs[mode] = {...heartbeat.stop(), sequence: ++me.runCount};
-
-        me.showRuns();
-        me.setButtonsDisabled(false)
     }
 
     /**
@@ -335,12 +426,21 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Says that a run did not finish, or takes that line off the page.
+     * @param {String|null} message
+     * @protected
+     */
+    showError(message) {
+        this.getReference('error').set({hidden: !message, text: message || ''})
+    }
+
+    /**
      * @summary Says what the bars are and, once a run exists, how much time their full width stands for.
      * @param {Number} [scale]
      * @protected
      */
     showLegend(scale) {
-        this.getReference('legend').text = `A bar is the app's heartbeat during one run: a timer the app sets every ${BEAT} ms. Red marks every gap of ${PAUSE} ms or more, which is time the app could answer nothing.${scale ? ` Full width: ${Math.round(scale)} ms.` : ''}`
+        this.getReference('legend').text = `A bar is the app's heartbeat from the start of a run until ${TAIL} ms after it: a timer the app sets every ${BEAT} ms. Red marks every gap of ${PAUSE} ms or more between two beats: a pause, in which the app could answer nothing.${scale ? ` Full width: ${Math.round(scale)} ms.` : ''}`
     }
 
     /**
@@ -384,8 +484,7 @@ class MainContainer extends Viewport {
      *
      * A beat is a timer: it fires only when the App Worker is free. While the worker parses or shapes data, no beat
      * arrives, and the gap between two beats is the time the app could answer nothing.
-     * @returns {{stop: Function}} `stop()` returns `{duration, paused, pauses}` in milliseconds; a pause is
-     * `{duration, start}` from the first beat, and `paused` is their sum
+     * @returns {{stop: Function}} `stop()` ends the beat and returns what {@link #readHeartbeat} reads from it
      * @protected
      */
     startHeartbeat() {
@@ -398,7 +497,7 @@ class MainContainer extends Viewport {
             try {
                 while (running) {
                     await me.timeout(BEAT);
-                    beats.push(performance.now())
+                    running && beats.push(performance.now())
                 }
             } catch (error) {
                 if (error !== Neo.isDestroyed) {
@@ -409,26 +508,26 @@ class MainContainer extends Viewport {
 
         return {
             stop() {
-                const
-                    start  = beats[0],
-                    pauses = [];
-                let paused = 0;
-
                 running = false;
 
-                for (let index = 1; index < beats.length; index++) {
-                    // What a gap holds beyond the beat's own rhythm
-                    const duration = beats[index] - beats[index - 1] - BEAT;
-
-                    if (duration >= PAUSE) {
-                        paused += duration;
-                        pauses.push({duration, start: beats[index - 1] - start})
-                    }
-                }
-
-                return {duration: beats.at(-1) - start, paused, pauses}
+                return MainContainer.readHeartbeat(beats)
             }
         }
+    }
+
+    /**
+     * @summary Ends the heartbeat of the run in flight, if there is one.
+     * @returns {Object|null} What the heartbeat held, `null` when none was beating
+     * @protected
+     */
+    stopHeartbeat() {
+        const
+            me   = this,
+            read = me.heartbeat?.stop() || null;
+
+        me.heartbeat = null;
+
+        return read
     }
 }
 
