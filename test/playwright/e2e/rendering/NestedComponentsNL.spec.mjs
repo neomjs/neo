@@ -16,11 +16,22 @@ test('nested functional and classic components propagate root state without repl
             leaves.every(leaf => leaf.properties.mounted)
     }).toBe(true);
     expect(relay.properties.parentId).toBe(root.id);
-    const nested   = leaves.find(leaf => leaf.properties.parentId === relay.id),
+    const rootNode = page.locator(`[id="${root.id}"]`),
+        nested     = leaves.find(leaf => leaf.properties.parentId === relay.id),
         direct     = leaves.find(leaf => leaf.properties.parentId === root.id),
         nestedNode = page.locator(`[id="${nested.id}"]`),
         directNode = page.locator(`[id="${direct.id}"]`),
         ids        = [relay.id, nested.id, direct.id];
+
+    await expect(rootNode.locator('> p').first()).toHaveText(
+        'Change the root values in the Inspector, then apply them. Each child keeps its own click count.'
+    );
+    await expect(rootNode.locator('h2, h3')).toHaveText([
+        '1 · Functional root',
+        '2 · Classic container',
+        '2.1 · Functional child through the classic container',
+        '3 · Direct functional child'
+    ]);
 
     for (const id of ids) {
         await page.locator(`[id="${id}"]`).evaluate(node => { node.dataset.instanceWitness = 'retained' })
@@ -64,4 +75,56 @@ test('nested functional and classic components propagate root state without repl
         await expect(page.locator(`[id="${id}"]`)).toHaveCount(0);
         expect(await app.queryComponent({id})).toEqual([])
     }
+});
+
+/** @summary Verifies the functional button rests inside the stage at desktop and mobile sizes and increments badgeText on click. */
+test('functional button rests in view at desktop and mobile widths and counts clicks in badgeText', async ({page, neuralLink}) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+    page.on('console', msg => {
+        if (msg.type() === 'error') errors.push(msg.text())
+    });
+
+    await page.setViewportSize({width: 1440, height: 900});
+    await neuralLink.routeConfig(page, config => ({...config, useAiClient: true, useServiceWorker: false}));
+    await page.goto('/examples/functional/button/base/index.html');
+    const app = await neuralLink.connectToApp('Neo.examples.functional.button.base');
+
+    let btn, badgeField;
+    await expect.poll(async () => {
+        [btn]        = await app.queryComponent({ntype: 'functional-button'}, ['mounted', 'badgeText', 'text']);
+        [badgeField] = await app.queryComponent({ntype: 'textfield', labelText: 'badgeText'}, ['mounted', 'value']);
+        return !!btn?.properties.mounted && !!badgeField?.properties.mounted
+    }).toBe(true);
+
+    const buttonNode = page.locator(`[id="${btn.id}"]`),
+        stageNode    = page.locator('.neo-workbench-stage');
+
+    for (const size of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+        await page.setViewportSize(size);
+        await expect.poll(async () => {
+            const box    = await buttonNode.boundingBox(),
+                stageBox = await stageNode.boundingBox();
+            return !!box && !!stageBox &&
+                box.x >= stageBox.x && box.y >= stageBox.y &&
+                box.x + box.width <= stageBox.x + stageBox.width &&
+                box.y + box.height <= stageBox.y + stageBox.height &&
+                box.y + box.height <= size.height
+        }).toBe(true)
+    }
+
+    expect(btn.properties.badgeText).toBe('0');
+    await expect(buttonNode.locator('.neo-button-badge')).toHaveText('0');
+
+    await buttonNode.click();
+    await expect.poll(async () => app.getComponent(btn.id, ['badgeText'])).toEqual({badgeText: '1'});
+    await expect.poll(async () => app.getComponent(badgeField.id, ['value'])).toEqual({value: '1'});
+    await expect(buttonNode.locator('.neo-button-badge')).toHaveText('1');
+
+    await buttonNode.click();
+    await expect.poll(async () => app.getComponent(btn.id, ['badgeText'])).toEqual({badgeText: '2'});
+    await expect.poll(async () => app.getComponent(badgeField.id, ['value'])).toEqual({value: '2'});
+    await expect(buttonNode.locator('.neo-button-badge')).toHaveText('2');
+
+    expect(errors).toEqual([])
 });

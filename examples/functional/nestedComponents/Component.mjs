@@ -32,12 +32,12 @@ export default defineComponent({
 
         return {cn: [
             {tag: 'h1', text: 'Deeply nested components'},
-            {tag: 'p', text: 'Change the root values in Configuration, then apply them. Each child keeps its own click count.'},
+            {tag: 'p', text: 'Change the root values in the Inspector, then apply them. Each child keeps its own click count.'},
             {tag: 'h2', text: '1 · Functional root'},
             {tag: 'p', cls: ['root-values'], text: `Value: ${value} · Message: ${message}`},
             {tag: 'h2', text: '2 · Classic container'},
             {module: RelayContainer, id: id + '__relay', message, value},
-            {module: CounterComponent, id: id + '__direct', heading: '2 · Direct functional child', message, value}
+            {module: CounterComponent, id: id + '__direct', heading: '3 · Direct functional child', message, value}
         ]}
     }
 });
