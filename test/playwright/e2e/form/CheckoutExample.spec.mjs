@@ -70,9 +70,11 @@ test.describe('Checkout form example', () => {
         await form.phone.fill('call me');
         await form.phone.press('Tab');
         await expect(fieldError(page, 'Not a valid phone number')).toBeVisible();
+        // The range error shows while the amount has focus; leaving the field clamps it to the maximum
         await form.amount.fill('20000');
-        await form.amount.press('Tab');
         await expect(fieldError(page, 'Max value violation')).toBeVisible();
+        await form.amount.press('Tab');
+        await expect(form.amount).toHaveValue('10000.00');
 
         await form.phone.fill('+43 1 2345678');
         await form.amount.fill('49.90');
