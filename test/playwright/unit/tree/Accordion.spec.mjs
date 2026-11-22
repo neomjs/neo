@@ -8,11 +8,12 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../src/manager/Instance.mjs';
-import Accordion      from '../../../../src/tree/Accordion.mjs';
+import Accordion       from '../../../../src/tree/Accordion.mjs';
+import VDomUtil        from '../../../../src/util/VDom.mjs';
 
 class AsyncAccordion extends Accordion {
     static config = {
@@ -143,6 +144,96 @@ test.describe('Neo.tree.Accordion async folder clicks', () => {
             expect(tree.clickOrder).toEqual(['hook:start', 'hook:cancel']);
             expect(tree.store.get('folder1').collapsed).toBe(true);
             expect(tree.getVdomChild(itemId).cls).not.toContain('neo-folder-open')
+        } finally {
+            tree.destroy()
+        }
+    })
+});
+
+test.describe('Neo.tree.Accordion showIcon', () => {
+    test('a store that holds its records at construction renders, and showIcon hides and shows the leaf icons', async () => {
+        const tree = Neo.create(Accordion, {
+            appName,
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'collapsed', type: 'Boolean'},
+                        {name: 'content',   type: 'String'},
+                        {name: 'iconCls',   type: 'String'},
+                        {name: 'id',        type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'}
+                    ]
+                },
+                data: [
+                    {id: 'section', name: 'Section', isLeaf: false, collapsed: false, parentId: null},
+                    {id: 'leaf',    name: 'Leaf',    isLeaf: true,  content: 'A leaf', iconCls: 'fa fa-user', parentId: 'section'},
+                    {id: 'nested',  name: 'Nested',  isLeaf: false, collapsed: false, content: 'A folder', iconCls: 'fa fa-database', parentId: 'section'},
+                    {id: 'child',   name: 'Child',   isLeaf: true,  content: 'Its child', iconCls: 'fa fa-square', parentId: 'nested'}
+                ]
+            }
+        });
+
+        try {
+            await tree.initVnode();
+
+            const icon = id => VDomUtil.getByFlag(tree.getVdomChild(tree.getItemId(id)), 'iconCls');
+
+            expect(icon('leaf').removeDom).toBe(false);
+            expect(icon('child').removeDom).toBe(false);
+
+            tree.showIcon = false;
+            expect(icon('leaf').removeDom).toBe(true);
+            expect(icon('child').removeDom).toBe(true);
+
+            tree.showIcon = true;
+            expect(icon('leaf').removeDom).toBe(false)
+        } finally {
+            tree.destroy()
+        }
+    })
+});
+
+test.describe('Neo.tree.Accordion collapsed sections', () => {
+    test('a section the store holds collapsed renders its children out of the DOM, and a click opens it', async () => {
+        const tree = Neo.create(Accordion, {
+            appName,
+            rootParentsAreCollapsible : true,
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'collapsed', type: 'Boolean'},
+                        {name: 'id',        type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'}
+                    ]
+                },
+                data: [
+                    {id: 'open',   name: 'Open',   isLeaf: false, collapsed: false, parentId: null},
+                    {id: 'a',      name: 'A',      isLeaf: true,  parentId: 'open'},
+                    {id: 'closed', name: 'Closed', isLeaf: false, collapsed: true,  parentId: null},
+                    {id: 'b',      name: 'B',      isLeaf: true,  parentId: 'closed'}
+                ]
+            }
+        });
+
+        try {
+            await tree.initVnode();
+
+            const children = id => tree.getVdomChild(`${tree.id}__${id}__ul`);
+
+            expect(children('open').removeDom).toBe(false);
+            expect(children('closed').removeDom).toBe(true);
+
+            const closedId = tree.getItemId('closed');
+
+            await tree.onItemClick(tree.getVdomChild(closedId), {path: [{id: closedId}]});
+
+            expect(children('closed').removeDom).toBe(false)
         } finally {
             tree.destroy()
         }
