@@ -466,9 +466,9 @@ As you can see, the code defined an instance method `doFoo()` that simply logs a
 </details>
 
 <details>
-<summary>Use `Neo.component.Manager.items` to run the method</summary>
+<summary>Use `Neo.manager.Component.items` to run the method</summary>
 
-On the console run `Neo.component.Manager.items`. Expand the array and right-click on the entry for `MainView` and
+On the console run `Neo.manager.Component.items`. Expand the array and right-click on the entry for `MainView` and
 choose `Store object as global variable`. Then type `temp1.doFoo()` &mdash; you should see "foo!" being logged.
 
 Remember that you _must_ run console statement in the _neomjs-app-worker_ context, and every time your choose
@@ -662,7 +662,7 @@ The way we've coded the app, the grid is _not_ reusable. In other words, if we n
 have to copy-and-paste the same config block.
 
 You can reuse any class config block by creating a new class that extends the component's class. In other words,
-if you want to reuse a table, you create a new class that extends `Neo.container.Table` and uses the same config.
+if you want to reuse a table, you create a new class that extends `Neo.table.Container` and uses the same config.
 
 Besides reuse, other good reasons to simplify and modularize your code is to make your views more descriptive and
 abstract, and it allows those classes to be tested in isolation.

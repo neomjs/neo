@@ -25,7 +25,7 @@ It contains almost **no** application logic. This architecture ensures the UI ca
 ### 2. The App Worker (The Brain)
 This is where your code lives. The App worker hosts:
 *   Component trees and their Virtual DOM (VDOM).
-*   Controllers and ViewModels.
+*   Controllers and state providers.
 *   Application state.
 *   Business logic.
 
