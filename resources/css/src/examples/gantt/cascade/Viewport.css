@@ -251,6 +251,19 @@
     }
 }
 
+@media (min-width: 768px) and (max-width: 1060px) {
+    .cascade-viewport.neo-viewport .cascade-toolbar.neo-toolbar {
+        gap    : 4px 12px;
+        padding: 6px 18px;
+
+        .cascade-legend {
+            flex       : 0 0 100% !important;
+            margin-left: 0;
+            order      : 2;
+        }
+    }
+}
+
 @media (max-width: 767px) {
     .cascade-viewport.neo-viewport {
         .cascade-toolbar.neo-toolbar {
