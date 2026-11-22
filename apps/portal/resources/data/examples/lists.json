@@ -77,6 +77,7 @@
         "id": "list-reorder",
         "family": "lists",
         "order": 280,
+        "alsoIn": ["drag-drop"],
         "feature": "A checklist and a wall of portraits, each reordered by drag and drop over its own store",
         "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
         "featured": false,

@@ -212,6 +212,7 @@ class Tree extends Base {
      * 3.  **Sticky Positioning:** Sets `position: sticky` and calculates `top` offsets for folder nodes
      *     to ensure they stack correctly while scrolling.
      * 4.  **Content:** Creates the label and icon structure.
+     * 5.  **Selection:** An item the selection model holds renders as selected, so a render keeps the selection.
      *
      * @param {Object} record The data record from the store
      * @returns {Object} The VDOM object for the list item
@@ -222,6 +223,7 @@ class Tree extends Base {
             cls                  = [itemCls],
             contentCls           = [itemCls + '-content'],
             keyProperty          = me.getKeyProperty(),
+            {selectionModel}     = me,
             zone                 = me.dragZone || me.sortZone,
             itemVdom;
 
@@ -271,6 +273,11 @@ class Tree extends Base {
 
         if (me.itemsFocusable) {
             itemVdom.tabIndex = -1
+        }
+
+        // The model owns what "selected" looks like, as in `Neo.list.Base#createItem`
+        if (!me.disableSelection && selectionModel?.isSelected(itemVdom.id)) {
+            selectionModel.annotateItem(itemVdom)
         }
 
         return itemVdom
@@ -544,6 +551,17 @@ class Tree extends Base {
         }
 
         return cn[0]
+    }
+
+    /**
+     * @summary A tree renders each item under its record's key, so a record resolves to that item:
+     * `selectionModel.select(record)` finds it. A rendered id still resolves back through `store.get()`, which
+     * reads every key the Store does.
+     * @param {Object} record
+     * @returns {Number|String}
+     */
+    getRecordId(record) {
+        return this.store.getKey(record)
     }
 
     /**

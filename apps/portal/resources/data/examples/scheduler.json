@@ -67,6 +67,7 @@
         },
         "family": "scheduler",
         "order": 1060,
+        "alsoIn": ["drag-drop"],
         "component": "Scheduler",
         "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
         "lookFor": "Drag a stop onto another van, then pull its right edge: it lands on the 15-minute grid. Switch the grid to 30 minutes and try again."

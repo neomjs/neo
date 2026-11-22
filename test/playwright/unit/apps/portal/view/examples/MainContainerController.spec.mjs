@@ -493,12 +493,12 @@ test.describe('Portal examples overview and group pages', () => {
 
         store.remove(store.items.filter(record => record.family === 'grid-table'));
         store.fire('load');
-        // Grid & Table held the only covered tree records via alsoIn, so removing grid-table withdraws tree as well
+        // Trees lends the tree grids from Grid & Table through alsoIn and keeps its own file explorer when they go
         expect(view.getGroupStore().items.map(group => group.route)).toEqual(
-            publishedRoutes.filter(route => route !== '/examples/grid' && route !== '/examples/tree')
+            publishedRoutes.filter(route => route !== '/examples/grid')
         );
         expect(view.getGroupPage('grid-table')).toBeNull();
-        expect(view.getGroupPage('tree')).toBeNull()
+        expect(pageIds(view, 'tree')).toEqual(['file-explorer'])
     });
 
     test('a record with alsoIn shows once in each of its groups and counts once, in its home group', () => {
@@ -586,8 +586,10 @@ test.describe('Portal examples overview and group pages', () => {
         const dragIds = matchedIds();
         expect(dragIds).toEqual(expect.arrayContaining([
             'board-basic', 'board-swimlanes', 'board-big-data', 'board-multi-select', 'board-columns', 'multi-window-drag-drop',
-            'dialog-drag-drop', 'dock-tear-out', 'workstation', 'webdesktop'
+            'dialog-drag-drop', 'workstation', 'webdesktop'
         ]));
+        // a pane popped out by its action is not a drag, so it no longer answers "drag" through the group's title
+        expect(dragIds).not.toContain('dock-tear-out');
 
         // every group counts its matching records at home and those lent to it, a group without a match at zero
         const counts = view.getStateProvider().getData('matchCounts'),
@@ -1166,7 +1168,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(issues).toHaveLength(1);
         expect(issues[0].id).toBe('grid-issues');
         expect(issues[0].image).toBe('devmode/grid-issues-14.jpg');
-        const recipes = JSON.parse(fs.readFileSync(path.join(dataRoot, 'example-captures.json'), 'utf8')).recipes;
+        const recipes = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../../../../../../buildScripts/docs/captureExamples.json', import.meta.url)), 'utf8')).recipes;
         expect(recipes.filter(recipe => recipe.id === issues[0].id)).toHaveLength(1);
 
         modes.forEach(mode => {

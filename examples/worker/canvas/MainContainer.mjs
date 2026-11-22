@@ -87,40 +87,52 @@ class MainContainer extends Viewport {
     /**
      * @summary Blocks the main thread and says what happened meanwhile. The canvas is told first, so it can count
      * the seconds itself: for the length of the block this page cannot change a single node.
+     *
+     * The engine reports an update that stays in flight for five seconds as wedged, its reply as lost. This page
+     * stops its main thread on purpose, so the clock's write that leaves as the block begins is late, not lost:
+     * the watchdog gets room for the block that is about to come, and its own value back afterwards.
      * @param {Object} data
      */
     async onBlockButtonClick(data) {
         const
-            me       = this,
-            button   = data.component,
-            canvas   = me.getReference('canvas'),
-            result   = me.getReference('result'),
-            duration = me.blockDuration;
+            me        = this,
+            button    = data.component,
+            canvas    = me.getReference('canvas'),
+            result    = me.getReference('result'),
+            duration  = me.blockDuration,
+            updates   = Neo.manager.VDomUpdate,
+            threshold = updates.watchdogThreshold;
 
-        button.disabled = true;
+        updates.watchdogThreshold = Math.max(threshold, duration * 2);
 
-        // The disabled button and the clock's last tick reach the screen before the page stops
-        await me.timeout(100);
+        try {
+            button.disabled = true;
 
-        const
-            before = await canvas.getStats(),
-            writes = me.clockWrites;
+            // The disabled button and the clock's last tick reach the screen before the page stops
+            await me.timeout(100);
 
-        await canvas.announceBlock(duration);
+            const
+                before = await canvas.getStats(),
+                writes = me.clockWrites;
 
-        const
-            {duration: blocked} = await Neo.main.addon.MainThreadBlocker.block({duration, windowId: me.windowId}),
-            clockWrites         = me.clockWrites - writes,
-            after               = await canvas.getStats(),
-            {clockGap}          = after,
-            frames              = after.frames - before.frames,
-            // Two ticks in a row may be late; a clock that missed more than that stood
-            clock               = clockGap < 500 ? `the app's clock never stopped` : `the app's clock stood for ${(clockGap / 1000).toFixed(1)} s`;
+            await canvas.announceBlock(duration);
 
-        result.vdom['data-result'] = JSON.stringify({blockedMs: Math.round(blocked), clockGap, clockWrites, frames});
-        result.text = `The main thread was blocked for ${(blocked / 1000).toFixed(1)} s. Meanwhile the canvas worker painted ${frames} frames, and ${clock}. The page caught up when its main thread came back.`;
+            const
+                {duration: blocked} = await Neo.main.addon.MainThreadBlocker.block({duration, windowId: me.windowId}),
+                clockWrites         = me.clockWrites - writes,
+                after               = await canvas.getStats(),
+                {clockGap}          = after,
+                frames              = after.frames - before.frames,
+                // Two ticks in a row may be late; a clock that missed more than that stood
+                clock               = clockGap < 500 ? `the app's clock never stopped` : `the app's clock stood for ${(clockGap / 1000).toFixed(1)} s`;
 
-        button.disabled = false
+            result.vdom['data-result'] = JSON.stringify({blockedMs: Math.round(blocked), clockGap, clockWrites, frames});
+            result.text = `The main thread was blocked for ${(blocked / 1000).toFixed(1)} s. Meanwhile the canvas worker painted ${frames} frames, and ${clock}. The page caught up when its main thread came back.`;
+
+            button.disabled = false
+        } finally {
+            updates.watchdogThreshold = threshold
+        }
     }
 
     /**

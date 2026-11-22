@@ -67,11 +67,18 @@ The catalog lives in `apps/portal/resources/data/examples/`: one `<group>.json` 
 naming them. A record's `order` places it among all records, so a group's file can hold a featured card or one
 another group borrows through `alsoIn`; a record without `order` comes after the others. An examples PR leaves
 `apps/portal/resources/data/seo.json` alone: `buildScripts/release/prepare.mjs` regenerates it at the cut, for the
-published package that middleware-v2 reads it from. Recipes live beside the catalog in
-`apps/portal/resources/data/example-captures.json`, frozen: no new recipe is added while their replacement (covers from
-an example's own first frame) is built. The catalog owns
-IDs and development URLs; each recipe supplies its viewport, theme action, feature-state checks and
-640×360 CSS region. Captures use device scale 2 and produce 1280×720 JPEGs of at most 150,000 bytes.
+published package that middleware-v2 reads it from.
+
+**A cover is the frame a visitor lands on.** A covered record without a recipe is captured from its landing frame:
+a 960×540 viewport at device scale 1⅓ (a 1280×720 JPEG), the whole frame, opened with `?theme=neo-theme-neo-dark` as
+the dark catalog opens it, once the network is idle, a configured theme shows on `<body>` or inside it, the app's view
+has mounted and the DOM has held still for a second. `--record <id>` captures a covered card in any family; a run of
+one `--family` or of all keeps to the families the manifest declares. An example that ignores `?theme=` and opens on a light theme fails: a light frame is no dark cover. An example whose cover needs a state (an open editor, a selection, a zoom) starts in
+that state, set in its own code, so the visitor lands on it too. The recipes in `buildScripts/docs/captureExamples.json`,
+beside this script and out of the published package, are frozen: add none, and delete an example's recipe once it
+lands on its state. The catalog owns IDs and development URLs; each remaining
+recipe supplies its viewport, theme action, feature-state checks and 640×360 CSS region. Captures produce 1280×720
+JPEGs of at most 150,000 bytes.
 Each run uses a new empty output directory under `test-results/example-covers/` unless `--output-dir`
 names another empty directory. `report.json` records successful files, checksums and failures;
 `sheet.html` shows the actual covers at 445 px. Failed state/data checks produce no cover.
