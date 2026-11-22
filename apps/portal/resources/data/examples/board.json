@@ -14,6 +14,7 @@
         "hiddenIn": [],
         "family": "board",
         "order": 90,
+        "alsoIn": ["drag-drop"],
         "component": "Board",
         "feature": "A kanban board and a table over one store of cards",
         "lookFor": "Drag a card to another column, and the table below the board shows its new status.",
@@ -148,6 +149,7 @@
         },
         "family": "board",
         "order": 1240,
+        "alsoIn": ["drag-drop"],
         "component": "Board",
         "feature": "Columns reordered by drag, folded to a strip, or locked in place",
         "lookFor": "Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked."

@@ -163,7 +163,7 @@
         "id": "on-air-at-eight",
         "family": "apps",
         "order": 1340,
-        "alsoIn": ["lists", "multi-window"],
+        "alsoIn": ["lists", "multi-window", "drag-drop"],
         "component": "Sortable List",
         "name": "On Air at Eight",
         "sharedWorkers": true,
