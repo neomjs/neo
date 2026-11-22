@@ -110,6 +110,26 @@ test.describe('Examples catalog: an example opens on the catalog\'s theme', () =
         const [list] = await app.queryComponent({reference: 'overview-list'}, ['exampleTheme']);
 
         expect(list.properties.exampleTheme, 'the list holds the Portal\'s theme').toBe(LIGHT)
+    });
+
+    test('a card below the first six keeps its loaded cover when the theme switches', async ({page, neuralLink}) => {
+        const app      = await bootCatalog(page, neuralLink, DARK),
+              [toggle] = await app.queryComponent({reference: 'theme-switch-button'}, ['id']);
+
+        await openGroup(page, 'Grid & Table');
+
+        // The first six cards get their covers at once; the rest load theirs as they scroll into view
+        const card  = page.locator(`${CARDS} .neo-list-item`).nth(7),
+              cover = () => card.locator('.preview-image').evaluate(node => getComputedStyle(node).backgroundImage);
+
+        await card.scrollIntoViewIfNeeded();
+        await expect.poll(cover).toMatch(/^url\(/);
+
+        await page.locator(`#${toggle.id}`).click();
+
+        await expect(page.locator('.neo-viewport').first()).toHaveClass(new RegExp(`\\b${LIGHT}\\b`));
+        await expect(card.locator('a.neo-title')).toHaveAttribute('href', new RegExp(`[?&]theme=${LIGHT}(#|$)`));
+        expect(await cover(), 'the switch re-points the links and leaves the loaded cover alone').toMatch(/^url\(/)
     })
 });
 

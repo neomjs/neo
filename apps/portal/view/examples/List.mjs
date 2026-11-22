@@ -159,13 +159,30 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Re-renders the launch links when the Portal switches its theme.
+     * @summary Re-points the launch links when the Portal switches its theme. Only their hrefs change: rebuilding
+     * the items would drop the covers already loaded on intersection, and with them the cards below the first six.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     afterSetExampleTheme(value, oldValue) {
-        oldValue !== undefined && this.store?.isConstructed && this.createItems()
+        let me = this;
+
+        if (oldValue !== undefined && me.store?.isConstructed) {
+            me.store.forEach(record => {
+                let {href} = me.createLink(record);
+
+                ['link', 'cue'].forEach(kind => {
+                    let node = VDomUtil.getByFlag(me.vdom, `${kind}-${record.id}`);
+
+                    if (node) {
+                        node.href = href
+                    }
+                })
+            });
+
+            me.update()
+        }
     }
 
     /**
@@ -261,8 +278,8 @@ class List extends BaseList {
             return [{cls: ['content', 'portal-example-tile'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['preview-image'], flag: `image-${record.id}`, style: imageStyle},
                 {cls: ['portal-example-title-row'], cn: [
-                    {...me.createLink(record)},
-                    {...me.createOpenCue(record), cn: [{tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]}
+                    {...me.createLink(record), flag: `link-${record.id}`},
+                    {...me.createOpenCue(record), flag: `cue-${record.id}`, cn: [{tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]}
                 ]}
             ]}]
         }
@@ -285,10 +302,10 @@ class List extends BaseList {
                 cn : [
                     {tag: 'span', cls: ['portal-example-group-badge'], removeDom: !groupTitle, text: groupTitle},
                     {cls: ['portal-example-title-row'], cn: [
-                        {...me.createLink(record)},
+                        {...me.createLink(record), flag: `link-${record.id}`},
                         {cls: ['portal-example-actions'], cn: [
                             {...me.createSourceLink(record)},
-                            {...me.createOpenCue(record)}
+                            {...me.createOpenCue(record), flag: `cue-${record.id}`}
                         ]}
                     ]},
                     {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature}
