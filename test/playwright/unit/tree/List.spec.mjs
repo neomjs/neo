@@ -233,4 +233,62 @@ test.describe('Neo.tree.List VDOM Structure', () => {
 
         tree.destroy();
     });
+
+    test('a record selected through the model shows as selected, and stays selected through a render', async () => {
+        const tree = Neo.create(TreeList, {
+            appName                   : 'TreeListTest',
+            id                        : 'selection-tree',
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'id',        type: 'String'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'collapsed', type: 'Boolean'}
+                    ]
+                },
+                data: [
+                    {id: 'folder', name: 'Folder', parentId: null,     isLeaf: false, collapsed: false},
+                    {id: 'a',      name: 'A',      parentId: 'folder', isLeaf: true},
+                    {id: 'b',      name: 'B',      parentId: 'folder', isLeaf: true}
+                ]
+            }
+        });
+
+        await tree.initVnode();
+
+        const
+            itemId   = tree.getItemId('a'),
+            selected = () => tree.getVdomChild(itemId),
+            other    = () => tree.getVdomChild(tree.getItemId('b'));
+
+        tree.selectionModel.select(tree.store.get('a'));
+
+        expect(selected().cls).toContain('neo-selected');
+
+        // A store load renders every item again: a folder's lazily loaded children, a drop, a sort
+        tree.createItems();
+
+        expect(selected().cls).toContain('neo-selected');
+        expect(selected()['aria-selected']).toBe(true);
+        expect(other().cls).not.toContain('neo-selected');
+        expect(other()['aria-selected']).toBeUndefined();
+
+        // A record change renders its own item again: a rename
+        tree.store.get('a').name = 'Renamed';
+
+        expect(selected().cn[0].html).toBe('Renamed');
+        expect(selected().cls).toContain('neo-selected');
+        expect(selected()['aria-selected']).toBe(true);
+
+        // A tree without selection renders none
+        tree.disableSelection = true;
+        tree.createItems();
+
+        expect(selected().cls).not.toContain('neo-selected');
+
+        tree.destroy();
+    });
 });
