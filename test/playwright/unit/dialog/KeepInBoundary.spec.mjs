@@ -288,4 +288,74 @@ test.describe('dialog.Base keepInBoundary', () => {
             Rectangle.prototype.fitTo = fitTo
         }
     });
+
+    test('turning off, a new container, a new window and destroy() each release the main-thread observation', async () => {
+        const addon      = Neo.main.addon.ResizeObserver,
+              unregister = addon.unregister,
+              released   = [];
+
+        addon.unregister = observation => released.push(observation);
+
+        try {
+            const dialog = await create();
+
+            dialog.boundaryContainerId = 'another-workspace';
+            expect(released, 'a new container').toEqual([{componentId: dialog.id, id: WORKSPACE, windowId: 1}]);
+
+            dialog.windowId = 2;
+            expect(released[1], 'a new window').toEqual({componentId: dialog.id, id: 'another-workspace', windowId: 1});
+
+            dialog.keepInBoundary = false;
+            expect(released[2], 'off, in the window it moved to').toEqual({componentId: dialog.id, id: 'another-workspace', windowId: 2});
+
+            dialog.destroy();
+            expect(released.length, 'nothing armed, nothing to release').toBe(3);
+
+            const other = await create();
+
+            other.destroy();
+            expect(released[3], 'destroy()').toEqual({componentId: other.id, id: WORKSPACE, windowId: 1})
+        } finally {
+            addon.unregister = unregister
+        }
+    });
+
+    test('a measurement in flight writes nothing once keepInBoundary turns off or the container changes', async () => {
+        const changes = {
+            'off'          : dialog => {dialog.keepInBoundary = false},
+            'new container': dialog => {dialog.boundaryContainerId = 'another-workspace'}
+        };
+
+        for (const [label, change] of Object.entries(changes)) {
+            const dialog = await create(null, {x: 700, y: 100, width: 400, height: 300});
+
+            dialog.held = [];
+            notify(dialog, 1000, 800);
+            change(dialog);
+
+            dialog.held.shift()();
+            await settle();
+
+            expect(geometry(dialog.style), label).toEqual({})
+        }
+    });
+
+    test('a hidden or missing container writes nothing, and a drop beside one lands where the proxy is', async () => {
+        for (const workspace of [{x: 0, y: 0, width: 0, height: 0}, {}]) {
+            const dialog = await create(null, {x: 700, y: 100, width: 400, height: 300}),
+                  label  = JSON.stringify(workspace);
+
+            dialog.rects.workspace = workspace;
+            await dialog.constrainToBoundary();
+
+            expect(geometry(dialog.style), label).toEqual({});
+
+            // The fixture measures the dialog's box for the proxy
+            dialog.dragZone = {dragEnd: () => {}, dragProxy: {id: 'proxy'}, un: () => {}};
+            dialog.onDragEnd({});
+            await settle();
+
+            expect(geometry(dialog.style), `${label}, the drop`).toEqual({height: '300px', left: '700px', top: '100px', width: '400px'})
+        }
+    });
 });

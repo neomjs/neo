@@ -185,6 +185,12 @@ class Dialog extends Panel {
      */
     #boundaryListener = null
     /**
+     * The main-thread observation the boundary listener arms, `{componentId, id, windowId}`. Removing a `resize`
+     * listener leaves its `Neo.main.addon.ResizeObserver` entry in place, so the dialog releases this one itself.
+     * @member {Object|null} #boundaryObservation=null
+     */
+    #boundaryObservation = null
+    /**
      * The boundary container's size at the last check: a notification of the same size checks nothing
      * @member {Object|null} #boundarySize=null
      */
@@ -435,8 +441,9 @@ class Dialog extends Panel {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        let me        = this,
-            resizable = me.getPlugin('resizable');
+        let me          = this,
+            observation = me.#boundaryObservation,
+            resizable   = me.getPlugin('resizable');
 
         if (me.dragZone) {
             me.dragZone.windowId = value
@@ -444,6 +451,12 @@ class Dialog extends Panel {
 
         if (resizable) {
             resizable.windowId = value
+        }
+
+        // The old window releases its observation of the boundary container; the mount in the new one registers anew
+        if (observation && observation.windowId !== value) {
+            me.#releaseBoundaryObservation();
+            me.#boundaryObservation = {...observation, windowId: value}
         }
 
         super.afterSetWindowId(value, oldValue)
@@ -631,9 +644,10 @@ class Dialog extends Panel {
      * in px. A minimum larger than the container keeps the top-left corner inside. A dialog inside gets no write.
      *
      * Nothing is written while the dialog is hidden, maximized, animating or held in a move or resize, nor once a newer
-     * check, a move or a resize overtook the measurement. A {@link #keepInBoundary} dialog checks when its container
-     * changes size, when it mounts, and when an animation or a restore from maximized ends; a move lands inside on its
-     * own ({@link #onDragEnd}).
+     * check, a move, a resize or a change of {@link #keepInBoundary} or the container overtook the measurement, nor
+     * when either box measures no area (a hidden or missing container). A {@link #keepInBoundary} dialog checks when
+     * its container changes size, when it mounts, and when an animation or a restore from maximized ends; a move lands
+     * inside on its own ({@link #onDragEnd}).
      * @returns {Promise<void>}
      */
     async constrainToBoundary() {
@@ -650,7 +664,9 @@ class Dialog extends Panel {
         geometry       = me.#geometry;
         [rect, bounds] = await me.getDomRect([id, boundaryContainerId]);
 
-        if (check !== me.#boundaryChecks || me.#isGeometryHeld() || me.#geometry !== geometry) {
+        // A container that is hidden (0 × 0) or gone ({}) gives no box to keep inside, and a boxless dialog none to keep
+        if (check !== me.#boundaryChecks || me.#isGeometryHeld() || me.#geometry !== geometry || !me.#hasArea(rect) ||
+            !me.#hasArea(bounds)) {
             return
         }
 
@@ -713,6 +729,7 @@ class Dialog extends Panel {
         me.dragStartAbortController?.abort();
         me.dragZone?.un('dragCancel', me.onDragCancel, me);
         me.mounted && me.modal && me.syncModalMask(me.id, false);
+        me.#releaseBoundaryObservation();
 
         super.destroy(...args)
     }
@@ -927,7 +944,13 @@ class Dialog extends Panel {
             proxyId = me.dragZone.dragProxy.id;
 
             me.getDomRect(bounded ? [proxyId, me.boundaryContainerId] : proxyId).then(result => {
-                let rect = bounded ? me.#fitToBoundary(...result) : result;
+                if (me.isDestroyed) {
+                    return
+                }
+
+                let [proxyRect, bounds] = bounded ? result : [result],
+                    // A hidden or gone container leaves the drop where the proxy is
+                    rect = me.#hasArea(bounds) ? me.#fitToBoundary(proxyRect, bounds) : proxyRect;
 
                 style = me.style;
 
@@ -1055,6 +1078,14 @@ class Dialog extends Panel {
     }
 
     /**
+     * @param {Object} [rect]
+     * @returns {Boolean} Whether a measured box has an area: a hidden node measures 0 × 0, a missing one `{}`
+     */
+    #hasArea(rect) {
+        return rect?.width > 0 && rect.height > 0
+    }
+
+    /**
      * Whether the dialog's geometry is not its own to keep now: destroyed, unmounted, hidden, maximized, animating, or
      * held in a move or resize
      * @returns {Boolean}
@@ -1144,19 +1175,38 @@ class Dialog extends Panel {
     }
 
     /**
+     * Releases the main-thread observation {@link #syncBoundaryListener} armed, in the window it armed it: removing
+     * the `resize` listener alone leaves the observation, and the hidden-document poll, running
+     */
+    #releaseBoundaryObservation() {
+        let observation = this.#boundaryObservation;
+
+        if (observation) {
+            this.#boundaryObservation = null;
+            Neo.main.addon.ResizeObserver?.unregister(observation)
+        }
+    }
+
+    /**
      * Observes the boundary container while {@link #keepInBoundary} is on, and only then. A new container starts from
-     * no known size.
+     * no known size, and a measurement already in flight, taken for the old state, writes nothing.
      */
     #syncBoundaryListener() {
         let me       = this,
             id       = me.keepInBoundary && me.boundaryContainerId || null,
             listener = me.#boundaryListener;
 
-        if (listener?.delegate !== `#${id}`) {
-            listener && me.removeDomListeners(listener);
+        me.#boundaryChecks++;
 
-            me.#boundaryListener = id && {resize: me.onBoundaryContainerResize, delegate: `#${id}`, scope: me};
-            me.#boundarySize     = null;
+        if (listener?.delegate !== `#${id}`) {
+            if (listener) {
+                me.removeDomListeners(listener);
+                me.#releaseBoundaryObservation()
+            }
+
+            me.#boundaryListener    = id && {resize: me.onBoundaryContainerResize, delegate: `#${id}`, scope: me};
+            me.#boundaryObservation = id && {componentId: me.id, id, windowId: me.windowId};
+            me.#boundarySize        = null;
 
             id && me.addDomListeners(me.#boundaryListener)
         }
