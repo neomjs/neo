@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "capturedAt": "2026-11-22T21:40:59.469Z",
+  "manifest": "buildScripts/docs/captureExamples.json",
+  "baseUrl": "http://127.0.0.1:53760/",
+  "inputs": {
+    "recipes": "e3ffb6bbc643c39f84b7eb30f8521b563766b5a0e25c6604cb23fe623a7e59ad",
+    "catalog": "91f81eaeed42a4a6dcfa69b458a1595ed2dfd1839d3086106e1c11d632e5698b",
+    "producer": "155bda3356fb73a107a817dceef1d0ef51820f010006cf0e7b3be9a400994a01"
+  },
+  "git": {
+    "head": "768f8f9e2d43148d522a217440b3c2b297060eb5",
+    "dirty": true
+  },
+  "dependencyScope": "Declared public data URLs; no offline or byte-identical recapture claim.",
+  "results": [
+    {
+      "id": "state-provider",
+      "name": "One state, every surface",
+      "url": "http://127.0.0.1:53760/examples/stateProvider/advanced/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "deviceScaleFactor": 1.3333333333333333,
+      "theme": "dark",
+      "state": "The frame a visitor lands on.",
+      "dependencies": [],
+      "ready": [],
+      "steps": [],
+      "after": [],
+      "requestedRegion": "viewport",
+      "sharedWorkerStartups": [
+        "http://127.0.0.1:53760/src/worker/App.mjs",
+        "http://127.0.0.1:53760/src/worker/Data.mjs",
+        "http://127.0.0.1:53760/src/worker/VDom.mjs"
+      ],
+      "openedTheme": "neo-theme-neo-dark",
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 960,
+        "height": 540
+      },
+      "actualDevicePixelRatio": 1.3333333730697632,
+      "status": "captured",
+      "image": "devmode/state-provider-14.jpg",
+      "quality": 90,
+      "width": 1280,
+      "height": 720,
+      "bytes": 144938,
+      "sha256": "9d429c1513ea3cc48f38cc5083225790447030664725d5a16c534455654a144f"
+    },
+    {
+      "id": "state-provider",
+      "name": "One state, every surface",
+      "url": "http://127.0.0.1:53760/examples/stateProvider/advanced/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "deviceScaleFactor": 1.3333333333333333,
+      "theme": "default",
+      "state": "The frame a visitor lands on.",
+      "dependencies": [],
+      "ready": [],
+      "steps": [],
+      "after": [],
+      "requestedRegion": "viewport",
+      "sharedWorkerStartups": [
+        "http://127.0.0.1:53760/src/worker/App.mjs",
+        "http://127.0.0.1:53760/src/worker/Data.mjs",
+        "http://127.0.0.1:53760/src/worker/VDom.mjs"
+      ],
+      "openedTheme": "neo-theme-neo-light",
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 960,
+        "height": 540
+      },
+      "actualDevicePixelRatio": 1.3333333730697632,
+      "status": "captured",
+      "image": "devmode/state-provider-14-light.jpg",
+      "quality": 85,
+      "width": 1280,
+      "height": 720,
+      "bytes": 129849,
+      "sha256": "1badcacd077b4ed8e3b95ca33edd98ee91955bcaf8b685746ffd730fcaf45262"
+    }
+  ],
+  "browser": "159.0.8154.6",
+  "status": "captured"
+}
