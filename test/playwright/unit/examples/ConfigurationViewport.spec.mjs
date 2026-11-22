@@ -637,6 +637,48 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
             expect(restoredViewport.exampleComponent.width).toBe(180);
             expect(restoredViewport.down({valueLabel: 'top-left'}).checked).toBe(true);
             expect(restoredViewport.down({labelText: 'width'}).value).toBe(180);
+
+            // Rapid consecutive writes ignore late echoes of earlier writes without reverting newer typing
+            restoredViewport.onReset();
+            routeCalls.length = 0;
+
+            const textField = restoredViewport.down({labelText: 'text'});
+            textField.value = 'B';
+            textField.value = 'Bo';
+
+            expect(routeCalls.map(c => c.value)).toEqual(['text=B', 'text=Bo']);
+
+            // Late echo of the first keystroke ('text=B') arrives after 'text=Bo' was already committed
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {text: 'B'},
+                hashString: 'text=B',
+                windowId  : 73
+            });
+
+            expect(restoredViewport.exampleComponent.text).toBe('Bo');
+            expect(textField.value).toBe('Bo');
+
+            // Echo of the second keystroke ('text=Bo') drains the pending write queue cleanly
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {text: 'Bo'},
+                hashString: 'text=Bo',
+                windowId  : 73
+            });
+
+            expect(restoredViewport.exampleComponent.text).toBe('Bo');
+
+            // A subsequent genuine Back-button navigation to 'text=B' now restores 'B'
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {text: 'B'},
+                hashString: 'text=B',
+                windowId  : 73
+            });
+
+            expect(restoredViewport.exampleComponent.text).toBe('B');
+            expect(textField.value).toBe('B');
         } finally {
             delete Neo.util.HashHistory.stacks[73];
             firstViewport?.destroy();

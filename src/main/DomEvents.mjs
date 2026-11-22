@@ -1229,7 +1229,7 @@ class DomEvents extends Base {
         route = '/' + route.replace(/^\/+/, '');
 
         if (route !== (me.getRoute() || '/') + (route.includes('?') ? location.search : '')) {
-            history[replace ? 'replaceState' : 'pushState'](history.state, '', Neo.config.routerBasePath + route);
+            history[replace ? 'replaceState' : 'pushState'](replace ? history.state : null, '', Neo.config.routerBasePath + route);
             me.sendRoute()
         }
     }

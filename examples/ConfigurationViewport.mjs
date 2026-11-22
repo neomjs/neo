@@ -287,6 +287,7 @@ class ConfigurationViewport extends Viewport {
     #isRestoringUrlConfigs  = false
     #lastSyncedUrlHash      = null
     #pendingAsyncConfigs    = false
+    #pendingUrlWrites       = []
 
     /**
      * @summary Unsubscribes the workbench's hash listener before tearing down the viewport.
@@ -409,7 +410,7 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Applies external hash-route navigations onto the workbench while ignoring echoes of its own writes.
+     * @summary Applies external hash-route navigations onto the workbench while ignoring in-flight echoes of its own writes.
      * @param {Object} data
      * @protected
      */
@@ -424,13 +425,21 @@ class ConfigurationViewport extends Viewport {
             return
         }
 
-        const nextHash = typeof data?.hashString === 'string' ? data.hashString.replace(/^#/, '') : '';
+        const
+            nextHash  = typeof data?.hashString === 'string' ? data.hashString.replace(/^#/, '') : '',
+            echoIndex = me.#pendingUrlWrites.indexOf(nextHash);
 
-        if (nextHash === me.#lastSyncedUrlHash) {
+        if (echoIndex !== -1) {
+            me.#pendingUrlWrites.splice(0, echoIndex + 1);
             return
         }
 
-        me.#isRestoringUrlConfigs = true;
+        if (me.#pendingUrlWrites.length === 0 && nextHash === me.#lastSyncedUrlHash) {
+            return
+        }
+
+        me.#pendingUrlWrites.length = 0;
+        me.#isRestoringUrlConfigs   = true;
         try {
             me.resetToInitialValues()
         } finally {
@@ -548,11 +557,18 @@ class ConfigurationViewport extends Viewport {
         }
 
         me.#lastSyncedUrlHash = nextHash;
-        Neo.Main?.setRoute?.({
-            replace : true,
-            value   : nextHash,
-            windowId: me.windowId
-        })
+
+        if (Neo.Main?.setRoute) {
+            me.#pendingUrlWrites.push(nextHash);
+            if (me.#pendingUrlWrites.length > 64) {
+                me.#pendingUrlWrites.shift()
+            }
+            Neo.Main.setRoute({
+                replace : true,
+                value   : nextHash,
+                windowId: me.windowId
+            })
+        }
     }
 
     /**
@@ -602,42 +618,21 @@ class ConfigurationViewport extends Viewport {
                 }
 
                 const controls = controlsByKey.get(key) || [];
+                let resolvedValue;
 
                 if (controls.some(({item}) => item.ntype === 'radiofield' || item.className === 'Neo.form.field.Radio')) {
-                    if (!['string', 'number', 'boolean'].includes(typeof rawValue)) {
-                        continue
-                    }
-
+                    if (!['string', 'number', 'boolean'].includes(typeof rawValue)) continue;
                     const target = controls.find(({item}) => item.valueLabel === rawValue || item.valueLabel === String(rawValue))?.item;
-
-                    if (!target) {
-                        continue
-                    }
+                    if (!target) continue;
 
                     target.checked = true;
-                    if (!Neo.isEqual(me.exampleComponent[key], target.valueLabel)) {
-                        me.exampleComponent[key] = target.valueLabel
-                    }
-                    restoredAny = true;
-                    continue
-                }
+                    resolvedValue  = target.valueLabel
+                } else if (controls.length > 0 && controls[0].hasChecked) {
+                    if (typeof rawValue !== 'boolean') continue;
 
-                if (controls.length > 0 && controls[0].hasChecked) {
-                    if (typeof rawValue !== 'boolean') {
-                        continue
-                    }
-
-                    controls.forEach(({item}) => {
-                        item.checked = rawValue
-                    });
-                    if (!Neo.isEqual(me.exampleComponent[key], rawValue)) {
-                        me.exampleComponent[key] = rawValue
-                    }
-                    restoredAny = true;
-                    continue
-                }
-
-                if (controls.length > 0 && controls[0].hasValue) {
+                    controls.forEach(({item}) => { item.checked = rawValue });
+                    resolvedValue = rawValue
+                } else if (controls.length > 0 && controls[0].hasValue) {
                     const
                         {item}  = controls[0],
                         ntype   = item.ntype || '',
@@ -658,59 +653,40 @@ class ConfigurationViewport extends Viewport {
                                     pool.some(rec => rec?.[valueField] === rawValue || rec?.[displayField] === rawValue)
                                 );
 
-                            if (!hasMatch) {
-                                continue
-                            }
+                            if (!hasMatch) continue
                         }
 
-                        item.value = rawValue;
-                        const resolved = Neo.isRecord(item.value) ? item.value[item.valueField || 'id'] : rawValue;
-                        if (!Neo.isEqual(me.exampleComponent[key], resolved)) {
-                            me.exampleComponent[key] = resolved
-                        }
-                        restoredAny = true;
-                        continue
-                    }
+                        item.value    = rawValue;
+                        resolvedValue = Neo.isRecord(item.value) ? item.value[item.valueField || 'id'] : rawValue
+                    } else if (ntype === 'numberfield' || ntype === 'rangefield' || clsName.includes('field.Number') || clsName.includes('field.Range')) {
+                        if (!(typeof rawValue === 'number' && Number.isFinite(rawValue)) && !(rawValue === null && item.clearable)) continue;
 
-                    if (ntype === 'numberfield' || ntype === 'rangefield' || clsName.includes('field.Number') || clsName.includes('field.Range')) {
-                        if (!(typeof rawValue === 'number' && Number.isFinite(rawValue)) && !(rawValue === null && item.clearable)) {
-                            continue
-                        }
-
-                        item.value = rawValue;
-                        if (!Neo.isEqual(me.exampleComponent[key], rawValue)) {
-                            me.exampleComponent[key] = rawValue
-                        }
-                        restoredAny = true;
-                        continue
-                    }
-
-                    if (ntype === 'textfield' || ntype === 'textarea' || clsName.includes('field.Text')) {
+                        item.value    = rawValue;
+                        resolvedValue = rawValue
+                    } else if (ntype === 'textfield' || ntype === 'textarea' || clsName.includes('field.Text')) {
                         const textValue = typeof rawValue === 'string'
                             ? rawValue
                             : (typeof rawValue === 'number' || typeof rawValue === 'boolean')
                                 ? String(rawValue)
                                 : (rawValue === null && item.clearable ? null : undefined);
 
-                        if (textValue === undefined) {
-                            continue
-                        }
+                        if (textValue === undefined) continue;
 
-                        item.value = textValue;
-                        if (!Neo.isEqual(me.exampleComponent[key], textValue)) {
-                            me.exampleComponent[key] = textValue
-                        }
-                        restoredAny = true;
-                        continue
+                        item.value    = textValue;
+                        resolvedValue = textValue
+                    } else {
+                        resolvedValue = Neo.clone(rawValue, true, true);
+                        item.value    = resolvedValue
                     }
-
-                    const cloned = Neo.clone(rawValue, true, true);
-                    item.value = cloned;
-                    if (!Neo.isEqual(me.exampleComponent[key], cloned)) {
-                        me.exampleComponent[key] = Neo.clone(rawValue, true, true)
-                    }
-                    restoredAny = true
+                } else {
+                    continue
                 }
+
+                if (!Neo.isEqual(me.exampleComponent[key], resolvedValue)) {
+                    me.exampleComponent[key] = Neo.clone(resolvedValue, true, true)
+                }
+
+                restoredAny = true
             }
         } finally {
             me.#isRestoringUrlConfigs = false

@@ -781,9 +781,19 @@ test.describe('Neo.main.DomEvents', () => {
         });
 
         withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
+            const states      = [];
+            const origPush    = globalThis.history.pushState;
+            const origReplace = globalThis.history.replaceState;
+            globalThis.history.state        = {scrollY: 120};
+            globalThis.history.pushState    = (state, title, href) => {states.push(['push', state]); origPush(state, title, href)};
+            globalThis.history.replaceState = (state, title, href) => {states.push(['replace', state]); origReplace(state, title, href)};
+
             owner.setRoute('/news/blog', true);
-            expect(calls).toEqual([['replace', '/docs/news/blog']]);
-            expect(sent).toEqual(['/news/blog'])
+            owner.setRoute('/examples', false);
+
+            expect(calls).toEqual([['replace', '/docs/news/blog'], ['push', '/docs/examples']]);
+            expect(states).toEqual([['replace', {scrollY: 120}], ['push', null]]);
+            expect(sent).toEqual(['/news/blog', '/examples'])
         })
     });
 });
