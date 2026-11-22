@@ -85,5 +85,29 @@
             "dist_esm": "dist/esm/examples/dashboard/tearOut/index.html",
             "dist_prod": "dist/production/examples/dashboard/tearOut/index.html"
         }
+    },
+    {
+        "id": "dashboard-sortable",
+        "name": "Sortable Dashboard",
+        "family": "dashboard",
+        "order": 1480,
+        "alsoIn": [
+            "multi-window",
+            "drag-drop"
+        ],
+        "component": "Dashboard",
+        "feature": "Live key-figure tiles reorder by drag and open in a window of their own, still live",
+        "lookFor": "Drag a tile by its title down the board, then press its window button or drag it out of the window, and bring it back.",
+        "scope": "Allow popups. A tile returns when its window closes.",
+        "image": "devmode/dashboard-sortable-14.jpg",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/sortable",
+        "urls": {
+            "devmode": "examples/dashboard/sortable/index.html",
+            "dist_dev": "dist/development/examples/dashboard/sortable/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/sortable/index.html",
+            "dist_prod": "dist/production/examples/dashboard/sortable/index.html"
+        },
+        "hasLightCover": true
     }
 ]
