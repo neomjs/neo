@@ -912,24 +912,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "toolbar-application",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "dark",
-      "state": "The notes draft has a new heading and the Insert menu shows both available actions.",
-      "ready": [{"selector": ".neo-toolbar-application-status", "text": "Toolbar ready"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-toolbar-application-actions button", "text": "Insert"},
-        {"kind": "click", "selector": ".neo-toolbar-application-actions button[aria-label=\"Insert options\"]"}
-      ],
-      "after": [
-        {"selector": ".neo-viewport.neo-theme-neo-dark"},
-        {"selector": ".neo-toolbar-application-status", "text": "Heading inserted", "inRegion": true},
-        {"selector": ".neo-menu-list", "text": "Checklist item", "inRegion": true},
-        {"selector": "textarea", "value": "# Engine release\n\n- Verify the published examples.\n## Highlights", "inRegion": true}
-      ],
-      "region": "viewport"
-    },
-    {
       "id": "markdown",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",
