@@ -1,5 +1,6 @@
 import EventDragZone   from '../timeline/draggable/EventDragZone.mjs';
 import Component       from '../component/Base.mjs';
+import DependencyLayer from './DependencyLayer.mjs';
 import DependencyStore from './DependencyStore.mjs';
 import VDom            from '../util/VDom.mjs';
 
@@ -204,6 +205,19 @@ class GanttEventDragZone extends EventDragZone {
      */
     getDragProxyStyle(next, data) {
         const style = super.getDragProxyStyle(next, data);
+        if (this.eventRecord?.milestone && this.eventRecord.isLeaf !== false) {
+            const
+                half = DependencyLayer.milestoneHalfSize(this.owner?.rowHeight),
+                size = half * 2;
+
+            return {
+                ...style,
+                height: `${size}px`,
+                left  : `${this.trackOrigin + parseFloat(style.left) - half}px`,
+                top   : `${this.dragElementRect.top}px`,
+                width : `${size}px`
+            }
+        }
         return {...style, left: `${this.trackOrigin + parseFloat(style.left)}px`,
             width: `${Math.max(this.owner.minBarWidthPx, parseFloat(style.width))}px`,
             top  : `${this.dragElementRect.top}px`}
