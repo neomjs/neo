@@ -57,7 +57,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 - **A second version of the docs app.** It starts as a design thread; nothing is built in this window.
 - **The rest of Grid Multi-Body** ([D#20579](https://github.com/neomjs/neo/discussions/20579)): cross-window SubGrid detachment and main-thread scroll sync over a `MessageChannel`.
 - **The full worker boundary** ([D#18730](https://github.com/neomjs/neo/discussions/18730)'s option B: the app, data and VDom heaps per window group).
-- **The examples workbench beyond its code view** ([#21144](https://github.com/neomjs/neo/issues/21144)): an example's state in the URL, then the events an interaction fires, a size switch and a config's description in the inspector. The code view, a component's config as code, moved into this cut on 2026-11-18.
+- **The examples workbench beyond its code view and URL state** ([#21144](https://github.com/neomjs/neo/issues/21144), [#21411](https://github.com/neomjs/neo/issues/21411)): the events an interaction fires, a size switch and a config's description in the inspector. The code view, a component's config as code, moved into this cut on 2026-11-18, and URL state on 2026-11-21.
 - **Example depth for the scheduler, the Gantt chart and the task board.** Each shows two examples at the cut; the rest of ten or more per family lands week by week afterwards.
 - **The Brain and Institution lines' scope:** their own repositories and roadmaps, per the line table.
 

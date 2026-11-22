@@ -71,7 +71,9 @@ import ListMainContainer       from '../../../../examples/list/base/MainContaine
 import GridMainContainer       from '../../../../examples/grid/valueBanding/MainContainer.mjs';
 import FunctionalMainContainer from '../../../../examples/functional/hostComponent/MainContainer.mjs';
 import Store                   from '../../../../src/data/Store.mjs';
-import {formatExampleCode}     from '../../../../examples/workbench/formatConfig.mjs';
+import * as formatConfig       from '../../../../examples/workbench/formatConfig.mjs';
+
+const {formatExampleCode} = formatConfig;
 
 test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)', () => {
     test('renders stage and inspector with reset button and theme switch', async () => {
@@ -470,6 +472,219 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
             expect(new Function('Neo', 'return ' + fnOnly)(Neo)).toEqual({module: Neo.button.Base});
         } finally {
             store.destroy();
+        }
+    });
+
+    test('serializeConfigParams and parseConfigParams round-trip typed literals and reject unsafe or malformed entries', () => {
+        const store = Neo.create(Store, {autoLoad: false});
+
+        try {
+            expect(typeof formatConfig.serializeConfigParams).toBe('function');
+            expect(typeof formatConfig.parseConfigParams).toBe('function');
+
+            const encoded = formatConfig.serializeConfigParams({
+                width        : 220,
+                badgePosition: 'bottom-left',
+                disabled     : true,
+                useRipple    : false,
+                height       : null,
+                numericText  : '42',
+                boolText     : 'true',
+                nullText     : 'null',
+                bracketText  : '[Draft]',
+                emptyText    : '',
+                tags         : ['alpha', 2],
+                meta         : {dense: true},
+                skipFn       : () => {},
+                skipStore    : store,
+                skipNaN      : Number.NaN
+            }, ConfigurationViewport.internalExampleConfigs);
+
+            expect(encoded).toContain('badgePosition=bottom-left');
+            expect(encoded).toContain('disabled=true');
+            expect(encoded).toContain('height=null');
+            expect(encoded).toContain('width=220');
+            expect(encoded).not.toContain('skipFn');
+            expect(encoded).not.toContain('skipStore');
+            expect(encoded).not.toContain('skipNaN');
+
+            expect(formatConfig.parseConfigParams(encoded, ConfigurationViewport.internalExampleConfigs)).toEqual({
+                badgePosition: 'bottom-left',
+                boolText     : 'true',
+                bracketText  : '[Draft]',
+                disabled     : true,
+                emptyText    : '',
+                height       : null,
+                meta         : {dense: true},
+                nullText     : 'null',
+                numericText  : '42',
+                tags         : ['alpha', 2],
+                useRipple    : false,
+                width        : 220
+            });
+
+            const untrusted = formatConfig.parseConfigParams(
+                '#__proto__=polluted&constructor=bad&prototype=bad&store=hack&badJson=[broken&badUri=%E0%A4%A&nested=%7B%22__proto__%22%3A%7B%22polluted%22%3Atrue%7D%7D&text=Clean',
+                ConfigurationViewport.internalExampleConfigs
+            );
+
+            expect(untrusted).toEqual({text: 'Clean'});
+            expect(({}).polluted).toBeUndefined();
+        } finally {
+            store.destroy();
+        }
+    });
+
+    test('workbench syncs changed configs to URL via replaceState, restores typed state on load, and clears URL on Reset', () => {
+        const origMain   = Neo.Main,
+              origHash   = Neo.config.hash,
+              routeCalls = [];
+
+        Neo.Main = {
+            setRoute(data) {
+                routeCalls.push(data);
+            }
+        };
+
+        let firstViewport;
+        let restoredViewport;
+
+        try {
+            delete Neo.config.hash;
+            firstViewport = Neo.create(ButtonMainContainer, {autoMount: false, windowId: 71});
+
+            expect(routeCalls).toHaveLength(0);
+            expect(firstViewport.getUrlHash()).toBe('');
+
+            firstViewport.onRadioChange('badgePosition', 'bottom-left', {value: true});
+            firstViewport.onConfigChange('text', {value: '42'});
+            firstViewport.onConfigChange('disabled', {value: true});
+            firstViewport.onConfigChange('width', {value: 220});
+            firstViewport.exampleComponent.ui = 'secondary';
+
+            const syncedHash = routeCalls.at(-1)?.value;
+            expect(routeCalls.at(-1)).toEqual({
+                replace : true,
+                value   : 'badgePosition=bottom-left&disabled=true&text=%2242%22&ui=secondary&width=220',
+                windowId: 71
+            });
+
+            // Open a fresh workbench instance with that URL hash plus invalid/unknown parameters
+            routeCalls.length = 0;
+            Neo.config.hash = {
+                hashString: `${syncedHash}&unknownKey=ignored&ui=not-in-store&badgePosition=not-an-option&disabled=not-bool&__proto__=bad`,
+                windowId  : 72
+            };
+
+            restoredViewport = Neo.create(ButtonMainContainer, {autoMount: false, windowId: 72});
+
+            // Note: ui=not-in-store and badgePosition=not-an-option follow valid entries in query string?
+            // parseConfigParams keeps last key occurrence, so test invalid keys on distinct controls (iconPosition, height)
+            restoredViewport.destroy();
+
+            Neo.config.hash = {
+                hashString: `${syncedHash}&unknownKey=ignored&iconPosition=invalid-pos&height=not-a-number&useRippleEffect=not-a-bool&__proto__=bad`,
+                windowId  : 73
+            };
+
+            restoredViewport = Neo.create(ButtonMainContainer, {autoMount: false, windowId: 73});
+
+            expect(routeCalls).toHaveLength(0);
+            expect(restoredViewport.exampleComponent.badgePosition).toBe('bottom-left');
+            expect(restoredViewport.exampleComponent.text).toBe('42');
+            expect(restoredViewport.exampleComponent.disabled).toBe(true);
+            expect(restoredViewport.exampleComponent.width).toBe(220);
+            expect(restoredViewport.exampleComponent.ui).toBe('secondary');
+            expect(restoredViewport.exampleComponent.iconPosition).toBe('left');
+            expect(restoredViewport.exampleComponent.height).toBe(50);
+            expect(restoredViewport.exampleComponent.useRippleEffect).toBe(true);
+
+            expect(restoredViewport.down({valueLabel: 'bottom-left'}).checked).toBe(true);
+            expect(restoredViewport.down({valueLabel: 'top-right'}).checked).toBe(false);
+            expect(restoredViewport.down({labelText: 'text'}).value).toBe('42');
+            expect(restoredViewport.down({labelText: 'disabled'}).checked).toBe(true);
+            expect(restoredViewport.down({labelText: 'width'}).value).toBe(220);
+            expect(restoredViewport.down({labelText: 'ui'}).value?.id).toBe('secondary');
+            expect(restoredViewport.getCodeText()).toContain("badgePosition: 'bottom-left'");
+            expect(restoredViewport.getCodeText()).toContain("text         : '42'");
+
+            // Reset clears the URL hash cleanly and restores defaults
+            restoredViewport.onReset();
+
+            expect(routeCalls.at(-1)).toEqual({
+                replace : true,
+                value   : '',
+                windowId: 73
+            });
+            expect(restoredViewport.getUrlHash()).toBe('');
+            expect(restoredViewport.exampleComponent.badgePosition).toBe('top-right');
+            expect(restoredViewport.exampleComponent.text).toBe('Hello World');
+            expect(restoredViewport.exampleComponent.disabled).toBe(false);
+            expect(restoredViewport.exampleComponent.width).toBe(150);
+            expect(restoredViewport.exampleComponent.ui).toBe('primary');
+
+            // Live external HashHistory navigation updates controls and component without echoing setRoute
+            routeCalls.length = 0;
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {badgePosition: 'top-left', width: 180},
+                hashString: 'badgePosition=top-left&width=180',
+                windowId  : 73
+            });
+
+            expect(routeCalls).toHaveLength(0);
+            expect(restoredViewport.exampleComponent.badgePosition).toBe('top-left');
+            expect(restoredViewport.exampleComponent.width).toBe(180);
+            expect(restoredViewport.down({valueLabel: 'top-left'}).checked).toBe(true);
+            expect(restoredViewport.down({labelText: 'width'}).value).toBe(180);
+
+            // Rapid consecutive writes ignore late echoes of earlier writes without reverting newer typing
+            restoredViewport.onReset();
+            routeCalls.length = 0;
+
+            const textField = restoredViewport.down({labelText: 'text'});
+            textField.value = 'B';
+            textField.value = 'Bo';
+
+            expect(routeCalls.map(c => c.value)).toEqual(['text=B', 'text=Bo']);
+
+            // Late echo of the first keystroke ('text=B') arrives after 'text=Bo' was already committed
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {text: 'B'},
+                hashString: 'text=B',
+                windowId  : 73
+            });
+
+            expect(restoredViewport.exampleComponent.text).toBe('Bo');
+            expect(textField.value).toBe('Bo');
+
+            // Echo of the second keystroke ('text=Bo') drains the pending write queue cleanly
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {text: 'Bo'},
+                hashString: 'text=Bo',
+                windowId  : 73
+            });
+
+            expect(restoredViewport.exampleComponent.text).toBe('Bo');
+
+            // A subsequent genuine Back-button navigation to 'text=B' now restores 'B'
+            Neo.util.HashHistory.push({
+                appName   : restoredViewport.appName,
+                hash      : {text: 'B'},
+                hashString: 'text=B',
+                windowId  : 73
+            });
+
+            expect(restoredViewport.exampleComponent.text).toBe('B');
+            expect(textField.value).toBe('B');
+        } finally {
+            delete Neo.util.HashHistory.stacks[73];
+            firstViewport?.destroy();
+            restoredViewport?.destroy();
+            if (origMain !== undefined) Neo.Main = origMain; else delete Neo.Main;
+            if (origHash !== undefined) Neo.config.hash = origHash; else delete Neo.config.hash;
         }
     });
 });

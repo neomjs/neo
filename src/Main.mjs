@@ -796,10 +796,11 @@ class Main extends core.Base {
     /**
      * @summary Moves the route, kept where `Neo.config.routerMode` names.
      * @param {Object} data
+     * @param {Boolean} [data.replace=false]
      * @param {String} data.value
      */
     setRoute(data) {
-        DomEvents.setRoute(data.value)
+        DomEvents.setRoute(data.value, data.replace)
     }
 
     /**
