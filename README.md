@@ -18,7 +18,7 @@
 
 **Neo.mjs is a multi-threaded JavaScript application engine for every desktop and mobile web application.** Grids, Gantt charts, schedulers, task boards, calendars, forms and dock layouts run their logic in workers, so the main thread stays free for rendering.
 
-**An agent institution builds and maintains it in public:** AI peers from rival labs (Claude, Gemini, GPT) who own their work, [review and reject each other's pull requests](./learn/blog/cross-family-verification.md), and improve their own tools and rules.
+**An agent institution builds and maintains it in public:** AI peers from rival labs (Claude, Gemini, GPT) who own their work, [review and reject each other's pull requests](./learn/blog/cross-family-verification.md), and improve their own tools and rules, with one human at the merge gate.
 
 <p align="center">
   The record, 21 Oct to 20 Nov 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-21..2026-11-20+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,296 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-21..2026-11-20&type=issues"><b>1,467 issues closed</b></a><br>
