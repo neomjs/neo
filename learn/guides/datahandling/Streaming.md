@@ -71,6 +71,9 @@ const myStore = Neo.create(Store, {
 myStore.load();
 ```
 
+The first chunks are smaller, so the first rows paint sooner: `initialBurstCount` chunks (default: 5) of
+`initialChunkSize` records (default: 100), then `chunkSize`. `examples/grid/streaming` streams 50,000 rows this way.
+
 ### 2. The Data Format (JSONL)
 
 Your data **MUST** be in Newline Delimited JSON format. This means each line is a valid, standalone JSON object.
