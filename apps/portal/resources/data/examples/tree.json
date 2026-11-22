@@ -2,9 +2,7 @@
     {
         "id": "file-explorer",
         "family": "tree",
-        "alsoIn": [
-            "drag-drop"
-        ],
+        "alsoIn": [],
         "order": 1490,
         "component": "Tree List",
         "feature": "A project's folders and files: a file moves into another folder by drag and renames in place, and the filter keeps the folders around a match",
