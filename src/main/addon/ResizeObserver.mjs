@@ -121,6 +121,13 @@ class NeoResizeObserver extends Base {
      */
     #rAFId = null
     /**
+     * The id each observed node was registered with. A dispatch keys on it, since the node's own `id` can differ:
+     * `document.body` has none, and without `Neo.config.useDomIds` the Neo id is `data-neo-id`.
+     * @member {WeakMap<HTMLElement, String>} #targetIds=new WeakMap()
+     * @private
+     */
+    #targetIds = new WeakMap()
+    /**
      * @member {Object} #targetToComponents={}
      * @private
      */
@@ -220,9 +227,10 @@ class NeoResizeObserver extends Base {
             let borderBoxSize             = entry.borderBoxSize[0],
                 contentBoxSize            = entry.contentBoxSize[0],
                 devicePixelContentBoxSize = entry.devicePixelContentBoxSize?.[0] || {}, // Not supported in Safari yet
+                id                        = me.#targetIds.get(entry.target) ?? entry.target.id,
                 path                      = DomEvents.getPathFromElement(entry.target).map(e => DomEvents.getTargetData(e));
 
-            me.#lastDispatchedSize.set(entry.target.id, {
+            me.#lastDispatchedSize.set(id, {
                 blockSize : borderBoxSize.blockSize,
                 inlineSize: borderBoxSize.inlineSize
             });
@@ -232,9 +240,9 @@ class NeoResizeObserver extends Base {
                 eventName: 'resize',
 
                 data: {
-                    componentIds: me.#targetToComponents[entry.target.id] || [],
+                    componentIds: me.#targetToComponents[id] || [],
                     contentRect : DomEvents.parseDomRect(entry.contentRect),
-                    id          : entry.target.id,
+                    id,
                     path,
                     rect        : path[0].rect,
 
@@ -388,6 +396,7 @@ class NeoResizeObserver extends Base {
                 me.#targetToComponents[data.id].push(data.componentId)
             }
 
+            me.#targetIds.set(node, data.id);
             me.instance.observe(node);
 
             // A target registered inside a hidden document gets NO initial native delivery
@@ -418,7 +427,12 @@ class NeoResizeObserver extends Base {
             if (me.#targetToComponents[id].length === 0) {
                 delete me.#targetToComponents[id];
                 me.#lastDispatchedSize.delete(id);
-                node && me.instance.unobserve(node);
+
+                if (node) {
+                    me.#targetIds.delete(node);
+                    me.instance.unobserve(node)
+                }
+
                 me.syncPollState()
             }
         }

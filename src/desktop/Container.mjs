@@ -17,8 +17,9 @@ import {isDescriptor, mergeFrom} from '../core/ConfigSymbols.mjs';
  *
  * {@link #appStore} feeds the launcher, the start menu and the window manager, whose filter decides which apps may
  * keep a window open. Without an apps store the workspace stays empty. The windows are {@link #windowClass}, loaded
- * on the first open: each grows out of its app's launcher icon, stays inside the workspace when dragged or resized,
- * and names this container its `parentComponent`, so its state provider continues into the container's.
+ * on the first open: each grows out of its app's launcher icon, stays inside the workspace when dragged or resized and
+ * when the workspace changes size (`Neo.dialog.Base#keepInBoundary`), and names this container its `parentComponent`,
+ * so its state provider continues into the container's.
  *
  * Its items are a map, so a consumer adds to them by key, e.g. a side panel beside the launcher:
  * `items: {workspace: {items: {panel: {module: MyPanel, weight: 20}}}}`. The launcher and the taskbar take their configs
@@ -223,6 +224,7 @@ class Container extends BaseContainer {
                 animateTargetId      : icon ? launcher.getItemId(icon) : null,
                 appName              : me.appName,
                 boundaryContainerId  : workspaceId,
+                keepInBoundary       : true,
                 parentComponent      : me,
                 record,
                 resizablePluginConfig: {boundaryContainerId: workspaceId},

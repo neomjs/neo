@@ -441,6 +441,17 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
+     * @summary Returns a copy of this Rectangle inside the bounds: moved by the smallest distance, and shrunk only on
+     * an axis it cannot fit on, never below its `minWidth` and `minHeight`. A minimum larger than the bounds keeps the
+     * leading edge inside, as {@link #alignTo} does when no side fits. A Rectangle inside the bounds comes back as it is.
+     * @param {DOMRect|Neo.util.Rectangle} bounds
+     * @returns {Neo.util.Rectangle}
+     */
+    fitTo(bounds) {
+        return this.#fitToBounds(bounds, this.minWidth, this.minHeight)
+    }
+
+    /**
      * @summary Returns an immutable Rectangle aligned to a target, optionally constrained and offset.
      * If no side fits at the usual size, use the side with the largest usable area and shrink to
      * its bounds. If the declared minima rule out every side, keep the leading edges reachable
