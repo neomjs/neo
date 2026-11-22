@@ -57,6 +57,7 @@
     {
         "id": "scheduler-drag-and-resize",
         "image": "devmode/scheduler-drag-and-resize-14.jpg",
+        "hasLightCover": true,
         "name": "Re-plan a day by drag",
         "sourceUrl": "examples/scheduler/dragAndResize",
         "urls": {
@@ -128,6 +129,7 @@
     {
         "id": "scheduler-zoom",
         "image": "devmode/scheduler-zoom-14.jpg",
+        "hasLightCover": true,
         "name": "Zoom from hours to a week",
         "sourceUrl": "examples/scheduler/zoom",
         "urls": {
@@ -145,6 +147,7 @@
     {
         "id": "scheduler-resource-columns",
         "image": "devmode/scheduler-resource-columns-14.jpg",
+        "hasLightCover": true,
         "name": "A table beside the timeline",
         "sourceUrl": "examples/scheduler/resourceColumns",
         "urls": {

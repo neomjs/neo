@@ -3,6 +3,7 @@
         "id": "gantt-basic",
         "featured": true,
         "image": "devmode/gantt-basic-14.jpg",
+        "hasLightCover": true,
         "name": "Community Garden Plan",
         "sourceUrl": "examples/gantt/basic",
         "urls": {
@@ -29,6 +30,7 @@
     {
         "id": "gantt-big-data",
         "image": "devmode/gantt-big-data-14.jpg",
+        "hasLightCover": true,
         "name": "A project of 2,000 tasks",
         "sourceUrl": "examples/gantt/bigData",
         "urls": {
@@ -55,6 +57,7 @@
     {
         "id": "gantt-zoom",
         "image": "devmode/gantt-zoom-14.jpg",
+        "hasLightCover": true,
         "name": "Zoom a plan in and out",
         "sourceUrl": "examples/gantt/zoom",
         "urls": {
@@ -90,6 +93,7 @@
     {
         "id": "gantt-dependencies",
         "image": "devmode/gantt-dependencies-14.jpg",
+        "hasLightCover": true,
         "name": "Link tasks by drag",
         "sourceUrl": "examples/gantt/dependencies",
         "urls": {
@@ -142,6 +146,7 @@
     {
         "id": "gantt-cascade",
         "image": "devmode/gantt-cascade-14.jpg",
+        "hasLightCover": true,
         "name": "A late task moves the plan",
         "sourceUrl": "examples/gantt/cascade",
         "urls": {
@@ -156,5 +161,42 @@
         "component": "Gantt",
         "feature": "One task slips, and every task that depends on it follows to its new date",
         "lookFor": "Press 'Delay the cabling by a week', or drag its bar: the tasks behind it glide to their new dates, the two beside the chain stay, and the line above the plan says how far the move day slipped."
+    },
+    {
+        "id": "gantt-milestones",
+        "image": "devmode/gantt-milestones-14.jpg",
+        "hasLightCover": true,
+        "name": "A plan's release gates",
+        "sourceUrl": "examples/gantt/milestones",
+        "urls": {
+            "devmode": "examples/gantt/milestones/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
+        "lookFor": "Press 'Slip DSP firmware +3 days', or drag its bar: Gates 3–6 shift together while Gates 1–2 stay put. Drag any diamond gate directly, or press Reset.",
+        "order": 1186
+    },
+    {
+        "id": "gantt-task-tree",
+        "image": "devmode/gantt-task-tree-14.jpg",
+        "hasLightCover": true,
+        "name": "An exhibition takes shape",
+        "sourceUrl": "examples/gantt/taskTree",
+        "urls": {
+            "devmode": "examples/gantt/taskTree/index.html",
+            "dist_dev": "dist/development/examples/gantt/taskTree/index.html",
+            "dist_esm": "dist/esm/examples/gantt/taskTree/index.html",
+            "dist_prod": "dist/production/examples/gantt/taskTree/index.html"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Each phase takes its dates and progress from its tasks.",
+        "lookFor": "Delay the lighting and watch the gallery phase grow. Fold it to keep its span and completion in view.",
+        "order": 1187,
+        "hiddenIn": []
     }
 ]

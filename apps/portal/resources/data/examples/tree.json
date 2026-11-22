@@ -9,6 +9,7 @@
         "lookFor": "Drag a file onto another folder, double-click a name to rename it, type into the filter, then open logs: its 365 files load when it first opens.",
         "featured": false,
         "image": "devmode/file-explorer-14.jpg",
+        "hasLightCover": true,
         "name": "File Explorer",
         "sharedWorkers": false,
         "sourceUrl": "examples/fileExplorer",
