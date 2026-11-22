@@ -46,6 +46,129 @@ class TaskStore extends TreeStore {
 
     #rollingUp = false
     #rollupListeners = null
+    #bookingStore = null
+    #bookingListeners = null
+    #bookingMutationVersion = 0
+
+    /**
+     * @summary Returns the owned flat booking view, independent of tree expansion and with its own filters.
+     * @description The view borrows canonical leaf Records, never the TaskStore's Model instance. Its separate Model
+     * keeps record-change ownership on this TaskStore; source notifications are forwarded to the view. Callers borrow
+     * the view and must not destroy it or write its membership: this store owns its membership and lifetime.
+     * @returns {Neo.timeline.store.Events}
+     */
+    getBookingStore() {
+        let view = this.#bookingStore;
+
+        if (!view || view.isDestroyed) {
+            const config = Neo.clone(this.model.originalConfig || {}, true, true);
+            delete config.id;
+            delete config.storeId;
+            delete config.ntype;
+            delete config.className;
+            config.module = this.model.constructor;
+            view = this.#bookingStore = Neo.create(Events, {
+                data: this.#getBookingRecords(), keyProperty: this.getKeyProperty(), model: config, sorters: []
+            });
+            if (!this.#bookingListeners) {
+                this.#bookingListeners = {recordChange: this.onBookingRecordChange, rowsChange: this.onBookingRowsChange,
+                    updateKey: this.onBookingUpdateKey, mutate: {fn: this.onBookingSourceMutate, order: 'before'}, scope: this};
+                this.on(this.#bookingListeners)
+            }
+        }
+        return view
+    }
+
+    /** @summary Reads canonical structural leaves, including those under collapsed or filtered phases. @returns {Object[]} */
+    #getBookingRecords() {
+        const result = [], walk = children => {
+            for (const record of children) {
+                const key = this.getKey(record), children = this.getChildren(key);
+                if (children.length) walk(children);
+                else if (record.isLeaf !== false) result.push(record)
+            }
+        };
+        walk(this.getChildren());
+        return result
+    }
+
+    /** @summary Reconciles the view after structural writes, including silent and hidden writes. */
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
+        const version = this.#bookingMutationVersion,
+            result    = super.splice(index, removeCountOrToRemoveArray, toAddArray, silent);
+        if (version === this.#bookingMutationVersion) this.onBookingMutation(silent);
+        return result
+    }
+
+    /** @summary Settles structural membership before source observers, ignoring visibility-only mutations. @param {Object} event */
+    onBookingSourceMutate({addedItems=[], removedItems=[]}) {
+        const view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+        this.#bookingMutationVersion++;
+        const differs = item => {
+            const key = this.getKey(item), current = view.getRow(key), canonical = this.get(key);
+            return current ? current !== canonical : canonical?.isLeaf !== false && !!canonical
+        };
+        if (addedItems.some(differs) || removedItems.some(differs)) this.onBookingMutation()
+    }
+
+    /** @summary Reconciles membership only when structural leaves have actually changed. @param {Boolean} [silent=false] */
+    onBookingMutation(silent=false) {
+        const view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+
+        const records = this.#getBookingRecords(), next = new Map(records.map(record => [this.getKey(record), record])),
+            current   = (view.allItems || view).items,
+            removed   = current.filter(record => next.get(this.getKey(record)) !== record),
+            added     = records.filter(record => view.getRow(this.getKey(record)) !== record);
+
+        if (removed.length || added.length) view.splice(null, removed, added, silent)
+    }
+
+    /** @summary Forwards edits of borrowed records so view filters and consumers react. @param {Object} event */
+    onBookingRecordChange(event) {
+        const view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+        if (event.fields?.some(field => (typeof field === 'string' ? field : field.name) === 'isLeaf')) {
+            this.onBookingMutation()
+        }
+        if (view.getRow(this.getKey(event.record)) === event.record) {
+            view.onRecordChange(event)
+        }
+    }
+
+    /** @summary Relays a canonical batch receipt for rows held by the view. @param {Object} event */
+    onBookingRowsChange(event) {
+        const view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+        const keys = (event.keys || []).filter(key => view.getRow(key));
+        if (keys.length) view.fire('rowsChange', {...event, keys, scope: view})
+    }
+
+    /** @summary Re-keys a borrowed record after the canonical store commits its key. @param {Object} event */
+    onBookingUpdateKey({item, oldKey, newKey}) {
+        const view = this.#bookingStore;
+        if (!view || view.isDestroyed || (view.allItems || view).map.get(oldKey) !== item) return;
+
+        for (const collection of [view, view.allItems].filter(Boolean)) {
+            if (collection.map.get(oldKey) === item) {
+                collection.map.delete(oldKey);
+                collection.map.set(newKey, item)
+            }
+        }
+        view.onRecordChange({record: item, model: this.model,
+            fields: [{name: this.getKeyProperty(), oldValue: oldKey, value: newKey}]});
+        view.fire('updateKey', {item, oldKey, newKey, scope: view})
+    }
+
+    /** @summary Retires the owned booking view and detaches its source listeners. */
+    destroy() {
+        if (this.#bookingListeners) this.un(this.#bookingListeners);
+        this.#bookingListeners = null;
+        if (this.#bookingStore && !this.#bookingStore.isDestroyed) this.#bookingStore.destroy();
+        this.#bookingStore = null;
+        super.destroy()
+    }
 
     /** @summary Recomputes the plan when the opt-in policy is enabled. */
     afterSetRollupParents(value, oldValue) {
@@ -213,13 +336,14 @@ class TaskStore extends TreeStore {
     }
 
     /**
-     * @summary Returns all currently visible (expanded) task records whose `[startDate, endDate)` interval
-     * intersects `[start, end)`.
+     * @summary Returns visible tree rows in a range, or structural leaf bookings for an explicit resource.
      * @param {Date|Number|String} start Range start (inclusive)
      * @param {Date|Number|String} end Range end (exclusive for positive-duration intervals)
+     * @param {String|Number|null} [resourceId=null] When present, filters canonical leaf bookings by resource.
      * @returns {Neo.gantt.TaskModel[]}
      */
-    getRangeRecords(start, end) {
+    getRangeRecords(start, end, resourceId=null) {
+        if (resourceId != null) return this.getBookingStore().getRangeRecords(start, end, resourceId);
         const
             me      = this,
             startMs = start instanceof Date ? start.getTime() : new Date(start).getTime(),
