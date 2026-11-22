@@ -867,9 +867,10 @@ test.describe('Portal examples section', () => {
                     await issues.screenshot({path: testInfo.outputPath(`issues-card-open-${viewport.width}.png`)})
                 }
 
-                // A stable string identity also survives the lazy-cover path at the end of the list.
-                await overview.locator('.neo-list-item').last().scrollIntoViewIfNeeded();
-                await expect(overview.locator('.neo-list-item').last().getByRole('link', {name: 'When to Use a Table'})).toBeVisible()
+                // A stable string identity also survives the lazy-cover path when scrolled into view.
+                const tableLink = overview.getByRole('link', {name: 'When to Use a Table', exact: true});
+                await tableLink.scrollIntoViewIfNeeded();
+                await expect(tableLink).toBeVisible()
             })
         }
     }
