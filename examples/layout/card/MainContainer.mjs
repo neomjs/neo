@@ -114,7 +114,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module: Container,
             cls   : ['card-wizard'],
-            height: 300,
+            height: 240,
             layout: {ntype: 'vbox', align: 'stretch'},
             width : 320,
 
