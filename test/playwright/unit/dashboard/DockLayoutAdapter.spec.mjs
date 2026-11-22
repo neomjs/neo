@@ -1676,7 +1676,7 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
                   row    = result.items.find(item => item.dockNodeType === 'edge-zone-row');
 
             expect(row.items.map(item => item.dockNodeType)).toEqual(['center-well', 'splitter', 'split']);
-            expect(row.items[0]).toMatchObject({cls: ['neo-dashboard-dock-center-well'], flex: 1, vdom: {cn: []}});
+            expect(row.items[0]).toMatchObject({cls: ['neo-dashboard-dock-center-well'], dockEdgeZoneId: 'root', flex: 1, vdom: {cn: []}});
             expect(row.items[0].dockNodeId, 'not a dock node: the document has no center').toBeUndefined()
         });
 
