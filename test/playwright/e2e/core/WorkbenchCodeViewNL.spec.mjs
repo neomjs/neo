@@ -174,4 +174,34 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
         expect(resetTextProps.value).toBe('Hello World');
         expect(pageErrors).toEqual([]);
     });
+
+    test('workbench restores valid entries beside malformed URI hash tokens on fresh load and live hash navigation', async ({neuralLink, page}) => {
+        const pageErrors = [];
+        page.on('pageerror', err => pageErrors.push(err.message));
+
+        await page.goto('/examples/list/base/index.html?theme=neo-theme-neo-dark#bad=%E0%A4%A&width=180');
+
+        const app         = await neuralLink.connectToApp('Neo.examples.list.base'),
+              exampleList = page.locator('.neo-example-container .neo-list').first();
+
+        await expect(exampleList).toBeVisible({timeout: 15000});
+
+        const listId       = await exampleList.getAttribute('id'),
+              widthFieldId = [].concat(await app.queryComponent({ntype: 'numberfield', labelText: 'width'}, ['id']) ?? [])[0]?.id;
+
+        expect(await app.getComponent(listId, ['width'])).toEqual({width: 180});
+        expect(await app.getComponent(widthFieldId, ['value'])).toEqual({value: 180});
+
+        await page.evaluate(() => {
+            window.location.hash = '#%E0%A4%A=broken&width=205';
+        });
+
+        await expect.poll(async () => (await app.getComponent(listId, ['width'])).width, {
+            message: 'live hash change with malformed sibling entry still applies valid width',
+            timeout: 10000
+        }).toBe(205);
+
+        expect(await app.getComponent(widthFieldId, ['value'])).toEqual({value: 205});
+        expect(pageErrors).toEqual([]);
+    });
 });

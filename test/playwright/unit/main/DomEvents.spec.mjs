@@ -790,10 +790,41 @@ test.describe('Neo.main.DomEvents', () => {
 
             owner.setRoute('/news/blog', true);
             owner.setRoute('/examples', false);
+            owner.setRoute('/home');
 
-            expect(calls).toEqual([['replace', '/docs/news/blog'], ['push', '/docs/examples']]);
-            expect(states).toEqual([['replace', {scrollY: 120}], ['push', null]]);
-            expect(sent).toEqual(['/news/blog', '/examples'])
+            expect(calls).toEqual([['replace', '/docs/news/blog'], ['push', '/docs/examples'], ['push', '/docs/home']]);
+            expect(states).toEqual([['replace', {scrollY: 120}], ['push', null], ['push', null]]);
+            expect(sent).toEqual(['/news/blog', '/examples', '/home'])
+        })
+    });
+
+    test('parseHash preserves anchors, arrays, and typed values while skipping neighboring malformed URI entries across boot and live routes', () => {
+        expect(DomEvents.parseHash('section&categories[]=test1&categories[]=test2&width=180&active=true&disabled=false')).toEqual({
+            active    : true,
+            categories: ['test1', 'test2'],
+            disabled  : false,
+            section   : '',
+            width     : 180
+        });
+
+        withRouter({mode: 'hash', url: '/examples/list/base/index.html#bad=%E0%A4%A&width=180'}, ({go, owner}) => {
+            const payloads = [];
+            Neo.worker.Manager.sendMessage = (dest, msg) => payloads.push(msg.data);
+
+            expect(owner.getRouteConfig(9)).toEqual({
+                hash      : {width: 180},
+                hashString: 'bad=%E0%A4%A&width=180',
+                windowId  : 9
+            });
+
+            go('#%E0%A4%A=broken&categories[]=alpha&categories[]=beta&width=205&draggable=false');
+            owner.onHashChange();
+
+            expect(payloads).toHaveLength(1);
+            expect(payloads[0]).toMatchObject({
+                hash      : {categories: ['alpha', 'beta'], draggable: false, width: 205},
+                hashString: '%E0%A4%A=broken&categories[]=alpha&categories[]=beta&width=205&draggable=false'
+            })
         })
     });
 });
