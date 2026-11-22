@@ -1124,9 +1124,11 @@ test.describe('Portal examples canonical catalog', () => {
             expect(list.createLink(devIndex).href, mode).toBe(devIndexUrls[mode]);
             expect(list.createLink(devIndex).target, mode).toBe('_blank');
             expect(Example.href(devIndex, mode), mode).toBe(devIndexUrls[mode]);
-            expect(list.createSourceLink(offscreen).href, mode).toBe(mode === 'devmode'
-                ? 'https://github.com/neomjs/offscreen-canvas/'
-                : 'https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp');
+            // The canvas example lives in this repository now, so its source link is the repository's in every mode
+            expect(list.createSourceLink(offscreen).href, mode).toBe(list.sourceBaseUrl + 'examples/worker/canvas');
+            // No catalog record carries a per-mode source any more; the override itself still wins over the common link
+            expect(list.createSourceLink({sourceUrl: 'examples/a', sourceUrls: {dist_prod: 'https://example.com/b'}}).href, mode)
+                .toBe(mode === 'dist_prod' ? 'https://example.com/b' : list.sourceBaseUrl + 'examples/a');
             expect(list.isHiddenItem(sharedOffscreen), mode).toBe(mode === 'dist_esm');
             expect(list.isHiddenItem(liquidGlass), mode).toBe(mode === 'devmode')
         });
