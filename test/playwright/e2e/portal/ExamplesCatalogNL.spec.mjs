@@ -10,6 +10,8 @@ const PORTAL    = '/apps/portal/index.html',
       CARDS     = `${PAGE} .portal-examples-list:not(.portal-examples-tiles)`,
       TILES     = `${PAGE} .portal-examples-tiles`,
       FEATURED  = '.portal-examples-overview:visible .portal-examples-overview-cards',
+      // The Portal boots on Neo Dark here, and every local launch link names the Portal's theme
+      THEME     = '?theme=neo-theme-neo-dark',
       GROUPS    = [
           'Apps', 'Grid & Table', 'Trees', 'Lists & Galleries', 'Charts, Canvas & Maps',
           'Calendar', 'Scheduler', 'Gantt', 'Task Board',
@@ -386,7 +388,11 @@ test.describe('Portal examples section', () => {
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText(headlineOf(published));
 
-        for (const [name, count] of [['Scheduler', 11], ['Gantt', 9], ['Task Board', 9]]) {
+        // a planning group's number is its page's cards; it is read, so an examples PR edits no line here
+        for (const name of ['Scheduler', 'Gantt', 'Task Board']) {
+            const count = Number(await counts.nth(GROUPS.indexOf(name)).textContent());
+
+            expect(count, name).toBeGreaterThan(0);
             await expect(page.locator(SIDEBAR).getByRole('link', {
                 name : `${name}, ${count} live examples`,
                 exact: true
@@ -656,20 +662,20 @@ test.describe('Portal examples section', () => {
         ]) {
             await selectBuild(page, label);
             await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'Open the 100,000 × 200 grid'}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/bigData/index.html`);
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/bigData/index.html${THEME}`);
             await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation'}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`);
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html${THEME}`);
 
             await openGroup(page, 'Grid & Table');
             await expect(page.locator(CARDS).getByRole('link', {name: 'TreeGrid - Big Data', exact: true}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html`);
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}examples/grid/treeBigData/index.html${THEME}`);
             await openGroup(page, 'Multi-Window');
             // the six covered records plus dock-cross-window, dock-tear-out and Email (via alsoIn); the external
             // OffscreenCanvas demo has no ESM destination, so the list's Store holds one card fewer there
             await expect.poll(async () => (await readList(app, 'multi-window')).properties.catalogMode).toBe(mode);
             await expect(page.locator(`${CARDS} .portal-example-feature`)).toHaveCount((await readList(app, 'multi-window')).properties.store.count);
             await expect(page.locator(CARDS).getByRole('link', {name: 'Colors Dashboard', exact: true}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html`);
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/colors/index.html${THEME}`);
             await openOverview(page)
         }
 
@@ -683,7 +689,7 @@ test.describe('Portal examples section', () => {
             await page.goto(`${PORTAL}#/examples/${mode}`);
             await expect(page.locator(FEATURED)).toBeVisible();
             await expect(page.locator('.portal-examples-overview:visible').getByRole('link', {name: 'or the Workstation'}))
-                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html`)
+                .toHaveAttribute('href', `https://neomjs.com/${prefix}apps/workstation/index.html${THEME}`)
         }
     });
 
@@ -859,7 +865,7 @@ test.describe('Portal examples section', () => {
         await app.setProperties(list.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(list.id, 'createItems');
         await expect(page.locator(CARDS).getByRole('link', {name: 'Workstation', exact: true})).toHaveAttribute('href',
-            `${baseURL}/dist/production/apps/workstation/index.html`);
+            `${baseURL}/dist/production/apps/workstation/index.html${THEME}`);
 
         await page.goto(`${PORTAL}#/examples/devmode`);
         app = await neuralLink.connectToApp('Portal');
@@ -868,7 +874,7 @@ test.describe('Portal examples section', () => {
         await app.setProperties(devList.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(devList.id, 'createItems');
         await page.locator(CARDS).getByRole('link', {name: 'Workstation', exact: true}).click();
-        await expect(page).toHaveURL(/\/apps\/workstation\/index.html$/);
+        await expect(page).toHaveURL(/\/apps\/workstation\/index.html\?theme=neo-theme-neo-dark$/);
         await expect(page.locator('.workstation-viewport')).toBeVisible();
         await expect(page.locator('.neo-dock-workspace')).toBeVisible();
 
@@ -882,7 +888,7 @@ test.describe('Portal examples section', () => {
         const gridPopup = context.waitForEvent('page');
         await page.locator(CARDS).getByRole('link', {name: 'TreeGrid - Big Data', exact: true}).click();
         const grid = await gridPopup;
-        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index.html$/);
+        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index.html\?theme=neo-theme-neo-dark$/);
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
         await expect(grid.getByText('Organization', {exact: true}).first()).toBeVisible();
         await grid.close()
@@ -900,7 +906,7 @@ test.describe('Portal examples section', () => {
         const workstationCard = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}),
               workstationCue  = workstationCard.locator('.portal-example-open-cue');
 
-        await expect(workstationCue).toHaveAttribute('href', `${baseURL}/dist/production/apps/workstation/index.html`);
+        await expect(workstationCue).toHaveAttribute('href', `${baseURL}/dist/production/apps/workstation/index.html${THEME}`);
         await expect(workstationCue).toHaveAttribute('target', '_blank');
         await expect(workstationCue).toHaveAttribute('aria-hidden', 'true');
         await expect(workstationCue).toHaveAttribute('tabindex', '-1');
@@ -926,10 +932,10 @@ test.describe('Portal examples section', () => {
         const devWorkstation = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}),
               devCue         = devWorkstation.locator('.portal-example-open-cue');
 
-        await expect(devCue).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html`);
+        await expect(devCue).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html${THEME}`);
         await expect(devCue).not.toHaveAttribute('target', /_blank/);
         await devCue.click();
-        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html\?theme=neo-theme-neo-dark$/);
         await expect(page.locator('.workstation-viewport')).toBeVisible();
 
         await page.goto(`${PORTAL}#/examples/devmode`);
@@ -940,11 +946,11 @@ test.describe('Portal examples section', () => {
         await app.callMethod(enterList.id, 'createItems');
 
         const enterTitle = page.locator(`${CARDS} .neo-list-item`, {hasText: 'Workstation'}).locator('.neo-title');
-        await expect(enterTitle).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html`);
+        await expect(enterTitle).toHaveAttribute('href', `${baseURL}/apps/workstation/index.html${THEME}`);
         await enterTitle.focus();
         await expect(enterTitle).toBeFocused();
         await page.keyboard.press('Enter');
-        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html\?theme=neo-theme-neo-dark$/);
         await expect(page.locator('.workstation-viewport')).toBeVisible();
 
         // Single-window example keeps target="_blank" when clicking the cue in devmode
@@ -956,12 +962,12 @@ test.describe('Portal examples section', () => {
         await app.callMethod(gridList.id, 'createItems');
 
         const treeCue = page.locator(`${CARDS} .neo-list-item`, {hasText: 'TreeGrid - Big Data'}).locator('.portal-example-open-cue');
-        await expect(treeCue).toHaveAttribute('href', `${baseURL}/examples/grid/treeBigData/index.html`);
+        await expect(treeCue).toHaveAttribute('href', `${baseURL}/examples/grid/treeBigData/index.html${THEME}`);
         await expect(treeCue).toHaveAttribute('target', '_blank');
         const gridPopup = context.waitForEvent('page');
         await treeCue.click();
         const grid = await gridPopup;
-        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index\.html$/);
+        await expect(grid).toHaveURL(/\/examples\/grid\/treeBigData\/index\.html\?theme=neo-theme-neo-dark$/);
         await expect(grid.locator('.neo-grid-container')).toBeVisible();
         await grid.close();
 
@@ -981,13 +987,13 @@ test.describe('Portal examples section', () => {
         const touchPopup = touchContext.waitForEvent('page');
         await gridCard.locator('.portal-example-open-cue').tap();
         const touchedGrid = await touchPopup;
-        await expect(touchedGrid).toHaveURL(/\/examples\/grid\/bigData\/index\.html$/);
+        await expect(touchedGrid).toHaveURL(/\/examples\/grid\/bigData\/index\.html\?theme=neo-theme-neo-dark$/);
         await touchedGrid.close();
 
         const wsCard = touchPage.locator(`${FEATURED} .neo-list-item`, {hasText: 'Workstation'});
         await wsCard.scrollIntoViewIfNeeded();
         await wsCard.locator('.portal-example-open-cue').tap();
-        await expect(touchPage).toHaveURL(/\/apps\/workstation\/index\.html$/);
+        await expect(touchPage).toHaveURL(/\/apps\/workstation\/index\.html\?theme=neo-theme-neo-dark$/);
         await touchContext.close()
     });
 

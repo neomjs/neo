@@ -89,12 +89,19 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Shows the theme button for the theme the example started in.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.syncThemeButton()
+    }
+
+    /**
      * @summary Switches the page between neo-light and neo-dark, revealed from the click as in the other renewed
      * examples. The theme travels down the component tree, so the editor follows it through its own theme map.
      * @param {Object} data
      * @param {Number} [data.clientX]
      * @param {Number} [data.clientY]
-     * @param {Neo.button.Base} data.component
      */
     async onThemeButtonClick(data) {
         let toDark = this.getTheme() !== 'neo-theme-neo-dark';
@@ -105,12 +112,20 @@ class MainContainer extends Viewport {
             windowId: this.windowId
         }).catch(() => {});
 
-        data.component.set({
-            iconCls: toDark ? 'fa-solid fa-sun'  : 'fa-solid fa-moon',
-            text   : toDark ? 'Light theme' : 'Dark theme'
-        });
+        this.theme = toDark ? 'neo-theme-neo-dark' : 'neo-theme-neo-light';
+        this.syncThemeButton()
+    }
 
-        this.theme = toDark ? 'neo-theme-neo-dark' : 'neo-theme-neo-light'
+    /**
+     * @summary Labels the button with the theme its next click selects.
+     */
+    syncThemeButton() {
+        const dark = this.getTheme() === 'neo-theme-neo-dark';
+
+        this.getReference('theme-button').set({
+            iconCls: dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon',
+            text   : dark ? 'Light theme' : 'Dark theme'
+        })
     }
 }
 

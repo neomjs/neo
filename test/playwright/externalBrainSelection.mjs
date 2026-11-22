@@ -27,6 +27,7 @@ import path from 'node:path';
  */
 export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'board/BasicNL.spec.mjs',
+    'board/SalesPipelineNL.spec.mjs',
     'board/SwimlanesNL.spec.mjs',
     'code/LivePreviewExample.spec.mjs',
     'component/StandaloneThemeSwitcher.spec.mjs',
@@ -65,6 +66,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'gantt/BasicNL.spec.mjs',
     'gantt/BigDataNL.spec.mjs',
     'gantt/CascadeNL.spec.mjs',
+    'gantt/TaskTreeNL.spec.mjs',
     'gantt/CascadeTransitionNL.spec.mjs',
     'grid/AnimateRowsRecordChangeNL.spec.mjs',
     'grid/BigDataMultiBodyNL.spec.mjs',
@@ -105,6 +107,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'portal/ConnectNL.spec.mjs',
     'portal/DocsMixinsNL.spec.mjs',
     'portal/ExamplesCatalogNL.spec.mjs',
+    'portal/ExamplesCatalogTheme.spec.mjs',
     'portal/HeaderToolbarPhoneNL.spec.mjs',
     'portal/HomeAudienceDoorsNL.spec.mjs',
     'portal/HomeComponentPreviews.spec.mjs',

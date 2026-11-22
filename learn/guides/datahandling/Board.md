@@ -118,6 +118,37 @@ columns: [
 ]
 ```
 
+### Column summaries
+
+To see the value of work in each column, declare the amount on your card model and configure the board's
+`columnSummary`. For example, a sales board can total the amount of its visible deals:
+
+```javascript
+class DealModel extends CardModel {
+    static config = {
+        className: 'MyApp.model.Deal',
+        fields   : [{name: 'amount', type: 'Float'}]
+    }
+}
+
+const boardConfig = {
+    module: Board,
+    store : {model: Neo.setupClass(DealModel), data: [
+        {id: 1, title: 'North', status: 'backlog', amount: 1200},
+        {id: 2, title: 'South', status: 'backlog', amount: 800}
+    ]},
+    columnSummary: {
+        field    : 'amount',
+        formatter: sum => `$${sum.toFixed(2)}`
+    }
+};
+```
+
+The Backlog summary is `$2000.00`. The board sums finite numeric values for each status and, when swimlanes are
+enabled, each lane/status intersection. It uses records remaining after the current store filters, including cards
+outside the rendered window. An empty column sums to zero. The
+formatter returns plain text for the header.
+
 ## 4. Swimlanes
 
 Swimlanes add a second axis. Set `laneField` to the record field that names a card's lane, and the board switches
@@ -206,12 +237,13 @@ each `{status, lane, index}`). When several selected cards are dropped together,
 ## 6. What a Card Shows
 
 `cardItems` lists what every card renders, in order. The default is
-`[{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'avatars'}]`. The built-in types are:
+`[{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'dueDate'}, {type: 'avatars'}]`. The built-in types are:
 
 - `title`: the title line (field `title`).
 - `text`: any text field; set `field`.
 - `tags`: tag chips (field `tags`).
 - `progress`: a bar over a 0 to 100 value (field `progress`). No value, or zero, draws no bar.
+- `dueDate`: the due date as a `<time>` badge (field `dueDate`, an ISO date string or `Date`).
 - `avatars`: the initials of each assignee (field `assignees`, names or objects with a `name`).
 
 Each item may name another `field`. An item that finds nothing in its field renders nothing, so a backlog card

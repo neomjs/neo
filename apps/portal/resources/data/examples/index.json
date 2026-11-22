@@ -1,0 +1,21 @@
+[
+    "apps",
+    "grid-table",
+    "lists",
+    "charts",
+    "calendar",
+    "scheduler",
+    "gantt",
+    "board",
+    "dashboard",
+    "tabs",
+    "layouts",
+    "dialogs",
+    "forms",
+    "buttons",
+    "components",
+    "multi-window",
+    "platform",
+    "state",
+    "functional"
+]

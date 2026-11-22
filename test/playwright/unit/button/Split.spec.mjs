@@ -161,6 +161,11 @@ test.describe('Neo.button.Split: its trigger button', () => {
         expect(clicks).toBe(1);
         expect(triggerButton.menuList.hidden).toBe(true);
 
+        // A trigger click bubbles to the split through its logical parent; the split leaves it to the trigger
+        splitButton.onClick({path: [{id: triggerButton.id}, {id: `${splitButton.id}__wrapper`}]});
+
+        expect(clicks).toBe(1);
+
         splitButton.menu = null;
 
         expect(triggerButton.menu).toBeNull();

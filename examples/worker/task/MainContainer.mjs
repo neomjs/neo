@@ -4,7 +4,6 @@ import Container               from '../../../src/container/Base.mjs';
 import Label                   from '../../../src/component/Label.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Progress                from '../../../src/component/Progress.mjs';
-import Switch                  from '../../../src/form/field/Switch.mjs';
 import Text                    from '../../../src/form/field/Text.mjs';
 import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -36,6 +35,10 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {Object} listeners
+         */
+        listeners: {mounted: 'onMounted'},
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -55,57 +58,70 @@ class MainContainer extends Viewport {
             module: Component,
             flex  : 'none',
             tag   : 'p',
-            text  : 'Run the calculation and type below. Then switch workers and try again.'
+            text  : 'Run the same prime count in each worker. Watch the heartbeat and try typing during each run.'
+        }, {
+            module: Container,
+            cls   : ['neo-task-worker-lanes'],
+            flex  : 1,
+            layout: null,
+            items : [
+                {name: 'Task Worker', prefix: 'task', handler: 'onRunTaskButtonClick'},
+                {name: 'App Worker', prefix: 'app', handler: 'onRunAppButtonClick'}
+            ].map(({name, prefix, handler}) => ({
+                module: Container,
+                cls   : ['neo-task-worker-card', 'neo-task-worker-lane'],
+                layout: {ntype: 'vbox', align: 'stretch'},
+                items : [{
+                    module: Component,
+                    tag   : 'h2',
+                    text  : name
+                }, {
+                    module   : Button,
+                    handler,
+                    reference: `${prefix}-run`,
+                    text     : `Run in ${name}`
+                }, {
+                    module   : Progress,
+                    labelText: 'Numbers checked',
+                    reference: `${prefix}-progress`,
+                    value    : 0
+                }, {
+                    module   : Label,
+                    cls      : ['neo-task-worker-result'],
+                    reference: `${prefix}-result`,
+                    role     : 'status',
+                    text     : 'Ready to count primes up to 16,000,000.'
+                }, {
+                    module   : Label,
+                    cls      : ['neo-task-worker-readout'],
+                    reference: `${prefix}-clock`,
+                    text     : 'App Worker updates during job: —'
+                }]
+            }))
         }, {
             module: Container,
             cls   : ['neo-task-worker-card'],
             flex  : 'none',
             layout: {ntype: 'vbox', align: 'stretch'},
             items : [{
-                module: Container,
-                cls   : ['neo-task-worker-actions'],
-                flex  : 'none',
-                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap', gap: '12px'},
-                items : [{
-                    module   : Button,
-                    handler  : 'onRunButtonClick',
-                    reference: 'run',
-                    text     : 'Count primes',
-                    ui       : 'primary'
-                }, {
-                    module   : Switch,
-                    labelText: 'Use App Worker',
-                    reference: 'useAppWorker'
-                }]
-            }, {
                 module   : Progress,
-                labelText: 'Numbers checked',
-                reference: 'progress',
+                cls      : ['neo-task-worker-heartbeat'],
+                labelText: 'App Worker heartbeat',
+                reference: 'heartbeat',
                 value    : 0
             }, {
-                module   : Label,
-                reference: 'result',
-                role     : 'status',
-                text     : 'Ready to count primes up to 16,000,000.'
-            }]
-        }, {
-            module: Container,
-            cls   : ['neo-task-worker-card'],
-            flex  : 'none',
-            layout: {ntype: 'vbox', align: 'stretch'},
-            items : [{
-                module       : Text,
-                labelPosition: 'top',
-                labelText    : 'Type while the job runs',
-                listeners    : {change: 'onInputChange'}
+                module         : Text,
+                cls            : ['neo-task-worker-input'],
+                labelPosition  : 'top',
+                labelText      : 'Type while the job runs',
+                listeners      : {change: 'onInputChange'},
+                placeholderText: 'Try typing during either run',
+                reference      : 'input'
             }, {
                 module   : Label,
+                cls      : ['neo-task-worker-readout'],
                 reference: 'echo',
                 text     : 'App Worker received 0 characters.'
-            }, {
-                module   : Label,
-                reference: 'clock',
-                text     : 'App Worker timer starts with the job.'
             }]
         }]
     }

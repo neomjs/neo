@@ -31,14 +31,14 @@ class MyTasks extends Base {
     }
 
     /**
-     * @summary Counts one inclusive range on the Task Worker and identifies the worker that executed it.
+     * @summary Counts one inclusive range on the Task Worker.
      * @param {Object} data
      * @param {Number} data.first
      * @param {Number} data.last
-     * @returns {Object}
+     * @returns {Number}
      */
     compute({first, last}) {
-        return {count: countPrimes(first, last), workerId: Neo.workerId}
+        return countPrimes(first, last)
     }
 }
 
