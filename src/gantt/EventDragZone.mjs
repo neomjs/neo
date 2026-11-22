@@ -26,6 +26,7 @@ class GanttEventDragZone extends EventDragZone {
     #cachedTarget = null
     #cachedRefusal = null
     #admissionValid = false
+    #hierarchyRevision = null
     #ownerAdmissionCleanup = null
     #lastLinkData = null
 
@@ -186,11 +187,14 @@ class GanttEventDragZone extends EventDragZone {
         if (!target || this.owner.resolveTaskRecord(this.linkSource) !== this.linkSource ||
             this.owner.resolveTaskRecord(target) !== target ||
             !this.owner.canLinkTasks(this.linkSource, target) || !this.#admissionStore) return false;
-        if (!this.#admissionValid || this.#cachedTarget !== target) {
+        const tasks             = this.owner.store,
+              hierarchyRevision = tasks?.rollupParents ? tasks.getCountMutations() : null;
+        if (!this.#admissionValid || this.#cachedTarget !== target || hierarchyRevision !== this.#hierarchyRevision) {
             const input = {fromId:this.owner.store.getKey(this.linkSource), toId:this.owner.store.getKey(target)};
             this.#cachedRefusal = typeof this.#admissionStore.getFinishToStartRefusal === 'function'
-                ? this.#admissionStore.getFinishToStartRefusal(input)
-                : DependencyStore.getFinishToStartRefusal(this.#admissionStore, input);
+                ? this.#admissionStore.getFinishToStartRefusal(input, tasks)
+                : DependencyStore.getFinishToStartRefusal(this.#admissionStore, input, tasks);
+            this.#hierarchyRevision = hierarchyRevision;
             this.#cachedTarget = target;
             this.#admissionValid = true
         }

@@ -16,8 +16,9 @@ const GanttColumn = Column, GanttBody = Body,
 
 /**
  * @summary Task tree and dependency timeline with a single task-edit writer.
- * @description A row is a task from the tree store. A parent shows its stored dates, so its span can be
- * edited independently of its children. When a date edit triggers a cascade, each reachable successor
+ * @description A row is a task from the tree store. Parents use their stored dates by default. A task store
+ * with `rollupParents` derives each phase from its children and publishes edits to every chart that shares it.
+ * When a date edit triggers a cascade, each reachable successor
  * starts at the latest start required by its incoming links. A shorter predecessor can pull work earlier;
  * a longer one can push work beyond the visible axis. The working calendar, when enabled, determines
  * the elapsed span of the task's working duration. See {@link #moveTask} and {@link #schedule}.
@@ -418,7 +419,7 @@ class Container extends SchedulerContainer {
             return this.#usesService(this.schedule) ? this.schedule.linkTasks(edge) :
                 {status: 'refused', message: 'The service does not match the current stores.'}
         }
-        return this.dependencyStore.addFinishToStart(edge)
+        return this.dependencyStore.addFinishToStart(edge, this.store)
     }
 
     /**
@@ -546,8 +547,12 @@ class Container extends SchedulerContainer {
 
         me._movingTask = true;
         try {
-            for (const entry of entries) {
-                entry.record.set(entry.changes)
+            if (me.store.rollupParents && !service) {
+                me.store.updateRows(entries.map(({record, changes}) => ({key: me.store.getKey(record), values: changes})))
+            } else {
+                for (const entry of entries) {
+                    entry.record.set(entry.changes)
+                }
             }
         } finally {
             me._movingTask = false
@@ -720,7 +725,8 @@ class Container extends SchedulerContainer {
     /** @summary Checks whether the configured link affordance accepts the endpoints. */
     canLinkTasks(from, to=null) {
         const allowed = this.dependencyCreation;
-        return Boolean(allowed && from && from !== to && (allowed === true || typeof allowed === 'function' && allowed(from, to)))
+        return Boolean(allowed && from && from !== to && !this.store?.isDerivedParent?.(to) &&
+            (allowed === true || typeof allowed === 'function' && allowed(from, to)))
     }
 
     /** @summary Creates the live region used for keyboard link announcements. */
@@ -783,9 +789,9 @@ class Container extends SchedulerContainer {
     }
 
     /** @summary Admits task move and dependency-link gestures. */
-    getBarDragContext(zone, path) {
+    getBarDragContext(zone, path, record) {
         const terminal = zone.getLinkTerminal(path);
-        if (terminal ? !this.dependencyCreation : !this.barDraggable) return null;
+        if (terminal ? !this.dependencyCreation : !this.barDraggable || this.store?.isDerivedParent?.(record)) return null;
         this.#setKeyboardLinkSource(null);
         return {terminal: terminal || null}
     }
@@ -1012,6 +1018,10 @@ class Container extends SchedulerContainer {
             return null
         }
 
+        if (me.store?.isDerivedParent?.(record) && [startField, endField, pctField, 'duration'].some(key => key in updates)) {
+            return {status: 'refused', message: 'This phase takes its dates and progress from its tasks.'}
+        }
+
         if ((updates[startField] || updates[endField]) && record.duration !== undefined) {
             const
                 unit         = String(record.durationUnit || 'hour').toLowerCase(),
@@ -1063,18 +1073,18 @@ class Container extends SchedulerContainer {
         let cascaded = [],
             cycles   = [];
 
+        const store   = me.store,
+              cascade = me.cascadeDependencies && meta.cascade !== false && me.dependencyStore && (updates[startField] || updates[endField]);
         me._movingTask = true;
-
         try {
-            record.set(updates);
-
-            if (
-                me.cascadeDependencies &&
-                meta.cascade !== false &&
-                me.dependencyStore &&
-                (updates[startField] || updates[endField])
-            ) {
-                cascaded = me.runDependencyCascade(record, cycles)
+            if (store.rollupParents) {
+                const pending = new Map([[record, updates]]);
+                cascaded = cascade ? me.runDependencyCascade(record, cycles, pending) : store.planParentRollups(pending, [record]);
+                store.updateRows([{key: store.getKey(record), values: updates},
+                    ...cascaded.map(item => ({key: store.getKey(item.record), values: item.changes}))])
+            } else {
+                record.set(updates);
+                if (cascade) cascaded = me.runDependencyCascade(record, cycles)
             }
         } finally {
             me._movingTask = false
