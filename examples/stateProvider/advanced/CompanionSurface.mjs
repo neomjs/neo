@@ -99,11 +99,60 @@ class CompanionSurface extends Container {
             items : [{
                 module   : Button,
                 cls      : ['sp-btn-secondary'],
+                bind     : {disabled: data => data.connected === false},
                 handler  : 'up.onResetMemberClick',
                 reference: 'companion-reset-button',
                 text     : 'Reset member'
             }]
         }]
+    }
+
+    /**
+     * @summary Builds the deterministic popup handle name owned by one primary window.
+     * @param {String} ownerWindowId
+     * @returns {String}
+     */
+    static windowNameFor(ownerWindowId) {
+        return `neo-state-provider-companion-${ownerWindowId}`
+    }
+
+    /**
+     * @summary Checks on the opener's main thread whether its named companion `WindowProxy` is still open.
+     * @param {String} ownerWindowId
+     * @returns {Promise<Boolean>}
+     */
+    static async isWindowOpen(ownerWindowId) {
+        if (!Neo.currentWorker?.isSharedWorker || !ownerWindowId || typeof Neo.Main?.getByPath !== 'function') {
+            return false
+        }
+
+        const closed = await Neo.Main.getByPath({
+            path    : ['Neo', 'Main', 'openWindows', CompanionSurface.windowNameFor(ownerWindowId), 'win', 'closed'],
+            windowId: ownerWindowId
+        }).catch(() => undefined);
+
+        return closed === false
+    }
+
+    /**
+     * @summary Focuses an already-open companion window via `Neo.Main.windowFocus` without replacing its document.
+     * @param {Neo.examples.stateProvider.advanced.MainContainer} ownerView
+     * @returns {Promise<Boolean>}
+     */
+    static async focusWindow(ownerView) {
+        const {windowId} = ownerView;
+        if (!Neo.currentWorker?.isSharedWorker || !windowId || typeof Neo.Main?.windowFocus !== 'function') {
+            return false
+        }
+
+        try {
+            return Boolean(await Neo.Main.windowFocus({
+                windowId,
+                windowName: CompanionSurface.windowNameFor(windowId)
+            }))
+        } catch {
+            return false
+        }
     }
 
     /**
@@ -130,7 +179,7 @@ class CompanionSurface extends Container {
                 url           : url.href,
                 windowFeatures: `popup=yes,width=${width},height=${height},left=${left},top=${top}`,
                 windowId,
-                windowName    : `neo-state-provider-companion-${windowId}`
+                windowName    : CompanionSurface.windowNameFor(windowId)
             });
 
             return Boolean(opened)
@@ -170,9 +219,12 @@ class CompanionSurface extends Container {
     onOwnerDisconnect({windowId}) {
         if (windowId !== this.ownerWindowId) return;
 
+        this.ownerWindowId = null;
         this.stateProvider.setDataAtSameLevel(CompanionSurface.disconnectedState);
         this.stateProvider.parent = null;
-        this.getReference('companion-reset-button').disabled = true
+
+        const resetBtn = this.getReference('companion-reset-button');
+        if (resetBtn) resetBtn.disabled = true
     }
 
     /**

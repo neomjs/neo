@@ -157,9 +157,14 @@ class MainContainer extends Viewport {
                         }]
                     }]
                 }, {
-                    tag : 'p',
-                    cls : ['sp-try-line'],
-                    text: 'Type in the form, open the dialog, or launch a second window — every surface edits one shared record, while the preview panel overrides density locally.'
+                    tag      : 'p',
+                    cls      : ['sp-try-line'],
+                    reference: 'try-line',
+                    bind     : {
+                        text: data => data.canOpenPopup
+                            ? 'Type in the form, open the dialog, or launch a second window — every surface edits one shared record, while the preview panel overrides density locally.'
+                            : 'Type in the form or open the dialog — every surface edits one shared record, while the preview panel overrides density locally.'
+                    }
                 }]
             }, {
                 module: Container,

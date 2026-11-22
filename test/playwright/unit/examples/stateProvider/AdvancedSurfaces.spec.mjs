@@ -14,11 +14,14 @@ import '../../../../../src/manager/Instance.mjs';
 import '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import '../../../../../src/vdom/util/StringFromVnode.mjs';
 import '../../../../../src/vdom/Helper.mjs';
-import MainContainer  from '../../../../../examples/stateProvider/advanced/MainContainer.mjs';
+import CompanionSurface           from '../../../../../examples/stateProvider/advanced/CompanionSurface.mjs';
+import MainContainer              from '../../../../../examples/stateProvider/advanced/MainContainer.mjs';
+import {resolveCompanionOwnerApp} from '../../../../../examples/stateProvider/advanced/app.mjs';
 
 test.beforeEach(() => {
     Neo.ns('Neo.Main', true);
     Neo.Main.getWindowData ??= () => Promise.resolve({innerWidth: 1440, outerWidth: 1440, screenLeft: 0, screenTop: 0});
+    Neo.Main.windowFocus   ??= () => Promise.resolve(true);
     Neo.Main.windowOpen    ??= () => Promise.resolve(true);
 
     Neo.ns('Neo.main.DomAccess', true);
@@ -99,14 +102,115 @@ test.describe('examples/stateProvider/advanced surfaces', () => {
             try {
                 controller.updatePopupCapability(1440);
                 expect(controller.getReference('open-window-button').hidden).toBe(false);
+                expect(controller.getReference('try-line').text).toContain('launch a second window');
 
                 controller.updatePopupCapability(390);
-                expect(controller.getReference('open-window-button').hidden).toBe(true)
+                expect(controller.getReference('open-window-button').hidden).toBe(true);
+                expect(controller.getReference('try-line').text).not.toContain('second window')
             } finally {
                 Neo.currentWorker.isSharedWorker = prevShared
             }
         } finally {
             view.destroy()
+        }
+    });
+
+    test('repeat second-window click uses windowFocus without reopening, and companion reload never adopts an unrelated primary', async () => {
+        const prevShared     = Neo.currentWorker.isSharedWorker,
+              prevWindowOpen = Neo.Main.windowOpen,
+              prevFocus      = Neo.Main.windowFocus,
+              prevGetByPath  = Neo.Main.getByPath,
+              prevConfigs    = Neo.windowConfigs,
+              openCalls      = [],
+              focusCalls     = [];
+
+        Neo.currentWorker.isSharedWorker = true;
+        Neo.currentWorker.isWindowDeparted ??= () => false;
+        Neo.windowConfigs = {
+            ...prevConfigs,
+            'win-a': {url: {href: 'http://localhost:8080/examples/stateProvider/advanced/index.html'}},
+            'win-b': {url: {href: 'http://localhost:8080/examples/stateProvider/advanced/index.html'}}
+        };
+        Neo.Main.windowOpen  = data => { openCalls.push(data); return Promise.resolve(true) };
+        Neo.Main.windowFocus = data => { focusCalls.push(data); return Promise.resolve(true) };
+
+        const viewA        = Neo.create(MainContainer, {appName, windowId: 'win-a'}),
+              viewB        = Neo.create(MainContainer, {appName, windowId: 'win-b'}),
+              disconnected = Neo.create(CompanionSurface, {
+                  appName,
+                  stateProvider: {data: CompanionSurface.disconnectedState},
+                  windowId     : 'win-disconnected'
+              });
+
+        Neo.apps ??= {};
+        Neo.apps['win-a'] = {fire: () => {}, isDestroyed: false, mainView: viewA, name: 'Neo.examples.stateProvider.advanced', windowId: 'win-a'};
+        Neo.apps['win-b'] = {fire: () => {}, isDestroyed: false, mainView: viewB, name: 'Neo.examples.stateProvider.advanced', windowId: 'win-b'};
+
+        try {
+            await viewA.initVnode();
+            await viewB.initVnode();
+            await disconnected.initVnode();
+            viewA.mounted        = true;
+            viewB.mounted        = true;
+            disconnected.mounted = true;
+
+            // First click opens the named companion popup
+            await viewB.controller.onOpenSecondWindowClick();
+            expect(openCalls).toHaveLength(1);
+            expect(openCalls[0].windowName).toBe(CompanionSurface.windowNameFor('win-b'));
+            expect(focusCalls).toHaveLength(0);
+
+            // Simulate the mounted companion bound to win-b -> repeat click focuses instead of calling windowOpen
+            Neo.apps['win-comp'] = {
+                isDestroyed: false,
+                mainView   : {items: [{ownerWindowId: 'win-b'}]},
+                name       : 'Neo.examples.stateProvider.advanced.companion',
+                windowId   : 'win-comp'
+            };
+
+            await viewB.controller.onOpenSecondWindowClick();
+            expect(openCalls).toHaveLength(1);
+            expect(focusCalls).toEqual([{
+                windowId  : 'win-b',
+                windowName: CompanionSurface.windowNameFor('win-b')
+            }]);
+
+            // Reload without nativeRoute keeps win-b via verified opener + targetName ownership (never adopts win-a)
+            Neo.Main.getByPath = ({path, windowId}) => {
+                if (windowId === 'win-comp') {
+                    if (path === 'name')                           return Promise.resolve('target-uuid-b');
+                    if (path === 'opener.closed')                  return Promise.resolve(false);
+                    if (path === 'opener.Neo.worker.Manager.windowId') return Promise.resolve('win-b')
+                }
+                if (windowId === 'win-b' && Array.isArray(path) && path[3] === CompanionSurface.windowNameFor('win-b')) {
+                    return Promise.resolve('target-uuid-b')
+                }
+                return Promise.resolve(undefined)
+            };
+
+            const reloadedOwner = await resolveCompanionOwnerApp('win-comp', {nativeRoute: null});
+            expect(reloadedOwner).toBe(Neo.apps['win-b']);
+
+            // Unowned / mismatched reload returns null rather than falling back to win-a
+            Neo.Main.getByPath = () => Promise.resolve(undefined);
+            const unowned = await resolveCompanionOwnerApp('win-comp', {nativeRoute: null});
+            expect(unowned).toBeNull();
+
+            // Disconnected surface disables both reset button and fields
+            expect(disconnected.getReference('companion-reset-button').disabled).toBe(true);
+            expect(disconnected.down({name: 'window-name'}).disabled).toBe(true)
+        } finally {
+            delete Neo.apps['win-a'];
+            delete Neo.apps['win-b'];
+            delete Neo.apps['win-comp'];
+            disconnected.destroy();
+            viewB.destroy();
+            viewA.destroy();
+            Neo.Main.windowOpen              = prevWindowOpen;
+            Neo.Main.windowFocus             = prevFocus;
+            Neo.Main.getByPath               = prevGetByPath;
+            Neo.windowConfigs                = prevConfigs;
+            Neo.currentWorker.isSharedWorker = prevShared
         }
     })
 });

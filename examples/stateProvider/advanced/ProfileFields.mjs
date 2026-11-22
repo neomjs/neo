@@ -43,7 +43,10 @@ class ProfileFields extends Container {
                   labelText,
                   name         : `${prefix}-${key}`,
                   placeholder,
-                  bind         : {value: data => data[`member.${key}`] ?? ''},
+                  bind         : {
+                      disabled: data => data.connected === false,
+                      value   : data => data[`member.${key}`] ?? ''
+                  },
                   listeners    : {change: opts => me.onFieldInput(key, opts), scope: me}
               });
 

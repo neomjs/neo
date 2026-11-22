@@ -3,6 +3,59 @@ import {resolveStartTheme} from '../../../src/util/Theme.mjs';
 import CompanionSurface    from './CompanionSurface.mjs';
 import MainContainer       from './MainContainer.mjs';
 
+const PRIMARY_APP_NAME   = 'Neo.examples.stateProvider.advanced',
+      COMPANION_APP_NAME = 'Neo.examples.stateProvider.advanced.companion';
+
+/**
+ * @summary Resolves the exact primary application that opened this companion window, either via its
+ * one-time `nativeRoute` handshake on initial open or via verified `window.opener` + `openWindows`
+ * handle ownership across same-window reloads. Never falls back to an unrelated primary window.
+ * @param {String} windowId
+ * @param {Object|null} windowData
+ * @returns {Promise<Neo.controller.Application|null>}
+ */
+export async function resolveCompanionOwnerApp(windowId, windowData) {
+    const isLivePrimary = candidate =>
+        candidate?.name === PRIMARY_APP_NAME &&
+        !candidate.isDestroyed &&
+        !Neo.currentWorker?.isWindowDeparted?.(candidate.windowId) &&
+        candidate.mainView &&
+        !candidate.mainView.isDestroyed;
+
+    const route = windowData?.nativeRoute;
+
+    if (route?.targetWindowId === windowId) {
+        const routedOwner = Neo.apps?.[route.ownerWindowId];
+        return isLivePrimary(routedOwner) ? routedOwner : null
+    }
+
+    if (typeof Neo.Main?.getByPath !== 'function') {
+        return null
+    }
+
+    const [targetName, openerClosed, openerWindowId] = await Promise.all([
+        Neo.Main.getByPath({path: 'name', windowId}).catch(() => null),
+        Neo.Main.getByPath({path: 'opener.closed', windowId}).catch(() => true),
+        Neo.Main.getByPath({path: 'opener.Neo.worker.Manager.windowId', windowId}).catch(() => null)
+    ]);
+
+    if (openerClosed !== false || !targetName || !openerWindowId) {
+        return null
+    }
+
+    const openerApp = Neo.apps?.[openerWindowId];
+    if (!isLivePrimary(openerApp)) {
+        return null
+    }
+
+    const registeredTargetName = await Neo.Main.getByPath({
+        path    : ['Neo', 'Main', 'openWindows', CompanionSurface.windowNameFor(openerWindowId), 'targetName'],
+        windowId: openerWindowId
+    }).catch(() => null);
+
+    return registeredTargetName === targetName ? openerApp : null
+}
+
 /**
  * @summary Boots the primary StateProvider workspace, or mounts a companion editor window bound to its opener's StateProvider.
  * @returns {Promise<Neo.controller.Application>|Neo.controller.Application}
@@ -16,7 +69,7 @@ export async function onStart() {
     if (params.get('companion') !== '1') {
         return Neo.app({
             mainView: {module: MainContainer, theme},
-            name    : 'Neo.examples.stateProvider.advanced',
+            name    : PRIMARY_APP_NAME,
             windowId
         })
     }
@@ -28,22 +81,19 @@ export async function onStart() {
             layout: 'base',
             theme
         },
-        name: 'Neo.examples.stateProvider.advanced.companion',
+        name: COMPANION_APP_NAME,
         windowId
     });
 
     const data = await Neo.Main.getWindowData({windowId}).catch(() => null);
     if (app.isDestroyed) return app;
 
-    const route    = data?.nativeRoute,
-          ownerApp = (route?.targetWindowId === windowId && Neo.apps?.[route.ownerWindowId])
-                     || Object.values(Neo.apps || {}).find(candidate =>
-                         candidate?.name === 'Neo.examples.stateProvider.advanced' &&
-                         !Neo.currentWorker.isWindowDeparted?.(candidate.windowId)
-                     ),
-          primaryView = ownerApp?.mainView;
+    const ownerApp    = await resolveCompanionOwnerApp(windowId, data),
+          primaryView = ownerApp && !app.isDestroyed && !ownerApp.mainView?.isDestroyed ? ownerApp.mainView : null;
 
-    if (primaryView && !primaryView.isDestroyed) {
+    if (app.isDestroyed) return app;
+
+    if (primaryView) {
         app.mainView.theme = primaryView.getTheme();
         app.mainView.observeConfig(primaryView, 'theme', nextTheme => {
             if (!app.isDestroyed && nextTheme && app.mainView.theme !== nextTheme) {
@@ -64,6 +114,8 @@ export async function onStart() {
             ? {parent: primaryView.getStateProvider()}
             : {data: CompanionSurface.disconnectedState}
     });
+
+    primaryView?.controller?.onWorkerWindowChange?.();
 
     return app
 }

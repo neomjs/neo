@@ -21,7 +21,7 @@ test.describe('One state, every surface (stateProvider/advanced)', () => {
         const app = await neuralLink.connectToApp('Neo.examples.stateProvider.advanced');
 
         await expect(page.locator('.sp-hero-name')).toHaveText('Maya Lin', {timeout: 30000});
-        await expect(page.locator('.sp-try-line')).toContainText('every surface edits one shared record');
+        await expect(page.locator('.sp-try-line')).toContainText('launch a second window');
         await expect(page.locator('.sp-scope-row-override .sp-scope-value')).toHaveText('Compact');
 
         const openDialogBtn = page.getByRole('button', {name: 'Edit in dialog'}),
@@ -95,12 +95,133 @@ test.describe('One state, every surface (stateProvider/advanced)', () => {
             await expect(page.locator('.sp-advanced-viewport')).toHaveClass(/neo-theme-neo-light/);
             await expect(companion.locator('.sp-companion-viewport')).toHaveClass(/neo-theme-neo-light/);
 
-            // 6. Reset member button visibly restores Maya Lin across every open surface
+            // 6. Repeat focus preserves the companion document (sentinel + timeOrigin unchanged)
+            const beforeFocus = await companion.evaluate(() => {
+                window.__companionSentinel = 'alive-single-primary';
+                return performance.timeOrigin
+            });
+            await page.bringToFront();
+            const focusWindowBtn = page.getByRole('button', {name: 'Focus second window'});
+            await expect(focusWindowBtn).toBeVisible();
+            await focusWindowBtn.click();
+            const afterFocus = await companion.evaluate(() => ({
+                sentinel  : window.__companionSentinel,
+                timeOrigin: performance.timeOrigin
+            }));
+            expect(afterFocus).toEqual({sentinel: 'alive-single-primary', timeOrigin: beforeFocus});
+
+            // 7. Reset member button visibly restores Maya Lin across every open surface
             await companion.getByRole('button', {name: 'Reset member'}).click();
             await expect(page.locator('.sp-hero-name')).toHaveText('Maya Lin');
             await expect(dialog.locator('input[name="dialog-name"]')).toHaveValue('Maya Lin');
         } finally {
             await companion.close({runBeforeUnload: true})
+        }
+
+        expect(consoleErrors).toEqual([])
+    });
+
+    test('companion opened from Primary B keeps its document on repeat focus, stays bound to B across reload, and never adopts Primary A', async ({page}) => {
+        const consoleErrors = [],
+              context       = page.context();
+
+        page.on('console', msg => msg.type() === 'error' && consoleErrors.push(`primaryA: ${msg.text()}`));
+        page.on('pageerror', err => consoleErrors.push(`primaryA: ${err.message}`));
+
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${ENTRY}?theme=neo-theme-neo-dark`);
+        await expect(page.locator('.sp-hero-name')).toHaveText('Maya Lin', {timeout: 30000});
+        await page.locator('input[name="form-name"]').fill('First Primary');
+        await expect(page.locator('.sp-hero-name')).toHaveText('First Primary');
+
+        const pageB = await context.newPage();
+        pageB.on('console', msg => msg.type() === 'error' && consoleErrors.push(`primaryB: ${msg.text()}`));
+        pageB.on('pageerror', err => consoleErrors.push(`primaryB: ${err.message}`));
+
+        let companionB      = null,
+            directCompanion = null;
+
+        try {
+            await pageB.setViewportSize({width: 1440, height: 900});
+            await pageB.goto(`${ENTRY}?theme=neo-theme-neo-dark`);
+            await expect(pageB.locator('.sp-hero-name')).toHaveText('Maya Lin', {timeout: 30000});
+
+            await pageB.locator('input[name="form-name"]').fill('Second Primary');
+            await expect(pageB.locator('.sp-hero-name')).toHaveText('Second Primary');
+            await expect(page.locator('.sp-hero-name')).toHaveText('First Primary');
+
+            // Open companion from Primary B while Primary A is also open in the same SharedWorker
+            [companionB] = await Promise.all([
+                pageB.waitForEvent('popup'),
+                pageB.getByRole('button', {name: 'Open second window'}).click()
+            ]);
+            companionB.on('console', msg => msg.type() === 'error' && consoleErrors.push(`companionB: ${msg.text()}`));
+            companionB.on('pageerror', err => consoleErrors.push(`companionB: ${err.message}`));
+
+            await expect(companionB.locator('.sp-companion-member-name')).toHaveText('Second Primary', {timeout: 30000});
+
+            // 1. Repeat focus from Primary B preserves companionB's document sentinel and performance.timeOrigin
+            const originBeforeFocus = await companionB.evaluate(() => {
+                window.__companionSentinel = 'sentinel-b-1';
+                return performance.timeOrigin
+            });
+            await pageB.bringToFront();
+            const focusBtnB = pageB.getByRole('button', {name: 'Focus second window'});
+            await expect(focusBtnB).toBeVisible();
+            await focusBtnB.click();
+
+            expect(await companionB.evaluate(() => ({
+                sentinel  : window.__companionSentinel,
+                timeOrigin: performance.timeOrigin
+            }))).toEqual({sentinel: 'sentinel-b-1', timeOrigin: originBeforeFocus});
+
+            // 2. Reloading companionB keeps it connected to Primary B (never switches to Primary A)
+            await companionB.reload();
+            await expect(companionB.locator('.sp-companion-member-name')).toHaveText('Second Primary', {timeout: 30000});
+            await expect(page.locator('.sp-hero-name')).toHaveText('First Primary');
+
+            await companionB.locator('input[name="window-name"]').fill('Second Primary After Reload');
+            await expect(pageB.locator('.sp-hero-name')).toHaveText('Second Primary After Reload');
+            await expect(page.locator('.sp-hero-name')).toHaveText('First Primary');
+
+            // Repeat focus after reload still preserves the reloaded document
+            const originAfterReload = await companionB.evaluate(() => {
+                window.__companionSentinel = 'sentinel-b-after-reload';
+                return performance.timeOrigin
+            });
+            await pageB.bringToFront();
+            await expect(focusBtnB).toBeVisible();
+            await focusBtnB.click();
+            expect(await companionB.evaluate(() => ({
+                sentinel  : window.__companionSentinel,
+                timeOrigin: performance.timeOrigin
+            }))).toEqual({sentinel: 'sentinel-b-after-reload', timeOrigin: originAfterReload});
+
+            // 3. Direct unowned ?companion=1 navigation shows disconnected state rather than adopting Primary A or B
+            directCompanion = await context.newPage();
+            directCompanion.on('console', msg => msg.type() === 'error' && consoleErrors.push(`direct: ${msg.text()}`));
+            directCompanion.on('pageerror', err => consoleErrors.push(`direct: ${err.message}`));
+
+            await directCompanion.goto(`${ENTRY}?companion=1&theme=neo-theme-neo-dark`);
+            await expect(directCompanion.locator('.sp-companion-member-name')).toHaveText('Primary window closed', {timeout: 30000});
+            await expect(directCompanion.getByRole('button', {name: 'Reset member'})).toBeDisabled();
+
+            // 4. Closing Primary B detaches companionB cleanly; reloading companionB afterwards stays disconnected (never adopts A)
+            await pageB.close({runBeforeUnload: true});
+            await expect(companionB.locator('.sp-companion-member-name')).toHaveText('Primary window closed');
+            await companionB.reload();
+            await expect(companionB.locator('.sp-companion-member-name')).toHaveText('Primary window closed', {timeout: 30000});
+            await expect(page.locator('.sp-hero-name')).toHaveText('First Primary')
+        } finally {
+            if (directCompanion && !directCompanion.isClosed()) {
+                await directCompanion.close({runBeforeUnload: true})
+            }
+            if (companionB && !companionB.isClosed()) {
+                await companionB.close({runBeforeUnload: true})
+            }
+            if (!pageB.isClosed()) {
+                await pageB.close({runBeforeUnload: true})
+            }
         }
 
         expect(consoleErrors).toEqual([])
@@ -116,6 +237,7 @@ test.describe('One state, every surface (stateProvider/advanced)', () => {
 
         await expect(page.locator('.sp-hero-name')).toHaveText('Maya Lin', {timeout: 30000});
         await expect(page.locator('.neo-button').filter({hasText: /second window/i})).toBeHidden();
+        await expect(page.locator('.sp-try-line')).not.toContainText('second window');
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
         await page.locator('.sp-hero .neo-theme-switcher').click();

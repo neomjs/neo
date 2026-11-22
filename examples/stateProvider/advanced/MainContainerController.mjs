@@ -16,6 +16,13 @@ class MainContainerController extends Controller {
      */
     dialog = null
 
+    /**
+     * Prevents concurrent `windowOpen` calls while a companion window is staging.
+     * @member {Boolean} #openingCompanion=false
+     * @private
+     */
+    #openingCompanion = false
+
     static config = {
         /**
          * @member {String} className='Neo.examples.stateProvider.advanced.MainContainerController'
@@ -148,28 +155,65 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @summary Launches (or focuses) the companion browser window bound to this view's StateProvider.
+     * @summary Checks whether an active companion app in the SharedWorker is currently bound to this primary window.
+     * @returns {Boolean}
+     */
+    hasLiveCompanion() {
+        const ownerId = this.component?.windowId;
+        if (!ownerId || !Neo.currentWorker?.isSharedWorker) return false;
+
+        return Object.values(Neo.apps || {}).some(app =>
+            app?.name === 'Neo.examples.stateProvider.advanced.companion' &&
+            !Neo.currentWorker.isWindowDeparted?.(app.windowId) &&
+            app.mainView?.items?.[0]?.ownerWindowId === ownerId
+        )
+    }
+
+    /**
+     * @summary Focuses an existing companion window in place via `Neo.Main.windowFocus`, or opens a new one bound to this view's StateProvider.
      * @returns {Promise<void>}
      */
     async onOpenSecondWindowClick() {
-        const me     = this,
-              opened = await CompanionSurface.openWindow(me.component);
+        const me = this;
+        if (me.isDestroyed || me.#openingCompanion) return;
 
-        if (me.isDestroyed) return;
+        const {windowId} = me.component;
 
-        if (!opened) {
+        if (me.hasLiveCompanion() || await CompanionSurface.isWindowOpen(windowId)) {
+            const focused = await CompanionSurface.focusWindow(me.component);
+            if (me.isDestroyed) return;
+
             me.getStateProvider().setData({
-                canOpenPopup : false,
-                companionOpen: false,
-                surfaceNotice: 'Second window unavailable here — popups are blocked or unsupported in this viewport.'
+                companionOpen: true,
+                surfaceNotice: focused
+                    ? 'Focused the connected second window.'
+                    : 'Second window is already open — bring it forward if the browser declined focus.'
             });
             return
         }
 
-        me.getStateProvider().setData({
-            companionOpen: true,
-            surfaceNotice: 'Second window connected to the same StateProvider.'
-        })
+        me.#openingCompanion = true;
+
+        try {
+            const opened = await CompanionSurface.openWindow(me.component);
+            if (me.isDestroyed) return;
+
+            if (!opened) {
+                me.getStateProvider().setData({
+                    canOpenPopup : false,
+                    companionOpen: false,
+                    surfaceNotice: 'Second window unavailable here — popups are blocked or unsupported in this viewport.'
+                });
+                return
+            }
+
+            me.getStateProvider().setData({
+                companionOpen: true,
+                surfaceNotice: 'Second window connected to the same StateProvider.'
+            })
+        } finally {
+            me.#openingCompanion = false
+        }
     }
 
     /**
@@ -217,15 +261,7 @@ class MainContainerController extends Controller {
      */
     onWorkerWindowChange() {
         if (this.isDestroyed) return;
-
-        const ownerId      = this.component.windowId,
-              hasCompanion = Object.values(Neo.apps || {}).some(app =>
-                  app?.name === 'Neo.examples.stateProvider.advanced.companion' &&
-                  !Neo.currentWorker.isWindowDeparted?.(app.windowId) &&
-                  app.mainView?.items?.[0]?.ownerWindowId === ownerId
-              );
-
-        this.getStateProvider()?.setData('companionOpen', hasCompanion)
+        this.getStateProvider()?.setData('companionOpen', this.hasLiveCompanion())
     }
 
     /**
