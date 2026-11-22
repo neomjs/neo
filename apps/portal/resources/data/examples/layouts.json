@@ -23,6 +23,66 @@
         "lookFor": "Note both fields share the clearable textfield defaults while their labels differ in length."
     },
     {
+        "id": "container-accordion",
+        "kind": "component",
+        "image": "devmode/tiles/container-accordion-14.jpg",
+        "hasLightCover": true,
+        "name": "Accordion",
+        "sourceUrl": "examples/container/accordion",
+        "urls": {
+            "devmode": "examples/container/accordion/index.html",
+            "dist_dev": "dist/development/examples/container/accordion/index.html",
+            "dist_esm": "dist/esm/examples/container/accordion/index.html",
+            "dist_prod": "dist/production/examples/container/accordion/index.html"
+        },
+        "hiddenIn": [],
+        "family": "layouts",
+        "order": 1030,
+        "component": "Accordion",
+        "feature": "A shop's help center: questions that open one answer at a time, or as many as maxExpandedItems allows",
+        "lookFor": "Open another question by its arrow, then raise maxExpandedItems in the panel and open a third. Lower it again and the first opened closes."
+    },
+    {
+        "id": "layout-card",
+        "kind": "component",
+        "image": "devmode/tiles/layout-card-14.jpg",
+        "hasLightCover": true,
+        "name": "Card layout",
+        "sourceUrl": "examples/layout/card",
+        "urls": {
+            "devmode": "examples/layout/card/index.html",
+            "dist_dev": "dist/development/examples/layout/card/index.html",
+            "dist_esm": "dist/esm/examples/layout/card/index.html",
+            "dist_prod": "dist/production/examples/layout/card/index.html"
+        },
+        "hiddenIn": [],
+        "family": "layouts",
+        "order": 1040,
+        "component": "Card layout",
+        "feature": "A three-step setup wizard: one card per step, sliding in the direction you choose",
+        "lookFor": "Go through the steps with Next and Back, by pointer or with the keyboard, then switch slideDirection in the panel."
+    },
+    {
+        "id": "container-fragment",
+        "kind": "component",
+        "image": "devmode/tiles/container-fragment-14.jpg",
+        "hasLightCover": true,
+        "name": "Fragment",
+        "sourceUrl": "examples/container/fragment",
+        "urls": {
+            "devmode": "examples/container/fragment/index.html",
+            "dist_dev": "dist/development/examples/container/fragment/index.html",
+            "dist_esm": "dist/esm/examples/container/fragment/index.html",
+            "dist_prod": "dist/production/examples/container/fragment/index.html"
+        },
+        "hiddenIn": [],
+        "family": "layouts",
+        "order": 1050,
+        "component": "Fragment",
+        "feature": "Fields grouped without a wrapper: they keep their places in the form's grid, and the form's DOM beside it shows no extra element",
+        "lookFor": "Hide the address from the panel, then move it to the top: its fields go together, and the DOM list follows."
+    },
+    {
         "id": "layouts-side-by-side",
         "name": "Layouts Side by Side",
         "family": "layouts",

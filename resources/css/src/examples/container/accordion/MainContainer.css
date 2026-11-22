@@ -1,0 +1,7 @@
+/* The help center's answers read as text under their question, not as a panel of their own */
+.examples-help-center .help-center {
+    .help-center-answer {
+        line-height: 1.5;
+        padding    : 4px 16px 14px;
+    }
+}

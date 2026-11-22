@@ -17,7 +17,6 @@ const near = (actual, expected, tolerance = 2) => Math.abs(actual - expected) <=
  */
 async function openDialog(page) {
     await page.goto('/examples/dialog/index.html');
-    await page.getByRole('button', {name: 'Create Dialog'}).click();
 
     const dialog = page.locator('.neo-dialog').first();
 
