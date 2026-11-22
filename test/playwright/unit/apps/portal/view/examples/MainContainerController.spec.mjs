@@ -59,7 +59,7 @@ const tileIds = (view, family) => view.getGroupPage(family).getTileList().store.
 /**
  * @summary What a group's page shows in a build, worked out from the raw records by the view's rule: the records whose
  * home `family` or `alsoIn` names the group and that publish there, the cards in catalog order and the tiles by name.
- * The tests hold the view to it instead of to lists of ids, so an examples PR edits no line of this spec (#21539).
+ * The tests hold the view to it instead of to lists of ids, so an examples PR edits no line of this spec.
  * @param {String} family
  * @param {String} [mode='dist_prod']
  * @param {Object[]} [records=catalog]
@@ -724,7 +724,7 @@ const {records: catalog} = await readExampleCatalog(path.join(repoRoot, EXAMPLES
       ],
       // [home count, count from other groups] per published group in a production build, in definition order, from the
       // records by the view's rule. A group's records live in its own file, whose diff says which group gained what, so
-      // the counts derive and an examples PR edits no line here (#21539, after #21484's one literal per group).
+      // the counts derive and an examples PR edits no line here.
       groupCounts = Object.fromEntries(ExamplesMainContainer.config.familyDefinitions
           .map(({family}) => [family, [
               catalog.filter(record => record.family === family && Example.publishes(record, 'dist_prod')).length,

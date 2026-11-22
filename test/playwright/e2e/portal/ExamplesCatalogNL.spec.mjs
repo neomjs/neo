@@ -386,7 +386,11 @@ test.describe('Portal examples section', () => {
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText(headlineOf(published));
 
-        for (const [name, count] of [['Scheduler', 11], ['Gantt', 8], ['Task Board', 9]]) {
+        // a planning group's number is its page's cards; it is read, so an examples PR edits no line here
+        for (const name of ['Scheduler', 'Gantt', 'Task Board']) {
+            const count = Number(await counts.nth(GROUPS.indexOf(name)).textContent());
+
+            expect(count, name).toBeGreaterThan(0);
             await expect(page.locator(SIDEBAR).getByRole('link', {
                 name : `${name}, ${count} live examples`,
                 exact: true
