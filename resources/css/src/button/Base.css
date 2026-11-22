@@ -157,7 +157,8 @@
         outline: var(--button-outline-active);
     }
 
-    &:focus:where(:focus-visible, .neo-focus-keyboard):not(.neo-focus-pointer) {
+    &:focus-visible:not(.neo-focus-pointer),
+    &:focus:where(.neo-focus-keyboard):not(.neo-focus-pointer) {
         /* Both bands stay inside clipped toolbars. The neutral band remains visible on accent fills. */
         outline       : 2px solid var(--sem-color-border-focus, CanvasText);
         outline-offset: -2px;
