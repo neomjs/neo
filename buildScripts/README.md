@@ -70,12 +70,16 @@ another group borrows through `alsoIn`; a record without `order` comes after the
 published package that middleware-v2 reads it from.
 
 **A cover is the frame a visitor lands on.** A covered record without a recipe is captured from its landing frame:
-a 960×540 viewport at device scale 1⅓ (a 1280×720 JPEG), the whole frame, opened with `?theme=neo-theme-neo-dark` as
-the dark catalog opens it, once the network is idle, a configured theme shows on `<body>` or inside it and the DOM has
-held still for a second. An example that ignores `?theme=` and opens on a light theme fails: a light frame is no dark cover. An example whose cover needs a state (an open editor, a selection, a zoom) starts in
-that state, set in its own code, so the visitor lands on it too. The recipes in `buildScripts/docs/captureExamples.json`,
-beside this script and out of the published package, are frozen: add none, and delete an example's recipe once it
-lands on its state. The catalog owns IDs and development URLs; each remaining
+a 960×540 viewport at device scale 1⅓ (a 1280×720 JPEG), the whole frame, once the network is idle, a configured theme
+shows on `<body>` or inside it and the DOM has held still for a second. Each is shot twice, opened with `?theme=` as the
+catalog in that theme opens it: Neo Dark under the base name (`devmode/<id>-<suffix>.jpg`) and Neo Light as its partner
+(`devmode/<id>-<suffix>-light.jpg`), so a card's cover follows the Portal's theme. A pass whose frame opens in the other
+scheme (an example that ignores `?theme=`) fails: a light frame is no dark cover, and a copy of the dark one is no
+partner. An example whose cover needs a state (an open editor, a selection, a zoom) starts in that state, set in its own
+code, so the visitor lands on it too. The recipes in `buildScripts/docs/captureExamples.json`, beside this script and
+out of the published package, are frozen: add none, and delete an example's recipe once it lands on its state. A recipe
+cover is dark only; its record gets a light partner when its recipe goes. The catalog owns IDs and development URLs;
+each remaining
 recipe supplies its viewport, theme action, feature-state checks and 640×360 CSS region. Captures produce 1280×720
 JPEGs of at most 150,000 bytes.
 Each run uses a new empty output directory under `test-results/example-covers/` unless `--output-dir`

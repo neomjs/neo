@@ -34,26 +34,32 @@ test('capture identity and URL come from the catalog without mutating either inp
 
 /** @summary The ids of the validated entries that capture their record's landing frame. */
 function landingIds(valid) {
-    return valid.recipes.filter(recipe => recipe.landing).map(recipe => recipe.id)
+    return [...new Set(valid.recipes.filter(recipe => recipe.landing).map(recipe => recipe.id))]
 }
 
-test('a covered record without a recipe is captured from the frame a visitor lands on, with no input of its own', () => {
+test('a covered record without a recipe is captured from the frame a visitor lands on, dark and light, with no input of its own', () => {
     const records = catalog();
     expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
     records.push({id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
-    const entry = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-two');
-    expect(entry).toEqual({
-        id      : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', url: 'examples/grid/two/?theme=neo-theme-neo-dark',
-        viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.',
-        ready   : [], steps: [], after: [], region: 'viewport'
-    });
-    expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual([entry])
+    const entries = validateCaptureRecipes(manifest(), records).recipes.filter(recipe => recipe.id === 'grid-two'),
+          landing = {
+              id   : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', viewport: {width: 960, height: 540},
+              state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'
+          };
+    expect(entries).toEqual([
+        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-dark',  theme: 'dark',    variant: ''},
+        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-light', theme: 'default', variant: '-light'}
+    ]);
+    expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual(entries)
 });
 
-test('a landing capture opens the record\'s link as the dark catalog does, keeping its query and hash', () => {
+test('a landing capture opens the record\'s link as the catalog in each theme does, keeping its query and hash', () => {
     const records = [...catalog(), {id: 'grid-three', family: 'grid-table', image: 'grid-three.jpg', urls: {devmode: 'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-light#/start'}}],
-        entry     = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-three');
-    expect(entry.url).toBe('examples/grid/three/index.html?rows=50&theme=neo-theme-neo-dark#/start')
+        urls      = validateCaptureRecipes(manifest(), records).recipes.filter(recipe => recipe.id === 'grid-three').map(recipe => recipe.url);
+    expect(urls).toEqual([
+        'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-dark#/start',
+        'examples/grid/three/index.html?rows=50&theme=neo-theme-neo-light#/start'
+    ])
 });
 
 test('an external-origin covered record gets no landing capture, a same-origin one does', () => {

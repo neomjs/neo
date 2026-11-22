@@ -31,18 +31,24 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     DARK_THEMES      = ['neo-theme-neo-dark', 'neo-theme-dark'], TILE_VIEWPORT = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
     LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
     LANDING_QUIET_MS = 1000,
-    LANDING_THEME    = 'neo-theme-neo-dark';
+    // The Portal shows a card's cover in its own theme: the dark cover keeps the base file name, its light partner
+    // adds `-light` before the extension
+    LANDING_THEMES   = [
+        {theme: 'neo-theme-neo-dark',  scheme: 'dark',    variant: ''},
+        {theme: 'neo-theme-neo-light', scheme: 'default', variant: '-light'}
+    ];
 
 /**
- * @summary The link a landing capture opens: the record's devmode URL with `?theme=` set to the dark theme, as the dark
- * catalog opens an example, so the cover shows the theme a visitor lands on.
+ * @summary The link a landing capture opens: the record's devmode URL with `?theme=` set, as the catalog in that theme
+ * opens an example, so the cover shows the theme a visitor lands on.
  * @param {String} devmode The record's `urls.devmode`, relative to the base URL
+ * @param {String} theme The Neo theme, e.g. 'neo-theme-neo-dark'
  * @returns {String}
  */
-function landingUrl(devmode) {
+function landingUrl(devmode, theme) {
     const url = new URL(devmode, 'http://capture.invalid/');
 
-    url.searchParams.set('theme', LANDING_THEME);
+    url.searchParams.set('theme', theme);
     return url.pathname.slice(1) + url.search + url.hash
 }
 
@@ -155,7 +161,8 @@ function catalogTiles(listed, catalog) {
  * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
  * (`kind: 'component'`) takes its crop from the `tiles` list, so it needs no recipe in a declared family. A covered
- * card without a recipe gets a landing entry (`landing: true`): its cover is the frame a visitor lands on.
+ * card without a recipe gets a landing entry (`landing: true`) per theme in `LANDING_THEMES`: its cover is the frame a
+ * visitor lands on, in Neo Dark under the base file name and in Neo Light as its `-light` partner.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog The catalog's records, from `readExampleCatalog()`.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
@@ -217,7 +224,9 @@ export function validateCaptureRecipes(manifest, catalog) {
     for (const record of catalog) {
         if (manifest.families.includes(record.family) && record.kind !== 'component' && record.image && !ids.has(record.id) && !/^https?:\/\//i.test(record.urls?.devmode || '')) {
             text(record.urls?.devmode, `catalog.${record.id}.urls.devmode`);
-            recipes.push({id: record.id, ...structuredClone(LANDING), landing: true, family: record.family, url: landingUrl(record.urls.devmode), name: record.name || record.id})
+            for (const {theme, scheme, variant} of LANDING_THEMES) {
+                recipes.push({id: record.id, ...structuredClone(LANDING), theme: scheme, variant, landing: true, family: record.family, url: landingUrl(record.urls.devmode, theme), name: record.name || record.id})
+            }
         }
     }
     return {...structuredClone(manifest), recipes, tiles: catalogTiles(tileList(manifest.tiles), catalog)}
@@ -503,7 +512,7 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
                   size  = jpegSize(bytes);
             insist(size.width === WIDTH * DPR && size.height === HEIGHT * DPR, recipe.id, 'JPEG must be 1280x720');
             if (bytes.length > MAX_BYTES) continue;
-            const relative = `devmode/${recipe.id}-${manifest.suffix}.jpg`, file = path.join(output, relative);
+            const relative = `devmode/${recipe.id}-${manifest.suffix}${recipe.variant ?? ''}.jpg`, file = path.join(output, relative);
             await fs.writeFile(file, bytes, {flag: 'wx'});
             return {...row, status: 'captured', image: relative, quality, ...size, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex')}
         }
