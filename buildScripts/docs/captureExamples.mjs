@@ -33,6 +33,7 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     FILENAME_ID      = /^[a-zA-Z0-9_-]+$/,
     LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
     LANDING_QUIET_MS = 1000,
+    NETWORK_QUIET_MS = 500,
     // The Portal shows a cover or tile in its own theme: the dark image keeps the base file name, its light partner adds
     // `-light` before the extension. A pass asks for its first theme and takes any of its themes, as an example or a
     // workbench may offer only the legacy one; a frame in another scheme is no image of this pass
@@ -482,15 +483,87 @@ export function viewMounted(doc = document) {
 }
 
 /**
- * @summary Waits until a landing frame holds still: the network is idle, the app shows a configured theme
- * ({@link shownTheme}), its view has mounted ({@link viewMounted}), and the DOM has not changed for LANDING_QUIET_MS.
- * One rule for every example, with no selector of its own; an example that never settles fails, because its landing
- * state is not a frame a cover can show.
+ * @summary Records, from before its navigation, the requests a page has open and when its network last moved, as
+ * Playwright reports them, plus the requests Chromium names a SharedWorker's start-up (`Sec-Fetch-Dest: sharedworker`,
+ * which only its own network events carry): the ledger {@link networkQuiet} reads.
  * @param {Object} page
- * @returns {Promise<void>}
+ * @returns {Promise<{lastActivity: Number, pending: Set<Object>, startups: Map<String, String>}>}
  */
-export async function landingReady(page) {
-    await page.waitForLoadState('networkidle', {timeout: 15000});
+export async function trackNetwork(page) {
+    const cdp     = await page.context().newCDPSession(page),
+          network = {lastActivity: Date.now(), pending: new Set(), startups: new Map()},
+          urls    = new Map(),
+          workers = new Set(),
+          settle  = request => {network.pending.delete(request); network.lastActivity = Date.now()},
+          name    = requestId => urls.has(requestId) && workers.has(requestId) && network.startups.set(requestId, urls.get(requestId));
+
+    page.on('request', request => {network.pending.add(request); network.lastActivity = Date.now()});
+    page.on('requestfinished', settle);
+    page.on('requestfailed', settle);
+    cdp.on('Network.requestWillBeSent', ({requestId, request}) => {urls.set(requestId, request.url); name(requestId)});
+    cdp.on('Network.requestWillBeSentExtraInfo', ({requestId, headers}) => {
+        Object.entries(headers).some(([key, value]) => key.toLowerCase() === 'sec-fetch-dest' && value === 'sharedworker') && workers.add(requestId) && name(requestId)
+    });
+    await cdp.send('Network.enable');
+
+    return network
+}
+
+/**
+ * @summary Waits until no request has been open for NETWORK_QUIET_MS, apart from the start-up scripts of SharedWorkers:
+ * requests Chromium names one, for a worker the browser runs. Chromium hands that script to the worker, and the page
+ * never sees it finish, so Playwright's `networkidle` never arrives for a SharedWorker example. A URL only passes as
+ * often as Chromium named it, so a request that shares a worker's URL keeps the page waiting, as does any other open
+ * request, and a timeout names both kinds.
+ * @param {{lastActivity: Number, pending: Set<Object>, startups: Map<String, String>}} network The ledger of
+ * {@link trackNetwork}
+ * @param {Function} sharedWorkerUrls Resolves the script URLs of the SharedWorkers the browser runs
+ * @param {Number} [timeout=15000]
+ * @returns {Promise<String[]>} The start-up scripts it did not wait for
+ */
+export async function networkQuiet(network, sharedWorkerUrls, timeout=15000) {
+    const deadline = Date.now() + timeout;
+    let open, startups;
+
+    while (true) {
+        const workers = new Set(await sharedWorkerUrls()),
+              named   = new Map();
+
+        [...network.startups.values()].filter(url => workers.has(url)).forEach(url => named.set(url, (named.get(url) ?? 0) + 1));
+        open     = [];
+        startups = [];
+
+        network.pending.forEach(request => {
+            const url = request.url();
+
+            named.get(url) > 0 ? (named.set(url, named.get(url) - 1), startups.push(url)) : open.push(url)
+        });
+
+        if (!open.length && Date.now() - network.lastActivity >= NETWORK_QUIET_MS) {
+            return startups
+        }
+
+        if (Date.now() > deadline) {
+            throw new Error(`landing: the network never went quiet; open: ${open.join(', ') || 'none'}; SharedWorker start-up scripts not waited for: ${startups.join(', ') || 'none'}`)
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100))
+    }
+}
+
+/**
+ * @summary Waits until a landing frame holds still: the network is quiet ({@link networkQuiet}), the app shows a
+ * configured theme ({@link shownTheme}), its view has mounted ({@link viewMounted}), and the DOM has not changed for
+ * LANDING_QUIET_MS. One rule for every example, with no selector of its own; an example that never settles fails,
+ * because its landing state is not a frame a cover can show.
+ * @param {Object} page
+ * @param {{lastActivity: Number, pending: Set<Object>, startups: Map<String, String>}} network The ledger of
+ * {@link trackNetwork}, started before the page navigated
+ * @param {Function} [sharedWorkerUrls] Resolves the script URLs of the SharedWorkers the browser runs
+ * @returns {Promise<String[]>} The SharedWorker start-up scripts it did not wait for
+ */
+export async function landingReady(page, network, sharedWorkerUrls=async () => []) {
+    const startups = await networkQuiet(network, sharedWorkerUrls);
     await page.waitForFunction(shownTheme, null, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: no configured theme shows on <body> or inside it (${error.message.split('\n')[0]})`)});
     await page.waitForFunction(viewMounted, undefined, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: no view mounted in <body> (${error.message.split('\n')[0]})`)});
     await page.waitForFunction(quietMs => new Promise(resolve => {
@@ -499,7 +572,9 @@ export async function landingReady(page) {
               settled  = () => {observer.disconnect(); resolve(true)};
         observer.observe(document.documentElement, {attributes: true, characterData: true, childList: true, subtree: true});
         timer = setTimeout(settled, quietMs)
-    }), LANDING_QUIET_MS, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: the frame never held still for ${LANDING_QUIET_MS} ms (${error.message.split('\n')[0]})`)})
+    }), LANDING_QUIET_MS, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: the frame never held still for ${LANDING_QUIET_MS} ms (${error.message.split('\n')[0]})`)});
+
+    return startups
 }
 
 /** @summary Waits for fonts, stylesheets and visible capture-region images to finish loading. */
@@ -535,12 +610,18 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
           deviceScaleFactor = fullViewport ? WIDTH * DPR / recipe.viewport.width : DPR,
           context           = await browser.newContext({viewport: recipe.viewport, deviceScaleFactor, ...(recipe.theme === 'dark' ? {colorScheme: 'dark'} : {})}),
           row               = {id: recipe.id, name: recipe.name, url: url.href, viewport: recipe.viewport, deviceScaleFactor, theme: recipe.theme, state: recipe.state, dependencies: recipe.dependencies ?? [], ready: recipe.ready, steps: recipe.steps, after: recipe.after, requestedRegion: recipe.region};
+    let cdp;
     try {
-        const page = await context.newPage(), errors = [];
+        const page = await context.newPage(), errors = [], network = await trackNetwork(page);
         page.setDefaultTimeout(15000);
         page.on('pageerror', error => errors.push(error.message));
         await page.goto(url.href, {waitUntil: 'domcontentloaded', timeout: 30000});
-        await (recipe.landing ? landingReady(page) : assertions(page, recipe.ready));
+        if (recipe.landing) {
+            cdp = await browser.newBrowserCDPSession();
+            row.sharedWorkerStartups = await landingReady(page, network, async () => (await cdp.send('Target.getTargets')).targetInfos.filter(({type}) => type === 'shared_worker').map(({url}) => url))
+        } else {
+            await assertions(page, recipe.ready)
+        }
         if (recipe.landing) {
             // An example that ignores `?theme=` opens on its first theme: a frame of the other scheme is no cover of this one
             row.openedTheme = await page.evaluate(shownTheme);
@@ -568,7 +649,10 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
         throw new Error(`JPEG exceeds ${MAX_BYTES} bytes at qualities ${QUALITIES.join('/')}`)
     } catch (error) {
         return {...row, status: 'failed', error: error.message}
-    } finally { await context.close() }
+    } finally {
+        await cdp?.detach().catch(() => {});
+        await context.close()
+    }
 }
 
 /** @summary Shoots a region as the best-quality JPEG within MAX_BYTES, checked at the device pixel ratio. */

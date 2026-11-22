@@ -3,7 +3,8 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted, writePair
+    applyTileTheme, fitTileRegion, networkQuiet, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted,
+    writePair
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
 import os                   from 'node:os';
 import path                 from 'node:path';
@@ -411,4 +412,40 @@ test('a tile takes the preferred theme of each pass a workbench offers, clicking
     await expect(applyTileTheme(['neo-theme-light'], 'dark', light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
     await expect(applyTileTheme(['neo-theme-dark'], 'light', dark.themeOf, dark.next)).rejects.toThrow(/offers no light theme/);
     await expect(applyTileTheme(undefined, 'dark', light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
+});
+
+const workerUrl = 'http://127.0.0.1/src/worker/App.mjs';
+
+/**
+ * @summary A ledger as {@link trackNetwork} keeps it, settled half a second ago
+ * @param {String[]} pending The URLs of the open requests, as Playwright reports them
+ * @param {String[]} [startups=[]] The URLs of the requests Chromium names a SharedWorker's start-up
+ * @returns {Object}
+ */
+const ledger = (pending, startups=[]) => ({
+    lastActivity: Date.now() - 1000,
+    pending     : new Set(pending.map(url => ({url: () => url}))),
+    startups    : new Map(startups.map((url, index) => [`cdp-${index}`, url]))
+});
+
+test('the network counts as quiet past a SharedWorker start-up Chromium names for a worker the browser runs', async () => {
+    expect(await networkQuiet(ledger([workerUrl], [workerUrl]), async () => [workerUrl], 1000)).toEqual([workerUrl])
+});
+
+test('a request that shares a worker\'s URL without starting it keeps the network waiting, and the timeout names both', async () => {
+    await expect(networkQuiet(ledger([workerUrl, workerUrl], [workerUrl]), async () => [workerUrl], 300)).rejects.toThrow(
+        `landing: the network never went quiet; open: ${workerUrl}; SharedWorker start-up scripts not waited for: ${workerUrl}`
+    )
+});
+
+test('a start-up Chromium names keeps the network waiting while no such worker runs, and so does an ordinary request', async () => {
+    await expect(networkQuiet(ledger([workerUrl], [workerUrl]), async () => [], 300)).rejects.toThrow(`open: ${workerUrl};`);
+    await expect(networkQuiet(ledger(['http://127.0.0.1/held.json']), async () => [workerUrl], 300)).rejects.toThrow('open: http://127.0.0.1/held.json;')
+});
+
+test('the network goes quiet only after half a second without a request', async () => {
+    const started = Date.now();
+
+    await networkQuiet({...ledger([]), lastActivity: started}, async () => []);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(400)
 });
