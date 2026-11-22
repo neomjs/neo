@@ -8,6 +8,7 @@
         "lookFor": "Change the text or icon class, and toggle closable to show or hide the close button.",
         "kind": "component",
         "image": "devmode/tiles/component-chip-14.jpg",
+        "hasLightCover": true,
         "name": "Chip",
         "sourceUrl": "examples/component/chip",
         "urls": {
@@ -27,6 +28,7 @@
         "lookFor": "Change the item size, maximum item count and rotation, then press Expand, Collapse or Flip.",
         "kind": "component",
         "image": "devmode/tiles/component-circle-14.jpg",
+        "hasLightCover": true,
         "name": "Circle",
         "sourceUrl": "examples/component/circle",
         "urls": {
@@ -46,6 +48,7 @@
         "lookFor": "Change the time to 09:45 and compare the hands, then change size and fontSize to resize the face and its hands.",
         "kind": "component",
         "image": "devmode/tiles/component-clock-14.jpg",
+        "hasLightCover": true,
         "name": "Clock",
         "sourceUrl": "examples/component/clock",
         "urls": {
@@ -65,6 +68,7 @@
         "lookFor": "Wait for automatic cycling or change autoCycle, then adjust the move and fade colors to follow the transition.",
         "kind": "component",
         "image": "devmode/tiles/component-magicmovetext-14.jpg",
+        "hasLightCover": true,
         "name": "Magic move text",
         "sourceUrl": "examples/component/magicmovetext",
         "urls": {
@@ -123,6 +127,7 @@
         "lookFor": "Toggle horizontal and change the arrow or icon color; the trip's four stages reflow without losing their order.",
         "kind": "component",
         "image": "devmode/tiles/component-process-14.jpg",
+        "hasLightCover": true,
         "name": "Process",
         "sourceUrl": "examples/component/process",
         "urls": {
@@ -142,6 +147,7 @@
         "lookFor": "Change the value, label and size in the configuration panel and watch the bar and label update.",
         "kind": "component",
         "image": "devmode/tiles/component-progress-14.jpg",
+        "hasLightCover": true,
         "name": "Progress bar",
         "sourceUrl": "examples/component/progress",
         "urls": {
@@ -161,6 +167,7 @@
         "lookFor": "Drag the bar between the folders and the inbox, then toggle horizontal and live resize in the configuration panel.",
         "kind": "component",
         "image": "devmode/tiles/component-splitter-14.jpg",
+        "hasLightCover": true,
         "name": "Splitter",
         "sourceUrl": "examples/component/splitter",
         "urls": {
@@ -180,6 +187,7 @@
         "lookFor": "Switch the state radio and toggle the state or side icons; the badge label and decoration update.",
         "kind": "component",
         "image": "devmode/tiles/component-statusbadge-14.jpg",
+        "hasLightCover": true,
         "name": "Status badge",
         "sourceUrl": "examples/component/statusbadge",
         "urls": {
@@ -199,6 +207,7 @@
         "lookFor": "Enter 10s and press play; the card flips to the countdown and the ring drains as time passes.",
         "kind": "component",
         "image": "devmode/tiles/component-timer-14.jpg",
+        "hasLightCover": true,
         "name": "Timer",
         "sourceUrl": "examples/component/timer",
         "urls": {
@@ -237,6 +246,7 @@
         "lookFor": "Edit the sample function, then switch the editor theme and the cursor blinking mode, or toggle the minimap.",
         "kind": "component",
         "image": "devmode/tiles/component-wrapper-monacoEditor-14.jpg",
+        "hasLightCover": true,
         "name": "Monaco editor",
         "sourceUrl": "examples/component/wrapper/monacoEditor",
         "urls": {

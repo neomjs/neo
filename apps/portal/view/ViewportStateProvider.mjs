@@ -23,7 +23,13 @@ class ViewportStateProvider extends StateProvider {
              * Values are: large, medium, small, xSmall, null
              * @member {String|null} size
              */
-            size: null
+            size: null,
+            /**
+             * The theme on screen, written by `Portal.view.ViewportController`. The examples' launch links pass it on,
+             * so an example opens in the catalog's theme. null until the boot theme is known.
+             * @member {String|null} theme=null
+             */
+            theme: null
         }
     }
 }

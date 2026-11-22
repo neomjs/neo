@@ -6,24 +6,17 @@
         "alsoIn": [
             "charts"
         ],
-        "feature": "A chart of up to a million points, drawn in a canvas worker",
-        "lookFor": "Choose 1,000,000 items, then press Stop Main: the toolbar clock stops while the chart keeps moving.",
-        "scope": "External demo. Requires OffscreenCanvas and WebGL support.",
+        "feature": "A million points, moved and drawn in a canvas worker every frame",
+        "lookFor": "Press \"Block the main thread for 5 seconds\": the page clock stops, the app's clock in the canvas runs on, and the points keep moving.",
         "featured": false,
-        "image": "devmode/offscreenCanvas.png",
-        "name": "OffscreenCanvas",
-        "sourceUrl": "https://github.com/neomjs/offscreen-canvas/",
-        "sourceUrls": {
-            "devmode": "https://github.com/neomjs/offscreen-canvas/",
-            "dist_dev": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
-            "dist_esm": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp",
-            "dist_prod": "https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp"
-        },
+        "image": "devmode/offscreen-canvas-14.jpg",
+        "name": "Stop the main thread",
+        "sourceUrl": "examples/worker/canvas",
         "urls": {
-            "devmode": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/apps/myapp/index.html",
-            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/development/apps/myapp/index.html",
-            "dist_esm": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/esm/apps/myapp/index.html",
-            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-offscreen-canvas-demo/dist/production/apps/myapp/index.html"
+            "devmode": "examples/worker/canvas/index.html",
+            "dist_dev": "dist/development/examples/worker/canvas/index.html",
+            "dist_esm": "dist/esm/examples/worker/canvas/index.html",
+            "dist_prod": "dist/production/examples/worker/canvas/index.html"
         },
         "hiddenIn": []
     },
@@ -50,6 +43,7 @@
         "id": "sitemap",
         "kind": "component",
         "image": "devmode/tiles/sitemap-14.jpg",
+        "hasLightCover": true,
         "name": "Sitemap",
         "sourceUrl": "examples/sitemap",
         "urls": {

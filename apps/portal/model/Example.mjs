@@ -62,6 +62,11 @@ class Example extends Model {
             type        : 'Boolean',
             defaultValue: false
         }, {
+            /** A published light sibling shares the base image name with `-light` before its extension. */
+            name        : 'hasLightCover',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
             name        : 'hidden',
             type        : 'Boolean',
             defaultValue: false
@@ -120,15 +125,35 @@ class Example extends Model {
 
     /**
      * @summary The address a record opens in a build mode: its explicit external link, or its path below `baseUrl`.
+     * A path below `baseUrl` carries `theme` as its `?theme=`, replacing a theme the record pins and keeping a hash
+     * behind the query, so the example starts in the theme of the catalog that launched it. An external link stays
+     * as the record names it.
      * @param {Object} record A catalog record or its raw row
      * @param {String} mode A build mode id, e.g. 'dist_prod'
-     * @param {String} [baseUrl='https://neomjs.com/']
+     * @param {Object} [options]
+     * @param {String} [options.baseUrl='https://neomjs.com/']
+     * @param {String|null} [options.theme=null] The theme the opened example starts in, e.g. 'neo-theme-neo-dark'
      * @returns {String|null} null when the mode cannot open the record
      */
-    static href(record, mode, baseUrl='https://neomjs.com/') {
+    static href(record, mode, {baseUrl='https://neomjs.com/', theme=null}={}) {
         const url = record.urls?.[mode];
 
-        return !url ? null : url.startsWith('http') ? url : baseUrl + url
+        if (!url || url.startsWith('http')) {
+            return url || null
+        }
+
+        if (!theme) {
+            return baseUrl + url
+        }
+
+        const hashStart  = url.includes('#') ? url.indexOf('#') : url.length,
+              path       = url.slice(0, hashStart),
+              queryStart = path.includes('?') ? path.indexOf('?') : path.length,
+              params     = new URLSearchParams(path.slice(queryStart));
+
+        params.set('theme', theme);
+
+        return `${baseUrl}${path.slice(0, queryStart)}?${params}${url.slice(hashStart)}`
     }
 
     /**

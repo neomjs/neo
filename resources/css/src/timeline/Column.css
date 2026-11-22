@@ -65,7 +65,6 @@
     box-shadow   : var(--neo-timeline-bar-shadow);
     box-sizing   : border-box;
     color        : var(--neo-timeline-bar-color);
-    cursor       : grab;
     display      : flex;
     font-size    : 12px;
     font-weight  : 500;
@@ -84,8 +83,11 @@
         outline-offset: 1px;
     }
 
-    &:active {
-        cursor: grabbing;
+    &.neo-draggable {
+        cursor: grab;
+        &:active {
+            cursor: grabbing;
+        }
     }
 
     &.neo-timeline-bar-highlighted {

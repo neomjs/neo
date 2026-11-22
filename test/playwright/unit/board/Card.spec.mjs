@@ -15,14 +15,14 @@ setup({
     }
 });
 
-import {test, expect}                                from '@playwright/test';
-import Neo                                           from '../../../../src/Neo.mjs';
-import * as core                                     from '../../../../src/core/_export.mjs';
-import InstanceManager                               from '../../../../src/manager/Instance.mjs';
-import BoardContainer                                from '../../../../src/board/Container.mjs';
-import Card                                          from '../../../../src/board/Card.mjs';
-import CardModel                                     from '../../../../src/board/CardModel.mjs';
-import {cardItems, registerCardItem, renderCardItem} from '../../../../src/board/CardItems.mjs';
+import {test, expect}                                               from '@playwright/test';
+import Neo                                                          from '../../../../src/Neo.mjs';
+import * as core                                                    from '../../../../src/core/_export.mjs';
+import InstanceManager                                              from '../../../../src/manager/Instance.mjs';
+import BoardContainer                                               from '../../../../src/board/Container.mjs';
+import Card                                                         from '../../../../src/board/Card.mjs';
+import CardModel                                                    from '../../../../src/board/CardModel.mjs';
+import {cardItems, isCardOverdue, registerCardItem, renderCardItem} from '../../../../src/board/CardItems.mjs';
 
 /**
  * @summary The card item renderers as pure functions, and a card rendering its record through them.
@@ -67,15 +67,17 @@ test.describe('Neo.board.CardItems', () => {
     });
 
     test('dueDate formats ISO strings and Dates deterministically and returns null when empty or invalid', () => {
-        expect(cardItems.dueDate({dueDate: '2026-12-01'}, {type: 'dueDate'})).toEqual({
+        const ref = {type: 'dueDate', referenceDate: '2026-11-20'};
+
+        expect(cardItems.dueDate({dueDate: '2026-12-01'}, ref)).toEqual({
             tag     : 'time',
             cls     : ['neo-board-card-due-date'],
             datetime: '2026-12-01',
             title   : '2026-12-01',
             text    : 'Due Dec 1'
         });
-        expect(cardItems.dueDate({dueDate: '2026-12-01T23:45:00Z'}, {type: 'dueDate'}).datetime).toBe('2026-12-01');
-        expect(cardItems.dueDate({dueDate: new Date(2026, 11, 15)}, {type: 'dueDate'})).toEqual({
+        expect(cardItems.dueDate({dueDate: '2026-12-01T23:45:00Z'}, ref).datetime).toBe('2026-12-01');
+        expect(cardItems.dueDate({dueDate: new Date(2026, 11, 15)}, ref)).toEqual({
             tag     : 'time',
             cls     : ['neo-board-card-due-date'],
             datetime: '2026-12-15',
@@ -84,18 +86,54 @@ test.describe('Neo.board.CardItems', () => {
         });
         expect(cardItems.dueDate(
             {targetDate: '2026-12-01'},
-            {type: 'dueDate', field: 'targetDate', prefix: '', formatOptions: {month: 'short', day: 'numeric', year: 'numeric'}}
+            {type: 'dueDate', field: 'targetDate', prefix: '', referenceDate: '2026-11-20', formatOptions: {month: 'short', day: 'numeric', year: 'numeric'}}
         ).text).toBe('Dec 1, 2026');
         expect(cardItems.dueDate(
             {dueDate: '2026-12-01'},
-            {type: 'dueDate', formatter: value => `Due ${value}`}
+            {type: 'dueDate', referenceDate: '2026-11-20', formatter: value => `Due ${value}`}
         ).text).toBe('Due 2026-12-01');
-        expect(cardItems.dueDate({dueDate: '2026-12-01'}, {type: 'dueDate', formatter: () => ''})).toBeNull();
-        expect(cardItems.dueDate({}, {type: 'dueDate'})).toBeNull();
-        expect(cardItems.dueDate({dueDate: ''}, {type: 'dueDate'})).toBeNull();
-        expect(cardItems.dueDate({dueDate: '   '}, {type: 'dueDate'})).toBeNull();
-        expect(cardItems.dueDate({dueDate: '2026-02-31'}, {type: 'dueDate'})).toBeNull();
-        expect(cardItems.dueDate({dueDate: new Date('invalid')}, {type: 'dueDate'})).toBeNull()
+        expect(cardItems.dueDate({dueDate: '2026-12-01'}, {type: 'dueDate', referenceDate: '2026-11-20', formatter: () => ''})).toBeNull();
+        expect(cardItems.dueDate({}, ref)).toBeNull();
+        expect(cardItems.dueDate({dueDate: ''}, ref)).toBeNull();
+        expect(cardItems.dueDate({dueDate: '   '}, ref)).toBeNull();
+        expect(cardItems.dueDate({dueDate: '2026-02-31'}, ref)).toBeNull();
+        expect(cardItems.dueDate({dueDate: new Date('invalid')}, ref)).toBeNull()
+    });
+
+    test('dueDate marks active past dates overdue without color alone, skips completed statuses, and formats relative offsets', () => {
+        const
+            base = {type: 'dueDate', referenceDate: '2026-11-22'},
+            rel  = {...base, relative: true};
+
+        expect(isCardOverdue({dueDate: '2026-11-19', status: 'in-progress'}, base)).toBe(true);
+        expect(isCardOverdue({dueDate: '2026-11-19', status: 'done'}, base)).toBe(false);
+        expect(isCardOverdue({dueDate: '2026-11-19', status: 'shipped'}, base)).toBe(false);
+        expect(isCardOverdue({dueDate: '2026-11-22', status: 'in-progress'}, base)).toBe(false);
+        expect(isCardOverdue({dueDate: '2026-11-19', status: 'in-progress'}, {...base, overdue: false})).toBe(false);
+
+        expect(cardItems.dueDate({dueDate: '2026-11-19', status: 'in-progress'}, base)).toEqual({
+            tag     : 'time',
+            cls     : ['neo-board-card-due-date', 'neo-board-card-due-date-overdue'],
+            datetime: '2026-11-19',
+            title   : '2026-11-19',
+            text    : 'Overdue · Nov 19'
+        });
+
+        expect(cardItems.dueDate({dueDate: '2026-11-19', status: 'in-progress'}, rel).text).toBe('Overdue 3d · Nov 19');
+        expect(cardItems.dueDate({dueDate: '2026-11-22', status: 'in-progress'}, rel)).toMatchObject({
+            cls : ['neo-board-card-due-date', 'neo-board-card-due-date-today'],
+            text: 'Today · Nov 22'
+        });
+        expect(cardItems.dueDate({dueDate: '2026-11-23', status: 'in-progress'}, rel).text).toBe('Tomorrow · Nov 23');
+        expect(cardItems.dueDate({dueDate: '2026-11-25', status: 'in-progress'}, rel).text).toBe('In 3d · Nov 25');
+        expect(cardItems.dueDate({dueDate: '2026-12-05', status: 'in-progress'}, rel).text).toBe('Due Dec 5');
+        expect(cardItems.dueDate({dueDate: '2026-11-18', status: 'shipped'}, rel)).toEqual({
+            tag     : 'time',
+            cls     : ['neo-board-card-due-date'],
+            datetime: '2026-11-18',
+            title   : '2026-11-18',
+            text    : 'Due Nov 18'
+        })
     });
 
     test('an unknown type renders nothing; a registered one renders', () => {
@@ -142,11 +180,12 @@ test.describe('Neo.board.Card', () => {
         card.destroy()
     });
 
-    test('a default board omits dueDate when unset and renders it once set on the record', () => {
+    test('a default board omits dueDate when unset, renders it once set, and toggles neo-board-card-overdue on date or status change', () => {
         const board = Neo.create(BoardContainer, {
             appName,
-            columns: [{status: 'ready', title: 'Ready'}],
-            store  : {
+            cardItems: [{type: 'title'}, {type: 'tags'}, {type: 'dueDate', referenceDate: '2026-11-22'}],
+            columns  : [{status: 'ready', title: 'Ready'}, {status: 'done', title: 'Done'}],
+            store    : {
                 model: CardModel,
                 data : [{id: 'd1', title: 'Ship v14', status: 'ready', tags: ['release']}]
             }
@@ -156,17 +195,33 @@ test.describe('Neo.board.Card', () => {
 
         expect(board.cardItems.map(item => item.type)).toContain('dueDate');
         expect(card.vdom.cn.some(node => node.cls?.includes('neo-board-card-due-date'))).toBe(false);
+        expect(card.cls).not.toContain('neo-board-card-overdue');
 
-        card.record.set({dueDate: '2026-11-23'});
+        card.record.set({dueDate: '2026-11-25'});
 
-        const dueNode = card.vdom.cn.find(node => node.cls?.includes('neo-board-card-due-date'));
+        let dueNode = card.vdom.cn.find(node => node.cls?.includes('neo-board-card-due-date'));
 
         expect(dueNode).toMatchObject({
             tag     : 'time',
             id      : `${card.id}__dueDate`,
-            datetime: '2026-11-23',
-            text    : 'Due Nov 23'
+            datetime: '2026-11-25',
+            text    : 'Due Nov 25'
         });
+        expect(card.cls).not.toContain('neo-board-card-overdue');
+
+        card.record.set({dueDate: '2026-11-19'});
+        dueNode = card.vdom.cn.find(node => node.cls?.includes('neo-board-card-due-date'));
+
+        expect(dueNode.cls).toContain('neo-board-card-due-date-overdue');
+        expect(dueNode.text).toBe('Overdue · Nov 19');
+        expect(card.cls).toContain('neo-board-card-overdue');
+
+        card.record.set({status: 'done'});
+        dueNode = card.vdom.cn.find(node => node.cls?.includes('neo-board-card-due-date'));
+
+        expect(dueNode.cls).not.toContain('neo-board-card-due-date-overdue');
+        expect(dueNode.text).toBe('Due Nov 19');
+        expect(card.cls).not.toContain('neo-board-card-overdue');
 
         board.destroy()
     })

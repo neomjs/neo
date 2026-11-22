@@ -14,6 +14,7 @@
         "hiddenIn": [],
         "family": "board",
         "order": 90,
+        "alsoIn": ["drag-drop"],
         "component": "Board",
         "feature": "A kanban board and a table over one store of cards",
         "lookFor": "Drag a card to another column, and the table below the board shows its new status.",
@@ -29,6 +30,7 @@
     {
         "id": "board-swimlanes",
         "image": "devmode/board-swimlanes-14.jpg",
+        "hasLightCover": true,
         "name": "A board by team, in rows that collapse",
         "sourceUrl": "examples/board/swimlanes",
         "urls": {
@@ -70,6 +72,7 @@
     {
         "id": "board-wip-limits",
         "image": "devmode/board-wip-limits-14.jpg",
+        "hasLightCover": true,
         "name": "Work-in-progress limits",
         "sourceUrl": "examples/board/wipLimits",
         "urls": {
@@ -87,6 +90,7 @@
     {
         "id": "board-card-designs",
         "image": "devmode/board-card-designs-14.jpg",
+        "hasLightCover": true,
         "name": "Card designs",
         "sourceUrl": "examples/board/cardDesigns",
         "urls": {
@@ -148,6 +152,7 @@
         },
         "family": "board",
         "order": 1240,
+        "alsoIn": ["drag-drop"],
         "component": "Board",
         "feature": "Columns reordered by drag, folded to a strip, or locked in place",
         "lookFor": "Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked."

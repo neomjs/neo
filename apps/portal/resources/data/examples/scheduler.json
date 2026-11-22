@@ -3,6 +3,7 @@
         "id": "scheduler-basic",
         "featured": true,
         "image": "devmode/scheduler-basic-14.jpg",
+        "hasLightCover": true,
         "name": "Studio Bookings",
         "sourceUrl": "examples/scheduler/basic",
         "urls": {
@@ -29,6 +30,7 @@
     {
         "id": "scheduler-big-data",
         "image": "devmode/scheduler-big-data-14.jpg",
+        "hasLightCover": true,
         "name": "A year for 300 people",
         "sourceUrl": "examples/scheduler/bigData",
         "urls": {
@@ -65,6 +67,7 @@
         },
         "family": "scheduler",
         "order": 1060,
+        "alsoIn": ["drag-drop"],
         "component": "Scheduler",
         "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
         "lookFor": "Drag a stop onto another van, then pull its right edge: it lands on the 15-minute grid. Switch the grid to 30 minutes and try again."
@@ -72,6 +75,7 @@
     {
         "id": "scheduler-non-working-time",
         "image": "devmode/scheduler-non-working-time-14.jpg",
+        "hasLightCover": true,
         "name": "Weekends and holidays in the plan",
         "sourceUrl": "examples/scheduler/nonWorkingTime",
         "urls": {
@@ -89,6 +93,7 @@
     {
         "id": "scheduler-bar-renderer",
         "image": "devmode/scheduler-bar-renderer-14.jpg",
+        "hasLightCover": true,
         "name": "Bars that say more",
         "sourceUrl": "examples/scheduler/barRenderer",
         "urls": {
@@ -157,6 +162,7 @@
     {
         "id": "scheduler-time-zones",
         "image": "devmode/scheduler-time-zones-14.jpg",
+        "hasLightCover": true,
         "name": "One plan, three time zones",
         "sourceUrl": "examples/scheduler/timeZones",
         "urls": {

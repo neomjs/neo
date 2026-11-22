@@ -1,0 +1,263 @@
+.milestones-viewport.neo-viewport {
+    .milestones-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--milestones-header-bg);
+        border-bottom: 1px solid var(--milestones-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 14px;
+        max-width    : 100%;
+        min-height   : 48px;
+        padding      : 7px 18px;
+
+        .milestones-spacer {
+            min-width: 0;
+        }
+
+        .milestones-title {
+            color         : var(--milestones-title);
+            font-size     : 18px;
+            font-weight   : 700;
+            letter-spacing: -0.02em;
+        }
+
+        .milestones-legend {
+            align-items: center;
+            color      : var(--milestones-muted);
+            display    : inline-flex;
+            flex-wrap  : wrap;
+            font-size  : 12px;
+            gap        : 12px;
+            margin-left: 2px;
+        }
+
+        .milestones-legend-item {
+            align-items: center;
+            display    : inline-flex;
+            gap        : 6px;
+
+            &::before {
+                box-sizing: border-box;
+                content   : '';
+                display   : inline-block;
+            }
+
+            &.is-gate::before {
+                background: var(--neo-gantt-milestone-bg);
+                border    : 2px solid var(--neo-gantt-milestone-border);
+                height    : 10px;
+                transform : rotate(45deg);
+                width     : 10px;
+            }
+
+            &.is-trigger::before {
+                background   : var(--milestones-trigger-accent);
+                border-radius: 3px;
+                height       : 10px;
+                width        : 14px;
+            }
+
+            &.is-done::before {
+                background   : var(--milestones-done-border);
+                border-radius: 3px;
+                height       : 10px;
+                width        : 14px;
+            }
+
+            &.is-task::before {
+                background   : var(--milestones-active-accent);
+                border-radius: 3px;
+                height       : 10px;
+                width        : 14px;
+            }
+
+            &.is-phase::before {
+                background   : var(--neo-gantt-summary-bg);
+                border       : 1px solid var(--neo-gantt-summary-border);
+                border-radius: 2px;
+                height       : 7px;
+                width        : 16px;
+            }
+        }
+
+        .milestones-slip-btn {
+            --button-background-color       : var(--milestones-cta-bg);
+            --button-background-color-active: var(--milestones-cta-hover);
+            --button-background-color-hover : var(--milestones-cta-hover);
+            --button-border                 : 1px solid var(--milestones-cta-border);
+            --button-border-hover           : 1px solid var(--milestones-cta-border);
+            --button-glyph-color            : var(--milestones-cta-text);
+            --button-text-color             : var(--milestones-cta-text);
+            --button-text-color-active      : var(--milestones-cta-text);
+            --button-text-color-hover       : var(--milestones-cta-text);
+            align-items  : center;
+            background   : var(--milestones-cta-bg);
+            border       : 1px solid var(--milestones-cta-border);
+            border-radius: 999px;
+            color        : var(--milestones-cta-text);
+            font-size    : 12px;
+            font-weight  : 600;
+            gap          : 7px;
+            min-height   : 32px;
+            padding      : 0 13px;
+
+            &:hover {
+                background: var(--milestones-cta-hover);
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--milestones-focus);
+                outline-offset: 2px;
+            }
+        }
+
+        .milestones-reset-btn {
+            --button-background-color-hover          : var(--milestones-hover-bg);
+            --button-glyph-color                     : var(--milestones-title);
+            --button-secondary-background-color-hover: var(--milestones-hover-bg);
+            --button-secondary-border-hover          : 1px solid var(--milestones-border);
+            --button-secondary-text-color            : var(--milestones-title);
+            --button-secondary-text-color-active     : var(--milestones-title);
+            --button-secondary-text-color-hover      : var(--milestones-title);
+            --button-text-color                      : var(--milestones-title);
+            --button-text-color-active               : var(--milestones-title);
+            --button-text-color-hover                : var(--milestones-title);
+            align-items  : center;
+            background   : var(--milestones-control-bg);
+            border       : 1px solid var(--milestones-border);
+            border-radius: 999px;
+            color        : var(--milestones-title);
+            font-size    : 12px;
+            font-weight  : 600;
+            gap          : 6px;
+            min-height   : 32px;
+            padding      : 0 12px;
+
+            &:focus-visible {
+                outline       : 2px solid var(--milestones-focus);
+                outline-offset: 2px;
+            }
+        }
+    }
+
+    .milestones-readout-bar.neo-container {
+        align-items  : center;
+        background   : var(--milestones-status-bg);
+        border-bottom: 1px solid var(--milestones-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 5px 12px;
+        min-height   : 36px;
+        padding      : 5px 18px;
+
+        .milestones-launch-pill {
+            border-radius       : 999px;
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 700;
+            line-height         : 1.3;
+            padding             : 3px 10px;
+            white-space         : nowrap;
+
+            &.is-on-plan {
+                background: var(--milestones-goal-pill-bg);
+                color     : var(--milestones-goal-pill-text);
+            }
+
+            &.is-slipped {
+                background: var(--milestones-slip-pill-bg);
+                color     : var(--milestones-slip-pill-text);
+            }
+        }
+
+        .milestones-readout-text {
+            color      : var(--milestones-muted);
+            flex       : 1 1 320px;
+            font-size  : 12.5px;
+            line-height: 1.35;
+        }
+    }
+
+    .milestones-gantt.neo-gantt {
+        .neo-timeline-bar {
+            &.milestones-bar-done {
+                background  : var(--milestones-done-bg);
+                border-color: var(--milestones-done-border);
+                box-shadow  : var(--milestones-bar-shadow);
+                color       : var(--milestones-bar-text);
+            }
+
+            &.milestones-bar-trigger {
+                background  : var(--milestones-trigger-bg);
+                border-color: var(--milestones-trigger-border);
+                box-shadow  : var(--milestones-trigger-shadow);
+                color       : var(--milestones-bar-text);
+                font-weight : 600;
+            }
+
+            &.milestones-bar-active {
+                background  : var(--milestones-active-bg);
+                border-color: var(--milestones-active-border);
+                box-shadow  : var(--milestones-bar-shadow);
+                color       : var(--milestones-bar-text);
+            }
+
+            &.milestones-bar-upcoming {
+                background  : var(--milestones-upcoming-bg);
+                border-color: var(--milestones-upcoming-border);
+                box-shadow  : var(--milestones-bar-shadow);
+                color       : var(--milestones-bar-text);
+            }
+
+            &.neo-gantt-bar-summary {
+                border-radius: 3px;
+                height       : 10px !important;
+                padding      : 0;
+                top          : calc(50% - 5px) !important;
+
+                .neo-timeline-bar-progress,
+                .neo-timeline-bar-label {
+                    display: none;
+                }
+            }
+        }
+    }
+}
+
+@media (max-width: 1080px) {
+    .milestones-viewport.neo-viewport .milestones-toolbar.neo-toolbar .milestones-legend {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .milestones-viewport.neo-viewport {
+        .milestones-toolbar.neo-toolbar {
+            gap    : 6px 10px;
+            padding: 6px 10px;
+
+            .milestones-title {
+                font-size: 15px;
+            }
+        }
+
+        .milestones-readout-bar.neo-container {
+            padding: 4px 10px;
+
+            .milestones-readout-text {
+                font-size: 11.5px;
+            }
+        }
+
+        .milestones-gantt.neo-gantt {
+            .neo-timeline-header .neo-timeline-tick {
+                padding: 0 3px;
+            }
+
+            .neo-gantt-milestone-label {
+                font-size: 10.5px;
+                padding  : 0 3px;
+            }
+        }
+    }
+}
