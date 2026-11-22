@@ -118,6 +118,37 @@ columns: [
 ]
 ```
 
+### Column summaries
+
+To see the value of work in each column, declare the amount on your card model and configure the board's
+`columnSummary`. For example, a sales board can total the amount of its visible deals:
+
+```javascript
+class DealModel extends CardModel {
+    static config = {
+        className: 'MyApp.model.Deal',
+        fields   : [{name: 'amount', type: 'Float'}]
+    }
+}
+
+const boardConfig = {
+    module: Board,
+    store : {model: Neo.setupClass(DealModel), data: [
+        {id: 1, title: 'North', status: 'backlog', amount: 1200},
+        {id: 2, title: 'South', status: 'backlog', amount: 800}
+    ]},
+    columnSummary: {
+        field    : 'amount',
+        formatter: sum => `$${sum.toFixed(2)}`
+    }
+};
+```
+
+The Backlog summary is `$2000.00`. The board sums finite numeric values for each status and, when swimlanes are
+enabled, each lane/status intersection. It uses records remaining after the current store filters, including cards
+outside the rendered window. An empty column sums to zero. The
+formatter returns plain text for the header.
+
 ## 4. Swimlanes
 
 Swimlanes add a second axis. Set `laneField` to the record field that names a card's lane, and the board switches
