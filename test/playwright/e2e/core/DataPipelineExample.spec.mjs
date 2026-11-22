@@ -151,10 +151,33 @@ test.describe('examples/data/pipeline — one pipeline on either worker, every s
         expect(await beat('app').getAttribute('data-run'), 'a load without a report is no run either').toBeNull();
         await expect(beat('data'), 'the run before it stays on the page as it was').toHaveAttribute('data-run', '1');
 
-        // The retry: the second run the page finishes, and the line about the failure is gone
+        // A store that fails after its pipeline has finished: the pipeline has published a fulfilled sample by then
+        await inView(view => {
+            const {store} = view.getReference('report'), {load} = store;
+
+            store.load = async function(...args) {
+                store.load = load;
+                await load.apply(store, args);
+                throw new Error('the store failed after the pipeline')
+            }
+        });
         await runApp.click();
 
-        await expect(beat('app')).toHaveAttribute('data-run', '2', {timeout: 30000});
+        await expect(notice).toContainText('the store failed after the pipeline');
+        await expect(runApp).toBeEnabled();
+        expect(await beat('app').getAttribute('data-run'), 'an attempt whose store failed is no run').toBeNull();
+
+        // A run that finishes on the other worker draws both columns: the failed attempt's sample is not among them
+        await page.getByRole('button', {name: 'Run on the data worker'}).click();
+
+        await expect(beat('data')).toHaveAttribute('data-run', '2', {timeout: 30000});
+        await expect(page.locator('.neo-examples-data-pipeline-stage-run:has(.neo-ran-on-app) .neo-examples-data-pipeline-stage-duration'),
+            'the failed attempt left no times in the app worker\'s column').toHaveText(STAGES.map(() => '–'));
+
+        // The retry: the third run the page finishes, and the line about the failure is gone
+        await runApp.click();
+
+        await expect(beat('app')).toHaveAttribute('data-run', '3', {timeout: 30000});
         await expect(notice).toHaveCount(0);
         expect(uncaught).toEqual([])
     });

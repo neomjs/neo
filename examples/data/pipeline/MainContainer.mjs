@@ -224,6 +224,12 @@ class MainContainer extends Viewport {
      */
     runCount = 0
     /**
+     * The sample of the attempt in flight. It stays apart from `samples` until the store's load has brought its
+     * report, since a pipeline can finish and its store still fail. `null` between two runs.
+     * @member {Object|null} attempt=null
+     */
+    attempt = null
+    /**
      * The heartbeat of the last run on each worker, with its place among the page's runs: `{app, data}`.
      * @member {Object} runs={}
      */
@@ -315,14 +321,14 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @summary Keeps the pipeline's sample under the worker the sample itself names, not under the button pressed.
+     * @summary Keeps the sample of the attempt in flight. `run()` files it once the store's load has succeeded.
      * @param {Object} data
      * @protected
      */
     onTelemetry(data) {
-        // An attempt that failed is no run: the page keeps the last sample of a run that finished
+        // An attempt the pipeline itself rejected is no run
         if (data.status === 'fulfilled') {
-            this.samples[data.worker === 'data' ? 'data' : 'app'] = data
+            this.attempt = data
         }
     }
 
@@ -334,7 +340,8 @@ class MainContainer extends Viewport {
      *
      * A run counts when its load brought a report and the pipeline published a sample for it. A load that
      * throws, or that resolves with nothing, leaves the runs and the samples on the page as they were, and the
-     * page says so. Either way the heartbeat stops and the buttons come back.
+     * page says so; that holds for a store that fails after its pipeline has finished, too, because the attempt's
+     * sample is filed only after the load. Either way the heartbeat stops and the buttons come back.
      * @param {String} mode 'app' or 'data'
      * @returns {Promise<void>}
      */
@@ -361,21 +368,24 @@ class MainContainer extends Viewport {
                 me.mode = mode
             }
 
-            const before = me.samples[mode];
-
+            me.attempt   = null;
             me.heartbeat = me.startHeartbeat();
 
             const report = await store.load();
             // A few beats after the run, so the bar shows the app alive again
             await me.timeout(TAIL);
 
-            const run = me.stopHeartbeat();
+            const
+                run    = me.stopHeartbeat(),
+                sample = me.attempt;
 
             if (report == null) {
                 me.failRun(mode, 'its load brought no report')
-            } else if (me.samples[mode] === before) {
+            } else if (!sample) {
                 me.failRun(mode, 'the pipeline published no sample for it')
             } else {
+                // Under the worker the sample itself names, not under the button pressed
+                me.samples[sample.worker === 'data' ? 'data' : 'app'] = sample;
                 me.runs[mode] = {...run, sequence: ++me.runCount};
                 me.showRuns()
             }
@@ -384,6 +394,7 @@ class MainContainer extends Viewport {
                 me.failRun(mode, error?.message || String(error))
             }
         } finally {
+            me.attempt = null;
             me.stopHeartbeat();
             me.isDestroyed || me.setButtonsDisabled(false)
         }
