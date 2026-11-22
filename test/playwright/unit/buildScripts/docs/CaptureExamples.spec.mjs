@@ -188,6 +188,21 @@ test('a tile is named by its examples/ path, which gives its id and devmode URL'
     expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
 });
 
+test('a component record the frozen list does not name is a tile at its own size, after the listed ones', () => {
+    const records = [...catalog(),
+        {id: 'split', kind: 'component', family: 'buttons', image: 'devmode/tiles/button-split-14.jpg', sourceUrl: 'examples/button/split', urls: {devmode: 'examples/button/split/index.html'}},
+        {id: 'date',  kind: 'component', family: 'forms',   image: 'devmode/tiles/form-field-date-14.jpg', sourceUrl: 'examples/form/field/date', urls: {devmode: 'examples/form/field/date/index.html'}}
+    ],
+        valid = validateCaptureRecipes({...manifest(), tiles: [{path: 'examples/form/field/date', width: 220}]}, records);
+    expect(valid.tiles).toEqual([
+        {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html', width: 220},
+        {id: 'button-split',    path: 'examples/button/split',    url: 'examples/button/split/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/button/split').map(tile => tile.id)).toEqual(['button-split']);
+    records.push({id: 'bad', kind: 'component', family: 'forms', sourceUrl: 'apps/form'});
+    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/catalog\.bad\.sourceUrl/)
+});
+
 test('a tile entry may name the size its component takes for the capture', () => {
     const raw = {...manifest(), tiles: [{path: 'examples/form/field/text', width: 220}, {path: 'examples/sitemap', width: 320, height: 240}, 'examples/form/field/date']},
         valid = validateCaptureRecipes(raw, catalog());

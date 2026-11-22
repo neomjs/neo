@@ -108,6 +108,35 @@ function tileList(value) {
 }
 
 /**
+ * @summary Adds a tile for every catalog component record the frozen list does not name, at its component's own
+ * size: a new tile needs its record, never an entry in the manifest.
+ * @param {Object[]} listed Validated tiles from {@link tileList}.
+ * @param {Object[]} catalog Canonical catalog records.
+ * @returns {Object[]} The listed tiles, then the catalog's other component records as tiles, in catalog order.
+ */
+function catalogTiles(listed, catalog) {
+    const paths = new Set(listed.map(tile => tile.path)),
+          ids   = new Set(listed.map(tile => tile.id)),
+          added = [];
+
+    for (const record of catalog) {
+        if (record.kind !== 'component') continue;
+
+        const tilePath = record.sourceUrl ?? record.urls?.devmode?.replace(/\/index\.html$/, '');
+
+        if (paths.has(tilePath)) continue;
+        insist(typeof tilePath === 'string' && /^examples(\/[a-zA-Z0-9_-]+)+$/.test(tilePath), `catalog.${record.id}.sourceUrl`, 'expected an examples/ path');
+        const id = tilePath.slice('examples/'.length).replaceAll('/', '-');
+        insist(!ids.has(id), `catalog.${record.id}.sourceUrl`, 'duplicate tile');
+        paths.add(tilePath);
+        ids.add(id);
+        added.push({id, path: tilePath, url: `${tilePath}/index.html`})
+    }
+
+    return [...listed, ...added]
+}
+
+/**
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
  * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
@@ -177,7 +206,7 @@ export function validateCaptureRecipes(manifest, catalog) {
             recipes.push({id: record.id, ...structuredClone(LANDING), landing: true, family: record.family, url: record.urls.devmode, name: record.name || record.id})
         }
     }
-    return {...structuredClone(manifest), recipes, tiles: tileList(manifest.tiles)}
+    return {...structuredClone(manifest), recipes, tiles: catalogTiles(tileList(manifest.tiles), catalog)}
 }
 
 /**
