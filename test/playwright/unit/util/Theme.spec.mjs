@@ -16,6 +16,28 @@ test.describe('Neo.util.Theme resolveStartTheme', () => {
         expect(resolveStartTheme({prefersDarkTheme: false, themes, url})).toBe('neo-theme-light');
     });
 
+    test('opens a requested Neo Dark on the classic Dark when only that one is configured', () => {
+        const url = new URL('https://neomjs.com/?theme=neo-theme-neo-dark');
+
+        // The engine's default themes: no Neo Dark, so the first one would be a light theme
+        expect(resolveStartTheme({
+            prefersDarkTheme: false,
+            themes          : ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'],
+            url
+        })).toBe('neo-theme-dark');
+    });
+
+    test('opens a requested Neo Light on the classic Light, even on a dark system', () => {
+        const url = new URL('https://neomjs.com/?theme=neo-theme-neo-light');
+
+        // A classic pair listed dark first: the explicit request outranks both the order and the system
+        expect(resolveStartTheme({
+            prefersDarkTheme: true,
+            themes          : ['neo-theme-dark', 'neo-theme-light'],
+            url
+        })).toBe('neo-theme-light');
+    });
+
     test('prefers the dark theme on a dark system when it is configured', () => {
         const url = new URL('https://neomjs.com/');
 
