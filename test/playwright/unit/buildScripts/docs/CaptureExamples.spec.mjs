@@ -3,7 +3,8 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles, viewMounted, writePair
+    applyTileTheme, fitTileRegion, networkQuiet, pairTileRegion, trackNetwork, validateCaptureRecipes, selectCaptureRecipes, selectTiles,
+    viewMounted, writePair
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
 import os                   from 'node:os';
 import path                 from 'node:path';
@@ -411,4 +412,47 @@ test('a tile takes the preferred theme of each pass a workbench offers, clicking
     await expect(applyTileTheme(['neo-theme-light'], 'dark', light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
     await expect(applyTileTheme(['neo-theme-dark'], 'light', dark.themeOf, dark.next)).rejects.toThrow(/offers no light theme/);
     await expect(applyTileTheme(undefined, 'dark', light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
+});
+
+/**
+ * @summary A request as Playwright reports it: the ledger reads only its URL
+ * @param {String} url
+ * @returns {{url: Function}}
+ */
+const requestTo = url => ({url: () => url});
+
+test('the network counts as quiet past the start-up scripts of the SharedWorkers the browser runs, and names them', async () => {
+    const startup = requestTo('http://127.0.0.1/src/worker/App.mjs'),
+          network = {lastActivity: Date.now() - 1000, pending: new Set([startup])};
+
+    expect(await networkQuiet(network, async () => [startup.url()], 1000)).toEqual([startup.url()])
+});
+
+test('an ordinary request left open keeps the network from going quiet, and the timeout names it apart from worker start-ups', async () => {
+    const startup = requestTo('http://127.0.0.1/src/worker/App.mjs'),
+          held    = requestTo('http://127.0.0.1/resources/data/held.json'),
+          network = {lastActivity: Date.now() - 1000, pending: new Set([startup, held])};
+
+    await expect(networkQuiet(network, async () => [startup.url()], 300)).rejects.toThrow(
+        'landing: the network never went quiet; open: http://127.0.0.1/resources/data/held.json; SharedWorker start-up scripts not waited for: http://127.0.0.1/src/worker/App.mjs'
+    )
+});
+
+test('the ledger follows the page\'s requests, and the network goes quiet only after half a second without one', async () => {
+    const listeners = {},
+          network   = trackNetwork({on: (name, fn) => {listeners[name] = fn}}),
+          finished  = requestTo('http://127.0.0.1/resources/app.css'),
+          failed    = requestTo('http://127.0.0.1/resources/missing.png');
+
+    listeners.request(finished);
+    listeners.request(failed);
+    expect(network.pending.size).toBe(2);
+
+    listeners.requestfinished(finished);
+    listeners.requestfailed(failed);
+    expect(network.pending.size).toBe(0);
+
+    const started = Date.now();
+    await networkQuiet(network, async () => []);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(400)
 });
