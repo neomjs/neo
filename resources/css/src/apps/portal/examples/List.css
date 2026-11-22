@@ -161,7 +161,7 @@
         background-image: var(--portal-example-cover, none);
     }
 
-    :where(.neo-theme-neo-light) & .neo-list-item.portal-example-paired-cover {
+    :where(.neo-theme-neo-light, .neo-theme-light) & .neo-list-item.portal-example-paired-cover {
         --portal-examples-list-pill-bg    : var(--sem-color-surface-neutral-highlighted);
         --portal-examples-list-pill-border: var(--sem-color-border-default);
         --portal-examples-list-pill-text  : var(--sem-color-text-neutral-default);

@@ -85,6 +85,16 @@ test.describe('Portal example cover themes', () => {
         await expect.poll(() => url(image(searchCard))).toContain(LIGHT_IMAGE)
     });
 
+    test('a restored classic light preference selects the light cover', async ({page}) => {
+        await page.addInitScript(() => localStorage.setItem('portalTheme', 'neo-theme-light'));
+        const requests = await interceptPair(page);
+        await page.goto(`${PORTAL}#/examples/board`);
+        await expect(page.locator('.neo-viewport.neo-theme-light')).toBeVisible();
+        await expect.poll(() => url(image(card(page)))).toContain(LIGHT_IMAGE);
+        await expect.poll(() => requests).toContain(LIGHT_IMAGE);
+        expect(requests).not.toContain(BASE)
+    });
+
     test('a cover first admitted below the fold uses the theme selected since navigation', async ({page}) => {
         await page.setViewportSize({width: 1000, height: 600});
         await page.addInitScript(() => localStorage.setItem('portalTheme', 'neo-theme-neo-dark'));
