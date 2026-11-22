@@ -4,6 +4,7 @@ import fs                    from 'fs-extra';
 import path                  from 'path';
 import semver                from 'semver';
 import {readReleaseSeoStamp} from '../../release/releaseNoteFrontmatter.mjs';
+import {EXAMPLES_DIR, readExampleCatalog} from '../../util/exampleCatalog.mjs';
 import {
     FRONTMATTER_BLOCK_PATTERN, chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths,
     getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory,
@@ -34,7 +35,7 @@ export const TOP_LEVEL_SOURCE_PATHS = {
     '/'                : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
     '/about-us'        : 'apps/portal/view/about/Container.mjs',
     '/docs'            : 'apps/portal/view/ViewportController.mjs',
-    '/examples'        : 'apps/portal/resources/data/examples.json',
+    '/examples'        : EXAMPLES_DIR,
     '/home'            : ['apps/portal/index.html', 'apps/portal/view/home/MainContainer.mjs'],
     '/learn'           : 'learn/tree.json',
     '/news'            : 'apps/portal/view/news/TabContainer.mjs',
@@ -569,7 +570,7 @@ export function getExampleFamilySeo({family, title}) {
 
 /**
  * @summary Builds a concise SEO description for a published `/examples/<family>` overview route
- * from its covered `examples.json` records, keeping only complete highlights that fit within 160 characters.
+ * from its covered catalog records, keeping only complete highlights that fit within 160 characters.
  * @param {String} subject The family's plain-English noun, e.g. 'JavaScript data grid'
  * @param {Object[]} [records=[]]
  * @returns {String}
@@ -602,14 +603,14 @@ function formatExampleFamilyDescription(subject='', records=[]) {
 
 /**
  * @summary Returns the ordered example groups (`family !== null`) from `apps/portal/view/examples/MainContainer.mjs`
- * that have at least one member in `apps/portal/resources/data/examples.json` publishing a card in production, each
- * with those members: a group publishes its search route once its overview has a card to show there.
+ * that have at least one member in the catalog (`EXAMPLES_DIR`) publishing a card in production, each with those
+ * members: a group publishes its search route once its overview has a card to show there.
  *
  * A member is a record whose home `family` is the group or whose `alsoIn` names it. A card publishes in production
  * when the record names a cover and production can open it, the rule of `Portal.model.Example.publishes()` for
  * `dist_prod`, which this build script cannot import. `MainContainerController.spec.mjs` holds the two to one result.
  * @param {Object} [options={}]
- * @param {String} [options.examplesPath]
+ * @param {String} [options.examplesDir] The catalog folder
  * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: String|null, title: String, route: String}>} [options.familyDefinitions]
  * @param {String} [options.root=ROOT_DIR]
@@ -618,12 +619,12 @@ function formatExampleFamilyDescription(subject='', records=[]) {
 export async function getPublishedExampleFamilies(options={}) {
     const {
         root                     = ROOT_DIR,
-        examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
+        examplesDir              = path.resolve(root, EXAMPLES_DIR),
         examplesMainContainerPath = path.resolve(root, 'apps/portal/view/examples/MainContainer.mjs'),
         familyDefinitions
     } = options;
 
-    if (!(await fs.pathExists(examplesPath))) {
+    if (!(await fs.pathExists(path.join(examplesDir, 'index.json')))) {
         return [];
     }
 
@@ -631,15 +632,14 @@ export async function getPublishedExampleFamilies(options={}) {
         ? familyDefinitions
         : extractExampleFamilyDefinitions(await fs.readFile(examplesMainContainerPath, 'utf-8'));
 
-    const examplesRaw = await fs.readJSON(examplesPath);
-    const records     = (Array.isArray(examplesRaw) ? examplesRaw : Array.isArray(examplesRaw?.data) ? examplesRaw.data : [])
+    const records = (await readExampleCatalog(examplesDir)).records
         .filter(record => record?.image && !record.hidden && !record.hiddenIn?.includes('dist_prod') && record.urls?.dist_prod);
 
     return definitions
         .filter(definition => definition?.family && definition?.route)
         .map(definition => ({
             ...definition,
-            filePath: examplesPath,
+            filePath: examplesDir,
             records : records.filter(record => record.family === definition.family || record.alsoIn?.includes(definition.family))
         }))
         .filter(definition => definition.records.length > 0);
@@ -647,7 +647,7 @@ export async function getPublishedExampleFamilies(options={}) {
 
 /**
  * @summary Collects populated `/examples/<family>` overview routes from
- * `apps/portal/view/examples/MainContainer.mjs` (`familyDefinitions`) and `apps/portal/resources/data/examples.json`.
+ * `apps/portal/view/examples/MainContainer.mjs` (`familyDefinitions`) and the catalog (`EXAMPLES_DIR`).
  * @param {Object} [options={}]
  * @returns {Promise<Array<{category: String, filePath: String, id: String, name: String}>>}
  */
@@ -680,7 +680,7 @@ function getNameFromExamplePath(examplePath) {
 
 /**
  * @summary Builds `title` and `description` metadata for a standalone app or example `index.html` route,
- * preserving already-qualified `| Neo.mjs` HTML titles while enriching bare names from `examples.json`.
+ * preserving already-qualified `| Neo.mjs` HTML titles while enriching bare names from the catalog.
  * @param {Object} exampleRoute
  * @param {Object|null} [catalogRecord=null]
  * @returns {{title: String, description: String}}
@@ -841,7 +841,7 @@ export async function resolveLearnTreeLeaves(options={}) {
  * @param {Object} [options={}]
  * @param {String} [options.basePath='/learn']
  * @param {String} [options.blogIndexPath]
- * @param {String} [options.examplesPath]
+ * @param {String} [options.examplesDir] The catalog folder
  * @param {String} [options.examplesMainContainerPath]
  * @param {Array<{family: (String|null), title: String, route: String, iconCls: (String|undefined)}>} [options.familyDefinitions]
  * @param {String} [options.learnDir]
@@ -860,7 +860,7 @@ export async function getSeoJson(options={}) {
         learnDir                 = path.resolve(root, 'learn'),
         treeFilePath             = path.join(learnDir, 'tree.json'),
         blogIndexPath            = path.resolve(root, 'apps/portal/resources/data/blog.json'),
-        examplesPath             = path.resolve(root, 'apps/portal/resources/data/examples.json'),
+        examplesDir              = path.resolve(root, EXAMPLES_DIR),
         examplesMainContainerPath,
         familyDefinitions,
         pendingReleaseNote,
@@ -1103,7 +1103,7 @@ export async function getSeoJson(options={}) {
 
     const [publishedFamilies, standaloneRoutes] = await Promise.all([
         getPublishedExampleFamilies({
-            examplesPath,
+            examplesDir,
             examplesMainContainerPath,
             familyDefinitions,
             root
@@ -1129,27 +1129,21 @@ export async function getSeoJson(options={}) {
 
     const examplesCatalogByRoute = new Map();
 
-    if (await fs.pathExists(examplesPath)) {
-        try {
-            const catalog = await fs.readJSON(examplesPath);
+    try {
+        for (const record of (await readExampleCatalog(examplesDir)).records) {
+            const rawTarget = record.urls?.devmode || (
+                typeof record.sourceUrl === 'string' && !/^https?:\/\//i.test(record.sourceUrl)
+                    ? `${record.sourceUrl.replace(/\/+$/, '')}/index.html`
+                    : null
+            );
+            const devPath = rawTarget ? String(rawTarget).split(/[?#]/, 1)[0] : null;
 
-            if (Array.isArray(catalog)) {
-                for (const record of catalog) {
-                    const rawTarget = record?.urls?.devmode || (
-                        typeof record?.sourceUrl === 'string' && !/^https?:\/\//i.test(record.sourceUrl)
-                            ? `${record.sourceUrl.replace(/\/+$/, '')}/index.html`
-                            : null
-                    );
-                    const devPath = rawTarget ? String(rawTarget).split(/[?#]/, 1)[0] : null;
-
-                    if (devPath) {
-                        examplesCatalogByRoute.set(`/${devPath.replace(/^\/+/, '')}`, record);
-                    }
-                }
+            if (devPath) {
+                examplesCatalogByRoute.set(`/${devPath.replace(/^\/+/, '')}`, record);
             }
-        } catch {
-            // Fall back to source HTML metadata when examples.json is absent or malformed in isolated fixtures.
         }
+    } catch {
+        // Fall back to source HTML metadata when the catalog is absent or malformed in isolated fixtures.
     }
 
     for (const exampleRoute of standaloneRoutes) {
