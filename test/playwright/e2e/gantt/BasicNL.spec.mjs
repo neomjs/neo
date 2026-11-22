@@ -22,6 +22,9 @@ test('a linked project edit and a new dependency survive reload', async ({page, 
     };
     await expect(survey).toBeVisible();
     await expect(design).toBeVisible();
+    await expect(page.locator('.neo-gantt-bar-summary')).toHaveCount(3);
+    await expect(page.locator('.neo-gantt-bar-milestone[data-event-id="water-ready"]')).toBeVisible();
+    await expect(page.locator('.neo-gantt-dependency-arrow')).toHaveCount(9);
     await expect(page.getByText('Edits stay on this device')).toBeVisible();
     const week    = page.getByRole('button', {name:'Week', exact:true});
     const day     = page.getByRole('button', {name:'Day', exact:true});
@@ -65,6 +68,7 @@ test('a linked project edit and a new dependency survive reload', async ({page, 
         return [task.startDate, task.endDate]
     }).toEqual(['2026-11-09T01:00:00.000Z', '2026-11-10T01:00:00.000Z']);
     await expect(page.getByText('Saved on this device')).toBeVisible();
+    await expect(design).toHaveAttribute('aria-label', /01:00/);
 
     // The lower half of the finish edge resizes without moving the start.
     const beforeResize = await app.callMethod(gantt.id, 'resolveTaskRecord', ['design']);

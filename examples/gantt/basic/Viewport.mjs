@@ -10,15 +10,32 @@ import Toolbar         from '../../../src/toolbar/Base.mjs';
 
 const storageKey = 'neo-examples-gantt-project-plan-v1';
 const tasks      = [
-    {id:'phase', parentId:null, isLeaf:false, collapsed:false, title:'Community garden', startDate:'2026-11-09T00:00:00Z', endDate:'2026-11-14T00:00:00Z'},
-    {id:'survey', parentId:'phase', isLeaf:true, title:'Survey the site', startDate:'2026-11-09T00:00:00Z', endDate:'2026-11-10T00:00:00Z'},
-    {id:'design', parentId:'phase', isLeaf:true, title:'Design the beds', startDate:'2026-11-10T00:00:00Z', endDate:'2026-11-11T00:00:00Z'},
-    {id:'materials', parentId:'phase', isLeaf:true, title:'Gather materials', startDate:'2026-11-11T00:00:00Z', endDate:'2026-11-12T00:00:00Z'},
-    {id:'build', parentId:'phase', isLeaf:true, title:'Build the beds', startDate:'2026-11-12T00:00:00Z', endDate:'2026-11-14T00:00:00Z'}
+    {id:'phase',       parentId:null,          isLeaf:false, collapsed:false, percentDone:90, title:'Site & raised beds',   startDate:'2026-11-09T00:00:00Z', endDate:'2026-11-12T18:00:00Z'},
+    {id:'survey',      parentId:'phase',       isLeaf:true,  percentDone:100, title:'Survey the site',      startDate:'2026-11-09T00:00:00Z', endDate:'2026-11-10T00:00:00Z'},
+    {id:'design',      parentId:'phase',       isLeaf:true,  percentDone:100, title:'Design the beds',      startDate:'2026-11-10T00:00:00Z', endDate:'2026-11-11T00:00:00Z'},
+    {id:'materials',   parentId:'phase',       isLeaf:true,  percentDone:100, title:'Gather materials',     startDate:'2026-11-11T00:00:00Z', endDate:'2026-11-12T00:00:00Z'},
+    {id:'build',       parentId:'phase',       isLeaf:true,  percentDone:65,  title:'Build the beds',       startDate:'2026-11-12T00:00:00Z', endDate:'2026-11-12T18:00:00Z'},
+    {id:'phase-water', parentId:null,          isLeaf:false, collapsed:false, percentDone:88, title:'Water & paths',        startDate:'2026-11-09T12:00:00Z', endDate:'2026-11-12T16:00:00Z'},
+    {id:'trench',      parentId:'phase-water', isLeaf:true,  percentDone:100, title:'Trench water line',    startDate:'2026-11-09T12:00:00Z', endDate:'2026-11-10T18:00:00Z'},
+    {id:'spigots',     parentId:'phase-water', isLeaf:true,  percentDone:100, title:'Install drip spigots', startDate:'2026-11-10T18:00:00Z', endDate:'2026-11-11T16:00:00Z'},
+    {id:'paths',       parentId:'phase-water', isLeaf:true,  percentDone:65,  title:'Lay gravel paths',     startDate:'2026-11-11T16:00:00Z', endDate:'2026-11-12T16:00:00Z'},
+    {id:'phase-plant', parentId:null,          isLeaf:false, collapsed:false, percentDone:0,  title:'Soil & planting',      startDate:'2026-11-13T00:00:00Z', endDate:'2026-11-17T06:00:00Z'},
+    {id:'water-ready', parentId:'phase-plant', isLeaf:true,  milestone:true,  title:'Water & beds ready',   startDate:'2026-11-13T00:00:00Z', endDate:'2026-11-13T00:00:00Z'},
+    {id:'soil',        parentId:'phase-plant', isLeaf:true,  percentDone:0,   title:'Fill compost & soil',  startDate:'2026-11-13T06:00:00Z', endDate:'2026-11-14T12:00:00Z'},
+    {id:'plant',       parentId:'phase-plant', isLeaf:true,  percentDone:0,   title:'Plant winter greens',  startDate:'2026-11-14T12:00:00Z', endDate:'2026-11-16T00:00:00Z'},
+    {id:'mulch',       parentId:'phase-plant', isLeaf:true,  percentDone:0,   title:'Mulch & plot signs',   startDate:'2026-11-16T00:00:00Z', endDate:'2026-11-17T06:00:00Z'},
+    {id:'shed',        parentId:'phase-plant', isLeaf:true,  percentDone:0,   title:'Set up tool shed',     startDate:'2026-11-14T00:00:00Z', endDate:'2026-11-15T12:00:00Z'}
 ];
 const dependencies = [
-    {id:'survey-design', fromId:'survey', toId:'design', type:'FS', lag:0, lagUnit:'hour'},
-    {id:'design-materials', fromId:'design', toId:'materials', type:'FS', lag:0, lagUnit:'hour'}
+    {id:'survey-design',    fromId:'survey',      toId:'design',      type:'FS', lag:0, lagUnit:'hour'},
+    {id:'design-materials', fromId:'design',      toId:'materials',   type:'FS', lag:0, lagUnit:'hour'},
+    {id:'trench-spigots',   fromId:'trench',      toId:'spigots',     type:'FS', lag:0, lagUnit:'hour'},
+    {id:'spigots-paths',    fromId:'spigots',     toId:'paths',       type:'FS', lag:0, lagUnit:'hour'},
+    {id:'build-ready',      fromId:'build',       toId:'water-ready', type:'FS', lag:0, lagUnit:'hour'},
+    {id:'paths-ready',      fromId:'paths',       toId:'water-ready', type:'FS', lag:0, lagUnit:'hour'},
+    {id:'ready-soil',       fromId:'water-ready', toId:'soil',        type:'FS', lag:0, lagUnit:'hour'},
+    {id:'soil-plant',       fromId:'soil',        toId:'plant',       type:'FS', lag:0, lagUnit:'hour'},
+    {id:'plant-mulch',      fromId:'plant',       toId:'mulch',       type:'FS', lag:0, lagUnit:'hour'}
 ];
 
 /**
@@ -52,8 +69,8 @@ class ProjectViewport extends Viewport {
                 {module:ThemeSwitcher}
             ]
         }, {
-            module:Gantt, reference:'gantt', flex:1, editable:true, rowHeight:56, animateCascade:true,
-            store:{module:TaskStore, data:tasks}, dependencyStore:{module:DependencyStore, data:dependencies},
+            module:Gantt, reference:'gantt', flex:1, editable:true, rowHeight:37, barMarginPct:10, animateCascade:true,
+            store:{module:TaskStore, data:tasks, rollupParents:true}, dependencyStore:{module:DependencyStore, data:dependencies},
             dependencyCreation:true, cascadeDependencies:true, showNonWorkingTime:true,
             taskColumns:[{type:'tree',dataField:'title',text:'Task',width:220,locked:'start'}],
             majorTickUnit:'week',
@@ -61,7 +78,7 @@ class ProjectViewport extends Viewport {
             minorFormatter: tick => tick.unit === 'hour'
                 ? tick.date.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', timeZone:'UTC'})
                 : tick.date.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', timeZone:'UTC'}),
-            timeAxis:{start:'2026-11-09',end:'2026-11-20',timeZone:'UTC',tickUnit:'day',pxPerMinute:0.12,snapMinutes:60},
+            timeAxis:{start:'2026-11-09',end:'2026-11-22',now:'2026-11-12T11:30:00Z',timeZone:'UTC',tickUnit:'day',pxPerMinute:0.10,snapMinutes:60},
             listeners:{taskChange:'up.onTaskChange'}
         }]
     }
@@ -139,7 +156,7 @@ class ProjectViewport extends Viewport {
 
     /** @summary Shows the weekly time scale. */
     onWeek() {
-        this.getReference('gantt').zoomTo({...Gantt.zoomPresets.week, pxPerMinute:0.12});
+        this.getReference('gantt').zoomTo({...Gantt.zoomPresets.week, pxPerMinute:0.10});
         this.getReference('day').pressed = false;
         this.getReference('week').pressed = true
     }
