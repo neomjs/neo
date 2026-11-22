@@ -107,22 +107,11 @@ class TreeAccordionModel extends TreeModel {
     }
 
     /**
-     * Called by keys (List.mjs:register)
-     * Toggle collapse or if isLeaf select next item
+     * @summary Enter belongs to the Navigator, as in `Neo.selection.TreeModel`: it clicks the focused item, which opens
+     * or closes a folder and selects a leaf. Acting on the selection here as well moved it one item past the focused one.
      * @param {Object} data
      */
-    onKeyDownEnter(data) {
-        let me     = this,
-            {view} = me,
-            itemId = me.getSelection()[0],
-            record = view.store.get(view.getItemRecordId(itemId));
-
-        if (record.isLeaf || record.collapsed) {
-            me.onKeyDownRight(data)
-        } else {
-            me.onKeyDownLeft(data)
-        }
-    }
+    onKeyDownEnter(data) {}
 
     /**
      * Called by keys (List.mjs:register)

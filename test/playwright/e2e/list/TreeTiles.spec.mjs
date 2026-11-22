@@ -67,5 +67,27 @@ test.describe('Tree tiles', () => {
         await expect(panel).toContainText('Quiet hours');
         await expect(panel).toContainText('22:00 to 07:00');
         await expect(panel).toBeInViewport()
+    });
+
+    test('the keyboard picks the focused setting: the arrows move, Enter opens a section and selects a setting', async ({page}) => {
+        const panel = page.locator('.tree-settings-selection'),
+              item  = name => page.locator('.neo-accordion-style li.neo-list-item').filter({hasText: name}).first();
+
+        await page.setViewportSize({width: 390, height: 844});
+        await page.goto('/examples/treeAccordion/index.html');
+        await item('Profile').click();
+        await expect(panel).toContainText('Profile');
+
+        // Password, Two-step sign-in, Notifications
+        for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+        await expect(item('Quiet hours')).toBeVisible();
+
+        // Email, Mobile push, Quiet hours
+        for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+
+        await expect(panel).toContainText('Quiet hours');
+        await expect(item('Quiet hours')).toHaveClass(/neo-selected/)
     })
 });
