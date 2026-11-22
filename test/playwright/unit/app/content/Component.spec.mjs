@@ -4,6 +4,8 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import Content        from '../../../../../src/app/content/Component.mjs';
+import Store          from '../../../../../src/data/Store.mjs';
+import ContentSection from '../../../../../apps/portal/model/ContentSection.mjs';
 import PortalContent  from '../../../../../apps/portal/view/content/Component.mjs';
 import ContentStore   from '../../../../../apps/portal/store/Content.mjs';
 
@@ -161,6 +163,49 @@ test.describe('article request settlement', () => {
 
         await visitB;
         expect(scrolls).toHaveLength(0)
+    });
+
+    test('each article publishes its own set of unique routed sections', async () => {
+        const sections   = Neo.create(Store, {model: ContentSection}),
+              selections = [];
+
+        component.routeSections = true;
+        component.updateSectionsStore = true;
+        component.getStateProvider = () => ({getStore: () => sections});
+        component.afterSetValue = value => component.modifyMarkdown(value);
+        component.promiseUpdate = async () => {};
+        component.on('routeSection', ({record}) => selections.push(record?.anchor ?? null));
+
+        try {
+            component.record = store.get('A');
+            requests[0].resolve([
+                '# Use `setState` with [a controller](guide.md)',
+                '## Tips &amp; Tricks',
+                '### Tips &amp; Tricks'
+            ].join('\n'));
+            await component.recordChange;
+
+            expect(sections.getCount()).toBe(3);
+            expect(sections.getAt(0).anchor).toBe('use-setstate-with-a-controller');
+            expect(sections.getAt(1).anchor).toBe('tips--tricks');
+            expect(sections.getAt(2).anchor).toBe('tips--tricks-1');
+
+            component.record = store.get('B');
+            requests[1].resolve('# Tips &amp; Tricks');
+            await component.recordChange;
+
+            expect(sections.getCount()).toBe(1);
+            expect(sections.getAt(0).anchor).toBe('tips--tricks');
+
+            component.record = store.get('A');
+            requests[2].resolve('An article without headings.');
+            await component.recordChange;
+
+            expect(sections.getCount()).toBe(0);
+            expect(selections).toEqual(['use-setstate-with-a-controller', 'tips--tricks', null])
+        } finally {
+            sections.destroy()
+        }
     });
 
     test('the timeline shares request settlement and keeps its observer selector', () => {

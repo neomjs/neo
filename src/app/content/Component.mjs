@@ -166,7 +166,8 @@ class Component extends Markdown {
 
                 me.#observeSections();
 
-                if (me.#selectRouteSection()) return
+                me.#applyRouteSection();
+                return
             } else if (oldValue) {
                 await me.timeout(50).catch(error => {
                     if (error !== Neo.isDestroyed) throw error
@@ -195,7 +196,7 @@ class Component extends Markdown {
     }
 
     /**
-     * @summary Selects the section requested by the route, including navigation within the current article.
+     * @summary Applies the routed fragment or resets the reading position within the current article.
      * @param {Object} record
      * @param {String} [fragment]
      */
@@ -210,25 +211,31 @@ class Component extends Markdown {
 
         this.#routeSection = fragment ? {record, fragment} : null;
 
-        if (record === this.#renderedRecord) this.#selectRouteSection()
+        if (record && record === this.#renderedRecord) this.#applyRouteSection()
     }
 
     /**
-     * @summary Uses the contents panel's section record once its article has reached the DOM.
-     * @returns {Boolean}
+     * @summary Reveals a matching heading or returns to the start of the rendered article.
      */
-    #selectRouteSection() {
-        const section = this.#routeSection;
+    #applyRouteSection() {
+        const section  = this.#routeSection,
+              sections = this.updateSectionsStore ? this.getStateProvider().getStore('sections') : null,
+              record   = section && section.record === this.#renderedRecord
+                  ? sections?.find('anchor', section.fragment, true)
+                  : null;
 
-        if (!section || section.record !== this.#renderedRecord) return false;
+        if (record) {
+            this.fire('routeSection', {record});
+            return
+        }
 
-        const record = this.getStateProvider().getStore('sections').find('anchor', section.fragment, true);
-
-        if (!record) return false;
-
-        this.fire('routeSection', {record});
-
-        return true
+        Neo.main.DomAccess.scrollTo({
+            behavior: 'instant',
+            id      : this.parentId,
+            value   : 0,
+            windowId: this.windowId
+        });
+        this.fire('routeSection', {record: sections?.getAt(0) ?? null, scrollToHeading: false})
     }
 
     /**
@@ -261,7 +268,9 @@ class Component extends Markdown {
         Neo.main.addon.IntersectionObserver.observe({
             disconnect: true,
             id,
-            observe   : this.routeSections ? contentObserverSelectors.map(selector => `#${id} ${selector}`) : contentObserverSelectors,
+            observe   : this.routeSections
+                ? ['.neo-h1', ...contentObserverSelectors].map(selector => `#${id} ${selector}`)
+                : contentObserverSelectors,
             windowId
         })
     }

@@ -13,18 +13,36 @@ import {expect, test} from '../../fixtures.mjs';
  * "does clicking it arrive".
  */
 
-const PORTAL           = '/apps/portal/index.html',
-      GUIDE            = `${PORTAL}#/learn/guides/uibuildingblocks/DockLayouts`,
-      ADOPTION_ROUTE   = '#/learn/guides/uibuildingblocks/DockLayoutsAdoption',
-      DECISION_3_ROUTE = `${ADOPTION_ROUTE}#decision-3--policies-live-in-the-model-not-in-your-ui`,
-      DECISION_3_TITLE = 'Decision 3 — policies live in the model, not in your UI';
+const PORTAL            = '/apps/portal/index.html',
+      GUIDE             = `${PORTAL}#/learn/guides/uibuildingblocks/DockLayouts`,
+      ADOPTION_ROUTE    = '#/learn/guides/uibuildingblocks/DockLayoutsAdoption',
+      ADOPTION_MARKDOWN = '**/DockLayoutsAdoption.md*',
+      ADOPTION_TITLE    = 'Dock Layouts: Adopting in Your App',
+      DECISION_3_ROUTE  = `${ADOPTION_ROUTE}#decision-3--policies-live-in-the-model-not-in-your-ui`,
+      DECISION_3_TITLE  = 'Decision 3 — policies live in the model, not in your UI';
 
 /** The content component's own class, so the assertions cannot drift onto sidebar or chrome links. */
 const CONTENT  = '.neo-app-content-component',
+      SCROLLER = '.neo-app-content-page-container',
       SECTIONS = '.neo-app-content-sections-list';
 
 /** The sidebar tree, whose navigation owes nothing to the rewrite — see the control arm below. */
 const TREE = '.neo-app-content-tree-list';
+
+/**
+ * @summary Keeps Markdown requests on the test's network routes so delivery can be counted or held.
+ * @param {import('@playwright/test').Page} page
+ */
+async function routeMarkdownOnDedicatedWorker(page) {
+    await page.route('**/neo-config.json*', async route => {
+        const response = await route.fetch({maxRetries: 2});
+
+        await route.fulfill({response, json: {
+            ...await response.json(), useAiClient: false, useSharedWorkers: false, useServiceWorker: false,
+            useCanvasWorkerStartingPoint: false
+        }})
+    })
+}
 
 /**
  * @summary Checks that the destination is visible and selected in On this page.
@@ -182,4 +200,140 @@ test.describe('learn link routing', () => {
         await expect(page.locator(`${CONTENT} h1`, {hasText: 'Adopting in Your App'})).toBeInViewport()
     });
 
+    test('clearing the fragment or opening an unknown section resets the loaded article without fetching it again', async ({page}) => {
+        await routeMarkdownOnDedicatedWorker(page);
+
+        let requests = 0;
+        await page.context().route(ADOPTION_MARKDOWN, async route => {
+            requests++;
+            await route.continue()
+        });
+
+        const article       = page.locator(CONTENT),
+              heading       = article.getByRole('heading', {level: 1, name: ADOPTION_TITLE, exact: true}),
+              readScrollTop = () => article.evaluate((node, selector) => node.closest(selector).scrollTop, SCROLLER);
+
+        await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+        await expectDecisionArrival(page);
+        expect(requests).toBe(1);
+
+        for (const suffix of ['', '#unknown-section']) {
+            await page.goto(`${PORTAL}${ADOPTION_ROUTE}${suffix}`);
+            await expect(heading).toBeInViewport();
+            await expect.poll(readScrollTop).toBe(0);
+            await expect(page.locator(`${SECTIONS} .neo-selected`)).toHaveText(ADOPTION_TITLE);
+
+            if (!suffix) {
+                await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+                await expectDecisionArrival(page)
+            }
+        }
+
+        expect(requests).toBe(1)
+    });
+
+    test('scrolling back to the top selects the article title while its first section is still visible', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+
+        const firstSectionTitle = 'One class, five decisions',
+              article           = page.locator(CONTENT),
+              heading           = article.getByRole('heading', {level: 1, name: ADOPTION_TITLE, exact: true}),
+              firstSection      = article.getByRole('heading', {level: 2, name: firstSectionTitle, exact: true}),
+              selected          = page.locator(`${SECTIONS} .neo-selected`),
+              readScrollTop     = () => article.evaluate((node, selector) => node.closest(selector).scrollTop, SCROLLER);
+
+        await page.locator(SECTIONS).getByText(firstSectionTitle, {exact: true}).click();
+        await expect(selected).toHaveText(firstSectionTitle);
+        await expect.poll(readScrollTop).toBeGreaterThan(0);
+
+        await page.locator(SCROLLER).filter({has: article}).hover();
+        await page.mouse.wheel(0, -1400);
+
+        await expect.poll(readScrollTop).toBe(0);
+        await expect(firstSection).toBeInViewport();
+        await expect(heading).toBeInViewport();
+        await expect(selected).toHaveText(ADOPTION_TITLE)
+    });
+
+    test('a superseded Markdown response cannot replace a newer article’s contents or move its scroll', async ({page}) => {
+        await routeMarkdownOnDedicatedWorker(page);
+        await page.goto(GUIDE);
+
+        const article       = page.locator(CONTENT),
+              sections      = page.locator(SECTIONS),
+              started       = Promise.withResolvers(),
+              release       = Promise.withResolvers(),
+              readScrollTop = () => article.evaluate((node, selector) => node.closest(selector).scrollTop, SCROLLER);
+
+        await expect(article.locator('h1')).toHaveText('Dock Layouts: One Application, Many Windows');
+        const contentId = await article.getAttribute('id');
+        let appWorker;
+
+        for (const worker of page.workers()) {
+            if (await worker.evaluate(id => Boolean(globalThis.Neo?.getComponent?.(id)), contentId)) {
+                appWorker = worker;
+                break
+            }
+        }
+
+        expect(appWorker, 'the dedicated App Worker holds the Portal article').toBeDefined();
+        const readSectionRecords = () => appWorker.evaluate(id => Neo.getComponent(id).getStateProvider()
+            .getStore('sections').getRange().map(({id, name, sourceId}) => ({id, name, sourceId})), contentId);
+
+        await appWorker.evaluate(({contentId, oldRecordId}) => {
+            const component      = Neo.getComponent(contentId),
+                  afterSetRecord = component.afterSetRecord,
+                  finished       = Promise.withResolvers();
+
+            // Wait for the real record lifecycle, including any late render, after delivering the Markdown.
+            globalThis.learnSupersededRecordFinished = finished.promise;
+            component.afterSetRecord = function(record, oldRecord) {
+                const result = afterSetRecord.call(this, record, oldRecord);
+
+                if (record?.id === oldRecordId) result.then(finished.resolve, finished.reject);
+
+                return result
+            }
+        }, {contentId, oldRecordId: ADOPTION_ROUTE.slice('#/learn/'.length)});
+
+        await page.context().route(ADOPTION_MARKDOWN, async route => {
+            const response = await route.fetch({maxRetries: 2});
+
+            started.resolve(response.status());
+            await release.promise;
+            await route.fulfill({response})
+        }, {times: 1});
+
+        try {
+            await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+            expect(await started.promise).toBe(200);
+
+            const newerTitle   = 'Using These Topics',
+                  newerSection = 'How the Content is Organized',
+                  selected     = sections.locator('.neo-selected');
+
+            await page.goto(`${PORTAL}#/learn/UsingTheseTopics#how-the-content-is-organized`);
+            await expect(article.locator('h1')).toHaveText(newerTitle);
+            await expect(selected).toHaveText(newerSection);
+            await expect.poll(readScrollTop).toBeGreaterThan(0);
+
+            const contents  = await sections.locator('.neo-list-item').allTextContents(),
+                  records   = await readSectionRecords(),
+                  scrollTop = await readScrollTop();
+
+            expect(contents).toContain(newerSection);
+            expect(records.map(record => record.name)).toContain(newerSection);
+            release.resolve();
+            await appWorker.evaluate(() => globalThis.learnSupersededRecordFinished);
+
+            await expect(article.locator('h1')).toHaveText(newerTitle);
+            await expect(sections.locator('.neo-list-item')).toHaveText(contents);
+            await expect(selected).toHaveText(newerSection);
+            expect(await readSectionRecords()).toEqual(records);
+            expect(await readScrollTop()).toBe(scrollTop)
+        } finally {
+            release.resolve()
+        }
+    });
 });

@@ -182,15 +182,21 @@ class MainContainerController extends Controller {
     }
 
     /**
-     * @summary Reveals a routed heading through the same selection and scroll as the contents panel.
+     * @summary Synchronizes the contents selection and reveals an explicitly routed heading.
      * @param {Object} data
-     * @param {Object} data.record
+     * @param {Object|null} data.record
+     * @param {Boolean} [data.scrollToHeading=true]
      */
-    onRouteSection({record}) {
+    onRouteSection({record, scrollToHeading=true}) {
         const {list} = this.getReference('page-sections-container');
 
-        list.selectionModel.select(record);
-        return list.onSelectionChange({record})
+        if (record) {
+            list.selectionModel.select(record);
+
+            if (scrollToHeading) return list.onSelectionChange({record})
+        } else {
+            list.selectionModel.deselectAll()
+        }
     }
 
     /**
