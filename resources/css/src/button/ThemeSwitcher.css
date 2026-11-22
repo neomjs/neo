@@ -1,9 +1,4 @@
 .neo-button.neo-theme-switcher {
-    &:focus-visible {
-        outline       : 2px solid var(--sem-color-border-focus, currentColor);
-        outline-offset: 2px;
-    }
-
     .neo-button-glyph {
         align-items    : center;
         display        : inline-flex;
