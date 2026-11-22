@@ -69,6 +69,26 @@ test.describe('Neo.container.Accordion maxExpandedItems', () => {
         }
     });
 
+    test('a fractional cap counts whole items, and the first open under 0.5 keeps that item open', async () => {
+        const accordion = await createAccordion({maxExpandedItems: 0.5});
+
+        try {
+            expect(accordion.maxExpandedItems).toBe(1);
+
+            accordion.items[0].onExpandClick();
+            expect(open(accordion)).toEqual(['Section 1']);
+
+            accordion.maxExpandedItems = 2.7;
+            expect(accordion.maxExpandedItems).toBe(2);
+
+            accordion.items[1].onExpandClick();
+            accordion.items[2].onExpandClick();
+            expect(open(accordion)).toEqual(['Section 2', 'Section 3'])
+        } finally {
+            accordion.destroy()
+        }
+    });
+
     test('a cap of 0 lets every item open', async () => {
         const accordion = await createAccordion({initialOpen: [0], maxExpandedItems: 1});
 

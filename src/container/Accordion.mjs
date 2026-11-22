@@ -58,7 +58,7 @@ class Accordion extends Panel {
         keys: {},
         /**
          * Max number of accordion items, which can be expanded at the same time; 0 for no limit.
-         * Lowering it closes the items opened first until the rest fit.
+         * A fraction counts whole items. Lowering it closes the items opened first until the rest fit.
          * @member {Number} maxExpandedItems_=1
          * @reactive
          */
@@ -149,6 +149,18 @@ class Accordion extends Panel {
                 text   : value
             }]
         }
+    }
+
+    /**
+     * @summary A positive limit counts whole items: it rounds down, to one at the least, because the item about to
+     * open always opens. 0 or less stays no limit.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetMaxExpandedItems(value, oldValue) {
+        return value > 0 ? Math.max(1, Math.floor(value)) : value
     }
 
     /**
