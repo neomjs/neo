@@ -26,6 +26,8 @@ class TaskTreeViewport extends Viewport {
         className    : 'Neo.examples.gantt.taskTree.Viewport',
         cls          : ['task-tree-viewport'],
         layout       : {ntype: 'vbox', align: 'stretch'},
+        listeners    : {resize: 'onResize'},
+        monitorSize  : true,
         stateProvider: {module: StateProvider, stores: {tasks: {module: TaskStore}}},
         items        : [{
             module: Toolbar,
@@ -68,6 +70,7 @@ class TaskTreeViewport extends Viewport {
     }
 
     #compact = null
+    #shortOpening = null
 
     /** @summary Fits the four-week axis beside the locked columns as the chart changes width. */
     onConstructed() {
@@ -90,7 +93,18 @@ class TaskTreeViewport extends Viewport {
 
         const locked = compact ? 236 : 310,
             dayWidth = Math.max(5, Math.floor((width - locked - 4) / 28));
-        gantt.timeAxis.set({size: dayWidth * 28, tickStep: compact ? 7 : 1})
+        gantt.timeAxis.set({size: dayWidth * 28, tickStep: compact ? 7 : dayWidth < 30 ? 2 : 1})
+    }
+
+    /** @summary Opens the first phase folded on a short, medium-width first frame. @param {Object} data */
+    onResize(data) {
+        if (data.id !== this.id || this.#shortOpening !== null) return;
+
+        const {inlineSize, blockSize} = data.borderBoxSize,
+            store                     = this.getStateProvider().getStore('tasks');
+
+        this.#shortOpening = inlineSize >= 600 && blockSize <= 600;
+        if (this.#shortOpening) store.collapse('curate')
     }
 
     /** @summary Moves the lighting to November 16–18 through the Gantt task writer. */
@@ -109,7 +123,8 @@ class TaskTreeViewport extends Viewport {
     onReset() {
         const store = this.getStateProvider().getStore('tasks');
         store.clear();
-        store.add(TaskStore.buildSeedTasks())
+        store.add(TaskStore.buildSeedTasks());
+        if (this.#shortOpening) store.collapse('curate')
     }
 }
 
