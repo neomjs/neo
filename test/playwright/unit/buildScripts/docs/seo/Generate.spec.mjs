@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import {execFileSync} from 'node:child_process';
 import fs             from 'fs-extra';
 import os             from 'os';
 import path           from 'path';
@@ -998,7 +999,8 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
         expect(seoJson['/news/releases/13.3.1']).toEqual({
             title      : 'Neo.mjs v13.3.1 Release Notes',
             description: 'Release notes and changelog for Neo.mjs v13.3.1.',
-            schemaType : 'TechArticle'
+            schemaType : 'TechArticle',
+            robots     : 'noindex, follow'
         });
         expect(seoJson['/news/releases/13.0.0']).toEqual({
             title      : 'Release 13.0.0 - Neo.mjs',
@@ -1010,6 +1012,53 @@ test.describe('docs SEO generator archive exclusion (#20089)', () => {
             title      : 'Custom Guide - Neo.mjs',
             description: 'This paragraph explains how multi-threaded UI rendering keeps the main thread responsive under load.'
         });
+    });
+
+    test('extractMarkdownSeoMetadata skips leading page-metadata fields and the TL;DR label (#21820)', () => {
+        const describe = lines => extractMarkdownSeoMetadata(lines.join('\n')).description;
+
+        expect(describe([
+            '# Neo.mjs v11.17.1 Release Notes',
+            '',
+            '**Release Type:** Patch Release',
+            '**Stability:** Production-ready',
+            '**Upgrade Path:** Drop-in replacement for v11.17.0',
+            '',
+            '---',
+            '',
+            'This patch release fixes a configuration oversight that left new applications out of the npm package.'
+        ])).toBe('This patch release fixes a configuration oversight that left new applications out of the npm package.');
+
+        expect(describe([
+            '# Neo.mjs v13.4.0 Release Notes',
+            '',
+            '**Release Type:** A minor release, and the householding one, with the open issues down to five.',
+            '',
+            '**Stability:** Stable.',
+            '**Upgrade Path:** Not a drop-in for every app.',
+            '',
+            '> **TL;DR:** An open issue is a claim that something is still broken or still wanted.'
+        ])).toBe('An open issue is a claim that something is still broken or still wanted.');
+
+        expect(describe([
+            '# Config System Deep Dive',
+            '',
+            '**Pre-requisite:** It is highly recommended to study [The Unified Class Config System](../ConfigSystem.md)',
+            'first to understand the foundations.',
+            '',
+            '**Target Audience**: Developers who write their own configs and need to know how they resolve.',
+            '',
+            'The class configuration system is a cornerstone of the engine, declaring state as configs.'
+        ])).toBe('The class configuration system is a cornerstone of the engine, declaring state as configs.');
+
+        // A bold label that is not page metadata opens real prose, so it stays the description
+        expect(describe([
+            '# Fixed Row Heights',
+            '',
+            '**The Problem:** A grid with a fixed row height has to clip long text or waste space.',
+            '',
+            'A second paragraph that the description must not reach on this page.'
+        ])).toBe('The Problem: A grid with a fixed row height has to clip long text or waste space.');
     });
 
     test('formatLearnSeoTitle and getSeoJson apply /learn/* search-intent title qualifiers (#20715)', async () => {
@@ -1233,7 +1282,7 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/13.4.0</loc>\n    <lastmod>2026-11-09</lastmod>\n    <priority>0.9</priority>');
     });
 
-    test('prunes /home, /apps/portal/index.html, hidden/redirect learn leaves, and < maxReleaseMajor - 1 releases while stamping robots noindex, follow', async () => {
+    test('prunes aliases and hidden/redirect learn leaves while keeping a release history below 25 indexable', async () => {
         const isolatedRoot = path.join(tempDir, 'pruned-root');
         const seoJsonPath  = path.join(isolatedRoot, 'apps/portal/resources/data/seo.json');
         const releasesPath = path.join(isolatedRoot, 'apps/portal/resources/data/releases.json');
@@ -1286,20 +1335,16 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
         expect(coreXml).toContain('<loc>https://neomjs.com/learn/benefits/Introduction</loc>');
         expect(coreXml).not.toContain('/learn/guides/specificfeatures/MultiWindow');
         expect(coreXml).not.toContain('/learn/agentos/decisions/0020-agent-harness-concept');
-        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/13.4.0</loc>');
-        expect(coreXml).toContain('<loc>https://neomjs.com/news/releases/12.1.0</loc>');
-        expect(coreXml).not.toContain('/news/releases/11.18.0');
-        expect(coreXml).not.toContain('/news/releases/8.0.0');
+        for (const version of ['13.4.0', '12.1.0', '11.18.0', '8.0.0']) {
+            expect(coreXml).toContain(`<loc>https://neomjs.com/news/releases/${version}</loc>`);
+            expect(seoJson[`/news/releases/${version}`]?.robots).toBeUndefined();
+        }
 
         expect(llmsTxt).toContain('- [Home](https://neomjs.com/)');
 
         expect(seoJson['/learn/benefits/Introduction']?.robots).toBeUndefined();
         expect(seoJson['/learn/guides/specificfeatures/MultiWindow']?.robots).toBe('noindex, follow');
         expect(seoJson['/learn/agentos/decisions/0020-agent-harness-concept']?.robots).toBe('noindex, follow');
-        expect(seoJson['/news/releases/13.4.0']?.robots).toBeUndefined();
-        expect(seoJson['/news/releases/12.1.0']?.robots).toBeUndefined();
-        expect(seoJson['/news/releases/11.18.0']?.robots).toBe('noindex, follow');
-        expect(seoJson['/news/releases/8.0.0']?.robots).toBe('noindex, follow');
 
         // Verify live tracked apps/portal/resources/data/seo.json invariants
         const liveSeoJson = await fs.readJSON(path.resolve(process.cwd(), 'apps/portal/resources/data/seo.json'));
@@ -1310,6 +1355,166 @@ test.describe('docs SEO generator #20915: git lastmod fallback and sitemap-core 
             expect(liveSeoJson[`/learn/agentos/decisions/${adr}`]?.robots).toBe('noindex, follow');
         }
     });
+
+    test('indexes the latest 25 distinct release versions across majors and keeps the full LLM listing', async () => {
+        const versions = [
+            '14.0.0',
+            ...Array.from({length: 6}, (_, i) => `13.${5 - i}.0`),
+            '12.1.0', '12.0.0',
+            ...Array.from({length: 17}, (_, i) => `11.${27 - i}.0`)
+        ];
+        const releasesPath = path.join(tempDir, 'apps/portal/resources/data/releases.json');
+
+        await fs.outputJson(path.join(tempDir, 'apps/portal/resources/data/blog.json'), {data: []});
+        await fs.outputJson(path.join(tempDir, 'learn/tree.json'), {data: []});
+        await Promise.all(versions.map(version => {
+            const notesDir = version.startsWith('14.') ? releaseNotesRoot : path.join(releaseNotesRoot, 'chunk-1');
+
+            return fs.outputFile(path.join(notesDir, `v${version}.md`), `# Neo.mjs v${version} Release Notes\n`);
+        }));
+        await fs.outputFile(path.join(releaseNotesRoot, 'chunk-2/13.0.0.md'), '# Neo.mjs v13.0.0 Release Notes\n');
+        await createReleaseIndex({outputFile: releasesPath, releaseNotesRoot});
+        const releaseIndex = await fs.readJson(releasesPath);
+
+        releaseIndex.push({id: '99.0.0', isLeaf: true});
+        await fs.writeJson(releasesPath, releaseIndex);
+
+        const baseUrl            = 'https://neomjs.com';
+        const options            = {baseUrl, corpusRoot, releaseNotesRoot, releasesPath, root: tempDir};
+        const seoJson            = await getSeoJson(options);
+        const [coreXml, llmsTxt] = await Promise.all([
+            getSitemapXml({...options, seoJson}),
+            getLlmsTxt(options)
+        ]);
+
+        const expectedVersions  = versions.slice(0, 25).sort();
+        const coreVersions      = Array.from(coreXml.matchAll(/<loc>https:\/\/neomjs\.com\/news\/releases\/([^<]+)<\/loc>/g), ([, version]) => version).sort();
+        const indexableVersions = Object.entries(seoJson)
+            .filter(([route, metadata]) => route.startsWith('/news/releases/') && metadata.robots === undefined)
+            .map(([route]) => route.split('/').at(-1))
+            .sort();
+
+        expect.soft(coreVersions).toEqual(expectedVersions);
+        expect.soft(indexableVersions).toEqual(expectedVersions);
+        expect.soft(seoJson['/news/releases/11.11.0']?.robots).toBe('noindex, follow');
+        expect.soft(seoJson['/news/releases/99.0.0']?.robots).toBe('noindex, follow');
+        expect(llmsTxt).toContain('- [v11.12.0](https://neomjs.com/raw/news/releases/11.12.0.md)');
+        expect(llmsTxt).toContain('- [v11.11.0](https://neomjs.com/raw/news/releases/11.11.0.md)');
+    });
+});
+
+test('preserves release cut lastmod through a later squash and uses Git dates for subsequent edits', async () => {
+    const tempDir      = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-seo-release-cut-'));
+    const root         = path.join(tempDir, 'engine');
+    const noteSource   = '.github/RELEASE_NOTES/v14.0.0.md';
+    const portalSource = 'apps/portal/index.html';
+    const indexSource  = 'apps/portal/resources/data/releases.json';
+    const aboutSource  = 'apps/portal/view/about/Container.mjs';
+    const notePath     = path.join(root, noteSource);
+    const portalPath   = path.join(root, portalSource);
+    const seoJsonPath  = path.join(root, 'apps/portal/resources/data/seo.json');
+    const releaseRoute = '/news/releases/14.0.0';
+    const draftDate    = '2026-11-20';
+    const cutDate      = '2026-11-23';
+    const draftNote    = '# Neo.mjs v14.0.0 Release Notes\n\nEngine 14 highlights.\n';
+    const portalHtml   = '<html><head><title>Neo.mjs Engine 14</title><meta name="description" content="Engine 14."></head></html>';
+    const stampedNote  = [
+        '---',
+        `publishedAt: '${cutDate}T12:00:00Z'`,
+        'seoSourcePaths:',
+        ...[noteSource, portalSource, indexSource].map(source => `  - ${source}`),
+        '---',
+        draftNote
+    ].join('\n');
+
+    const git = (args, date=draftDate) => execFileSync('git', args, {
+        cwd     : root,
+        encoding: 'utf8',
+        env     : {
+            ...process.env,
+            GIT_AUTHOR_DATE    : `${date}T12:00:00Z`,
+            GIT_AUTHOR_EMAIL   : 'seo-fixture@example.invalid',
+            GIT_AUTHOR_NAME    : 'SEO Fixture',
+            GIT_COMMITTER_DATE : `${date}T12:00:00Z`,
+            GIT_COMMITTER_EMAIL: 'seo-fixture@example.invalid',
+            GIT_COMMITTER_NAME : 'SEO Fixture',
+            GIT_CONFIG_GLOBAL  : os.devNull,
+            GIT_CONFIG_NOSYSTEM: '1'
+        }
+    }).trim();
+
+    const commit = (date, message) => {
+        git(['add', '.']);
+        git(['commit', '--quiet', '-m', `${message} (#21808)`], date);
+    };
+
+    const index             = () => createReleaseIndex({outputFile: path.join(root, indexSource), releaseNotesRoot: path.dirname(notePath)});
+    const familyDefinitions = [{family: 'apps', route: '/examples/apps', title: 'Apps'}];
+    const generate          = (options={}) => getSeoJson({root, familyDefinitions, ...options});
+
+    try {
+        await fs.outputFile(notePath, draftNote);
+        await fs.outputFile(portalPath, portalHtml.replace('Engine 14', 'Engine 14 Draft'));
+        await fs.outputFile(path.join(root, aboutSource), '// About page source.\n');
+        await fs.outputJson(path.join(root, 'apps/portal/resources/data/examples.json'), [{
+            family   : 'apps',
+            image    : 'portal.jpg',
+            name     : 'Portal',
+            sourceUrl: 'apps/portal',
+            urls     : {dist_prod: 'dist/production/apps/portal/index.html'}
+        }]);
+        await fs.outputJson(seoJsonPath, {
+            '/about-us'     : {title: 'About Us', description: 'About the project.'},
+            '/news/releases': {title: 'Release Notes', description: 'Neo.mjs release notes.'}
+        });
+        await index();
+        git(['init', '--quiet']);
+        commit(draftDate, 'Track the draft');
+        const base = git(['rev-parse', 'HEAD']);
+
+        await fs.writeFile(notePath, stampedNote);
+        await fs.writeFile(portalPath, portalHtml);
+        await index();
+
+        const routes     = ['/', '/home', '/news/releases', releaseRoute, '/examples/apps'];
+        const defaultSeo = await generate();
+        const baked      = await generate({pendingReleaseNote: notePath});
+
+        expect(routes.map(route => defaultSeo[route]?.lastmod)).toEqual(routes.map(() => draftDate));
+        expect.soft(routes.map(route => baked[route]?.lastmod), 'prepared routes use the cut date').toEqual(routes.map(() => cutDate));
+        expect(baked['/about-us']?.lastmod).toBe(draftDate);
+
+        await fs.writeJson(seoJsonPath, baked);
+        const serializedSeo = JSON.stringify(baked);
+        commit(cutDate, 'Prepare the release');
+        expect.soft(JSON.stringify(await generate()), 'prepared commit matches its baked catalog').toBe(serializedSeo);
+
+        const tree   = git(['rev-parse', 'HEAD^{tree}']);
+        const squash = git(['commit-tree', tree, '-p', base, '-m', 'Squash the release (#21808)'], '2026-11-24');
+        git(['checkout', '--quiet', '--detach', squash]);
+        expect.soft(JSON.stringify(await generate()), 'later squash matches the same baked catalog').toBe(serializedSeo);
+
+        const packageRoot = path.join(tempDir, 'node_modules/neo.mjs');
+
+        await fs.copy(root, packageRoot, {filter: file => file !== path.join(root, '.git')});
+        expect(JSON.stringify(await generate({root: packageRoot}))).toBe(serializedSeo);
+
+        await fs.writeFile(notePath, stampedNote.replace('Engine 14 highlights.', 'Updated Engine 14 highlights.'));
+        await fs.writeFile(portalPath, portalHtml.replace('Engine 14.', 'Updated Engine 14.'));
+        commit('2026-11-25', 'Edit the release note and Portal');
+        const edited = await generate();
+        expect([edited['/'].lastmod, edited[releaseRoute].lastmod]).toEqual(['2026-11-25', '2026-11-25']);
+        expect(edited['/examples/apps'].lastmod).toBe('2026-11-25');
+
+        await fs.writeFile(notePath, stampedNote);
+        await fs.writeFile(portalPath, portalHtml);
+        commit('2026-11-26', 'Revert the later edits');
+        const reverted = await generate();
+        expect([reverted['/'].lastmod, reverted[releaseRoute].lastmod]).toEqual(['2026-11-26', '2026-11-26']);
+        expect(reverted['/news/releases'].lastmod).toBe(cutDate);
+    } finally {
+        await fs.remove(tempDir);
+    }
 });
 
 test.describe('docs SEO generator #20917: frontmatter seoTitle/seoDescription and search-intent titles', () => {

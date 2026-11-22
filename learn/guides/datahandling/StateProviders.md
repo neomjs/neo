@@ -1,3 +1,6 @@
+---
+seoDescription: "Share bindable data across a Neo.mjs component tree with State Providers: one source of truth for a view section, with business logic kept out of views."
+---
 # Shared Bindable Data (State Providers)
 
 While individual Components can manage their own local state using the Class Config System, you will need a State Provider as soon as you want to share data properties across multiple child components or decouple your business logic from your view layer.
@@ -27,12 +30,12 @@ At the heart of the reactivity is the `Neo.core.Effect` class. An `Effect` encap
 
 ### 2. The Hierarchical Data Proxy
 
-When you access data within a State Provider (e.g., in a `bind` configuration or a `formula`), you are not interacting with a plain JavaScript object. You are interacting with a special `Proxy` created by `Neo.state.createHierarchicalDataProxy`. 
+When you access data within a State Provider (e.g., in a `bind` configuration or a `formula`), you are not interacting with a plain JavaScript object. You are interacting with a special `Proxy` created by `Neo.state.createHierarchicalDataProxy`.
 
 This proxy provides a unified, deeply reactive view of data across the entire State Provider hierarchy (the current provider and all its parents).
 
 *   **Seamless Data Access:** You can access any data property, whether it lives in the current State Provider or a distant parent, using simple dot notation (e.g., `data.myProperty` or `data.user.address.street`). The proxy traverses the tree automatically to find the closest matching property.
-*   **Cross-Instance Tracking:** This proxy is the bridge to the `Effect` system. When an `Effect` reads a property through this proxy, the proxy intercepts the read and registers the underlying `core.Config` instance (even if it lives on a completely different State Provider instance) as a dependency for the active Effect. 
+*   **Cross-Instance Tracking:** This proxy is the bridge to the `Effect` system. When an `Effect` reads a property through this proxy, the proxy intercepts the read and registers the underlying `core.Config` instance (even if it lives on a completely different State Provider instance) as a dependency for the active Effect.
 
 ### How Bindings and Formulas Utilize Effects
 
@@ -225,7 +228,7 @@ The output of this demo is supposed to exactly look the same like the previous d
 This time we nest our Labels into a Container with a fit layout.
 Just for demo purposes, we want to avoid overnesting inside real apps.
 
-Our top level stateProvider now only contains the `hello` data prop, and we added a second stateProvider inside the 
+Our top level stateProvider now only contains the `hello` data prop, and we added a second stateProvider inside the
 nested Container which contains the `world` data prop.
 
 As a result, the bindings for all 3 Labels contain a combination of data props which live inside different stateProviders.
@@ -597,7 +600,7 @@ MyDataStore = Neo.setupClass(MyDataStore);
 class MainViewStateProvider extends StateProvider {
     static config = {
         className: 'Guides.vm7.MainViewStateProvider',
-        
+
         stores: {
             // Define a store using a class reference
             mySharedStore: {

@@ -2861,7 +2861,7 @@ test.describe('DemoB cross-window stage — root edge geometry', () => {
                 id         : 'demo-b-host',
                 isDestroyed: false,
                 windowId   : 'demo-b-window',
-                down       : ({dockNodeId}) => ({id: `container-${dockNodeId}`}),
+                down       : ({dockNodeId}, returnFirstMatch=true) => returnFirstMatch ? {id: `container-${dockNodeId}`} : [],
                 getDomRect : ids => Promise.resolve(ids.map(() => ({height: 600, width: 800, x: 0, y: 0})))
             },
             registries = {geometry: new Map(), hosts: new Map([['demo-b', host]]), participations: new Map()};

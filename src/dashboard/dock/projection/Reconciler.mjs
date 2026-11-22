@@ -455,6 +455,8 @@ class Reconciler extends Base {
      *     A prepared copy of a resident lazy config updates that config in place, without loading it.
      * @param {Function|null} [options.onProjectionStaged=null]
      * @param {Number} [options.shellIndex=0]
+     * @param {AbortSignal|null} [options.signal=null] Aborts once a newer committed document supersedes this
+     *     projection. It reaches the overflow recaptures this call starts, which then stop waiting on their reads.
      * @param {Function|null} [options.waitForOverflowProjection=null]
      * @returns {Promise<{currentTabs: Map, landedInPlace: Boolean, nextShell: Neo.component.Base,
      *     overflowPlugins: Object[], plans: Map}>}
@@ -471,6 +473,7 @@ class Reconciler extends Base {
         resolveItem,
         onProjectionStaged=null,
         shellIndex=0,
+        signal=null,
         waitForOverflowProjection=null
     }) {
         const
@@ -515,7 +518,7 @@ class Reconciler extends Base {
                 .map(plan => plan.tab?.getTabBar()?.getPlugin('tab-overflow'))
                 .filter(Boolean))];
 
-            await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
+            await Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal})));
 
             if (waitForOverflowProjection) {
                 await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))
@@ -713,7 +716,7 @@ class Reconciler extends Base {
         overflowPlugins.forEach(plugin => {
             !plugin.projectAsAction && plugin.control?.hidden && (plugin.control.hidden = false)
         });
-        await Promise.all(overflowPlugins.map(plugin => plugin.project(true)));
+        await Promise.all(overflowPlugins.map(plugin => plugin.project(true, {signal})));
 
         if (waitForOverflowProjection) {
             await Promise.all(overflowPlugins.map(plugin => waitForOverflowProjection(plugin)))

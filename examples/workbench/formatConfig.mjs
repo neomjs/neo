@@ -1,9 +1,12 @@
 /**
  * @module Neo.examples.workbench.formatConfig
- * @summary Pure helpers that format changed component configs into evaluable Neo config source.
+ * @summary Pure helpers that format and URL-serialize changed component configs.
  */
 
-const VALID_IDENTIFIER_RE = /^[a-zA-Z_$][\w$]*$/;
+const
+    JSON_NUMBER_RE      = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/,
+    PROTO_CHAIN_KEYS    = new Set(['__proto__', 'constructor', 'prototype']),
+    VALID_IDENTIFIER_RE = /^[a-zA-Z_$][\w$]*$/;
 
 /**
  * @summary Escapes a string literal as valid single-quoted Neo config source.
@@ -145,4 +148,159 @@ export function formatExampleCode(className, changedConfigs={}) {
         body   = [lines.join(',\n'), ...comments].filter(Boolean).join('\n');
 
     return `{\n${body}\n}`
+}
+
+/**
+ * @summary Checks whether a value is a JSON-safe config literal free of prototype-chain keys.
+ * @param {*} value
+ * @returns {Boolean}
+ */
+function isJsonSafeLiteral(value) {
+    if (value === null || typeof value === 'boolean' || typeof value === 'string') {
+        return true
+    }
+
+    if (typeof value === 'number') {
+        return Number.isFinite(value)
+    }
+
+    const type = Neo.typeOf(value);
+
+    if (type === 'Array') {
+        return value.every(isJsonSafeLiteral)
+    }
+
+    if (type === 'Object') {
+        for (const key of Object.keys(value)) {
+            if (PROTO_CHAIN_KEYS.has(key) || !isJsonSafeLiteral(value[key])) {
+                return false
+            }
+        }
+        return true
+    }
+
+    return false
+}
+
+/**
+ * @summary Encodes one JSON-safe config value as a compact unambiguous hash token.
+ * @param {*} value
+ * @returns {String}
+ */
+function encodeConfigToken(value) {
+    if (value === null || typeof value === 'boolean' || typeof value === 'number') {
+        return String(value)
+    }
+
+    if (typeof value === 'string') {
+        const collidesWithLiteral =
+            value === 'true' ||
+            value === 'false' ||
+            value === 'null' ||
+            JSON_NUMBER_RE.test(value) ||
+            value.startsWith('"') ||
+            value.startsWith('[') ||
+            value.startsWith('{');
+
+        return collidesWithLiteral ? JSON.stringify(value) : value
+    }
+
+    return JSON.stringify(value)
+}
+
+/**
+ * @summary Serializes changed literal configs into deterministic `key=value` URL hash parameters.
+ * @param {Object} [changedConfigs={}]
+ * @param {Set<String>|null} [excludedKeys=null]
+ * @returns {String}
+ */
+export function serializeConfigParams(changedConfigs={}, excludedKeys=null) {
+    if (!changedConfigs || typeof changedConfigs !== 'object') {
+        return ''
+    }
+
+    const params = [];
+
+    Object.keys(changedConfigs).sort().forEach(key => {
+        if (!key || PROTO_CHAIN_KEYS.has(key) || excludedKeys?.has?.(key)) {
+            return
+        }
+
+        const value = changedConfigs[key];
+
+        if (value === undefined || describeNonLiteralReason(value) || !isJsonSafeLiteral(value)) {
+            return
+        }
+
+        params.push(`${encodeURIComponent(key)}=${encodeURIComponent(encodeConfigToken(value))}`)
+    });
+
+    return params.join('&')
+}
+
+/**
+ * @summary Parses URL hash parameters back into typed config literals, skipping unsafe or malformed entries.
+ * @param {String} [hashString='']
+ * @param {Set<String>|null} [excludedKeys=null]
+ * @returns {Object}
+ */
+export function parseConfigParams(hashString='', excludedKeys=null) {
+    const parsed = {};
+
+    if (typeof hashString !== 'string') {
+        return parsed
+    }
+
+    const clean = hashString.replace(/^#/, '');
+
+    if (!clean) {
+        return parsed
+    }
+
+    for (const segment of clean.split('&')) {
+        const eqIndex = segment.indexOf('=');
+
+        if (eqIndex <= 0) {
+            continue
+        }
+
+        let key, rawValue;
+
+        try {
+            key      = decodeURIComponent(segment.slice(0, eqIndex));
+            rawValue = decodeURIComponent(segment.slice(eqIndex + 1))
+        } catch {
+            continue
+        }
+
+        if (!key || PROTO_CHAIN_KEYS.has(key) || excludedKeys?.has?.(key)) {
+            continue
+        }
+
+        let value;
+
+        if (rawValue === 'true') {
+            value = true
+        } else if (rawValue === 'false') {
+            value = false
+        } else if (rawValue === 'null') {
+            value = null
+        } else if (JSON_NUMBER_RE.test(rawValue)) {
+            value = Number(rawValue);
+            if (!Number.isFinite(value)) continue
+        } else if (rawValue.startsWith('"') || rawValue.startsWith('[') || rawValue.startsWith('{')) {
+            try {
+                value = JSON.parse(rawValue)
+            } catch {
+                continue
+            }
+            if (!isJsonSafeLiteral(value)) continue
+        } else {
+            value = rawValue
+        }
+
+        parsed[key] = value
+    }
+
+    return parsed
 }

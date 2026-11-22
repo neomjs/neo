@@ -764,4 +764,67 @@ test.describe('Neo.main.DomEvents', () => {
             expect(owner.getRoute()).toBe('/news/blog')
         })
     });
+
+    test('setRoute with replace=true updates hash or pathname in place, preserves search, and strips an empty hash', () => {
+        withRouter({mode: 'hash', url: '/examples/button/base/index.html?theme=neo-theme-neo-dark'}, ({calls, location, owner, sent}) => {
+            owner.setRoute('badgePosition=bottom-left&width=220', true);
+            owner.setRoute('badgePosition=bottom-left&width=220', true);
+            owner.setRoute('', true);
+
+            expect(calls).toEqual([
+                ['replace', '/examples/button/base/index.html?theme=neo-theme-neo-dark#badgePosition=bottom-left&width=220'],
+                ['replace', '/examples/button/base/index.html?theme=neo-theme-neo-dark']
+            ]);
+            expect(location.search).toBe('?theme=neo-theme-neo-dark');
+            expect(location.hash).toBe('');
+            expect(sent).toEqual(['badgePosition=bottom-left&width=220', ''])
+        });
+
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
+            const states      = [];
+            const origPush    = globalThis.history.pushState;
+            const origReplace = globalThis.history.replaceState;
+            globalThis.history.state        = {scrollY: 120};
+            globalThis.history.pushState    = (state, title, href) => {states.push(['push', state]); origPush(state, title, href)};
+            globalThis.history.replaceState = (state, title, href) => {states.push(['replace', state]); origReplace(state, title, href)};
+
+            owner.setRoute('/news/blog', true);
+            owner.setRoute('/examples', false);
+            owner.setRoute('/home');
+
+            expect(calls).toEqual([['replace', '/docs/news/blog'], ['push', '/docs/examples'], ['push', '/docs/home']]);
+            expect(states).toEqual([['replace', {scrollY: 120}], ['push', null], ['push', null]]);
+            expect(sent).toEqual(['/news/blog', '/examples', '/home'])
+        })
+    });
+
+    test('parseHash preserves anchors, arrays, and typed values while skipping neighboring malformed URI entries across boot and live routes', () => {
+        expect(DomEvents.parseHash('section&categories[]=test1&categories[]=test2&width=180&active=true&disabled=false')).toEqual({
+            active    : true,
+            categories: ['test1', 'test2'],
+            disabled  : false,
+            section   : '',
+            width     : 180
+        });
+
+        withRouter({mode: 'hash', url: '/examples/list/base/index.html#bad=%E0%A4%A&width=180'}, ({go, owner}) => {
+            const payloads = [];
+            Neo.worker.Manager.sendMessage = (dest, msg) => payloads.push(msg.data);
+
+            expect(owner.getRouteConfig(9)).toEqual({
+                hash      : {width: 180},
+                hashString: 'bad=%E0%A4%A&width=180',
+                windowId  : 9
+            });
+
+            go('#%E0%A4%A=broken&categories[]=alpha&categories[]=beta&width=205&draggable=false');
+            owner.onHashChange();
+
+            expect(payloads).toHaveLength(1);
+            expect(payloads[0]).toMatchObject({
+                hash      : {categories: ['alpha', 'beta'], draggable: false, width: 205},
+                hashString: '%E0%A4%A=broken&categories[]=alpha&categories[]=beta&width=205&draggable=false'
+            })
+        })
+    });
 });

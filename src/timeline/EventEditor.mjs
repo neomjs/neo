@@ -320,14 +320,15 @@ class EventEditor extends Dialog {
                     useSpinButtons: false
                 },
                 {
-                    module      : SelectField,
-                    displayField: 'name',
-                    hidden      : !me.shouldShowResourceField(),
-                    id          : `${me.id}__field__resourceId`,
-                    labelText   : 'Resource',
-                    name        : 'resourceId',
-                    options     : me.getResourceOptions(me.record),
-                    valueField  : 'id'
+                    module       : SelectField,
+                    displayField : 'name',
+                    hidden       : !me.shouldShowResourceField(),
+                    id           : `${me.id}__field__resourceId`,
+                    labelPosition: 'left',
+                    labelText    : 'Resource',
+                    name         : 'resourceId',
+                    options      : me.getResourceOptions(me.record),
+                    valueField   : 'id'
                 }
             ];
 

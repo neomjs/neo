@@ -13,6 +13,7 @@ import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import WorkspaceDocument  from '../../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import LayoutAdapter      from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import Operations         from '../../../../src/dashboard/dock/model/Operations.mjs';
+import PreviewContract    from '../../../../src/dashboard/dock/model/PreviewContract.mjs';
 import Persistence        from '../../../../src/dashboard/dock/model/Persistence.mjs';
 import PerspectiveLibrary from '../../../../src/dashboard/dock/persistence/PerspectiveLibrary.mjs';
 import MainContainer      from '../../../../examples/dashboard/dock/MainContainer.mjs';
@@ -2394,6 +2395,162 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
 
         test('restoreTab joins the derived vocabulary, so the dispatch table and Operations.operations agree', () => {
             expect(Operations.operations).toContain('restoreTab')
+        })
+    });
+
+    test.describe('centerWellReturnDescriptor: a center kept as a well takes its pane back (#21375)', () => {
+        /**
+         * Demo B's shape: the center holds one pane, the right band two. Tearing the center pane out
+         * empties the center, and the edge-zone survives without it.
+         * @returns {Object}
+         */
+        function centerAlone() {
+            const d = doc();
+
+            d.nodes['main-tabs'] = {type: 'tabs', items: ['swarm'], activeItemId: 'swarm'};
+            d.nodes['side-tabs'] = {type: 'tabs', items: ['terminal', 'strategy'], activeItemId: 'terminal'};
+
+            return d
+        }
+
+        /**
+         * @param {Object} source
+         * @param {String} itemId
+         * @returns {{document:Object, placement:Object}}
+         */
+        function tearOut(source, itemId) {
+            const placement          = WorkspaceDocument.captureItemPlacement(source, itemId),
+                  {document, errors} = Operations.applyOperation(source, {operation: 'detachItem', itemId});
+
+            expect(errors).toEqual([]);
+
+            return {document, placement}
+        }
+
+        test('the pane alone in the center comes home to a rebuilt center: the round trip is the identity', () => {
+            const source                          = centerAlone(),
+                  {document: detached, placement} = tearOut(source, 'swarm');
+
+            expect(detached.nodes.root.zones.center, 'the center emptied').toBeUndefined();
+
+            const descriptor = Operations.centerWellReturnDescriptor(detached, 'swarm', placement);
+
+            expect(descriptor).toEqual({
+                operation: 'restoreTab', itemId: 'swarm', tabsNodeId: 'main-tabs', home: {parentId: 'root', slot: 'center'}
+            });
+
+            const {document: restored, errors} = Operations.applyOperation(detached, descriptor);
+
+            expect(errors).toEqual([]);
+            expect(restored).toEqual(source)
+        });
+
+        test('control: the append policy alone sends the same pane into the band, the defect this fixes', () => {
+            const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
+
+            expect(Operations.appendingReturnDescriptor(detached, 'swarm', placement))
+                .toEqual({operation: 'addTab', itemId: 'swarm', tabsNodeId: 'side-tabs'})
+        });
+
+        test('a band that emptied keeps the append policy: a band does collapse', () => {
+            const {document: detached, placement} = tearOut(doc(), 'terminal');
+
+            expect(detached.nodes.root.zones.right, 'the band emptied').toBeUndefined();
+            expect(Operations.centerWellReturnDescriptor(detached, 'terminal', placement))
+                .toEqual(Operations.appendingReturnDescriptor(detached, 'terminal', placement))
+        });
+
+        test('an occupied center and a surviving home node keep the append policy', () => {
+            const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
+
+            // Another pane docked into the well while this one was away: the center is taken.
+            detached.nodes['other-tabs']      = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+            detached.nodes.root.zones.center = {nodeId: 'other-tabs'};
+
+            expect(Operations.centerWellReturnDescriptor(detached, 'swarm', placement).operation).toBe('addTab');
+
+            // A pane that SHARED its center node returns to that node at its index.
+            const {document: shared, placement: sharedPlacement} = tearOut(doc(), 'strategy');
+
+            expect(Operations.centerWellReturnDescriptor(shared, 'strategy', sharedPlacement))
+                .toEqual({operation: 'addTab', itemId: 'strategy', tabsNodeId: 'main-tabs', index: 0})
+        });
+
+        test('a tab dropped on the well rebuilds the center under the id the hover found free', () => {
+            const {document: detached} = tearOut(centerAlone(), 'swarm'),
+                  tabsNodeId           = WorkspaceDocument.genId(detached, 'root-center'),
+                  descriptor           = PreviewContract.previewToOperation({
+                      schema   : 'neo.dock.preview.v1',
+                      itemId   : 'terminal',
+                      target   : {nodeId: 'root'},
+                      placement: {kind: 'zone-center', tabsNodeId},
+                      feedback : {state: 'accepted'}
+                  }),
+                  {document, errors}   = Operations.applyOperation(detached, descriptor);
+
+            expect(errors).toEqual([]);
+            expect(WorkspaceDocument.getZoneNodeId(document.nodes.root.zones.center), 'the center is rebuilt').toBe(tabsNodeId);
+            expect(document.nodes[tabsNodeId].items).toEqual(['terminal']);
+            expect(document.nodes['side-tabs'].items, 'the tab left its band').toEqual(['strategy'])
+        });
+
+        test('a stale well drop never joins the node that took its id, and a center taken meanwhile refuses it', () => {
+            const {document: detached} = tearOut(centerAlone(), 'swarm'),
+                  tabsNodeId           = WorkspaceDocument.genId(detached, 'root-center'),
+                  descriptor           = PreviewContract.previewToOperation({
+                      schema   : 'neo.dock.preview.v1',
+                      itemId   : 'terminal',
+                      target   : {nodeId: 'root'},
+                      placement: {kind: 'zone-center', tabsNodeId},
+                      feedback : {state: 'accepted'}
+                  });
+
+            // Between the hover and the drop, the band holding the tab claims the id the hover found free
+            detached.nodes[tabsNodeId]      = detached.nodes['side-tabs'];
+            detached.nodes.root.zones.right = {nodeId: tabsNodeId};
+            delete detached.nodes['side-tabs'];
+
+            const {document, errors} = Operations.applyOperation(detached, descriptor),
+                  centerId           = WorkspaceDocument.getZoneNodeId(document.nodes.root.zones.center);
+
+            expect(errors).toEqual([]);
+            expect(centerId, 'the center is rebuilt').toBeTruthy();
+            expect(centerId, 'under a fresh id').not.toBe(tabsNodeId);
+            expect(document.nodes[centerId].items).toEqual(['terminal']);
+            expect(document.nodes[tabsNodeId].items, 'the band that took the id keeps only its own tab').toEqual(['strategy']);
+
+            detached.nodes['other-tabs']     = {type: 'tabs', items: ['inspector'], activeItemId: 'inspector'};
+            detached.nodes.root.zones.center = {nodeId: 'other-tabs'};
+
+            const before = JSON.stringify(detached),
+                  taken  = Operations.applyOperation(detached, descriptor);
+
+            expect(taken.errors, 'a center taken meanwhile refuses the drop').toEqual([expect.stringContaining('no longer resolves')]);
+            expect(JSON.stringify(taken.document), 'the document stays as it was').toBe(before)
+        });
+
+        test('a locked tab still in the tree is refused at the well, while a locked pane that is away still comes home', () => {
+            const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
+
+            detached.items.terminal.locked = true;
+            detached.items.swarm.locked    = true;
+
+            const before             = JSON.stringify(detached),
+                  {document, errors} = Operations.applyOperation(detached, PreviewContract.previewToOperation({
+                      schema   : 'neo.dock.preview.v1',
+                      itemId   : 'terminal',
+                      target   : {nodeId: 'root'},
+                      placement: {kind: 'zone-center', tabsNodeId: WorkspaceDocument.genId(detached, 'root-center')},
+                      feedback : {state: 'accepted'}
+                  }));
+
+            expect(errors).toEqual(['item "terminal" is locked']);
+            expect(JSON.stringify(document), 'the document stays as it was').toBe(before);
+
+            const home = Operations.applyOperation(detached, Operations.centerWellReturnDescriptor(detached, 'swarm', placement));
+
+            expect(home.errors, 'the away pane is not in the tree, so its lock does not hold it out').toEqual([]);
+            expect(home.document.nodes['main-tabs'].items).toEqual(['swarm'])
         })
     });
 

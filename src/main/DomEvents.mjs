@@ -1054,7 +1054,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * Example for Array values: "categories[]=test1&categories[]=test2"
+     * @summary Parses `&`-delimited hash tokens into typed values and `key[]` arrays, skipping malformed URI entries.
      * @param {String} str
      * @returns {Object}
      */
@@ -1065,20 +1065,33 @@ class DomEvents extends Base {
 
         let pieces = str.split('&'),
             data   = {},
-            i, key, parts, value;
+            eqIndex, i, key, value;
 
         for (i = 0; i < pieces.length; i++) {
-            parts = pieces[i].split('=');
+            eqIndex = pieces[i].indexOf('=');
 
-            if (parts.length < 2) {
-                parts.push('')
+            try {
+                if (eqIndex === -1) {
+                    key   = decodeURIComponent(pieces[i]);
+                    value = ''
+                } else {
+                    key   = decodeURIComponent(pieces[i].slice(0, eqIndex));
+                    value = decodeURIComponent(pieces[i].slice(eqIndex + 1))
+                }
+            } catch {
+                continue
             }
 
-            key   = decodeURIComponent(parts[0]);
-            value = decodeURIComponent(parts[1]);
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                continue
+            }
 
             if (key.indexOf('[]') !== -1) {
                 key = key.substring(0, key.indexOf('[]'));
+
+                if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                    continue
+                }
 
                 if (typeof data[key] === 'undefined') {
                     data[key] = [];
@@ -1201,14 +1214,26 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Moves the route. `'hash'` mode assigns the hash. `'pathname'` mode pushes the path and sends the
-     * route itself, since the History API fires no event for its own changes.
+     * @summary Moves the route. `'hash'` mode assigns or replaces the hash; `'pathname'` mode pushes or replaces the path.
      * @param {String} route
+     * @param {Boolean} [replace=false]
      */
-    setRoute(route) {
+    setRoute(route, replace=false) {
         let me = this;
 
         if (Neo.config.routerMode !== 'pathname') {
+            if (replace) {
+                const
+                    cleanHash = route ? `#${route.replace(/^#/, '')}` : '',
+                    nextUrl   = `${location.pathname}${location.search}${cleanHash}`;
+
+                if (`${location.pathname}${location.search}${location.hash}` !== nextUrl) {
+                    history.replaceState(history.state, '', nextUrl);
+                    me.sendRoute()
+                }
+                return
+            }
+
             location.hash = route;
             return
         }
@@ -1217,7 +1242,7 @@ class DomEvents extends Base {
         route = '/' + route.replace(/^\/+/, '');
 
         if (route !== (me.getRoute() || '/') + (route.includes('?') ? location.search : '')) {
-            history.pushState(null, '', Neo.config.routerBasePath + route);
+            history[replace ? 'replaceState' : 'pushState'](replace ? history.state : null, '', Neo.config.routerBasePath + route);
             me.sendRoute()
         }
     }

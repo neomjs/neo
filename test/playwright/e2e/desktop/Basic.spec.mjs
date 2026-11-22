@@ -196,6 +196,49 @@ test.describe('examples/desktop/basic', () => {
         expect(await settled(page, calculator), 'a restore returns the normal place and size').toEqual(normal)
     });
 
+    test('a window the shrinking workspace cuts moves back in by the overlap, and a grown workspace moves nothing', async ({page}) => {
+        await page.locator(ICON).filter({hasText: 'Calculator'}).dblclick();
+
+        const calculator = windowOf(page, 'Calculator');
+
+        await expect(calculator).toBeVisible();
+        await settled(page, calculator);
+
+        // A move ends at the workspace's right edge, which it cannot cross
+        const title = await calculator.locator('.neo-header-toolbar .neo-panel-header-text').boundingBox(),
+              x     = title.x + title.width / 2,
+              y     = title.y + title.height / 2;
+
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x + 800, y, {steps: 16});
+        await page.mouse.up();
+
+        // The drag proxy, a clone of the window, leaves after the drop
+        await expect(calculator).toHaveCount(1);
+
+        const atEdge = await settled(page, calculator);
+
+        // The drag's own clamp lets the drop land 2px past the edge: the window lands inside the workspace
+        expect(atEdge.x + atEdge.width, 'at the right edge').toBe(1280);
+
+        await page.setViewportSize({height: 800, width: 1100});
+        await expect.poll(async () => (await geometry(calculator)).x, {message: 'moved back by the overlap'}).toBe(1100 - atEdge.width);
+
+        const inside = await settled(page, calculator);
+
+        expect(inside, 'its size and its top stay').toMatchObject({height: atEdge.height, width: atEdge.width, y: atEdge.y});
+
+        await page.setViewportSize({height: 800, width: 1280});
+        await page.waitForTimeout(300);
+        expect(await settled(page, calculator), 'a grown workspace moves and sizes nothing').toEqual(inside);
+
+        // The workspace ends at the 60px taskbar: 340px is too short for the window, so only its height shrinks
+        await page.setViewportSize({height: 400, width: 1280});
+        await expect.poll(async () => (await geometry(calculator)).height, {message: 'only the height shrinks'}).toBe(340);
+        expect(await settled(page, calculator)).toMatchObject({width: inside.width, x: inside.x, y: 0})
+    });
+
     test('the start menu opens an app of its group', async ({page}) => {
         await page.getByRole('button', {name: 'Apps'}).click();
         await page.locator(MENU_ITEM).filter({hasText: 'Tools'}).click();

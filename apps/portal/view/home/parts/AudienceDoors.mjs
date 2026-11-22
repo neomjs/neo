@@ -81,12 +81,15 @@ class AudienceDoors extends BaseContainer {
             cls  : ['content-wrapper'],
             flex : 'none',
             items: [{
-                ntype: 'component',
-                cls  : ['portal-audience-header'],
-                flex : 'none',
-                vdom : {
-                    tag: 'header',
-                    cn : [{
+                ntype    : 'component',
+                cls      : ['portal-audience-header'],
+                flex     : 'none',
+                reference: 'audience-header',
+                vdom     : {
+                    tag     : 'header',
+                    // A focus target for the hero's cue, never a Tab stop of its own
+                    tabIndex: -1,
+                    cn      : [{
                         tag : 'h2',
                         cls : ['neo-h1'],
                         text: 'Who Neo.mjs Is For'
@@ -139,19 +142,24 @@ class AudienceDoors extends BaseContainer {
                                     href  : AudienceDoors.resolveBigDataExampleUrl(),
                                     rel   : 'noopener noreferrer',
                                     target: '_blank',
-                                    text  : 'Proof: 100,000-row live grid ↗'
+                                    cn    : [
+                                        {tag: 'span', text: 'Proof: 100,000-row live grid'},
+                                        {tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square'], 'aria-hidden': true}
+                                    ]
                                 }]
                             }]
                         }
                     }, {
-                        module   : Button,
-                        cls      : ['portal-door-cta', 'portal-door-scroll-cta'],
-                        flex     : 'none',
-                        handler  : 'up.onScrollToBodyEntry',
-                        reference: 'door-build-cta',
-                        text     : 'Explore the Engine ↓',
-                        ui       : 'secondary',
-                        urlTarget: ''
+                        module      : Button,
+                        cls         : ['portal-door-cta', 'portal-door-scroll-cta'],
+                        flex        : 'none',
+                        handler     : 'up.onScrollToBodyEntry',
+                        iconCls     : 'fa fa-arrow-down',
+                        iconPosition: 'right',
+                        reference   : 'door-build-cta',
+                        text        : 'Explore the Engine',
+                        ui          : 'secondary',
+                        urlTarget   : ''
                     }]
                 }, {
                     ntype    : 'container',
@@ -188,19 +196,24 @@ class AudienceDoors extends BaseContainer {
                                 cn : [{
                                     tag : 'a',
                                     href: '#/news/pulls/15123',
-                                    text: 'Proof: cross-family PR #15123 record →'
+                                    cn  : [
+                                        {tag: 'span', text: 'Proof: cross-family PR #15123 record'},
+                                        {tag: 'i', cls: ['fa', 'fa-arrow-right'], 'aria-hidden': true}
+                                    ]
                                 }]
                             }]
                         }
                     }, {
-                        module   : Button,
-                        cls      : ['portal-door-cta', 'portal-door-scroll-cta'],
-                        flex     : 'none',
-                        handler  : 'up.onScrollToAgentOs',
-                        reference: 'door-agents-cta',
-                        text     : 'Explore the Agent OS ↓',
-                        ui       : 'secondary',
-                        urlTarget: ''
+                        module      : Button,
+                        cls         : ['portal-door-cta', 'portal-door-scroll-cta'],
+                        flex        : 'none',
+                        handler     : 'up.onScrollToAgentOs',
+                        iconCls     : 'fa fa-arrow-down',
+                        iconPosition: 'right',
+                        reference   : 'door-agents-cta',
+                        text        : 'Explore the Agent OS',
+                        ui          : 'secondary',
+                        urlTarget   : ''
                     }]
                 }, {
                     ntype    : 'container',
@@ -237,18 +250,23 @@ class AudienceDoors extends BaseContainer {
                                 cn : [{
                                     tag : 'a',
                                     href: '#/learn/benefits/Introduction',
-                                    text: 'Proof: architectural essay with primary receipts →'
+                                    cn  : [
+                                        {tag: 'span', text: 'Proof: architectural essay with primary receipts'},
+                                        {tag: 'i', cls: ['fa', 'fa-arrow-right'], 'aria-hidden': true}
+                                    ]
                                 }]
                             }]
                         }
                     }, {
-                        module   : Button,
-                        cls      : ['portal-door-cta'],
-                        flex     : 'none',
-                        reference: 'door-study-cta',
-                        route    : '/learn/benefits/Introduction',
-                        text     : 'Read What Is Neo.mjs? →',
-                        ui       : 'secondary'
+                        module      : Button,
+                        cls         : ['portal-door-cta'],
+                        flex        : 'none',
+                        iconCls     : 'fa fa-arrow-right',
+                        iconPosition: 'right',
+                        reference   : 'door-study-cta',
+                        route       : '/learn/benefits/Introduction',
+                        text        : 'Read What Is Neo.mjs?',
+                        ui          : 'secondary'
                     }]
                 }]
             }]
@@ -271,6 +289,14 @@ class AudienceDoors extends BaseContainer {
                 windowId: this.windowId
             })
         }
+    }
+
+    /**
+     * @summary Moves focus to the stage's header without scrolling, so a keyboard visitor who arrived through the hero's
+     * cue continues with Tab inside this stage instead of jumping back to the cue's siblings.
+     */
+    focusHeader() {
+        this.getItem('audience-header')?.focus(undefined, false, true)
     }
 
     /**

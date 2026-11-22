@@ -459,4 +459,27 @@ test.describe('Neo.main.addon.ResizeObserver — rendering-starvation contract',
 
         expect(resizeMessages().length).toBe(2)
     });
+
+    test('a target registered as document.body dispatches under that id, though the body has no id of its own', async () => {
+        const originalBody = documentRef.body,
+              body         = makeNode('', 1280, 720);
+
+        body.nodeName = body.tagName = 'BODY';
+        documentRef.body = body;
+
+        try {
+            await addon.register({componentId: 'dialog-1', id: 'document.body'});
+
+            roCallback([makeEntry(body)]);
+            serviceFrame();
+
+            const {data} = resizeMessages()[0].message;
+
+            expect(data.id).toBe('document.body');
+            expect(data.componentIds).toEqual(['dialog-1'])
+        } finally {
+            documentRef.body = originalBody;
+            nodeMap.delete('')
+        }
+    });
 });

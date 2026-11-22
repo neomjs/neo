@@ -53,18 +53,25 @@
       "id": "grid-cell-editing",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
-      "state": "A quantity of 60 refused in the order sheet's open editor (at most 50), in the dark grid.",
+      "state": "SO-1001 updated to quantity 3 ($1,260.00 line total) and SO-1002 open in the typed number editor on quantity 12, in the dark grid.",
       "ready": [
         {"selector": ".neo-grid-cell[data-field='quantity']"},
         {"selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"}
       ],
       "steps": [
         {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='quantity']", "nth": 0},
+        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "3"},
+        {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"},
         {"kind": "dblclick", "selector": ".neo-grid-cell[data-field='quantity']", "nth": 1},
-        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "60"},
-        {"kind": "press", "selector": ".neo-grid-editor input", "key": "Enter"}
+        {"kind": "fill", "selector": ".neo-grid-editor input", "value": "12"}
       ],
-      "after": [{"selector": ".neo-grid-editor .neo-textfield-error", "text": "At most 50"}],
+      "after": [
+        {"selector": ".neo-ripple", "count": 0},
+        {"selector": ".neo-grid-cell[data-field='total']", "text": "$1,260.00", "inRegion": true},
+        {"selector": ".neo-grid-editor input", "value": "12", "inRegion": true},
+        {"selector": ".neo-grid-editor .neo-textfield-error", "count": 0}
+      ],
       "region": {"selector": ".neo-example-container", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
@@ -150,13 +157,16 @@
     {
       "id": "grid-export",
       "viewport": {"width": 760, "height": 580},
-      "theme": "default",
-      "state": "The CSV pane open beside the invoices, with the formula-like customer of INV-1004 escaped.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}],
+      "theme": "dark",
+      "state": "Dark-theme invoices with the CSV pane open beside them, the formula-like customer of INV-1004 escaped.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='invoice']", "text": "INV-1001"}, {"selector": ".neo-button", "text": "Dark theme"}],
       "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "click", "selector": ".export-controls .neo-button", "text": "Show CSV"}
       ],
       "after": [
+        {"selector": ".neo-viewport.neo-theme-neo-dark"},
         {"selector": ".export-pane-text", "text": "INV-1004,'=SUM(B2:B9) Holdings"},
         {"selector": ".neo-grid-cell[data-field='customer']", "text": "=SUM(B2:B9) Holdings", "inRegion": true}
       ],
@@ -182,15 +192,19 @@
     {
       "id": "grid-locked-columns",
       "viewport": {"width":640,"height":360},
-      "theme": "default",
-      "state": "The centre scrolled to the plan's second year while product, region and total stay pinned.",
+      "theme": "dark",
+      "state": "Dark-theme plan with the centre scrolled to its second year while product, region and total stay pinned.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"}
+        {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk"},
+        {"selector":".neo-button","text":"Dark theme"}
       ],
       "steps": [
+        {"kind":"click","selector":".neo-button","text":"Dark theme"},
+        {"kind":"wait","selector":".neo-button","text":"Light theme"},
         {"kind":"scroll","selector":".neo-grid-horizontal-scrollbar","x":1280,"y":0}
       ],
       "after": [
+        {"selector":".neo-viewport.neo-theme-neo-dark"},
         {"selector":".neo-grid-cell[data-field='product']","text":"Aurora Desk","inRegion":true},
         {"selector":".neo-grid-cell[data-field='m16']","inRegion":true},
         {"selector":".neo-grid-cell[data-field='total']","inRegion":true}
@@ -224,20 +238,23 @@
     },
     {
       "id": "grid-nested-record-fields",
-      "viewport": {"width":1280,"height":720},
+      "viewport": {"width": 960, "height": 540},
       "theme": "dark",
       "state": "Edit Partner Contact modal open over the 28-row partner directory.",
       "ready": [
-        {"selector":".neo-grid-cell[data-field='user.firstname']","text":"Amara"}
+        {"selector": ".neo-grid-cell[data-field='user.firstname']", "text": "Amara"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-grid-row .neo-button","text":"Edit","nth":1}
+        {"kind": "click", "selector": ".neo-grid-row .neo-button", "text": "Edit", "nth": 1}
       ],
       "after": [
-        {"selector":".neo-dialog .neo-header-toolbar","text":"Edit Partner Contact","inRegion":true},
-        {"selector":".neo-dialog .neo-countryfield","inRegion":true}
+        {"selector": ".neo-ripple", "count": 0},
+        {"selector": ".neo-edit-partner-dialog[style*=\"left:\"]:not(.animated-hiding-showing):not([style*=\"height:\"])", "inRegion": true},
+        {"selector": ".neo-edit-partner-dialog .neo-header-toolbar", "text": "Edit Partner Contact", "inRegion": true},
+        {"selector": ".neo-edit-partner-dialog input", "value": "Henrik", "inRegion": true},
+        {"selector": ".neo-edit-partner-dialog .neo-button", "text": "Save", "inRegion": true}
       ],
-      "region": {"selector":".neo-dialog","anchor":"top-left","width":640,"height":360}
+      "region": "viewport"
     },
     {
       "id": "grid-streaming",
@@ -263,13 +280,13 @@
     },
     {
       "id": "grid-tree",
-      "viewport": {"width": 960, "height": 640},
-      "theme": "default",
-      "state": "Core Platform's Runtime Engine team is expanded so its three budget items show under their rolled-up team and department totals.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Runtime Engine"}],
+      "viewport": {"width": 800, "height": 450},
+      "theme": "dark",
+      "state": "Dark-theme budget tree with Core Platform's Runtime Engine team expanded so its three budget items show under their rolled-up team and department totals.",
+      "ready": [{"selector": ".neo-grid-cell[data-field='name']", "text": "Runtime Engine"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
       "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('Runtime Engine')) .neo-tree-toggle"}],
-      "after": [{"selector": ".neo-grid-cell[data-field='name']", "text": "V8 Worker Pool"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Virtual DOM Diffing"}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "V8 Worker Pool", "inRegion": true}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Virtual DOM Diffing", "inRegion": true}],
+      "region": "viewport"
     },
     {
       "id": "grid-server-side",
@@ -308,22 +325,24 @@
     },
     {
       "id": "table-container",
-      "viewport": {"width":1000,"height":420},
+      "viewport": {"width": 1200, "height": 675},
       "theme": "dark",
-      "state": "Sorted specification sheet showing content-sized columns and wrapped operational notes with the Inspector outside the frame.",
+      "state": "Dark-theme specification sheet sorted by Specification, showing content-sized columns and wrapped operational notes beside the workbench Inspector.",
       "ready": [
-        {"selector":".neo-table-cell.neo-table-spec-notes"}
+        {"selector": ".neo-table-cell.neo-table-spec-notes"}
       ],
       "steps": [
-        {"kind":"click","selector":".neo-configuration-header-toolbar .neo-button","text":"Theme Dark"},
-        {"kind":"click","selector":".neo-table-header-button","text":"Specification"}
+        {"kind": "click", "selector": ".neo-configuration-header-toolbar .neo-button", "text": "Theme Dark"},
+        {"kind": "click", "selector": ".neo-table-header-button", "text": "Specification"}
       ],
       "after": [
-        {"selector":"th[aria-sort='ascending']","text":"Specification","inRegion":true},
-        {"selector":".neo-table-cell","text":"Audit log retention","inRegion":true},
-        {"selector":".neo-table-cell","text":"Security","inRegion":true}
+        {"selector": ".neo-ripple", "count": 0},
+        {"selector": ".neo-theme-dark .neo-workbench-stage"},
+        {"selector": "th[aria-sort='ascending']", "text": "Specification", "inRegion": true},
+        {"selector": ".neo-table-cell", "text": "Audit log retention", "inRegion": true},
+        {"selector": ".neo-table-spec-notes", "text": "object storage.", "inRegion": true}
       ],
-      "region": {"x":20,"y":20,"width":640,"height":360}
+      "region": "viewport"
     },
     {
       "id": "grid-big-data",
@@ -965,11 +984,14 @@
     {
       "id": "list-reorder",
       "viewport": {"width": 1280, "height": 720},
-      "theme": "default",
-      "state": "The release checklist beside the wall of portraits, every item numbered by its place.",
-      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}],
-      "steps": [],
-      "after": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
+      "theme": "dark",
+      "state": "Dark-theme release checklist beside the wall of portraits, every item numbered by its place.",
+      "ready": [{"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch"}, {"selector": ".neo-reorder-wall .neo-list-item img"}, {"selector": ".neo-theme-switcher"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-theme-switcher"},
+        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"}
+      ],
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-reorder-steps .neo-list-item", "text": "Freeze the release branch", "inRegion": true}, {"selector": ".neo-reorder-wall .neo-list-item", "inRegion": true}],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
@@ -995,16 +1017,19 @@
     {
       "id": "sparklines",
       "viewport": {"width": 960, "height": 540},
-      "theme": "default",
-      "state": "The six metric cards at their opening readings, the feed stopped, the pulse and the smooth updates off.",
-      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}],
+      "theme": "dark",
+      "state": "The six metric cards on the dark theme at their opening readings, the feed stopped, the pulse and the smooth updates off.",
+      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}, {"selector": ".neo-theme-switcher"}],
       "steps": [
+        {"kind": "click", "selector": ".neo-theme-switcher"},
+        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
         {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
         {"kind": "click", "selector": ".neo-button", "text": "Restart"}
       ],
       "after": [
+        {"selector": ".neo-viewport.neo-theme-neo-dark"},
         {"selector": ".neo-examples-sparkline-value", "text": "1,354 req/s"},
         {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}
       ],
@@ -1013,11 +1038,15 @@
     {
       "id": "mermaid",
       "viewport": {"width": 1120, "height": 443},
-      "theme": "default",
-      "state": "The sequence preset as Mermaid draws it from its source, fitted to the diagram's box.",
-      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}],
-      "steps": [{"kind": "click", "selector": ".neo-button", "text": "Sequence"}],
-      "after": [{"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
+      "theme": "dark",
+      "state": "The sequence preset as Mermaid draws it from its source in its dark theme, fitted to the diagram's box.",
+      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}, {"selector": ".neo-theme-switcher"}],
+      "steps": [
+        {"kind": "click", "selector": ".neo-theme-switcher"},
+        {"kind": "wait", "selector": ".neo-viewport.neo-theme-neo-dark"},
+        {"kind": "click", "selector": ".neo-button", "text": "Sequence"}
+      ],
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
       "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
     },
     {
@@ -1285,6 +1314,28 @@
       "region": "viewport"
     },
     {
+      "id": "gantt-cascade",
+      "viewport": {"width": 1280, "height": 720},
+      "theme": "dark",
+      "state": "The office move plan after delaying cabling by a week, with the readout above the plan naming both move days.",
+      "ready": [
+        {"selector": ".neo-timeline-bar[data-event-id=\"first-day\"]"},
+        {"selector": ".cascade-move-pill.is-on-plan", "text": "Move day: Mon 16 Nov"}
+      ],
+      "steps": [
+        {"kind": "click", "selector": ".cascade-delay-btn"}
+      ],
+      "after": [
+        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
+        {"selector": ".cascade-viewport.is-slipped:not(.is-cascading)"},
+        {"selector": ".cascade-move-pill.is-slipped", "text": "Mon 16 Nov to Mon 23 Nov", "inRegion": true},
+        {"selector": ".cascade-readout-text", "text": "8 tasks moved", "inRegion": true},
+        {"selector": ".neo-timeline-bar[data-event-id=\"first-day\"]", "inRegion": true},
+        {"selector": ".neo-timeline-bar[data-event-id=\"handback\"]", "inRegion": true}
+      ],
+      "region": "viewport"
+    },
+    {
       "id": "board-card-editor",
       "viewport": {"width": 800, "height": 450},
       "theme": "dark",
@@ -1365,14 +1416,16 @@
     {
       "id": "live-preview",
       "viewport": {"width": 672, "height": 523},
-      "theme": "default",
-      "state": "The Source tab as the page opens in neo-light, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
-      "ready": [{"selector": ".view-lines", "text": "defineComponent"}],
+      "theme": "dark",
+      "state": "The Source tab on the dark theme, below the page's header: the function component the Preview tab runs, a defineComponent counter with its useConfig state.",
+      "ready": [{"selector": ".view-lines", "text": "defineComponent"}, {"selector": ".neo-button", "text": "Dark theme"}],
       "steps": [
+        {"kind": "click", "selector": ".neo-button", "text": "Dark theme"},
+        {"kind": "wait", "selector": ".neo-button", "text": "Light theme"},
         {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.vertical.invisible.fade"},
         {"kind": "wait", "selector": ".monaco-scrollable-element > .scrollbar.horizontal.invisible.fade"}
       ],
-      "after": [{"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
+      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".view-line span", "text": "useConfig(0)", "inRegion": true}, {"selector": ".view-line span", "text": "setCount", "inRegion": true}],
       "region": {"selector": ".neo-code-live-preview", "anchor": "top-left", "offsetX": 0, "offsetY": 0, "width": 640, "height": 360}
     }
   ]

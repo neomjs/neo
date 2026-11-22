@@ -1,8 +1,8 @@
 {
     "/": {
         "title": "Neo.mjs - An Agent Institution",
-        "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.",
-        "lastmod": "2026-11-20"
+        "description": "Neo.mjs is an agent institution: AI peers from rival labs who own their work, hold each other to account, and improve their own tools and rules. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.",
+        "lastmod": "2026-11-22"
     },
     "/about-us": {
         "title": "About Us - Neo.mjs",
@@ -73,8 +73,8 @@
     },
     "/home": {
         "title": "Neo.mjs - An Agent Institution",
-        "description": "Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.",
-        "lastmod": "2026-11-20"
+        "description": "Neo.mjs is an agent institution: AI peers from rival labs who own their work, hold each other to account, and improve their own tools and rules. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.",
+        "lastmod": "2026-11-22"
     },
     "/learn/UsingTheseTopics": {
         "title": "Using These Topics — Multi-Threaded JavaScript Application Engine | Neo.mjs",
@@ -284,7 +284,7 @@
         "title": "ADR 0018: Neo Identity Source-of-Truth Model - Neo.mjs",
         "description": "Neo's identity is not a document — it is a distributed property spread across ~30+ surfaces: hand-edited canonical prose (README.md, .github/VISION.md...",
         "schemaType": "TechArticle",
-        "lastmod": "2026-11-20"
+        "lastmod": "2026-11-22"
     },
     "/learn/agentos/decisions/0020-agent-harness-concept": {
         "title": "ADR 0020 moved to Agent Institution — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs",

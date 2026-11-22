@@ -94,6 +94,14 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         return {committed, controller, indicators, owner, preview}
     };
 
+    /**
+     * @summary A hand-built host's `down()` over containers keyed by dock node id. Like a real host, it
+     * answers the all-matches form with an array: here no center wells.
+     * @param {Object} containers
+     * @returns {Function}
+     */
+    const downOf = containers => (selector, returnFirstMatch=true) => returnFirstMatch ? containers[selector.dockNodeId] ?? null : [];
+
     const destroyAll = ({controller, indicators, preview}) => {
         controller.destroy();
         indicators.destroy();
@@ -223,9 +231,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         rig.controller.host = {
             id: 'host-1',
-            down(selector) {
-                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
-            },
+            down: downOf({'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}),
             getDomRect: async () => [rects.host, rects.left, rects.right]
         };
 
@@ -242,6 +248,80 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         expect(rig.indicators.candidateSet.root.nodeId).toBe('root');
         expect(rig.indicators.candidateSet.root.chips.map(chip => chip.edge)).toEqual(['top', 'right', 'bottom', 'left']);
 
+        destroyAll(rig)
+    });
+
+    test('a center well joins the measured zones; hovering it previews the well, and the drop rebuilds the center', async () => {
+        const rig   = compose(),
+              rects = {
+                  host: {x: 0, y: 0, width: 800, height: 600},
+                  left: {x: 0, y: 0, width: 200, height: 600},
+                  well: {x: 200, y: 0, width: 600, height: 600}
+              };
+
+        // The center pane left: the left band remains, and the edge-zone root projects a well
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : rig.owner.dockModel.items,
+            nodes : {
+                root       : {type: 'edge-zone', zones: {left: {nodeId: 'left-tabs', extent: 0.25, resizable: true}}},
+                'left-tabs': {type: 'tabs', items: ['alpha', 'beta', 'gamma'], activeItemId: 'alpha'}
+            }
+        };
+
+        rig.controller.host = {
+            id: 'host-1',
+            down(selector, returnFirstMatch=true) {
+                if (!returnFirstMatch) return selector.dockNodeType === 'center-well' ? [{id: 'well-1', dockEdgeZoneId: 'root'}] : [];
+                return {'left-tabs': {id: 'zone-left'}}[selector.dockNodeId] ?? null
+            },
+            getDomRect: async () => [rects.host, rects.left, rects.well]
+        };
+
+        const geometry = await rig.controller.ensureGeometry();
+
+        expect(geometry.zones[1]).toEqual({nodeId: 'root', rect: rects.well, orientation: null, tabsNodeId: 'root-center-0', type: 'center-well'});
+
+        await rig.controller.onDragMove({clientX: 500, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+
+        expect(rig.preview.dockPreview?.placement).toEqual({kind: 'zone-center', tabsNodeId: 'root-center-0'});
+        expect(rig.controller.previewTargetRect(rig.preview.dockPreview), 'the well\'s rect, though it shares the root\'s id').toEqual(rects.well);
+        expect(rig.indicators.candidateSet ?? null, 'no five-position menu over a well').toBe(null);
+
+        await rig.controller.onDrop({clientX: 500, clientY: 300, itemId: 'alpha', sourceNodeId: 'left-tabs'});
+
+        const doc = rig.owner.dockModel;
+
+        expect(rig.committed).toHaveLength(1);
+        expect(doc.nodes.root.zones.center).toMatchObject({nodeId: 'root-center-0'});
+        expect(doc.nodes['root-center-0'].items).toEqual(['alpha']);
+        expect(doc.nodes['left-tabs'].items).toEqual(['beta', 'gamma']);
+        destroyAll(rig)
+    });
+
+    test('the empty-wrap guard lets the only pane move into a well', () => {
+        const rig     = compose(),
+              preview = {
+                  schema   : 'neo.dock.preview.v1',
+                  itemId   : 'alpha',
+                  target   : {nodeId: 'root'},
+                  placement: {kind: 'zone-center', tabsNodeId: 'root-center-0'},
+                  feedback : {state: 'accepted'}
+              };
+
+        rig.owner.dockModel = {
+            schema: 'neo.dock.zone.v1',
+            root  : 'root',
+            items : {alpha: {reference: 'ref-alpha', title: 'Alpha'}},
+            nodes : {
+                root       : {type: 'edge-zone', zones: {left: {nodeId: 'left-tabs', extent: 0.25, resizable: true}}},
+                'left-tabs': {type: 'tabs', items: ['alpha'], activeItemId: 'alpha'}
+            }
+        };
+
+        expect(rig.controller.guardEmptyWrap(preview, 'alpha')).toBe(preview);
+        expect(rig.controller.guardEmptyWrap({...preview, placement: {kind: 'edge-left'}}, 'alpha'), 'a wrap of the lone pane stays refused').toBe(null);
         destroyAll(rig)
     });
 
@@ -271,9 +351,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         rig.controller.host = {
             id: 'host-1',
-            down(selector) {
-                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
-            },
+            down: downOf({'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}),
             getDomRect: async () => [rects.host, rects.left, rects.right]
         };
 
@@ -353,9 +431,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         rig.controller.host = {
             id: 'host-1',
-            down(selector) {
-                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}, 'band-tabs': {id: 'zone-band'}}[selector.dockNodeId] ?? null
-            },
+            down: downOf({'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}, 'band-tabs': {id: 'zone-band'}}),
             getDomRect: async () => [rects.host, rects.left, rects.right, rects.band]
         };
 
@@ -412,9 +488,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         rig.controller.host = {
             id: 'host-1',
-            down(selector) {
-                return selector.dockNodeId === 'center-tabs' ? {id: 'zone-center'} : null
-            },
+            down: downOf({'center-tabs': {id: 'zone-center'}}),
             getDomRect: async () => [rects.host, rects.center]
         };
 
@@ -480,9 +554,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
 
         rig.controller.host = {
             id: 'host-1',
-            down(selector) {
-                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
-            },
+            down: downOf({'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}),
             getDomRect: async () => [rects.host, rects.left, rects.right]
         };
 
@@ -514,9 +586,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         // a stubbed host transport drives the REAL ensureGeometry code (measure → map → cache)
         rig.controller.host = {
             id: 'host-1',
-            down(selector) {
-                return {'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}[selector.dockNodeId] ?? null
-            },
+            down: downOf({'left-tabs': {id: 'zone-left'}, 'right-tabs': {id: 'zone-right'}}),
             getDomRect: async ids => [rects.host, rects.left, rects.right]
         };
 
@@ -559,7 +629,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         WindowManager.get = () => ({innerRect: {width, height}});
         rig.controller.host = {
             id        : 'resizing-host', windowId: 'resizing-window',
-            down      : ({dockNodeId}) => ({id: dockNodeId}),
+            down      : ({dockNodeId}, returnFirstMatch=true) => returnFirstMatch ? {id: dockNodeId} : [],
             getDomRect: () => new Promise(resolve => requests.push({resolve, width, height}))
         };
         const resolve = request => request.resolve([
@@ -604,7 +674,7 @@ test.describe('Neo.dashboard.dock.interaction.DragAffordances', () => {
         WindowManager.get = () => ({innerRect: {width, height: 600}});
         rig.controller.host = {
             id        : 'release-resize-host', windowId: 'release-resize-window',
-            down      : ({dockNodeId}) => ({id: dockNodeId}),
+            down      : ({dockNodeId}, returnFirstMatch=true) => returnFirstMatch ? {id: dockNodeId} : [],
             getDomRect: async () => [
                 {x: 0, y: 0, width, height: 600},
                 {x: 0, y: 0, width: width / 2, height: 600},

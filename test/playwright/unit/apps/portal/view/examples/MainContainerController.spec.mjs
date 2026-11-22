@@ -145,7 +145,7 @@ test.describe('Portal examples overview and group pages', () => {
         ]);
         expect(pageIds(view, 'gantt')).toEqual([
             'gantt-basic', 'gantt-big-data', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
-            'gantt-task-editor', 'gantt-task-columns', 'meridian-observatory'
+            'gantt-task-editor', 'gantt-task-columns', 'gantt-cascade', 'meridian-observatory'
         ]);
         expect(pageIds(view, 'board')).toEqual([
             'board-basic', 'board-swimlanes', 'board-big-data', 'board-wip-limits', 'board-card-designs', 'board-card-editor',
@@ -729,7 +729,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           charts        : [5, 1],
           calendar      : [1, 0],
           scheduler     : [11, 0],
-          gantt         : [7, 1],
+          gantt         : [8, 1],
           board         : [8, 1],
           dashboard     : [4, 1],
           tabs          : [2, 0],
@@ -744,7 +744,7 @@ const catalog = JSON.parse(fs.readFileSync(path.join(dataRoot, 'examples.json'),
           functional    : [3, 2],
           'drag-drop'   : [0, 3]
       },
-      recordCount    = 148,
+      recordCount    = 149,
       publishedCount = Object.values(groupCounts).reduce((sum, [count]) => sum + count, 0),
       groupCount     = Object.keys(groupCounts).length,
       // every record with a cover publishes in a production build, so the rest wait for one
@@ -1017,7 +1017,7 @@ test.describe('Portal examples canonical catalog', () => {
                   'scheduler-drag-and-resize', 'scheduler-non-working-time', 'scheduler-bar-renderer',
                   'scheduler-event-editor', 'scheduler-zoom', 'scheduler-resource-columns', 'scheduler-time-zones',
                   'scheduler-live-updates', 'gantt-zoom', 'gantt-working-time', 'gantt-dependencies',
-                  'gantt-task-editor', 'gantt-task-columns', 'board-big-data', 'board-wip-limits', 'board-card-designs',
+                  'gantt-task-editor', 'gantt-task-columns', 'gantt-cascade', 'board-big-data', 'board-wip-limits', 'board-card-designs',
                   'board-card-editor', 'board-multi-select', 'board-columns', 'meridian-observatory', 'timeline-basic',
                   ...multiWindowExampleIds, 'finance', 'email', 'on-air-at-eight', ...newTileIds, ...layoutExampleIds
               ],
@@ -1123,49 +1123,68 @@ test.describe('Portal examples canonical catalog', () => {
         })
     });
 
-    test('renders title and proof line on the cover, and the action, scope and links behind them', () => {
+    test('renders two-zone cover + stationary footer, prunes browsers, and isolates Mobile vs Multi-window metadata', () => {
         const {store} = createList(),
               byCls   = (node, cls) => node.cls?.includes(cls) ? node : (node.cn || []).map(child => byCls(child, cls)).find(Boolean);
 
         store.items.filter(record => modes.some(mode => Example.publishes(record, mode))).forEach(record => {
             const content = list.createItemContent(record, 0)[0],
-                  details = content.cn.find(node => node.cls?.includes('neo-item-bottom-position')),
-                  more    = details.cn.find(node => node.cls?.includes('portal-example-more')),
-                  feature = details.cn.find(node => node.cls?.includes('portal-example-feature')),
-                  lookFor = byCls(more, 'portal-example-look-for');
+                  wrap    = content.cn.find(node => node.cls?.includes('preview-image-wrap')),
+                  footer  = content.cn.find(node => node.cls?.includes('portal-example-footer')),
+                  more    = content.cn.find(node => node.cls?.includes('portal-example-more')),
+                  feature = footer.cn.find(node => node.cls?.includes('portal-example-feature')),
+                  lookFor = byCls(more, 'portal-example-look-for'),
+                  mobile  = byCls(more, 'portal-example-meta');
 
-            // always on the cover: optional group kicker, title row (link + resting cue), proof line, then expandable part
-            expect(details.cn.map(node => node.cls?.[0] ?? node.tag), record.id).toEqual([
-                'portal-example-group-badge', 'portal-example-title-row', 'portal-example-feature', 'portal-example-more'
+            expect(content.cn.map(node => node.cls?.[0]), record.id).toEqual([
+                'preview-image-wrap', 'portal-example-footer', 'portal-example-more'
             ]);
-            expect(details.cn[0].removeDom, record.id).toBe(true);
+            expect(wrap.cn.map(node => node.cls?.[0]), record.id).toEqual(['neo-multi-window', 'preview-image']);
+            expect(footer.cn.map(node => node.cls?.[0] ?? node.tag), record.id).toEqual([
+                'portal-example-group-badge', 'portal-example-title-row', 'portal-example-feature'
+            ]);
+            expect(footer.cn[0].removeDom, record.id).toBe(true);
             expect(feature.text, record.id).toBe(record.feature);
             expect(feature.removeDom, record.id).toBe(false);
             expect(lookFor.text, record.id).toBe(record.lookFor);
             expect(lookFor.removeDom, record.id).toBe(false);
-            const link = list.createLink(record),
-                  cue  = details.cn[1].cn[1];
+            expect(mobile.removeDom, record.id).toBe(!record.environments?.includes('Mobile'));
 
-            expect(details.cn[1].cn[0].href, record.id).toBe(link.href);
+            const link    = list.createLink(record),
+                  actions = footer.cn[1].cn[1],
+                  source  = actions.cn[0],
+                  cue     = actions.cn[1];
+
+            expect(footer.cn[1].cn[0].href, record.id).toBe(link.href);
+            expect(source.href, record.id).toBe(list.createSourceLink(record).href);
             expect(cue, record.id).toMatchObject({
                 tag          : 'a',
                 cls          : ['portal-example-open-cue'],
                 href         : link.href,
                 'aria-hidden': true,
                 tabIndex     : -1,
-                text         : 'Open live ↗'
+                cn           : [{tag: 'span', text: 'Open live'}, {tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]
             });
             expect(cue.target, record.id).toBe(link.target);
-            expect(byCls(more, 'neo-github-image').href, record.id).toBe(list.createSourceLink(record).href);
+            expect(byCls(more, 'neo-github-image'), record.id).toBeUndefined();
+            expect(JSON.stringify(content), record.id).not.toContain('Chrome, Edge, Firefox, Safari');
             expect(byCls(content, 'portal-example-placeholder'), record.id).toBeUndefined()
         });
 
         const workstation = list.createItemContent(store.get('workstation'), 0)[0],
-              mwBadge     = byCls(workstation, 'neo-multi-window');
+              mwBadge     = byCls(workstation, 'neo-multi-window'),
+              wsMobile    = byCls(workstation, 'portal-example-meta'),
+              bigData     = list.createItemContent(store.get('grid-big-data'), 0)[0],
+              bdMultiWin  = byCls(bigData, 'neo-multi-window'),
+              bdMobile    = byCls(bigData, 'portal-example-meta');
 
         expect(mwBadge.removeDom).toBe(false);
         expect(mwBadge['aria-label']).toBe('Multi-window live example');
         expect(byCls(mwBadge, 'neo-multi-window-label').text).toBe('Multi-window');
+        expect(wsMobile.removeDom).toBe(true);
+        expect(bdMultiWin.removeDom).toBe(true);
+        expect(bdMobile.removeDom).toBe(false);
+        expect(byCls(bdMobile, 'portal-example-mobile').text).toBe('Mobile');
 
         list.set({groupTitles: {'multi-window': 'Multi-Window'}, showGroup: true});
         const badged    = list.createItemContent(store.get('workstation'), 0)[0],

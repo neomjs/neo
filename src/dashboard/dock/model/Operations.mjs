@@ -230,15 +230,23 @@ class Operations extends Base {
      * Distinct from `addTab` because the precondition is inverted, so neither has to carry the
      * other's branch: this one only reaches its rebuild path when the node is absent, and delegates
      * verbatim when it is present.
+     *
+     * A drop into a free center passes `rebuild`: its id was only found free, so a node that claimed it since
+     * never takes the tab, and an occupied center refuses it. Its item is still in the tree and moves as a
+     * source, so a locked one is refused, as `moveItem` refuses it; a returning pane is unaffected.
      * @param {Object} document
-     * @param {Object} args {home, index, itemId, tabsNodeId}
+     * @param {Object} args {home, index, itemId, rebuild, tabsNodeId}
      * @returns {{document:Object, errors:String[]}}
      * @static
      */
-    static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
+    static restoreTab(document, {home, index, itemId, rebuild=false, tabsNodeId} = {}) {
         if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
 
-        if (document.nodes?.[tabsNodeId]?.type === 'tabs') {
+        if (document.items[itemId].locked === true && WorkspaceDocument.findContainingTabsId(document, itemId)) {
+            return {document, errors: [`item "${itemId}" is locked`]}
+        }
+
+        if (!rebuild && document.nodes?.[tabsNodeId]?.type === 'tabs') {
             return Operations.addTab(document, {itemId, index, tabsNodeId})
         }
 
@@ -285,6 +293,33 @@ class Operations extends Base {
         return tabsNodeId
             ? {operation: 'addTab', itemId, tabsNodeId, ...(storedHome ? {index: placement.index} : {})}
             : null
+    }
+
+    /**
+     * @summary The append policy for a host that keeps an empty center as a well: a pane homed in a
+     * still-free edge-zone center returns there through {@link #restoreTab}.
+     *
+     * {@link #appendingReturnDescriptor} never resurrects a node the user watched collapse. A center
+     * projected as a well (`LayoutAdapter`'s `enableDockCenterWell`) never collapses, so returning there
+     * is the round trip's identity. Every other return, a band that emptied included, keeps the append policy.
+     * @param {Object} document
+     * @param {String} itemId
+     * @param {Object|null} placement The recorded `{tabsNodeId, index, home}`, or null.
+     * @returns {Object|null} A `restoreTab` descriptor for a free center, else the append policy's answer.
+     * @static
+     */
+    static centerWellReturnDescriptor(document, itemId, placement) {
+        const home   = placement?.home,
+              parent = home && document?.nodes?.[home.parentId];
+
+        // A surviving home tabs node keeps the append policy's exact index.
+        if (home?.slot === 'center' && parent?.type === 'edge-zone' &&
+            !WorkspaceDocument.getZoneNodeId(parent.zones?.center) &&
+            document.nodes[placement.tabsNodeId]?.type !== 'tabs') {
+            return {operation: 'restoreTab', itemId, tabsNodeId: placement.tabsNodeId, home}
+        }
+
+        return Operations.appendingReturnDescriptor(document, itemId, placement)
     }
 
     /**

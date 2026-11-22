@@ -1,5 +1,5 @@
 import chalk                     from 'chalk';
-import {spawn, spawnSync}        from 'child_process';
+import {spawnSync}               from 'child_process';
 import {Command}                 from 'commander';
 import envinfo                   from 'envinfo';
 import fs                        from 'fs-extra';
@@ -9,6 +9,7 @@ import path                      from 'path';
 import * as BuildId              from '../util/buildId.mjs';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {esmOutputRoot}           from '../util/esmDistTransforms.mjs';
+import {runSteps}                from '../util/runSteps.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 
@@ -24,52 +25,6 @@ const __dirname   = path.resolve(),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
       questions   = [];
-
-/**
- * @summary Runs build steps that share no output, as many at once as a quarter of the machine's cores allows: four on
- * 18 cores, one on a 4-core CI runner, where they keep their sequence. After a failed step no new one starts.
- * @param {Array[]} steps `[label, command, args]` each
- * @returns {Promise<Object[]>} `{label, status}` for each step that ran
- */
-async function runSteps(steps) {
-    const cores   = os.availableParallelism?.() ?? os.cpus().length,
-          limit   = Math.max(1, Math.min(steps.length, Math.floor(cores / 4))),
-          queue   = [...steps],
-          results = [];
-
-    const lane = async () => {
-        while (queue.length) {
-            const result = await startStep(...queue.shift());
-
-            results.push(result);
-            result.status && queue.splice(0)
-        }
-    };
-
-    await Promise.all(Array.from({length: limit}, lane));
-
-    return results
-}
-
-/**
- * @summary Starts one build step as a child process and settles with its exit status, never with a rejection.
- * @param {String}   label   The step's name in a failure message
- * @param {String}   command
- * @param {String[]} args
- * @returns {Promise<Object>} `{label, status}`
- */
-function startStep(label, command, args) {
-    return new Promise(resolve => {
-        const child = spawn(command, args, cpOpts);
-
-        child.on('error', error => {
-            console.error(chalk.red(`${label}: ${error.message}`));
-            resolve({label, status: 1})
-        });
-
-        child.on('close', status => resolve({label, status: status ?? 1}))
-    })
-}
 
 program
     .name(programName)
@@ -220,16 +175,16 @@ if (programOpts.info) {
               steps   = [];
 
         if (threads === 'yes') {
-            env !== 'esm' && (env === 'all' ? ['dev', 'prod'] : [env]).forEach(target => {
-                steps.push([`threads ${target}`, nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', target, ...cpArgs.slice(2), '--no-stamp']])
-            });
+            // One run for both environments: its own pool spreads their fourteen webpack builds over the cores.
+            // build-all builds every thread, so the run asks no thread question; `build-threads` keeps that choice
+            env !== 'esm' && steps.push(['threads', nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', env, '-t', 'all', ...cpArgs.slice(2), '--no-stamp']]);
 
             (env === 'all' || env === 'esm') && steps.push(['esmodules', nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp', '--no-docs-output']])
         }
 
         hasDocs && parsedocs === 'yes' && steps.push(['docs json', npmCmd, ['run', 'generate-docs-json']]);
 
-        const failed = (await runSteps(steps)).find(result => result.status);
+        const failed = (await runSteps(steps, cpOpts)).find(result => result.status);
 
         if (failed) {
             console.error(chalk.red(`${failed.label} failed`));

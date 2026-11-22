@@ -87,15 +87,19 @@ test.describe('Portal.view.home.ContentBox', () => {
         box.destroy()
     });
 
-    test('hero GitHub secondary button parameterizes button CSS variables instead of overriding hover background-color', () => {
-        const githubItem  = HeroContent.config.items[3].items.find(item => item.cls?.includes('neo-github')),
-              cssSource   = fs.readFileSync(heroCssPath, 'utf8'),
-              githubBlock = cssSource.match(/\.neo-github\s*\{([^}]*)\}/)?.[1] ?? '';
+    test('hero audience cue is a secondary button that parameterizes button CSS variables instead of overriding hover background-color', () => {
+        const cueItem   = HeroContent.config.items[3].items.find(item => item.cls?.includes('hero-audience-cue')),
+              cssSource = fs.readFileSync(heroCssPath, 'utf8'),
+              cueBlock  = cssSource.match(/\.hero-audience-cue\s*\{([^}]*)\}/)?.[1] ?? '';
 
-        expect(githubItem.ui).toBe('secondary');
-        expect(githubBlock).toContain('--button-secondary-background-color: var(--sem-color-bg-neutral-highlighted)');
-        expect(githubBlock).toContain('--button-secondary-text-color      : var(--sem-color-text-neutral-default)');
-        expect(githubBlock).not.toMatch(/(?:^|\s)background-color\s*:/)
+        expect(cueItem.ui).toBe('secondary');
+        expect(cueItem.handler).toBe('up.onScrollToAudience');
+        expect(cueItem.iconCls).toBe('fa fa-arrow-down');
+        expect(cueItem.iconPosition).toBe('right');
+        expect(cueItem.url).toBeUndefined();
+        expect(cueBlock).toContain('--button-secondary-background-color: var(--sem-color-bg-neutral-highlighted)');
+        expect(cueBlock).toContain('--button-secondary-text-color      : var(--sem-color-text-neutral-default)');
+        expect(cueBlock).not.toMatch(/(?:^|\s)background-color\s*:/)
     });
 
     test('Home MainContainer renders a single <h1> ("Neo.mjs") while preserving .neo-h1/.neo-h2 styling and internal MultiWindow CTA (#20917)', async () => {

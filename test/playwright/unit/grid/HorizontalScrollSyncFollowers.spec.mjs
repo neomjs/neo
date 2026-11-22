@@ -328,7 +328,7 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             elements['second-scroller'].scrollLeft = 60;
             elements['second-scroller'].trigger('scroll');
 
-            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left'), 'the unregistered grid').toBe('');
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left'), 'the unregistered grid keeps its registered position').toBe('0px');
             expect(elements['second-body'].style.getPropertyValue('--grid-scroll-left'), 'the other grid').toBe('60px')
         });
     });

@@ -1,3 +1,6 @@
+---
+seoDescription: "Fleet Manager's architecture: a cockpit that shows which AI agents are working right now by connecting to the truth about them, not by running them."
+---
 # Fleet Manager: The Cockpit That Refuses to Lie
 
 > **Where the decisions live:** this page teaches the *shape* of the running system. Every "why" belongs to a decision record — chiefly [ADR 0038](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0038-fm-client-topology.md) (the client topology), with its amendments in ADRs 0019/0020/0026/0034 — and every section below links its authority. The operational *how-do-I-run-it* lives in [Running the Fleet Cockpit](RunningTheFleetCockpit.md). Architecture (this page) · decisions (ADRs) · operations (runbook): three surfaces, one triangle.

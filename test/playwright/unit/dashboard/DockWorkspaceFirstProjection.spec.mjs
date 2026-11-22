@@ -190,7 +190,10 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
 
         const {timing} = cycle;
 
-        expect(Object.keys(timing)).toEqual(expect.arrayContaining(['queuedAt', 'startedAt', 'reconciled', 'settledAt', 'landedInPlace', 'waitedForTail']));
+        expect(Object.keys(timing)).toEqual(expect.arrayContaining(['queuedAt', 'startedAt', 'captured', 'released', 'reconciled', 'settledAt', 'landedInPlace', 'waitedForTail']));
+        expect(timing.hostMounted, 'a host that is already mounted skips its mount wait').toBeUndefined();
+        expect([timing.startedAt, timing.captured, timing.released, timing.reconciled], 'each step before the reconcile stamps in order')
+            .toEqual([...[timing.startedAt, timing.captured, timing.released, timing.reconciled]].sort((a, b) => a - b));
         expect(timing.reconciled, 'the receipt orders the reconcile before the settle').toBeLessThanOrEqual(timing.settledAt);
         expect(timing.settledAt - timing.reconciled).toBeGreaterThanOrEqual(100);
 

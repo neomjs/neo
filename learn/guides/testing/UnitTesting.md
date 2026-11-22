@@ -1,3 +1,6 @@
+---
+seoDescription: "Unit test a multi-threaded Neo.mjs app with Playwright: the App, VDom and Data layers run in one Node.js thread, so tests run fast and debug across workers."
+---
 # Unit Testing with Playwright
 
 Neo.mjs uses a unique "Single-Thread Simulation" architecture for its unit tests. By running the core engine logic inside a single Node.js thread (via Playwright), we can test complex multi-threaded interactions without the complexity or overhead of real browser workers.

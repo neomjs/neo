@@ -19,6 +19,7 @@ import Apps           from '../../../../src/desktop/store/Apps.mjs';
 import AppWindow      from '../../../../src/desktop/AppWindow.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import Container      from '../../../../src/desktop/Container.mjs';
+import Rectangle      from '../../../../src/util/Rectangle.mjs';
 import StateProvider  from '../../../../src/state/Provider.mjs';
 import Tasks          from '../../../../src/desktop/store/Tasks.mjs';
 
@@ -53,6 +54,11 @@ class TestWindow extends AppWindow {
     }
 
     async getDomRect(ids) {
+        // The boundary check measures the window inside its workspace; the animations measure the launcher icon
+        if (ids[1] === this.boundaryContainerId) {
+            return [new Rectangle(400, 250, 400, 300), new Rectangle(0, 0, 1200, 800)]
+        }
+
         return Array.isArray(ids) ? [dialogRect, targetRect] : targetRect
     }
 
@@ -182,6 +188,7 @@ test.describe('Neo.desktop.Container', () => {
         expect(mail.title).toBe('Mail');
         expect(mail.parentComponent).toBe(desktop);
         expect(mail.boundaryContainerId).toBe(desktop.getItem('workspace').id);
+        expect(mail.keepInBoundary, 'stays inside a workspace that changes size').toBe(true);
         expect(mail.headerToolbar.down({flag: 'app-icon'}).cellIconCls).toEqual(['fas', 'fa-envelope']);
         expect(desktop.taskStore.get('mail').text).toBe('Mail')
     });
@@ -206,12 +213,13 @@ test.describe('Neo.desktop.Container', () => {
     });
 
     test('an appWindowConfigs entry gives its app a size and a view; an app without one opens the window class as it is', async () => {
-        create({appWindowConfigs: {mail: {height: 520, width: 760, view: MailView}}});
+        create({appWindowConfigs: {mail: {height: 520, keepInBoundary: false, width: 760, view: MailView}}});
 
         const mail  = await open('mail'),
               notes = await open('notes');
 
         expect([mail.width, mail.height], 'its size').toEqual([760, 520]);
+        expect([mail.keepInBoundary, notes.keepInBoundary], 'an entry opts out of the boundary check').toEqual([false, true]);
         expect(mail.down({className: 'Test.Unit.Desktop.Container.MailView'}), 'its view').toBeTruthy();
         expect(mail.down({reference: 'content'}), 'the window class item it replaces').toBeFalsy();
 

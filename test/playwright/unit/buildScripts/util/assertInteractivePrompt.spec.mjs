@@ -234,20 +234,12 @@ test.describe('buildScripts/util/assertInteractivePrompt (#21482)', () => {
     });
 
     test('create/component.mjs does not require -C or -p on non-TTY stdin when baseClass is not a view class', () => {
+        // component.mjs runs the engine's own class, css and themes steps, so each case is a full run
+        test.setTimeout(180_000);
+
         const root = createWorkspaceFixture();
 
         try {
-            fs.mkdirSync(path.join(root, 'buildScripts/create'), {recursive: true});
-            fs.mkdirSync(path.join(root, 'buildScripts/build'), {recursive: true});
-            fs.symlinkSync(
-                path.join(REPO_ROOT, 'buildScripts/create/class.mjs'),
-                path.join(root, 'buildScripts/create/class.mjs')
-            );
-            // Stub css.mjs and themes.mjs in the disposable workspace so component.mjs exercises its real
-            // non-TTY prompt guard and real create/class.mjs child spawn without rebuilding framework themes.
-            fs.writeFileSync(path.join(root, 'buildScripts/create/css.mjs'), 'export default {};\n');
-            fs.writeFileSync(path.join(root, 'buildScripts/build/themes.mjs'), 'export default {};\n');
-
             for (const [className, baseClass, expectedFile] of [
                 ['MyApp.view.Foo',                  'core.Base',            'apps/myapp/view/Foo.mjs'],
                 ['MyApp.controller.MainController', 'controller.Component', 'apps/myapp/controller/MainController.mjs'],
@@ -260,7 +252,7 @@ test.describe('buildScripts/util/assertInteractivePrompt (#21482)', () => {
                         cwd     : root,
                         encoding: 'utf8',
                         stdio   : 'pipe',
-                        timeout : 5000
+                        timeout : 60_000
                     }
                 );
 

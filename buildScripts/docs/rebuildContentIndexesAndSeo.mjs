@@ -233,6 +233,7 @@ async function rebuildContentIndexesAndSeo({
             llmsFullTxt,
             llmsTxt,
             releaseNotesRoot,
+            ...(releasesPath && {releasesPath}),
             root,
             seoJson,
             sitemapArchiveName    : path.basename(sitemapArchivePath),

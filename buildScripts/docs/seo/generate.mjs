@@ -11,14 +11,14 @@ import {
     collectExampleRoutes, extractExampleFamilyDefinitions, extractFrontmatterDateOnly, extractFrontmatterField,
     extractMarkdownSeoMetadata, extractPortalIndexMetadata, formatLastmodDate, formatLearnSeoTitle,
     formatStandaloneExampleSeo, getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitPath,
-    getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
-    isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
+    getIndexableReleaseVersions, getMaxReleaseMajor, getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory,
+    isIndexableReleaseVersion, isRedirectMarkdown, normalizeIsoDateOnly, resolveLearnTreeLeaves
 } from './seoJson.mjs';
 
 export {
     NON_INDEXABLE_STANDALONE_PATHS, TOP_LEVEL_SOURCE_PATHS, collectExampleFamilyRoutes, collectExampleRoutes,
     extractExampleFamilyDefinitions, extractFrontmatterField, extractMarkdownSeoMetadata,
-    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getMaxReleaseMajor,
+    extractPortalIndexMetadata, formatLearnSeoTitle, formatStandaloneExampleSeo, getIndexableReleaseVersions, getMaxReleaseMajor,
     getPublishedExampleFamilies, getSeoJson, hasReliableGitHistory, isIndexableReleaseVersion,
     isRedirectMarkdown, resolveLearnTreeLeaves
 };
@@ -680,7 +680,7 @@ export async function getSsgArchiveRoutes(options={}) {
 
 /**
  * @summary Formats curated, discussion, or archive routes as a sitemap `<urlset>` XML string, pruning
- * `hidden` and `type: redirect` learn stubs and historical release notes (`< maxReleaseMajor - 1`) from
+ * `hidden` and `type: redirect` learn stubs and release notes outside the indexable window from
  * `sitemap-core.xml` and falling back to pre-baked `seo.json` `lastmod` dates when `.git` is absent.
  * @param {Object} [options={}]
  * @param {String} options.corpusRoot The conversation corpus root, see {@link collectAllRoutes}.
@@ -725,18 +725,16 @@ export async function getSitemapXml(options={}) {
         root
     });
 
-    const localMaxReleaseMajor = getMaxReleaseMajor(
-        allRoutes
-            .filter(route => route.category === 'release-notes')
-            .map(route => route.version)
-    );
+    const releaseVersions      = allRoutes.filter(route => route.category === 'release-notes').map(route => route.version),
+          localMaxReleaseMajor = getMaxReleaseMajor(releaseVersions),
+          indexableVersions    = getIndexableReleaseVersions(releaseVersions);
 
     const filteredRoutes = allRoutes.filter(route => {
         if (route.hidden || route.isRedirect) {
             return false;
         }
 
-        if (route.category === 'release-notes' && !isIndexableReleaseVersion(route.version, localMaxReleaseMajor)) {
+        if (route.category === 'release-notes' && !isIndexableReleaseVersion(route.version, indexableVersions)) {
             return false;
         }
 
@@ -797,6 +795,7 @@ export async function getSitemapXml(options={}) {
         if (
             !onlyArchives &&
             !onlyDiscussions &&
+            category !== 'release-notes' &&
             typeof resolvedSeoJson?.[routePath]?.robots === 'string' &&
             /\bnoindex\b/i.test(resolvedSeoJson[routePath].robots)
         ) {
@@ -964,7 +963,7 @@ export async function getLlmsTxt(options={}) {
 
     let content = `# Neo.mjs: An Agent Institution
 
-> Neo.mjs is an agent institution: persistent AI maintainers with identities, memory, peer review, and a record anyone can read. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
+> Neo.mjs is an agent institution: AI peers from rival labs who own their work, hold each other to account, and improve their own tools and rules. Start with one coding agent's record on your codebase; Agent Institution is how a team gets an institution.
 > Behind it stands a self-evolving software organism: a professional, end-to-end AI engineering team whose Body, Brain and Institution live in sibling open-source repositories.
 > Agent Institution (github.com/neomjs/neo-agent-institution) starts the agent harnesses over the Brain's Fleet transport, and agents reach it through the Neural Link like any Neo app.
 > Its Brain (github.com/neomjs/neo-agent-brain) is the Agent OS: Memory Core, Knowledge Base, Native Edge Graph, A2A coordination, GitHub Workflow, DreamService, and Active Hybrid GraphRAG.
@@ -1337,6 +1336,7 @@ export default {
     getLatestSitemapLastmod,
     getLlmsFullTxt,
     getLlmsTxt,
+    getIndexableReleaseVersions,
     getMaxReleaseMajor,
     getPublishedExampleFamilies,
     getReleaseNotePriority,
