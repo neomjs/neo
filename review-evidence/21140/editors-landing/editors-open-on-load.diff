@@ -1,0 +1,76 @@
+diff --git a/examples/gantt/taskEditor/Viewport.mjs b/examples/gantt/taskEditor/Viewport.mjs
+index ef2836b66b..2b2986c53f 100644
+--- a/examples/gantt/taskEditor/Viewport.mjs
++++ b/examples/gantt/taskEditor/Viewport.mjs
+@@ -102,6 +102,17 @@ class TaskEditorViewport extends Viewport {
+         }]
+     }
+ 
++    /**
++     * @summary Starts the example on its subject: the editor, open on a task whose bar stays in view beside it.
++     * @param {Boolean} value
++     * @param {Boolean} oldValue
++     * @protected
++     */
++    afterSetMounted(value, oldValue) {
++        super.afterSetMounted(value, oldValue);
++        value && this.getReference('gantt').openTaskEditor('pages')
++    }
++
+     /**
+      * @summary One finish-to-start link for every task a task follows.
+      * @returns {Object[]} The dependency store's records
+diff --git a/examples/scheduler/eventEditor/Viewport.mjs b/examples/scheduler/eventEditor/Viewport.mjs
+index 3d9c8b5a7e..98348fcee7 100644
+--- a/examples/scheduler/eventEditor/Viewport.mjs
++++ b/examples/scheduler/eventEditor/Viewport.mjs
+@@ -57,6 +57,9 @@ const APPOINTMENTS = [
+     title
+ }));
+ 
++// The appointment whose editor is open when the example starts
++const OPENS_ON = APPOINTMENTS.find(({title}) => title === 'Root canal').id;
++
+ /**
+  * @summary A dental practice's day in five treatment rooms. An appointment opens in its editor on a double-click, or
+  * on Enter once it has focus. Appointments last at least 30 minutes, and the editor refuses a shorter one.
+@@ -138,6 +141,17 @@ class PracticeViewport extends Viewport {
+         }]
+     }
+ 
++    /**
++     * @summary Starts the example on its subject: the editor, open on one appointment.
++     * @param {Boolean} value
++     * @param {Boolean} oldValue
++     * @protected
++     */
++    afterSetMounted(value, oldValue) {
++        super.afterSetMounted(value, oldValue);
++        value && this.getReference('scheduler').openEventEditor(OPENS_ON)
++    }
++
+     /**
+      * @summary Names the appointment a save or a keyboard move wrote, with its room and its new times.
+      * @param {Object} data
+diff --git a/src/dialog/Base.mjs b/src/dialog/Base.mjs
+index 4687a25660..a4b7a02a01 100644
+--- a/src/dialog/Base.mjs
++++ b/src/dialog/Base.mjs
+@@ -1125,7 +1125,7 @@ class Dialog extends Panel {
+     /**
+      * @param {Boolean} [mount] Mount the DOM after the vnode got created
+      */
+-    async render(mount) {
++    async initVnode(mount) {
+         let me             = this,
+             {wrapperStyle} = me;
+ 
+@@ -1143,7 +1143,7 @@ class Dialog extends Panel {
+             me.wrapperStyle = wrapperStyle
+         }
+ 
+-        await super.render(mount)
++        return super.initVnode(mount)
+     }
+ 
+     /**
