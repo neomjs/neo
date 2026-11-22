@@ -16,8 +16,9 @@ import {EXAMPLES_DIR, readExampleCatalog} from '../util/exampleCatalog.mjs';
  * @example node buildScripts/docs/captureExamples.mjs --base-url http://localhost:8080 --record grid-cell-editing
  * @example node buildScripts/docs/captureExamples.mjs --family grid-table --preview
  * @example node buildScripts/docs/captureExamples.mjs --tiles
- * A tile crops one workbench entry's component on its dark theme (neo-dark where configured), at the tile aspect,
- * or fails when that crop would cut the component. A manifest entry `{path, width, height}` gives the component that
+ * A tile crops one workbench entry's component on its dark theme (neo-dark where configured) and again on its light
+ * theme as the `-light` partner, both in one tile-aspect region that holds the component in either theme, or fails
+ * when that crop would cut the component. A manifest entry `{path, width, height}` gives the component that
  * size for its capture, so a wide one stays legible at the tile's width. Entries that render the current date or time differ between runs:
  * the App worker keeps the real clock.
  * Start the local dev server first. Output defaults to a fresh test-results/example-covers run.
@@ -28,22 +29,29 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     WIDTH            = 640, HEIGHT = 360, DPR = 2, MAX_BYTES = 150000,
     QUALITIES        = [90, 85, 80],
     STEP_KINDS       = new Set(['click', 'dblclick', 'fill', 'press', 'scroll', 'wait']),
-    DARK_THEMES      = ['neo-theme-neo-dark', 'neo-theme-dark'], TILE_VIEWPORT = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
+    TILE_VIEWPORT    = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
     FILENAME_ID      = /^[a-zA-Z0-9_-]+$/,
     LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
     LANDING_QUIET_MS = 1000,
-    LANDING_THEME    = 'neo-theme-neo-dark';
+    // The Portal shows a cover or tile in its own theme: the dark image keeps the base file name, its light partner adds
+    // `-light` before the extension. A pass asks for its first theme and takes any of its themes, as an example or a
+    // workbench may offer only the legacy one; a frame in another scheme is no image of this pass
+    PAIR_THEMES      = [
+        {scheme: 'dark',  variant: '',       themes: ['neo-theme-neo-dark',  'neo-theme-dark']},
+        {scheme: 'light', variant: '-light', themes: ['neo-theme-neo-light', 'neo-theme-light']}
+    ];
 
 /**
- * @summary The link a landing capture opens: the record's devmode URL with `?theme=` set to the dark theme, as the dark
- * catalog opens an example, so the cover shows the theme a visitor lands on.
+ * @summary The link a landing capture opens: the record's devmode URL with `?theme=` set, as the catalog in that theme
+ * opens an example, so the cover shows the theme a visitor lands on.
  * @param {String} devmode The record's `urls.devmode`, relative to the base URL
+ * @param {String} theme The Neo theme, e.g. 'neo-theme-neo-dark'
  * @returns {String}
  */
-function landingUrl(devmode) {
+function landingUrl(devmode, theme) {
     const url = new URL(devmode, 'http://capture.invalid/');
 
-    url.searchParams.set('theme', LANDING_THEME);
+    url.searchParams.set('theme', theme);
     return url.pathname.slice(1) + url.search + url.hash
 }
 
@@ -155,8 +163,9 @@ function catalogTiles(listed, catalog) {
  * @summary Validates raw recipes and returns detached recipes with catalog-derived family, URL and name.
  * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
  * A recipe needs a declared family. A tile (`kind: 'component'`) takes its crop from the `tiles` list. A covered card
- * without a recipe, in any family, gets a landing entry (`landing: true`): its cover is the frame a visitor lands on,
- * and its catalog id names the cover file under the same rule as a recipe's.
+ * without a recipe, in any family, gets a landing entry (`landing: true`) per scheme in `PAIR_THEMES`: its cover is the
+ * frame a visitor lands on, dark under the base file name and light as its `-light` partner, opened on the scheme's
+ * first theme and accepted on any theme it `accepts`; its catalog id names the cover file under a recipe's rule.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog The catalog's records, from `readExampleCatalog()`.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
@@ -219,7 +228,9 @@ export function validateCaptureRecipes(manifest, catalog) {
         if (record.kind !== 'component' && record.image && !ids.has(record.id) && !/^https?:\/\//i.test(record.urls?.devmode || '')) {
             insist(typeof record.id === 'string' && FILENAME_ID.test(record.id), `catalog.${record.id}.id`, 'expected a filename-safe catalog id');
             text(record.urls?.devmode, `catalog.${record.id}.urls.devmode`);
-            recipes.push({id: record.id, ...structuredClone(LANDING), landing: true, family: record.family, url: landingUrl(record.urls.devmode), name: record.name || record.id})
+            for (const {scheme, variant, themes} of PAIR_THEMES) {
+                recipes.push({id: record.id, ...structuredClone(LANDING), theme: scheme === 'dark' ? 'dark' : 'default', variant, accepts: [...themes], landing: true, family: record.family, url: landingUrl(record.urls.devmode, themes[0]), name: record.name || record.id})
+            }
         }
     }
     return {...structuredClone(manifest), recipes, tiles: catalogTiles(tileList(manifest.tiles), catalog)}
@@ -356,12 +367,8 @@ export function fitTileRegion(content, stage) {
     return {x, y, width, height}
 }
 
-/**
- * @summary Measures the settled stage component's content and fits it into a tile region. Content is the union of
- * leaves, media, text and decorated boxes; a decorated wrapper as large as the stage says nothing about where the
- * component is.
- */
-async function tileRegion(page, target) {
+/** @summary Waits until the stage component holds its box with no animation running inside it. */
+async function settle(target) {
     let previous;
     await expect.poll(async () => {
         const box = await target.boundingBox();
@@ -371,7 +378,16 @@ async function tileRegion(page, target) {
             animating   = await target.evaluate(node => node.getAnimations({subtree: true}).some(animation => animation.playState === 'running' || animation.pending));
         previous = signature;
         return stable && !animating
-    }, {timeout: 15000, message: 'waiting for the stage component to settle'}).toBe(true);
+    }, {timeout: 15000, message: 'waiting for the stage component to settle'}).toBe(true)
+}
+
+/**
+ * @summary Measures the settled stage component's content and its stage. Content is the union of leaves, media, text
+ * and decorated boxes; a decorated wrapper as large as the stage says nothing about where the component is.
+ * @returns {Promise<Object>} `content` ({left, top, right, bottom}, null when blank) and `stage` ({x, y, width, height}), in CSS px.
+ */
+async function tileMeasure(page, target) {
+    await settle(target);
     const content = await target.evaluate(node => {
         const stage = node.parentElement.getBoundingClientRect(), stageArea = stage.width * stage.height;
         let   rect  = null;
@@ -393,21 +409,40 @@ async function tileRegion(page, target) {
         }
         return rect
     });
-    return fitTileRegion(content, await page.locator('.neo-example-container').first().boundingBox())
+    return {content, stage: await page.locator('.neo-example-container').first().boundingBox()}
 }
 
 /**
- * @summary Switches a workbench to the first of DARK_THEMES it offers. Its switch cycles through `offered`, so a click
- * is sent only while that theme is inactive: a workbench already on its only dark theme needs none.
+ * @summary Fits one region for a tile's whole pair: the union of the component's content in every theme, inside the
+ * stage area all themes share, so the crops line up and neither cuts what its theme draws larger.
+ * @param {Object[]} measures One {@link tileMeasure} result per theme.
+ * @returns {Object} The region's `x`, `y`, `width` and `height` (CSS px).
+ */
+export function pairTileRegion(measures) {
+    const boxes = measures.map(({content}) => content),
+        stages  = measures.map(({stage}) => stage),
+        x       = Math.max(...stages.map(stage => stage.x)),
+        y       = Math.max(...stages.map(stage => stage.y));
+    return fitTileRegion(boxes.every(Boolean) ? {
+        left : Math.min(...boxes.map(box => box.left)),  top   : Math.min(...boxes.map(box => box.top)),
+        right: Math.max(...boxes.map(box => box.right)), bottom: Math.max(...boxes.map(box => box.bottom))
+    } : null, {x, y, width: Math.min(...stages.map(stage => stage.x + stage.width)) - x, height: Math.min(...stages.map(stage => stage.y + stage.height)) - y})
+}
+
+/**
+ * @summary Switches a workbench to the first theme of a PAIR_THEMES pass it offers. Its switch cycles through
+ * `offered`, so a click is sent only while that theme is inactive: a workbench already on it needs none.
  * @param {String[]} offered The page's `Neo.config.themes`, which the workbench's theme switch cycles through.
+ * @param {String} scheme The pass: `dark` or `light`.
  * @param {Function} themeOf Resolves the theme the stage shows.
  * @param {Function} next Clicks the switch and resolves once the stage shows another theme.
  * @returns {Promise<String>} The applied theme.
  */
-export async function applyTileTheme(offered, themeOf, next) {
+export async function applyTileTheme(offered, scheme, themeOf, next) {
     insist(Array.isArray(offered) && offered.length > 0, 'tile', 'the page reports no themes');
-    const wanted = DARK_THEMES.find(theme => offered.includes(theme));
-    insist(wanted, 'tile', `the workbench offers no dark theme (${DARK_THEMES.join(', ')})`);
+    const {themes} = PAIR_THEMES.find(pass => pass.scheme === scheme),
+        wanted     = themes.find(theme => offered.includes(theme));
+    insist(wanted, 'tile', `the workbench offers no ${scheme} theme (${themes.join(', ')})`);
     for (let i = 0; i < offered.length && await themeOf() !== wanted; i++) await next();
     const theme = await themeOf();
     insist(theme === wanted, 'tile', `the theme switch never reached ${wanted}`);
@@ -507,9 +542,9 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
         await page.goto(url.href, {waitUntil: 'domcontentloaded', timeout: 30000});
         await (recipe.landing ? landingReady(page) : assertions(page, recipe.ready));
         if (recipe.landing) {
-            // An example that ignores `?theme=` opens on its first theme: a light frame is no dark cover
+            // An example that ignores `?theme=` opens on its first theme: a frame of the other scheme is no cover of this one
             row.openedTheme = await page.evaluate(shownTheme);
-            insist(DARK_THEMES.includes(row.openedTheme), recipe.id, `opened on ${row.openedTheme}, not on ${DARK_THEMES.join(' or ')}`)
+            insist(recipe.accepts.includes(row.openedTheme), recipe.id, `opened on ${row.openedTheme}, not on ${recipe.accepts.join(' or ')}`)
         }
         row.steps = await actions(page, recipe.steps);
         await assertions(page, recipe.after);
@@ -526,7 +561,7 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
                   size  = jpegSize(bytes);
             insist(size.width === WIDTH * DPR && size.height === HEIGHT * DPR, recipe.id, 'JPEG must be 1280x720');
             if (bytes.length > MAX_BYTES) continue;
-            const relative = `devmode/${recipe.id}-${manifest.suffix}.jpg`, file = path.join(output, relative);
+            const relative = `devmode/${recipe.id}-${manifest.suffix}${recipe.variant ?? ''}.jpg`, file = path.join(output, relative);
             await fs.writeFile(file, bytes, {flag: 'wx'});
             return {...row, status: 'captured', image: relative, quality, ...size, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex')}
         }
@@ -536,14 +571,59 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
     } finally { await context.close() }
 }
 
-/** @summary Crops one workbench entry's component with the whole workbench on the dark theme; failures never publish a tile. */
+/** @summary Shoots a region as the best-quality JPEG within MAX_BYTES, checked at the device pixel ratio. */
+async function shoot(page, clip, id) {
+    for (const quality of QUALITIES) {
+        const bytes = await page.screenshot({type: 'jpeg', quality, clip, scale: 'device', animations: 'disabled', caret: 'hide'}), size = jpegSize(bytes);
+        insist(size.width === clip.width * DPR && size.height === clip.height * DPR, id, 'JPEG must be the region at the device pixel ratio');
+        if (bytes.length <= MAX_BYTES) return {bytes, quality, ...size}
+    }
+    throw new Error(`JPEG exceeds ${MAX_BYTES} bytes at qualities ${QUALITIES.join('/')}`)
+}
+
+/**
+ * @summary Writes a pair's images, or none of them. A file is this call's once its exclusive open (`wx`) succeeds; when a
+ * later open or write fails, the files this call opened are removed before the error goes on, so a failed pair leaves no
+ * half behind. A path whose open failed was never this call's and stays, whatever the error.
+ * @param {String} output The run's output directory
+ * @param {Object[]} shots `{image, bytes}` each, `image` relative to `output`
+ * @param {Function} [open=fs.open]
+ * @returns {Promise<void>}
+ */
+export async function writePair(output, shots, open=fs.open) {
+    const created = [];
+
+    try {
+        for (const {image, bytes} of shots) {
+            const file   = path.join(output, image),
+                  handle = await open(file, 'wx');
+
+            created.push(file);
+
+            try {
+                await handle.writeFile(bytes)
+            } finally {
+                await handle.close()
+            }
+        }
+    } catch (error) {
+        await Promise.all(created.map(file => fs.rm(file, {force: true})));
+        throw error
+    }
+}
+
+/**
+ * @summary Crops one workbench entry's component with the whole workbench on its dark theme, then on its light theme,
+ * in one region that holds the component in both, so the pair lines up. A failure in either publishes neither tile.
+ * @returns {Promise<Object[]|Object>} One report row per theme, or one failed row.
+ */
 async function captureTile(browser, tile, manifest, baseUrl, output) {
     const url = new URL(tile.url, baseUrl);
     insist(url.origin === baseUrl.origin && ['http:', 'https:'].includes(url.protocol), tile.id, 'devmode URL must resolve on the base origin');
     const context = await browser.newContext({viewport: TILE_VIEWPORT, deviceScaleFactor: DPR, colorScheme: 'dark'}),
         row       = {id: tile.id, kind: 'tile', path: tile.path, url: url.href, viewport: TILE_VIEWPORT, deviceScaleFactor: DPR};
     try {
-        const page  = await context.newPage(), errors = [],
+        const page  = await context.newPage(), errors = [], measures = [], shots = [],
             target  = page.locator('.neo-example-container > *').first(),
             themeOf = () => page.locator('.neo-workbench-stage').first().evaluate(node => [...(node.closest('[class*="neo-theme-"]')?.classList ?? [])].find(cls => cls.startsWith('neo-theme-')) ?? null),
             next    = async () => {const before = await themeOf(); await page.locator('.neo-button-theme-switch').first().click(); await expect.poll(themeOf).not.toBe(before)};
@@ -551,30 +631,32 @@ async function captureTile(browser, tile, manifest, baseUrl, output) {
         page.on('pageerror', error => errors.push(error.message));
         await page.goto(url.href, {waitUntil: 'domcontentloaded', timeout: 30000});
         await expect(target).toBeVisible();
-        // The switch repaints the whole workbench, stage surface included
-        row.theme = await applyTileTheme(await page.evaluate(() => globalThis.Neo?.config?.themes), themeOf, next);
-        // A tile shows the component alone: the stage's other items (a field's states) keep their place, unpainted
-        await page.locator('.neo-example-container > :not(:first-child)').evaluateAll(nodes => nodes.forEach(node => node.style.visibility = 'hidden'));
-        // An entry's capture size narrows the component, so its text stays legible at the tile's width
-        if (tile.width || tile.height) {
-            await target.evaluate((node, {width, height}) => {
-                width  && Object.assign(node.style, {width : `${width}px`,  maxWidth : `${width}px`, minWidth : 0});
-                height && Object.assign(node.style, {height: `${height}px`, maxHeight: `${height}px`, minHeight: 0})
-            }, {width: tile.width, height: tile.height});
-            row.size = {width: tile.width, height: tile.height}
+        const offered = await page.evaluate(() => globalThis.Neo?.config?.themes),
+            // The switch repaints the whole workbench, stage surface included, so each pass presents the stage anew: the
+            // component alone (the stage's other items, a field's states, keep their place unpainted), at the entry's
+            // capture size, which narrows a wide component so its text stays legible at the tile's width
+            present = async scheme => {
+                const theme = await applyTileTheme(offered, scheme, themeOf, next);
+                await page.locator('.neo-example-container > :not(:first-child)').evaluateAll(nodes => nodes.forEach(node => node.style.visibility = 'hidden'));
+                if (tile.width || tile.height) await target.evaluate((node, {width, height}) => {
+                    width  && Object.assign(node.style, {width : `${width}px`,  maxWidth : `${width}px`, minWidth : 0});
+                    height && Object.assign(node.style, {height: `${height}px`, maxHeight: `${height}px`, minHeight: 0})
+                }, {width: tile.width, height: tile.height});
+                return theme
+            };
+        if (tile.width || tile.height) row.size = {width: tile.width, height: tile.height};
+        for (const {scheme} of PAIR_THEMES) { await present(scheme); measures.push(await tileMeasure(page, target)) }
+        row.region = pairTileRegion(measures);
+        // The page still shows the last pass's theme, so the shots run backwards and the first needs no switch
+        for (const {scheme, variant} of [...PAIR_THEMES].reverse()) {
+            const theme = await present(scheme);
+            await settle(target);
+            await paintReady(page, row.region);
+            shots.unshift({theme, image: `devmode/tiles/${tile.id}-${manifest.suffix}${variant}.jpg`, ...await shoot(page, row.region, tile.id)})
         }
-        row.region = await tileRegion(page, target);
-        await paintReady(page, row.region);
-        for (const quality of QUALITIES) {
-            insist(!errors.length, tile.id, `page errors: ${errors.join('; ')}`);
-            const bytes = await page.screenshot({type: 'jpeg', quality, clip: row.region, scale: 'device', animations: 'disabled', caret: 'hide'}), size = jpegSize(bytes);
-            insist(size.width === row.region.width * DPR && size.height === row.region.height * DPR, tile.id, 'JPEG must be the region at the device pixel ratio');
-            if (bytes.length > MAX_BYTES) continue;
-            const relative = `devmode/tiles/${tile.id}-${manifest.suffix}.jpg`;
-            await fs.writeFile(path.join(output, relative), bytes, {flag: 'wx'});
-            return {...row, status: 'captured', image: relative, quality, ...size, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex')}
-        }
-        throw new Error(`JPEG exceeds ${MAX_BYTES} bytes at qualities ${QUALITIES.join('/')}`)
+        insist(!errors.length, tile.id, `page errors: ${errors.join('; ')}`);
+        await writePair(output, shots);
+        return shots.map(({bytes, ...shot}) => ({...row, status: 'captured', ...shot, bytes: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex')}))
     } catch (error) {
         return {...row, status: 'failed', error: error.message}
     } finally { await context.close() }
@@ -643,8 +725,8 @@ async function runCli() {
             let result;
             try { result = tiles ? await captureTile(browser, recipe, manifest, baseUrl, output) : await capture(browser, recipe, manifest, baseUrl, output) }
             catch (error) { result = {id: recipe.id, state: recipe.state ?? recipe.path, status: 'failed', error: error.message} }
-            report.results.push(result);
-            console.log(JSON.stringify(result))
+            // A tile reports its dark and light crops as one row each
+            for (const row of [result].flat()) { report.results.push(row); console.log(JSON.stringify(row)) }
         }
     } catch (error) {
         report.failure = error.message;
