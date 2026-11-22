@@ -206,12 +206,13 @@ each `{status, lane, index}`). When several selected cards are dropped together,
 ## 6. What a Card Shows
 
 `cardItems` lists what every card renders, in order. The default is
-`[{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'avatars'}]`. The built-in types are:
+`[{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'dueDate'}, {type: 'avatars'}]`. The built-in types are:
 
 - `title`: the title line (field `title`).
 - `text`: any text field; set `field`.
 - `tags`: tag chips (field `tags`).
 - `progress`: a bar over a 0 to 100 value (field `progress`). No value, or zero, draws no bar.
+- `dueDate`: the due date as a `<time>` badge (field `dueDate`, an ISO date string or `Date`).
 - `avatars`: the initials of each assignee (field `assignees`, names or objects with a `name`).
 
 Each item may name another `field`. An item that finds nothing in its field renders nothing, so a backlog card

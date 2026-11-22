@@ -65,7 +65,7 @@ class Board extends Container {
          * The items every card renders, in order: `{type, field}` per item ({@link Neo.board.CardItems})
          * @member {Object[]} cardItems_
          */
-        cardItems_: [{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'avatars'}],
+        cardItems_: [{type: 'title'}, {type: 'tags'}, {type: 'progress'}, {type: 'dueDate'}, {type: 'avatars'}],
         /**
          * The class of a card
          * @member {Function} cardModule=Card

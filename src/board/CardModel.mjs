@@ -4,7 +4,7 @@ import Model from '../data/Model.mjs';
  * @summary The card of a board: the fields the board reads, and the fields its default card items render.
  * @description `status` and `order` are the board's truth. A column is the records whose status equals its own,
  * sorted by `order`, and a move is one `set` of both — the view follows. `lane` is the second axis the swimlane
- * leaf projects. The other fields feed the default card items (title, tags, progress, avatars).
+ * leaf projects. The other fields feed the default card items (title, tags, progress, dueDate, avatars).
  *
  * A consumer may bring its own model: `Neo.board.Container` reads the field names it needs from `statusField`,
  * `orderField` and `laneField`, and the card items name their fields.

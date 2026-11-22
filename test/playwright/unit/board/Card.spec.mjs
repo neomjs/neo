@@ -19,7 +19,9 @@ import {test, expect}                                from '@playwright/test';
 import Neo                                           from '../../../../src/Neo.mjs';
 import * as core                                     from '../../../../src/core/_export.mjs';
 import InstanceManager                               from '../../../../src/manager/Instance.mjs';
+import BoardContainer                                from '../../../../src/board/Container.mjs';
 import Card                                          from '../../../../src/board/Card.mjs';
+import CardModel                                     from '../../../../src/board/CardModel.mjs';
 import {cardItems, registerCardItem, renderCardItem} from '../../../../src/board/CardItems.mjs';
 
 /**
@@ -64,6 +66,38 @@ test.describe('Neo.board.CardItems', () => {
         expect(node.cn[0].title).toBe('Ada Lovelace')
     });
 
+    test('dueDate formats ISO strings and Dates deterministically and returns null when empty or invalid', () => {
+        expect(cardItems.dueDate({dueDate: '2026-12-01'}, {type: 'dueDate'})).toEqual({
+            tag     : 'time',
+            cls     : ['neo-board-card-due-date'],
+            datetime: '2026-12-01',
+            title   : '2026-12-01',
+            text    : 'Due Dec 1'
+        });
+        expect(cardItems.dueDate({dueDate: '2026-12-01T23:45:00Z'}, {type: 'dueDate'}).datetime).toBe('2026-12-01');
+        expect(cardItems.dueDate({dueDate: new Date(2026, 11, 15)}, {type: 'dueDate'})).toEqual({
+            tag     : 'time',
+            cls     : ['neo-board-card-due-date'],
+            datetime: '2026-12-15',
+            title   : '2026-12-15',
+            text    : 'Due Dec 15'
+        });
+        expect(cardItems.dueDate(
+            {targetDate: '2026-12-01'},
+            {type: 'dueDate', field: 'targetDate', prefix: '', formatOptions: {month: 'short', day: 'numeric', year: 'numeric'}}
+        ).text).toBe('Dec 1, 2026');
+        expect(cardItems.dueDate(
+            {dueDate: '2026-12-01'},
+            {type: 'dueDate', formatter: value => `Due ${value}`}
+        ).text).toBe('Due 2026-12-01');
+        expect(cardItems.dueDate({dueDate: '2026-12-01'}, {type: 'dueDate', formatter: () => ''})).toBeNull();
+        expect(cardItems.dueDate({}, {type: 'dueDate'})).toBeNull();
+        expect(cardItems.dueDate({dueDate: ''}, {type: 'dueDate'})).toBeNull();
+        expect(cardItems.dueDate({dueDate: '   '}, {type: 'dueDate'})).toBeNull();
+        expect(cardItems.dueDate({dueDate: '2026-02-31'}, {type: 'dueDate'})).toBeNull();
+        expect(cardItems.dueDate({dueDate: new Date('invalid')}, {type: 'dueDate'})).toBeNull()
+    });
+
     test('an unknown type renders nothing; a registered one renders', () => {
         expect(renderCardItem(record, {type: 'nope'})).toBeNull();
 
@@ -106,5 +140,34 @@ test.describe('Neo.board.Card', () => {
 
         expect(card.vdom.cn).toEqual([]);
         card.destroy()
+    });
+
+    test('a default board omits dueDate when unset and renders it once set on the record', () => {
+        const board = Neo.create(BoardContainer, {
+            appName,
+            columns: [{status: 'ready', title: 'Ready'}],
+            store  : {
+                model: CardModel,
+                data : [{id: 'd1', title: 'Ship v14', status: 'ready', tags: ['release']}]
+            }
+        });
+
+        const card = board.getCard('d1');
+
+        expect(board.cardItems.map(item => item.type)).toContain('dueDate');
+        expect(card.vdom.cn.some(node => node.cls?.includes('neo-board-card-due-date'))).toBe(false);
+
+        card.record.set({dueDate: '2026-11-23'});
+
+        const dueNode = card.vdom.cn.find(node => node.cls?.includes('neo-board-card-due-date'));
+
+        expect(dueNode).toMatchObject({
+            tag     : 'time',
+            id      : `${card.id}__dueDate`,
+            datetime: '2026-11-23',
+            text    : 'Due Nov 23'
+        });
+
+        board.destroy()
     })
 });
