@@ -230,6 +230,9 @@ class Operations extends Base {
      * Distinct from `addTab` because the precondition is inverted, so neither has to carry the
      * other's branch: this one only reaches its rebuild path when the node is absent, and delegates
      * verbatim when it is present.
+     *
+     * An item still in the tree (a drop into a free center) moves as a source, so a locked one is refused,
+     * as `moveItem` refuses it. A returning pane is not in the tree, so its return is unaffected.
      * @param {Object} document
      * @param {Object} args {home, index, itemId, tabsNodeId}
      * @returns {{document:Object, errors:String[]}}
@@ -237,6 +240,10 @@ class Operations extends Base {
      */
     static restoreTab(document, {home, index, itemId, tabsNodeId} = {}) {
         if (!document.items?.[itemId]) return {document, errors: [`unknown item "${itemId}"`]};
+
+        if (document.items[itemId].locked === true && WorkspaceDocument.findContainingTabsId(document, itemId)) {
+            return {document, errors: [`item "${itemId}" is locked`]}
+        }
 
         if (document.nodes?.[tabsNodeId]?.type === 'tabs') {
             return Operations.addTab(document, {itemId, index, tabsNodeId})

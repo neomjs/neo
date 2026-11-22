@@ -2492,6 +2492,30 @@ test.describe('Neo.dashboard.dock.model.WorkspaceDocument', () => {
             expect(WorkspaceDocument.getZoneNodeId(document.nodes.root.zones.center), 'the center is rebuilt').toBe(tabsNodeId);
             expect(document.nodes[tabsNodeId].items).toEqual(['terminal']);
             expect(document.nodes['side-tabs'].items, 'the tab left its band').toEqual(['strategy'])
+        });
+
+        test('a locked tab still in the tree is refused at the well, while a locked pane that is away still comes home', () => {
+            const {document: detached, placement} = tearOut(centerAlone(), 'swarm');
+
+            detached.items.terminal.locked = true;
+            detached.items.swarm.locked    = true;
+
+            const before             = JSON.stringify(detached),
+                  {document, errors} = Operations.applyOperation(detached, PreviewContract.previewToOperation({
+                      schema   : 'neo.dock.preview.v1',
+                      itemId   : 'terminal',
+                      target   : {nodeId: 'root'},
+                      placement: {kind: 'zone-center', tabsNodeId: WorkspaceDocument.genId(detached, 'root-center')},
+                      feedback : {state: 'accepted'}
+                  }));
+
+            expect(errors).toEqual(['item "terminal" is locked']);
+            expect(JSON.stringify(document), 'the document stays as it was').toBe(before);
+
+            const home = Operations.applyOperation(detached, Operations.centerWellReturnDescriptor(detached, 'swarm', placement));
+
+            expect(home.errors, 'the away pane is not in the tree, so its lock does not hold it out').toEqual([]);
+            expect(home.document.nodes['main-tabs'].items).toEqual(['swarm'])
         })
     });
 
