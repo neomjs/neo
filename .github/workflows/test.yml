@@ -486,15 +486,26 @@ jobs:
     # classifier's reason.
     if: ${{ needs.changes.outputs.run_e2e == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == 'e2e') }}
     # The gate runs as shards on separate runners, each serial and each under the step's ceiling,
-    # each handed its files by measured time. A dispatch is one shard, so a probe's tally keeps its
-    # whole denominator.
+    # each handed its files by measured time. Only the isolated trial refs use a full shard matrix on dispatch.
     strategy:
       fail-fast: false
       # A selection brings a matrix sized to it. The full matrix is `FULL_SHARDS.engine` in
       # `e2eCiSelection.mjs`, which a unit arm holds to these lines
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_matrix || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]') }}
-        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_shards || '[15]') }}
+        shard: >-
+          ${{ fromJSON(
+            github.event_name == 'workflow_dispatch' && (
+              github.ref == 'refs/heads/codex/22026-e2e-18' && '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]' ||
+              github.ref == 'refs/heads/codex/22026-e2e-15' && '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]' || '[1]'
+            ) || needs.changes.outputs.e2e_engine_matrix || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]'
+          ) }}
+        shards: >-
+          ${{ fromJSON(
+            github.event_name == 'workflow_dispatch' && (
+              github.ref == 'refs/heads/codex/22026-e2e-18' && '[18]' ||
+              github.ref == 'refs/heads/codex/22026-e2e-15' && '[15]' || '[1]'
+            ) || needs.changes.outputs.e2e_engine_shards || '[15]'
+          ) }}
     # The gate keeps its twelve minutes: provisioning plus a six-minute test step, so a hung
     # install cannot occupy a runner indefinitely.
     #
@@ -503,7 +514,9 @@ jobs:
     # twelve, and a probe killed at the job bound reports a rate that is an artifact of a limit
     # nothing in the log names. Forty-five leaves the thirty-minute step its full allowance plus
     # provisioning and reporting, so the step's own bound is the one that actually binds.
-    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 45 || 12 }}
+    timeout-minutes: >-
+      ${{ github.event_name == 'workflow_dispatch' &&
+        !contains(fromJSON('["refs/heads/codex/22026-e2e-15", "refs/heads/codex/22026-e2e-18", "refs/heads/codex/22026-e2e-red"]'), github.ref) && 45 || 12 }}
 
     steps:
       # Re-run failed jobs does not re-run successful prerequisite jobs: a head classified relevant,
@@ -630,7 +643,9 @@ jobs:
       # truncate a probe and report a rate that is an artifact of the timeout.
       - name: Run e2e (engine tier)
         if: ${{ steps.head.outputs.current == 'true' }}
-        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 6 }}
+        timeout-minutes: >-
+          ${{ github.event_name == 'workflow_dispatch' &&
+            !contains(fromJSON('["refs/heads/codex/22026-e2e-15", "refs/heads/codex/22026-e2e-18", "refs/heads/codex/22026-e2e-red"]'), github.ref) && 30 || 6 }}
         env:
           NEO_TEST_SKIP_CI: 'true'
           # Dispatch inputs reach the shell as ENVIRONMENT, never interpolated into this script.
@@ -642,10 +657,24 @@ jobs:
           PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
           SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
           TIER_PATHS: ${{ steps.selection.outputs.paths }}
+          TRIAL: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+              contains(fromJSON('["refs/heads/codex/22026-e2e-15", "refs/heads/codex/22026-e2e-18", "refs/heads/codex/22026-e2e-red"]'), github.ref) }}
+          TRIAL_FAILURE: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/22026-e2e-red' }}
         run: |
           # `pipefail`, because a pipeline reports its LAST command's status: without it `tee`
           # would return 0 over a red suite and the gate would pass on a failing run.
           set -o pipefail
+
+          if [ "$TRIAL" = true ] && { [ -n "$PROBE_SPECS" ] || [ "$PROBE_REPEAT" != 1 ]; }; then
+            echo '::error::The shard comparison requires the complete selection and one pass.'
+            exit 1
+          fi
+
+          if [ "$TRIAL_FAILURE" = true ]; then
+            echo '::error::Intentional shard failure for the aggregate negative control.'
+            exit 1
+          fi
 
           # A probe runs the specs it names. A tier run takes its shard's files, balanced by measured
           # time: Playwright's own `--shard` gives every shard the same number of tests, and a test
@@ -711,7 +740,9 @@ jobs:
       # reconstructed from a log by whoever reads it next. `always()`, because a probe that ends
       # red is the one whose numbers are wanted most.
       - name: Report probe rate
-        if: ${{ always() && github.event_name == 'workflow_dispatch' && steps.head.outputs.current == 'true' }}
+        if: >-
+          ${{ always() && github.event_name == 'workflow_dispatch' && steps.head.outputs.current == 'true' &&
+            !contains(fromJSON('["refs/heads/codex/22026-e2e-15", "refs/heads/codex/22026-e2e-18", "refs/heads/codex/22026-e2e-red"]'), github.ref) }}
         env:
           PROBE_SPECS: ${{ inputs.specs }}
           PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
@@ -766,7 +797,11 @@ jobs:
   # a failed classifier also skips the shards, and that must never read as an irrelevant diff.
   e2e-engine-gate:
     name: e2e-engine
-    if: ${{ always() && github.event_name != 'workflow_dispatch' }}
+    if: >-
+      ${{ always() && (github.event_name != 'workflow_dispatch' || (
+        inputs.suite == 'e2e' &&
+        contains(fromJSON('["refs/heads/codex/22026-e2e-15", "refs/heads/codex/22026-e2e-18", "refs/heads/codex/22026-e2e-red"]'), github.ref)
+      )) }}
     needs: [changes, e2e-engine]
     runs-on: ubuntu-latest
     timeout-minutes: 2
