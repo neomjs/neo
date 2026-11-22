@@ -1,3 +1,5 @@
+import DateUtil from '../util/Date.mjs';
+
 /**
  * @summary The renderers of a card's body: one function per item type, each turning a record into one vdom node.
  * @description `Neo.board.Card` maps the board's `cardItems` config through {@link renderCardItem}. A renderer
@@ -9,28 +11,7 @@
  * @module Neo.board.CardItems
  */
 
-const
-    formats = new Map(),
-    warned  = new Set();
-
-/**
- * @summary Formats a UTC-normalized calendar date with a cached `Intl.DateTimeFormat`
- * @param {String} locale
- * @param {Object} options
- * @param {Date} wallDate
- * @returns {String}
- */
-const formatWallDate = (locale, options, wallDate) => {
-    const key = `${locale}|${JSON.stringify(options)}`;
-    let   fmt = formats.get(key);
-
-    if (!fmt) {
-        fmt = new Intl.DateTimeFormat(locale, {...options, timeZone: 'UTC'});
-        formats.set(key, fmt)
-    }
-
-    return fmt.format(wallDate)
-};
+const warned = new Set();
 
 /**
  * @summary Parses a `Date` or date string into `{iso, wallDate}` without timezone rollover, or returns `null`
@@ -47,14 +28,9 @@ const parseDueDate = value => {
             return null
         }
 
-        const
-            y = value.getFullYear(),
-            m = value.getMonth() + 1,
-            d = value.getDate();
-
         return {
-            iso     : `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`,
-            wallDate: new Date(Date.UTC(y, m - 1, d))
+            iso     : DateUtil.convertToyyyymmdd(value),
+            wallDate: new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()))
         }
     }
 
@@ -193,7 +169,7 @@ export const cardItems = {
 
         const
             options   = item?.formatOptions || {month: 'short', day: 'numeric'},
-            formatted = formatWallDate(item?.locale || 'en-US', options, parsed.wallDate),
+            formatted = DateUtil.formatWall(item?.locale || 'en-US', options, parsed.wallDate),
             prefix    = item?.prefix === undefined ? 'Due' : item.prefix,
             text      = typeof item?.formatter === 'function'
                 ? item.formatter(raw, record)
