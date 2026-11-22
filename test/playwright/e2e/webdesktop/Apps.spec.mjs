@@ -65,6 +65,25 @@ async function signIn(page) {
 const windowOf = (page, app) => page.locator(WINDOW).filter({hasText: app}).filter({visible: true});
 
 /**
+ * Waits for the window's opening flight to land in the App worker. A window shows while it still grows out of
+ * its icon, so its Close button moves until `Neo.dialog.Base#show`'s mount flight settles, and a click aimed at
+ * it earlier can lift elsewhere. `PhoneAndTouch.spec.mjs` waits the same way.
+ * @param {Object} page
+ * @param {Object} window
+ * @param {String} app
+ */
+async function expectOpened(page, window, app) {
+    const id        = await window.getAttribute('id'),
+          appWorker = page.workers().find(worker => worker.url().includes('worker/App'));
+
+    await expect.poll(() => appWorker.evaluate(id => {
+        const dialog = Neo.get(id);
+
+        return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null
+    }, id), {message: `${app} has finished opening`}).toBe(true)
+}
+
+/**
  * @param {Object} page
  * @param {Object} window
  */
@@ -99,8 +118,9 @@ test.describe('web desktop apps', () => {
             const window = windowOf(page, app);
 
             await expect(window.locator(view)).toBeVisible();
+            await expectOpened(page, window, app);
 
-            // A window mounts at its full width off-screen, then grows out of its icon: only its settled box has both
+            // The boundary fit runs after the flight lands, so the box may still move once
             await expect(async () => {
                 expect(Math.round((await window.boundingBox()).width)).toBe(width);
                 await expectInsideWorkspace(page, window)
