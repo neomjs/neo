@@ -63,10 +63,12 @@ class KpiTile extends DashboardPanel {
             flex     : 'none',
             reference: 'change'
         }, {
-            module   : Sparkline,
-            flex     : 1,
-            reference: 'sparkline',
-            usePulse : false
+            module      : Sparkline,
+            // The hover readout labels each reading with a year, which per-second readings do not have
+            domListeners: [],
+            flex        : 1,
+            reference   : 'sparkline',
+            usePulse    : false
         }],
         /**
          * The title bar's text.

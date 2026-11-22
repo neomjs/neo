@@ -7,7 +7,9 @@
     gap       : 12px;
     padding   : 16px 20px;
 
+    /* A container paints its own background, which on neo-light is not the page's */
     .sortable-header {
+        background: transparent;
         column-gap: 20px;
         row-gap   : 6px;
     }
