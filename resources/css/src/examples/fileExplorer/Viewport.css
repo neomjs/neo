@@ -1,0 +1,71 @@
+/* The file explorer example: a header above the tree and the detail pane. Colours come from the theme's own
+   tokens, so the page follows neo-light and neo-dark without a theme file of its own. */
+.file-explorer-viewport {
+    background: var(--neo-background-color);
+    box-sizing: border-box;
+    color     : var(--neo-color);
+    gap       : 12px;
+    padding   : 16px 20px;
+
+    /* A container paints its own background, which on neo-light is not the page's */
+    .fe-header,
+    .fe-body,
+    .fe-sidebar {
+        background: transparent;
+    }
+
+    .fe-header {
+        column-gap: 20px;
+        row-gap   : 6px;
+    }
+
+    .fe-title {
+        font-size     : 22px;
+        font-weight   : 700;
+        letter-spacing: -0.01em;
+        margin        : 0;
+    }
+
+    .fe-hint {
+        font-size: 14px;
+        min-width: 240px;
+        opacity  : 0.8;
+    }
+
+    .fe-body {
+        gap       : 16px;
+        min-height: 0;
+    }
+
+    .fe-sidebar {
+        gap       : 8px;
+        min-height: 0;
+        width     : 340px;
+    }
+}
+
+/* On a phone the detail pane moves under the tree */
+@media (max-width: 640px) {
+    .file-explorer-viewport {
+        padding: 12px;
+
+        .fe-title {
+            font-size: 19px;
+        }
+
+        .fe-body.neo-flex-container {
+            flex-direction: column;
+        }
+
+        /* The flex layout writes each item's flex inline: on a phone the tree takes the free height, and the
+           detail pane the height of what it shows */
+        .fe-sidebar {
+            flex : 1 1 0% !important;
+            width: auto;
+        }
+
+        .fe-detail {
+            flex: none !important;
+        }
+    }
+}
