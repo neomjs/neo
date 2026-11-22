@@ -1,7 +1,12 @@
-import MainContainer from './MainContainer.mjs';
+import {resolveStartTheme} from '../../../src/util/Theme.mjs';
+import MainContainer       from './MainContainer.mjs';
 
+/**
+ * @summary Starts the fragment example in the theme `?theme=` names, else in the dark theme when the system prefers
+ * dark, else in the first configured theme.
+ * @returns {Neo.controller.Application}
+ */
 export const onStart = () => Neo.app({
-    mainView: MainContainer,
-    name    : 'Neo.examples.container.fragment',
-    parentId: 'main-container'
+    mainView: {module: MainContainer, theme: resolveStartTheme(Neo.config)},
+    name    : 'Neo.examples.container.fragment'
 });

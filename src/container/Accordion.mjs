@@ -57,10 +57,12 @@ class Accordion extends Panel {
          */
         keys: {},
         /**
-         * Max number of accordion items, which can be expanded at the same time
-         * @member {Number} maxExpandedItems=1
+         * Max number of accordion items, which can be expanded at the same time; 0 for no limit.
+         * A fraction counts whole items. Lowering it closes the items opened first until the rest fit.
+         * @member {Number} maxExpandedItems_=1
+         * @reactive
          */
-        maxExpandedItems: 1,
+        maxExpandedItems_: 1,
         /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model|null} selectionModel_=null
@@ -111,6 +113,16 @@ class Accordion extends Panel {
     }
 
     /**
+     * @summary A lower limit closes the items opened first until the rest fit.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMaxExpandedItems(value, oldValue) {
+        oldValue !== undefined && this.collapseOverflow(value)
+    }
+
+    /**
      * @summary Registers a newly assigned selectionModel once the Accordion is constructed.
      * @param {Neo.selection.Model|null} value
      * @param {Neo.selection.Model|null} oldValue
@@ -140,6 +152,18 @@ class Accordion extends Panel {
     }
 
     /**
+     * @summary A positive limit counts whole items: it rounds down, to one at the least, because the item about to
+     * open always opens. 0 or less stays no limit.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     * @protected
+     */
+    beforeSetMaxExpandedItems(value, oldValue) {
+        return value > 0 ? Math.max(1, Math.floor(value)) : value
+    }
+
+    /**
      * @summary Resolves `selectionModel` configs into a `Neo.selection.AccordionModel` instance.
      * @param {Neo.selection.Model|Object|null} value
      * @param {Neo.selection.Model|null} oldValue
@@ -165,30 +189,45 @@ class Accordion extends Panel {
      * @protected
      */
     childExpandChange(data) {
-        let me                                = this,
-            {expandedItems, maxExpandedItems} = me,
-            {expanded, target}                = data,
-            curNoOpenItems                    = expandedItems.length,
-            targetId                          = target.id;
+        let me                 = this,
+            {expanded, target} = data,
+            targetId           = target.id,
+            expandedItems;
 
-        if (expanded
-            && !expandedItems.includes(targetId)
-            && maxExpandedItems !== 0
-            && curNoOpenItems === maxExpandedItems
-        ) {
-            let openItem = Neo.get(expandedItems[0]);
-
-            if (openItem) {
-                openItem.expanded = false
-            }
-
-            NeoArray.remove(expandedItems, expandedItems[0])
+        // Room for the item about to open
+        if (expanded && !me.expandedItems.includes(targetId)) {
+            me.collapseOverflow(me.maxExpandedItems, 1)
         }
 
+        // Read after the overflow closed: the getter hands out a copy
+        expandedItems   = me.expandedItems;
         target.expanded = expanded;
         NeoArray[expanded ? 'add' : 'remove'](expandedItems, targetId);
 
         me.expandedItems = expandedItems
+    }
+
+    /**
+     * @summary Closes the items opened first until no more than `max` stay open, minus `room` places kept free.
+     * @param {Number} max 0 for no limit
+     * @param {Number} [room=0] Places to keep free, for an item about to open
+     * @protected
+     */
+    collapseOverflow(max, room=0) {
+        let me              = this,
+            {expandedItems} = me;
+
+        if (max > 0) {
+            while (expandedItems.length > max - room) {
+                let item = Neo.get(expandedItems.shift());
+
+                if (item) {
+                    item.expanded = false
+                }
+            }
+
+            me.expandedItems = expandedItems
+        }
     }
 
     /**
