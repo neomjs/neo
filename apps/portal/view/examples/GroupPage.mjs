@@ -94,7 +94,7 @@ class GroupPage extends Container {
             text     : 'Demonstrations'
         }, {
             module        : List,
-            bind          : {catalogMode: data => data.catalogMode},
+            bind          : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex          : 'none',
             leadCard      : true,
             reference     : 'group-list',
@@ -111,7 +111,7 @@ class GroupPage extends Container {
             text     : me.group.tileHeading || 'Components'
         }, {
             module        : List,
-            bind          : {catalogMode: data => data.catalogMode},
+            bind          : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex          : 'none',
             reference     : 'tile-list',
             tiles         : true,

@@ -1124,9 +1124,11 @@ test.describe('Portal examples canonical catalog', () => {
             expect(list.createLink(devIndex).href, mode).toBe(devIndexUrls[mode]);
             expect(list.createLink(devIndex).target, mode).toBe('_blank');
             expect(Example.href(devIndex, mode), mode).toBe(devIndexUrls[mode]);
-            expect(list.createSourceLink(offscreen).href, mode).toBe(mode === 'devmode'
-                ? 'https://github.com/neomjs/offscreen-canvas/'
-                : 'https://github.com/neomjs/offscreen-canvas/tree/main/apps/myapp');
+            // The canvas example lives in this repository now, so its source link is the repository's in every mode
+            expect(list.createSourceLink(offscreen).href, mode).toBe(list.sourceBaseUrl + 'examples/worker/canvas');
+            // No catalog record carries a per-mode source any more; the override itself still wins over the common link
+            expect(list.createSourceLink({sourceUrl: 'examples/a', sourceUrls: {dist_prod: 'https://example.com/b'}}).href, mode)
+                .toBe(mode === 'dist_prod' ? 'https://example.com/b' : list.sourceBaseUrl + 'examples/a');
             expect(list.isHiddenItem(sharedOffscreen), mode).toBe(mode === 'dist_esm');
             expect(list.isHiddenItem(liquidGlass), mode).toBe(mode === 'devmode')
         });
@@ -1279,11 +1281,22 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('grid-issues').scope).toContain('issue snapshot');
         expect(store.get('grid-countries').scope).toContain('CC BY 4.0');
-        expect(list.getBackgroundImageStyle(store.get('grid-tree')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
-        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight')).backgroundImage).toContain(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('grid-tree'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/grid-tree-14.jpg')`);
+        expect(list.getBackgroundImageStyle(store.get('on-air-at-eight'))['--portal-example-cover']).toBe(`url('${list.imageBasePath}/devmode/on-air-at-eight-14.jpg')`);
         const uncovered = store.items.find(record => !record.image);
         expect(uncovered).toBeDefined();
-        expect(list.getBackgroundImageStyle(uncovered).backgroundImage).not.toContain('url(')
+        expect(list.getBackgroundImageStyle(uncovered)).toEqual({});
+
+        for (const extension of ['jpg', 'png']) {
+            const image = `devmode/example.${extension}`;
+            expect(list.getBackgroundImageStyle({image, hasLightCover:true})).toEqual({
+                '--portal-example-cover'      : `url('${list.imageBasePath}/${image}')`,
+                '--portal-example-cover-light': `url('${list.imageBasePath}/devmode/example-light.${extension}')`
+            });
+            expect(list.getBackgroundImageStyle({image})).toEqual({
+                '--portal-example-cover': `url('${list.imageBasePath}/${image}')`
+            })
+        }
     });
 
     test('Overview switches its intro lead between phoneLead (size: x-small) and desktop lead, and mobile-find flexes on one crumb row', () => {

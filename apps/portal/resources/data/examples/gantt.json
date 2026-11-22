@@ -72,6 +72,7 @@
     {
         "id": "gantt-working-time",
         "image": "devmode/gantt-working-time-14.jpg",
+        "hasLightCover": true,
         "name": "Durations in working days",
         "sourceUrl": "examples/gantt/workingTime",
         "urls": {

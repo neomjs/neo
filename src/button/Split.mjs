@@ -263,6 +263,20 @@ class Split extends Button {
     }
 
     /**
+     * A click on the trigger button reaches this split button as well: the trigger is its child, and a DOM event
+     * bubbles through a component's logical parents. That click belongs to the trigger, which opens the menu and
+     * runs splitButtonHandler, so this split button runs its own handler only for a click on the main button.
+     * @param {Object} data The click event data object.
+     */
+    onClick(data) {
+        let {triggerButton} = this;
+
+        if (!triggerButton || !data.path?.some(node => node.id === triggerButton.id)) {
+            super.onClick(data)
+        }
+    }
+
+    /**
      * Runs on a click on the trigger button, in the scope of this split button. Override as needed or pass a
      * controller based handler into triggerButtonConfig.
      * @param {Object} data The click event data object.

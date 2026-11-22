@@ -175,6 +175,7 @@
     {
         "id": "grid-content-sized-rows",
         "image": "devmode/grid-content-sized-rows-14.jpg",
+        "hasLightCover": true,
         "name": "Content-Sized Grid Rows",
         "sourceUrl": "examples/grid/contentSizedRows",
         "urls": {
@@ -357,6 +358,7 @@
     {
         "id": "grid-tree",
         "image": "devmode/grid-tree-14.jpg",
+        "hasLightCover": true,
         "name": "Tree Grid",
         "sourceUrl": "examples/grid/tree",
         "urls": {

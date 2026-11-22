@@ -38,6 +38,13 @@ class List extends BaseList {
          */
         catalogMode_: 'dist_prod',
         /**
+         * The theme an opened example starts in: the Portal's theme on screen. Every local launch link passes it as
+         * `?theme=`, so a dark catalog opens a dark example. null leaves each link as its record names it.
+         * @member {String|null} exampleTheme_=null
+         * @reactive
+         */
+        exampleTheme_: null,
+        /**
          * Optional map from `family` to group title shown as a pill when {@link showGroup} is `true`.
          * @member {Object|null} groupTitles=null
          */
@@ -152,6 +159,33 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Re-points the launch links when the Portal switches its theme. Only their hrefs change: rebuilding
+     * the items would drop the covers already loaded on intersection, and with them the cards below the first six.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetExampleTheme(value, oldValue) {
+        let me = this;
+
+        if (oldValue !== undefined && me.store?.isConstructed) {
+            me.store.forEach(record => {
+                let {href} = me.createLink(record);
+
+                ['link', 'cue'].forEach(kind => {
+                    let node = VDomUtil.getByFlag(me.vdom, `${kind}-${record.id}`);
+
+                    if (node) {
+                        node.href = href
+                    }
+                })
+            });
+
+            me.update()
+        }
+    }
+
+    /**
      * @summary Toggles the 2×2 lead-card class on the list wrapper.
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -218,6 +252,13 @@ class List extends BaseList {
         value && this.registerIntersectionObserver()
     }
 
+    /** @summary Marks a card whose published opening frame and caption can follow the Portal theme. */
+    createItem(record, ...args) {
+        const item = super.createItem(record, ...args);
+        if (item && record.hasLightCover) item.cls.push('portal-example-paired-cover');
+        return item
+    }
+
     /**
      * @summary Renders a cover and a stationary footer with progressive selection details.
      *
@@ -244,8 +285,8 @@ class List extends BaseList {
             return [{cls: ['content', 'portal-example-tile'], data: {recordId: record.id}, removeDom: me.isHiddenItem(record), cn: [
                 {cls: ['preview-image'], flag: `image-${record.id}`, style: imageStyle},
                 {cls: ['portal-example-title-row'], cn: [
-                    {...me.createLink(record)},
-                    {...me.createOpenCue(record), cn: [{tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]}
+                    {...me.createLink(record), flag: `link-${record.id}`},
+                    {...me.createOpenCue(record), flag: `cue-${record.id}`, cn: [{tag: 'i', cls: ['fa', 'fa-arrow-up-right-from-square']}]}
                 ]}
             ]}]
         }
@@ -268,10 +309,10 @@ class List extends BaseList {
                 cn : [
                     {tag: 'span', cls: ['portal-example-group-badge'], removeDom: !groupTitle, text: groupTitle},
                     {cls: ['portal-example-title-row'], cn: [
-                        {...me.createLink(record)},
+                        {...me.createLink(record), flag: `link-${record.id}`},
                         {cls: ['portal-example-actions'], cn: [
                             {...me.createSourceLink(record)},
-                            {...me.createOpenCue(record)}
+                            {...me.createOpenCue(record), flag: `cue-${record.id}`}
                         ]}
                     ]},
                     {cls: ['portal-example-feature'], removeDom: !record.feature, text: record.feature}
@@ -303,7 +344,7 @@ class List extends BaseList {
         vdom = {
             tag : 'a',
             cls : ['neo-title'],
-            href: Example.href(record, this.catalogMode, this.baseUrl),
+            href: Example.href(record, this.catalogMode, {baseUrl: this.baseUrl, theme: this.exampleTheme}),
             text: record.name.replace(List.nameRegEx, '$1')
         };
 
@@ -363,12 +404,18 @@ class List extends BaseList {
     }
 
     /**
-     * @summary Names the record's cover. The card's state lights are the stylesheet's, layered over the image.
+     * @summary Supplies the published image URLs on eager or lazy admission. CSS chooses the active resource.
      * @param {Object} record
-     * @returns {{backgroundImage: string}}
+     * @returns {Object} Image variables for the card or tile.
      */
     getBackgroundImageStyle(record) {
-        return {backgroundImage: record.image ? `url('${this.imageBasePath}/${record.image}')` : 'none'}
+        if (!record.image) return {};
+        const path  = `${this.imageBasePath}/${record.image}`,
+              style = {'--portal-example-cover': `url('${path}')`};
+        if (record.hasLightCover) {
+            style['--portal-example-cover-light'] = `url('${path.replace(/(\.[^./?#]+)(?=[?#]|$)/, '-light$1')}')`
+        }
+        return style
     }
 
     /**

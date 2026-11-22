@@ -1155,7 +1155,7 @@ class Container extends GridContainer {
         }
 
         const zone    = me.ensureEventDragZone();
-        const gesture = me.getBarDragContext(zone, path);
+        const gesture = me.getBarDragContext(zone, path, record);
         if (!gesture) return;
 
         let trackOrigin = 0;
@@ -1241,7 +1241,7 @@ class Container extends GridContainer {
             endMs       = new Date(record[me.endDateField]).getTime();
 
         if (data.shiftKey) {
-            if (!me.resizableBars) {
+            if (!me.resizableBars || record.milestone) {
                 return
             }
 

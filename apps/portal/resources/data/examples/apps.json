@@ -169,6 +169,7 @@
         "sharedWorkers": true,
         "environments": ["Desktop"],
         "image": "devmode/on-air-at-eight-14.jpg",
+        "hasLightCover": true,
         "feature": "Direct a live TV opening from a sortable rundown that drives the program feed and the presenter’s next cue.",
         "lookFor": "Drag Night Service ahead of the late guest, then press Take next cue to put the film on air. Replay with the guest first to see the difference.",
         "keywords": ["broadcast", "rundown", "drag", "reorder", "presenter", "popup"],
