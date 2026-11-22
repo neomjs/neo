@@ -20,9 +20,19 @@ export function getThemeNamespace(className, appThemeFolder) {
 }
 
 /**
+ * @summary The classic theme of the same scheme, for a requested Neo theme an app does not configure.
+ * @type {Object<String, String>}
+ */
+const sameSchemeTheme = {
+    'neo-theme-neo-dark' : 'neo-theme-dark',
+    'neo-theme-neo-light': 'neo-theme-light'
+};
+
+/**
  * @summary Resolves the theme an app starts in: the theme `?theme=` names when it is configured, else
+ * the classic theme of the requested Neo theme's scheme when that one is configured, else
  * `neo-theme-neo-dark` when the system prefers dark and that theme is configured, else the first
- * configured theme.
+ * configured theme. An explicit request outranks the system preference.
  * @param {Object} config
  * @param {Boolean} [config.prefersDarkTheme] Whether the system prefers a dark theme.
  * @param {String[]} config.themes The configured theme names.
@@ -31,9 +41,11 @@ export function getThemeNamespace(className, appThemeFolder) {
  */
 export function resolveStartTheme({prefersDarkTheme, themes, url}) {
     const requested = new URLSearchParams(url?.search).get('theme'),
+          fallback  = sameSchemeTheme[requested],
           dark      = 'neo-theme-neo-dark';
 
     if (themes.includes(requested)) return requested;
+    if (themes.includes(fallback))  return fallback;
     if (prefersDarkTheme && themes.includes(dark)) return dark;
 
     return themes[0]
