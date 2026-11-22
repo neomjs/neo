@@ -93,4 +93,85 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
         expect(codeBox.height).toBeGreaterThan(40);
         expect(codeBox.y + codeBox.height).toBeLessThanOrEqual(844);
     });
+
+    test('workbench persists changed configs in the URL hash across page reload and clears URL state on Reset', async ({neuralLink, page}) => {
+        const pageErrors = [];
+        page.on('pageerror', err => pageErrors.push(err.message));
+
+        await page.goto('/examples/button/base/index.html?theme=neo-theme-neo-dark');
+
+        let app        = await neuralLink.connectToApp('Neo.examples.button.base'),
+            codeView   = page.locator('.neo-workbench-code-content'),
+            exampleBtn = page.locator('.neo-example-container .neo-button').first();
+
+        await expect(exampleBtn).toBeVisible({timeout: 15000});
+        await expect(codeView).toHaveText('{\n    module: Neo.button.Base\n}');
+
+        await page.getByText('bottom-left', {exact: true}).click();
+
+        const textFieldId = await findTextField(app),
+              textInput   = page.locator(`#${textFieldId} input`);
+
+        await textInput.fill('Bookmark me');
+        await textInput.press('Enter');
+
+        await expect.poll(() => new URL(page.url()).hash, {
+            message: 'URL hash reflects changed workbench configs',
+            timeout: 10000
+        }).toBe('#badgePosition=bottom-left&text=Bookmark%20me');
+
+        // Query string (?theme=...) stays intact while hash updates via replaceState
+        expect(new URL(page.url()).search).toBe('?theme=neo-theme-neo-dark');
+
+        // Reload the page at the resulting URL and confirm full restoration across component, controls, and Code View
+        await page.reload();
+
+        app        = await neuralLink.connectToApp('Neo.examples.button.base');
+        codeView   = page.locator('.neo-workbench-code-content');
+        exampleBtn = page.locator('.neo-example-container .neo-button').first();
+
+        await expect(exampleBtn).toBeVisible({timeout: 15000});
+        await expect(codeView).toContainText("badgePosition: 'bottom-left'");
+        await expect(codeView).toContainText("text         : 'Bookmark me'");
+
+        const btnId    = await exampleBtn.getAttribute('id'),
+              btnProps = await app.getComponent(btnId, ['badgePosition', 'text']);
+
+        expect(btnProps).toEqual({
+            badgePosition: 'bottom-left',
+            text         : 'Bookmark me'
+        });
+
+        const reloadedTextFieldId = await findTextField(app),
+              reloadedTextField   = await app.getComponent(reloadedTextFieldId, ['value']),
+              bottomLeftRadioId   = [].concat(await app.queryComponent({ntype: 'radiofield', valueLabel: 'bottom-left'}, ['id']) ?? [])[0]?.id,
+              topRightRadioId     = [].concat(await app.queryComponent({ntype: 'radiofield', valueLabel: 'top-right'}, ['id']) ?? [])[0]?.id,
+              bottomLeftRadio     = await app.getComponent(bottomLeftRadioId, ['checked']),
+              topRightRadio       = await app.getComponent(topRightRadioId, ['checked']);
+
+        expect(reloadedTextField.value).toBe('Bookmark me');
+        expect(bottomLeftRadio.checked).toBe(true);
+        expect(topRightRadio.checked).toBe(false);
+        await expect(page.locator(`#${bottomLeftRadioId} input`)).toBeChecked();
+
+        // Reset clears the URL hash cleanly without leaving a trailing '#' and restores defaults
+        await page.getByRole('button', {name: 'Reset', exact: true}).click();
+
+        await expect.poll(() => page.url(), {
+            message: 'Reset clears the URL hash while preserving search params',
+            timeout: 10000
+        }).toMatch(/\/examples\/button\/base\/index\.html\?theme=neo-theme-neo-dark$/);
+
+        await expect(codeView).toHaveText('{\n    module: Neo.button.Base\n}');
+
+        const resetBtnProps  = await app.getComponent(btnId, ['badgePosition', 'text']),
+              resetTextProps = await app.getComponent(reloadedTextFieldId, ['value']);
+
+        expect(resetBtnProps).toEqual({
+            badgePosition: 'top-right',
+            text         : 'Hello World'
+        });
+        expect(resetTextProps.value).toBe('Hello World');
+        expect(pageErrors).toEqual([]);
+    });
 });

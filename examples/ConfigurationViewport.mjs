@@ -1,9 +1,14 @@
-import Button              from '../src/button/Base.mjs';
-import CodeView            from './workbench/CodeView.mjs';
-import Container           from '../src/container/Base.mjs';
-import Panel               from '../src/container/Panel.mjs';
-import Viewport            from '../src/container/Viewport.mjs';
-import {formatExampleCode} from './workbench/formatConfig.mjs';
+import Button      from '../src/button/Base.mjs';
+import CodeView    from './workbench/CodeView.mjs';
+import Container   from '../src/container/Base.mjs';
+import HashHistory from '../src/util/HashHistory.mjs';
+import Panel       from '../src/container/Panel.mjs';
+import Viewport    from '../src/container/Viewport.mjs';
+import {
+    formatExampleCode,
+    parseConfigParams,
+    serializeConfigParams
+} from './workbench/formatConfig.mjs';
 
 // Default themes
 const themes = [
@@ -279,6 +284,18 @@ class ConfigurationViewport extends Viewport {
      * @private
      */
     #observedExampleConfigs = new Set()
+    #isRestoringUrlConfigs  = false
+    #lastSyncedUrlHash      = null
+    #pendingAsyncConfigs    = false
+
+    /**
+     * @summary Unsubscribes the workbench's hash listener before tearing down the viewport.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        HashHistory.un('change', this.onHashHistoryChange, this);
+        super.destroy(...args)
+    }
 
     /**
      * @summary Returns only tracked configs whose current value differs from initial state.
@@ -322,25 +339,64 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Updates a tracked example config and refreshes the live Code View.
+     * @summary Resolves the active window's initial or current URL hash string without mutating `HashHistory`.
+     * @returns {String}
+     * @protected
+     */
+    getInitialUrlHash() {
+        const {windowId} = this;
+        let raw;
+
+        if (windowId !== undefined && Object.hasOwn(HashHistory.stacks, windowId)) {
+            raw = HashHistory.stacks[windowId][0]?.hashString
+        }
+
+        if (raw === undefined && windowId !== undefined) {
+            raw = Neo.windowConfigs?.[windowId]?.hash?.hashString
+        }
+
+        if (raw === undefined) {
+            const configHash = Neo.config.hash;
+            if (typeof configHash === 'string') {
+                raw = configHash
+            } else if (configHash && (windowId === undefined || configHash.windowId === undefined || configHash.windowId === windowId)) {
+                raw = configHash.hashString
+            }
+        }
+
+        return typeof raw === 'string' ? raw.replace(/^#/, '') : ''
+    }
+
+    /**
+     * @summary Serializes the workbench's changed literal configs into a URL hash string.
+     * @returns {String}
+     */
+    getUrlHash() {
+        return serializeConfigParams(this.getChangedConfigs(), ConfigurationViewport.internalExampleConfigs)
+    }
+
+    /**
+     * @summary Updates a tracked example config and refreshes the Code View and URL hash.
      * @param {String} config
      * @param {Object} opts
      */
     onConfigChange(config, opts) {
         this.trackExampleConfig(config);
         this.exampleComponent[config] = opts.value;
-        this.updateCodeView()
+        this.updateCodeView();
+        this.syncUrlState()
     }
 
     /**
-     * @summary Updates a tracked record-id config and refreshes the live Code View.
+     * @summary Updates a tracked record-id config and refreshes the Code View and URL hash.
      * @param {String} config
      * @param {Object} opts
      */
     onConfigRecordChange(config, opts) {
         this.trackExampleConfig(config);
         this.exampleComponent[config] = opts.value?.['id'];
-        this.updateCodeView()
+        this.updateCodeView();
+        this.syncUrlState()
     }
 
     /**
@@ -353,7 +409,41 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Updates a tracked radio config when selected and refreshes the live Code View.
+     * @summary Applies external hash-route navigations onto the workbench while ignoring echoes of its own writes.
+     * @param {Object} data
+     * @protected
+     */
+    onHashHistoryChange(data) {
+        const me = this;
+
+        if (me.isDestroyed || me.#isRestoringUrlConfigs || me.#pendingAsyncConfigs) {
+            return
+        }
+
+        if (me.windowId !== undefined && data?.windowId !== undefined && data.windowId !== me.windowId) {
+            return
+        }
+
+        const nextHash = typeof data?.hashString === 'string' ? data.hashString.replace(/^#/, '') : '';
+
+        if (nextHash === me.#lastSyncedUrlHash) {
+            return
+        }
+
+        me.#isRestoringUrlConfigs = true;
+        try {
+            me.resetToInitialValues()
+        } finally {
+            me.#isRestoringUrlConfigs = false
+        }
+
+        me.#lastSyncedUrlHash = nextHash;
+        me.restoreUrlConfigs(nextHash);
+        me.updateCodeView()
+    }
+
+    /**
+     * @summary Updates a tracked radio config when selected and refreshes the Code View and URL hash.
      * @param {String} config
      * @param {String} value
      * @param {Object} opts
@@ -362,7 +452,8 @@ class ConfigurationViewport extends Viewport {
         this.trackExampleConfig(config);
         if (opts.value === true) {
             this.exampleComponent[config] = value;
-            this.updateCodeView()
+            this.updateCodeView();
+            this.syncUrlState()
         }
     }
 
@@ -422,7 +513,10 @@ class ConfigurationViewport extends Viewport {
 
         if (!me.#observedExampleConfigs.has(configKey) && me.exampleComponent.isConfig?.(configKey)) {
             me.#observedExampleConfigs.add(configKey);
-            me.observeConfig(me.exampleComponent, configKey, () => me.updateCodeView())
+            me.observeConfig(me.exampleComponent, configKey, () => {
+                me.updateCodeView();
+                me.syncUrlState()
+            })
         }
     }
 
@@ -435,6 +529,198 @@ class ConfigurationViewport extends Viewport {
         if (codePanel) {
             codePanel.code = this.getCodeText()
         }
+    }
+
+    /**
+     * @summary Replaces the browser URL hash in place when the serialized config diff changes.
+     */
+    syncUrlState() {
+        const me = this;
+
+        if (me.#isRestoringUrlConfigs || me.#pendingAsyncConfigs || me.isDestroyed) {
+            return
+        }
+
+        const nextHash = me.getUrlHash();
+
+        if (nextHash === me.#lastSyncedUrlHash) {
+            return
+        }
+
+        me.#lastSyncedUrlHash = nextHash;
+        Neo.Main?.setRoute?.({
+            replace : true,
+            value   : nextHash,
+            windowId: me.windowId
+        })
+    }
+
+    /**
+     * @summary Restores valid typed URL hash parameters onto `exampleComponent` and its inspector controls.
+     * @param {String} [hashString=this.getInitialUrlHash()]
+     * @returns {Boolean}
+     */
+    restoreUrlConfigs(hashString=this.getInitialUrlHash()) {
+        const
+            me        = this,
+            cleanHash = typeof hashString === 'string' ? hashString.replace(/^#/, '') : '';
+
+        me.#lastSyncedUrlHash ??= cleanHash;
+
+        if (!cleanHash || !me.initialConfigValues || !me.exampleComponent) {
+            return false
+        }
+
+        const
+            params  = parseConfigParams(cleanHash, ConfigurationViewport.internalExampleConfigs),
+            entries = Object.entries(params);
+
+        if (entries.length === 0) {
+            return false
+        }
+
+        const controlsByKey = new Map();
+
+        (me.initialControlStates || []).forEach(entry => {
+            if (entry.configKey) {
+                let list = controlsByKey.get(entry.configKey);
+                if (!list) {
+                    list = [];
+                    controlsByKey.set(entry.configKey, list)
+                }
+                list.push(entry)
+            }
+        });
+
+        let restoredAny = false;
+        me.#isRestoringUrlConfigs = true;
+
+        try {
+            for (const [key, rawValue] of entries) {
+                if (!Object.hasOwn(me.initialConfigValues, key) || ConfigurationViewport.internalExampleConfigs.has(key)) {
+                    continue
+                }
+
+                const controls = controlsByKey.get(key) || [];
+
+                if (controls.some(({item}) => item.ntype === 'radiofield' || item.className === 'Neo.form.field.Radio')) {
+                    if (!['string', 'number', 'boolean'].includes(typeof rawValue)) {
+                        continue
+                    }
+
+                    const target = controls.find(({item}) => item.valueLabel === rawValue || item.valueLabel === String(rawValue))?.item;
+
+                    if (!target) {
+                        continue
+                    }
+
+                    target.checked = true;
+                    if (!Neo.isEqual(me.exampleComponent[key], target.valueLabel)) {
+                        me.exampleComponent[key] = target.valueLabel
+                    }
+                    restoredAny = true;
+                    continue
+                }
+
+                if (controls.length > 0 && controls[0].hasChecked) {
+                    if (typeof rawValue !== 'boolean') {
+                        continue
+                    }
+
+                    controls.forEach(({item}) => {
+                        item.checked = rawValue
+                    });
+                    if (!Neo.isEqual(me.exampleComponent[key], rawValue)) {
+                        me.exampleComponent[key] = rawValue
+                    }
+                    restoredAny = true;
+                    continue
+                }
+
+                if (controls.length > 0 && controls[0].hasValue) {
+                    const
+                        {item}  = controls[0],
+                        ntype   = item.ntype || '',
+                        clsName = item.className || '';
+
+                    if (item.store) {
+                        if (rawValue === null) {
+                            if (!item.clearable) continue
+                        } else if (!['string', 'number', 'boolean'].includes(typeof rawValue)) {
+                            continue
+                        } else if (item.store.isLoaded !== false) {
+                            const
+                                valueField   = item.valueField || 'id',
+                                displayField = item.displayField || 'name',
+                                pool         = item.store.allItems?.items || item.store.items || [],
+                                hasMatch     = Boolean(
+                                    (item.store.isFiltered?.() ? item.store.allItems?.get?.(rawValue) : item.store.get?.(rawValue)) ||
+                                    pool.some(rec => rec?.[valueField] === rawValue || rec?.[displayField] === rawValue)
+                                );
+
+                            if (!hasMatch) {
+                                continue
+                            }
+                        }
+
+                        item.value = rawValue;
+                        const resolved = Neo.isRecord(item.value) ? item.value[item.valueField || 'id'] : rawValue;
+                        if (!Neo.isEqual(me.exampleComponent[key], resolved)) {
+                            me.exampleComponent[key] = resolved
+                        }
+                        restoredAny = true;
+                        continue
+                    }
+
+                    if (ntype === 'numberfield' || ntype === 'rangefield' || clsName.includes('field.Number') || clsName.includes('field.Range')) {
+                        if (!(typeof rawValue === 'number' && Number.isFinite(rawValue)) && !(rawValue === null && item.clearable)) {
+                            continue
+                        }
+
+                        item.value = rawValue;
+                        if (!Neo.isEqual(me.exampleComponent[key], rawValue)) {
+                            me.exampleComponent[key] = rawValue
+                        }
+                        restoredAny = true;
+                        continue
+                    }
+
+                    if (ntype === 'textfield' || ntype === 'textarea' || clsName.includes('field.Text')) {
+                        const textValue = typeof rawValue === 'string'
+                            ? rawValue
+                            : (typeof rawValue === 'number' || typeof rawValue === 'boolean')
+                                ? String(rawValue)
+                                : (rawValue === null && item.clearable ? null : undefined);
+
+                        if (textValue === undefined) {
+                            continue
+                        }
+
+                        item.value = textValue;
+                        if (!Neo.isEqual(me.exampleComponent[key], textValue)) {
+                            me.exampleComponent[key] = textValue
+                        }
+                        restoredAny = true;
+                        continue
+                    }
+
+                    const cloned = Neo.clone(rawValue, true, true);
+                    item.value = cloned;
+                    if (!Neo.isEqual(me.exampleComponent[key], cloned)) {
+                        me.exampleComponent[key] = Neo.clone(rawValue, true, true)
+                    }
+                    restoredAny = true
+                }
+            }
+        } finally {
+            me.#isRestoringUrlConfigs = false
+        }
+
+        if (restoredAny) {
+            me.updateCodeView()
+        }
+
+        return restoredAny
     }
 
     /**
@@ -454,11 +740,14 @@ class ConfigurationViewport extends Viewport {
             if (!item || item.reference === 'code-panel') return;
 
             if (item.ntype !== 'button' && !item.isButton && item.ntype !== 'label') {
-                const hasChecked = typeof item.checked === 'boolean';
-                const hasValue   = 'value' in item;
+                const
+                    configKey  = me.resolveControlConfigKey(item),
+                    hasChecked = typeof item.checked === 'boolean',
+                    hasValue   = 'value' in item;
 
                 if (hasChecked || hasValue) {
                     me.initialControlStates.push({
+                        configKey,
                         hasChecked,
                         hasValue,
                         initialChecked: item.checked,
@@ -467,7 +756,7 @@ class ConfigurationViewport extends Viewport {
                     });
                 }
 
-                me.trackExampleConfig(me.resolveControlConfigKey(item));
+                me.trackExampleConfig(configKey);
             }
 
             if (Array.isArray(item.items)) {
@@ -485,12 +774,12 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * Restores the inspector controls and the example component configs they control to their initial values
+     * @summary Restores `exampleComponent` and inspector controls to their captured initial defaults.
+     * @protected
      */
-    onReset() {
+    resetToInitialValues() {
         let me = this;
 
-        // 1. Reset example component configs
         if (me.initialConfigValues && me.exampleComponent) {
             Object.entries(me.initialConfigValues).forEach(([config, val]) => {
                 if (!ConfigurationViewport.internalExampleConfigs.has(config) && !Neo.isEqual(me.exampleComponent[config], val)) {
@@ -499,16 +788,13 @@ class ConfigurationViewport extends Viewport {
             });
         }
 
-        // 2. Reset controls
         if (me.initialControlStates) {
-            // Uncheck radios and checkboxes that were not initially checked
             me.initialControlStates.forEach(({item, hasChecked, initialChecked}) => {
                 if (hasChecked && !initialChecked) {
                     item.checked = false;
                 }
             });
 
-            // Restore checked state for initially checked and values for inputs
             me.initialControlStates.forEach(({item, hasChecked, initialChecked, hasValue, initialValue}) => {
                 if (hasChecked) {
                     if (initialChecked) {
@@ -519,8 +805,23 @@ class ConfigurationViewport extends Viewport {
                 }
             });
         }
+    }
 
-        me.updateCodeView()
+    /**
+     * @summary Restores initial workbench state and clears changed configs from the URL hash.
+     */
+    onReset() {
+        const me = this;
+
+        me.#isRestoringUrlConfigs = true;
+        try {
+            me.resetToInitialValues()
+        } finally {
+            me.#isRestoringUrlConfigs = false
+        }
+
+        me.updateCodeView();
+        me.syncUrlState()
     }
 
     /**
@@ -541,7 +842,9 @@ class ConfigurationViewport extends Viewport {
         let configs = me.createConfigurationComponents();
 
         if (configs instanceof Promise) {
+            me.#pendingAsyncConfigs = true;
             configs.then(resolved => {
+                me.#pendingAsyncConfigs = false;
                 if (me.isDestroyed) return;
                 me.configurationComponents = resolved || [];
                 const body = me.down({reference: 'inspector-body'});
@@ -549,6 +852,7 @@ class ConfigurationViewport extends Viewport {
                     body.add(me.groupConfigurationComponents(me.configurationComponents));
                 }
                 me.snapshotInitialState();
+                me.restoreUrlConfigs();
             });
             me.configurationComponents = [];
         } else {
@@ -685,6 +989,12 @@ class ConfigurationViewport extends Viewport {
         super.onConstructed();
 
         me.snapshotInitialState();
+
+        if (!me.#pendingAsyncConfigs) {
+            me.restoreUrlConfigs()
+        }
+
+        HashHistory.on('change', me.onHashHistoryChange, me)
     }
 
     /**

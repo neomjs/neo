@@ -764,4 +764,26 @@ test.describe('Neo.main.DomEvents', () => {
             expect(owner.getRoute()).toBe('/news/blog')
         })
     });
+
+    test('setRoute with replace=true updates hash or pathname in place, preserves search, and strips an empty hash', () => {
+        withRouter({mode: 'hash', url: '/examples/button/base/index.html?theme=neo-theme-neo-dark'}, ({calls, location, owner, sent}) => {
+            owner.setRoute('badgePosition=bottom-left&width=220', true);
+            owner.setRoute('badgePosition=bottom-left&width=220', true);
+            owner.setRoute('', true);
+
+            expect(calls).toEqual([
+                ['replace', '/examples/button/base/index.html?theme=neo-theme-neo-dark#badgePosition=bottom-left&width=220'],
+                ['replace', '/examples/button/base/index.html?theme=neo-theme-neo-dark']
+            ]);
+            expect(location.search).toBe('?theme=neo-theme-neo-dark');
+            expect(location.hash).toBe('');
+            expect(sent).toEqual(['badgePosition=bottom-left&width=220', ''])
+        });
+
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
+            owner.setRoute('/news/blog', true);
+            expect(calls).toEqual([['replace', '/docs/news/blog']]);
+            expect(sent).toEqual(['/news/blog'])
+        })
+    });
 });

@@ -1201,14 +1201,26 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Moves the route. `'hash'` mode assigns the hash. `'pathname'` mode pushes the path and sends the
-     * route itself, since the History API fires no event for its own changes.
+     * @summary Moves the route. `'hash'` mode assigns or replaces the hash; `'pathname'` mode pushes or replaces the path.
      * @param {String} route
+     * @param {Boolean} [replace=false]
      */
-    setRoute(route) {
+    setRoute(route, replace=false) {
         let me = this;
 
         if (Neo.config.routerMode !== 'pathname') {
+            if (replace) {
+                const
+                    cleanHash = route ? `#${route.replace(/^#/, '')}` : '',
+                    nextUrl   = `${location.pathname}${location.search}${cleanHash}`;
+
+                if (`${location.pathname}${location.search}${location.hash}` !== nextUrl) {
+                    history.replaceState(history.state, '', nextUrl);
+                    me.sendRoute()
+                }
+                return
+            }
+
             location.hash = route;
             return
         }
@@ -1217,7 +1229,7 @@ class DomEvents extends Base {
         route = '/' + route.replace(/^\/+/, '');
 
         if (route !== (me.getRoute() || '/') + (route.includes('?') ? location.search : '')) {
-            history.pushState(null, '', Neo.config.routerBasePath + route);
+            history[replace ? 'replaceState' : 'pushState'](history.state, '', Neo.config.routerBasePath + route);
             me.sendRoute()
         }
     }
