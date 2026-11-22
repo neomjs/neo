@@ -8,6 +8,7 @@ import verifySeoArtifacts, {
     LLMS_TXT_MAX_BYTES,
     extractLocUrls,
     findDisallowedCorpusLessPortalFiles,
+    findUnlistedLearnMarkdownFiles,
     validateLlmsTxtContent,
     validatePortalIndexJsonLd,
     validateRobotsTxt,
@@ -762,5 +763,19 @@ test.describe('buildScripts/docs/seo/verify.mjs (#20774 / #20915)', () => {
             '<!DOCTYPE html><html><head><script type="application/ld+json">{"url":"https://neomjs.com/#/examples/grid"}</script></head></html>'
         );
         await expect(verifySeoArtifacts(buildValidBundle())).rejects.toThrow(/must not contain "#\/" hash-fragment URL/);
+    });
+
+    test('rejects unlisted markdown orphans under learn/ while allowing blog and internal substrate records (#21848)', async () => {
+        expect(await findUnlistedLearnMarkdownFiles({root: REPO_ROOT})).toEqual([]);
+
+        await fs.outputFile(path.join(rootDir, 'learn/README.md'), '# Learn Index');
+        await fs.outputFile(path.join(rootDir, 'learn/agentos/AGENTS_ATLAS.md'), '# Atlas');
+        await fs.outputFile(path.join(rootDir, 'learn/agentos/measurements/probe.md'), '# Measurement');
+        await expect(verifySeoArtifacts(buildValidBundle())).resolves.toBeUndefined();
+
+        await fs.outputFile(path.join(rootDir, 'learn/agentos/tooling/UnlistedOrphan.md'), '# Unlisted Orphan');
+        await expect(verifySeoArtifacts(buildValidBundle())).rejects.toThrow(
+            /Unlisted markdown orphan\(s\) under learn\/ absent from learn\/tree\.json: learn\/agentos\/tooling\/UnlistedOrphan\.md/
+        );
     });
 });

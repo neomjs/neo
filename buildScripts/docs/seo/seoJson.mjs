@@ -10,10 +10,14 @@ import {
     getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory,
     lookupNewestGitDate, normalizeIsoDateOnly
 } from './gitLastmod.mjs';
+import {
+    composeLearnSpokes, findUnlistedLearnMarkdownFiles, getPreservedFileLastmod, readSpokeLastmodMap
+} from './learnSpokes.mjs';
 
 export {
-    chunkArray, extractFrontmatterDateOnly, formatLastmodDate, getChangedGitPaths, getChangedLastmod,
-    getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath, hasReliableGitHistory, normalizeIsoDateOnly
+    chunkArray, composeLearnSpokes, extractFrontmatterDateOnly, findUnlistedLearnMarkdownFiles, formatLastmodDate,
+    getChangedGitPaths, getChangedLastmod, getGitLastModifiedBatch, getGitLastmodDateMap, getGitPath,
+    getPreservedFileLastmod, hasReliableGitHistory, normalizeIsoDateOnly, readSpokeLastmodMap
 };
 
 /**
@@ -319,6 +323,9 @@ export function formatLearnSeoTitle(baseTitle='', route='', suffix=' - Neo.mjs',
             }
             if (/^(?:benefits|agentos)\//i.test(relId)) {
                 return `${cleanTitle} — AI Agent OS & Multi-Threaded Application Engine | Neo.mjs`;
+            }
+            if (/^institution\//i.test(relId)) {
+                return `${cleanTitle} — AI Agent Institution & Fleet Cockpit | Neo.mjs`;
             }
             if (/^guides\//i.test(relId)) {
                 return `${cleanTitle} — Neo.mjs Developer Guide`;
@@ -976,16 +983,24 @@ export async function getSeoJson(options={}) {
 
     const learnFallbackDescription = seo[cleanBase]?.description || 'Learn the fundamentals of the Neo.mjs platform.';
     const blogFallbackDescription  = seo['/news/blog']?.description || 'The official blog for the Neo.mjs platform.';
+    const hasPrebakedSeoLastmod    = Object.values(existingSeo).some(entry => Boolean(normalizeIsoDateOnly(entry?.lastmod)));
 
     if (await fs.pathExists(treeFilePath)) {
-        const leaves = await resolveLearnTreeLeaves({learnDir, root, treeFilePath});
+        const [leaves, spokeLastmodMap] = await Promise.all([
+            resolveLearnTreeLeaves({learnDir, root, treeFilePath}),
+            readSpokeLastmodMap(learnDir)
+        ]);
 
         for (const leaf of leaves) {
-            const rawContent           = await fs.readFile(leaf.filePath, 'utf-8');
-            const cleanId              = String(leaf.id).replace(/^\/+/, '');
-            const route                = `${cleanBase}/${cleanId}`;
-            const shouldNoindex        = leaf.hidden || isRedirectMarkdown(rawContent);
-            const lastmod              = resolveRouteLastmod(route, [leaf.filePath]);
+            const rawContent    = await fs.readFile(leaf.filePath, 'utf-8');
+            const cleanId       = String(leaf.id).replace(/^\/+/, '');
+            const route         = `${cleanBase}/${cleanId}`;
+            const shouldNoindex = leaf.hidden || isRedirectMarkdown(rawContent);
+            const lastmod       = spokeLastmodMap.get(route) ||
+                resolveRouteLastmod(route, [leaf.filePath]) ||
+                (!gitHistoryReliable && (hasPrebakedSeoLastmod || options.preserveSpokeMtime)
+                    ? getPreservedFileLastmod(leaf.filePath)
+                    : null);
             const {title, description} = extractMarkdownSeoMetadata(rawContent, {
                 basePath           : cleanBase,
                 fallbackDescription: learnFallbackDescription,

@@ -519,16 +519,16 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 
 ## Next Steps
 
-- [Deploying the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/DeployingTheAgentOS.md) — Benefit-altitude path into
+- [Deploying the Agent OS](https://neomjs.com/learn/benefits/brain/DeployingTheAgentOS) — Benefit-altitude path into
   the cloud-deployment guide set
-- [Why Deploy the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/WhyDeploy.md) — The
+- [Why Deploy the Agent OS](https://neomjs.com/learn/agentos/cloud-deployment/WhyDeploy) — The
   cloud-deployment hub and ordered learning path
-- [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
-- [Swarm Intelligence & Sub-Agents](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) — Delegation, profiles, and capability gating
-- [The Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) — Forecasting engine and scoring algorithm
+- [Strategic Workflows](https://neomjs.com/learn/agentos/StrategicWorkflows) — Advanced agent workflow patterns
+- [Swarm Intelligence & Sub-Agents](https://neomjs.com/learn/agentos/SwarmIntelligence) — Delegation, profiles, and capability gating
+- [The Dream Pipeline & Golden Path](https://neomjs.com/learn/agentos/DreamPipeline) — Forecasting engine and scoring algorithm
 - [Neural Link: Live Application Mutability](../agentos/NeuralLink.md) — Deep dive into the Neural Link bridge
-- [The Knowledge Base Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/KnowledgeBase.md) — Semantic RAG architecture
-- [The Memory Core Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md) — Episodic memory and graph storage
-- [Self-Healing Immune System](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SelfHealing.md) — Detect, diagnose, and bounded autonomous recovery
-- [The GitHub Workflow Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/GitHubWorkflow.md) — Offline-first issue management
-- [Code Execution (AI SDK)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/CodeExecution.md) — The SDK Bouncer pattern in detail
+- [The Knowledge Base Server](https://neomjs.com/learn/agentos/KnowledgeBase) — Semantic RAG architecture
+- [The Memory Core Server](https://neomjs.com/learn/agentos/MemoryCore) — Episodic memory and graph storage
+- [Self-Healing Immune System](https://neomjs.com/learn/agentos/SelfHealing) — Detect, diagnose, and bounded autonomous recovery
+- [The GitHub Workflow Server](https://neomjs.com/learn/agentos/GitHubWorkflow) — Offline-first issue management
+- [Code Execution (AI SDK)](https://neomjs.com/learn/agentos/CodeExecution) — The SDK Bouncer pattern in detail
