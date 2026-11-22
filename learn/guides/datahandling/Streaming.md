@@ -72,7 +72,8 @@ myStore.load();
 ```
 
 The first chunks are smaller, so the first rows paint sooner: `initialBurstCount` chunks (default: 5) of
-`initialChunkSize` records (default: 100), then `chunkSize`. `examples/grid/streaming` streams 50,000 rows this way.
+`initialChunkSize` records (default: 100), then `chunkSize`. `examples/grid/streaming` streams 50,000 rows with its own
+sizes: one first chunk of 250 records (`initialBurstCount: 1`, `initialChunkSize: 250`), then chunks of 2,500.
 
 ### 2. The Data Format (JSONL)
 
@@ -99,9 +100,9 @@ Streaming pairs perfectly with the Store's **"Turbo Mode"** (`autoInitRecords: f
 
 When loading 50,000 records:
 1.  **Turbo Mode:** The Store skips instantiating heavyweight `Neo.data.Model` classes for every row. It stores raw data objects.
-2.  **Streaming:** The Store receives 500 raw objects at a time.
-3.  **Grid:** The Grid renders the first 500 rows immediately (milliseconds).
-4.  **Background:** The remaining 49,500 rows stream in the background. The scrollbar handle shrinks as the total count grows, but the UI remains interactive.
+2.  **Streaming:** The Store receives raw objects chunk by chunk: with the parser's defaults, five chunks of 100, then 500 at a time.
+3.  **Grid:** The Grid renders the first chunk as soon as it arrives (milliseconds).
+4.  **Background:** The remaining rows stream in the background. The scrollbar handle shrinks as the total count grows, but the UI remains interactive.
 
 ## Performance Impact
 
@@ -115,9 +116,9 @@ Benchmarks (10k Records, Local Network):
 
 > **Note:** In Neo.mjs, the **Main Thread** (which handles DOM painting) is *never* blocked by data processing, regardless of the method used. However, blocking the **App Worker** (with a massive `JSON.parse`) freezes all application logic, making the UI feel unresponsive to clicks or interactions. Streaming solves this by processing data in micro-tasks, keeping the App Worker alive and responsive.
 
-1.  **Chunk Size:** Keep `chunkSize` between 100 and 1000.
+1.  **Chunk Size:** The first chunks (`initialChunkSize`, `initialBurstCount`) decide how soon rows appear; `chunkSize` decides how many updates the rest of the stream costs.
     -   Too small (e.g., 1): Too many events/updates. Overhead kills performance.
-    -   Too large (e.g., 5000): Delays the first render.
+    -   Too large from the start (e.g., 5000 with no smaller first chunk): Delays the first render. `examples/grid/streaming` pairs a first chunk of 250 with chunks of 2,500.
 2.  **Sorting:** Streaming assumes the server sends data in the order you want to display it (usually). If you need client-side sorting, the Store will resort the *entire* dataset every time a chunk arrives (if `autoSort` is true), which is expensive.
     -   **Recommendation:** Pre-sort your JSONL file on the server/build-step. Disable `autoSort` on the Store during load.
 3.  **Filtering:** Similar to sorting, filtering happens on the full dataset.
