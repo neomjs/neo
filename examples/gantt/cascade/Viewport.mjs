@@ -366,9 +366,9 @@ class OfficeMoveCascadeViewport extends Viewport {
             newDayText    = this.formatMoveDay(currentGoalMs),
             slipDays      = Math.round((currentGoalMs - baseGoalMs) / MS_PER_DAY);
 
-        let besideKept    = 0,
-            besideTotal   = 0,
-            movedFromSeed = 0;
+        const movedIds   = new Set();
+        let   besideKept = 0,
+              besideTotal = 0;
 
         store.forEach(task => {
             const
@@ -379,7 +379,7 @@ class OfficeMoveCascadeViewport extends Viewport {
                 ));
 
             if (changed) {
-                movedFromSeed++
+                movedIds.add(String(task.id))
             }
             if (task.role === 'beside') {
                 besideTotal++;
@@ -390,17 +390,25 @@ class OfficeMoveCascadeViewport extends Viewport {
         });
 
         const
-            eventMovedCount = lastChange?.changesById ? Object.keys(lastChange.changesById).length : 0,
+            movedFromSeed   = movedIds.size,
+            eventIds        = lastChange?.changesById ? Object.keys(lastChange.changesById) : [],
+            eventMovedCount = eventIds.length,
             movedCount      = movedFromSeed || eventMovedCount,
             cascadedCount   = Array.isArray(lastChange?.cascaded) ? lastChange.cascaded.length : 0,
-            singleGesture   = eventMovedCount > 0 && movedCount === eventMovedCount,
+            rootRecord      = lastChange?.record,
+            rootSeed        = rootRecord ? SEED_BY_ID.get(rootRecord.id) : null,
+            rootDelayed     = Boolean(rootSeed && (
+                new Date(rootRecord.startDate).getTime() > rootSeed.startMs ||
+                new Date(rootRecord.endDate).getTime() > rootSeed.endMs
+            )),
+            singleGesture   = eventMovedCount > 0 && movedFromSeed === eventMovedCount && eventIds.every(id => movedIds.has(id)),
             besideClause    = besideKept === besideTotal
                 ? `; ${besideTotal} beside the chain kept their dates.`
                 : besideKept === 1
                     ? '; 1 beside the chain kept its date, 1 moved.'
                     : '; both beside the chain also moved.',
             detail          = singleGesture
-                ? (cascadedCount > 0 ? ` (1 ${slipDays > 0 ? 'delayed' : 'moved'} + ${cascadedCount} dependent)` : '')
+                ? (cascadedCount > 0 ? ` (1 ${rootDelayed ? 'delayed' : 'moved'} + ${cascadedCount} dependent)` : '')
                 : eventMovedCount > 0
                     ? ` (latest move: ${eventMovedCount}${cascadedCount > 0 ? `, 1 moved + ${cascadedCount} dependent` : ''})`
                     : '';

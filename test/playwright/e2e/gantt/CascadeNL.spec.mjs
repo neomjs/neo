@@ -195,6 +195,23 @@ test.describe('Gantt office-move cascade example', () => {
         await expect(page.locator('.cascade-move-pill')).toHaveText('Move day: Mon 16 Nov');
         expect((await readTask('first-day')).startDate).toBe('2026-11-16T00:00:00.000Z');
 
+        // Equal-count disjoint task sets (returning the 2 side tasks to seed while 2 chain tasks remain shifted)
+        // must report the latest 2-task gesture separately rather than collapsing into a single-gesture breakdown
+        await app.callMethod(ganttId, 'moveTask', ['first-day', {startDate: '2026-11-17T00:00:00Z', endDate: '2026-11-19T00:00:00Z'}]);
+        await app.callMethod(ganttId, 'moveTask', ['crates',    {startDate: '2026-11-16T00:00:00Z', endDate: '2026-11-17T00:00:00Z'}]);
+        await app.callMethod(ganttId, 'moveTask', ['mail',      {startDate: '2026-11-04T00:00:00Z', endDate: '2026-11-07T00:00:00Z'}]);
+        await app.callMethod(ganttId, 'moveTask', ['mail',      {startDate: '2026-11-05T00:00:00Z', endDate: '2026-11-08T00:00:00Z'}]);
+        expect((await readTask('mail')).startDate).toBe('2026-11-05T00:00:00.000Z');
+        expect((await readTask('handback')).startDate).toBe('2026-11-08T00:00:00.000Z');
+        expect((await readTask('crates')).startDate).toBe('2026-11-16T00:00:00.000Z');
+        expect((await readTask('first-day')).startDate).toBe('2026-11-17T00:00:00.000Z');
+        await expect(page.locator('.cascade-readout-text')).toContainText(
+            '2 tasks moved (latest move: 2, 1 moved + 1 dependent); 2 beside the chain kept their dates.'
+        );
+
+        await page.getByRole('button', {name: 'Reset'}).click();
+        await expect(page.locator('.cascade-move-pill')).toHaveText('Move day: Mon 16 Nov');
+
         // Phone viewport (390 × 844) + switch through all 5 configured themes
         await page.setViewportSize({width: 390, height: 844});
         await expect(page.locator('.cascade-viewport.cascade-is-compact')).toBeVisible();
