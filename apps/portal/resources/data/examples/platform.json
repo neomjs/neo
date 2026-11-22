@@ -40,6 +40,25 @@
         "hiddenIn": []
     },
     {
+        "id": "asset-preloading",
+        "family": "platform",
+        "order": 166,
+        "feature": "The Service Worker preloads the next portrait before its tab opens.",
+        "lookFor": "Hover over Alice’s tab or use Preload next tab. Turn on Cache-only mode, open her tab, and watch Cache opens increase.",
+        "scope": "Cache-only mode applies to this demo’s portraits.",
+        "image": "devmode/asset-preloading-14.jpg",
+        "hasLightCover": true,
+        "name": "Ready before the click",
+        "sourceUrl": "examples/preloadingAssets",
+        "urls": {
+            "devmode": "examples/preloadingAssets/index.html",
+            "dist_dev": "dist/development/examples/preloadingAssets/index.html",
+            "dist_esm": "dist/esm/examples/preloadingAssets/index.html",
+            "dist_prod": "dist/production/examples/preloadingAssets/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "video-move",
         "family": "platform",
         "order": 510,
