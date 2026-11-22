@@ -17,7 +17,8 @@ import Base from '../../../core/Base.mjs';
  *   before the reconcile (`hostMounted` when the host had to mount first, `captured` after the FLIP
  *   capture, `released` after the stale reveal panes), `reconciled`, `settledAt`, and `flipPlayed` once
  *   the motion window closes; `waitedForTail` says whether an earlier cycle was still
- *   in flight when this one was chained, `landedInPlace` what the reconciler reported.
+ *   in flight when this one was chained, `landedInPlace` what the reconciler reported, and `awaiting` names the
+ *   reconcile wait in flight (see {@link #beginWait}).
  * - **`predecessorTiming`** is the earlier cycle's live `timing` while this one waits on it. Read during a
  *   stall, its last stamp names the phase the earlier refresh never left. It is dropped once the tail
  *   settles, so no cycle keeps another alive. When the tail is a refresh no cycle owns (a direct repair),
@@ -79,6 +80,12 @@ class Cycle extends Base {
      * @protected
      */
     resolveAdoption = null
+    /**
+     * The wait `timing.awaiting` names, by identity, so only that wait's end clears it.
+     * @member {Object|null} currentWait=null
+     * @protected
+     */
+    currentWait = null
 
     /**
      * @param {Object} config
@@ -129,6 +136,28 @@ class Cycle extends Base {
                 }
             })
             .finally(() => me.adopt(null))
+    }
+
+    /**
+     * @summary Names the wait in flight: `timing.awaiting` holds `name` until the returned function ends this wait,
+     * and ending it clears the name only while no later wait replaced it. A wait that repeats one name, such as an
+     * ancestor loop, stays named after an earlier wait of that name has stamped its pair.
+     * @param {String} name
+     * @returns {Function} Ends this wait
+     */
+    beginWait(name) {
+        const me   = this,
+              wait = {name};
+
+        me.currentWait     = wait;
+        me.timing.awaiting = name;
+
+        return () => {
+            if (me.currentWait === wait) {
+                me.currentWait = null;
+                delete me.timing.awaiting
+            }
+        }
     }
 
     /**
