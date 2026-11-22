@@ -419,7 +419,8 @@
     },
     {
         "id": "timeline-basic",
-        "image": null,
+        "image": "devmode/timeline-basic-14.jpg",
+        "hasLightCover": true,
         "name": "Resource Timeline",
         "sourceUrl": "examples/timeline/basic",
         "urls": {
