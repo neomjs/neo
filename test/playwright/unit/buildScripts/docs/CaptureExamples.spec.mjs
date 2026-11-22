@@ -46,9 +46,10 @@ test('a covered record without a recipe is captured from the frame a visitor lan
               id   : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', viewport: {width: 960, height: 540},
               state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'
           };
+    // Each pass asks for the Neo theme and accepts the legacy one of its scheme, never a theme of the other scheme
     expect(entries).toEqual([
-        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-dark',  theme: 'dark',    variant: ''},
-        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-light', theme: 'default', variant: '-light'}
+        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-dark',  theme: 'dark',    variant: '',       accepts: ['neo-theme-neo-dark',  'neo-theme-dark']},
+        {...landing, url: 'examples/grid/two/?theme=neo-theme-neo-light', theme: 'default', variant: '-light', accepts: ['neo-theme-neo-light', 'neo-theme-light']}
     ]);
     expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual(entries)
 });

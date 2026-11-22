@@ -29,18 +29,13 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     WIDTH            = 640, HEIGHT = 360, DPR = 2, MAX_BYTES = 150000,
     QUALITIES        = [90, 85, 80],
     STEP_KINDS       = new Set(['click', 'dblclick', 'fill', 'press', 'scroll', 'wait']),
-    DARK_THEMES      = ['neo-theme-neo-dark', 'neo-theme-dark'],
-    TILE_VIEWPORT    = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
+    TILE_VIEWPORT    ={width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
     LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
     LANDING_QUIET_MS = 1000,
-    // The Portal shows a card's cover in its own theme: the dark cover keeps the base file name, its light partner
-    // adds `-light` before the extension
-    LANDING_THEMES   = [
-        {theme: 'neo-theme-neo-dark',  scheme: 'dark',    variant: ''},
-        {theme: 'neo-theme-neo-light', scheme: 'default', variant: '-light'}
-    ],
-    // A tile pairs the same way. Each pass takes the first of its themes the workbench offers
-    TILE_THEMES      = [
+    // The Portal shows a cover or tile in its own theme: the dark image keeps the base file name, its light partner adds
+    // `-light` before the extension. A pass asks for its first theme and takes any of its themes, as an example or a
+    // workbench may offer only the legacy one; a frame in another scheme is no image of this pass
+    PAIR_THEMES      = [
         {scheme: 'dark',  variant: '',       themes: ['neo-theme-neo-dark',  'neo-theme-dark']},
         {scheme: 'light', variant: '-light', themes: ['neo-theme-neo-light', 'neo-theme-light']}
     ];
@@ -168,8 +163,9 @@ function catalogTiles(listed, catalog) {
  * The capture opens the record's `urls.devmode`, which is also the visitor's Dev mode launch link.
  * Coverage is scoped to declared families; legacy covers in other families do not block this producer. A tile
  * (`kind: 'component'`) takes its crop from the `tiles` list, so it needs no recipe in a declared family. A covered
- * card without a recipe gets a landing entry (`landing: true`) per theme in `LANDING_THEMES`: its cover is the frame a
- * visitor lands on, in Neo Dark under the base file name and in Neo Light as its `-light` partner.
+ * card without a recipe gets a landing entry (`landing: true`) per scheme in `PAIR_THEMES`: its cover is the frame a
+ * visitor lands on, dark under the base file name and light as its `-light` partner, opened on the scheme's first theme
+ * and accepted on any theme it `accepts`.
  * @param {Object} manifest Raw version1 recipe manifest.
  * @param {Object[]} catalog The catalog's records, from `readExampleCatalog()`.
  * @returns {Object} Validated manifest; recipes carry derived `family`, `url` and `name`, tiles their `id` and `url`.
@@ -231,8 +227,8 @@ export function validateCaptureRecipes(manifest, catalog) {
     for (const record of catalog) {
         if (manifest.families.includes(record.family) && record.kind !== 'component' && record.image && !ids.has(record.id) && !/^https?:\/\//i.test(record.urls?.devmode || '')) {
             text(record.urls?.devmode, `catalog.${record.id}.urls.devmode`);
-            for (const {theme, scheme, variant} of LANDING_THEMES) {
-                recipes.push({id: record.id, ...structuredClone(LANDING), theme: scheme, variant, landing: true, family: record.family, url: landingUrl(record.urls.devmode, theme), name: record.name || record.id})
+            for (const {scheme, variant, themes} of PAIR_THEMES) {
+                recipes.push({id: record.id, ...structuredClone(LANDING), theme: scheme === 'dark' ? 'dark' : 'default', variant, accepts: [...themes], landing: true, family: record.family, url: landingUrl(record.urls.devmode, themes[0]), name: record.name || record.id})
             }
         }
     }
@@ -431,7 +427,7 @@ export function pairTileRegion(measures) {
 }
 
 /**
- * @summary Switches a workbench to the first theme of a TILE_THEMES pass it offers. Its switch cycles through
+ * @summary Switches a workbench to the first theme of a PAIR_THEMES pass it offers. Its switch cycles through
  * `offered`, so a click is sent only while that theme is inactive: a workbench already on it needs none.
  * @param {String[]} offered The page's `Neo.config.themes`, which the workbench's theme switch cycles through.
  * @param {String} scheme The pass: `dark` or `light`.
@@ -441,7 +437,7 @@ export function pairTileRegion(measures) {
  */
 export async function applyTileTheme(offered, scheme, themeOf, next) {
     insist(Array.isArray(offered) && offered.length > 0, 'tile', 'the page reports no themes');
-    const {themes} = TILE_THEMES.find(pass => pass.scheme === scheme),
+    const {themes} = PAIR_THEMES.find(pass => pass.scheme === scheme),
         wanted     = themes.find(theme => offered.includes(theme));
     insist(wanted, 'tile', `the workbench offers no ${scheme} theme (${themes.join(', ')})`);
     for (let i = 0; i < offered.length && await themeOf() !== wanted; i++) await next();
@@ -524,9 +520,9 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
         await page.goto(url.href, {waitUntil: 'domcontentloaded', timeout: 30000});
         await (recipe.landing ? landingReady(page) : assertions(page, recipe.ready));
         if (recipe.landing) {
-            // An example that ignores `?theme=` opens on its first theme: a light frame is no dark cover
+            // An example that ignores `?theme=` opens on its first theme: a frame of the other scheme is no cover of this one
             row.openedTheme = await page.evaluate(shownTheme);
-            insist(DARK_THEMES.includes(row.openedTheme), recipe.id, `opened on ${row.openedTheme}, not on ${DARK_THEMES.join(' or ')}`)
+            insist(recipe.accepts.includes(row.openedTheme), recipe.id, `opened on ${row.openedTheme}, not on ${recipe.accepts.join(' or ')}`)
         }
         row.steps = await actions(page, recipe.steps);
         await assertions(page, recipe.after);
@@ -596,10 +592,10 @@ async function captureTile(browser, tile, manifest, baseUrl, output) {
                 return theme
             };
         if (tile.width || tile.height) row.size = {width: tile.width, height: tile.height};
-        for (const {scheme} of TILE_THEMES) { await present(scheme); measures.push(await tileMeasure(page, target)) }
+        for (const {scheme} of PAIR_THEMES) { await present(scheme); measures.push(await tileMeasure(page, target)) }
         row.region = pairTileRegion(measures);
         // The page still shows the last pass's theme, so the shots run backwards and the first needs no switch
-        for (const {scheme, variant} of [...TILE_THEMES].reverse()) {
+        for (const {scheme, variant} of [...PAIR_THEMES].reverse()) {
             const theme = await present(scheme);
             await settle(target);
             await paintReady(page, row.region);
