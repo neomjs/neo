@@ -14,10 +14,24 @@ import DemoDialog    from './DemoDialog.mjs';
  */
 class MainContainer extends Viewport {
     static config = {
+        /**
+         * @member {String} className='Neo.examples.dialog.MainContainer'
+         * @protected
+         */
         className: 'Neo.examples.dialog.MainContainer',
-        cls      : ['neo-dialog-contact-scene'],
-        layout   : {ntype: 'vbox', align: 'stretch'},
-        items    : [{
+        /**
+         * @member {String[]} cls
+         */
+        cls: ['neo-dialog-contact-scene'],
+        /**
+         * @member {Object} layout
+         * @reactive
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
             module: Component,
             flex  : 'none',
             vdom  : {tag: 'header', cn: [
@@ -81,8 +95,17 @@ class MainContainer extends Viewport {
         }]
     }
 
+    /**
+     * @member {String|null} boundaryContainerId='document.body'
+     */
     boundaryContainerId = 'document.body';
+    /**
+     * @member {Neo.examples.dialog.DemoDialog|null} dialog=null
+     */
     dialog = null;
+    /**
+     * @member {Boolean} #landingOpened=false
+     */
     #landingOpened = false;
 
     /**
