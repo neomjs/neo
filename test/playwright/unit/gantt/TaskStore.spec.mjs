@@ -3,9 +3,189 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import TaskStore from '../../../../src/gantt/TaskStore.mjs';
+import TaskModel from '../../../../src/gantt/TaskModel.mjs';
 
 setup({neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: false},
     appConfig: {name: 'GanttTaskRollupTest', isMounted: () => true}});
+
+class BookingTaskModel extends TaskModel {
+    static config = {className:'Test.Unit.Gantt.BookingTaskModel', fields:[{name:'status',type:'String'}]}
+}
+Neo.setupClass(BookingTaskModel);
+
+const bookingRows = () => [
+    {id:'p', isLeaf:false, collapsed:false},
+    {id:'a', parentId:'p', isLeaf:true, status:'ready', resourceId:'1', startDate:'2026-01-01T00:00Z', endDate:'2026-01-01T01:00Z'},
+    {id:'b', parentId:'p', isLeaf:true, status:'done', resourceId:'2', startDate:'2026-01-01T00:00Z', endDate:'2026-01-01T01:00Z'},
+    {id:'gate', parentId:'p', isLeaf:true, milestone:true, status:'ready', resourceId:'1', startDate:'2026-01-01T01:00Z', endDate:'2026-01-01T01:00Z'}
+];
+
+test('booking view borrows canonical leaves and stays independent of tree expansion', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}),
+        view    = store.getBookingStore(), a = store.get('a'), range = ['2026-01-01T00:00Z','2026-01-01T01:00Z'];
+    try {
+        expect(store.getBookingStore()).toBe(view);
+        expect(view.model).not.toBe(store.model);
+        expect(store.model.storeId).toBe(store.id);
+        expect(view.model.getField('status')).toBeTruthy();
+        expect(view.get('a')).toBe(a);
+        expect(store.getRangeRecords(...range, 1).map(item => item.id)).toEqual(['a']);
+        expect(view.getRangeRecords('2026-01-01T01:00Z','2026-01-01T02:00Z', 1).map(item => item.id)).toEqual(['gate']);
+        let loads = 0;
+        view.on('load', () => loads++);
+        store.collapse('p');
+        expect(store.getRangeRecords(...range).map(item => item.id)).toEqual([]);
+        expect(view.get('a')).toBe(a);
+        expect(store.getRangeRecords(...range, 1).map(item => item.id)).toEqual(['a']);
+        expect(loads).toBe(0);
+        store.expand('p');
+        expect(store.get('a')).toBe(a);
+        expect(view.get('a')).toBe(a)
+    } finally { store.destroy() }
+    expect(view.isDestroyed).toBe(true)
+});
+
+test('booking view forwards edits and batches and owns its filter, not the tree filter', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore();
+    try {
+        const changes = [], batches = [];
+        view.on({recordChange: event => changes.push(event.record.id), rowsChange: event => batches.push(event.keys)});
+        view.filters = [{property:'status', operator:'===', value:'ready', reapplyOnRecordChange:true}];
+        expect(view.items.map(item => item.id)).toEqual(['a','gate']);
+        expect(store.getCount()).toBe(4);
+        store.collapse('p');
+        store.updateRows([{key:'a', values:{status:'done', resourceId:'2'}}]);
+        expect(view.items.map(item => item.id)).toEqual(['gate']);
+        expect(changes).toContain('a');
+        expect(batches).toEqual([['a']]);
+        view.clearFilters();
+        expect(view.get('a')).toBe(store.get('a'));
+        expect(view.getRangeRecords('2026-01-01T00:00Z','2026-01-01T01:00Z', '2').map(item => item.id)).toEqual(['a','b'])
+    } finally { store.destroy() }
+});
+
+test('booking membership reconciles additions, removals, reparenting and reload without replacing unchanged records', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore(),
+        a       = store.get('a');
+    try {
+        store.collapse('p');
+        store.add({id:'c', parentId:'p', isLeaf:true, status:'ready', resourceId:'1', startDate:'2026-01-01T00:00Z', endDate:'2026-01-01T01:00Z'});
+        expect(view.get('c')).toBe(store.get('c'));
+        expect(view.get('a')).toBe(a);
+        store.add({id:'a', parentId:null});
+        expect(view.get('a')).toBe(a);
+        store.remove('c');
+        expect(view.get('c')).toBeNull();
+        expect(view.get('a')).toBe(a);
+        store.setData(bookingRows());
+        expect(view.get('a')).toBe(store.get('a'));
+        expect(view.getCount()).toBe(3)
+    } finally { store.destroy() }
+});
+
+test('clearing a fully filtered tree clears its structural booking view', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore();
+    try {
+        store.filters = [{property:'id', operator:'===', value:'absent'}];
+        expect(store.getCount()).toBe(0);
+        expect(view.getCount()).toBe(3);
+        store.remove('b');
+        expect(view.get('b')).toBeNull();
+        expect(view.getCount()).toBe(2);
+        store.clear();
+        expect(view.getCount()).toBe(0)
+    } finally { store.destroy() }
+});
+
+test('structural changes preserve the booking view filter and its hidden canonical rows', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore();
+    try {
+        view.filters = [{property:'status', operator:'===', value:'ready', reapplyOnRecordChange:true}];
+        store.collapse('p');
+        store.add({id:'c', parentId:'p', isLeaf:true, status:'done', resourceId:'1', startDate:'2026-01-01T00:00Z', endDate:'2026-01-01T01:00Z'});
+        expect(view.items.map(item => item.id)).toEqual(['a','gate']);
+        expect(view.getRow('c')).toBe(store.get('c'));
+        store.remove('b');
+        expect(view.getRow('b')).toBeUndefined();
+        store.get('c').set({status:'ready'});
+        expect(new Set(view.items.map(item => item.id))).toEqual(new Set(['a','gate','c']));
+        expect(store.getCount()).toBe(1)
+    } finally { store.destroy() }
+});
+
+test('re-keying a canonical leaf keeps the booking maps and later clear consistent', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore(),
+        record  = store.get('a');
+    try {
+        view.filters = [{property:'status', operator:'===', value:'done'}];
+        store.updateKey(record, 'a-new');
+        expect(view.getRow('a')).toBeUndefined();
+        expect(view.getRow('a-new')).toBe(record);
+        view.clearFilters();
+        expect(view.get('a-new')).toBe(record);
+        store.clear();
+        expect(view.getCount()).toBe(0)
+    } finally { store.destroy() }
+});
+
+test('changing a childless node between leaf and phase updates booking membership', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore(),
+        record  = store.get('a');
+    try {
+        record.set({isLeaf:false});
+        expect(view.get('a')).toBeNull();
+        record.set({isLeaf:true});
+        expect(view.get('a')).toBe(record)
+    } finally { store.destroy() }
+});
+
+test('silent hidden structural writes update the booking view without mutation events', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore();
+    try {
+        let sourceMutations = 0, viewMutations = 0;
+        store.collapse('p');
+        store.on('mutate', () => sourceMutations++);
+        view.on('mutate', () => viewMutations++);
+        store.splice(null, [], [{id:'hidden', parentId:'p', isLeaf:true, status:'ready', resourceId:'1',
+            startDate:'2026-01-01T00:00Z', endDate:'2026-01-01T01:00Z'}], true);
+        expect(view.get('hidden')).toBe(store.get('hidden'));
+        store.splice(null, ['hidden'], null, true);
+        expect(view.get('hidden')).toBeNull();
+        expect(sourceMutations).toBe(0);
+        expect(viewMutations).toBe(0)
+    } finally { store.destroy() }
+});
+
+test('source mutation observers see settled booking membership even when registered first', () => {
+    const store = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()});
+    let view, observations = [];
+    try {
+        store.collapse('p');
+        store.on('mutate', () => observations.push({source:store.get('c'), view:view.get('c')}));
+        view = store.getBookingStore();
+        store.add({id:'c', parentId:'p', isLeaf:true, status:'ready', resourceId:'1',
+            startDate:'2026-01-01T00:00Z', endDate:'2026-01-01T01:00Z'});
+        store.remove('c');
+        expect(observations).toHaveLength(2);
+        expect(observations[0].view).toBe(observations[0].source);
+        expect(observations[0].source).toBeTruthy();
+        expect(observations[1].view).toBeFalsy();
+        expect(observations[1].source).toBeFalsy()
+    } finally { store.destroy() }
+});
+
+test('tree collapse, expansion and filtering do not sweep structural booking membership', async () => {
+    const store  = Neo.create(TaskStore, {model:BookingTaskModel, data:bookingRows()}), view = store.getBookingStore(),
+        original = store.getChildren.bind(store), visits = [];
+    try {
+        store.getChildren = key => { visits.push(key); return original(key) };
+        store.collapse('p');
+        await store.expand('p');
+        store.filters = [{property:'id', operator:'===', value:'absent'}];
+        expect(visits).toEqual([]);
+        expect(view.getCount()).toBe(3)
+    } finally { store.destroy() }
+});
 
 const rows = () => [
     {id:'p', isLeaf:false, startDate:'2026-01-01T00:00Z', endDate:'2026-01-20T00:00Z'},
