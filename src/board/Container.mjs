@@ -714,15 +714,17 @@ class Board extends Container {
     /**
      * @summary Where a record's card sits: its column's status and lane, and its index among the column's records
      * @param {Object} record
+     * @param {Function} [recordsFor] Resolves ordered records already read during the current reconciliation.
      * @returns {{index: Number, lane: (String|null), status: String}}
      */
-    getCardPosition(record) {
+    getCardPosition(record, recordsFor) {
         let me                       = this,
             {laneField, statusField} = me,
             status                   = record[statusField],
-            lane                     = laneField ? (record[laneField] ?? null) : null;
+            lane                     = laneField ? (record[laneField] ?? null) : null,
+            records                  = recordsFor ? recordsFor(status, lane) : me.getColumnRecords(status, lane);
 
-        return {index: me.getColumnRecords(status, lane).indexOf(record), lane, status}
+        return {index: records.indexOf(record), lane, status}
     }
 
     /**
@@ -806,6 +808,28 @@ class Board extends Container {
      */
     getColumnRecords(status, lane=null) {
         return this.#recordsForColumn(this.store, status, lane)
+    }
+
+    /**
+     * @summary Resolves each column's ordered visible records once within a synchronous projection.
+     * @description The lookup is owned by one window change or by the affected columns of one Store event.
+     * Canonical counts for filtered windows remain separate from these visible records.
+     * @returns {Function}
+     * @private
+     */
+    #projectionRecords() {
+        const populations = new Map();
+
+        return (status, lane) => {
+            const column = this.getColumn(status, lane);
+            if (!column) return this.getColumnRecords(status, lane);
+
+            if (!populations.has(column)) {
+                populations.set(column, this.getColumnRecords(status, lane))
+            }
+
+            return populations.get(column)
+        }
     }
 
     /**
@@ -1247,9 +1271,11 @@ class Board extends Container {
                 }
             }
 
-            isVisible && target && me.reconcileColumn(target);
-            from   && from   !== target && me.reconcileColumn(from);
-            holder && holder !== target && holder !== from && me.reconcileColumn(holder)
+            const projection = {recordsFor: me.#projectionRecords()};
+
+            isVisible && target && me.reconcileColumn(target, projection);
+            from   && from   !== target && me.reconcileColumn(from, projection);
+            holder && holder !== target && holder !== from && me.reconcileColumn(holder, projection)
         } else if (isVisible && me.columnSummary && changed(me.columnSummary.field)) {
             me.getColumn(record[statusField], laneField ? record[laneField] ?? null : null)?.syncSummary()
         }
@@ -1471,11 +1497,12 @@ class Board extends Container {
      * @param {Neo.board.Column} column
      * @param {Object} [options]
      * @param {Boolean} [options.windowOnly=false] Scrolling changes the rendered slice within the same membership.
+     * @param {Function} [options.recordsFor] Shared visible population lookup for the current Store event.
      */
-    reconcileColumn(column, {windowOnly=false}={}) {
+    reconcileColumn(column, {windowOnly=false, recordsFor=this.#projectionRecords()}={}) {
         let me          = this,
             {body}      = column,
-            records     = me.getColumnRecords(column.status, column.laneValue),
+            records     = recordsFor(column.status, column.laneValue),
             sourceCount = column.maxRenderedCards !== null && me.store?.allItems
                 ? me.#recordsForColumn(me.store.allItems, column.status, column.laneValue).length
                 : records.length,
@@ -1518,7 +1545,7 @@ class Board extends Container {
             }
         });
 
-        const rovingKey = me.selectionModel?.getRovingTabKey() ?? null;
+        const rovingKey = me.selectionModel?.getRovingTabKey(recordsFor) ?? null;
 
         desired.forEach((record, index) => {
             const key  = me.getKey(record),
@@ -1542,7 +1569,7 @@ class Board extends Container {
         !windowOnly && me.columnSummary && column.syncSummary();
         const laneRow = column.parent?.parent;
         laneRow instanceof LaneRow && laneRow.updateCount();
-        me.selectionModel?.syncAnnotations(true);
+        me.selectionModel?.syncAnnotations(true, recordsFor);
         me.trimRetainedCards(column, column.retentionLimit);
         column.updateSpacers()
     }

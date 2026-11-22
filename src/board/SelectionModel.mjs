@@ -168,9 +168,10 @@ class SelectionModel extends BaseModel {
     /**
      * @summary Ensures `focusedKey` names a live record in a non-collapsed column, seeding it to the first record of
      * the first open non-empty column when unset or stale.
+     * @param {Function} [recordsFor] Reuses this projection's ordered rows when supplied by the Board.
      * @returns {String|Number|null}
      */
-    ensureFocusedCard() {
+    ensureFocusedCard(recordsFor = (status, lane) => this.view.getColumnRecords(status, lane)) {
         let me     = this,
             {view} = me,
             column, firstRecord, pos, record;
@@ -190,7 +191,7 @@ class SelectionModel extends BaseModel {
         if (me.focusedKey != null) {
             record = view.store.get(me.focusedKey);
             if (record) {
-                pos    = view.getCardPosition(record);
+                pos    = view.getCardPosition(record, recordsFor);
                 column = view.getColumn(pos.status, pos.lane);
                 if (column && !column.collapsed && pos.index > -1) {
                     me.anchorKey ??= me.focusedKey;
@@ -200,7 +201,7 @@ class SelectionModel extends BaseModel {
         }
 
         for (const openCol of view.getOpenColumns()) {
-            const records = view.getColumnRecords(openCol.status, openCol.laneValue);
+            const records = recordsFor(openCol.status, openCol.laneValue);
             if (records.length) {
                 firstRecord   = records[0];
                 me.focusedKey = view.getKey(firstRecord);
@@ -280,9 +281,10 @@ class SelectionModel extends BaseModel {
 
     /**
      * @summary Returns the record key that should carry `tabIndex: 0` among currently rendered cards.
+     * @param {Function} [recordsFor] Reuses ordered records read during the current projection.
      * @returns {String|Number|null}
      */
-    getRovingTabKey() {
+    getRovingTabKey(recordsFor) {
         let me     = this,
             {view} = me;
 
@@ -290,7 +292,7 @@ class SelectionModel extends BaseModel {
             return null
         }
 
-        me.ensureFocusedCard();
+        me.ensureFocusedCard(recordsFor);
 
         if (me.focusedKey != null && view.getCard(me.focusedKey)) {
             return me.focusedKey
@@ -1012,11 +1014,12 @@ class SelectionModel extends BaseModel {
     /**
      * @summary Synchronizes `neo-selected`, `aria-selected`, and roving `tabIndex` across all cards in `view.cardMap`.
      * @param {Boolean} [silent=false]
+     * @param {Function} [recordsFor] Reuses ordered records read during the current projection.
      */
-    syncAnnotations(silent=false) {
+    syncAnnotations(silent=false, recordsFor) {
         let me        = this,
             {view}    = me,
-            rovingKey = me.getRovingTabKey();
+            rovingKey = me.getRovingTabKey(recordsFor);
 
         if (!view) {
             return

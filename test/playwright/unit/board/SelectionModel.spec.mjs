@@ -28,6 +28,7 @@ import Store          from '../../../../src/data/Store.mjs';
 import Board          from '../../../../src/board/Container.mjs';
 import CardModel      from '../../../../src/board/CardModel.mjs';
 import SelectionModel from '../../../../src/board/SelectionModel.mjs';
+import TicketStore    from '../../../../examples/board/bigData/TicketStore.mjs';
 
 /**
  * @summary Unit suite for `Neo.board.SelectionModel` and `Neo.board.Container` keyboard, selection, and ARIA
@@ -571,5 +572,99 @@ test.describe('Neo.board.SelectionModel & keyboard / ARIA contract', () => {
         expect(restored.cls).toContain('neo-selected');
         expect(restored.vdom['aria-selected']).toBe('true');
         expect(restored.vdom.tabIndex).toBe(0)
+    });
+
+    test('scroll and a status edit read each affected column once on the 10,000-ticket board', () => {
+        store = Neo.create(TicketStore);
+        board = createBoard({store, columns: Object.keys(TicketStore.statusCounts).map(status => ({
+            status,
+            wipLimit: status === 'triage' ? 1500 : null
+        }))});
+
+        const source     = board.getColumn('new'),
+              target     = board.getColumn('triage'),
+              record     = store.get('t-1'),
+              firstCard  = board.getCard(record),
+              selection  = board.selectionModel,
+              reads      = [],
+              getRecords = board.getColumnRecords.bind(board);
+
+        board.getColumnRecords = (status, lane) => {
+            reads.push(status);
+            return getRecords(status, lane)
+        };
+
+        expect(store.count).toBe(10000);
+        expect(source.body.items).toHaveLength(110);
+
+        source.setWindowStart(100);
+
+        expect(reads.splice(0)).toEqual(['new']);
+        expect(selection.focusedKey).toBe(record.id);
+        expect(board.getCard(record)).toBeNull();
+        expect(source.body.items[0].vdom.tabIndex).toBe(0);
+
+        record.title = 'Title edited without projecting a column';
+        expect(reads).toEqual([]);
+
+        source.setWindowStart(0);
+
+        expect(reads.splice(0)).toEqual(['new']);
+        expect(board.getCard(record)).toBe(firstCard);
+        expect(firstCard.vdom.tabIndex).toBe(0);
+        expect(board.getCardPosition(record)).toMatchObject({status: 'new', index: 0});
+        reads.length = 0;
+
+        record.set({status: 'triage', order: 1500});
+
+        expect(reads).toEqual(['triage', 'new']);
+        expect(source.count).toBe(6199);
+        expect(target.count).toBe(1501);
+        expect(target.isWipExceeded).toBe(true);
+        expect(target.body.items.slice(0, 3).map(card => card.record.id)).toEqual(['t-6201', 't-1', 't-6202']);
+        expect(board.getCardPosition(record)).toMatchObject({status: 'triage', index: 1});
+        expect(board.getCard(record)).toBe(firstCard);
+        expect(selection.focusedKey).toBe(record.id);
+        expect(board.getColumns().flatMap(column => column.body.items).filter(card => card.vdom.tabIndex === 0)).toEqual([firstCard])
+    });
+
+    test('a move across filtered swimlanes keeps order and focus local to each column of the same status', () => {
+        store = createStore([
+            {id: 'moving',  status: 'backlog', lane: 'Atlas',  order: 1000},
+            {id: 'source',  status: 'backlog', lane: 'Atlas',  order: 4000},
+            {id: 'hidden',  status: 'backlog', lane: 'Beacon', order: 500},
+            {id: 'before',  status: 'backlog', lane: 'Beacon', order: 1500},
+            {id: 'after',   status: 'backlog', lane: 'Beacon', order: 3000}
+        ]);
+        board = createBoard({
+            store,
+            laneField: 'lane',
+            columns  : [{status: 'backlog', wipLimit: 2, maxRenderedCards: 3, overscan: 0}]
+        });
+
+        const source = board.getColumn('backlog', 'Atlas'),
+              target = board.getColumn('backlog', 'Beacon'),
+              card   = board.getCard('moving');
+
+        store.filters = [{property: 'order', operator: '>=', value: 1000}];
+        expect(store.get('hidden')).toBeNull();
+        expect(store.allItems.get('hidden')).toBeTruthy();
+
+        card.record.set({lane: 'Beacon', order: 2000});
+
+        expect(source.body.items.map(item => item.record.id)).toEqual(['source']);
+        expect(target.body.items.map(item => item.record.id)).toEqual(['before', 'moving', 'after']);
+        expect([source.count, target.count, target.isWipExceeded]).toEqual([1, 3, true]);
+        expect(target.isSliced).toBe(true);
+        expect(board.getCardPosition(card.record)).toEqual({status: 'backlog', lane: 'Beacon', index: 1});
+        expect(board.selectionModel.focusedKey).toBe('moving');
+        expect(card.vdom.tabIndex).toBe(0);
+
+        store.clearFilters();
+
+        expect(target.body.items.map(item => item.record.id)).toEqual(['hidden', 'before', 'moving']);
+        expect(board.getCardPosition(card.record)).toEqual({status: 'backlog', lane: 'Beacon', index: 2});
+        expect(board.getCard('moving')).toBe(card);
+        expect(card.vdom.tabIndex).toBe(0)
     })
 });
