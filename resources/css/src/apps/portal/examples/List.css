@@ -42,6 +42,9 @@
 }
 
 .portal-examples-list.neo-list {
+    /* Muted text derives from the opaque footer surface so glyph color never carries alpha. */
+    --portal-examples-list-text-muted: color-mix(in srgb, var(--portal-examples-list-text) 78%, var(--portal-examples-list-surface));
+
     align-content        : start;
     display              : grid;
     gap                  : 13.5px 24px;
@@ -89,7 +92,6 @@
        crosses the cover and the card rests lit from its upper right. The selection, which the arrow keys move, is light
        the card emits: a ring draws itself around the card and stays, over the open details. Nothing moves a hit target. */
     .neo-list-item {
-        --portal-examples-list-text-muted: color-mix(in srgb, var(--portal-examples-list-text) 78%, var(--portal-examples-list-surface));
         --portal-examples-list-glow        : 0 0 0 0 transparent;
         --portal-examples-list-light-hover : rgba(0, 0, 0, 0);
         --portal-examples-list-light-select: rgba(0, 0, 0, 0);
@@ -167,11 +169,6 @@
         .preview-image {
             background-image: var(--portal-example-cover-light, var(--portal-example-cover, none));
         }
-    }
-
-    :where(.neo-theme-neo-light) & .neo-list-item:not(.portal-example-paired-cover) {
-        --portal-examples-list-surface: var(--portal-examples-list-single-surface);
-        --portal-examples-list-text   : var(--portal-examples-list-single-text);
     }
 
     /* The selection's ring. Where masks cannot be composited it is a plain border that fades in. */

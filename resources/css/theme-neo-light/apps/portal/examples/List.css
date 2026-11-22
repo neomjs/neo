@@ -21,8 +21,6 @@
     --portal-examples-list-selected-light   : color-mix(in srgb, var(--green-600) 26%, transparent);
     --portal-examples-list-selected-text    : color-mix(in srgb, var(--green-700) 50%, var(--green-800));
     --portal-examples-list-shadow           : 0 8px 22px rgba(15, 23, 42, 0.1);
-    --portal-examples-list-single-surface   : color-mix(in srgb, var(--purple-900) 26%, var(--gray-900));
-    --portal-examples-list-single-text      : var(--gray-100);
     --portal-examples-list-surface          : var(--sem-color-surface-neutral-highlighted);
     --portal-examples-list-text             : var(--sem-color-text-neutral-default);
 }
