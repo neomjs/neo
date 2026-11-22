@@ -213,20 +213,23 @@ class Container extends Component {
     }
 
     /**
-     * Triggered after the needsVdomUpdate config got changed
+     * Triggered after the needsVdomUpdate config got changed. A cleared flag passes into the items an update covers:
+     * all of them for `depth: -1`, none for `depth: 1` (the container alone), one level less per level down. An item
+     * beyond the depth keeps its flag, so an update it still owes, and every promise merged into it, runs.
      * @param {Boolean} value
      * @param {Boolean} oldValue
+     * @param {Number} [depth=-1] The depth the update that cleared the flag rendered
      * @protected
      */
-    afterSetNeedsVdomUpdate(value, oldValue) {
-        if (!value) {
+    afterSetNeedsVdomUpdate(value, oldValue, depth=-1) {
+        if (!value && depth !== 1) {
             this.items?.forEach(item => {
                 // check for e.g. Toolbar items like '->'
                 if (typeof item !== 'string') {
                     // we can not set the config directly => it could already be false,
                     // and we still want to pass it further into subtrees
                     item._needsVdomUpdate = false;
-                    item.afterSetNeedsVdomUpdate?.(false, true)
+                    item.afterSetNeedsVdomUpdate?.(false, true, depth === -1 ? -1 : depth - 1)
                 }
             })
         }
