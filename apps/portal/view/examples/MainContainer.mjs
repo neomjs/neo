@@ -1,6 +1,7 @@
 import Button                  from '../../../../src/button/Base.mjs';
 import Container               from '../../../../src/container/Base.mjs';
 import Example                 from '../../model/Example.mjs';
+import ExampleCatalog          from '../../connection/ExampleCatalog.mjs';
 import ExampleGroupStore       from '../../store/ExampleGroups.mjs';
 import ExampleStore            from '../../store/Examples.mjs';
 import GroupIndex              from './GroupIndex.mjs';
@@ -124,7 +125,7 @@ class MainContainer extends Container {
                 matchCounts: null
             },
             stores: {
-                catalog: {module: ExampleStore, url: '../../apps/portal/resources/data/examples/index.json'},
+                catalog: {module: ExampleStore, pipeline: {connection: {module: ExampleCatalog, url: '../../apps/portal/resources/data/examples/index.json'}}},
                 groups : {module: ExampleGroupStore}
             }
         }

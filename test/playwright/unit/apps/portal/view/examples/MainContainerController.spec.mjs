@@ -6,21 +6,22 @@ setup({
     }
 });
 
-import {test, expect}                from '@playwright/test';
-import fs                            from 'node:fs';
-import os                            from 'node:os';
-import path                          from 'node:path';
-import {fileURLToPath}               from 'node:url';
-import {getPublishedExampleFamilies} from '../../../../../../../buildScripts/docs/seo/seoJson.mjs';
+import {test, expect}                                   from '@playwright/test';
+import fs                                               from 'node:fs';
+import os                                               from 'node:os';
+import path                                             from 'node:path';
+import {fileURLToPath}                                  from 'node:url';
+import {getPublishedExampleFamilies}                    from '../../../../../../../buildScripts/docs/seo/seoJson.mjs';
 import {EXAMPLES_DIR, orderCatalog, readExampleCatalog} from '../../../../../../../buildScripts/util/exampleCatalog.mjs';
-import Neo                           from '../../../../../../../src/Neo.mjs';
-import * as core                     from '../../../../../../../src/core/_export.mjs';
-import Sorter                        from '../../../../../../../src/collection/Sorter.mjs';
-import Example                       from '../../../../../../../apps/portal/model/Example.mjs';
-import ExampleGroup                  from '../../../../../../../apps/portal/model/ExampleGroup.mjs';
-import ExamplesList                  from '../../../../../../../apps/portal/view/examples/List.mjs';
-import ExamplesStore                 from '../../../../../../../apps/portal/store/Examples.mjs';
-import ExamplesMainContainer         from '../../../../../../../apps/portal/view/examples/MainContainer.mjs';
+import Neo                                              from '../../../../../../../src/Neo.mjs';
+import * as core                                        from '../../../../../../../src/core/_export.mjs';
+import Sorter                                           from '../../../../../../../src/collection/Sorter.mjs';
+import Example                                          from '../../../../../../../apps/portal/model/Example.mjs';
+import ExampleCatalog                                   from '../../../../../../../apps/portal/connection/ExampleCatalog.mjs';
+import ExampleGroup                                     from '../../../../../../../apps/portal/model/ExampleGroup.mjs';
+import ExamplesList                                     from '../../../../../../../apps/portal/view/examples/List.mjs';
+import ExamplesStore                                    from '../../../../../../../apps/portal/store/Examples.mjs';
+import ExamplesMainContainer                            from '../../../../../../../apps/portal/view/examples/MainContainer.mjs';
 
 const
     directory = path.dirname(fileURLToPath(import.meta.url)),
@@ -927,34 +928,70 @@ test.describe('Portal examples canonical catalog', () => {
     test('the Portal and the build order records by one rule: `order` ascending, a record without one last, ties kept', () => {
         const rows = [{id: 'a'}, {id: 'b', order: 20}, {id: 'c', order: 10}, {id: 'd'}, {id: 'e', order: 20}];
 
-        expect(ExamplesStore.order(rows).map(row => row.id)).toEqual(['c', 'b', 'e', 'a', 'd']);
+        expect(ExampleCatalog.order(rows).map(row => row.id)).toEqual(['c', 'b', 'e', 'a', 'd']);
         expect(orderCatalog(rows).map(row => row.id)).toEqual(['c', 'b', 'e', 'a', 'd']);
         expect(rows.map(row => row.id)).toEqual(['a', 'b', 'c', 'd', 'e'])
     });
 
-    test('the catalog store loads the index, then every group file beside it, into catalog order', async () => {
-        const dir   = path.join(repoRoot, EXAMPLES_DIR),
-              index = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')),
-              url   = ExamplesMainContainer.config.stateProvider.stores.catalog.url,
-              store = Neo.create(ExamplesStore, {url}),
-              urls  = [];
+    /**
+     * @summary The section's catalog Store, its folder reads held: each request waits until the test answers it.
+     * @returns {{store: Portal.store.Examples, url: String, index: String[], requests: Map<String, Function>}}
+     */
+    function createHeldCatalog() {
+        const {pipeline} = ExamplesMainContainer.config.stateProvider.stores.catalog,
+              dir        = path.join(repoRoot, EXAMPLES_DIR),
+              requests   = new Map(),
+              store      = Neo.create(ExamplesStore, {pipeline: {...pipeline, connection: {...pipeline.connection}}});
 
-        await store.urlPipelinePromise;
-        store.pipeline.connection.read = async params => {
-            urls.push(params.url);
-            return {json: JSON.parse(fs.readFileSync(path.join(dir, path.basename(params.url)), 'utf8'))}
-        };
+        store.pipeline.connection.promiseJson = ({url}) => new Promise(resolve => {
+            requests.set(url, () => resolve({json: JSON.parse(fs.readFileSync(path.join(dir, path.basename(url)), 'utf8'))}))
+        });
+
+        return {store, url: pipeline.connection.url, index: JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8')), requests}
+    }
+
+    test('the catalog store reads the index, then every group file beside it, inside the Store\'s own load', async () => {
+        const {store, url, index, requests} = createHeldCatalog(),
+              groupUrls                     = index.map(group => url.replace('index.json', `${group}.json`)),
+              events                        = [];
+
+        store.on('load', data => events.push(data));
 
         try {
-            const items = await store.load();
+            const loading = store.load();
 
-            expect(urls).toEqual([url, ...index.map(group => url.replace('index.json', `${group}.json`))]);
+            // pending and loading while the index is out; the group files follow it, all at once
+            expect([store.isLoadPending, store.isLoading]).toEqual([true, true]);
+            await expect.poll(() => [...requests.keys()]).toEqual([url]);
+            requests.get(url)();
+            await expect.poll(() => requests.size).toBe(index.length + 1);
+            expect([...requests.keys()].slice(1)).toEqual(groupUrls);
+            expect([store.isLoadPending, store.isLoading]).toEqual([true, true]);
+
+            groupUrls.forEach(groupUrl => requests.get(groupUrl)());
+            const items = await loading;
+
             expect(items.map(record => record.id)).toEqual(catalog.map(record => record.id));
-            expect(store.items.map(record => record.id)).toEqual(catalog.map(record => record.id));
-            expect(store.isLoaded).toBe(true)
+            expect([store.isLoadPending, store.isLoading, store.isLoaded]).toEqual([false, false, true]);
+            expect(store.totalCount).toBe(catalog.length);
+            expect(events.at(-1)).toMatchObject({isLoading: false, total: catalog.length})
         } finally {
             store.destroy()
         }
+    });
+
+    test('a catalog store destroyed while a group file is out rejects its load as destroyed', async () => {
+        const {store, url, index, requests} = createHeldCatalog(),
+              loading                       = store.load();
+
+        await expect.poll(() => requests.size).toBe(1);
+        requests.get(url)();
+        await expect.poll(() => requests.size).toBe(index.length + 1);
+
+        store.destroy();
+        [...requests.values()].slice(1).forEach(answer => answer());
+
+        await expect(loading).rejects.toBe(Neo.isDestroyed)
     });
 
     test('places the 12 featured Start here demonstrations first in #21140 catalog order', () => {
