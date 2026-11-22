@@ -176,6 +176,7 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 ntype: 'label',
                 cls  : ['tree-playlist-hint'],
+                flex : 'none',
                 text : 'Drop a track or an album here'
             }]
         }]

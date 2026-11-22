@@ -38,7 +38,7 @@ test.describe('Tree tiles', () => {
         await expect(page.locator('.tree-playlist .neo-list-item')).toHaveCount(2);
 
         await dragToPlaylist(page, 'Northbound');
-        await expect.poll(() => playlist(page)).toContain('Northbound · The Paper Lanterns · 4:05');
+        await expect.poll(() => playlist(page)).toContain('Northbound · 4:05 · The Paper Lanterns');
 
         // A track already on the playlist stays where it is
         await dragToPlaylist(page, 'Northbound');
