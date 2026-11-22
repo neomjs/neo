@@ -1,5 +1,22 @@
+import fs             from 'node:fs';
 import {expect, test} from '../../fixtures.mjs';
 import {decodePng}    from '../utils/pngPixels.mjs';
+
+const CATALOG = new URL('../../../../apps/portal/resources/data/examples/', import.meta.url);
+
+/**
+ * @summary Counts the records a group's page lists in a build mode, its own and the ones it borrows through
+ * `alsoIn`, by the rule `Portal.model.Example.publishes` applies, so a pin follows the catalog's group files.
+ * @param {String} family
+ * @param {String} mode
+ * @returns {Number}
+ */
+const groupSize = (family, mode) => fs.readdirSync(CATALOG)
+    .filter(file => file.endsWith('.json') && file !== 'index.json')
+    .flatMap(file => JSON.parse(fs.readFileSync(new URL(file, CATALOG), 'utf8')))
+    .filter(record => (record.family === family || record.alsoIn?.includes(family)) &&
+        !!record.image && !record.hidden && !record.hiddenIn?.includes(mode) && !!record.urls?.[mode])
+    .length;
 
 const PORTAL    = '/apps/portal/index.html',
       SIDEBAR   = '.portal-examples-sidebar:visible nav.portal-examples-group-index-list',
@@ -1013,14 +1030,18 @@ test.describe('Portal examples section', () => {
         await page.keyboard.type('drag');
         await expect(results.getByRole('heading', {level: 1})).toContainText('matching examples');
 
-        const [mainState] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id', 'findQuery']);
+        const [mainState] = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id', 'findQuery', 'catalogMode']);
         expect(mainState.properties.findQuery).toBe('drag');
 
+        // Every Drag & Drop example matches "drag" through its group's title, so the count is the group's size
+        const dragDrop = groupSize('drag-drop', mainState.properties.catalogMode);
+        expect(dragDrop, 'the Drag & Drop group lists examples').toBeGreaterThan(0);
+
         await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
-        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples', exact: true})).toBeVisible();
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: `Drag & Drop, ${dragDrop} matching examples`, exact: true})).toBeVisible();
         // its matches are all borrowed, and like outside a filter its number counts what its page shows
-        await expect(page.locator(SIDEBAR).getByRole('link', {name: 'Drag & Drop, 3 matching examples', exact: true})
-            .locator('.portal-examples-group-index-count')).toHaveText('3');
+        await expect(page.locator(SIDEBAR).getByRole('link', {name: `Drag & Drop, ${dragDrop} matching examples`, exact: true})
+            .locator('.portal-examples-group-index-count')).toHaveText(String(dragDrop));
         // the line under the list explains the catalog's sums; a filter shows matches, so it stays out
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toHaveCount(0);
         await expect(page.locator(`${SIDEBAR} li.portal-examples-group-index-zero`).filter({hasText: 'Calendar'})).toBeVisible();

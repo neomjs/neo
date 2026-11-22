@@ -543,7 +543,7 @@ export const EXAMPLE_FAMILY_SEO = {
     components    : {subject: 'JavaScript UI component',         title: 'JavaScript UI Component Examples — Off the Main Thread | Neo.mjs'},
     dashboard     : {subject: 'JavaScript dashboard',            title: 'JavaScript Dashboard & Docking — Panes That Pop Out | Neo.mjs'},
     dialogs       : {subject: 'JavaScript dialog',               title: 'JavaScript Dialogs & Overlays — Live Examples | Neo.mjs'},
-    'drag-drop'   : {subject: 'JavaScript drag and drop',        title: 'JavaScript Drag & Drop Examples — Across Windows | Neo.mjs'},
+    'drag-drop'   : {subject: 'JavaScript drag and drop',        title: 'JavaScript Drag & Drop Examples — Boards, Lists & Windows | Neo.mjs'},
     forms         : {subject: 'JavaScript form',                 title: 'JavaScript Form Examples — Fields, Pickers & Validation | Neo.mjs'},
     functional    : {subject: 'JavaScript functional component', title: 'JavaScript Functional Component Examples | Neo.mjs'},
     gantt         : {subject: 'JavaScript Gantt chart',          title: 'MIT JavaScript Gantt Chart — Linked, Editable Tasks | Neo.mjs'},
