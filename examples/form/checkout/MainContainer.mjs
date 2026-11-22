@@ -43,7 +43,7 @@ const FIELD_DEFAULTS = {
  * international numbers and shows the chosen country's format as its hint, and the amount names the country's
  * currency. The IBAN checks its format against the country its own first two letters name, for the countries in
  * `IBANField.countryCodes` (Austria, Germany, Switzerland); its check digits are verified for every country.
- * Check order validates the whole form and says beside the button what still needs a fix.
+ * Check order validates the whole form and says what still needs a fix, in the error colour, or what would be ordered.
  * @class Neo.examples.form.checkout.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -183,7 +183,7 @@ class MainContainer extends Viewport {
             }, {
                 module: Container,
                 cls   : ['checkout-actions'],
-                layout: {ntype: 'hbox', align: 'center'},
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
 
                 items: [{
                     module   : Button,
@@ -193,7 +193,8 @@ class MainContainer extends Viewport {
                 }, {
                     module   : Component,
                     cls      : ['checkout-result'],
-                    flex     : 1,
+                    // Beside the button where the row has room, on a line of its own on a phone
+                    flex     : '1 1 260px',
                     reference: 'checkout-result',
                     role     : 'status',
                     text     : HINT_TEXT
@@ -203,7 +204,7 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @summary Validates the whole form and says beside the button what still needs a fix, or what would be ordered.
+     * @summary Validates the whole form and says what still needs a fix, in the error colour, or what would be ordered.
      * @returns {Promise<void>}
      */
     async onCheckOrderClick() {
@@ -212,6 +213,8 @@ class MainContainer extends Viewport {
             result = me.getReference('checkout-result'),
             valid  = await form.validate(),
             country, fields, values;
+
+        result.toggleCls('checkout-result-fix', !valid);
 
         if (valid) {
             values  = await form.getSubmitValues();
@@ -233,6 +236,7 @@ class MainContainer extends Viewport {
         let result = this.getReference('checkout-result');
 
         if (result.text !== HINT_TEXT) {
+            result.removeCls('checkout-result-fix');
             result.text = HINT_TEXT
         }
     }
