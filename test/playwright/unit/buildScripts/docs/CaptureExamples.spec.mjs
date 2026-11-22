@@ -165,7 +165,7 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
 test('the committed Grid/Table manifest covers every current family record with a real feature action', () => {
     const data  = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
         records = JSON.parse(fs.readFileSync(new URL('examples.json', data))),
-        raw     = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
+        raw     = JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))),
         valid   = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
@@ -213,7 +213,7 @@ test('a tile path outside examples/, a duplicate tile, a bad capture size or an 
 
 test('the committed tile list names workbench entries that exist', () => {
     const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
-        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), JSON.parse(fs.readFileSync(new URL('examples.json', data))));
+        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('../../../../../buildScripts/docs/captureExamples.json', import.meta.url))), JSON.parse(fs.readFileSync(new URL('examples.json', data))));
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');

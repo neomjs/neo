@@ -534,7 +534,7 @@ async function runCli() {
     }
     const tiles = values.tiles || values.tile !== undefined;
     insist(!(tiles && (values.record || values.family)), 'selection', 'use tiles or recipes, not both');
-    const manifestPath = path.join(DATA, 'example-captures.json'),
+    const manifestPath = fileURLToPath(new URL('captureExamples.json', import.meta.url)),
         sources        = {recipes: await fs.readFile(manifestPath), catalog: await fs.readFile(path.join(DATA, 'examples.json')), producer: await fs.readFile(fileURLToPath(import.meta.url))},
         manifest       = validateCaptureRecipes(JSON.parse(sources.recipes), JSON.parse(sources.catalog)),
         recipes        = tiles ? selectTiles(manifest, values.tile) : selectCaptureRecipes(manifest, values), baseUrl = new URL(values['base-url']);
