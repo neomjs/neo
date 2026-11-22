@@ -61,7 +61,6 @@
         "hiddenIn": [],
         "family": "platform",
         "order": 1450,
-        "tileSize": {"width": 224, "height": 160},
         "component": "Sitemap",
         "feature": "Columns of grouped links whose items open a URL, call a handler, or stay disabled or hidden",
         "lookFor": "Resize the sitemap in the panel and follow an item's link."

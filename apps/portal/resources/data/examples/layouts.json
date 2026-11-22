@@ -14,7 +14,6 @@
         "hiddenIn": [],
         "family": "layouts",
         "order": 1020,
-        "tileSize": {"width": 240, "height": 150},
         "alsoIn": [
             "forms"
         ],

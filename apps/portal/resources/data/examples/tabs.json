@@ -4,7 +4,6 @@
         "kind": "component",
         "family": "tabs",
         "order": 190,
-        "tileSize": {"width": 264, "height": 176},
         "feature": "Tab buttons whose text, icon, color and badge change live",
         "lookFor": "Type a new Tab 1 text and a badgeText, then pick another badgePosition.",
         "keywords": [

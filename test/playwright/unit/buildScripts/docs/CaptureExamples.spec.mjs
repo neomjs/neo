@@ -1,15 +1,11 @@
 import {test, expect}  from '@playwright/test';
 import fs              from 'node:fs';
-import os              from 'node:os';
-import path            from 'node:path';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, readCaptureManifest, validateCaptureRecipes, selectCaptureRecipes, selectTiles
+    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
 import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
-
-const DATA = fileURLToPath(new URL('../../../../../apps/portal/resources/data/', import.meta.url));
 
 /** @summary Gives the producer one covered local record and an unrelated legacy cover. */
 function catalog() {
@@ -51,7 +47,7 @@ test('external-origin covered records do not block a family while same-origin co
 });
 
 test('a tile in a covered family needs no recipe, a card beside it still does', () => {
-    const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', sourceUrl: 'examples/grid/tile', urls: {devmode: 'examples/grid/tile/index.html'}}];
+    const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', urls: {devmode: 'examples/grid/tile/index.html'}}];
     expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
     records.push({id: 'grid-card', family: 'grid-table', image: 'grid-card.jpg', urls: {devmode: 'examples/grid/card/index.html'}});
     expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/grid-card.*image|recipe/i)
@@ -155,46 +151,12 @@ test('an explicitly empty or whitespace-only family selector cannot silently cap
 });
 
 test('the committed Grid/Table manifest covers every current family record with a real feature action', async () => {
-    const {records}  = await readExampleCatalog(path.join(DATA, 'examples')),
-        {manifest}   = await readCaptureManifest(path.join(DATA, 'example-captures')),
-        valid        = validateCaptureRecipes(manifest, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
+    const data    = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
+        {records} = await readExampleCatalog(fileURLToPath(new URL('examples', data))),
+        raw       = JSON.parse(fs.readFileSync(new URL('example-captures.json', data))),
+        valid     = validateCaptureRecipes(raw, records), rows = selectCaptureRecipes(valid, {family: 'grid-table'});
     expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
     expect(rows.every(row => row.steps.length > 0 && row.after.length > 0)).toBe(true)
-});
-
-test('each family file holds only that family\'s recipes, so a change to one family edits one file', async () => {
-    const {records} = await readExampleCatalog(path.join(DATA, 'examples')),
-        family     = Object.fromEntries(records.map(record => [record.id, record.family])),
-        dir        = path.join(DATA, 'example-captures'),
-        {manifest} = await readCaptureManifest(dir);
-    expect(manifest.families.length).toBeGreaterThan(0);
-    for (const name of manifest.families) {
-        const recipes = JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`)));
-        expect(recipes.filter(recipe => family[recipe.id] !== name).map(recipe => recipe.id), name).toEqual([])
-    }
-});
-
-test('the manifest folder derives its families from its files and keeps them out of index.json', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-capture-manifest-')),
-        write = (name, value) => fs.writeFileSync(path.join(dir, name), JSON.stringify(value)),
-        {recipes: [recipe]} = manifest();
-    try {
-        write('index.json', {version: 1, suffix: '14'});
-        write('grid-table.json', [recipe]);
-        write('forms.json', []);
-        const read = await readCaptureManifest(dir);
-        expect(read.manifest.families).toEqual(['forms', 'grid-table']);
-        expect(read.manifest.recipes.map(row => row.id)).toEqual(['grid-one']);
-        expect(validateCaptureRecipes({...read.manifest, families: ['grid-table']}, catalog()).recipes[0].family).toBe('grid-table');
-
-        write('index.json', {version: 1, suffix: '14', families: ['grid-table']});
-        await expect(readCaptureManifest(dir)).rejects.toThrow('manifest.index');
-        // the tiles come from the catalog's component records, so no shared list takes a tile edit
-        write('index.json', {version: 1, suffix: '14', tiles: ['examples/sitemap']});
-        await expect(readCaptureManifest(dir)).rejects.toThrow('component records')
-    } finally {
-        fs.rmSync(dir, {recursive: true, force: true})
-    }
 });
 
 test('the command exposes help without starting a browser or requiring a running server', () => {
@@ -203,20 +165,9 @@ test('the command exposes help without starting a browser or requiring a running
     expect(output).toContain('--record'); expect(output).toContain('--preview'); expect(output).toContain('--tiles')
 });
 
-/**
- * @summary The catalog fixture plus one component record per `[sourceUrl, tileSize]` pair: the tiles.
- * @param {Array[]} tiles
- * @returns {Object[]}
- */
-function tileCatalog(...tiles) {
-    return [...catalog(), ...tiles.map(([sourceUrl, tileSize], index) => ({
-        id  : `tile-${index}`, kind: 'component', family: 'forms', sourceUrl, ...(tileSize && {tileSize}),
-        urls: {devmode: `${sourceUrl}/index.html`}
-    }))]
-}
-
-test('a tile is a component record, named by its examples/ path, which gives its id and devmode URL', () => {
-    const valid = validateCaptureRecipes(manifest(), tileCatalog(['examples/form/field/date'], ['examples/sitemap']));
+test('a tile is named by its examples/ path, which gives its id and devmode URL', () => {
+    const raw = {...manifest(), tiles: ['examples/form/field/date', 'examples/sitemap']},
+        valid = validateCaptureRecipes(raw, catalog());
     expect(valid.tiles).toEqual([
         {id: 'form-field-date', path: 'examples/form/field/date', url: 'examples/form/field/date/index.html'},
         {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html'}
@@ -225,10 +176,9 @@ test('a tile is a component record, named by its examples/ path, which gives its
     expect(validateCaptureRecipes(manifest(), catalog()).tiles).toEqual([])
 });
 
-test('a tile record may name the size its component takes for the capture', () => {
-    const valid = validateCaptureRecipes(manifest(), tileCatalog(
-        ['examples/form/field/text', {width: 220}], ['examples/sitemap', {width: 320, height: 240}], ['examples/form/field/date']
-    ));
+test('a tile entry may name the size its component takes for the capture', () => {
+    const raw = {...manifest(), tiles: [{path: 'examples/form/field/text', width: 220}, {path: 'examples/sitemap', width: 320, height: 240}, 'examples/form/field/date']},
+        valid = validateCaptureRecipes(raw, catalog());
     expect(valid.tiles).toEqual([
         {id: 'form-field-text', path: 'examples/form/field/text', url: 'examples/form/field/text/index.html', width: 220},
         {id: 'sitemap',         path: 'examples/sitemap',         url: 'examples/sitemap/index.html',         width: 320, height: 240},
@@ -239,36 +189,19 @@ test('a tile record may name the size its component takes for the capture', () =
 
 test('a tile path outside examples/, a duplicate tile, a bad capture size or an unknown selection is refused', () => {
     for (const tiles of [
-        [['apps/form']], [['examples/']], [['examples/../apps']], [['examples/sitemap'], ['examples/sitemap']],
-        [['examples/sitemap', {width: 79}]], [['examples/sitemap', {height: 641}]], [['examples/sitemap', {width: 220.5}]],
-        [['examples/sitemap', {zoom: 2}]], [[undefined, {width: 220}]]
+        ['apps/form'], ['examples/'], ['examples/../apps'], ['examples/sitemap', 'examples/sitemap'],
+        [{path: 'examples/sitemap', width: 79}], [{path: 'examples/sitemap', height: 641}], [{path: 'examples/sitemap', width: 220.5}],
+        [{path: 'examples/sitemap', zoom: 2}], [{width: 220}], ['examples/sitemap', {path: 'examples/sitemap', width: 220}]
     ]) {
-        expect(() => validateCaptureRecipes(manifest(), tileCatalog(...tiles))).toThrow(/sourceUrl|tileSize|duplicate tile/)
+        expect(() => validateCaptureRecipes({...manifest(), tiles}, catalog())).toThrow(/manifest\.tiles/)
     }
-    const valid = validateCaptureRecipes(manifest(), tileCatalog(['examples/sitemap']));
+    const valid = validateCaptureRecipes({...manifest(), tiles: ['examples/sitemap']}, catalog());
     expect(() => selectTiles(valid, 'examples/form/field/date')).toThrow(/no matching tiles/)
 });
 
-test('the recipes come out in catalog order, whatever order the manifest gives them', () => {
-    const recipe  = id => ({...manifest().recipes[0], id}),
-          records = [...catalog(), {id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/index.html'}}],
-          valid   = validateCaptureRecipes({...manifest(), recipes: [recipe('grid-two'), recipe('grid-one')]}, records);
-    expect(valid.recipes.map(row => row.id)).toEqual(['grid-one', 'grid-two']);
-    expect(selectCaptureRecipes(valid).map(row => row.id)).toEqual(['grid-one', 'grid-two'])
-});
-
-test('the committed capture plan runs in catalog order: its recipes, then its tiles, the component records', async () => {
-    const {records} = await readExampleCatalog(path.join(DATA, 'examples')),
-        {manifest}  = await readCaptureManifest(path.join(DATA, 'example-captures')),
-        valid       = validateCaptureRecipes(manifest, records),
-        ids         = valid.recipes.map(row => row.id);
-    expect(ids).toEqual(records.map(record => record.id).filter(id => ids.includes(id)));
-    expect(valid.tiles.map(tile => tile.path)).toEqual(records.filter(record => record.kind === 'component').map(record => record.sourceUrl))
-});
-
 test('the committed tile list names workbench entries that exist', async () => {
-    const {manifest} = await readCaptureManifest(path.join(DATA, 'example-captures')),
-        valid        = validateCaptureRecipes(manifest, (await readExampleCatalog(path.join(DATA, 'examples'))).records);
+    const data = new URL('../../../../../apps/portal/resources/data/', import.meta.url),
+        valid  = validateCaptureRecipes(JSON.parse(fs.readFileSync(new URL('example-captures.json', data))), (await readExampleCatalog(fileURLToPath(new URL('examples', data)))).records);
     expect(valid.tiles.length).toBeGreaterThan(0);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
