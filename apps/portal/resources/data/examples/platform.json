@@ -21,6 +21,24 @@
         "hiddenIn": []
     },
     {
+        "id": "task-worker",
+        "family": "platform",
+        "order": 165,
+        "feature": "The same prime count in two workers shows when the interface can keep responding.",
+        "lookFor": "Type while the Task Worker runs, then run the App Worker and compare the heartbeat and results.",
+        "featured": false,
+        "image": "devmode/task-worker-14.jpg",
+        "name": "Heavy work off the UI",
+        "sourceUrl": "examples/worker/task",
+        "urls": {
+            "devmode": "examples/worker/task/index.html",
+            "dist_dev": "dist/development/examples/worker/task/index.html",
+            "dist_esm": "dist/esm/examples/worker/task/index.html",
+            "dist_prod": "dist/production/examples/worker/task/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
         "id": "video-move",
         "family": "platform",
         "order": 510,

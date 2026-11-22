@@ -1,0 +1,127 @@
+.neo-task-worker-example {
+    background: var(--sem-color-surface-neutral-default);
+    color: var(--sem-color-text-neutral-default);
+    gap: 16px;
+    min-height: 100%;
+    overflow: auto;
+    padding: clamp(12px, 4vmin, 40px);
+
+    > * {
+        margin-inline: auto;
+        max-width: 66rem;
+        width: 100%;
+    }
+
+    h1 {
+        font-size: clamp(24px, 4vw, 44px);
+        line-height: 1.12;
+        margin: 0;
+    }
+
+    p {
+        color: var(--sem-color-text-neutral-subdued);
+        line-height: 1.5;
+        margin-block: 0;
+    }
+
+    .neo-task-worker-header {
+        gap: 12px;
+    }
+
+    .neo-task-worker-card {
+        background: var(--sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 12px;
+        gap: 12px;
+        min-width: 0;
+        padding: clamp(12px, 3vmin, 28px);
+    }
+
+    .neo-task-worker-lanes {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        min-height: min-content;
+    }
+
+    .neo-task-worker-lane {
+        justify-content: space-evenly;
+
+        h2 {
+            font-size: clamp(18px, 3vmin, 28px);
+            line-height: 1.25;
+            margin: 0;
+        }
+
+        > .neo-button {
+            align-self: flex-start;
+        }
+    }
+
+    .neo-task-worker-result {
+        font-size: clamp(16px, 2vmin, 20px);
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    .neo-task-worker-readout {
+        color: var(--sem-color-text-neutral-subdued);
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.4;
+        white-space: normal;
+    }
+
+    .neo-task-worker-input {
+        height: auto;
+        margin: 0;
+
+        input {
+            min-height: 36px;
+        }
+    }
+
+    .neo-progress-wrapper {
+        display: grid;
+        gap: 6px;
+
+        progress {
+            appearance: none;
+            background: var(--sem-color-surface-neutral-default);
+            border: 0;
+            border-radius: 6px;
+            height: 10px;
+            overflow: hidden;
+            width: 100%;
+
+            &::-webkit-progress-bar {
+                background: var(--sem-color-surface-neutral-default);
+            }
+
+            &::-webkit-progress-value {
+                background: var(--sem-color-surface-primary-default);
+            }
+
+            &::-moz-progress-bar {
+                background: var(--sem-color-surface-primary-default);
+            }
+        }
+
+        .neo-task-worker-heartbeat {
+            height: 6px;
+        }
+    }
+
+    @media (max-width: 640px) {
+        gap: 12px;
+
+        .neo-task-worker-lanes {
+            gap: 12px;
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .neo-task-worker-card {
+            gap: 8px;
+        }
+    }
+}
