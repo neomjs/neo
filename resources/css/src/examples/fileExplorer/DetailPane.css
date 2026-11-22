@@ -1,0 +1,67 @@
+/* The explorer's detail pane: the selected entry's icon, name and path, then its facts as label and value rows */
+.fe-detail {
+    border       : 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+    border-radius: 8px;
+    box-sizing   : border-box;
+    color        : var(--neo-color);
+    overflow     : auto;
+    padding      : 20px 24px;
+
+    .fe-detail-empty {
+        opacity: 0.7;
+    }
+
+    .fe-detail-head {
+        align-items: center;
+        display    : flex;
+        gap        : 12px;
+    }
+
+    .fe-detail-icon {
+        font-family: var(--fa-style-family-classic);
+        font-size  : 28px;
+        font-weight: 900;
+
+        &.fe-kind-config:before {content: "\f013";}
+        &.fe-kind-css:before    {content: "\f1fc";}
+        &.fe-kind-data:before   {content: "\f121";}
+        &.fe-kind-file:before   {content: "\f15b";}
+        &.fe-kind-folder:before {content: "\f07b";}
+        &.fe-kind-html:before   {content: "\f0ac";}
+        &.fe-kind-image:before  {content: "\f1c5";}
+        &.fe-kind-log:before    {content: "\f022";}
+        &.fe-kind-script:before {content: "\f1c9";}
+        &.fe-kind-text:before   {content: "\f15c";}
+    }
+
+    .fe-detail-name {
+        font-size  : 20px;
+        font-weight: 700;
+        margin     : 0;
+        word-break : break-all;
+    }
+
+    .fe-detail-path {
+        font-family: var(--neo-font-family-mono, ui-monospace, monospace);
+        font-size  : 13px;
+        margin     : 8px 0 18px;
+        opacity    : 0.75;
+        word-break : break-all;
+    }
+
+    dl {
+        column-gap           : 20px;
+        display              : grid;
+        grid-template-columns: max-content 1fr;
+        margin               : 0;
+        row-gap              : 8px;
+    }
+
+    dt {
+        opacity: 0.7;
+    }
+
+    dd {
+        margin: 0;
+    }
+}

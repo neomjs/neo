@@ -1,0 +1,36 @@
+.neo-examples-calendar-year {
+    .neo-examples-calendar-year-header {
+        gap    : 12px;
+        padding: 12px 16px;
+    }
+
+    .neo-examples-calendar-year-title {
+        font-size  : 20px;
+        font-weight: 600;
+        line-height: 25px;
+        margin     : 0 0 4px;
+    }
+
+    .neo-examples-calendar-year-hint {
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0;
+        opacity    : .85;
+    }
+
+    @media (max-width: 640px) {
+        .neo-examples-calendar-year-header {
+            padding: 10px;
+        }
+
+        .neo-examples-calendar-year-title {
+            font-size  : 17px;
+            line-height: 21px;
+        }
+
+        .neo-examples-calendar-year-hint {
+            font-size  : 12px;
+            line-height: 16px;
+        }
+    }
+}

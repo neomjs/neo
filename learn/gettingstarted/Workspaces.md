@@ -79,7 +79,7 @@ The script creates an application structured as follows.
 <img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps/learnneo/FooFolder.png" style="height: 400px;">
 
 These files are part of the typical structure of a Neo.mjs application. The files `index.html`, `app.mjs`, `neo-config.json`, `view/Viewport.mjs` are rarely modified.
-You will, however, edit the main container, and its associated "controller" and "model",
+You will, however, edit the main container, and its associated "controller" and "state provider",
 as well as create new views classes, their controllers, and other application logic.
 
 ## Some source code
@@ -87,23 +87,23 @@ as well as create new views classes, their controllers, and other application lo
 Now let's look at a source file. This is the contents of `MainView.mjs`.
 
 ```javascript readonly
-import Container  from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller from './MainViewController.mjs';
-import ViewModel  from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
-class MainView extends Container {
+class MainView extends Base {
     static config = {
-        className : 'Foo.view.MainView',
-        controller: Controller,
-        model     : ViewModel,
-        layout    : {ntype: 'fit'},
-        items     : []
+        className: 'Foo.view.MainView',
+
+        controller: {module: Controller},
+        stateProvider: {module: MainStateProvider},
+
+        layout: {ntype: 'fit'},
+        items: [],
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 ```
 
 Neo.mjs views are composed of components. A component can be a "container", which means it
@@ -112,40 +112,40 @@ view is a container, which you can see because `MainView extends Base`, and `Bas
 the container base class. The items in a container are configured in the `items:[]`, which
 is empty in this starter code.
 
-This view also has a "controller" and "model". We'll talk about those later, but in a nutshell,
-a controller is where event handling and app logic goes, and a model is where you set up shared
+This view also has a "controller" and a "state provider". We'll talk about those later, but in a nutshell,
+a controller is where event handling and app logic goes, and a state provider is where you set up shared
 bindable data.
 
 ## Adding a button to the view
 
-We'll go into a lot more depth about view, controllers, and models in other topics, but to let
+We'll go into a lot more depth about views, controllers, and state providers in other topics, but to let
 you see how a component is configured let's put a button in the container.
 
 First, we need to import the class that defines buttons. Then we'll describe the new button in the
 `items:[].`
 
 ```javascript readonly
-import Button     from '../../../node_modules/neo.mjs/src/button/Base.mjs';
-import Container  from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller from './MainViewController.mjs';
-import ViewModel  from './MainViewModel.mjs';
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
 
-class MainView extends Container {
+class MainView extends Base {
     static config = {
-        className : 'Foo.view.MainView',
-        controller: Controller,
-        model     : ViewModel,
-        layout    : {ntype:'vbox', align:'start'},
-        items     : [{
+        className: 'Foo.view.MainView',
+
+        controller: {module: Controller},
+        stateProvider: {module: MainStateProvider},
+
+        layout: {ntype: 'vbox', align: 'start'},
+        items: [{
             module: Button,
             text  : 'Button'
         }]
     }
 }
 
-Neo.setupClass(MainView);
-
-export default MainView;
+export default Neo.setupClass(MainView);
 ```
 
 
@@ -162,7 +162,7 @@ controllers, and other things.
 
 ## A running example
 
-Here's a simplified running example. The `model` and `controller` are omitted, because they aren't
+Here's a simplified running example. The `stateProvider` and `controller` are omitted, because they aren't
 actually used in the example, and the import root path is different to reflect the location of the
 Neo.mjs library relative to the examples.
 

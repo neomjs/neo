@@ -1,0 +1,265 @@
+.neo-examples-data-pipeline {
+    /* A phone shows the page as one column and scrolls it */
+    overflow-y: auto;
+
+    .neo-examples-data-pipeline-intro {
+        padding: 14px 16px 8px;
+    }
+
+    .neo-examples-data-pipeline-title {
+        font-size  : 20px;
+        font-weight: 600;
+        line-height: 25px;
+        margin     : 0 0 4px;
+    }
+
+    .neo-examples-data-pipeline-instruction,
+    .neo-examples-data-pipeline-legend,
+    .neo-examples-data-pipeline-payload {
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0;
+        max-width  : 1000px;
+        opacity    : .85;
+    }
+
+    .neo-examples-data-pipeline-toolbar {
+        gap    : 8px 12px;
+        padding: 4px 16px 10px;
+    }
+
+    .neo-examples-data-pipeline-payload {
+        padding: 0 16px 12px;
+    }
+
+    .neo-examples-data-pipeline-legend {
+        padding: 0 16px 14px;
+    }
+
+    /* A run that did not finish: the text keeps its colour, the edge carries the pause's red */
+    .neo-examples-data-pipeline-error {
+        border-left: 3px solid #e5484d;
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0 16px 12px;
+        max-width  : 1000px;
+        padding    : 2px 0 2px 10px;
+    }
+
+    /* The app moves the dot on every frame: it stops for as long as the app stands still */
+    .neo-examples-data-pipeline-pulse {
+        align-items: center;
+        display    : flex;
+        font-size  : 13px;
+        gap        : 8px;
+    }
+
+    .neo-examples-data-pipeline-pulse-track {
+        background   : var(--sem-color-surface-neutral-default);
+        border       : 1px solid var(--sem-color-border-default);
+        border-radius: 8px;
+        height       : 16px;
+        position     : relative;
+        width        : 120px;
+    }
+
+    .neo-examples-data-pipeline-pulse-dot {
+        background   : var(--sem-color-text-primary-default);
+        border-radius: 50%;
+        height       : 10px;
+        margin-left  : -5px;
+        position     : absolute;
+        top          : 2px;
+        width        : 10px;
+    }
+
+    /* A chip per worker, in one colour all over the page: the app's own worker in the colour of a pause */
+    .neo-examples-data-pipeline-worker {
+        border-radius: 10px;
+        font-size    : 12px;
+        font-weight  : 600;
+        line-height  : 18px;
+        padding      : 0 8px;
+        white-space  : nowrap;
+
+        &.neo-ran-on-app {
+            background: rgba(229, 72, 77, .24);
+        }
+
+        &.neo-ran-on-data {
+            background: rgba(62, 99, 221, .3);
+        }
+    }
+
+    .neo-examples-data-pipeline-heartbeat {
+        align-items          : center;
+        display              : grid;
+        gap                  : 4px 12px;
+        grid-template-columns: 270px minmax(0, 1fr) 340px;
+        padding              : 0 16px 8px;
+    }
+
+    .neo-examples-data-pipeline-heartbeat-run {
+        align-items: center;
+        display    : flex;
+        gap        : 8px;
+
+        code {
+            font-size: 12px;
+            opacity  : .85;
+        }
+    }
+
+    .neo-examples-data-pipeline-heartbeat-bar {
+        background   : var(--sem-color-surface-neutral-default);
+        border       : 1px solid var(--sem-color-border-default);
+        border-radius: 4px;
+        height       : 20px;
+        overflow     : hidden;
+        position     : relative;
+    }
+
+    .neo-examples-data-pipeline-heartbeat-alive,
+    .neo-examples-data-pipeline-heartbeat-pause {
+        bottom  : 0;
+        left    : 0;
+        position: absolute;
+        top     : 0;
+    }
+
+    .neo-examples-data-pipeline-heartbeat-alive {
+        background: var(--sem-color-text-primary-default);
+        opacity   : .55;
+    }
+
+    .neo-examples-data-pipeline-heartbeat-pause {
+        background: #e5484d;
+    }
+
+    /* The number first and large: it is what the run cost */
+    .neo-examples-data-pipeline-heartbeat-result {
+        align-items: baseline;
+        display    : flex;
+        font-size  : 13px;
+        gap        : 8px;
+
+        strong {
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size  : 20px;
+            font-weight: 600;
+            line-height: 26px;
+            min-width  : 84px;
+            text-align : right;
+        }
+    }
+
+    /* The stages stand in a row in the order they run; on a narrow page they stand below each other */
+    .neo-examples-data-pipeline-stages {
+        display              : grid;
+        gap                  : 8px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        list-style           : none;
+        margin               : 0;
+        padding              : 0 16px 14px;
+
+        .neo-list-item {
+            align-content: start;
+            background   : var(--sem-color-surface-neutral-default);
+            border       : 1px solid var(--sem-color-border-default);
+            border-radius: 8px;
+            cursor       : default;
+            display      : grid;
+            gap          : 4px;
+            min-width    : 0;
+            padding      : 10px 12px;
+            white-space  : normal;
+        }
+    }
+
+    .neo-examples-data-pipeline-stage-name {
+        font-size  : 13px;
+        font-weight: 600;
+    }
+
+    .neo-examples-data-pipeline-stage-run {
+        align-items    : center;
+        display        : flex;
+        gap            : 8px;
+        justify-content: space-between;
+    }
+
+    /* Digits of one width, so a card does not shift between two runs; a duration of a second or more stays one line */
+    .neo-examples-data-pipeline-stage-duration {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size  : 15px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .neo-examples-data-pipeline-stage-detail {
+        font-size  : 12px;
+        line-height: 17px;
+        opacity    : .8;
+    }
+
+    /* The table is the component's root: it takes the page's width, and its columns share it instead of each
+       holding the theme's minimum, which is wider than a phone */
+    .neo-examples-data-pipeline-report {
+        margin: 0 16px 16px;
+        width : calc(100% - 32px);
+
+        th {
+            min-width: 0;
+        }
+    }
+
+    @media (max-width: 900px) {
+        .neo-examples-data-pipeline-heartbeat {
+            grid-template-columns: 1fr;
+        }
+
+        .neo-examples-data-pipeline-heartbeat-result strong {
+            min-width : 0;
+            text-align: left;
+        }
+
+        .neo-examples-data-pipeline-stages {
+            grid-template-columns: 1fr;
+
+            /* A stage as two lines: its name and both durations, then what it did */
+            .neo-list-item {
+                align-items          : center;
+                gap                  : 2px 14px;
+                grid-template-columns: minmax(0, 1fr) auto auto;
+                padding              : 8px 12px;
+            }
+
+            /* The chip keeps its colour and gives up its words: the rows above name the two workers */
+            .neo-examples-data-pipeline-worker {
+                font-size: 0;
+                height   : 10px;
+                padding  : 0;
+                width    : 10px;
+
+                &.neo-ran-on-app {
+                    background: #e5484d;
+                }
+
+                &.neo-ran-on-data {
+                    background: #3e63dd;
+                }
+            }
+        }
+
+        .neo-examples-data-pipeline-stage-detail {
+            grid-column: 1 / span 3;
+        }
+
+        /* Three columns fit a phone: the orders, the average and the customers stay on the wide page */
+        .neo-examples-data-pipeline-report {
+            th:nth-child(2), td:nth-child(2), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5) {
+                display: none;
+            }
+        }
+    }
+}
