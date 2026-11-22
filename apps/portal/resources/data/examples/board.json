@@ -156,5 +156,41 @@
         "component": "Board",
         "feature": "Columns reordered by drag, folded to a strip, or locked in place",
         "lookFor": "Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked."
+    },
+    {
+        "id": "board-sales-pipeline",
+        "image": "devmode/board-sales-pipeline-14.jpg",
+        "hasLightCover": true,
+        "name": "A sales pipeline",
+        "sourceUrl": "examples/board/salesPipeline",
+        "urls": {
+            "devmode": "examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Each sales stage totals the value of its deals",
+        "lookFor": "Advance Harbor Museum. Its $18,000 leaves Proposal and appears in Negotiation. Drag another deal, or reset the pipeline.",
+        "order": 1241
+    },
+    {
+        "id": "board-due-dates",
+        "image": "devmode/board-due-dates-14.jpg",
+        "hasLightCover": true,
+        "name": "Due dates and what is late",
+        "sourceUrl": "examples/board/dueDates",
+        "urls": {
+            "devmode": "examples/board/dueDates/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/dueDates/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/dueDates/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/dueDates/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Twenty release deliverables carry deadlines relative to today, with overdue badges and a one-click late filter",
+        "lookFor": "Click ⋯ on any card to change its due date in the card editor, or press 'Late only' to narrow the four columns to overdue work.",
+        "order": 1242
     }
 ]

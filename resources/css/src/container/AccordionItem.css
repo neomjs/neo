@@ -41,13 +41,14 @@
     min-height: var(--accordion-item-header-height);
     border-bottom: 1px solid transparent;
 
+    /* The spacing sits on the icon's own box: on its ::before it pushed a wide glyph over the title */
     .neo-accordion-header-icon {
-      &::before {
-        margin: 0 15px 0 10px;
-      }
+      flex-shrink: 0;
+      margin     : 0 15px 0 10px;
+      text-align : center;
 
       &.no-icon {
-        margin-left: 10px;
+        margin: 0 0 0 10px;
       }
     }
 

@@ -818,29 +818,24 @@ test.describe('Portal examples canonical catalog', () => {
         expect(list.catalogMode).toBe('dist_prod')
     });
 
-    test('catalogs one Calendar example, the full calendar', () => {
-        const [basic, ...others] = catalog.filter(record => record.family === 'calendar'),
-              urls               = {
-                  devmode  : 'examples/calendar',
-                  dist_dev : 'dist/development/examples/calendar',
-                  dist_esm : 'dist/esm/examples/calendar',
-                  dist_prod: 'dist/production/examples/calendar'
-              };
+    test('the full calendar and team year link to their own examples in every build', () => {
+        const calendars = catalog.filter(record => record.family === 'calendar');
 
-        expect(others).toEqual([]);
-        expect(basic).toMatchObject({
-            id       : 'calendar',
-            family   : 'calendar',
-            component: 'Calendar',
-            feature  : expect.any(String),
-            lookFor  : expect.any(String)
-        });
-        expect(basic.urls).toEqual({
-            devmode  : `${urls.devmode}/basic/index.html`,
-            dist_dev : `${urls.dist_dev}/basic/index.html`,
-            dist_esm : `${urls.dist_esm}/basic/index.html`,
-            dist_prod: `${urls.dist_prod}/basic/index.html`
-        })
+        for (const [id, folder] of [['calendar', 'basic'], ['calendar-year', 'year']]) {
+            const record = calendars.find(item => item.id === id),
+                  route  = `examples/calendar/${folder}/index.html`;
+            expect(record).toMatchObject({
+                component: 'Calendar',
+                feature  : expect.any(String),
+                lookFor  : expect.any(String)
+            });
+            expect(record.urls).toEqual({
+                devmode  : route,
+                dist_dev : `dist/development/${route}`,
+                dist_esm : `dist/esm/${route}`,
+                dist_prod: `dist/production/${route}`
+            })
+        }
     });
 
     test('visual component records keep their captions and build destinations in their home groups', () => {
