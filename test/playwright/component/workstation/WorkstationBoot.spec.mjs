@@ -391,16 +391,6 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
 
             probe = await attachPageSharedAppWorker({browser, page: cold});
 
-            // Setup, not the step under test: the cold boot's own projection settles first. A loaded runner took
-            // longer than 20 s for it, so it gets 60 s, and a miss leaves the projection state to tell slow from stuck.
-            await probe.evaluate(async id => {
-                let workspace = globalThis.Neo.getComponent(id);
-
-                while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
-
-                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 60000))])
-            }, hostId).catch(error => failWithProjectionState(browser, cold, error));
-
             await probe.evaluate(async id => {
                 const {Neo} = globalThis,
                       api   = Neo.main.DomAccess,
@@ -411,8 +401,10 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
 
                 while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
 
-                // Each wait on the refresh chain is bounded and named, so a miss reports its phase, not the test timeout
-                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 20000))]);
+                // Setup, not the step under test: the cold boot's own projection settles first, read right before the
+                // held read goes in, as a follow-up projection replaces refreshPromise. A loaded runner took longer than
+                // 20 s for it, so it gets 60 s, and a miss leaves the projection state to tell slow from stuck.
+                await Promise.race([workspace.refreshPromise, new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 60000))]);
 
                 held.workspace = workspace;
 
@@ -440,7 +432,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                 };
 
                 workspace.projectDockZoneDocument(workspace.dockModel).catch(() => {})
-            }, hostId);
+            }, hostId).catch(error => failWithProjectionState(browser, cold, error));
 
             await expect.poll(() => probe.evaluate(() => typeof globalThis.__heldOverflowRead.release === 'function'),
                 {message: 'the older projection waits on its overflow read', timeout: 10000}).toBe(true);
