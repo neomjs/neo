@@ -3,7 +3,9 @@
     padding: 16px;
 
     > * {
-        max-width: 920px;
+        margin-inline: auto;
+        max-width    : 920px;
+        width        : 100%;
     }
 
     /* Room for the hint of a focused toolbar button, so it covers no ticket */
@@ -22,6 +24,11 @@
         white-space: normal;
     }
 
+    /* .neo-list zeroes its own inline margins */
+    .neo-tooltip-example-tickets {
+        margin-inline: auto;
+    }
+
     .neo-tooltip-example-tickets .neo-list-item {
         display: flex;
         gap: 12px;
@@ -35,11 +42,17 @@
 
 /* The tooltip theme sets one line's height: a card with a table grows to its content */
 .neo-tooltip.neo-tooltip-example-velocity {
-    height: auto;
+    height : auto;
+    padding: 10px 14px;
+
+    strong {
+        font-size: 1.1em;
+    }
 
     p {
-        color : inherit;
-        margin: 4px 0 6px;
+        color    : inherit;
+        font-size: .9em;
+        margin   : 4px 0 8px;
     }
 
     table {
