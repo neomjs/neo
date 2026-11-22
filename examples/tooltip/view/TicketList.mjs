@@ -21,7 +21,7 @@ class TicketList extends List {
      */
     createItemContent(record) {
         return {
-            data: {neoTooltip: `${record.assignee} · ${record.points} points · ${record.status}`},
+            data: {neoTooltip: `${record.assignee} · ${record.points} ${record.points === 1 ? 'point' : 'points'} · ${record.status}`},
             cn  : [
                 {tag: 'span', cls: ['neo-tooltip-example-ticket-id'], text: record.id},
                 {tag: 'span', cls: ['neo-tooltip-example-ticket-title'], text: record.title}

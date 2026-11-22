@@ -61,10 +61,15 @@
         "family": "dialogs",
         "order": 440,
         "component": "Tooltip",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
         "feature": "A sprint board whose controls and tickets explain themselves: plain hints, a rich velocity card and delays to tune, by pointer or keyboard.",
         "lookFor": "Hover a toolbar button or a ticket, or move there with Tab; open Velocity for the card, press Escape to close it, then change the delays.",
+        "hasLightCover": true,
         "image": "devmode/tooltip-14.jpg",
-        "name": "tooltip.Base",
+        "name": "Tooltips",
         "sourceUrl": "examples/tooltip",
         "urls": {
             "devmode": "examples/tooltip/index.html",
