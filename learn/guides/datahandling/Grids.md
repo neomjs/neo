@@ -295,8 +295,8 @@ class MainView extends Viewport {
                 ]
             },
             columns: [
-                {text: 'City',       dataField: 'city',       filterable: true},
-                {text: 'Population', dataField: 'population', filterable: true}
+                {text: 'City',       dataField: 'city'},
+                {text: 'Population', dataField: 'population', filterConfig: {operator: '>='}}
             ]
         }]
     }
@@ -304,9 +304,10 @@ class MainView extends Viewport {
 MainView = Neo.setupClass(MainView);
 ```
 
-For a column to be filterable, you must also set its `filterable` config to `true`. The grid automatically provides a
-text input filter for string fields and a number input filter for number fields. More complex filter types can be
-implemented by extending `Neo.grid.header.Filter`.
+Every column header then shows a text field, and typing into it filters the column with the `like` operator. A column's
+`editorConfig` replaces that field (for example a number field or a ComboBox), and its `filterConfig` sets the Store
+filter's defaults, such as the `operator` (the population column above keeps rows at or above the typed value).
+`examples/grid/filtering` configures both per column.
 
 ### Grid Search Toolbar
 
