@@ -1,8 +1,8 @@
 import ComponentController from '../../../src/controller/Component.mjs';
 
 /**
- * @summary Brings the month of today into view on a phone, where the year view stacks its months in one column and
- * would open on January.
+ * @summary Brings the month of today into view as the year opens. The year view starts on January, so at any size
+ * where the months do not all fit, today would sit below the fold.
  * @class Neo.examples.calendar.year.MainContainerController
  * @extends Neo.controller.Component
  */
@@ -16,11 +16,11 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * True while the viewport is at most a phone's width
-     * @member {Boolean|null} phone=null
+     * True once the viewport reported its first size: the layout has settled
+     * @member {Boolean} sized=false
      * @protected
      */
-    phone = null
+    sized = false
 
     /**
      * True once the month of today was scrolled into view: a later resize leaves the visitor's scroll position alone
@@ -47,40 +47,40 @@ class MainContainerController extends ComponentController {
         if (item.flag === 'year') {
             me.yearView = item;
 
-            item.mounted ? me.showTodayOnPhone() : me.observeConfig(item, 'mounted', value => value && me.showTodayOnPhone())
+            item.mounted ? me.showToday() : me.observeConfig(item, 'mounted', value => value && me.showToday())
         }
     }
 
     /**
-     * @summary Notes whether the viewport is at most a phone's width.
+     * @summary Notes the viewport's first size.
      * @param {Object} data The viewport's resize event
      */
     onResize(data) {
         let me = this;
 
         if (data.id === me.component.id) {
-            me.phone = data.borderBoxSize.inlineSize <= 640;
-            me.showTodayOnPhone()
+            me.sized = true;
+            me.showToday()
         }
     }
 
     /**
-     * @summary Scrolls the month of today to the top of the year view, once, when the viewport is a phone's width and
-     * the year view is mounted. The resize and the year view's mount arrive in either order, so both call this.
+     * @summary Scrolls the year view just far enough to show the month of today whole, once, as soon as the layout
+     * has settled and the year view is mounted. The two arrive in either order, so both call this.
      * @returns {Promise<void>}
      */
-    async showTodayOnPhone() {
+    async showToday() {
         let me         = this,
             {yearView} = me;
 
-        if (me.phone && yearView?.mounted && !me.todayShown) {
+        if (me.sized && yearView?.mounted && !me.todayShown) {
             me.todayShown = true;
 
             // The months render on mount: the next update settles after them
             await yearView.promiseUpdate();
 
             await Neo.main.DomAccess.scrollIntoView({
-                block        : 'start',
+                block        : 'nearest',
                 querySelector: `#${yearView.id} .neo-month:has(.neo-today)`,
                 windowId     : me.windowId
             })
