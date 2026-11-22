@@ -1,17 +1,20 @@
-import {setup}        from '../../../setup.mjs';
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import '../../../../../src/manager/Instance.mjs';
-import '../../../../../src/vdom/Helper.mjs';
-import MainContainer  from '../../../../../examples/stateProvider/advanced/MainContainer.mjs';
+import {setup} from '../../../setup.mjs';
 
 const appName = 'StateProviderAdvancedUnitTest';
 
 setup({
-    neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: true, useDomApiRenderer: false},
+    neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: true, useDomApiRenderer: true, useVdomWorker: false},
     appConfig: {name: appName, isMounted: () => true, vnodeInitialising: false}
 });
+
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
+import '../../../../../src/manager/Instance.mjs';
+import '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import '../../../../../src/vdom/util/StringFromVnode.mjs';
+import '../../../../../src/vdom/Helper.mjs';
+import MainContainer  from '../../../../../examples/stateProvider/advanced/MainContainer.mjs';
 
 test.beforeEach(() => {
     Neo.ns('Neo.Main', true);

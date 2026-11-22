@@ -32,7 +32,7 @@
             "Desktop",
             "Mobile"
         ],
-        "feature": "A profile form, a dialog and a second browser window edit the same member record, while one preview card keeps its own compact density.",
+        "feature": "A profile form, a dialog and a second window edit one member; one card keeps its own density.",
         "lookFor": "Type in Full name and watch the header follow; open Edit in dialog and Open second window, change a field in either one, then flip the preview card's density.",
         "scope": "Allow popups on desktop to launch the companion window.",
         "featured": false,
