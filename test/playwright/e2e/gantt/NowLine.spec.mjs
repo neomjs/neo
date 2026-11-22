@@ -15,7 +15,7 @@ const
     THEMES = ['neo-theme-neo-light', 'neo-theme-neo-dark'];
 
 /**
- * @summary Sets the axis instant, the theme and, for a band case, one non-working date in the App Worker. `locked`
+ * @summary Sets the axis instant, theme and optional non-working date, then waits for the markers to show that instant. `locked`
  * moves the timeline column into that lock region through its own `locked` config.
  * @param {Object} page
  * @param {Object} options
@@ -27,16 +27,32 @@ const
 async function arrange(page, {now, theme, band, locked}) {
     await expect.poll(() => page.workers().some(worker => worker.url().includes('worker/App'))).toBe(true);
 
-    await page.workers().find(worker => worker.url().includes('worker/App')).evaluate(({now, theme, band, locked}) => {
-        const items = [...globalThis.Neo.manager.Instance.items.values()];
+    const nowOffset = await page.workers().find(worker => worker.url().includes('worker/App')).evaluate(({now, theme, band, locked}) => {
+        const
+            items = [...globalThis.Neo.manager.Instance.items.values()],
+            axis  = items.find(item => item.timelineColumn?.timeAxis)?.timelineColumn.timeAxis;
 
         items.filter(item => item.className === 'Neo.timeline.TimeAxis').forEach(axis => {
             axis.set(band ? {now, nonWorkingDates: [band]} : {now})
         });
         band && items.filter(item => 'showNonWorkingTime' in item && item.timeAxis).forEach(owner => { owner.showNonWorkingTime = true });
         locked && items.filter(item => item.timelineColumn).forEach(owner => { owner.timelineColumn.locked = locked });
-        items.filter(item => /Viewport$/.test(item.className)).forEach(viewport => { viewport.theme = theme })
-    }, {now, theme, band: band ?? null, locked: locked ?? null})
+        items.filter(item => /Viewport$/.test(item.className)).forEach(viewport => { viewport.theme = theme });
+
+        return axis?.getNowOffset()
+    }, {now, theme, band: band ?? null, locked: locked ?? null});
+
+    expect(Number.isFinite(nowOffset), 'the active axis contains the requested instant').toBe(true);
+
+    // Visible markers can still carry the preceding offset while the App Worker updates the header and rows.
+    await expect.poll(() => page.evaluate(expected => {
+        const
+            header = document.querySelector('.neo-timeline-header .neo-timeline-now'),
+            bodies = [...document.querySelectorAll('.neo-grid-body')].filter(body => body.getBoundingClientRect().width > 0),
+            rows   = bodies.flatMap(body => [...body.querySelectorAll('.neo-timeline-track .neo-timeline-now')]);
+
+        return !!header && rows.length > 2 && [header, ...rows].every(marker => Math.abs(parseFloat(marker.style.left) - expected) < 0.01)
+    }, nowOffset), {message: 'the header and all visible rows draw the requested instant'}).toBe(true)
 }
 
 /**
