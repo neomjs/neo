@@ -701,10 +701,20 @@ class VdomLifecycle extends Base {
             opts.meta = me.getVdomUpdateMeta()
         }
 
-        // We cannot set the config directly => it could already be false,
-        // and we still want to pass it further into subtrees
+        // We cannot set the config directly => it could already be false, and we still want to pass it into subtrees.
+        // Only what this payload carries is up to date: descendants within its depth, and the merged children it
+        // expands at their own depth. A deeper descendant keeps its flag, the wake of an update still owed to it
         me._needsVdomUpdate = false;
-        me.afterSetNeedsVdomUpdate?.(false, true);
+        me.afterSetNeedsVdomUpdate?.(false, true, updateDepth);
+
+        mergedChildIds?.forEach(childId => {
+            const child = Neo.getComponent(childId);
+
+            if (child) {
+                child._needsVdomUpdate = false;
+                child.afterSetNeedsVdomUpdate?.(false, true, child.updateDepth)
+            }
+        });
 
         // Reset the updateDepth and denseUpdate to their defaults for the next update cycle
         me._updateDepth = me.constructor.config.updateDepth;
