@@ -28,6 +28,11 @@ class Component extends ContentComponent {
          */
         className: 'Portal.view.content.Component',
         /**
+         * @member {String[]} contentObserverSelectors=['.neo-timeline-item[data-record-id]']
+         * @protected
+         */
+        contentObserverSelectors: ['.neo-timeline-item[data-record-id]'],
+        /**
          * @member {Object} domListeners
          */
         domListeners: {
@@ -124,34 +129,6 @@ class Component extends ContentComponent {
      */
     rewriteLinks(html) {
         return rewriteRepoLinks(super.rewriteLinks(html))
-    }
-
-    /**
-     * @param {Object} record
-     * @returns {Promise<void>}
-     */
-    async doFetchContent(record) {
-        let me         = this,
-            {windowId} = me,
-            content, data, path;
-
-        path = me.getContentPath(record);
-
-        if (record.isLeaf && path) {
-            data    = await fetch(path);
-            content = await data.text();
-
-            me.value = content;
-
-            me.toggleCls('lab', record.name?.startsWith('Lab:'));
-
-            Neo.main.addon.IntersectionObserver.observe({
-                disconnect: true,
-                id        : me.id,
-                observe   : ['.neo-timeline-item[data-record-id]'],
-                windowId
-            })
-        }
     }
 
     /**

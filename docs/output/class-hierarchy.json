@@ -619,6 +619,7 @@
  "Portal.canvas.ServicesCanvas": "Portal.canvas.Base",
  "Portal.canvas.TimelineCanvas": "Portal.canvas.Base",
  "Portal.childapps.preview.MainContainer": "Neo.container.Viewport",
+ "Portal.connection.ExampleCatalog": "Neo.data.connection.Xhr",
  "Portal.model.BlogMedium": "Neo.data.Model",
  "Portal.model.BlogNeo": "Neo.data.Model",
  "Portal.model.Content": "Neo.data.Model",

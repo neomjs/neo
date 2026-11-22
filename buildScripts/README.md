@@ -63,6 +63,12 @@ npm run capture-examples -- --base-url http://localhost:8080/ --record grid-cell
 npm run capture-examples -- --base-url http://localhost:8080/ --family grid-table
 ```
 
+The catalog lives in `apps/portal/resources/data/examples/`: one `<group>.json` per group, and `index.json`
+naming them. A record's `order` places it among all records, so a group's file can hold a featured card or one
+another group borrows through `alsoIn`; a record without `order` comes after the others. An examples PR leaves
+`apps/portal/resources/data/seo.json` alone: `buildScripts/release/prepare.mjs` regenerates it at the cut, for the
+published package that middleware-v2 reads it from.
+
 **A cover is the frame a visitor lands on.** A covered record without a recipe is captured from its landing frame:
 a 960×540 viewport at device scale 1⅓ (a 1280×720 JPEG), the whole frame, opened with `?theme=neo-theme-neo-dark` as
 the dark catalog opens it, once the themed root is painted, the network is idle and the DOM has held still for a second. An example whose cover needs a state (an open editor, a selection, a zoom) starts in

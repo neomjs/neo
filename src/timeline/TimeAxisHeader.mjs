@@ -1,8 +1,7 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
+import DateUtil        from '../util/Date.mjs';
 import TimeAxis        from './TimeAxis.mjs';
-
-const formats = new Map();
 
 /**
  * @summary Two-tier timeline header (`Neo.timeline.TimeAxisHeader`) projecting only viewport-visible major and minor ticks.
@@ -33,15 +32,7 @@ class TimeAxisHeader extends Component {
      * @returns {String}
      */
     static formatWall(locale, options, wall, wallEnd) {
-        const key    = `${locale}|${JSON.stringify(options)}`;
-        let   format = formats.get(key);
-
-        if (!format) {
-            format = new Intl.DateTimeFormat(locale, {...options, timeZone: 'UTC'});
-            formats.set(key, format)
-        }
-
-        return wallEnd ? format.formatRange(wall, wallEnd) : format.format(wall)
+        return DateUtil.formatWall(locale, options, wall, wallEnd)
     }
 
     /**

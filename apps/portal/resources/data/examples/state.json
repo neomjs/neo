@@ -1,0 +1,20 @@
+[
+    {
+        "id": "state-provider",
+        "family": "state",
+        "order": 210,
+        "feature": "Nested state providers bind button texts through the formatters shown beside them",
+        "lookFor": "Edit data.button2Text and watch both buttons follow: the first reads from two providers. Then press Add a third button & textfield.",
+        "featured": false,
+        "image": "devmode/model-component-example.png",
+        "name": "State Provider Example",
+        "sourceUrl": "examples/stateProvider/advanced",
+        "urls": {
+            "devmode": "examples/stateProvider/advanced/index.html",
+            "dist_dev": "dist/development/examples/stateProvider/advanced/index.html",
+            "dist_esm": "dist/esm/examples/stateProvider/advanced/index.html",
+            "dist_prod": "dist/production/examples/stateProvider/advanced/index.html"
+        },
+        "hiddenIn": []
+    }
+]

@@ -11,15 +11,38 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../../src/Neo.mjs';
-import * as core          from '../../../../../src/core/_export.mjs';
-import ContentComponent   from '../../../../../src/app/content/Component.mjs';
-import BlogComponent      from '../../../../../apps/portal/view/news/blog/Component.mjs';
-import LearnComponent     from '../../../../../apps/portal/view/learn/Component.mjs';
-import ReleaseComponent   from '../../../../../apps/portal/view/news/release/Component.mjs';
-import TimelineComponent  from '../../../../../apps/portal/view/content/Component.mjs';
-import {rewriteRepoLinks} from '../../../../../apps/portal/Util.mjs';
+import {test, expect}                      from '@playwright/test';
+import Neo                                 from '../../../../../src/Neo.mjs';
+import * as core                           from '../../../../../src/core/_export.mjs';
+import ContentComponent                    from '../../../../../src/app/content/Component.mjs';
+import BlogComponent                       from '../../../../../apps/portal/view/news/blog/Component.mjs';
+import LearnComponent                      from '../../../../../apps/portal/view/learn/Component.mjs';
+import ReleaseComponent                    from '../../../../../apps/portal/view/news/release/Component.mjs';
+import TimelineComponent                   from '../../../../../apps/portal/view/content/Component.mjs';
+import {getSearchParams, rewriteRepoLinks} from '../../../../../apps/portal/Util.mjs';
+
+test.describe('getSearchParams — Portal Learning deck selection', () => {
+    test('campaign parameters parse without overriding the default deck', () => {
+        const params = getSearchParams('?utm_source&utm_content=part=a%26b%3D%22release%22&utm_campaign=v14+launch');
+
+        expect(params).toEqual({
+            utm_source  : '',
+            utm_content : 'part=a&b="release"',
+            utm_campaign: 'v14 launch'
+        });
+        expect(params.deck).toBeUndefined()
+    });
+
+    test('an explicit deck takes the last value when the key is repeated', () => {
+        expect(getSearchParams('?deck=learnneo&deck=training%2Ddeck')).toEqual({deck: 'training-deck'})
+    });
+
+    test('a missing or empty query produces an empty object', () => {
+        expect(getSearchParams(null)).toEqual({});
+        expect(getSearchParams('')).toEqual({});
+        expect(getSearchParams('?')).toEqual({})
+    })
+});
 
 /**
  * `rewriteRepoLinks()` and the four Portal Markdown views that call it after the engine's
