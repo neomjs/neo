@@ -175,8 +175,9 @@ if (programOpts.info) {
               steps   = [];
 
         if (threads === 'yes') {
-            // One run for both environments: its own pool spreads their fourteen webpack builds over the cores
-            env !== 'esm' && steps.push(['threads', nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', env, ...cpArgs.slice(2), '--no-stamp']]);
+            // One run for both environments: its own pool spreads their fourteen webpack builds over the cores.
+            // build-all builds every thread, so the run asks no thread question; `build-threads` keeps that choice
+            env !== 'esm' && steps.push(['threads', nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', env, '-t', 'all', ...cpArgs.slice(2), '--no-stamp']]);
 
             (env === 'all' || env === 'esm') && steps.push(['esmodules', nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp', '--no-docs-output']])
         }
