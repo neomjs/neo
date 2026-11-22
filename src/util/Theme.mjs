@@ -1,6 +1,6 @@
 /**
  * @module Neo.util.Theme
- * @summary Dependency-free theme namespace rules shared by the runtime and source tooling.
+ * @summary Dependency-free theme rules shared by the runtime and source tooling.
  */
 
 /**
@@ -26,7 +26,7 @@ export function getThemeNamespace(className, appThemeFolder) {
  * @param {Object} config
  * @param {Boolean} [config.prefersDarkTheme] Whether the system prefers a dark theme.
  * @param {String[]} config.themes The configured theme names.
- * @param {String|URL} [config.url] The current URL, searched for a `theme` query parameter.
+ * @param {Object|URL} [config.url] The current URL as Neo.config.url holds it ({base, href, search}), or a URL; its search is read for a theme query parameter.
  * @returns {String} The theme name to start in.
  */
 export function resolveStartTheme({prefersDarkTheme, themes, url}) {

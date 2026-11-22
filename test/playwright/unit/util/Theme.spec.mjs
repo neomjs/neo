@@ -34,6 +34,12 @@ test.describe('Neo.util.Theme resolveStartTheme', () => {
         expect(resolveStartTheme({prefersDarkTheme: false, themes, url})).toBe('neo-theme-light');
     });
 
+    test('reads the plain object shape Neo.config.url ships as', () => {
+        const url = {search: '?theme=neo-theme-neo-dark'};
+
+        expect(resolveStartTheme({prefersDarkTheme: false, themes, url})).toBe('neo-theme-neo-dark');
+    });
+
     test('tolerates a missing url', () => {
         expect(resolveStartTheme({prefersDarkTheme: false, themes})).toBe('neo-theme-light');
     });
