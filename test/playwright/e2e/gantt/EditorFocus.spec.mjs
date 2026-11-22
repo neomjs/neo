@@ -31,6 +31,23 @@ async function openEditor(page, keyboard) {
     await expect(page.locator('.neo-timeline-event-editor')).toBeVisible()
 }
 
+/**
+ * @summary Waits for the opening flight before targeting a button that moves during the animation.
+ * @param {import('@playwright/test').Page} page
+ */
+async function openEditorForPointerInput(page) {
+    await openEditor(page, false);
+
+    const id        = await page.locator('.neo-timeline-event-editor').getAttribute('id'),
+          appWorker = page.workers().find(worker => worker.url().includes('worker/App'));
+
+    await expect.poll(() => appWorker.evaluate(id => {
+        const editor = Neo.get(id);
+
+        return Boolean(editor?.mounted && !editor.hidden && editor.mountFlight === null)
+    }, id), {message: 'The task editor has finished opening'}).toBe(true)
+}
+
 test.beforeEach(async ({page}) => {
     await page.setViewportSize({width: 1440, height: 900});
     await page.goto('/examples/gantt/basic/index.html?theme=neo-theme-neo-light');
@@ -48,12 +65,12 @@ for (const [opened, keyboard] of [['by double-click', false], ['by Enter', true]
 }
 
 test('the editor hands focus back to its task on Cancel and on Save', async ({page}) => {
-    await openEditor(page, false);
+    await openEditorForPointerInput(page);
     await page.locator('.neo-timeline-event-editor-cancel').click();
     await expect(page.locator('.neo-timeline-event-editor')).toBeHidden();
     await expect.poll(() => focusedTask(page)).toBe('design');
 
-    await openEditor(page, false);
+    await openEditorForPointerInput(page);
     await page.locator('.neo-timeline-event-editor input[name="percentDone"]').fill('50');
     await page.locator('.neo-timeline-event-editor-save').click();
     await expect(page.locator('.neo-timeline-event-editor')).toBeHidden();
