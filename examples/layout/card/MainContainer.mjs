@@ -176,7 +176,7 @@ class MainContainer extends ConfigurationViewport {
             last          = cardContainer.items.length - 1;
 
         if (index === last) {
-            me.getItem('summary').html =
+            me.getItem('summary').text =
                 `${me.getItem('workspace-name').value} is ready, and an invite goes to ${me.getItem('invite-email').value}.`
         }
 

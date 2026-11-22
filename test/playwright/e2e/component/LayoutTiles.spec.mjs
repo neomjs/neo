@@ -84,6 +84,24 @@ test.describe('Layout tiles', () => {
         await expect(next).toBeDisabled()
     });
 
+    test('the wizard\'s summary shows a typed name as text, angle brackets included', async ({page}) => {
+        const next    = page.getByRole('button', {name: 'Next'}),
+              summary = page.locator('.card-wizard-summary');
+
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto('/examples/layout/card/index.html');
+        await expect.poll(() => wizardStep(page)).toEqual(['Name your workspace']);
+
+        await page.getByRole('textbox', {name: 'Workspace'}).fill('Lighthouse <Studio>');
+        await next.click();
+        await expect.poll(() => wizardStep(page)).toEqual(['Invite your team']);
+        await next.click();
+        await expect.poll(() => wizardStep(page)).toEqual(['You are set']);
+
+        await expect(summary).toHaveText('Lighthouse <Studio> is ready, and an invite goes to ana@example.com.');
+        await expect(summary.locator('studio')).toHaveCount(0)
+    });
+
     test('the fragment\'s fields are the form\'s own DOM children, hide at once, and move as one unit', async ({page}) => {
         const fragment = ['Street', 'City', 'Postcode', 'Country'].map(name => `<div> ${name}fragment`);
 
