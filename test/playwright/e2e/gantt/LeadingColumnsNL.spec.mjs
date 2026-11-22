@@ -2,10 +2,10 @@ import {test, expect} from '../../fixtures.mjs';
 
 const
     EXAMPLE_URL = '/examples/gantt/basic/index.html',
-    // `gantt/basic` draws 172.8 px a day from Mon 9 Nov; its task column is 220 px wide
-    DAY_PX      = 172.8,
-    // Both links of `gantt/basic`
-    LINKS       = ['survey-design', 'design-materials'],
+    // `gantt/basic` draws 144 px a day from Mon 9 Nov; its task column is 220 px wide
+    DAY_PX      = 144,
+    // Links within the first week window (across all three phases and the milestone) of `gantt/basic`
+    LINKS       = ['survey-design', 'design-materials', 'trench-spigots', 'spigots-paths', 'build-ready', 'paths-ready', 'ready-soil'],
     TASK_WIDTH  = 220;
 
 /**
@@ -168,4 +168,38 @@ test('a responsive lock policy keeps the links on their bars both ways', async (
     await page.setViewportSize({width: 1440, height: 900});
     await expect.poll(() => inGantt(page, gantt => gantt.body.columnPositions.get(gantt.timelineDataField)?.x)).toBe(0);
     await expect.poll(() => measureLinks(page)).toBe('on bars')
+});
+
+test('opens on three phases, twelve tasks, cross-phase links and one milestone with a clean console at desktop and phone sizes', async ({page}) => {
+    const errors = [];
+    page.on('pageerror', err => errors.push(err.message));
+    page.on('console', msg => {
+        if (msg.type() === 'error' && !msg.location()?.url?.endsWith('/favicon.ico')) {
+            errors.push(msg.text())
+        }
+    });
+
+    await expect(page.locator('.neo-gantt-bar-summary')).toHaveCount(3);
+    await expect(page.locator('.neo-gantt-bar-milestone[data-event-id="water-ready"]')).toBeVisible();
+    await expect(page.locator('.neo-timeline-bar-progress').first()).toBeVisible();
+
+    const plan = await inGantt(page, gantt => ({
+        dependencies: gantt.dependencyStore.getCount(),
+        leaves      : gantt.store.items.filter(item => item.isLeaf !== false).length,
+        milestones  : gantt.store.items.filter(item => item.milestone).length,
+        phases      : gantt.store.items.filter(item => item.isLeaf === false).length
+    }));
+    expect(plan).toEqual({dependencies: 9, leaves: 12, milestones: 1, phases: 3});
+
+    for (const [width, height] of [[1440, 900], [390, 844]]) {
+        await page.setViewportSize({width, height});
+        for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+            await page.goto(`${EXAMPLE_URL}?theme=${theme}`);
+            await expect(page.locator('.neo-timeline-bar[data-event-id="survey"]')).toBeVisible();
+            const overflow = await page.locator('.project-toolbar').evaluate(bar => bar.scrollWidth - bar.clientWidth);
+            expect(overflow, `${width}x${height} ${theme} toolbar overflow`).toBeLessThanOrEqual(1)
+        }
+    }
+
+    expect(errors).toEqual([])
 });
