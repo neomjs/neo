@@ -32,8 +32,8 @@ class MainContainerController extends Controller {
     #cacheOpens = 0;
     #network    = 0;
     #opens      = 0;
-    #pending    = new Map();
     #portraits  = new Map();
+    #transfers  = profiles.map(() => ({pending: null, fetching: false, generation: 0}));
 
     /** @summary Releases the portrait URLs created by this view. */
     destroy() {
@@ -48,13 +48,17 @@ class MainContainerController extends Controller {
     onMounted() {
         const tabs = this.getReference('profiles');
 
-        tabs.getTabButtons().forEach((button, index) => {
-            button.addDomListeners({
-                mouseenter: () => this.onProfileIntent(index),
-                scope     : this
+        if (!Neo.config.hasTouchEvents) {
+            tabs.getTabButtons().forEach((button, index) => {
+                button.addDomListeners({
+                    mouseenter: () => this.onProfileIntent(index),
+                    scope     : this
+                })
             })
-        });
+        }
 
+        // Take the cache snapshot when selection changes, before the tab layout finishes asynchronously.
+        this.observeConfig(tabs, 'activeIndex', index => this.showProfile(index));
         this.showProfile(tabs.activeIndex)
     }
 
@@ -70,7 +74,7 @@ class MainContainerController extends Controller {
 
         try {
             const cache = await caches.open(cacheName),
-                  ready = await cache.match(profiles[index].url) || await this.downloadProfile(index);
+                  ready = await cache.match(profiles[index].url) || await this.downloadProfile(index, cache);
 
             if (!this.isDestroyed && tabs.activeIndex === selection && !this.#cacheOnly) {
                 this.getReference('activity').text = ready
@@ -82,15 +86,6 @@ class MainContainerController extends Controller {
                 this.getReference('activity').text = 'The portrait could not be preloaded. You can still try opening the tab.'
             }
         }
-    }
-
-    /**
-     * @summary Opens a profile using the asset already available to the visitor.
-     * @param {Object} event
-     * @param {Number} event.value
-     */
-    onActiveIndexChange({value}) {
-        this.showProfile(value)
     }
 
     /** @summary Gives touch and keyboard users the same preloading action as hovering over a tab. */
@@ -116,16 +111,25 @@ class MainContainerController extends Controller {
     /**
      * @summary Shares an in-flight transfer between hover and click and records completed network loads once.
      * @param {Number} index
+     * @param {Cache} cache
      * @returns {Promise<Boolean>}
      */
-    async downloadProfile(index) {
-        if (this.#pending.has(index)) return this.#pending.get(index);
+    async downloadProfile(index, cache) {
+        const transfer = this.#transfers[index];
+
+        if (transfer.pending) return transfer.pending;
         if (this.#cacheOnly || this.isDestroyed) return false;
 
-        const pending = (async () => {
+        transfer.pending = (async () => {
+            // A miss reported to a competing caller can predate a transfer that has already finished.
+            if (await cache.match(profiles[index].url)) return true;
+
             const registered = await this.waitFor(() => Boolean(Neo.ServiceWorker?.preloadAssets), {attempts: 250, delay: 20});
 
             if (!registered || this.#cacheOnly || this.isDestroyed) return false;
+
+            transfer.fetching = true;
+            transfer.generation++;
 
             const {success} = await Neo.ServiceWorker.preloadAssets({
                 cacheName,
@@ -140,12 +144,11 @@ class MainContainerController extends Controller {
             return success
         })();
 
-        this.#pending.set(index, pending);
-
         try {
-            return await pending
+            return await transfer.pending
         } finally {
-            this.#pending.delete(index)
+            transfer.pending  = null;
+            transfer.fetching = false
         }
     }
 
@@ -156,14 +159,18 @@ class MainContainerController extends Controller {
     async showProfile(index) {
         const request         = ++this.#opens,
               profile         = profiles[index],
-              readsCurrentTab = () => !this.isDestroyed && request === this.#opens;
+              readsCurrentTab = () => !this.isDestroyed && request === this.#opens,
+              transfer        = this.#transfers[index];
+
+        const {fetching, generation} = transfer;
 
         try {
             const cache     = await caches.open(cacheName);
             let   response  = await cache.match(profile.url);
-            const fromCache = Boolean(response) || this.#pending.has(index);
+            // An overlapping transfer can fill the cache during this asynchronous lookup.
+            const fromCache = Boolean(response) && !fetching && generation === transfer.generation;
 
-            if (!response && await this.downloadProfile(index)) {
+            if (!response && await this.downloadProfile(index, cache)) {
                 response = await cache.match(profile.url)
             }
 

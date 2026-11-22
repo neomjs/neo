@@ -58,7 +58,9 @@ class MainContainer extends Viewport {
             cls   : ['neo-preload-intro'],
             flex  : 'none',
             tag   : 'p',
-            text  : 'Hover over Alice’s tab or use Preload next tab. Then switch to Cache-only mode and open Alice.'
+            text  : Neo.config.hasTouchEvents
+                ? 'Tap Preload next tab to warm Alice’s portrait. When it’s ready, turn on Cache-only mode and open Alice.'
+                : 'Hover over Alice’s tab or use Preload next tab. When her portrait is ready, turn on Cache-only mode and open Alice.'
         }, {
             module: Container,
             cls   : ['neo-preload-controls'],
@@ -90,7 +92,6 @@ class MainContainer extends Viewport {
             cls      : ['neo-preload-profiles'],
             flex     : 'none',
             reference: 'profiles',
-            listeners: {activeIndexChange: 'onActiveIndexChange'},
             items    : profiles.map(({name, role}, index) => ({
                 module: Container,
                 cls   : ['neo-preload-profile'],
