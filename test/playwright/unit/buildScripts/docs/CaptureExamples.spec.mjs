@@ -31,32 +31,45 @@ test('capture identity and URL come from the catalog without mutating either inp
     expect({raw, records}).toEqual(before)
 });
 
-test('a covered record without a recipe fails inside the migrated family, while other legacy families stay independent', () => {
+/** @summary The ids of the validated entries that capture their record's landing frame. */
+function landingIds(valid) {
+    return valid.recipes.filter(recipe => recipe.landing).map(recipe => recipe.id)
+}
+
+test('a covered record without a recipe is captured from the frame a visitor lands on, with no input of its own', () => {
     const records = catalog();
-    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
-    records.push({id: 'grid-two', family: 'grid-table', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
-    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/image|recipe/i)
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
+    records.push({id: 'grid-two', family: 'grid-table', name: 'Grid two', image: 'grid-two.jpg', urls: {devmode: 'examples/grid/two/'}});
+    const entry = validateCaptureRecipes(manifest(), records).recipes.find(recipe => recipe.id === 'grid-two');
+    expect(entry).toEqual({
+        id      : 'grid-two', landing: true, family: 'grid-table', name: 'Grid two', url: 'examples/grid/two/',
+        viewport: {width: 1280, height: 720}, theme: 'dark', state: 'The frame a visitor lands on.',
+        ready   : [], steps: [], after: [], region: 'viewport'
+    });
+    expect(selectCaptureRecipes(validateCaptureRecipes(manifest(), records), {record: 'grid-two'})).toEqual([entry])
 });
 
-test('external-origin covered records do not block a family while same-origin covered records still require recipes', () => {
+test('an external-origin covered record gets no landing capture, a same-origin one does', () => {
     const records = [...catalog(), {id: 'external-app', family: 'grid-table', image: 'external.png', urls: {devmode: 'https://neomjs.com/devindex/'}}];
-    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
     records.push({id: 'local-app', family: 'grid-table', image: 'local.png', urls: {devmode: 'apps/local/index.html'}});
-    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/local-app.*image|recipe/i)
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['local-app'])
 });
 
-test('a tile in a covered family needs no recipe, a card beside it still does', () => {
+test('a tile in a covered family takes no landing capture, a card beside it does', () => {
     const records = [...catalog(), {id: 'grid-tile', kind: 'component', family: 'grid-table', image: 'devmode/tiles/grid-tile-14.jpg', urls: {devmode: 'examples/grid/tile/index.html'}}];
-    expect(() => validateCaptureRecipes(manifest(), records)).not.toThrow();
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual([]);
     records.push({id: 'grid-card', family: 'grid-table', image: 'grid-card.jpg', urls: {devmode: 'examples/grid/card/index.html'}});
-    expect(() => validateCaptureRecipes(manifest(), records)).toThrow(/grid-card.*image|recipe/i)
+    expect(landingIds(validateCaptureRecipes(manifest(), records))).toEqual(['grid-card'])
 });
 
-test('a further family joins the coverage guard explicitly', () => {
+test('a further family joins the covered families explicitly, and a recipe replaces a record\'s landing capture', () => {
     const raw = manifest(); raw.families.push('forms');
-    expect(() => validateCaptureRecipes(raw, catalog())).toThrow(/form-one.*image|recipe/i);
+    expect(landingIds(validateCaptureRecipes(raw, catalog()))).toEqual(['form-one']);
     raw.recipes.push({...structuredClone(raw.recipes[0]), id: 'form-one'});
-    expect(validateCaptureRecipes(raw, catalog()).recipes).toHaveLength(2)
+    const valid = validateCaptureRecipes(raw, catalog());
+    expect(valid.recipes).toHaveLength(2);
+    expect(landingIds(valid)).toEqual([])
 });
 
 test('duplicate recipes and unknown catalog identities are refused', () => {
