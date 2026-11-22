@@ -69,7 +69,9 @@ another group borrows through `alsoIn`; a record without `order` comes after the
 `apps/portal/resources/data/seo.json` alone: `buildScripts/release/prepare.mjs` regenerates it at the cut, for the
 published package that middleware-v2 reads it from. Recipes live beside the
 catalog in `apps/portal/resources/data/example-captures/`: one `<family>.json` per
-family, and `index.json` for the version, the file suffix and the tiles. The catalog owns
+family, and `index.json` for the version and the file suffix. The tiles are the catalog's `kind: 'component'`
+records, and a record's `tileSize` (`{width, height}`) is the size its component takes for the capture. Captures run
+in catalog order. The catalog owns
 IDs and development URLs; each recipe supplies its viewport, theme action, feature-state checks and
 640×360 CSS region. Captures use device scale 2 and produce 1280×720 JPEGs of at most 150,000 bytes.
 Each run uses a new empty output directory under `test-results/example-covers/` unless `--output-dir`

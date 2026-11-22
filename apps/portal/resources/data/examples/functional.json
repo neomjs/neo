@@ -52,6 +52,7 @@
         "hiddenIn": [],
         "family": "functional",
         "order": 1440,
+        "tileSize": {"width": 240, "height": 150},
         "component": "defineComponent",
         "feature": "A function component built from nested HTML templates",
         "lookFor": "Click the card to toggle its status, and open its details with the button."
