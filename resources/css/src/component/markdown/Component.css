@@ -20,8 +20,23 @@
         flex-shrink       : 0;
     }
 
+    a {
+        color: var(--markdown-vdom-link-color, revert);
+    }
+
+    /* A fenced block is one surface: its `code` child must not repeat the global inline-code chip per line. */
     .neo-md-code {
-        overflow-x: auto;
+        background-color: var(--global-code-background-color, revert);
+        border          : var(--global-code-border, revert);
+        border-radius   : var(--global-code-border-radius, revert);
+        overflow-x      : auto;
+        padding         : var(--markdown-vdom-code-padding, revert);
+
+        > code {
+            background-color: transparent;
+            border          : 0;
+            padding         : 0;
+        }
     }
 
     .neo-md-table {
