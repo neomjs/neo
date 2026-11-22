@@ -102,7 +102,7 @@ test.describe('Neo.button.Base', () => {
         await expect(loadingMessage).toHaveCount(0);
     });
 
-    test('should expose disabled state natively and restore keyboard focus', async ({page}) => {
+    test('should expose disabled state natively and restore visible keyboard focus', async ({page}) => {
         const result = await page.evaluate((config) => {
             return Neo.worker.App.createNeoInstance(config);
         }, {
@@ -145,6 +145,9 @@ test.describe('Neo.button.Base', () => {
         await page.locator('#button-focus-sentinel').focus();
         await page.keyboard.press('Tab');
         await expect(button).toBeFocused();
+        await expect(button).toHaveCSS('outline-style', 'solid');
+        await expect(button).toHaveCSS('outline-width', '2px');
+        await expect(button).toHaveCSS('outline-offset', '-2px');
     });
 
     test('should remove native disabled when a Button root becomes an anchor', async ({page}) => {
