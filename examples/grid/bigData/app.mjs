@@ -1,7 +1,6 @@
-import {resolveStartTheme} from '../../../src/util/Theme.mjs';
-import MainContainer       from './MainContainer.mjs';
+import MainContainer from './MainContainer.mjs';
 
 export const onStart = () => Neo.app({
-    mainView: {module: MainContainer, theme: resolveStartTheme(Neo.config)},
+    mainView: MainContainer,
     name    : 'Neo.examples.grid.bigData'
 });

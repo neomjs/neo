@@ -1,7 +1,6 @@
-import {resolveStartTheme} from '../../../src/util/Theme.mjs';
-import Viewport            from './Viewport.mjs';
+import Viewport from './Viewport.mjs';
 
 export const onStart = () => Neo.app({
-    mainView: {module: Viewport, theme: resolveStartTheme(Neo.config)},
+    mainView: Viewport,
     name    : 'Neo.examples.grid.nestedRecordFields'
 })
