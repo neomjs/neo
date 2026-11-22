@@ -6,6 +6,11 @@
     margin-top   : 5px;
     white-space  : nowrap;
 
+    /* Grid rows need room for both the top label and the input. */
+    &:where(.label-top) {
+        height: auto;
+    }
+
     /* A counter or an in-flow error gets a row of its own under the input; inside a flex row it would take the
        input's width. `:where()` keeps both selectors at the counter rule's specificity. */
     &.neo-has-character-count,
