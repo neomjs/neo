@@ -71,15 +71,15 @@ class SectionsList extends List {
     }
 
     /**
-     * @summary Reveals the selected heading and lets observer updates settle before following scroll again.
+     * @summary Aligns anchored headings immediately so scroll anchoring can preserve them during later reflow.
      * @param {Object} data
-     * @param {String} [data.behavior='smooth']
      * @param {Object} data.record
      */
-    async onSelectionChange({behavior='smooth', record}) {
+    async onSelectionChange({record}) {
         if (record) {
             const me       = this,
                   request  = ++me.#scrollRequest,
+                  behavior = typeof record.anchor === 'string' ? 'instant' : 'smooth',
                   heading  = `[data-record-id='${record.id}']`,
                   selector = record.sourceId ? `#${record.sourceId} ${heading}` : heading;
 

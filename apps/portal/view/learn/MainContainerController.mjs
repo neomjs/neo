@@ -190,7 +190,7 @@ class MainContainerController extends Controller {
         const {list} = this.getReference('page-sections-container');
 
         list.selectionModel.select(record);
-        return list.onSelectionChange({behavior: 'instant', record})
+        return list.onSelectionChange({record})
     }
 
     /**

@@ -145,10 +145,29 @@ test.describe('learn link routing', () => {
         await expectDecisionArrival(page)
     });
 
-    test('clicking a heading in On this page still scrolls to it', async ({page}) => {
+    test('clicking an On this page entry keeps the heading in view as earlier content expands', async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+
+        const heading = page.locator(CONTENT).getByRole('heading', {level: 2, name: DECISION_3_TITLE, exact: true});
+
+        await heading.evaluate(node => {
+            const article  = node.closest('.neo-app-content-component'),
+                  scroller = node.closest('.neo-app-content-page-container'),
+                  spacer   = document.createElement('div');
+
+            spacer.dataset.lateContent = 'pending';
+            article.prepend(spacer);
+
+            // Model a diagram above the target expanding as soon as the article starts to scroll.
+            scroller.addEventListener('scroll', () => {
+                spacer.style.blockSize   = '1200px';
+                spacer.dataset.lateContent = 'expanded'
+            }, {once: true})
+        });
+
         await page.locator(SECTIONS).getByText(DECISION_3_TITLE, {exact: true}).click();
+        await expect(page.locator(`${CONTENT} [data-late-content]`)).toHaveAttribute('data-late-content', 'expanded');
         await expectDecisionArrival(page)
     });
 
