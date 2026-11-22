@@ -64,7 +64,7 @@ test.describe('Standalone examples ThemeSwitcher', () => {
         await expect(diagram).toBeVisible()
     });
 
-    test('component/sparkline and stateProvider/advanced switch themes without horizontal overflow at 390x844', async ({page, neuralLink}) => {
+    test('component/sparkline switches themes without horizontal overflow at 390x844', async ({page, neuralLink}) => {
         await page.emulateMedia({colorScheme: 'light'});
         await page.setViewportSize({width: 390, height: 844});
 
@@ -76,17 +76,21 @@ test.describe('Standalone examples ThemeSwitcher', () => {
 
         const [sparkVp] = await sparkApp.queryComponent({className: 'Neo.examples.component.sparkline.MainContainer'}, ['theme']);
         expect(sparkVp?.properties?.theme ?? sparkVp?.theme).toBe('neo-theme-neo-dark');
-        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    });
+
+    test('stateProvider/advanced switches themes without horizontal overflow at 390x844', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 390, height: 844});
 
         await page.goto('/examples/stateProvider/advanced/index.html');
         const spApp = await neuralLink.connectToApp('Neo.examples.stateProvider.advanced');
         await expect(page.locator('.neo-theme-switcher')).toBeVisible({timeout: 30000});
-        await expect(page.locator('body')).toHaveClass(/neo-theme-dark/);
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
         await page.locator('.neo-theme-switcher').click();
-        await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-light/);
+        await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-neo-light/);
 
         const [spVp] = await spApp.queryComponent({className: 'Neo.examples.stateProvider.advanced.MainContainer'}, ['theme']);
-        expect(spVp?.properties?.theme ?? spVp?.theme).toBe('neo-theme-light');
+        expect(spVp?.properties?.theme ?? spVp?.theme).toBe('neo-theme-neo-light');
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
     });
 

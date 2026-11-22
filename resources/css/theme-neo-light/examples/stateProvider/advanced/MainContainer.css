@@ -1,0 +1,23 @@
+:where(.neo-theme-neo-light) {
+    --sp-scheme         : light;
+    --sp-bg             : #f4f6fa;
+    --sp-surface        : #ffffff;
+    --sp-surface-raised : #f8fafd;
+    --sp-surface-override: #fbf8f1;
+    --sp-border         : #d5dfec;
+    --sp-border-strong  : #9fb2ca;
+    --sp-ink            : #111b29;
+    --sp-muted          : #4a5b70;
+    --sp-accent         : #1d5fd6;
+    --sp-accent-soft    : #e5effe;
+    --sp-accent-ink     : #15459e;
+    --sp-override       : #9a5800;
+    --sp-override-soft  : #faeed8;
+    --sp-avatar-bg      : #dce9fc;
+    --sp-avatar-ink     : #143f8c;
+    --sp-selected-bg    : #e7f0fe;
+    --sp-hover-bg       : #eef3fa;
+    --sp-btn-primary-bg : #1d5fd6;
+    --sp-btn-primary-ink: #ffffff;
+    --sp-shadow         : 0 8px 24px rgba(17, 27, 41, 0.08);
+}
