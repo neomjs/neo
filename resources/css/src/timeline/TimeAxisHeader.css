@@ -3,10 +3,18 @@
    `overflow: clip` instead of `hidden` keeps the scrolled toolbar the sticky labels' scroll container. */
 /* Draw the header seam inside the header items when a timeline column is present so `.neo-timeline-now` crosses it (#21679).
    Every item draws it in the grid's border colour: it stands in for the one line grid/header/Toolbar.css draws elsewhere. */
-.neo-grid-container:has(.neo-timeline-header) .neo-grid-header-toolbar {
+.neo-grid-header-wrapper:has(.neo-timeline-header) .neo-grid-header-toolbar {
     border-bottom: 0;
 
+    .neo-grid-menu-wrapper {
+        align-self: stretch;
+    }
+
     .neo-grid-header-button:not(.neo-timeline-header) {
+        /* Locked and scrollable toolbars share the row, even when the time axis is in another toolbar. */
+        align-self: stretch;
+        height    : auto;
+
         &, &:hover {
             border-bottom-color: var(--grid-container-border-color);
         }
