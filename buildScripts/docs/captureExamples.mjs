@@ -28,7 +28,7 @@ const ROOT           = fileURLToPath(new URL('../../', import.meta.url)),
     WIDTH            = 640, HEIGHT = 360, DPR = 2, MAX_BYTES = 150000,
     QUALITIES        = [90, 85, 80],
     STEP_KINDS       = new Set(['click', 'dblclick', 'fill', 'press', 'scroll', 'wait']),
-    TILE_THEMES      = ['neo-theme-neo-dark', 'neo-theme-dark'], TILE_VIEWPORT = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
+    DARK_THEMES      = ['neo-theme-neo-dark', 'neo-theme-dark'], TILE_VIEWPORT = {width: 1440, height: 900}, TILE_MIN = {width: 160, height: 120}, TILE_PADDING = 24,
     LANDING          = {viewport: {width: 960, height: 540}, theme: 'dark', state: 'The frame a visitor lands on.', ready: [], steps: [], after: [], region: 'viewport'},
     LANDING_QUIET_MS = 1000,
     LANDING_THEME    = 'neo-theme-neo-dark';
@@ -393,7 +393,7 @@ async function tileRegion(page, target) {
 }
 
 /**
- * @summary Switches a workbench to the first of TILE_THEMES it offers. Its switch cycles through `offered`, so a click
+ * @summary Switches a workbench to the first of DARK_THEMES it offers. Its switch cycles through `offered`, so a click
  * is sent only while that theme is inactive: a workbench already on its only dark theme needs none.
  * @param {String[]} offered The page's `Neo.config.themes`, which the workbench's theme switch cycles through.
  * @param {Function} themeOf Resolves the theme the stage shows.
@@ -402,8 +402,8 @@ async function tileRegion(page, target) {
  */
 export async function applyTileTheme(offered, themeOf, next) {
     insist(Array.isArray(offered) && offered.length > 0, 'tile', 'the page reports no themes');
-    const wanted = TILE_THEMES.find(theme => offered.includes(theme));
-    insist(wanted, 'tile', `the workbench offers no dark theme (${TILE_THEMES.join(', ')})`);
+    const wanted = DARK_THEMES.find(theme => offered.includes(theme));
+    insist(wanted, 'tile', `the workbench offers no dark theme (${DARK_THEMES.join(', ')})`);
     for (let i = 0; i < offered.length && await themeOf() !== wanted; i++) await next();
     const theme = await themeOf();
     insist(theme === wanted, 'tile', `the theme switch never reached ${wanted}`);
@@ -411,22 +411,37 @@ export async function applyTileTheme(offered, themeOf, next) {
 }
 
 /**
- * @summary Waits until a landing frame holds still: the app's themed root is painted, the network is idle, and the DOM
- * has not changed for LANDING_QUIET_MS. One rule for every example, with no selector of its own; an example that never
- * settles fails, because its landing state is not a frame a cover can show.
+ * @summary Runs in the page: the theme the app shows, the first of its `Neo.config.themes` on `<body>` or inside it, or
+ * `null` before one is applied. A body viewport carries its theme on `<body>` itself, and a theme switch's own
+ * `neo-theme-switcher` class is no theme.
+ * @returns {String|null}
+ */
+function shownTheme() {
+    const themes = globalThis.Neo?.config?.themes ?? [];
+    for (const node of [document.body, ...document.body.querySelectorAll('[class*="neo-theme-"]')]) {
+        const theme = [...node.classList].find(cls => themes.includes(cls));
+        if (theme) return theme
+    }
+    return null
+}
+
+/**
+ * @summary Waits until a landing frame holds still: the network is idle, the app shows a configured theme
+ * ({@link shownTheme}), and the DOM has not changed for LANDING_QUIET_MS. One rule for every example, with no selector of
+ * its own; an example that never settles fails, because its landing state is not a frame a cover can show.
  * @param {Object} page
  * @returns {Promise<void>}
  */
 async function landingReady(page) {
     await page.waitForLoadState('networkidle', {timeout: 15000});
+    await page.waitForFunction(shownTheme, null, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: no configured theme shows on <body> or inside it (${error.message.split('\n')[0]})`)});
     await page.waitForFunction(quietMs => new Promise(resolve => {
-        if (!document.querySelector('body [class*="neo-theme-"]')) return resolve(false);
         let timer;
         const observer = new MutationObserver(() => {clearTimeout(timer); timer = setTimeout(settled, quietMs)}),
               settled  = () => {observer.disconnect(); resolve(true)};
         observer.observe(document.documentElement, {attributes: true, characterData: true, childList: true, subtree: true});
         timer = setTimeout(settled, quietMs)
-    }), LANDING_QUIET_MS, {polling: 250, timeout: 15000})
+    }), LANDING_QUIET_MS, {polling: 250, timeout: 15000}).catch(error => {throw new Error(`landing: the frame never held still for ${LANDING_QUIET_MS} ms (${error.message.split('\n')[0]})`)})
 }
 
 /** @summary Waits for fonts, stylesheets and visible capture-region images to finish loading. */
@@ -468,6 +483,11 @@ async function capture(browser, recipe, manifest, baseUrl, output) {
         page.on('pageerror', error => errors.push(error.message));
         await page.goto(url.href, {waitUntil: 'domcontentloaded', timeout: 30000});
         await (recipe.landing ? landingReady(page) : assertions(page, recipe.ready));
+        if (recipe.landing) {
+            // An example that ignores `?theme=` opens on its first theme: a light frame is no dark cover
+            row.openedTheme = await page.evaluate(shownTheme);
+            insist(DARK_THEMES.includes(row.openedTheme), recipe.id, `opened on ${row.openedTheme}, not on ${DARK_THEMES.join(' or ')}`)
+        }
         row.steps = await actions(page, recipe.steps);
         await assertions(page, recipe.after);
         row.region = fullViewport ? {x: 0, y: 0, ...recipe.viewport} : await captureRegion(page, recipe.region, recipe.viewport);
