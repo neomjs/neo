@@ -417,8 +417,15 @@ class Component extends Markdown {
               section      = {id: index, name: sideNavTitle, sourceId: this.id, tag};
 
         if (this.routeSections) {
-            const slug = headline.replace(/<[^>]*>|&(?:#\w+|[a-z][\da-z]*);/gi, '')
-                                 .trim().toLowerCase().replace(/[^\p{L}\p{M}\p{N}_ -]/gu, '').replaceAll(' ', '-');
+            const parser         = new marked.Parser(marked.getDefaults()),
+                  {textRenderer} = parser;
+
+            textRenderer.html  = () => '';
+            textRenderer.image = () => '';
+
+            const headingText = parser.parseInline(marked.Lexer.lexInline(text), textRenderer),
+                  slugParts   = headingText.match(/&(?:#\w+|[a-z][\da-z]*);|[\p{L}\p{M}\p{N}_ -]+/giu) ?? [],
+                  slug        = slugParts.filter(part => !part.startsWith('&')).join('').trim().toLowerCase().replaceAll(' ', '-');
 
             let anchor = slug,
                 suffix = 1;
