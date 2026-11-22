@@ -233,4 +233,120 @@ test.describe('Neo.tree.List VDOM Structure', () => {
 
         tree.destroy();
     });
+
+    test('a record selected through the model shows as selected, and stays selected through a render', async () => {
+        const tree = Neo.create(TreeList, {
+            appName                   : 'TreeListTest',
+            id                        : 'selection-tree',
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {
+                    fields: [
+                        {name: 'id',        type: 'String'},
+                        {name: 'name',      type: 'String'},
+                        {name: 'parentId',  type: 'String'},
+                        {name: 'isLeaf',    type: 'Boolean'},
+                        {name: 'collapsed', type: 'Boolean'}
+                    ]
+                },
+                data: [
+                    {id: 'folder', name: 'Folder', parentId: null,     isLeaf: false, collapsed: false},
+                    {id: 'a',      name: 'A',      parentId: 'folder', isLeaf: true},
+                    {id: 'b',      name: 'B',      parentId: 'folder', isLeaf: true}
+                ]
+            }
+        });
+
+        await tree.initVnode();
+
+        const
+            itemId   = tree.getItemId('a'),
+            selected = () => tree.getVdomChild(itemId),
+            other    = () => tree.getVdomChild(tree.getItemId('b'));
+
+        tree.selectionModel.select(tree.store.get('a'));
+
+        expect(selected().cls).toContain('neo-selected');
+
+        // A store load renders every item again: a folder's lazily loaded children, a drop, a sort
+        tree.createItems();
+
+        expect(selected().cls).toContain('neo-selected');
+        expect(selected()['aria-selected']).toBe(true);
+        expect(other().cls).not.toContain('neo-selected');
+        expect(other()['aria-selected']).toBeUndefined();
+
+        // A record change renders its own item again: a rename
+        tree.store.get('a').name = 'Renamed';
+
+        expect(selected().cn[0].html).toBe('Renamed');
+        expect(selected().cls).toContain('neo-selected');
+        expect(selected()['aria-selected']).toBe(true);
+
+        // A tree without selection renders none
+        tree.disableSelection = true;
+        tree.createItems();
+
+        expect(selected().cls).not.toContain('neo-selected');
+
+        tree.destroy();
+    });
+
+    [
+        {label: 'a zero key',      field: {name: 'id', type: 'Integer'}, raw: 0,   key: 0},
+        {label: 'a plain key',     field: {name: 'id', type: 'Integer'}, raw: 1,   key: 1},
+        {label: 'a converted key', field: {name: 'id', type: 'String', convert: value => `mapped:${value}`}, raw: 'a', key: 'mapped:a'}
+    ].forEach(({label, field, raw, key}) => {
+        test(`a rendered item id selects its Store record, and the record its item, for ${label}`, async () => {
+            const tree = Neo.create(TreeList, {
+                appName                   : 'TreeListTest',
+                showCollapseExpandAllIcons: false,
+                store                     : {
+                    model: {fields: [field, {name: 'name', type: 'String'}, {name: 'parentId'}, {name: 'isLeaf', type: 'Boolean'}]},
+                    data : [{id: raw, name: 'Leaf', parentId: null, isLeaf: true}]
+                }
+            });
+
+            await tree.initVnode();
+
+            const record = tree.store.get(key);
+            let records;
+
+            tree.on('select', data => {records = data.records});
+
+            // The id the tree renders, as a click or the navigator hands it over
+            tree.selectionModel.select(tree.getItemId(key));
+            expect(records).toEqual([record]);
+
+            tree.selectionModel.deselectAll();
+            tree.selectionModel.select(record);
+            expect(tree.getVdomChild(tree.getItemId(key)).cls).toContain('neo-selected');
+
+            tree.destroy()
+        })
+    });
+
+    test('a tree built without selection marks no item, even when its model is handed one', async () => {
+        const tree = Neo.create(TreeList, {
+            appName                   : 'TreeListTest',
+            disableSelection          : true,
+            showCollapseExpandAllIcons: false,
+            store                     : {
+                model: {fields: [{name: 'id', type: 'String'}, {name: 'name', type: 'String'}, {name: 'parentId'}, {name: 'isLeaf', type: 'Boolean'}]},
+                data : [{id: 'a', name: 'A', parentId: null, isLeaf: true}]
+            }
+        });
+
+        await tree.initVnode();
+
+        tree.selectionModel.select(tree.store.get('a'));
+
+        const item = tree.getVdomChild(tree.getItemId('a'));
+
+        expect(item.cls).not.toContain('neo-selected');
+        expect(item['aria-selected']).toBeUndefined();
+        expect(tree.selectionModel.hasSelection()).toBe(false);
+
+        tree.destroy()
+    });
 });

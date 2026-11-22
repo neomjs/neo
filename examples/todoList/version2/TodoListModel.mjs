@@ -1,6 +1,7 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
+ * @summary A todo item: its text, and whether it is done.
  * @class Neo.examples.todoList.version2.TodoListModel
  * @extends Neo.data.Model
  */

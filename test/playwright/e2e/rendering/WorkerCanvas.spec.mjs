@@ -109,6 +109,33 @@ test.describe('examples/worker/canvas — a canvas keeps moving while the main t
         expect(errors).toEqual([])
     });
 
+    test('a write sent into the block is late, not wedged: the watchdog reports nothing', async ({page}) => {
+        const wedged = [];
+
+        page.on('console', message => /vdom update wedged/.test(message.text()) && wedged.push(message.text()));
+
+        await page.goto(EXAMPLE);
+        await expect(page.locator('canvas[data-drawn="true"]'), 'the first frame is painted').toBeVisible({timeout: 30000});
+
+        // The App Worker, found by what it holds: its address differs between the environments
+        let app;
+
+        for (const worker of page.workers()) {
+            if (await worker.evaluate(() => typeof Neo !== 'undefined' && !!Neo.examples?.worker?.canvas?.MainContainer).catch(() => false)) {
+                app = worker
+            }
+        }
+
+        // A watchdog shorter than the block: without the example's own care, every press would be reported
+        await app.evaluate(() => {Neo.manager.VDomUpdate.watchdogThreshold = 4000});
+
+        await page.getByRole('button', {name: BUTTON}).click();
+        await expect(page.locator('.neo-examples-worker-canvas-result'), 'the block is over').toHaveAttribute('data-result', /frames/, {timeout: 20000});
+
+        expect(await app.evaluate(() => Neo.manager.VDomUpdate.watchdogThreshold), 'the watchdog has its own value back').toBe(4000);
+        expect(wedged, 'no update was reported as wedged').toEqual([])
+    });
+
     test('the example opens in Neo Light when the address names it', async ({page}) => {
         await page.goto(`${EXAMPLE}?theme=neo-theme-neo-light`);
 
