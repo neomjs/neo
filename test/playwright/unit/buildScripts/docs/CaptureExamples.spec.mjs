@@ -254,14 +254,21 @@ test('the committed Grid/Table catalog selects a capture for every covered card'
         rows      = selectCaptureRecipes(valid, {family: 'grid-table'}),
         recipeIds = new Set(raw.recipes.map(recipe => recipe.id));
 
-    expect(rows.map(row => row.id).sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
+    const ids = [...new Set(rows.map(row => row.id))];
 
-    for (const row of rows) {
-        if (recipeIds.has(row.id)) {
-            expect(row.steps.length, row.id).toBeGreaterThan(0);
-            expect(row.after.length, row.id).toBeGreaterThan(0)
+    expect(ids.sort()).toEqual(records.filter(row => row.family === 'grid-table' && row.image).map(row => row.id).sort());
+
+    for (const id of ids) {
+        const own = rows.filter(row => row.id === id);
+
+        if (recipeIds.has(id)) {
+            expect(own, id).toHaveLength(1);
+            expect(own[0].steps.length, id).toBeGreaterThan(0);
+            expect(own[0].after.length, id).toBeGreaterThan(0)
         } else {
-            expect(row, row.id).toMatchObject({landing: true, steps: [], after: [], region: 'viewport'})
+            // A landing cover is shot with its light partner
+            expect(own.map(row => row.variant).sort(), id).toEqual(['', '-light']);
+            own.forEach(row => expect(row, id).toMatchObject({landing: true, steps: [], after: [], region: 'viewport'}))
         }
     }
 });
