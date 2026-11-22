@@ -212,6 +212,7 @@ Here is the complete, interactive example.
 ```javascript live-preview
 import {defineComponent, useConfig} from '../functional/_export.mjs';
 import List from '../list/Base.mjs';
+import ListModel from '../selection/ListModel.mjs';
 import Store from '../data/Store.mjs';
 
 // 1. Define a simple data Store for our list
@@ -239,9 +240,9 @@ export default defineComponent({
         // 3. Manage the selected task with useConfig
         const [selectedTask, setSelectedTask] = useConfig(null);
 
-        const onSelectionChange = ({value}) => {
+        const onSelect = ({records}) => {
             // 4. Update our state when the list selection changes
-            setSelectedTask(TaskStore.get(value[0]));
+            setSelectedTask(records[0]);
         };
 
         const paneStyle = {
@@ -253,13 +254,14 @@ export default defineComponent({
         return {
             cn: [{
                 // 5. The List Component
-                module      : List,
-                displayField: 'title',
-                store       : TaskStore,
-                width       : 250,
-                style    : paneStyle,
-                listeners: {
-                    selectionChange: onSelectionChange
+                module        : List,
+                displayField  : 'title',
+                selectionModel: {module: ListModel},
+                store         : TaskStore,
+                width         : 250,
+                style         : paneStyle,
+                listeners     : {
+                    select: onSelect
                 }
             }, {
                 // 6. The Details Pane (with conditional rendering)
