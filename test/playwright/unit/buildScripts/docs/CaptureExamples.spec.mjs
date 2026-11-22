@@ -3,7 +3,7 @@ import fs              from 'node:fs';
 import {execFileSync}  from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {
-    applyTileTheme, fitTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
+    applyTileTheme, fitTileRegion, pairTileRegion, validateCaptureRecipes, selectCaptureRecipes, selectTiles
 } from '../../../../../buildScripts/docs/captureExamples.mjs';
 import {readExampleCatalog} from '../../../../../buildScripts/util/exampleCatalog.mjs';
 
@@ -277,6 +277,21 @@ test('a tile refuses a blank stage and a component no tile-aspect region inside 
     expect(() => fitTileRegion({left: 139, top: 19, right: 361, bottom: 581}, stage)).toThrow(/222×562 component does not fit/)
 });
 
+test('a tile pair shares one region: both themes\' content, inside the stage both themes show', () => {
+    const stage = {x: 300, y: 100, width: 1000, height: 700},
+        dark    = {left: 700, top: 400, right: 900, bottom: 500},
+        light   = {left: 690, top: 405, right: 930, bottom: 498}, // a light theme that draws the control wider
+        region  = pairTileRegion([{content: dark, stage}, {content: light, stage}]);
+    expect(holds(region, dark)).toBe(true);
+    expect(holds(region, light)).toBe(true);
+    expect(region).toEqual(fitTileRegion({left: 690, top: 400, right: 930, bottom: 500}, stage));
+    // A stage that moves between themes leaves the region only the area both show: alone, the dark stage would start it at 300
+    const corner = {left: 330, top: 120, right: 410, bottom: 180};
+    expect(pairTileRegion([{content: corner, stage}]).x).toBe(300);
+    expect(pairTileRegion([{content: corner, stage}, {content: {...corner, right: 420}, stage: {...stage, x: 320}}]).x).toBe(320);
+    expect(() => pairTileRegion([{content: dark, stage}, {content: null, stage}])).toThrow(/renders nothing/)
+});
+
 /** @summary A theme switch like the workbench's: a click shows the next offered theme; with nothing else to show, it times out. */
 function themeSwitch(offered, active) {
     const state = {clicks: 0, index: offered.indexOf(active)};
@@ -291,17 +306,20 @@ function themeSwitch(offered, active) {
     }
 }
 
-test('a tile takes the preferred dark theme a workbench offers, clicking only while it is inactive', async () => {
-    for (const [offered, active, theme, clicks] of [
-        [['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-light', 'neo-theme-dark', 1],     // the engine default
-        [['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-dark'],  'neo-theme-light', 'neo-theme-neo-dark', 2], // neo-dark wins
-        [['neo-theme-dark'],                                           'neo-theme-dark',  'neo-theme-dark', 0]      // its only theme, already on
+test('a tile takes the preferred theme of each pass a workbench offers, clicking only while it is inactive', async () => {
+    for (const [scheme, offered, active, theme, clicks] of [
+        ['dark',  ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-light', 'neo-theme-dark', 1],      // the engine default
+        ['dark',  ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-dark'],  'neo-theme-light', 'neo-theme-neo-dark', 2],  // neo-dark wins
+        ['dark',  ['neo-theme-dark'],                                           'neo-theme-dark',  'neo-theme-dark', 0],      // its only theme, already on
+        ['light', ['neo-theme-light', 'neo-theme-dark', 'neo-theme-neo-light'], 'neo-theme-dark',  'neo-theme-neo-light', 1], // neo-light wins
+        ['light', ['neo-theme-light', 'neo-theme-dark'],                        'neo-theme-dark',  'neo-theme-light', 1]      // the legacy partner
     ]) {
         const fake = themeSwitch(offered, active);
-        expect(await applyTileTheme(offered, fake.themeOf, fake.next), offered.join()).toBe(theme);
+        expect(await applyTileTheme(offered, scheme, fake.themeOf, fake.next), offered.join()).toBe(theme);
         expect(fake.state.clicks, offered.join()).toBe(clicks)
     }
-    const light = themeSwitch(['neo-theme-light'], 'neo-theme-light');
-    await expect(applyTileTheme(['neo-theme-light'], light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
-    await expect(applyTileTheme(undefined, light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
+    const light = themeSwitch(['neo-theme-light'], 'neo-theme-light'), dark = themeSwitch(['neo-theme-dark'], 'neo-theme-dark');
+    await expect(applyTileTheme(['neo-theme-light'], 'dark', light.themeOf, light.next)).rejects.toThrow(/offers no dark theme/);
+    await expect(applyTileTheme(['neo-theme-dark'], 'light', dark.themeOf, dark.next)).rejects.toThrow(/offers no light theme/);
+    await expect(applyTileTheme(undefined, 'dark', light.themeOf, light.next)).rejects.toThrow(/reports no themes/)
 });
