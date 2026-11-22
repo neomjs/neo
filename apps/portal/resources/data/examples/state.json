@@ -37,5 +37,24 @@
             "dist_prod": "dist/production/examples/stateProvider/advanced/index.html"
         },
         "hiddenIn": []
+    },
+    {
+        "id": "data-pipeline",
+        "family": "state",
+        "order": 230,
+        "feature": "A data pipeline turns up to a million orders into a report, on the data worker or on the app worker",
+        "lookFor": "Press \"Run on the app worker\": the pulse stops, and the bar shows how long the app stood still. The run on the data worker, which the page starts itself, shows no such pause.",
+        "featured": false,
+        "image": "devmode/data-pipeline-14.jpg",
+        "hasLightCover": true,
+        "name": "Data pipeline, stage by stage",
+        "sourceUrl": "examples/data/pipeline",
+        "urls": {
+            "devmode": "examples/data/pipeline/index.html",
+            "dist_dev": "dist/development/examples/data/pipeline/index.html",
+            "dist_esm": "dist/esm/examples/data/pipeline/index.html",
+            "dist_prod": "dist/production/examples/data/pipeline/index.html"
+        },
+        "hiddenIn": []
     }
 ]

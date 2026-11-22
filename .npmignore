@@ -14,5 +14,8 @@
 # imports the Playwright configs, `setup.mjs`, `fixtures.mjs` and their helpers from the test tree and never
 # runs the engine's suite. `check-package-contents` names the class too.
 *.spec.mjs
+# The frozen example capture recipes: input of `buildScripts/docs/captureExamples.mjs`, the Portal's cover tool,
+# which a workspace never runs.
+/buildScripts/docs/captureExamples.json
 
 # Original content of the .gitignore file
