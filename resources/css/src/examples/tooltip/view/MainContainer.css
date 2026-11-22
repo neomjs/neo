@@ -8,9 +8,10 @@
         width        : 100%;
     }
 
-    /* Room for the hint of a focused toolbar button, so it covers no ticket */
+    /* Room for the hint of a focused toolbar button, so it covers no ticket; its buttons line up with the column */
     .neo-tooltip-example-actions {
-        margin-bottom: 36px;
+        margin-bottom : 36px;
+        padding-inline: 0;
     }
 
     .neo-tooltip-example-header {

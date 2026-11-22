@@ -50,7 +50,7 @@ class MainContainer extends Viewport {
             module: Label,
             cls   : ['neo-tooltip-example-hint'],
             flex  : 'none',
-            text  : 'Hover a control or a ticket, or move with Tab: its tooltip says what it does. Escape closes it.'
+            text  : 'Hover or tap a control or a ticket, or move with Tab: its tooltip says what it does. Escape closes it.'
         }, {
             module: Toolbar,
             cls   : ['neo-tooltip-example-actions'],
