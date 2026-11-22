@@ -1164,7 +1164,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(issues).toHaveLength(1);
         expect(issues[0].id).toBe('grid-issues');
         expect(issues[0].image).toBe('devmode/grid-issues-14.jpg');
-        const recipes = JSON.parse(fs.readFileSync(path.join(dataRoot, 'example-captures', `${issues[0].family}.json`), 'utf8'));
+        const recipes = JSON.parse(fs.readFileSync(path.join(dataRoot, 'example-captures.json'), 'utf8')).recipes;
         expect(recipes.filter(recipe => recipe.id === issues[0].id)).toHaveLength(1);
 
         modes.forEach(mode => {
