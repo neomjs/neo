@@ -1,0 +1,51 @@
+.neo-task-worker-example {
+    background: var(--sem-color-surface-neutral-default);
+    gap: 12px;
+    min-height: 100%;
+    overflow: auto;
+    padding: clamp(16px, 4vw, 56px);
+
+    > * {
+        margin-inline: auto;
+        max-width: 46rem;
+        width: 100%;
+    }
+
+    h1 {
+        font-size: clamp(24px, 4vw, 44px);
+        line-height: 1.12;
+        margin: 0;
+    }
+
+    p {
+        line-height: 1.5;
+        margin-block: 0 8px;
+    }
+
+    .neo-task-worker-header {
+        gap: 12px;
+    }
+
+    .neo-task-worker-card {
+        background: var(--sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 12px;
+        gap: 12px;
+        padding: clamp(12px, 3vw, 24px);
+    }
+
+    .neo-task-worker-actions {
+        background: transparent;
+        min-width: 0;
+    }
+
+    .neo-progress-wrapper {
+        display: grid;
+        gap: 4px;
+
+        progress {
+            accent-color: var(--sem-color-surface-primary-default);
+            width: 100%;
+        }
+    }
+}
