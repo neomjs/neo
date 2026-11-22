@@ -6,10 +6,12 @@ import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
- * @summary The proof that a blocked main thread does not stop the picture. A million points move in a canvas the
- * canvas worker draws. One button blocks the page's main thread for five seconds: the clock, which is DOM text,
- * stands still, and the points keep moving. Afterwards the page says how long the main thread was away, how many
- * frames the canvas worker painted in that time, and how often the app, which runs in the App Worker, set the clock.
+ * @summary The proof that a blocked main thread stops neither the picture nor the app. A million points move in a
+ * canvas the canvas worker draws. The app, which runs in the App Worker, sends the time to two places ten times a
+ * second: to the page clock, which is DOM text, and to the canvas, worker to worker. One button blocks the page's
+ * main thread for five seconds: the page clock stands still, the clock in the canvas runs on, and the points keep
+ * moving. Afterwards the page says how long the main thread was away, how many frames the canvas worker painted in
+ * that time, and whether the app's clock ever stood.
  *
  * @class Neo.examples.worker.canvas.MainContainer
  * @extends Neo.container.Viewport
@@ -45,13 +47,8 @@ class MainContainer extends Viewport {
                 cls   : ['neo-examples-worker-canvas-intro'],
                 vdom  : {tag: 'header', cn: [
                     {tag: 'h1', cls: ['neo-examples-worker-canvas-title'],       text: 'A canvas keeps moving while the main thread is blocked'},
-                    {tag: 'p',  cls: ['neo-examples-worker-canvas-instruction'], text: 'Press the button and watch the page clock. It is ordinary page text, so it stops for 5 seconds. The points are drawn in a worker and keep moving.'}
+                    {tag: 'p',  cls: ['neo-examples-worker-canvas-instruction'], text: 'Press the button. The page clock is ordinary page text, so it stops for 5 seconds. The app runs in a worker and sends the same time to the canvas, where it runs on. Try the theme button meanwhile: the page answers only when the 5 seconds are over.'}
                 ]}
-            }, {
-                module   : Component,
-                cls      : ['neo-examples-worker-canvas-clock'],
-                reference: 'clock',
-                text     : 'Page clock'
             }, {
                 module   : Button,
                 handler  : 'up.onBlockButtonClick',
@@ -69,6 +66,13 @@ class MainContainer extends Viewport {
             flex     : 'none',
             reference: 'result',
             tag      : 'p'
+        }, {
+            // Right above the canvas, where the app's clock is drawn: the two are read as a pair
+            module   : Component,
+            cls      : ['neo-examples-worker-canvas-clock'],
+            flex     : 'none',
+            reference: 'clock',
+            text     : 'Page clock'
         }, {
             module   : PointsCanvas,
             flex     : 1,
@@ -107,10 +111,14 @@ class MainContainer extends Viewport {
         const
             {duration: blocked} = await Neo.main.addon.MainThreadBlocker.block({duration, windowId: me.windowId}),
             clockWrites         = me.clockWrites - writes,
-            frames              = (await canvas.getStats()).frames - before.frames;
+            after               = await canvas.getStats(),
+            {clockGap}          = after,
+            frames              = after.frames - before.frames,
+            // Two ticks in a row may be late; a clock that missed more than that stood
+            clock               = clockGap < 500 ? `the app's clock never stopped` : `the app's clock stood for ${(clockGap / 1000).toFixed(1)} s`;
 
-        result.vdom['data-result'] = JSON.stringify({blockedMs: Math.round(blocked), clockWrites, frames});
-        result.text = `The main thread was blocked for ${(blocked / 1000).toFixed(1)} s. Meanwhile the canvas worker painted ${frames} frames, and this app, which runs in a worker too, set the clock ${clockWrites} times. The page caught up when its main thread came back.`;
+        result.vdom['data-result'] = JSON.stringify({blockedMs: Math.round(blocked), clockGap, clockWrites, frames});
+        result.text = `The main thread was blocked for ${(blocked / 1000).toFixed(1)} s. Meanwhile the canvas worker painted ${frames} frames, and ${clock}. The page caught up when its main thread came back.`;
 
         button.disabled = false
     }
@@ -131,21 +139,26 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @summary Writes the time into the clock ten times a second, as DOM text. A main thread that is busy applies
-     * none of these writes, which is what the visitor watches.
+     * @summary Sends the time to the page clock and to the canvas, ten times a second. The page clock is DOM text: a
+     * main thread that is busy applies none of these writes. The canvas gets the same value worker to worker and
+     * draws it, which is what the visitor watches.
      * @returns {Promise<void>} Ends with this instance
      * @protected
      */
     async runClock() {
         const
-            me    = this,
-            clock = me.getReference('clock');
+            me     = this,
+            canvas = me.getReference('canvas'),
+            clock  = me.getReference('clock');
 
         try {
             for (;;) {
-                const now = new Date();
+                const
+                    now  = new Date(),
+                    time = `${now.toTimeString().slice(0, 8)}.${Math.floor(now.getMilliseconds() / 100)}`;
 
-                clock.text = `Page clock ${now.toTimeString().slice(0, 8)}.${Math.floor(now.getMilliseconds() / 100)}`;
+                clock.text = `Page clock ${time}`;
+                canvas.setClock(time);
                 me.clockWrites++;
 
                 await me.timeout(100)

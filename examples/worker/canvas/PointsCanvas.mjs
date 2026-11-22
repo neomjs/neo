@@ -61,6 +61,18 @@ class PointsCanvas extends SharedCanvas {
     getStats() {
         return this.renderer.getStats({canvasId: this.getCanvasId(), windowId: this.windowId})
     }
+
+    /**
+     * @summary Sends the app's clock to the renderer, which draws it in the canvas. A canvas that is not ready yet
+     * takes none.
+     * @param {String} text
+     * @returns {Promise<void>|undefined}
+     */
+    setClock(text) {
+        if (this.isCanvasReady) {
+            return this.renderer.setClock({canvasId: this.getCanvasId(), text, windowId: this.windowId})
+        }
+    }
 }
 
 export default Neo.setupClass(PointsCanvas);

@@ -23,19 +23,15 @@
         opacity    : .85;
     }
 
-    /* Digits of one width, so the clock does not shake while it runs */
+    /* The page clock in the type of the clock the canvas draws below it: digits of one width, and one pair */
     .neo-examples-worker-canvas-clock {
-        font-size           : 15px;
-        font-variant-numeric: tabular-nums;
-        font-weight         : 600;
-        white-space         : nowrap;
-    }
-
-    /* On one row the clock and the buttons stand at the right edge; wrapped, they start at the left */
-    @media (min-width: 900px) {
-        .neo-examples-worker-canvas-clock {
-            margin-left: auto;
-        }
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size  : 18px;
+        font-weight: 600;
+        line-height: 26px;
+        padding    : 0 16px 6px;
+        text-align : center;
+        white-space: nowrap;
     }
 
     /* The line holds its height while it is empty, so the canvas keeps its size when the result arrives */

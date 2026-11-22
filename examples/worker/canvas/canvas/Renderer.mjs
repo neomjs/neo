@@ -11,8 +11,9 @@ const
  * A frame turns every point around the centre and counts the points per pixel into one `ImageData`. The work is
  * arithmetic in this worker, not a shader: a million points have to be moved somewhere, and here it is not the main
  * thread. The picture is drawn at the canvas's CSS size and scaled up to the device's pixels; the text on top is
- * drawn at device resolution. While a block is announced, a line counts its seconds: during it nothing in the DOM
- * can change, so the canvas is the only place on the page that can still speak.
+ * drawn at device resolution. That text carries the app's clock, which the app sends here worker to worker, and
+ * while a block is announced a line counts its seconds: during it nothing in the DOM can change, so the canvas is
+ * the only place on the page that can still speak.
  *
  * @class Neo.examples.worker.canvas.Renderer
  * @extends Neo.canvas.Base
@@ -42,6 +43,7 @@ class Renderer extends Base {
                 'initGraph',
                 'pause',
                 'resume',
+                'setClock',
                 'setTheme',
                 'updateMouseState',
                 'updateSize',
@@ -143,6 +145,12 @@ class Renderer extends Base {
      */
     block = null
     /**
+     * The app's clock as it arrives here: its `text`, when the `last` one came, the `end` of the block being
+     * watched, and the longest `gap` between two arrivals since that block was announced.
+     * @member {Object} clock={end:0,gap:0,last:0,text:null}
+     */
+    clock = {end: 0, gap: 0, last: 0, text: null}
+    /**
      * The picture at CSS size, scaled into the canvas every frame.
      * @member {OffscreenCanvas|null} field=null
      */
@@ -202,7 +210,9 @@ class Renderer extends Base {
     announceBlock({duration}) {
         const start = performance.now();
 
-        this.block = {end: start + duration, start}
+        this.block = {end: start + duration, start};
+
+        Object.assign(this.clock, {end: start + duration, gap: 0})
     }
 
     /**
@@ -215,7 +225,8 @@ class Renderer extends Base {
 
         super.clearGraph();
 
-        Object.assign(me, {block: null, field: null, fieldContext: null, fps: 0, frames: 0, geometry: null, hits: null, image: null, lastFrame: 0, pixels: null})
+        Object.assign(me, {block: null, field: null, fieldContext: null, fps: 0, frames: 0, geometry: null, hits: null, image: null, lastFrame: 0, pixels: null});
+        Object.assign(me.clock, {end: 0, gap: 0, last: 0, text: null})
     }
 
     /**
@@ -261,18 +272,19 @@ class Renderer extends Base {
 
     /**
      * @summary Writes what only the canvas can still change: the count, the running frame number and the frame rate
-     * at the bottom, and, while a block runs, a panel that says how long the main thread has been away.
+     * at the bottom, and on top the app's clock, with a line that says how long the main thread has been away while
+     * a block runs.
      * @param {Number} now
      * @protected
      */
     drawText(now) {
         const
-            me               = this,
-            {block, context} = me,
-            {height, width}  = me.geometry,
-            {plate, text}    = Renderer.colors[me.theme] || Renderer.colors.light,
-            ratio            = context.canvas.width / width,
-            seconds          = value => (value / 1000).toFixed(1),
+            me                      = this,
+            {block, clock, context} = me,
+            {height, width}         = me.geometry,
+            {plate, text}           = Renderer.colors[me.theme] || Renderer.colors.light,
+            ratio                   = context.canvas.width / width,
+            seconds                 = value => (value / 1000).toFixed(1),
             // One plate behind `lines`, each `[text, font, lineHeight]`; `y` is the first line's baseline
             panel            = (lines, x, y, align) => {
                 const
@@ -301,23 +313,39 @@ class Renderer extends Base {
         panel([[`${me.pointCount.toLocaleString('en-US')} points · frame ${me.frames.toLocaleString('en-US')} · ${Math.round(me.fps)} fps`,
             '500 12px system-ui, sans-serif', 18]], 22, height - 20, 'left');
 
-        if (block) {
+        // The app's clock is on top all the time, so both clocks can be seen to agree before the page stops
+        if (clock.text) {
             panel([
-                [`Main thread blocked · ${seconds(Math.min(now, block.end) - block.start)} of ${seconds(block.end - block.start)} s`, '600 18px system-ui, sans-serif', 26],
-                ['The page clock has stopped. This canvas keeps moving.', '500 13px system-ui, sans-serif', 20]
-            ], width / 2, 46, 'center')
+                [`App clock ${clock.text}`, '600 18px ui-monospace, Menlo, Consolas, monospace', 26],
+                ...block ? [
+                    [`Main thread blocked · ${seconds(Math.min(now, block.end) - block.start)} of ${seconds(block.end - block.start)} s`, '600 14px system-ui, sans-serif', 22],
+                    ['The page clock has stopped. This one runs on.', '500 13px system-ui, sans-serif', 20]
+                ] : [['sent here by the app, worker to worker', '500 13px system-ui, sans-serif', 20]]
+            ], width / 2, 36, 'center')
         }
 
         context.setTransform(1, 0, 0, 1, 0, 0)
     }
 
     /**
-     * @returns {{blocked: Boolean, fps: Number, frames: Number, points: Number}}
+     * @summary The longest time the app's clock stood here during the block last announced, in milliseconds. A clock
+     * that has not arrived since before the block's end is still standing, so its silence counts up to now.
+     * @returns {Number}
+     * @protected
+     */
+    getClockGap() {
+        const {end, gap, last} = this.clock;
+
+        return Math.round(last && last < end ? Math.max(gap, performance.now() - last) : gap)
+    }
+
+    /**
+     * @returns {{blocked: Boolean, clockGap: Number, fps: Number, frames: Number, points: Number}}
      */
     getStats() {
         const me = this;
 
-        return {blocked: Boolean(me.block), fps: Math.round(me.fps), frames: me.frames, points: me.pointCount}
+        return {blocked: Boolean(me.block), clockGap: me.getClockGap(), fps: Math.round(me.fps), frames: me.frames, points: me.pointCount}
     }
 
     /**
@@ -356,6 +384,25 @@ class Renderer extends Base {
         me.frames++;
 
         me.animationId = hasRaf ? requestAnimationFrame(me.renderLoop) : setTimeout(me.renderLoop, 1000 / 60)
+    }
+
+    /**
+     * @summary Takes the time the app wrote into the page clock, to draw it here. The app sends it over the channel
+     * between the two workers, so it arrives while the page's main thread is blocked.
+     * @param {Object} data
+     * @param {String} data.text
+     */
+    setClock({text}) {
+        const
+            {clock} = this,
+            now     = performance.now();
+
+        // An arrival counts for the watched block as long as the one before it came before that block's end
+        if (clock.last && clock.last < clock.end) {
+            clock.gap = Math.max(clock.gap, now - clock.last)
+        }
+
+        Object.assign(clock, {last: now, text})
     }
 
     /**
