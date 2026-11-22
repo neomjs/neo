@@ -58,6 +58,7 @@
         "id": "button-split",
         "kind": "component",
         "image": "devmode/tiles/button-split-14.jpg",
+        "hasLightCover": true,
         "name": "Split button",
         "sourceUrl": "examples/button/split",
         "urls": {
@@ -70,7 +71,7 @@
         "family": "buttons",
         "order": 1355,
         "component": "SplitButton",
-        "feature": "A button with a menu of its own: the main part saves, the arrow offers the alternatives",
+        "feature": "A button with a menu of its own: the main part runs its handler, the arrow opens the alternatives",
         "lookFor": "Press Save for the main action or the arrow for Save as…, Export and Print, and move the icon in the panel."
     },
     {
@@ -96,6 +97,7 @@
         "id": "menu-tree",
         "kind": "component",
         "image": "devmode/tiles/menu-tree-14.jpg",
+        "hasLightCover": true,
         "name": "Menu tree",
         "sourceUrl": "examples/menu/tree",
         "urls": {
