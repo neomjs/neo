@@ -97,6 +97,7 @@ class GroupPage extends Container {
             bind          : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex          : 'none',
             leadCard      : true,
+            listeners     : {leaveStart: 'onListLeaveStart'},
             reference     : 'group-list',
             useWrapperNode: false, // the page scrolls, not the list
             wrapperCls    : ['portal-examples-group-cards'],
@@ -113,6 +114,7 @@ class GroupPage extends Container {
             module        : List,
             bind          : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex          : 'none',
+            listeners     : {leaveStart: 'onListLeaveStart'},
             reference     : 'tile-list',
             tiles         : true,
             useWrapperNode: false,

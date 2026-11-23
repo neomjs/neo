@@ -353,6 +353,63 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupButton().badgeText).toBeFalsy()
     });
 
+    test('the side nav is one Tab stop, its walk asks for the route, and ArrowRight asks for the open page\'s cards', async () => {
+        const view                   = createView(),
+              controller             = view.getController(),
+              index                  = view.getGroupIndex(),
+              sheet                  = view.getSheet(),
+              [first, second, third] = index.store.items.slice(-3),
+              linkId                 = family => `${index.id}__${family}`,
+              tabStops               = component => component.vdom.cn.flatMap(node => node.tag === 'a' ? [node] :
+                  (node.tag === 'section' ? node.cn[1].cn : node.tag === 'ul' ? node.cn : []).map(item => item.cn[0])
+              ).filter(link => link.tabIndex !== -1).map(link => link.href),
+              originalMain           = Neo.Main,
+              cards                  = [],
+              routes                 = [];
+
+        // A walk step: the key goes down on one link and comes up on the link focus rests on
+        const step = (from, to, key='ArrowDown') => {
+            index.onKeyDown({key, target: {id: linkId(from)}});
+            index.onKeyUp(  {key, target: {id: linkId(to)}})
+        };
+
+        Neo.Main = {...originalMain, setRoute: data => routes.push(data)};
+        controller.focusCards = () => cards.push(controller.getOpenRoute());
+
+        try {
+            expect(tabStops(index)).toEqual(['#/examples']);
+            await controller.onExamplesRoute({itemId: first.route.slice('/examples/'.length)});
+            expect(tabStops(index)).toEqual(['#' + first.route]);
+            expect(tabStops(sheet)).toHaveLength(sheet.store.getCount() + 1);
+
+            step(first.family, first.family, 'ArrowUp');
+            expect(routes, 'a key that moved nothing takes no step').toEqual([]);
+
+            step(first.family, second.family);
+            step(second.family, third.family, 'End');
+            expect(routes).toEqual([
+                {replace: false, value: second.route, windowId: 1},
+                {replace: true,  value: third.route,  windowId: 1}
+            ]);
+
+            index.onFocusLeave({});
+            step(first.family, second.family);
+            expect(routes.at(-1).replace, 'focus leaving the index ends the walk').toBe(false);
+
+            index.onKeyDown({key: 'ArrowRight', target: {id: linkId(first.family)}});
+            expect(cards).toEqual([first.route]);
+
+            index.onKeyDown({key: 'ArrowRight', target: {id: linkId(third.family)}});
+            expect(routes.at(-1)).toEqual({replace: true, value: third.route, windowId: 1});
+            expect(cards, 'a page the route has not opened yet takes no focus').toEqual([first.route]);
+
+            await controller.onExamplesRoute({itemId: third.route.slice('/examples/'.length)});
+            expect(cards).toEqual([first.route, third.route])
+        } finally {
+            Neo.Main = originalMain
+        }
+    });
+
     test('resolves group routes and all legacy modes', async () => {
         // without its form layout tile, Containers & Layouts is a defined group with no card or tile
         const view       = createView(catalog.filter(record => record.family !== 'layouts')),
