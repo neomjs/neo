@@ -300,6 +300,7 @@
  "Neo.desktop.AppWindow": "Neo.dialog.Base",
  "Neo.desktop.Container": "Neo.container.Base",
  "Neo.desktop.Launcher": "Neo.list.Base",
+ "Neo.desktop.NativeReturnTarget": "Neo.core.Base",
  "Neo.desktop.PopupViewport": "Neo.container.Viewport",
  "Neo.desktop.TaskList": "Neo.list.Base",
  "Neo.desktop.Taskbar": "Neo.toolbar.Base",
