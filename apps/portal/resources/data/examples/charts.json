@@ -63,7 +63,7 @@
         "family": "charts",
         "order": 490,
         "component": "Sparkline",
-        "feature": "Six metric cards draw thirty live sparklines in the canvas worker once a second.",
+        "feature": "Six metric cards each draw a 30-second sparkline in the canvas worker.",
         "lookFor": "Watch the lines move, then turn the pulse and the smooth updates off, stop the feed and press Restart.",
         "scope": "The readings are simulated in the browser from fixed seeds.",
         "image": "devmode/sparklines-14.jpg",
