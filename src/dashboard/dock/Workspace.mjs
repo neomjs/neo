@@ -1188,18 +1188,16 @@ class Workspace extends Container {
 
         try {
             // The vessel's size rule lives with the Group's placement, which a single-window app never loads.
-            let [hostUrl, winData, {default: Placement}] = await Promise.all([
+            let [hostUrl, winData, {default: Placement}, {default: NativeVesselTransaction}] = await Promise.all([
                     Neo.Main.getByPath({path: 'document.URL', windowId}),
                     Neo.Main.getWindowData({windowId}),
-                    import('./window/Placement.mjs')
+                    import('./window/Placement.mjs'),
+                    import('./window/NativeVesselTransaction.mjs')
                 ]),
                 url = new URL(hostUrl);
 
-            // The vessel boots the SAME document. Which pane it shows is content, so `tearout` stays a
-            // URL parameter; whom it belongs to is identity, which rides the topology carrier — nothing
-            // about the owner is in the URL. Stripping first matters: a vessel re-torn from a vessel
-            // would otherwise inherit the parent's item and connect as the wrong pane.
-            url.searchParams.delete('tearout');
+            // The vessel boots the same document. Setting `tearout` replaces any inherited pane;
+            // ownership travels in the topology carrier.
             url.searchParams.set('tearout', itemId);
 
             // The vessel opens at the pane's size and where the user let go. A tab drag's proxy is the
@@ -1209,7 +1207,7 @@ class Workspace extends Container {
                 top             = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
                 windowName      = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
 
-            const opened = await Neo.Main.windowOpen({
+            const opened = await NativeVesselTransaction.openVessel({
                 nativeCapabilities: {close: true, position: true, resize: true},
                 topologyIdentity,
                 url               : url.href,

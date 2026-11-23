@@ -124,6 +124,18 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
             .toEqual({height: 240, width: 320, x: 480, y: 290})
     });
 
+    test('a delayed desktop popup grant applies only to the same live, uncancelled source gesture', () => {
+        const native = {}, grant = {gestureId: 1, popupName: 'child', popupHeight: 240, popupWidth: 320};
+        for (const [id, cancelled] of [[null, false], [2, false], [1, true]]) {
+            Object.assign(native, {gestureId: id, dragCancelled: cancelled});
+            expect(DragDrop.prototype.startWindowDrag.call(native, grant)).toBe(false);
+            expect(native.isWindowDragging).toBeUndefined()
+        }
+        native.dragCancelled = false;
+        expect(DragDrop.prototype.startWindowDrag.call(native, grant)).toBe(true);
+        expect(native.popupName).toBe('child')
+    });
+
     test('a refused native move skips only that move: the drag frame still flows and nothing goes unhandled', async () => {
         const sent    = [],
               seen    = [],
@@ -457,6 +469,35 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(state.style.getPropertyValue('width'), 'acceptance retains terminal pixels until projection owns them')
             .toBe('220px');
         expect(state.resize.pendingTerminal).toBeNull()
+    });
+
+    for (const [action, resizeConfig] of [['replaces', {axis: 'width', targetId: 'retired-target'}], ['cancels', null]]) {
+        test(`a stale handshake recovers a recreated root and never ${action} the active resize`, () => {
+            const {resize, style} = createState(),
+                  active          = resize.state,
+                  addon           = {dragResize: resize, gestureId: 2, offsetX: 12, zoneRegistrations: {}},
+                  path            = [{id: 'recreated-root'}];
+
+            resize.gesture = {dragZoneId: 'splitter-zone', clientX: 100, clientY: 0};
+            resize.createState = () => null; // A retired target has no measurable DOM node.
+            resize.apply({clientX: 150, clientY: 0});
+            expect(style.getPropertyValue('width')).toBe('250px');
+
+            expect(DragDrop.prototype.setConfigs.call(addon, {
+                dragElementRootId: path[0].id, dragZoneId: 'splitter-zone', gestureId: 1, offsetX: 99, resizeConfig
+            })).toEqual({boundaryContainerRect: null});
+            expect(DragDrop.prototype.resolveDragZoneId.call(addon, path)).toBe('splitter-zone');
+            expect(resize.resolve(path)).toBeNull();
+            expect(resize.state).toBe(active);
+            expect(style.getPropertyValue('width')).toBe('250px');
+            expect(addon.offsetX).toBe(12)
+        })
+    }
+
+    test('a cancelled handshake cannot displace the newer owner of a reused root', () => {
+        const addon = {dragCancelled: true, gestureId: 2, zoneRegistrations: {'reused-root': 'new-zone'}};
+        DragDrop.prototype.setConfigs.call(addon, {dragElementRootId: 'reused-root', dragZoneId: 'old-zone', gestureId: 2});
+        expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'reused-root'}])).toBe('new-zone')
     });
 
     test('a same-gesture registration replaces a retired target and replays the latest pointer frame', () => {
@@ -911,6 +952,12 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
         expect(resizeCancels).toBe(1);
         expect(idle.dragCancelled).toBe(false)
     })
+});
+
+test('a popup Escape from a retired gesture cannot cancel a newer source drag', () => {
+    const source = {dragZoneId: 'window-zone', gestureId: 2};
+    expect(DragDrop.prototype.cancelDrag.call(source, {gestureId: 1, key: 'Escape'})).toBe(false);
+    expect(source.dragCancelled).toBeUndefined()
 });
 
 /**

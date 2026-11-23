@@ -202,7 +202,7 @@ test.describe('examples/desktop/basic', () => {
         const calculator = windowOf(page, 'Calculator');
 
         await expect(calculator).toBeVisible();
-        await settled(page, calculator);
+        const initial = await settled(page, calculator);
 
         // A move ends at the workspace's right edge, which it cannot cross
         const title = await calculator.locator('.neo-header-toolbar .neo-panel-header-text').boundingBox(),
@@ -211,12 +211,13 @@ test.describe('examples/desktop/basic', () => {
 
         await page.mouse.move(x, y);
         await page.mouse.down();
-        await page.mouse.move(x + 800, y, {steps: 16});
+        await page.mouse.move(x + page.viewportSize().width - initial.x - initial.width, y, {steps: 16});
         await page.mouse.up();
 
         // The drag proxy, a clone of the window, leaves after the drop
         await expect(calculator).toHaveCount(1);
 
+        expect(page.context().pages()).toHaveLength(1);
         const atEdge = await settled(page, calculator);
 
         // The drag's own clamp lets the drop land 2px past the edge: the window lands inside the workspace

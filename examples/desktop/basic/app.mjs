@@ -1,16 +1,22 @@
-import Viewport from './Viewport.mjs';
+import PopupViewport from '../../../src/desktop/PopupViewport.mjs';
+import Viewport      from './Viewport.mjs';
 
 /**
- * @summary Starts the web desktop example in the theme `?theme=` names, or the first configured theme.
+ * @summary Starts the desktop or its popup host in the theme carried by this window.
  * @returns {Neo.controller.Application}
  */
 export const onStart = () => {
     const
-        {themes, url} = Neo.config,
-        requested     = new URLSearchParams(url?.search).get('theme');
+        windowId      = Neo.bootingWindowId,
+        {themes, url} = Neo.windowConfigs?.[windowId] || Neo.config,
+        params        = new URLSearchParams(url?.search),
+        requested     = params.get('theme'),
+        theme         = themes.includes(requested) ? requested : themes[0],
+        popup         = Boolean(params.get('desktopPopup'));
 
     return Neo.app({
-        mainView: {module: Viewport, theme: themes.includes(requested) ? requested : themes[0]},
-        name    : 'DesktopBasic'
+        mainView: {module: popup ? PopupViewport : Viewport, theme},
+        name    : popup ? 'DesktopBasicPopup' : 'DesktopBasic',
+        windowId
     })
 };

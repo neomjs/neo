@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}              from '../../fixtures.mjs';
+import {attachPageSharedAppWorker} from '../../sharedWorkerAppWorker.mjs';
 
 const DESKTOP = '/apps/webdesktop/index.html',
       ICON    = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
@@ -72,15 +73,19 @@ const windowOf = (page, app) => page.locator(WINDOW).filter({hasText: app}).filt
  * @param {Object} window
  * @param {String} app
  */
-async function expectOpened(page, window, app) {
+async function expectOpened(browser, page, window, app) {
     const id        = await window.getAttribute('id'),
-          appWorker = page.workers().find(worker => worker.url().includes('worker/App'));
+          appWorker = await attachPageSharedAppWorker({browser, page});
 
-    await expect.poll(() => appWorker.evaluate(id => {
-        const dialog = Neo.get(id);
+    try {
+        await expect.poll(() => appWorker.evaluate(id => {
+            const dialog = Neo.get(id);
 
-        return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null
-    }, id), {message: `${app} has finished opening`}).toBe(true)
+            return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null
+        }, id), {message: `${app} has finished opening`}).toBe(true)
+    } finally {
+        await appWorker.close()
+    }
 }
 
 /**
@@ -101,7 +106,7 @@ async function expectInsideWorkspace(page, window) {
 test.describe('web desktop apps', () => {
     test.use({viewport: {width: 1440, height: 900}});
 
-    test('every app opens its own view at its own size, its stylesheet arriving with its first open', async ({page}) => {
+    test('every app opens its own view at its own size, its stylesheet arriving with its first open', async ({browser, page}) => {
         const errors   = trackErrors(page),
               requests = [];
 
@@ -118,7 +123,7 @@ test.describe('web desktop apps', () => {
             const window = windowOf(page, app);
 
             await expect(window.locator(view)).toBeVisible();
-            await expectOpened(page, window, app);
+            await expectOpened(browser, page, window, app);
 
             // The boundary fit runs after the flight lands, so the box may still move once
             await expect(async () => {
@@ -146,6 +151,55 @@ test.describe('web desktop apps', () => {
         await expect(window.locator('.neo-calendar-maincontainer')).toBeVisible();
         await expect(window.getByText('Design review').first()).toBeInViewport();
         expect(errors).toEqual([])
+    });
+
+    test('revoking a permission closes its committed popup and removes its task', async ({page}) => {
+        await signIn(page);
+        await page.getByRole('button', {name: 'Switch theme'}).click();
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await page.locator(ICON).filter({hasText: 'Mail'}).dblclick();
+
+        const mail = windowOf(page, 'Mail');
+        await expect(async () => {
+            expect(Math.round((await mail.boundingBox()).width)).toBe(880);
+            await expectInsideWorkspace(page, mail)
+        }).toPass();
+
+        const readColors = element => {
+            const style = getComputedStyle(element);
+            return ['--desktop-app-window-color', '--webdesktop-ink-dim'].map(name => style.getPropertyValue(name).trim())
+        };
+        const sourceColors = await mail.locator('.webdesktop-mail').evaluate(readColors);
+        expect(sourceColors.every(Boolean)).toBe(true);
+
+        const header = mail.locator('.neo-header-toolbar').first();
+        await header.hover();
+        const box = await header.boundingBox(),
+              x   = box.x + box.width / 2,
+              y   = box.y + box.height / 2;
+
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x + 20, y, {steps: 5});
+        await expect(page.locator('.neo-dragproxy')).toBeVisible();
+        const [popup] = await Promise.all([
+            page.waitForEvent('popup'),
+            page.mouse.move(page.viewportSize().width + 300, y, {steps: 35})
+        ]);
+        await expect(popup.locator('.webdesktop-mail')).toBeVisible();
+        await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await expect.poll(() => popup.locator('.webdesktop-mail').evaluate(readColors)).toEqual(sourceColors);
+        await page.mouse.up();
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+        await expect(page.locator('.neo-desktop-task-list .neo-list-item')).toHaveCount(1);
+
+        await page.getByRole('button', {name: 'Permissions'}).click();
+        await Promise.all([
+            popup.waitForEvent('close'),
+            page.getByRole('option').filter({hasText: 'view-mail'}).click()
+        ]);
+        await expect(page.locator(ICON).filter({hasText: 'Mail'})).toHaveCount(0);
+        await expect(page.locator('.neo-desktop-task-list .neo-list-item')).toHaveCount(0)
     });
 
     test('Restore in the Recycle Bin puts the file back in Documents', async ({page}) => {

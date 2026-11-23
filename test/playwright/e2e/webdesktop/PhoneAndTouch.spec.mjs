@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}              from '../../fixtures.mjs';
+import {attachPageSharedAppWorker} from '../../sharedWorkerAppWorker.mjs';
 
 const DESKTOP    = '/apps/webdesktop/index.html',
       ICON       = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
@@ -88,7 +89,7 @@ test.describe('web desktop on a phone', () => {
 test.describe('web desktop on a touch-capable computer', () => {
     test.use({hasTouch: true, viewport: {width: 1280, height: 800}});
 
-    test('a mouse click selects an app, a finger tap opens one, and a double-click and Enter open one each', async ({page}) => {
+    test('a mouse click selects an app, a finger tap opens one, and a double-click and Enter open one each', async ({browser, page}) => {
         await signIn(page);
 
         const messages = page.locator(ICON).filter({hasText: 'Messages'}),
@@ -108,14 +109,17 @@ test.describe('web desktop on a touch-capable computer', () => {
         await expect(page.locator(TASK)).toHaveText(/Mail/);
 
         const mailId    = await mailWindow.getAttribute('id'),
-              appWorker = page.workers().find(worker => worker.url().includes('worker/App'));
+              appWorker = await attachPageSharedAppWorker({browser, page});
 
-        // Visibility starts at the launcher rectangle, before the Close button reaches its final position.
-        await expect.poll(() => appWorker.evaluate(id => {
-            const dialog = Neo.get(id);
+        try {
+            await expect.poll(() => appWorker.evaluate(id => {
+                const dialog = Neo.get(id);
 
-            return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null;
-        }, mailId), {message: 'Mail has finished opening'}).toBe(true);
+                return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null
+            }, mailId), {message: 'Mail has finished opening'}).toBe(true)
+        } finally {
+            await appWorker.close()
+        }
 
         await mailWindow.getByRole('button', {name: 'close'}).click();
         await expect(mailWindow).toHaveCount(0);
