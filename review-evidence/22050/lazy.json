@@ -1,0 +1,33 @@
+{
+  "initial": {
+    "x": 1056,
+    "y": 1337.34375,
+    "width": 360,
+    "height": 282.5
+  },
+  "state": {
+    "css": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-server-side-14-light.jpg\")",
+    "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-server-side-14-light.jpg",
+    "decoded": true,
+    "rect": {
+      "x": 1056,
+      "y": 337.34375,
+      "width": 360,
+      "height": 201.5,
+      "top": 337.34375,
+      "right": 1416,
+      "bottom": 538.84375,
+      "left": 1056
+    }
+  },
+  "routed": [
+    {
+      "rel": "devmode/grid-server-side-14.jpg",
+      "source": "candidate"
+    },
+    {
+      "rel": "devmode/grid-server-side-14-light.jpg",
+      "source": "candidate"
+    }
+  ]
+}
