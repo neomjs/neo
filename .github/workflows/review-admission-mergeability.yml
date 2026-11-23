@@ -9,7 +9,7 @@ on:
   # Mergeability is a head+base relation. A `dev` merge can invalidate an unchanged PR head, so
   # every base movement must re-evaluate the whole open dev-target set. A merge IS such a push, so
   # the PR's own `closed` event is not a trigger: a `pull_request_target` run anchors its check runs
-  # on the event PR's head, and a sweep anchored on a merged head leaves its red there (#20061).
+  # on the event PR's head, and a sweep anchored on a merged head leaves its red there.
   push:
     branches: [dev]
   # Hourly Data Sync commits intentionally carry `[skip ci]`, which suppresses `push` workflows.
@@ -20,6 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  contents: read
   pull-requests: read
   statuses: write
 
@@ -31,34 +32,808 @@ jobs:
       # `pr-<N>` serializes same-PR `pull_request_target` runs; `board` serializes base-movement sweeps
       # without blocking unrelated PR events. Cancellation is not a write fence (an in-flight status
       # POST can land after a cancelled run exits), so `cancel-in-progress` stays false. Because a
-      # `pr-<N>` run and a `board` sweep do not share a concurrency key, `evaluatePullRequest`
-      # re-reads the PR after each terminal status write and restarts if head or base moved.
+      # `pr-<N>` run and a `board` sweep do not share a concurrency key, every status write rechecks
+      # `(headRefOid, refs/heads/dev tip)` immediately before and after `createCommitStatus`.
       group: review-admission-mergeability-${{ github.event_name == 'pull_request_target' && format('pr-{0}', github.event.pull_request.number) || 'board' }}
       cancel-in-progress: false
     steps:
       - name: Publish live head mergeability
         uses: actions/github-script@v9
         env:
-          OVERFLOW_WRITE_DELAY_MS: '1000'
+          MERGEABILITY_API_RETRIES: '2'
+          MERGEABILITY_API_RETRY_DELAY_MS: '1000'
           MERGEABILITY_CONCURRENCY: '4'
+          MERGEABILITY_MAX_RESTARTS: '3'
           MERGEABILITY_POLL_ATTEMPTS: '7'
           MERGEABILITY_POLL_DELAY_MS: '2000'
           MERGEABILITY_POLL_MAX_DELAY_MS: '30000'
-          MERGEABILITY_MAX_RESTARTS: '3'
+          MERGEABILITY_REST_WAKE_BATCH: '32'
+          MERGEABILITY_REST_WAKE_BUDGET: '64'
         with:
           retries: 3
           script: |
-            const contextKey  = 'review-admission/mergeability';
-            const maxPolls    = Number(process.env.MERGEABILITY_POLL_ATTEMPTS);
-            const delayMs     = Number(process.env.MERGEABILITY_POLL_DELAY_MS);
-            const maxDelayMs  = Number(process.env.MERGEABILITY_POLL_MAX_DELAY_MS) || 30000;
-            const maxRestarts = Number(process.env.MERGEABILITY_MAX_RESTARTS);
-            const concurrency = Math.max(1, Number(process.env.MERGEABILITY_CONCURRENCY) || 4);
-            const sleep       = ms => new Promise(resolve => setTimeout(resolve, ms));
-            const runUrl      = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const baseBranch       = 'dev';
+            const qualifiedBaseRef = 'refs/heads/dev';
+            const contextKey       = 'review-admission/mergeability';
+            const maxApiRetries    = Math.max(0, Number(process.env.MERGEABILITY_API_RETRIES ?? 2));
+            const apiRetryDelayMs  = Math.max(0, Number(process.env.MERGEABILITY_API_RETRY_DELAY_MS ?? 1000));
+            const concurrency      = Math.max(1, Number(process.env.MERGEABILITY_CONCURRENCY) || 4);
+            const maxRestarts      = Math.max(0, Number(process.env.MERGEABILITY_MAX_RESTARTS ?? 3));
+            const maxPolls         = Math.max(1, Number(process.env.MERGEABILITY_POLL_ATTEMPTS) || 7);
+            const delayMs          = Math.max(0, Number(process.env.MERGEABILITY_POLL_DELAY_MS ?? 2000));
+            const maxDelayMs       = Math.max(0, Number(process.env.MERGEABILITY_POLL_MAX_DELAY_MS) || 30000);
+            const restWakeBatch    = Math.max(0, Number(process.env.MERGEABILITY_REST_WAKE_BATCH ?? 32));
+            let   restWakeBudget   = Math.max(0, Number(process.env.MERGEABILITY_REST_WAKE_BUDGET ?? 64));
 
-            let pulls = [];
-            let prs;
+            const sleep  = ms => new Promise(resolve => setTimeout(resolve, ms));
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+            const metrics = {
+              graphqlCalls: 0,
+              graphqlCost : 0,
+              restReads   : 0,
+              retries     : 0,
+              statusReads : 0,
+              statusWrites: 0
+            };
+
+            const formatMetrics = () =>
+              `graphqlCalls=${metrics.graphqlCalls} graphqlCost=${metrics.graphqlCost} ` +
+              `restReads=${metrics.restReads} statusReads=${metrics.statusReads} ` +
+              `statusWrites=${metrics.statusWrites} retries=${metrics.retries}`;
+
+            class ControllerSourceError extends Error {}
+            class PullInactive extends Error {}
+
+            const BOARD_QUERY = `
+              query ReviewAdmissionBoard(
+                $owner: String!,
+                $repo: String!,
+                $base: String!,
+                $qualifiedBase: String!,
+                $cursor: String,
+                $contextKey: String!
+              ) {
+                rateLimit { cost remaining }
+                repository(owner: $owner, name: $repo) {
+                  ref(qualifiedName: $qualifiedBase) {
+                    target { oid }
+                  }
+                  pullRequests(
+                    states: OPEN,
+                    baseRefName: $base,
+                    first: 100,
+                    after: $cursor,
+                    orderBy: {field: CREATED_AT, direction: ASC}
+                  ) {
+                    totalCount
+                    pageInfo { hasNextPage endCursor }
+                    nodes {
+                      number
+                      state
+                      isDraft
+                      baseRefName
+                      headRefOid
+                      mergeable
+                      commits(last: 1) {
+                        nodes {
+                          commit {
+                            status {
+                              context(name: $contextKey) { state }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const SINGLE_PR_QUERY = `
+              query ReviewAdmissionSingle(
+                $owner: String!,
+                $repo: String!,
+                $number: Int!,
+                $qualifiedBase: String!,
+                $contextKey: String!
+              ) {
+                rateLimit { cost remaining }
+                repository(owner: $owner, name: $repo) {
+                  ref(qualifiedName: $qualifiedBase) {
+                    target { oid }
+                  }
+                  pullRequest(number: $number) {
+                    number
+                    state
+                    isDraft
+                    baseRefName
+                    headRefOid
+                    mergeable
+                    commits(last: 1) {
+                      nodes {
+                        commit {
+                          status {
+                            context(name: $contextKey) { state }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const sameCoordinate = (left, right) => left.head === right.head && left.base === right.base;
+
+            const normalizeMergeable = raw => {
+              if (raw === 'MERGEABLE' || raw === true) {
+                return true;
+              }
+              if (raw === 'CONFLICTING' || raw === false) {
+                return false;
+              }
+              if (raw === 'UNKNOWN' || raw === null) {
+                return null;
+              }
+              throw new ControllerSourceError(`Unsupported mergeable value: ${JSON.stringify(raw)}`);
+            };
+
+            const normalizeStatusState = raw => {
+              if (typeof raw !== 'string' || raw.length === 0) {
+                return null;
+              }
+              return raw.toLowerCase();
+            };
+
+            const parsePrNode = (node, devTip) => {
+              const prNumber = node?.number;
+
+              if (!Number.isInteger(prNumber)) {
+                throw new ControllerSourceError('GraphQL pull-request node omitted integer number.');
+              }
+
+              const state       = typeof node.state === 'string' ? node.state.toUpperCase() : '';
+              const baseRefName = node.baseRefName;
+
+              if (state !== 'OPEN') {
+                return {active: false, number: prNumber, reason: `PR #${prNumber} is ${state.toLowerCase() || 'closed'}; no mergeability status after close.`};
+              }
+
+              if (baseRefName !== baseBranch) {
+                return {active: false, number: prNumber, reason: `PR #${prNumber} targets ${baseRefName || 'another branch'}, not ${baseBranch}; skipping status write.`};
+              }
+
+              if (typeof node.headRefOid !== 'string' || node.headRefOid.length === 0) {
+                throw new ControllerSourceError(`PR #${prNumber} omitted headRefOid.`);
+              }
+
+              const commitNodes    = node.commits?.nodes;
+              const statusContext  = Array.isArray(commitNodes) && commitNodes.length > 0
+                ? commitNodes[commitNodes.length - 1]?.commit?.status?.context
+                : null;
+              const publishedState = normalizeStatusState(statusContext?.state);
+
+              return {
+                active        : true,
+                baseRefName,
+                coordinate    : {head: node.headRefOid, base: devTip},
+                head          : node.headRefOid,
+                isDraft       : Boolean(node.isDraft),
+                mergeable     : normalizeMergeable(node.mergeable),
+                number        : prNumber,
+                publishedState
+              };
+            };
+
+            const withBoundedRetry = async(label, operation) => {
+              let lastError;
+
+              for (let attempt = 0; attempt <= maxApiRetries; attempt++) {
+                if (attempt > 0) {
+                  metrics.retries++;
+                  if (apiRetryDelayMs > 0) {
+                    await sleep(Math.min(apiRetryDelayMs * (2 ** (attempt - 1)), maxDelayMs));
+                  }
+                }
+
+                try {
+                  return await operation();
+                } catch (error) {
+                  if (error instanceof PullInactive) {
+                    throw error;
+                  }
+                  lastError = error;
+                }
+              }
+
+              throw new ControllerSourceError(`${label} failed after ${maxApiRetries + 1} attempt(s): ${lastError?.message || lastError}`);
+            };
+
+            const runGraphql = async(label, query, variables) => withBoundedRetry(label, async() => {
+              if (typeof github.graphql !== 'function') {
+                throw new ControllerSourceError('github.graphql client is unavailable.');
+              }
+
+              const response = await github.graphql(query, variables);
+              metrics.graphqlCalls++;
+              metrics.graphqlCost += Number(response?.rateLimit?.cost ?? 1);
+
+              if (Array.isArray(response?.errors) && response.errors.length > 0) {
+                const detail = response.errors.map(err => err?.message || 'GraphQL error').join('; ');
+                throw new ControllerSourceError(`GraphQL response carried errors: ${detail}`);
+              }
+
+              return response;
+            });
+
+            const readSinglePr = async prNumber => {
+              const response = await runGraphql(`PR #${prNumber} GraphQL read`, SINGLE_PR_QUERY, {
+                contextKey,
+                number       : prNumber,
+                owner        : context.repo.owner,
+                qualifiedBase: qualifiedBaseRef,
+                repo         : context.repo.repo
+              });
+
+              const devTip = response?.repository?.ref?.target?.oid;
+
+              if (typeof devTip !== 'string' || devTip.length === 0) {
+                throw new ControllerSourceError(`Repository ref ${qualifiedBaseRef} omitted target oid.`);
+              }
+
+              const node = response?.repository?.pullRequest;
+
+              if (!node) {
+                throw new ControllerSourceError(`PR #${prNumber} was not returned by GraphQL.`);
+              }
+
+              const parsed = parsePrNode(node, devTip);
+
+              if (!parsed.active) {
+                throw new PullInactive(parsed.reason);
+              }
+
+              return {...parsed, devTip};
+            };
+
+            const readBoardSnapshot = async() => {
+              const byNumber      = new Map();
+              const inactiveNotes = [];
+              let   cursor        = null;
+              let   devTip        = null;
+              let   pages         = 0;
+
+              while (true) {
+                pages++;
+                if (pages > 50) {
+                  throw new ControllerSourceError('Board GraphQL pagination exceeded 50 pages (5,000 open PRs).');
+                }
+
+                const response = await runGraphql(`Board GraphQL page ${pages}`, BOARD_QUERY, {
+                  base         : baseBranch,
+                  contextKey,
+                  cursor,
+                  owner        : context.repo.owner,
+                  qualifiedBase: qualifiedBaseRef,
+                  repo         : context.repo.repo
+                });
+
+                const pageTip = response?.repository?.ref?.target?.oid;
+
+                if (typeof pageTip !== 'string' || pageTip.length === 0) {
+                  throw new ControllerSourceError(`Repository ref ${qualifiedBaseRef} omitted target oid.`);
+                }
+
+                if (devTip === null) {
+                  devTip = pageTip;
+                } else if (pageTip !== devTip) {
+                  return {baseMoved: true, devTip: pageTip, pulls: []};
+                }
+
+                const connection = response?.repository?.pullRequests;
+                const nodes      = connection?.nodes;
+                const pageInfo   = connection?.pageInfo;
+
+                if (!Array.isArray(nodes) || !pageInfo || typeof pageInfo.hasNextPage !== 'boolean') {
+                  throw new ControllerSourceError(`Board GraphQL page ${pages} omitted pull-request nodes or pageInfo.`);
+                }
+
+                if (nodes.some(node => !node)) {
+                  throw new ControllerSourceError(`Board GraphQL page ${pages} contained null pull-request nodes.`);
+                }
+
+                if (pages === 1 && !pageInfo.hasNextPage && Number.isInteger(connection.totalCount) && nodes.length < connection.totalCount) {
+                  throw new ControllerSourceError(
+                    `Board GraphQL page 1 returned ${nodes.length} of ${connection.totalCount} PRs with hasNextPage=false.`
+                  );
+                }
+
+                for (const node of nodes) {
+                  const parsed = parsePrNode(node, devTip);
+
+                  if (parsed.active) {
+                    byNumber.set(parsed.number, parsed);
+                  } else {
+                    inactiveNotes.push(parsed.reason);
+                  }
+                }
+
+                if (!pageInfo.hasNextPage) {
+                  break;
+                }
+
+                if (typeof pageInfo.endCursor !== 'string' || pageInfo.endCursor.length === 0) {
+                  throw new ControllerSourceError(`Board GraphQL page ${pages} reported hasNextPage=true without endCursor.`);
+                }
+
+                cursor = pageInfo.endCursor;
+              }
+
+              return {
+                baseMoved: false,
+                devTip,
+                inactiveNotes,
+                pulls    : [...byNumber.values()]
+              };
+            };
+
+            const wakePullViaRest = async prNumber => {
+              if (restWakeBudget <= 0 || typeof github.rest?.pulls?.get !== 'function') {
+                return null;
+              }
+
+              restWakeBudget--;
+
+              return withBoundedRetry(`PR #${prNumber} REST wakeup`, async() => {
+                metrics.restReads++;
+                const response = await github.rest.pulls.get({
+                  owner      : context.repo.owner,
+                  pull_number: prNumber,
+                  repo       : context.repo.repo
+                });
+                return response?.data || null;
+              });
+            };
+
+            const writeCommitStatus = async(headSha, state, description) =>
+              withBoundedRetry(`Commit status write (${state} on ${headSha.slice(0, 10)})`, async() => {
+                await github.rest.repos.createCommitStatus({
+                  context    : contextKey,
+                  description,
+                  owner      : context.repo.owner,
+                  repo       : context.repo.repo,
+                  sha        : headSha,
+                  state,
+                  target_url : runUrl
+                });
+                metrics.statusWrites++;
+              });
+
+            const descriptionForBoolean = mergeable => mergeable
+              ? 'Mergeable with current dev base'
+              : 'Conflicts with current dev base; author rebase required';
+
+            const pendingHoldDescription = 'Mergeability still computing; recovers on bounded retry, next dev push, or workflow_dispatch';
+
+            const publishVerifiedBoolean = async(prNumber, expectedCoordinate) => {
+              const verified = await readSinglePr(prNumber);
+
+              if (!sameCoordinate(expectedCoordinate, verified.coordinate)) {
+                return {outcome: 'moved', observed: verified};
+              }
+
+              if (verified.mergeable === null) {
+                return {outcome: 'unknown', observed: verified};
+              }
+
+              const state = verified.mergeable ? 'success' : 'failure';
+
+              if (verified.publishedState !== state) {
+                await writeCommitStatus(verified.head, state, descriptionForBoolean(verified.mergeable));
+              } else {
+                core.info(`PR #${prNumber} already publishes ${contextKey}=${state}; no duplicate status.`);
+              }
+
+              const postWrite = await readSinglePr(prNumber);
+
+              if (!sameCoordinate(expectedCoordinate, postWrite.coordinate)) {
+                return {outcome: 'moved', observed: postWrite};
+              }
+
+              if (postWrite.mergeable === null) {
+                return {outcome: 'unknown', observed: postWrite};
+              }
+
+              const postState = postWrite.mergeable ? 'success' : 'failure';
+
+              if (postWrite.publishedState !== null && postWrite.publishedState !== postState) {
+                return {outcome: 'moved', observed: postWrite};
+              }
+
+              return {outcome: 'settled', observed: postWrite, state: postState};
+            };
+
+            const publishPendingHold = async(prNumber, expectedCoordinate) => {
+              const verified = await readSinglePr(prNumber);
+
+              if (!sameCoordinate(expectedCoordinate, verified.coordinate)) {
+                return {outcome: 'moved', observed: verified};
+              }
+
+              if (verified.mergeable !== null) {
+                return publishVerifiedBoolean(prNumber, verified.coordinate);
+              }
+
+              if (verified.publishedState !== 'pending') {
+                await writeCommitStatus(verified.head, 'pending', pendingHoldDescription);
+              }
+
+              const postWrite = await readSinglePr(prNumber);
+
+              if (!sameCoordinate(expectedCoordinate, postWrite.coordinate)) {
+                return {outcome: 'moved', observed: postWrite};
+              }
+
+              return {outcome: 'pending', observed: postWrite};
+            };
+
+            const runPool = async(items, workerFn) => {
+              let index       = 0;
+              const poolCount = Math.min(concurrency, items.length);
+
+              await Promise.all(
+                Array.from({length: poolCount}, async() => {
+                  while (index < items.length) {
+                    const item = items[index++];
+                    await workerFn(item);
+                  }
+                })
+              );
+            };
+
+            const evaluateSingleEventPr = async prNumber => {
+              let wokenCoordinateKey = null;
+
+              try {
+                for (let restart = 0; restart <= maxRestarts; restart++) {
+                  const seed       = await readSinglePr(prNumber);
+                  const coordinate = seed.coordinate;
+
+                  if (seed.mergeable !== null) {
+                    const desired = seed.mergeable ? 'success' : 'failure';
+
+                    if (seed.publishedState === desired) {
+                      core.info(`PR #${prNumber} already publishes ${contextKey}=${desired}; no duplicate status. (${formatMetrics()})`);
+                      return;
+                    }
+
+                    const result = await publishVerifiedBoolean(prNumber, coordinate);
+
+                    if (result.outcome === 'settled') {
+                      core.info(`PR #${prNumber} converged on ${result.state}. (${formatMetrics()})`);
+                      return;
+                    }
+
+                    if (result.outcome === 'moved') {
+                      continue;
+                    }
+                  }
+
+                  let coordinateMoved = false;
+
+                  for (let poll = 1; poll < maxPolls; poll++) {
+                    if (delayMs > 0) {
+                      await sleep(Math.min(delayMs * (2 ** (poll - 1)), maxDelayMs));
+                    }
+
+                    const observed = await readSinglePr(prNumber);
+
+                    if (!sameCoordinate(coordinate, observed.coordinate)) {
+                      coordinateMoved = true;
+                      break;
+                    }
+
+                    if (observed.mergeable === null) {
+                      const coordKey = `${observed.head}:${observed.devTip}`;
+
+                      if (wokenCoordinateKey !== coordKey) {
+                        wokenCoordinateKey = coordKey;
+                        const restData     = await wakePullViaRest(prNumber);
+
+                        if (typeof restData?.mergeable === 'boolean') {
+                          const wokeResult = await publishVerifiedBoolean(prNumber, coordinate);
+
+                          if (wokeResult.outcome === 'settled') {
+                            core.info(`PR #${prNumber} converged on ${wokeResult.state} after REST wakeup. (${formatMetrics()})`);
+                            return;
+                          }
+
+                          if (wokeResult.outcome === 'moved') {
+                            coordinateMoved = true;
+                            break;
+                          }
+                        }
+                      }
+
+                      continue;
+                    }
+
+                    const result = await publishVerifiedBoolean(prNumber, coordinate);
+
+                    if (result.outcome === 'settled') {
+                      core.info(`PR #${prNumber} converged on ${result.state}. (${formatMetrics()})`);
+                      return;
+                    }
+
+                    if (result.outcome === 'moved') {
+                      coordinateMoved = true;
+                      break;
+                    }
+                  }
+
+                  if (coordinateMoved) {
+                    continue;
+                  }
+
+                  const holdResult = await publishPendingHold(prNumber, coordinate);
+
+                  if (holdResult.outcome === 'settled') {
+                    core.info(`PR #${prNumber} resolved to ${holdResult.state} on final check. (${formatMetrics()})`);
+                    return;
+                  }
+
+                  if (holdResult.outcome === 'moved') {
+                    continue;
+                  }
+
+                  core.warning(
+                    `PR #${prNumber} mergeability stayed UNKNOWN after ${maxPolls} polls; ${pendingHoldDescription}. (${formatMetrics()})`
+                  );
+                  return;
+                }
+
+                core.setFailed(
+                  `PR #${prNumber} head/dev-tip moved through ${maxRestarts + 1} bounded coordinates without settling; ` +
+                  `recovers on next dev push or workflow_dispatch. (${formatMetrics()})`
+                );
+              } catch (error) {
+                if (error instanceof PullInactive) {
+                  core.info(`${error.message} (${formatMetrics()})`);
+                  return;
+                }
+
+                core.setFailed(
+                  `PR #${prNumber} mergeability controller condition: ${error.message}. ` +
+                  `No false failure published; recovers on bounded retry, next dev push, or workflow_dispatch. (${formatMetrics()})`
+                );
+              }
+            };
+
+            const evaluateBoard = async() => {
+              const wokenKeys = new Set();
+
+              try {
+                for (let restart = 0; restart <= maxRestarts; restart++) {
+                  let activeDevTip     = null;
+                  let baseMoved        = false;
+                  let lastUnknownPulls = [];
+                  const settledHeads   = new Map();
+                  const controllerErrs = [];
+
+                  for (let poll = 0; poll < maxPolls; poll++) {
+                    if (poll > 0 && delayMs > 0) {
+                      await sleep(Math.min(delayMs * (2 ** (poll - 1)), maxDelayMs));
+                    }
+
+                    const snapshot = await readBoardSnapshot();
+
+                    if (snapshot.baseMoved) {
+                      baseMoved = true;
+                      break;
+                    }
+
+                    for (const note of snapshot.inactiveNotes) {
+                      core.info(note);
+                    }
+
+                    if (snapshot.pulls.length === 0) {
+                      core.info(`No open ${baseBranch} pull requests require mergeability publication. (${formatMetrics()})`);
+                      return;
+                    }
+
+                    if (activeDevTip === null) {
+                      activeDevTip = snapshot.devTip;
+                    } else if (snapshot.devTip !== activeDevTip) {
+                      baseMoved = true;
+                      break;
+                    }
+
+                    const writesNeeded = [];
+                    const unknownPulls = [];
+
+                    for (const pull of snapshot.pulls) {
+                      if (pull.mergeable === null) {
+                        unknownPulls.push(pull);
+                        continue;
+                      }
+
+                      const desired = pull.mergeable ? 'success' : 'failure';
+
+                      if (pull.publishedState === desired || settledHeads.get(pull.number) === `${pull.head}:${desired}`) {
+                        settledHeads.set(pull.number, `${pull.head}:${desired}`);
+                        continue;
+                      }
+
+                      writesNeeded.push(pull);
+                    }
+
+                    if (writesNeeded.length > 0) {
+                      await runPool(writesNeeded, async pull => {
+                        if (baseMoved) {
+                          return;
+                        }
+
+                        try {
+                          const result = await publishVerifiedBoolean(pull.number, pull.coordinate);
+
+                          if (result.outcome === 'settled') {
+                            settledHeads.set(pull.number, `${result.observed.head}:${result.state}`);
+                          } else if (result.outcome === 'moved' && result.observed.devTip !== activeDevTip) {
+                            baseMoved = true;
+                          } else if (result.outcome === 'unknown') {
+                            unknownPulls.push(result.observed);
+                          }
+                        } catch (error) {
+                          if (error instanceof PullInactive) {
+                            core.info(error.message);
+                            return;
+                          }
+                          controllerErrs.push(`#${pull.number}: ${error.message}`);
+                        }
+                      });
+                    }
+
+                    if (baseMoved) {
+                      break;
+                    }
+
+                    lastUnknownPulls = unknownPulls;
+
+                    if (unknownPulls.length === 0) {
+                      if (controllerErrs.length > 0) {
+                        core.setFailed(
+                          `Board mergeability controller encountered ${controllerErrs.length} per-PR condition(s): ` +
+                          `${controllerErrs.join('; ')}. Recovers on next dev push or workflow_dispatch. (${formatMetrics()})`
+                        );
+                        return;
+                      }
+
+                      core.info(
+                        `Board mergeability current across ${snapshot.pulls.length} open ${baseBranch} PR(s) at ${activeDevTip.slice(0, 10)}. (${formatMetrics()})`
+                      );
+                      return;
+                    }
+
+                    if (poll >= 1 && restWakeBudget > 0 && restWakeBatch > 0) {
+                      const prioritized = [
+                        ...unknownPulls.filter(pr => !pr.isDraft),
+                        ...unknownPulls.filter(pr => pr.isDraft)
+                      ].filter(pr => !wokenKeys.has(`${pr.number}:${pr.head}:${activeDevTip}`))
+                       .slice(0, Math.min(restWakeBatch, restWakeBudget));
+
+                      if (prioritized.length > 0) {
+                        await runPool(prioritized, async pull => {
+                          if (baseMoved) {
+                            return;
+                          }
+
+                          wokenKeys.add(`${pull.number}:${pull.head}:${activeDevTip}`);
+
+                          try {
+                            const restData = await wakePullViaRest(pull.number);
+
+                            if (typeof restData?.mergeable === 'boolean') {
+                              const wokeResult = await publishVerifiedBoolean(pull.number, pull.coordinate);
+
+                              if (wokeResult.outcome === 'settled') {
+                                settledHeads.set(pull.number, `${wokeResult.observed.head}:${wokeResult.state}`);
+                              } else if (wokeResult.outcome === 'moved' && wokeResult.observed.devTip !== activeDevTip) {
+                                baseMoved = true;
+                              }
+                            }
+                          } catch (error) {
+                            if (error instanceof PullInactive) {
+                              core.info(error.message);
+                              return;
+                            }
+                            controllerErrs.push(`#${pull.number}: ${error.message}`);
+                          }
+                        });
+
+                        if (baseMoved) {
+                          break;
+                        }
+
+                        lastUnknownPulls = unknownPulls.filter(pull => !settledHeads.has(pull.number));
+
+                        if (lastUnknownPulls.length === 0 && controllerErrs.length === 0) {
+                          core.info(
+                            `Board mergeability current across ${snapshot.pulls.length} open ${baseBranch} PR(s) after REST wakeup at ${activeDevTip.slice(0, 10)}. (${formatMetrics()})`
+                          );
+                          return;
+                        }
+                      }
+                    }
+                  }
+
+                  if (baseMoved) {
+                    continue;
+                  }
+
+                  const remainingUnknown = lastUnknownPulls.filter(pull => !settledHeads.has(pull.number));
+
+                  await runPool(remainingUnknown, async pull => {
+                    if (baseMoved) {
+                      return;
+                    }
+
+                    try {
+                      const holdResult = await publishPendingHold(pull.number, pull.coordinate);
+
+                      if (holdResult.outcome === 'settled') {
+                        settledHeads.set(pull.number, `${holdResult.observed.head}:${holdResult.state}`);
+                      } else if (holdResult.outcome === 'moved' && holdResult.observed.devTip !== activeDevTip) {
+                        baseMoved = true;
+                      }
+                    } catch (error) {
+                      if (error instanceof PullInactive) {
+                        core.info(error.message);
+                        return;
+                      }
+                      controllerErrs.push(`#${pull.number}: ${error.message}`);
+                    }
+                  });
+
+                  if (baseMoved) {
+                    continue;
+                  }
+
+                  const stillPending = remainingUnknown
+                    .filter(pull => !settledHeads.has(pull.number))
+                    .map(pull => `#${pull.number}`);
+
+                  if (stillPending.length === 0 && controllerErrs.length === 0) {
+                    core.info(`Board mergeability settled on final verification pass. (${formatMetrics()})`);
+                    return;
+                  }
+
+                  const reasons = [];
+                  if (stillPending.length > 0) {
+                    reasons.push(`${stillPending.length} PR(s) stayed UNKNOWN (${stillPending.join(', ')})`);
+                  }
+                  if (controllerErrs.length > 0) {
+                    reasons.push(`controller errors: ${controllerErrs.join('; ')}`);
+                  }
+
+                  core.setFailed(
+                    `Board mergeability incomplete: ${reasons.join(' | ')}. ` +
+                    `Unresolved heads stay pending (never false failure); recovers on next dev push or workflow_dispatch. (${formatMetrics()})`
+                  );
+                  return;
+                }
+
+                core.setFailed(
+                  `Repository ${qualifiedBaseRef} moved through ${maxRestarts + 1} bounded board sweeps without settling; ` +
+                  `recovers on next dev push or workflow_dispatch. (${formatMetrics()})`
+                );
+              } catch (error) {
+                core.setFailed(
+                  `Open ${baseBranch} PR mergeability controller condition: ${error.message}. ` +
+                  `No author-side failure published; recovers on bounded retry, next dev push, or workflow_dispatch. (${formatMetrics()})`
+                );
+              }
+            };
 
             if (context.eventName === 'pull_request_target') {
               const eventPr = context.payload.pull_request?.number;
@@ -68,336 +843,7 @@ jobs:
                 return;
               }
 
-              // Author-head movement needs exactly one live evaluation. Board-wide enumeration on
-              // every synchronize event multiplies status writes by open-PR count; only base movement
-              // (`push: dev`) needs the whole board.
-              prs = [eventPr];
+              await evaluateSingleEventPr(eventPr);
             } else {
-              try {
-                pulls = await github.paginate(github.rest.pulls.list, {
-                  owner   : context.repo.owner,
-                  repo    : context.repo.repo,
-                  state   : 'open',
-                  base    : 'dev',
-                  per_page: 100
-                });
-              } catch (error) {
-                // A target-list failure cannot name heads to invalidate. Fail the controller loudly
-                // and publish no partial matrix; `manage_pr_reviewers(add)` remains the authoritative
-                // live source gate until workflow_dispatch recovery succeeds.
-                core.setFailed(`Open dev PR discovery failed: ${error.message}`);
-                return;
-              }
-
-              prs = [...new Set(pulls.map(pull => pull.number))].sort((a, b) => a - b);
+              await evaluateBoard();
             }
-
-            // 32 is the per-trigger burst ceiling under the repository GITHUB_TOKEN budget (1,000 REST
-            // requests/hour shared across workflows): at 7 polls/PR, one single-pass worst-case null sweep
-            // costs at most 385 REST calls (1 list + 32 * 12: pre-warm seed, 7 polls, final, status read/write,
-            // post-write), while idempotent terminal writes stay below ~80 content writes/minute. Overflow
-            // paces error transitions, reports failures, and refuses partial certification.
-            if (prs.length > 32) {
-              const publicationFailures = [];
-              const writeDelayMs        = Number(process.env.OVERFLOW_WRITE_DELAY_MS);
-
-              const readStatus = async head => {
-                const combined = await github.rest.repos.getCombinedStatusForRef({
-                  owner: context.repo.owner,
-                  repo : context.repo.repo,
-                  ref  : head
-                });
-
-                return (combined.data.statuses || [])
-                  .find(status => status.context === contextKey)?.state || null;
-              };
-
-              for (let index = 0; index < pulls.length; index++) {
-                const pull = pulls[index];
-                const head = pull?.head?.sha;
-
-                if (typeof head !== 'string') {
-                  publicationFailures.push(`#${pull?.number || 'unknown'}: missing head SHA`);
-                  continue;
-                }
-
-                try {
-                  if (await readStatus(head) !== 'error') {
-                    await github.rest.repos.createCommitStatus({
-                      owner      : context.repo.owner,
-                      repo       : context.repo.repo,
-                      sha        : head,
-                      state      : 'error',
-                      context    : contextKey,
-                      description: 'Controller target set exceeds safe capacity; no partial certification'
-                    });
-
-                    if (index < pulls.length - 1 && writeDelayMs > 0) {
-                      await sleep(writeDelayMs);
-                    }
-                  }
-                } catch (error) {
-                  publicationFailures.push(`#${pull.number}: ${error.message}`);
-                }
-              }
-
-              core.setFailed(
-                `Review-admission target set has ${prs.length} PRs; safe controller cap is 32. ` +
-                `Refusing partial publication. Error-status publication failures: ${publicationFailures.length}.`
-              );
-              return;
-            }
-
-            if (prs.length === 0) {
-              core.info('No open dev pull requests require mergeability publication.');
-              return;
-            }
-
-            // A closed or merged PR has no live coordinate: GitHub leaves its `mergeable` null for
-            // good, and a status written to its head would stay red on a merged PR.
-            class PullClosed extends Error {}
-
-            const sameCoordinate = (left, right) => left.head === right.head && left.base === right.base;
-
-            const readPublishedState = async coordinate => {
-              const combined = await github.rest.repos.getCombinedStatusForRef({
-                owner: context.repo.owner,
-                repo : context.repo.repo,
-                ref  : coordinate.head
-              });
-
-              return (combined.data.statuses || [])
-                .find(status => status.context === contextKey)?.state || null;
-            };
-
-            const prewarmedReads = new Map();
-
-            const evaluatePullRequest = async prNumber => {
-              let lastCoordinate = null;
-
-              const readPull = async() => {
-                let response;
-
-                if (prewarmedReads.has(prNumber)) {
-                  const cached = prewarmedReads.get(prNumber);
-                  prewarmedReads.delete(prNumber);
-
-                  if (!cached.ok) {
-                    throw cached.error;
-                  }
-
-                  response = cached.response;
-                } else {
-                  response = await github.rest.pulls.get({
-                    owner      : context.repo.owner,
-                    repo       : context.repo.repo,
-                    pull_number: prNumber
-                  });
-                }
-
-                const {data} = response;
-
-                if (data.state !== 'open') {
-                  throw new PullClosed(`PR #${prNumber} is ${data.merged ? 'merged' : 'closed'}; no mergeability status after close.`);
-                }
-
-                return data;
-              };
-
-              const coordinateOf = pull => {
-                const coordinate = {head: pull?.head?.sha, base: pull?.base?.sha};
-
-                if (typeof coordinate.head !== 'string' || typeof coordinate.base !== 'string') {
-                  throw new Error(`PR #${prNumber} response omitted head/base coordinates.`);
-                }
-
-                return coordinate;
-              };
-
-              const publish = async(state, coordinate, description) => {
-                // Commit statuses are append-only and hard-fail after 1,000 entries per SHA/context.
-                // The live source read still runs on every event, but an unchanged terminal verdict
-                // needs no duplicate write. Absence while GitHub computes remains an admission hold.
-                if (await readPublishedState(coordinate) === state) {
-                  core.info(`PR #${prNumber} already publishes ${contextKey}=${state}; no duplicate status.`);
-                  return;
-                }
-
-                await github.rest.repos.createCommitStatus({
-                  owner      : context.repo.owner,
-                  repo       : context.repo.repo,
-                  sha        : coordinate.head,
-                  state,
-                  context    : contextKey,
-                  description,
-                  target_url : runUrl
-                });
-              };
-
-              try {
-                for (let restart = 0; restart <= maxRestarts; restart++) {
-                  const seed       = await readPull();
-                  const coordinate = coordinateOf(seed);
-
-                  lastCoordinate = coordinate;
-
-                  let coordinateMoved = false;
-
-                  for (let poll = 0; poll < maxPolls; poll++) {
-                    if (poll > 0) {
-                      await sleep(Math.min(delayMs * (2 ** (poll - 1)), maxDelayMs));
-                    }
-
-                    const observed           = await readPull();
-                    const observedCoordinate = coordinateOf(observed);
-
-                    if (!sameCoordinate(coordinate, observedCoordinate)) {
-                      lastCoordinate  = observedCoordinate;
-                      coordinateMoved = true;
-                      break;
-                    }
-
-                    if (observed.mergeable === null) {
-                      continue;
-                    }
-
-                    if (typeof observed.mergeable !== 'boolean') {
-                      throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(observed.mergeable)}.`);
-                    }
-
-                    // Re-read immediately before the terminal write. Movement already visible here
-                    // restarts on the new coordinate. GitHub offers no atomic compare-and-status-write;
-                    // a post-read movement is corrected by the serialized successor/live tool gate.
-                    const verified           = await readPull();
-                    const verifiedCoordinate = coordinateOf(verified);
-
-                    if (!sameCoordinate(coordinate, verifiedCoordinate)) {
-                      lastCoordinate  = verifiedCoordinate;
-                      coordinateMoved = true;
-                      break;
-                    }
-
-                    if (verified.mergeable === null) {
-                      continue;
-                    }
-
-                    if (typeof verified.mergeable !== 'boolean') {
-                      throw new Error(`PR #${prNumber} returned unsupported mergeable=${JSON.stringify(verified.mergeable)}.`);
-                    }
-
-                    const state       = verified.mergeable ? 'success' : 'failure';
-                    const description = verified.mergeable
-                      ? 'Mergeable with current dev base'
-                      : 'Conflicts with current dev base; author rebase required';
-
-                    await publish(state, coordinate, description);
-
-                    // Cross-trigger write fence (#17692): `pull_request_target` (`pr-<N>`) and board
-                    // sweeps (`board`) run in separate concurrency groups, so a concurrent board sweep
-                    // after a `dev` merge can write against B2 between our verified read on B1 and our
-                    // `publish` POST. Re-reading after the terminal write catches any head/base movement
-                    // that landed before or during the write and restarts on the new coordinate.
-                    const postWrite           = await readPull();
-                    const postWriteCoordinate = coordinateOf(postWrite);
-
-                    if (!sameCoordinate(coordinate, postWriteCoordinate)) {
-                      lastCoordinate  = postWriteCoordinate;
-                      coordinateMoved = true;
-                      break;
-                    }
-
-                    return;
-                  }
-
-                  if (coordinateMoved) {
-                    continue;
-                  }
-
-                  const finalPull       = await readPull();
-                  const finalCoordinate = coordinateOf(finalPull);
-
-                  if (!sameCoordinate(coordinate, finalCoordinate)) {
-                    lastCoordinate = finalCoordinate;
-                    continue;
-                  }
-
-                  if (typeof finalPull.mergeable === 'boolean' && restart < maxRestarts) {
-                    continue;
-                  }
-
-                  await publish('pending', coordinate, 'Mergeability still computing against current dev base; retry controller');
-
-                  const postNullWrite           = await readPull();
-                  const postNullWriteCoordinate = coordinateOf(postNullWrite);
-
-                  if (!sameCoordinate(coordinate, postNullWriteCoordinate)) {
-                    lastCoordinate = postNullWriteCoordinate;
-                    continue;
-                  }
-
-                  const exhaustedMessage = `PR #${prNumber} mergeability stayed null after ${maxPolls} bounded polls.`;
-                  if (context.eventName === 'pull_request_target') {
-                    core.warning(exhaustedMessage);
-                  } else {
-                    core.setFailed(exhaustedMessage);
-                  }
-                  return;
-                }
-
-                await publish('error', lastCoordinate, 'Head/base moved throughout the bounded mergeability probe');
-                core.setFailed(`PR #${prNumber} head/base moved through ${maxRestarts + 1} bounded coordinates.`);
-              } catch (error) {
-                if (error instanceof PullClosed) {
-                  core.info(error.message);
-                  return;
-                }
-
-                if (lastCoordinate) {
-                  try {
-                    await publish('error', lastCoordinate, 'Mergeability source read failed; retry controller');
-                  } catch (publishError) {
-                    core.error(`Could not publish the source-read failure: ${publishError.message}`);
-                  }
-                }
-
-                core.setFailed(error.message);
-              }
-            };
-
-            const workerCount = Math.min(concurrency, prs.length);
-
-            if (prs.length > 1) {
-              // Request every open PR once upfront before polling any so GitHub starts computing
-              // mergeability across the whole board at t = 0 rather than queuing behind earlier PRs.
-              let warmIndex = 0;
-
-              await Promise.all(
-                Array.from({length: workerCount}, async() => {
-                  while (warmIndex < prs.length) {
-                    const prNumber = prs[warmIndex++];
-
-                    try {
-                      const response = await github.rest.pulls.get({
-                        owner      : context.repo.owner,
-                        repo       : context.repo.repo,
-                        pull_number: prNumber
-                      });
-                      prewarmedReads.set(prNumber, {ok: true, response});
-                    } catch (error) {
-                      prewarmedReads.set(prNumber, {ok: false, error});
-                    }
-                  }
-                })
-              );
-            }
-
-            let nextIndex = 0;
-
-            await Promise.all(
-              Array.from({length: workerCount}, async() => {
-                while (nextIndex < prs.length) {
-                  const prNumber = prs[nextIndex++];
-                  await evaluatePullRequest(prNumber);
-                }
-              })
-            );
