@@ -17,7 +17,7 @@ class MainContainerController extends Controller {
     dialog = null
 
     /**
-     * Prevents concurrent `windowOpen` calls while a companion window is staging.
+     * Prevents concurrent companion focus or launch operations across async main-thread probes.
      * @member {Boolean} #openingCompanion=false
      * @private
      */
@@ -177,24 +177,24 @@ class MainContainerController extends Controller {
         const me = this;
         if (me.isDestroyed || me.#openingCompanion) return;
 
-        const {windowId} = me.component;
-
-        if (me.hasLiveCompanion() || await CompanionSurface.isWindowOpen(windowId)) {
-            const focused = await CompanionSurface.focusWindow(me.component);
-            if (me.isDestroyed) return;
-
-            me.getStateProvider().setData({
-                companionOpen: true,
-                surfaceNotice: focused
-                    ? 'Focused the connected second window.'
-                    : 'Second window is already open — bring it forward if the browser declined focus.'
-            });
-            return
-        }
-
         me.#openingCompanion = true;
 
         try {
+            const {windowId} = me.component;
+
+            if (me.hasLiveCompanion() || await CompanionSurface.isWindowOpen(windowId)) {
+                const focused = await CompanionSurface.focusWindow(me.component);
+                if (me.isDestroyed) return;
+
+                me.getStateProvider().setData({
+                    companionOpen: true,
+                    surfaceNotice: focused
+                        ? 'Focused the connected second window.'
+                        : 'Second window is already open — bring it forward if the browser declined focus.'
+                });
+                return
+            }
+
             const opened = await CompanionSurface.openWindow(me.component);
             if (me.isDestroyed) return;
 
