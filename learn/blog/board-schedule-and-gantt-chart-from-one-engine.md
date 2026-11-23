@@ -38,7 +38,7 @@ flowchart TD
 - [`Neo.scheduler.Container`](https://github.com/neomjs/neo/blob/d50145cfd5/src/scheduler/Container.mjs) is a grid: resource columns locked at the start and one timeline column in the centre. Rows recycle vertically as in any grid, and bars and ticks are windowed horizontally.
 - [`Neo.gantt.Container`](https://github.com/neomjs/neo/blob/d50145cfd5/src/gantt/Container.mjs) is a scheduler whose rows are a task tree and whose links move the tasks that depend on them.
 
-Both examples below configure their axis with the same keys (`start`, `end`, `timeZone`, `tickUnit`, `pxPerMinute`, `snapMinutes`). The drag zones of both build on the timeline's `EventDragZone`, and the Gantt chart inherits the scheduler's keyboard edits.
+Both examples below set their axis through the same six keys (`start`, `end`, `timeZone`, `tickUnit`, `pxPerMinute`, `snapMinutes`). The drag zones of both build on the timeline's `EventDragZone`, and the Gantt chart inherits the scheduler's keyboard edits.
 
 ## Every edit is a write to a record
 
@@ -72,17 +72,17 @@ The [Gantt example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/gantt
 {
     module             : Gantt,
     editable           : true,
-    store              : {module: TaskStore,       data: tasks},        // {id, parentId, title, startDate, endDate}
-    dependencyStore    : {module: DependencyStore, data: dependencies}, // {fromId, toId, type: 'FS', lag}
+    store              : {module: TaskStore, data: tasks, rollupParents: true}, // {id, parentId, title, startDate, endDate}
+    dependencyStore    : {module: DependencyStore, data: dependencies},        // {fromId, toId, type: 'FS', lag}
     cascadeDependencies: true,
     dependencyCreation : true,
     taskColumns        : [{type: 'tree', dataField: 'title', text: 'Task', width: 220, locked: 'start'}],
-    timeAxis           : {start: '2026-11-09', end: '2026-11-20', timeZone: 'UTC', tickUnit: 'day', pxPerMinute: 0.12, snapMinutes: 60},
+    timeAxis           : {start: '2026-11-09', end: '2026-11-22', timeZone: 'UTC', tickUnit: 'day', pxPerMinute: 0.10, snapMinutes: 60},
     listeners          : {taskChange: 'up.onTaskChange'}
 }
 ```
 
-When an edit to a task's dates triggers a cascade, each task that depends on it starts at the latest start its incoming links allow. A longer predecessor pushes its successors later, and a shorter one can pull them earlier. With the working calendar on, a task's working duration decides how long it spans. A parent shows its own stored dates, so its span can be edited apart from its children. Every one of these edits goes through the chart's writer, `moveTask`, and its keyboard edits are the scheduler's, routed to that writer.
+When an edit to a task's dates triggers a cascade, each task that depends on it starts at the latest start its incoming links require. A longer predecessor pushes its successors later, and a shorter one can pull them earlier. With the working calendar on, a task's working duration decides how long it spans. By default a parent keeps its own stored dates, so its span can be edited apart from its children. With `rollupParents`, as in the example, a phase starts with its earliest task and ends with its latest, and follows them when they move. A drag, a resize, an editor change and a key press all go through the chart's writer, `moveTask`; the keyboard edits are the scheduler's, routed to that writer.
 
 ## A kanban board whose columns are a field
 
@@ -102,7 +102,7 @@ The [board example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/board
 }
 ```
 
-Its writer is `moveCard`. A card dragged into another column or place, `Ctrl` with an arrow key on a focused card, the card editor and a call from outside all go through it: it sets the record's status and order in one write and fires `cardMove`. Only the columns the card left and entered draw again, and the card itself survives the move. Below the board, the example shows the same store in a grid, and a moved card's row shows its new status there, with no code between the two views. With a `laneField`, the columns split into swimlanes by another field: the [swimlanes example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/board/swimlanes/Viewport.mjs) uses each card's `team`, and a move can change its lane in the same write.
+Its writer is `moveCard`. A card dragged into another column or place, `Ctrl` with an arrow key on a focused card, the card editor when it moves a card to another column, and a call from outside all go through it: it sets the record's status and order in one write and fires `cardMove`. Only the columns the card left and entered draw again, and the card itself survives the move. Below the board, the example shows the same store in a grid, and a moved card's row shows its new status there, with no code between the two views. With a `laneField`, the columns split into swimlanes by another field: the [swimlanes example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/board/swimlanes/Viewport.mjs) uses each card's `team`, and a move can change its lane in the same write.
 
 ## An AI agent edits through the same method
 
