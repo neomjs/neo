@@ -3,6 +3,7 @@ import Icon           from '../component/Icon.mjs';
 import Window         from '../manager/Window.mjs';
 import WindowDragZone from './WindowDragZone.mjs';
 import WindowTearOut  from './WindowTearOut.mjs';
+import '../component/Toast.mjs';
 
 /**
  * @summary One app's window on a web desktop. Its title and header icon follow its app {@link #record}, and its
@@ -207,6 +208,19 @@ class AppWindow extends Dialog {
     onTearOutDisconnect({committed}={}) {
         if (committed) this.hide(false);
         else this.dragZone?.restoreSource()
+    }
+
+    /**
+     * @summary Explains a refused native open in the originating desktop without interrupting its drag.
+     */
+    onPopupOpenRefused() {
+        Neo.toast({
+            appName    : this.appName,
+            msg        : 'Could not open the popup. If your browser blocked it, allow pop-ups for this site and try the drag again.',
+            removeDelay: 8000,
+            role       : 'status',
+            windowId   : this.windowId
+        })
     }
 
     /**
