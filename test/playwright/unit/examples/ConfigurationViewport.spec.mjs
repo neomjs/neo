@@ -70,10 +70,12 @@ import FieldMainContainer      from '../../../../examples/form/field/text/MainCo
 import ListMainContainer       from '../../../../examples/list/base/MainContainer.mjs';
 import GridMainContainer       from '../../../../examples/grid/valueBanding/MainContainer.mjs';
 import FunctionalMainContainer from '../../../../examples/functional/hostComponent/MainContainer.mjs';
+import TabMainContainer        from '../../../../examples/tab/container/MainContainer.mjs';
+import TabOverflow             from '../../../../src/tab/plugin/Overflow.mjs';
 import Store                   from '../../../../src/data/Store.mjs';
 import * as formatConfig       from '../../../../examples/workbench/formatConfig.mjs';
 
-const {formatExampleCode} = formatConfig;
+const {cloneConfig, formatExampleCode} = formatConfig;
 
 test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)', () => {
     test('renders stage and inspector with reset button and theme switch', async () => {
@@ -323,38 +325,152 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         viewport.destroy();
     });
 
-    test('code view renders module only at initial state and evaluates as valid Neo config', async () => {
+    test('code view renders the authored config at initial state and evaluates as valid Neo config', async () => {
         const viewport = Neo.create(ButtonMainContainer, {autoMount: false});
 
         try {
-            const expected = '{\n    module: Neo.button.Base\n}';
-            const codeView = viewport.down({reference: 'code-output'});
+            const
+                code     = viewport.getCodeText(),
+                codeView = viewport.down({reference: 'code-output'});
 
-            expect(viewport.getCodeText()).toBe(expected);
-            expect(codeView.vdom.cn[0].cn[0].text).toBe(expected);
-            expect(codeView.vdom.cn[1].value).toBe(expected);
-            expect(codeView.vdom.cn[1].text).toBe(expected);
+            expect(codeView.vdom.cn[0].cn[0].text).toBe(code);
+            expect(codeView.vdom.cn[1].value).toBe(code);
+            expect(codeView.vdom.cn[1].text).toBe(code);
 
-            ['menu', 'handler', 'flex', 'cls', 'wrapperStyle'].forEach(excluded => {
-                expect(viewport.getCodeText()).not.toContain(`${excluded}:`);
+            // The menu stays with its items: only the handlers inside it become comments
+            expect(code).toContain('// handler: a function, not shown');
+            expect(code).not.toContain('console.log');
+
+            const parsed = new Function('Neo', 'return ' + code)(Neo);
+
+            expect(parsed).toMatchObject({
+                badgeText: 'Badge',
+                flex     : 'none',
+                height   : 50,
+                iconCls  : 'fa fa-home',
+                module   : Neo.button.Base,
+                text     : 'Hello World',
+                ui       : 'primary',
+                width    : 150
             });
-
-            const parsed = new Function('Neo', 'return ' + viewport.getCodeText())(Neo);
-            expect(parsed.module).toBe(Neo.button.Base);
-            expect(Object.keys(parsed)).toEqual(['module']);
+            expect(parsed.handler).toBeUndefined();
+            expect(parsed.wrapperStyle).toBeUndefined();
+            expect(parsed.menu.map(item => item.text)).toEqual(['Item 1', 'Item 2', 'Item 3']);
+            expect(parsed.menu[1].cls).toEqual(['neo-red']);
+            expect(parsed.menu[2].items.map(item => item.text)).toEqual(['Item 4', 'Item 5', 'Item 6']);
 
             const created = Neo.create(parsed);
             expect(created.className).toBe('Neo.button.Base');
+            expect(created.text).toBe('Hello World');
             created.destroy();
         } finally {
             viewport.destroy();
         }
     });
 
-    test('code view updates live across inspector handlers, reactive observeConfig, and empties on reset', async () => {
+    test('tab/container: the code view shows the authored tabs, not the live toolbar, strip and body', async () => {
+        const viewport = Neo.create(TabMainContainer, {autoMount: false});
+
+        try {
+            const
+                code   = viewport.getCodeText(),
+                parsed = new Function('Neo', 'return ' + code)(Neo);
+
+            expect(parsed.module).toBe(Neo.tab.Container);
+            expect(parsed.items.map(item => item.header.text)).toEqual(['Home', 'Media', 'Account']);
+            expect(parsed.items[2].header.badgeText).toBe('3');
+            expect(parsed.items[0].html).toContain('dragResortable');
+            expect(parsed.itemDefaults.cls).toEqual(['neo-examples-tab-component']);
+            expect(parsed.headerActions.map(action => action.action)).toEqual(['next-tab', 'previous-tab']);
+            expect(parsed.headerToolbar.plugins[0].module).toBe(TabOverflow);
+
+            // The listeners keep their keys as comments: the handlers and the scope are the example's own code
+            expect(code).toContain('// activeIndexChange: a function, not shown');
+            expect(code).toContain('// scope: a Neo.examples.tab.container.MainContainer instance, not shown');
+
+            // The live container rebuilt its items into its own parts, and none of them reaches the code
+            viewport.exampleComponent.items.forEach(item => expect(code).not.toContain(item.id));
+        } finally {
+            viewport.destroy();
+        }
+    });
+
+    test('list/base and form/field/text: every literal config the example wrote comes back from the code view', async () => {
+        const {describeNonLiteralReason} = formatConfig;
+
+        for (const MainContainer of [ListMainContainer, FieldMainContainer]) {
+            const viewport = Neo.create(MainContainer, {autoMount: false});
+
+            try {
+                const
+                    {authoredConfig} = viewport,
+                    parsed           = new Function('Neo', 'return ' + viewport.getCodeText())(Neo);
+
+                expect(parsed.module).toBe(viewport.exampleComponent.constructor);
+
+                Object.entries(authoredConfig).forEach(([key, value]) => {
+                    if (!['className', 'module', 'ntype'].includes(key) && !describeNonLiteralReason(value)) {
+                        expect(parsed[key], key).toEqual(value)
+                    }
+                })
+            } finally {
+                viewport.destroy()
+            }
+        }
+    });
+
+    test('the viewport keeps the authored config as written although creation consumes it', async () => {
+        const viewport = Neo.create(TabMainContainer, {autoMount: false});
+
+        try {
+            const
+                {authoredConfig} = viewport,
+                config           = {module: Neo.tab.Container, headerToolbar: {}, items: []},
+                created          = Neo.create(config);
+
+            // The hazard the copy guards against: headerToolbar is not reactive, so setFields() removes it from
+            // the very object Neo.create() receives
+            expect(config.headerToolbar).toBeUndefined();
+            created.destroy();
+
+            expect(authoredConfig.headerToolbar.plugins[0].module).toBe(TabOverflow);
+            expect(authoredConfig.items).toHaveLength(3);
+            expect(authoredConfig.module).toBe(Neo.tab.Container);
+            expect(authoredConfig.listeners.scope).toBe(viewport);
+        } finally {
+            viewport.destroy();
+        }
+    });
+
+    test('cloneConfig copies plain objects and arrays and keeps classes, functions and instances', () => {
+        const
+            handler = () => {},
+            store   = Neo.create(Store, {autoLoad: false});
+
+        try {
+            const
+                config = {handler, menu: [{text: 'A'}], module: Neo.button.Base, store, style: {margin: 0}},
+                clone  = cloneConfig(config);
+
+            expect(clone).toEqual(config);
+            expect(clone).not.toBe(config);
+            expect(clone.menu).not.toBe(config.menu);
+            expect(clone.menu[0]).not.toBe(config.menu[0]);
+            expect(clone.style).not.toBe(config.style);
+            expect(clone.module).toBe(Neo.button.Base);
+            expect(clone.handler).toBe(handler);
+            expect(clone.store).toBe(store);
+        } finally {
+            store.destroy();
+        }
+    });
+
+    test('code view updates live across inspector handlers, reactive observeConfig, and returns to the authored config on reset', async () => {
         const viewport = Neo.create(ButtonMainContainer, {autoMount: false});
 
         try {
+            const initialCode = viewport.getCodeText();
+
             viewport.onRadioChange('badgePosition', 'bottom-left', {value: true});
             viewport.onConfigChange('text', {value: "It's live"});
             viewport.onConfigChange('width', {value: 220});
@@ -370,11 +486,11 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
             expect(code).toContain('width               : 220');
             expect(code).toContain('rippleEffectDuration: 500');
             expect(code).toContain("ui                  : 'secondary'");
-            expect(code).not.toContain('cls');
-            expect(code).not.toContain('wrapperStyle');
 
             const parsed = new Function('Neo', 'return ' + code)(Neo);
-            expect(parsed).toEqual({
+
+            // A changed config replaces the authored value; nothing the example did not write appears
+            expect(parsed).toMatchObject({
                 badgePosition       : 'bottom-left',
                 module              : Neo.button.Base,
                 rippleEffectDuration: 500,
@@ -382,16 +498,18 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
                 ui                  : 'secondary',
                 width               : 220
             });
+            expect(parsed.cls).toBeUndefined();
+            expect(parsed.wrapperStyle).toBeUndefined();
 
-            // Reverting one config removes only that entry from the diff
+            // Reverting one config leaves the authored value
             viewport.onConfigChange('width', {value: viewport.initialConfigValues.width});
-            expect(viewport.getCodeText()).not.toContain('width');
+            expect(viewport.getCodeText()).toContain('width               : 150');
             expect(viewport.getCodeText()).toContain('badgePosition');
 
-            // Reset restores initial state and empties changed keys
+            // Reset restores the authored config
             viewport.onReset();
-            expect(viewport.getCodeText()).toBe('{\n    module: Neo.button.Base\n}');
-            expect(viewport.down({reference: 'code-output'}).vdom.cn[0].cn[0].text).toBe('{\n    module: Neo.button.Base\n}');
+            expect(viewport.getCodeText()).toBe(initialCode);
+            expect(viewport.down({reference: 'code-output'}).vdom.cn[0].cn[0].text).toBe(initialCode);
         } finally {
             viewport.destroy();
         }
@@ -440,7 +558,7 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
         }
     });
 
-    test('formatExampleCode omits functions and Neo instances with comment lines and keeps code evaluable', () => {
+    test('formatExampleCode comments out functions and Neo instances where they sit and keeps code evaluable', () => {
         const store = Neo.create(Store, {autoLoad: false});
 
         try {
@@ -455,15 +573,21 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
             expect(code).toContain('height: 420');
             expect(code).toContain('    // renderer: a function, not shown');
             expect(code).toContain('    // store: a Neo.data.Store instance, not shown');
-            expect(code).toContain('    // nested: contains non-literal values, not shown');
+            expect(code).toContain('        // onClick: a function, not shown');
             expect(code).not.toContain('() => {}');
             expect(code).not.toContain('store   : Neo.data.Store');
 
             const parsed = new Function('Neo', 'return ' + code)(Neo);
             expect(parsed).toEqual({
                 height: 420,
-                module: Neo.grid.Container
+                module: Neo.grid.Container,
+                nested: {}
             });
+
+            // An array keeps its writable items around a function
+            const list = formatExampleCode('Neo.list.Base', {items: [{text: 'A'}, () => {}, 'B']});
+            expect(list).toContain('        // a function, not shown');
+            expect(new Function('Neo', 'return ' + list)(Neo).items).toEqual([{text: 'A'}, 'B']);
 
             const fnOnly = formatExampleCode('Neo.button.Base', {
                 formatter: value => value
