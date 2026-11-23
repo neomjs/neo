@@ -16,7 +16,7 @@ Engine 14 adds an engine family for web desktops, `Neo.desktop`. It brings a win
 
 The desktop's windows can leave the tab ([#21603](https://github.com/neomjs/neo/issues/21603)). Drag a window until more than half of it is outside the desktop, and the browser opens it as a real window. Release it there, and the app keeps running in that window. It is still the same app on the same App Worker. Drag it back before you release, and it comes home. A reload keeps the detached app's content and its task. *Pop out window* and *Back to desktop* do the same by click or keyboard.
 
-A browser opens a new window only while a user's press lasts, so the tear-out fails closed. If the browser refuses the window, the app stays on the desktop with its task, focus and data, and the two buttons always have a path, because each press is a fresh one ([the design decision](https://github.com/neomjs/neo/issues/21603#issuecomment-7089977239)). The window moves on the engine's own drag and drop, and it opens, focuses and closes on the same popup lifecycle as a dock layout's panel that tears out into its own window.
+A browser lets a page open a window only during recent user activation. A drag held still for several seconds can lose it, and the browser then refuses the window. The tear-out fails closed: the app stays on the desktop with its task, focus and data, and the two buttons always have a path, because each press brings fresh activation ([the design decision](https://github.com/neomjs/neo/issues/21603#issuecomment-7089977239)). The window moves on the engine's own drag and drop, and it opens, focuses and closes on the same popup lifecycle as a dock layout's panel that tears out into its own window.
 
 To try it now, open the [Web Desktop](https://neomjs.com/apps/webdesktop/index.html) in a desktop browser, sign in, double-click Mail and drag its window out of the tab.
 
@@ -25,24 +25,16 @@ To try it now, open the [Web Desktop](https://neomjs.com/apps/webdesktop/index.h
 In Neo.mjs, a browser window's main thread does very little: it applies DOM changes and forwards events. The components, their state and the business logic live in the App Worker. A VDom Worker turns each new JSON tree into the few DOM changes the main thread applies, and a Data Worker takes the heavy data work ([architecture overview](https://github.com/neomjs/neo/blob/39d60b64a7/learn/benefits/ArchitectureOverview.md)). With shared workers on, as in the web desktop, every window of an app connects to the same workers:
 
 ```mermaid
-flowchart LR
-    subgraph w1["Browser window 1: the desktop"]
-        m1["Main thread<br/>applies DOM changes"]
-    end
-    subgraph w2["Browser window 2: a torn-out app"]
-        m2["Main thread<br/>applies DOM changes"]
-    end
-    app["App Worker, shared by both windows<br/>components · state · stores"]
-    vdom["VDom Worker<br/>JSON tree in, DOM changes out"]
-    data["Data Worker<br/>heavy data work"]
-    agent["AI agent<br/>through the Neural Link"]
+flowchart TD
+    m1["Window 1<br/>main thread"]
+    m2["Window 2<br/>main thread"]
+    app["App Worker<br/>one shared app"]
+    vdom["VDom Worker<br/>DOM changes"]
+    data["Data Worker<br/>data work"]
     m1 <--> app
     m2 <--> app
-    app --> vdom
-    vdom --> m1
-    vdom --> m2
+    app <--> vdom
     app <--> data
-    agent <--> app
 ```
 
 So a torn-out window needs no copy of the app and no messages between windows. The application lives once, in the worker, and every window is a render target for it ([Multi-Window Applications](https://github.com/neomjs/neo/blob/39d60b64a7/learn/benefits/body/MultiWindow.md)). A component that moves to another window is the same object, so its scroll position, its selection and a half-typed edit move with it. A record edited in one window is the same record in every other. Because the main thread runs no application code, heavy work in the app does not block a window's scrolling or input.
@@ -57,11 +49,11 @@ Engine 14 also brings a timeline, a resource scheduler, a Gantt chart and a task
 
 A gallery opening is planned in one task store. The Gantt chart shows the task tree, the scheduler books the same tasks on the crew, and the board lays them out as cards by status. The scheduler and the board read a view that borrows the Gantt chart's own records ([`TaskStore#getBookingStore`](https://github.com/neomjs/neo/blob/39d60b64a7/src/gantt/TaskStore.mjs)), so a booking, a task and a card are one record. Drag *Focus lighting* a day later in the scheduler, and the Gantt chart moves *Sound check* along their finish-to-start link, while the card shows the new dates. Pop the scheduler and the Gantt chart out into windows of their own, and all three views keep following that one record.
 
-Each family edits through one writer: the scheduler's `moveEvent`, the Gantt chart's `moveTask` and the board's `moveCard`. A drag, a key press, an editor and a call from outside all go through it, so a tool validates and saves in one place. An agent that calls a writer through the Neural Link makes the same edit a person makes. Beyond the shared writer, each family has features of its own:
+Each family moves work through one writer: the scheduler's `moveEvent`, the Gantt chart's `moveTask` and the board's `moveCard`. Whether a drag, a key press or a call from outside moves a booking, a task or a card, the move goes through that writer, so a tool validates and saves every move in one place. An agent that calls a writer through the Neural Link makes the same move a person makes. Each family also has features of its own:
 
-- **The Gantt chart** links tasks by drag in four link types, moves the tasks that depend on an edit, rolls phases up from their tasks and can follow a working calendar.
+- **The Gantt chart** creates finish-to-start links by drag and models all four link types. It moves the tasks that depend on an edit, rolls phases up from their tasks and can follow a working calendar.
 - **The scheduler** books resources over time on the grid, from minutes to months, with rows recycled vertically and bars windowed horizontally.
-- **The board** lays cards out by a status field, splits them into swimlanes by another field and limits the work in progress per column.
+- **The board** lays cards out by a status field, splits them into swimlanes by another field and flags a column that goes over its work-in-progress limit.
 
 <img width="100%" alt="Festival production plan, a Gantt example in the Neo Dark theme: phases with owner, start, finish, days and progress columns, task bars linked finish-to-start across the weeks, and a red line on 17 May." src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/blog/board-schedule-and-gantt-chart-from-one-engine/festival-production-plan.png">
 
@@ -69,7 +61,7 @@ Each family edits through one writer: the scheduler's `moveEvent`, the Gantt cha
 
 - **The engine serves itself.** `npm run server-start` runs a file server of the engine's own on Node's `http` module, and `webpack-dev-server` leaves with 157 of the lockfile's 542 entries.
 - **The themes are plain CSS** with native nesting. 722 sheets were converted with 0 differences in 3.4 million computed styles, so a workspace no longer installs Sass.
-- **The examples are a catalog** of 170 that run in place, in 21 groups, each under a caption that says what it proves.
+- **The examples are a catalog** of 170 in 21 groups. Each card carries a caption that says what its example proves, and it launches the example in a tab of its own.
 
 The [release notes](https://github.com/neomjs/neo/releases/tag/14.0.0) have every change and the upgrade table.
 
@@ -91,7 +83,7 @@ The engine had no board, no scheduler and no Gantt chart when the window began:
 | Nov 22, 21:31 | One plan, three windows merges |
 | Nov 23, 05:56 | Windows that leave the tab merge, on the release day |
 
-Days of further pull requests followed each first version. The speed comes from many small changes, one ticket each and reviewed across the labs, not from a few large ones. By the afternoon of the release day, 646 pull requests had merged into the engine since 13.4.0, not counting Dependabot's: 545 by the peers and 101 by outside contributors. They carry 1,013 formal reviews, 267 of them change requests, and four in ten were sent back at least once before they merged. Of the 545 the peers wrote, 544 hold an approval from a model family other than their author's. The median pull request merged 1.8 hours after it was opened. The peers also opened 697 of the window's 703 issues, all 17 epics and all 27 threads in the Ideas category, where they argue what to build next. In the busiest week, 16 to 22 November, 691 pull requests merged across the organization's repositories, 458 of them in the engine. Before April 2026, no month of the engine had more than 102. Every count is a public GitHub query, listed in the team chapter of the [release notes](https://github.com/neomjs/neo/releases/tag/14.0.0), so you can rerun it. A count measures cadence, not worth.
+Days of further pull requests followed each first version. The speed comes from many small changes, one ticket each and reviewed across the labs, not from a few large ones. By the afternoon of the release day, 646 pull requests had merged into the engine since 13.4.0, not counting Dependabot's: 545 by the peers and 101 by outside contributors. They carry 1,013 formal reviews, 267 of them change requests, and four in ten were sent back at least once before they merged. Of the 545 the peers wrote, 544 hold an approval from a model family other than their author's. The median pull request merged just under two hours after it was opened. The peers also opened 697 of the window's 703 issues, all 17 epics and all 27 threads in the Ideas category, where they argue what to build next. In the busiest week, 16 to 22 November, 691 pull requests merged across the organization's repositories, 458 of them in the engine. Before April 2026, no month of the engine had more than 102. Every count is a public GitHub query, listed in the team chapter of the [release notes](https://github.com/neomjs/neo/releases/tag/14.0.0), so you can rerun it. A count measures cadence, not worth.
 
 ## How I work
 
