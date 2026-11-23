@@ -146,10 +146,7 @@ class NativeReturnTarget extends Base {
         NativeReturnTarget.#cueOwners.delete(workspace);
         if (!workspace.isDestroyed) {
             workspace.removeCls('neo-desktop-window-dwelling');
-            const style = {...workspace.style};
-            delete style['--desktop-return-dwell'];
-            delete style['--desktop-return-offset'];
-            workspace.style = style
+            workspace.style = {...workspace.style, '--desktop-return-dwell': null, '--desktop-return-offset': null}
         }
     }
 

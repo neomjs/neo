@@ -57,11 +57,17 @@ test('a committed Mail popup returns only after its native window dwells over th
             await expect.poll(() => popup.evaluate(() => [screenX, screenY])).toEqual([left, top])
         }
 
+        async function expectIdleWorkspace() {
+            await expect(dwell).toHaveCount(0);
+            await expect(workspace).toHaveCSS('--desktop-return-dwell', '0ms');
+            await expect(workspace).toHaveCSS('--desktop-return-offset', '0ms')
+        }
+
         // A missing event is the observation: allow a whole 1200 ms native dwell plus its
         // 250 ms settle interval and scheduling margin for an erroneous return to manifest.
         async function expectDetached(message) {
             await expect(popup.waitForEvent('close', {timeout: 2000}), message).rejects.toThrow(/Timeout.*close/);
-            await expect(dwell).toHaveCount(0)
+            await expectIdleWorkspace()
         }
 
         const corner = await popup.evaluate(() => ({x: screenX + 8, y: screenY + 8}));
@@ -88,7 +94,7 @@ test('a committed Mail popup returns only after its native window dwells over th
         await expect(dwell).toBeVisible();
         await expect.poll(() => popup.isClosed(), {message: 'native dwell retires this popup', timeout: 10000}).toBe(true);
 
-        await expect(dwell).toHaveCount(0);
+        await expectIdleWorkspace();
         await expect(dialog).toHaveCount(1);
         await expect(dialog).toHaveAttribute('id', dialogId);
         await expect(dialog.locator('.webdesktop-mail-message h2')).toHaveText(subject);
