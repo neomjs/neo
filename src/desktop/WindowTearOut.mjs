@@ -88,6 +88,7 @@ class WindowTearOut extends Base {
         });
         address.searchParams.set('desktopPopup', popupName);
 
+        let opened;
         try {
             entry.opening = NativeVesselTransaction.openVessel({
                 nativeCapabilities      : {close: true, focus: true, position: true},
@@ -96,15 +97,21 @@ class WindowTearOut extends Base {
                 windowFeatures          : `popup=yes,left=${left},top=${top},width=${popupWidth},height=${popupHeight}`,
                 windowId                : sourceId,
                 windowName              : popupName
-            }).then(result => entry.admitted = result === true, () => entry.admitted = false);
+            }).catch(() => null);
 
-            await entry.opening
+            opened = await entry.opening;
+            entry.admitted = opened === true
         } catch {
             entry.admitted = false
         }
 
         if (!entry.admitted) {
-            if (me.#entry === entry) me.#entry = null;
+            if (me.#entry === entry) {
+                me.#entry = null;
+                if (opened === false && !entry.retiring && !owner.hidden && !owner.isDestroyed && !owner.isDestroying) {
+                    owner.onPopupOpenRefused()
+                }
+            }
             return null
         }
 
