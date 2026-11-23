@@ -33,16 +33,16 @@ flowchart TD
     sched --> gantt
 ```
 
-- [`Neo.timeline.TimeAxis`](https://github.com/neomjs/neo/blob/9575d2689b/src/timeline/TimeAxis.mjs) maps dates to pixel offsets and back, projects only the ticks inside the visible range, and snaps and clamps timestamps, from minutes to months. It reads nothing from the DOM: it is the time counterpart of the grid's row geometry.
-- [`Neo.timeline.Column`](https://github.com/neomjs/neo/blob/9575d2689b/src/timeline/Column.mjs) puts that axis into a grid column, so an ordinary grid row can carry bars.
-- [`Neo.scheduler.Container`](https://github.com/neomjs/neo/blob/9575d2689b/src/scheduler/Container.mjs) is a grid: resource columns locked at the start and one timeline column in the centre. Rows recycle vertically as in any grid, and bars and ticks are windowed horizontally.
-- [`Neo.gantt.Container`](https://github.com/neomjs/neo/blob/9575d2689b/src/gantt/Container.mjs) is a scheduler whose rows are a task tree and whose links move the tasks that depend on them.
+- [`Neo.timeline.TimeAxis`](https://github.com/neomjs/neo/blob/d50145cfd5/src/timeline/TimeAxis.mjs) maps dates to pixel offsets and back, projects only the ticks inside the visible range, and snaps and clamps timestamps, from minutes to months. It reads nothing from the DOM: it is the time counterpart of the grid's row geometry.
+- [`Neo.timeline.Column`](https://github.com/neomjs/neo/blob/d50145cfd5/src/timeline/Column.mjs) puts that axis into a grid column, so an ordinary grid row can carry bars.
+- [`Neo.scheduler.Container`](https://github.com/neomjs/neo/blob/d50145cfd5/src/scheduler/Container.mjs) is a grid: resource columns locked at the start and one timeline column in the centre. Rows recycle vertically as in any grid, and bars and ticks are windowed horizontally.
+- [`Neo.gantt.Container`](https://github.com/neomjs/neo/blob/d50145cfd5/src/gantt/Container.mjs) is a scheduler whose rows are a task tree and whose links move the tasks that depend on them.
 
 Both examples below configure their axis with the same keys (`start`, `end`, `timeZone`, `tickUnit`, `pxPerMinute`, `snapMinutes`). The drag zones of both build on the timeline's `EventDragZone`, and the Gantt chart inherits the scheduler's keyboard edits.
 
 ## Every edit is a write to a record
 
-This is the studio's schedule, shortened from the engine's [scheduler example](https://github.com/neomjs/neo/blob/9575d2689b/examples/scheduler/basic/Viewport.mjs). Rooms are the resources, bookings are the events, and both are plain store records:
+This is the studio's schedule, shortened from the engine's [scheduler example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/scheduler/basic/Viewport.mjs). Rooms are the resources, bookings are the events, and both are plain store records:
 
 ```javascript
 {
@@ -66,7 +66,7 @@ Here is the Try-It's quartet session from below, before and after its three edit
 
 ## A Gantt chart whose links move the work
 
-The [Gantt example](https://github.com/neomjs/neo/blob/9575d2689b/examples/gantt/basic/Viewport.mjs) plans a small project. Tasks live in a tree store and links in a store of their own:
+The [Gantt example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/gantt/basic/Viewport.mjs) plans a small project. Tasks live in a tree store and links in a store of their own:
 
 ```javascript
 {
@@ -86,7 +86,7 @@ When an edit to a task's dates triggers a cascade, each task that depends on it 
 
 ## A kanban board whose columns are a field
 
-The [board example](https://github.com/neomjs/neo/blob/5cb81df00a/examples/board/basic/Viewport.mjs) is a sprint board over one store of cards, and the board keeps no card state of its own. A column is the records whose `status` equals the column's, sorted by their `order`:
+The [board example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/board/basic/Viewport.mjs) is a sprint board over one store of cards, and the board keeps no card state of its own. A column is the records whose `status` equals the column's, sorted by their `order`:
 
 ```javascript
 {
@@ -102,11 +102,11 @@ The [board example](https://github.com/neomjs/neo/blob/5cb81df00a/examples/board
 }
 ```
 
-Its writer is `moveCard`. A card dragged into another column or place, `Ctrl` with an arrow key on a focused card, the card editor and a call from outside all go through it: it sets the record's status and order in one write and fires `cardMove`. Only the columns the card left and entered draw again, and the card itself survives the move. Below the board, the example shows the same store in a grid, and a moved card's row shows its new status there, with no code between the two views. With a `laneField`, the columns split into swimlanes by another field: the [swimlanes example](https://github.com/neomjs/neo/blob/5cb81df00a/examples/board/swimlanes/Viewport.mjs) uses each card's `team`, and a move can change its lane in the same write.
+Its writer is `moveCard`. A card dragged into another column or place, `Ctrl` with an arrow key on a focused card, the card editor and a call from outside all go through it: it sets the record's status and order in one write and fires `cardMove`. Only the columns the card left and entered draw again, and the card itself survives the move. Below the board, the example shows the same store in a grid, and a moved card's row shows its new status there, with no code between the two views. With a `laneField`, the columns split into swimlanes by another field: the [swimlanes example](https://github.com/neomjs/neo/blob/d50145cfd5/examples/board/swimlanes/Viewport.mjs) uses each card's `team`, and a move can change its lane in the same write.
 
 ## An AI agent edits through the same method
 
-Neo.mjs runs the app's components in a worker, and its [Neural Link](https://github.com/neomjs/neo/blob/9575d2689b/learn/agentos/NeuralLink.md) lets an AI coding agent connected to the running app read those components and call their methods. An agent that moves the quartet's session from the Try-It below to noon calls the writer the drag calls, through the Neural Link's `call_method` tool:
+Neo.mjs runs the app's components in a worker, and its [Neural Link](https://github.com/neomjs/neo/blob/d50145cfd5/learn/agentos/NeuralLink.md) lets an AI coding agent connected to the running app read those components and call their methods. An agent that moves the quartet's session from the Try-It below to noon calls the writer the drag calls, through the Neural Link's `call_method` tool:
 
 ```json
 {
@@ -166,10 +166,10 @@ You need Node.js and npm. From November 23, `neo-app` installs Neo.mjs 14.
 3. Open `http://localhost:8080/apps/studio/` (the server prints another port if 8080 is taken), or reload it.
 4. Drag "Quartet recording" one hour to the right, then press the right arrow key while it has focus: it moves by one 30-minute snap step. The browser console shows both changes, logged by the `eventChange` listener. To keep edits across a reload, save them in that listener, as the scheduler example does.
 
-The next step up is the examples, each runnable on its own: the [scheduler](https://github.com/neomjs/neo/tree/9575d2689b/examples/scheduler/basic), the [Gantt chart](https://github.com/neomjs/neo/tree/9575d2689b/examples/gantt/basic) and the [board](https://github.com/neomjs/neo/tree/5cb81df00a/examples/board/basic). After them comes the Neural Link, when you want your coding agent to work on the running app with you. The workspace already configures it for Claude Code and Codex (`.mcp.json`, `.codex/config.toml`): start your agent in `studio/`, approve the server once, reload the page, and ask the agent to move the quartet's session to noon.
+The next step up is the examples, each runnable on its own: the [scheduler](https://github.com/neomjs/neo/tree/d50145cfd5/examples/scheduler/basic), the [Gantt chart](https://github.com/neomjs/neo/tree/d50145cfd5/examples/gantt/basic) and the [board](https://github.com/neomjs/neo/tree/d50145cfd5/examples/board/basic). After them comes the Neural Link, when you want your coding agent to work on the running app with you. The workspace already configures it for Claude Code and Codex (`.mcp.json`, `.codex/config.toml`): start your agent in `studio/`, approve the server once, reload the page, and ask the agent to move the quartet's session to noon.
 
 ## Seven years on, and a door for contributors
 
-The engine's [public release was announced](https://codeburst.io/neo-mjs-the-public-release-announcement-1519255bc8f9) on November 23, 2019. In this release's two weeks, 50 outside contributors merged 93 pull requests, and [the release notes](https://github.com/neomjs/neo/releases/tag/14.0.0) name them. The [maintainers](https://github.com/neomjs/neo#the-maintainer-team) they worked with are AI peers from rival labs, each with a name and a memory, who review each other's work across labs, and a human holds final merge authority ([how the team works](https://github.com/neomjs/neo/blob/dev/learn/benefits/Introduction.md)). If you want to build on the new families, the issues labelled [`good first issue`](https://github.com/neomjs/neo/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) are written so that a contributor working with a coding agent can finish one from public context alone.
+The engine's [public release was announced](https://codeburst.io/neo-mjs-the-public-release-announcement-1519255bc8f9) on November 23, 2019. In this release's two weeks, 51 outside contributors merged 101 pull requests, and [the release notes](https://github.com/neomjs/neo/releases/tag/14.0.0) name them. The [maintainers](https://github.com/neomjs/neo#the-maintainer-team) they worked with are AI peers from rival labs, each with a name and a memory, who review each other's work across labs, and a human holds final merge authority ([how the team works](https://github.com/neomjs/neo/blob/dev/learn/benefits/Introduction.md)). If you want to build on the new families, the issues labelled [`good first issue`](https://github.com/neomjs/neo/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) are written so that a contributor working with a coding agent can finish one from public context alone.
 
 Run it first: `npx neo-app@latest` and the steps above. If it earns a place in your next tool, [star the repository](https://github.com/neomjs/neo), which helps the next team find it.
