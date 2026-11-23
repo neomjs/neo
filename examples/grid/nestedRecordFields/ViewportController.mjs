@@ -69,6 +69,18 @@ class ViewportController extends Component {
     }
 
     /**
+     * @summary Observes the root viewport theme so the toolbar toggle button and open dialog track the active scheme.
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        let me = this;
+
+        me.observeConfig(me.component, 'theme', () => me.syncThemeButton());
+        me.syncThemeButton()
+    }
+
+    /**
      * Repaints grid rows once `stores.countries` finishes loading so country names replace ISO codes cleanly.
      */
     onCountryStoreLoad() {
@@ -118,26 +130,16 @@ class ViewportController extends Component {
     }
 
     /**
-     * Switches the viewport and open dialog between `neo-theme-dark` and `neo-theme-light`.
+     * @summary Switches the viewport and open dialog between `neo-theme-dark` and `neo-theme-light`.
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
         let me          = this,
             button      = data.component,
-            current     = me.component.theme || button.theme,
-            isDarkTheme = current !== 'neo-theme-light',
+            isDarkTheme = me.component.getTheme() !== 'neo-theme-light',
             theme       = isDarkTheme ? 'neo-theme-light' : 'neo-theme-dark';
 
-        button.set({
-            iconCls: isDarkTheme ? 'fa fa-moon' : 'fa fa-sun',
-            text   : isDarkTheme ? 'Dark Theme' : 'Light Theme'
-        });
-
         me.component.theme = theme;
-
-        if (me.dialog) {
-            me.dialog.theme = theme
-        }
 
         Neo.toast({
             appName       : button.appName,
@@ -147,6 +149,25 @@ class ViewportController extends Component {
             title         : 'Switched Theme',
             windowId      : button.windowId
         })
+    }
+
+    /**
+     * @summary Aligns the toolbar theme toggle button and any open dialog with the viewport's current theme.
+     */
+    syncThemeButton() {
+        let me      = this,
+            button  = me.getReference('theme-button'),
+            theme   = me.component.getTheme(),
+            isLight = theme === 'neo-theme-light';
+
+        button?.set({
+            iconCls: isLight ? 'fa fa-moon' : 'fas fa-sun',
+            text   : isLight ? 'Dark Theme' : 'Light Theme'
+        });
+
+        if (me.dialog) {
+            me.dialog.theme = theme
+        }
     }
 }
 

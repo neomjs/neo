@@ -177,6 +177,8 @@ async function expectCardLayout(list, width) {
               feature = node.querySelector('.portal-example-feature'),
               more    = node.querySelector('.portal-example-more'),
               isLead  = leadCard && columns === 3 && index === 0,
+              // A full-row final card (3n + 1 cards) sets its caption beside the cover, not below it
+              wide    = columns === 3 && card.width > node.parentElement.getBoundingClientRect().width * 0.9,
               shown   = [
                   node.querySelector('.portal-example-group-badge'),
                   node.querySelector('.neo-title'),
@@ -192,6 +194,8 @@ async function expectCardLayout(list, width) {
             bottom    : card.bottom,
             height    : card.height,
             isLead,
+            wide,
+            beside    : copy.left >= wrap.right - 1.5 && Math.abs(copy.right - card.right) < 1.5,
             coverRatio: wrap.width / wrap.height,
             clearCover: (copy.top - wrap.top) / wrap.height,
             coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - wrap[side]) < 1.5),
@@ -209,11 +213,12 @@ async function expectCardLayout(list, width) {
     }), gridInfo);
 
     expect(cards.length).toBeGreaterThan(0);
-    expect(cards.every(card => card.coverFills && (card.isLead || Math.abs(card.coverRatio - 16 / 9) < 0.025)),
-        'every standard card has an unoccluded 16:9 cover frame').toBe(true);
-    expect(cards.filter(card => !(card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
-        'title, source icon, cue and proof line fit the stationary footer below the cover; details stay closed at rest').toEqual([]);
-    expect(cards.every(card => card.clearCover >= 0.99),
+    // Covers are captured at 16:9, so any other frame ratio crops them; the 2 × 2 lead is no exception
+    expect(cards.filter(card => !(card.coverFills && Math.abs(card.coverRatio - 16 / 9) < 0.025)).map(card => `${card.title} ${card.coverRatio.toFixed(3)}`),
+        'every card, the lead included, has an unoccluded 16:9 cover frame').toEqual([]);
+    expect(cards.filter(card => !((card.wide ? card.beside : card.docked) && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
+        'title, source icon, cue and proof line fit the stationary footer below (or, on a full-row card, beside) the cover; details stay closed at rest').toEqual([]);
+    expect(cards.every(card => card.wide ? card.beside : card.clearCover >= 0.99),
         '100 % of the cover frame is unoccluded at rest').toBe(true);
 
     if (gridInfo.leadCard && gridInfo.columns === 3 && cards.length >= 3) {
@@ -584,6 +589,23 @@ test.describe('Portal examples section', () => {
             await expect(index.locator('[aria-current="page"]')).toContainText('Calendar')
         })
     }
+
+    test('1440×900: the 2 × 2 lead shows its cover whole at 16:9, beside two cards, beside one, and alone (#22049)', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples/forms`);
+        await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Forms & Fields');
+        await page.evaluate(() => document.fonts.ready);
+
+        // Two cards beside the lead set its bottom; one card or none leave its second row to the lead
+        for (const [group, count] of [['Forms & Fields', 4], ['Containers & Layouts', 2], ['Tabs', 1]]) {
+            await openGroup(page, group);
+            const cards = await expectCardLayout(page.locator(CARDS), 1440);
+
+            expect(cards.length, `${group} demonstrations`).toBe(count);
+            expect(cards[0].isLead, `${group} leads with its first card`).toBe(true)
+        }
+    });
 
     for (const [width, height, perRow] of [[1440, 900, 6], [390, 844, 2]]) {
         test(`${width}×${height}: Forms & Fields shows its tiles by name, ${perRow} per row, each a 4:3 crop over its name`, async ({page, neuralLink}) => {

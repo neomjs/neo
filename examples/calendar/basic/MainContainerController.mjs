@@ -21,6 +21,18 @@ class MainContainerController extends ComponentController {
     phone = null
 
     /**
+     * @summary Observes the viewport theme so the toggle button and header bar match the active scheme from boot onward.
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        let me = this;
+
+        me.observeConfig(me.component, 'theme', () => me.syncThemeChrome());
+        me.syncThemeChrome()
+    }
+
+    /**
      * @summary At a phone's width the day view leads and the side panel folds away; wider, the week and the panel return.
      * @param {Object} data The viewport's resize event
      */
@@ -35,37 +47,32 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Object} data
+     * @summary Switches the root viewport between `neo-theme-light` and `neo-theme-dark`.
      */
-    onSwitchThemeButtonClick(data) {
+    onSwitchThemeButtonClick() {
+        let {component} = this;
+
+        component.theme = component.getTheme()?.includes('dark') ? 'neo-theme-light' : 'neo-theme-dark'
+    }
+
+    /**
+     * @summary Aligns the header toolbar background and toggle button label/icon with the viewport's current theme.
+     */
+    syncThemeChrome() {
         let me            = this,
-            button        = data.component,
-            component     = me.component,
+            button        = me.getReference('theme-button'),
             headerToolbar = me.getReference('headerToolbar'),
-            buttonText, headerColor, iconCls, style, theme;
+            isDark        = Boolean(me.component.getTheme()?.includes('dark')),
+            style         = {...headerToolbar?.style, backgroundColor: isDark ? '#33343d' : '#f2f2f2'};
 
-        if (button.text === 'Theme Light') {
-            buttonText  = 'Theme Dark';
-            headerColor = '#f2f2f2';
-            iconCls     = 'fa fa-moon';
-            theme       = 'neo-theme-light'
-        } else {
-            buttonText  = 'Theme Light';
-            headerColor = '#33343d';
-            iconCls     = 'fa fa-sun';
-            theme       = 'neo-theme-dark'
-        }
-
-        component.theme = theme;
-
-        button.set({
-            iconCls,
-            text: buttonText
+        button?.set({
+            iconCls: isDark ? 'fa fa-sun' : 'fa fa-moon',
+            text   : isDark ? 'Theme Light' : 'Theme Dark'
         });
 
-        style = headerToolbar.style || {};
-        style.backgroundColor = headerColor;
-        headerToolbar.style = style
+        if (headerToolbar) {
+            headerToolbar.style = style
+        }
     }
 }
 
