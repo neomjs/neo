@@ -1,0 +1,2235 @@
+{
+  "baselineEngine": "0cc7e43087",
+  "catalogEngine": "3f01b65ae4ab3c558cdee17fb9345827ee89e21a",
+  "publishedPages": "7edb4d9d83aa0f9d0c6ac952ab5092c08e27353c",
+  "baselineOriginalRecords": 143,
+  "publicDownloads": 262,
+  "publicDownloadsMatchingPages": 262,
+  "candidatePages": "6128476179f4402170b1c602355f530d240a4cf7",
+  "candidateChecks": "The candidate Portal read used the exact 20 unmerged Pages JPEGs at their canonical request URLs. The earlier public census used real deployed URLs.",
+  "originalCurrent": {
+    "verifiedPairs": 74,
+    "singleCover": 68,
+    "retired": 1
+  },
+  "potentialDelta": {
+    "original": 9,
+    "laterRecords": 1
+  },
+  "candidateCardTests": [
+    {
+      "id": "board-basic",
+      "group": "Task Board",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "dadf42c5992fa6af86b8b9072143fb633e9e92b82c028a342f22a517c721b523"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "79a7d3b4245cda3983730211e7064199b3059a5b8b38595cdd628ea0a62385ac"
+      }
+    },
+    {
+      "id": "board-big-data",
+      "group": "Task Board",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-big-data-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "83a53ef72316f3cd5516de2aec949f1315c5d5f1f4341f7734d3cbb1e919fd98"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-big-data-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "f50a023af7b6c53b8736e3fa2ea1247238d0dd3f472674d28c2fb2f743263deb"
+      }
+    },
+    {
+      "id": "board-columns",
+      "group": "Task Board",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-columns-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "32643b123fa85fd6cc5ef8e39cb654602a78f3bf34459abfb35e890175603510"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-columns-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "4544e774b92e175b651920dba5d8f6b304b5cf874bd24717cb25e5b1f5f2ee7d"
+      }
+    },
+    {
+      "id": "dock-layouts",
+      "group": "Dashboard & Docking",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-layouts-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "e35076f77a19a4793597d932fa8124cc7da43b12d74fa13474d72567576826b8"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-layouts-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "c96475eebac9ab6430903905f142b4397f713865b3970f112932d37df76b8b21"
+      }
+    },
+    {
+      "id": "gantt-task-columns",
+      "group": "Gantt",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "4a733b4abc33ed133ad775be8af55b0150892f423b5992dcb3f90fb0e1ec7e5a"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "51a8b84f1ecbf68d892fb7a3f150354bd74ffcb3f4377c879f31174295d55a2d"
+      }
+    },
+    {
+      "id": "layouts-side-by-side",
+      "group": "Containers & Layouts",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/layouts-side-by-side-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "648edc13043acf245319097d35a6748ba38b84d34bc72b0be63edee7b7f3a150"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/layouts-side-by-side-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "d0888e4d8b30f087ba9abffaac67f0ae04fa576ec76537100d41daa0b7744527"
+      }
+    },
+    {
+      "id": "list-reorder",
+      "group": "Lists & Galleries",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-reorder-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "c1c147ce0b8faf69c8669bf08dcf3f3629e138873fea7597ae9b01688a191cd8"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-reorder-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "4420ce2dcb9b678ebfe1bbfea82f60f48ae5e161d384700314595196cb67f974"
+      }
+    },
+    {
+      "id": "meridian-observatory",
+      "group": "Scheduler",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "0a3fa0327b23d5a2bd660835155295f0f7748d988174127cf4a32da0793db468"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "d6054a7c003543a3621a901b1c7d978fdc896a90500715c57cd7e211769a244c"
+      }
+    },
+    {
+      "id": "open-street-maps",
+      "group": "Charts, Canvas & Maps",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/open-street-maps-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "679f0e1cf3c4eb73b2493ce36f93684d07f376a645a2d07c4df918d469b880ef"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/open-street-maps-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "ec65737571376545fc52d7a8568dfdc2197ed41a21e3554e5a80ed80b50ab70e"
+      }
+    },
+    {
+      "id": "task-worker",
+      "group": "Workers & Platform",
+      "dark": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/task-worker-14.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "417ad59a8d4accbe3a661095f7687a31b08888e34c88386f95f9e47bffa4c585"
+      },
+      "light": {
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/task-worker-14-light.jpg",
+        "decoded": {
+          "width": 1280,
+          "height": 720
+        },
+        "sha256": "9018dd4422ed4ad2fc36f0312aea9050c2e27f821d6df0d5c765461b9773c53e"
+      }
+    }
+  ],
+  "records": [
+    {
+      "id": "am-charts",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/am-charts-14.jpg",
+      "light": "devmode/am-charts-14-light.jpg",
+      "family": "charts",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "board-basic",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/board-basic-14.jpg",
+      "light": "devmode/board-basic-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-big-data",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/board-big-data-14.jpg",
+      "light": "devmode/board-big-data-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-card-designs",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/board-card-designs-14.jpg",
+      "light": "devmode/board-card-designs-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-card-editor",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/board-card-editor-14.jpg",
+      "light": "devmode/board-card-editor-14-light.jpg",
+      "family": "board",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "board-columns",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/board-columns-14.jpg",
+      "light": "devmode/board-columns-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-due-dates",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/board-due-dates-14.jpg",
+      "light": "devmode/board-due-dates-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-multi-select",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/board-multi-select-14.jpg",
+      "light": "devmode/board-multi-select-14-light.jpg",
+      "family": "board",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "board-sales-pipeline",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/board-sales-pipeline-14.jpg",
+      "light": "devmode/board-sales-pipeline-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-swimlanes",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/board-swimlanes-14.jpg",
+      "light": "devmode/board-swimlanes-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "board-wip-limits",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/board-wip-limits-14.jpg",
+      "light": "devmode/board-wip-limits-14-light.jpg",
+      "family": "board",
+      "baseVerified": true
+    },
+    {
+      "id": "breadcrumb",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/breadcrumb-14.jpg",
+      "light": "devmode/breadcrumb-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "breadcrumb: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "button-base",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/button-base-14.jpg",
+      "light": "devmode/tiles/button-base-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true
+    },
+    {
+      "id": "button-split",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/button-split-14.jpg",
+      "light": "devmode/tiles/button-split-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true
+    },
+    {
+      "id": "calendar",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/calendar-14.jpg",
+      "light": "devmode/calendar-14-light.jpg",
+      "family": "calendar",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "failed",
+          "note": "calendar: opened on neo-theme-light, not on neo-theme-neo-dark or neo-theme-dark"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "calendar-year",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/calendar-year-14.jpg",
+      "light": "devmode/calendar-year-14-light.jpg",
+      "family": "calendar",
+      "baseVerified": true
+    },
+    {
+      "id": "carousel",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-carousel-14.jpg",
+      "light": "devmode/tiles/component-carousel-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "checkbox-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-checkbox-14.jpg",
+      "light": "devmode/tiles/form-field-checkbox-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "chip",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-chip-14.jpg",
+      "light": "devmode/tiles/component-chip-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "chip-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-chip-14.jpg",
+      "light": "devmode/tiles/form-field-chip-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "chip-list",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/list-chip-14.jpg",
+      "light": "devmode/tiles/list-chip-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "circle",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-circle-14.jpg",
+      "light": "devmode/tiles/component-circle-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "clock",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-clock-14.jpg",
+      "light": "devmode/tiles/component-clock-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "color-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-color-14.jpg",
+      "light": "devmode/tiles/form-field-color-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "color-list",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/list-color-14.jpg",
+      "light": "devmode/tiles/list-color-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "colors-dashboard",
+      "original": true,
+      "state": "landing needs review",
+      "base": "dist_prod/colorsApp.png",
+      "light": "dist_prod/colorsApp-light.png",
+      "family": "multi-window",
+      "baseVerified": true
+    },
+    {
+      "id": "combobox-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-combobox-14.jpg",
+      "light": "devmode/tiles/form-field-combobox-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "container-accordion",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/container-accordion-14.jpg",
+      "light": "devmode/tiles/container-accordion-14-light.jpg",
+      "family": "layouts",
+      "baseVerified": true
+    },
+    {
+      "id": "container-fragment",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/container-fragment-14.jpg",
+      "light": "devmode/tiles/container-fragment-14-light.jpg",
+      "family": "layouts",
+      "baseVerified": true
+    },
+    {
+      "id": "context-menu-files",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/context-menu-files-14.jpg",
+      "light": "devmode/context-menu-files-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "context-menu-files: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "copy-to-clipboard-trigger",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-trigger-copyToClipboard-14.jpg",
+      "light": "devmode/tiles/form-field-trigger-copyToClipboard-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "country-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-country-14.jpg",
+      "light": "devmode/tiles/form-field-country-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "covid-dashboard",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/covidDashboard.png",
+      "light": "devmode/covidDashboard-light.png",
+      "family": "apps",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "covid-dashboard: opened on neo-theme-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "covid-gallery",
+      "original": true,
+      "state": "landing needs review",
+      "base": "devmode/covid-gallery-14.jpg",
+      "light": "devmode/covid-gallery-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "covid-helix",
+      "original": true,
+      "state": "landing needs review",
+      "base": "devmode/covid-helix-14.jpg",
+      "light": "devmode/covid-helix-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "currency-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-currency-14.jpg",
+      "light": "devmode/tiles/form-field-currency-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "dashboard-sortable",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/dashboard-sortable-14.jpg",
+      "light": "devmode/dashboard-sortable-14-light.jpg",
+      "family": "dashboard",
+      "baseVerified": true
+    },
+    {
+      "id": "data-pipeline",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/data-pipeline-14.jpg",
+      "light": "devmode/data-pipeline-14-light.jpg",
+      "family": "state",
+      "baseVerified": true
+    },
+    {
+      "id": "date-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-date-14.jpg",
+      "light": "devmode/tiles/form-field-date-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "date-selector",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-dateSelector-14.jpg",
+      "light": "devmode/tiles/component-dateSelector-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "devindex",
+      "original": true,
+      "state": "external example",
+      "base": "devmode/devindex-14.jpg",
+      "light": "devmode/devindex-14-light.jpg",
+      "family": "apps",
+      "baseVerified": true
+    },
+    {
+      "id": "dialog-drag-drop",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/dialog-drag-drop-14.jpg",
+      "light": "devmode/dialog-drag-drop-14-light.jpg",
+      "family": "dialogs",
+      "baseVerified": true
+    },
+    {
+      "id": "display-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-display-14.jpg",
+      "light": "devmode/tiles/form-field-display-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "dock-choreography",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/dock-choreography-14.jpg",
+      "light": "devmode/dock-choreography-14-light.jpg",
+      "family": "dashboard",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "failed",
+          "note": "landing: the frame never held still for 1000 ms (page.waitForFunction: Timeout 15000ms exceeded.)"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "dock-cross-window",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/dock-cross-window-14.jpg",
+      "light": "devmode/dock-cross-window-14-light.jpg",
+      "family": "dashboard",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "dock-cross-window: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "dock-layouts",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/dock-layouts-14.jpg",
+      "light": "devmode/dock-layouts-14-light.jpg",
+      "family": "dashboard",
+      "baseVerified": true
+    },
+    {
+      "id": "dock-tear-out",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/dock-tear-out-14.jpg",
+      "light": "devmode/dock-tear-out-14-light.jpg",
+      "family": "dashboard",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "dock-tear-out: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "email",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/email-14.jpg",
+      "light": "devmode/email-14-light.jpg",
+      "family": "apps",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "email: opened on neo-theme-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "email-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-email-14.jpg",
+      "light": "devmode/tiles/form-field-email-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "field-with-prefix",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/field-with-prefix-14.jpg",
+      "light": "devmode/field-with-prefix-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "fieldset",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-fieldset-14.jpg",
+      "light": "devmode/tiles/form-fieldset-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "file-explorer",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/file-explorer-14.jpg",
+      "light": "devmode/file-explorer-14-light.jpg",
+      "family": "tree",
+      "baseVerified": true
+    },
+    {
+      "id": "fileupload-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-fileupload-14.jpg",
+      "light": "devmode/tiles/form-field-fileupload-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "finance",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/finance-14.jpg",
+      "light": "devmode/finance-14-light.jpg",
+      "family": "apps",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "failed",
+          "note": "landing: the frame never held still for 1000 ms (page.waitForFunction: Timeout 15000ms exceeded.)"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "finance: opened on neo-theme-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "form-app",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/form-app-14.jpg",
+      "light": "devmode/form-app-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "form-app: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "form-checkout",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/form-checkout-14.jpg",
+      "light": "devmode/form-checkout-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "form-validation",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/form-validation-14.jpg",
+      "light": "devmode/form-validation-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "functional-define-component",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/functional-defineComponent-14.jpg",
+      "light": "devmode/tiles/functional-defineComponent-14-light.jpg",
+      "family": "functional",
+      "baseVerified": true
+    },
+    {
+      "id": "functional-host-component",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/functional-hostComponent-14.jpg",
+      "light": "devmode/tiles/functional-hostComponent-14-light.jpg",
+      "family": "functional",
+      "baseVerified": true
+    },
+    {
+      "id": "functional-nested-template",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/functional-nestedTemplateComponent-14.jpg",
+      "light": "devmode/tiles/functional-nestedTemplateComponent-14-light.jpg",
+      "family": "functional",
+      "baseVerified": true
+    },
+    {
+      "id": "gallery",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/gallery-14.jpg",
+      "light": "devmode/gallery-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "failed",
+          "note": "landing: the frame never held still for 1000 ms (page.waitForFunction: Timeout 15000ms exceeded.)"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "landing: the frame never held still for 1000 ms (page.waitForFunction: Timeout 15000ms exceeded.)"
+        }
+      ]
+    },
+    {
+      "id": "gantt-basic",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/gantt-basic-14.jpg",
+      "light": "devmode/gantt-basic-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-big-data",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/gantt-big-data-14.jpg",
+      "light": "devmode/gantt-big-data-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-cascade",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/gantt-cascade-14.jpg",
+      "light": "devmode/gantt-cascade-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-dependencies",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/gantt-dependencies-14.jpg",
+      "light": "devmode/gantt-dependencies-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-milestones",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/gantt-milestones-14.jpg",
+      "light": "devmode/gantt-milestones-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-task-columns",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/gantt-task-columns-14.jpg",
+      "light": "devmode/gantt-task-columns-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-task-editor",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/gantt-task-editor-14.jpg",
+      "light": "devmode/gantt-task-editor-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "gantt-task-tree",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/gantt-task-tree-14.jpg",
+      "light": "devmode/gantt-task-tree-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-working-time",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/gantt-working-time-14.jpg",
+      "light": "devmode/gantt-working-time-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "gantt-zoom",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/gantt-zoom-14.jpg",
+      "light": "devmode/gantt-zoom-14-light.jpg",
+      "family": "gantt",
+      "baseVerified": true
+    },
+    {
+      "id": "graph-scene",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/graph-scene-14.jpg",
+      "light": "devmode/graph-scene-14-light.jpg",
+      "family": "charts",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-animated-row-sorting",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-animated-row-sorting-14.jpg",
+      "light": "devmode/grid-animated-row-sorting-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-big-data",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-big-data-14.jpg",
+      "light": "devmode/grid-big-data-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "grid-big-data: opened on neo-theme-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "grid-cell-editing",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-cell-editing-14.jpg",
+      "light": "devmode/grid-cell-editing-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-cell-types",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-cell-types-14.jpg",
+      "light": "devmode/grid-cell-types-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-container",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-container-14.jpg",
+      "light": "devmode/grid-container-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-content-sized-rows",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/grid-content-sized-rows-14.jpg",
+      "light": "devmode/grid-content-sized-rows-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true
+    },
+    {
+      "id": "grid-countries",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-countries-14.jpg",
+      "light": "devmode/grid-countries-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-export",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-export-14.jpg",
+      "light": "devmode/grid-export-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-filtering",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-filtering-14.jpg",
+      "light": "devmode/grid-filtering-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-header-groups",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-header-groups-14.jpg",
+      "light": "devmode/grid-header-groups-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-issues",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-issues-14.jpg",
+      "light": "devmode/grid-issues-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "failed",
+          "note": "page.waitForFunction: Timeout 15000ms exceeded."
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "page.waitForFunction: Timeout 15000ms exceeded."
+        }
+      ]
+    },
+    {
+      "id": "grid-locked-columns",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-locked-columns-14.jpg",
+      "light": "devmode/grid-locked-columns-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-nested-record-fields",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-nested-record-fields-14.jpg",
+      "light": "devmode/grid-nested-record-fields-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "grid-nested-record-fields: opened on neo-theme-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "grid-server-side",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-server-side-14.jpg",
+      "light": "devmode/grid-server-side-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-streaming",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-streaming-14.jpg",
+      "light": "devmode/grid-streaming-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "grid-tree",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/grid-tree-14.jpg",
+      "light": "devmode/grid-tree-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true
+    },
+    {
+      "id": "grid-tree-big-data",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-tree-big-data-14.jpg",
+      "light": "devmode/grid-tree-big-data-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "grid-tree-big-data: opened on neo-theme-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "grid-value-banding",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/grid-value-banding-14.jpg",
+      "light": "devmode/grid-value-banding-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "helix",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/helix-14.jpg",
+      "light": "devmode/helix-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "failed",
+          "note": "landing: the frame never held still for 1000 ms (page.waitForFunction: Timeout 15000ms exceeded.)"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "landing: the frame never held still for 1000 ms (page.waitForFunction: Timeout 15000ms exceeded.)"
+        }
+      ]
+    },
+    {
+      "id": "iban-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-iban-14.jpg",
+      "light": "devmode/tiles/form-field-iban-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "layout-card",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/layout-card-14.jpg",
+      "light": "devmode/tiles/layout-card-14-light.jpg",
+      "family": "layouts",
+      "baseVerified": true
+    },
+    {
+      "id": "layout-cube",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/layout-cube-14.jpg",
+      "light": "devmode/layout-cube-14-light.jpg",
+      "family": "layouts",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "layout-form",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/layout-form-14.jpg",
+      "light": "devmode/tiles/layout-form-14-light.jpg",
+      "family": "layouts",
+      "baseVerified": true
+    },
+    {
+      "id": "layouts-side-by-side",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/layouts-side-by-side-14.jpg",
+      "light": "devmode/layouts-side-by-side-14-light.jpg",
+      "family": "layouts",
+      "baseVerified": true
+    },
+    {
+      "id": "liquid-glass",
+      "original": true,
+      "state": "external example",
+      "base": "devmode/liquid-glass.png",
+      "light": "devmode/liquid-glass-light.png",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "list-animate",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/list-animate-14.jpg",
+      "light": "devmode/list-animate-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "list-base",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/list-base-14.jpg",
+      "light": "devmode/tiles/list-base-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "list-buffered",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/list-buffered-14.jpg",
+      "light": "devmode/tiles/list-buffered-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "list-circle",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/list-circle-14.jpg",
+      "light": "devmode/tiles/list-circle-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "list-reorder",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/list-reorder-14.jpg",
+      "light": "devmode/list-reorder-14-light.jpg",
+      "family": "lists",
+      "baseVerified": true
+    },
+    {
+      "id": "live-preview",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/live-preview-14.jpg",
+      "light": "devmode/live-preview-14-light.jpg",
+      "family": "components",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "magic-move-text",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-magicmovetext-14.jpg",
+      "light": "devmode/tiles/component-magicmovetext-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "markdown",
+      "original": true,
+      "state": "legacy crop without steps",
+      "base": "devmode/markdown-14.jpg",
+      "light": "devmode/markdown-14-light.jpg",
+      "family": "components",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "menu-list",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/menu-list-14.jpg",
+      "light": "devmode/tiles/menu-list-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true
+    },
+    {
+      "id": "menu-tree",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/menu-tree-14.jpg",
+      "light": "devmode/tiles/menu-tree-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true
+    },
+    {
+      "id": "meridian-observatory",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/meridian-observatory-14.jpg",
+      "light": "devmode/meridian-observatory-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "mermaid",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/mermaid-14.jpg",
+      "light": "devmode/mermaid-14-light.jpg",
+      "family": "charts",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "monaco-editor",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-wrapper-monacoEditor-14.jpg",
+      "light": "devmode/tiles/component-wrapper-monacoEditor-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "multi-window-covid-gallery",
+      "original": true,
+      "state": "landing needs review",
+      "base": "devmode/mwCoronaGallery.png",
+      "light": "devmode/mwCoronaGallery-light.png",
+      "family": "multi-window",
+      "baseVerified": true
+    },
+    {
+      "id": "multi-window-drag-drop",
+      "original": true,
+      "state": "retired",
+      "oldImage": "devmode/multi_window_dd.png"
+    },
+    {
+      "id": "number-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-number-14.jpg",
+      "light": "devmode/tiles/form-field-number-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "offscreen-canvas",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/offscreen-canvas-14.jpg",
+      "light": "devmode/offscreen-canvas-14-light.jpg",
+      "family": "platform",
+      "baseVerified": true
+    },
+    {
+      "id": "on-air-at-eight",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/on-air-at-eight-14.jpg",
+      "light": "devmode/on-air-at-eight-14-light.jpg",
+      "family": "apps",
+      "baseVerified": true
+    },
+    {
+      "id": "open-street-maps",
+      "original": true,
+      "state": "Pages #197 candidate",
+      "base": "devmode/open-street-maps-14.jpg",
+      "light": "devmode/open-street-maps-14-light.jpg",
+      "family": "charts",
+      "baseVerified": true
+    },
+    {
+      "id": "password-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-password-14.jpg",
+      "light": "devmode/tiles/form-field-password-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "phone-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-phone-14.jpg",
+      "light": "devmode/tiles/form-field-phone-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "popover",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/popover-14.jpg",
+      "light": "devmode/popover-14-light.jpg",
+      "family": "dialogs",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "portal",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "dist_prod/portalApp.png",
+      "light": "dist_prod/portalApp-light.png",
+      "family": "apps",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "portal: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "process",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-process-14.jpg",
+      "light": "devmode/tiles/component-process-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "progress",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-progress-14.jpg",
+      "light": "devmode/tiles/component-progress-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "radio-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-radio-14.jpg",
+      "light": "devmode/tiles/form-field-radio-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "range-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-range-14.jpg",
+      "light": "devmode/tiles/form-field-range-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-bar-renderer",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-bar-renderer-14.jpg",
+      "light": "devmode/scheduler-bar-renderer-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-basic",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-basic-14.jpg",
+      "light": "devmode/scheduler-basic-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-big-data",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-big-data-14.jpg",
+      "light": "devmode/scheduler-big-data-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-drag-and-resize",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-drag-and-resize-14.jpg",
+      "light": "devmode/scheduler-drag-and-resize-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-event-editor",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/scheduler-event-editor-14.jpg",
+      "light": "devmode/scheduler-event-editor-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "scheduler-live-updates",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/scheduler-live-updates-14.jpg",
+      "light": "devmode/scheduler-live-updates-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "scheduler-non-working-time",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-non-working-time-14.jpg",
+      "light": "devmode/scheduler-non-working-time-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-resource-columns",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-resource-columns-14.jpg",
+      "light": "devmode/scheduler-resource-columns-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-time-zones",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-time-zones-14.jpg",
+      "light": "devmode/scheduler-time-zones-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "scheduler-zoom",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/scheduler-zoom-14.jpg",
+      "light": "devmode/scheduler-zoom-14-light.jpg",
+      "family": "scheduler",
+      "baseVerified": true
+    },
+    {
+      "id": "search-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-search-14.jpg",
+      "light": "devmode/tiles/form-field-search-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "select-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-select-14.jpg",
+      "light": "devmode/tiles/form-field-select-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "shared-covid",
+      "original": true,
+      "state": "landing needs review",
+      "base": "devmode/sharedcovid.png",
+      "light": "devmode/sharedcovid-light.png",
+      "family": "multi-window",
+      "baseVerified": true
+    },
+    {
+      "id": "shared-offscreen-canvas",
+      "original": true,
+      "state": "external example",
+      "base": "devmode/sharedOffscreenCanvas.png",
+      "light": "devmode/sharedOffscreenCanvas-light.png",
+      "family": "multi-window",
+      "baseVerified": true
+    },
+    {
+      "id": "shared-planning",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/shared-planning-14.jpg",
+      "light": "devmode/shared-planning-14-light.jpg",
+      "family": "multi-window",
+      "baseVerified": true
+    },
+    {
+      "id": "sitemap",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/sitemap-14.jpg",
+      "light": "devmode/tiles/sitemap-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "sparklines",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/sparklines-14.jpg",
+      "light": "devmode/sparklines-14-light.jpg",
+      "family": "charts",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "splitter",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-splitter-14.jpg",
+      "light": "devmode/tiles/component-splitter-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "state-provider",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/state-provider-14.jpg",
+      "light": "devmode/state-provider-14-light.jpg",
+      "family": "state",
+      "baseVerified": true
+    },
+    {
+      "id": "status-badge",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-statusbadge-14.jpg",
+      "light": "devmode/tiles/component-statusbadge-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "switch-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-switch-14.jpg",
+      "light": "devmode/tiles/form-field-switch-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "tab-browser",
+      "original": true,
+      "state": "landing needs review",
+      "base": "devmode/tab-browser-14.jpg",
+      "light": "devmode/tab-browser-14-light.jpg",
+      "family": "tabs",
+      "baseVerified": true
+    },
+    {
+      "id": "tab-container",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/tab-container-14.jpg",
+      "light": "devmode/tiles/tab-container-14-light.jpg",
+      "family": "tabs",
+      "baseVerified": true
+    },
+    {
+      "id": "table-container",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/table-container-14.jpg",
+      "light": "devmode/table-container-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "table-filtering",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/table-filtering-14.jpg",
+      "light": "devmode/table-filtering-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "task-worker",
+      "original": false,
+      "state": "Pages #197 candidate",
+      "base": "devmode/task-worker-14.jpg",
+      "light": "devmode/task-worker-14-light.jpg",
+      "family": "platform",
+      "baseVerified": true
+    },
+    {
+      "id": "text-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-text-14.jpg",
+      "light": "devmode/tiles/form-field-text-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "textarea-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-textarea-14.jpg",
+      "light": "devmode/tiles/form-field-textarea-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "time-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-time-14.jpg",
+      "light": "devmode/tiles/form-field-time-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "timeline-basic",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/timeline-basic-14.jpg",
+      "light": "devmode/timeline-basic-14-light.jpg",
+      "family": "grid-table",
+      "baseVerified": true
+    },
+    {
+      "id": "timer",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/component-timer-14.jpg",
+      "light": "devmode/tiles/component-timer-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "toast",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/toast-14.jpg",
+      "light": "devmode/toast-14-light.jpg",
+      "family": "dialogs",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "captured"
+        }
+      ]
+    },
+    {
+      "id": "todo-list",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/todo-list-14.jpg",
+      "light": "devmode/todo-list-14-light.jpg",
+      "family": "state",
+      "baseVerified": true
+    },
+    {
+      "id": "toolbar-application",
+      "original": false,
+      "state": "landing needs review",
+      "base": "devmode/toolbar-application-14.jpg",
+      "light": "devmode/toolbar-application-14-light.jpg",
+      "family": "buttons",
+      "baseVerified": true
+    },
+    {
+      "id": "tooltip",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tooltip-14.jpg",
+      "light": "devmode/tooltip-14-light.jpg",
+      "family": "dialogs",
+      "baseVerified": true
+    },
+    {
+      "id": "tree-accordion",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/treeAccordion-14.jpg",
+      "light": "devmode/tiles/treeAccordion-14-light.jpg",
+      "family": "tree",
+      "baseVerified": true
+    },
+    {
+      "id": "tree-list",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/tree-14.jpg",
+      "light": "devmode/tiles/tree-14-light.jpg",
+      "family": "tree",
+      "baseVerified": true
+    },
+    {
+      "id": "url-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-url-14.jpg",
+      "light": "devmode/tiles/form-field-url-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    },
+    {
+      "id": "video",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/tiles/component-video-14.jpg",
+      "light": "devmode/tiles/component-video-14-light.jpg",
+      "family": "components",
+      "baseVerified": true
+    },
+    {
+      "id": "video-move",
+      "original": false,
+      "state": "paired",
+      "base": "devmode/video-move-14.jpg",
+      "light": "devmode/video-move-14-light.jpg",
+      "family": "platform",
+      "baseVerified": true
+    },
+    {
+      "id": "webdesktop",
+      "original": true,
+      "state": "frozen recipe",
+      "base": "devmode/webdesktop-14-0.jpg",
+      "light": "devmode/webdesktop-14-0-light.jpg",
+      "family": "apps",
+      "baseVerified": true,
+      "openingProbe": [
+        {
+          "palette": "dark",
+          "result": "captured"
+        },
+        {
+          "palette": "default",
+          "result": "failed",
+          "note": "webdesktop: opened on neo-theme-neo-dark, not on neo-theme-neo-light or neo-theme-light"
+        }
+      ]
+    },
+    {
+      "id": "workstation",
+      "original": true,
+      "state": "landing needs review",
+      "base": "devmode/workstation-13-2.jpg",
+      "light": "devmode/workstation-13-2-light.jpg",
+      "family": "multi-window",
+      "baseVerified": true
+    },
+    {
+      "id": "zipcode-field",
+      "original": true,
+      "state": "paired",
+      "base": "devmode/tiles/form-field-zipcode-14.jpg",
+      "light": "devmode/tiles/form-field-zipcode-14-light.jpg",
+      "family": "forms",
+      "baseVerified": true
+    }
+  ]
+}
