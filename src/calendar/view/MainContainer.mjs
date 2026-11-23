@@ -1,4 +1,5 @@
 import CalendarsContainer         from './calendars/Container.mjs';
+import Component                  from '../../component/Base.mjs';
 import Container                  from '../../container/Base.mjs';
 import DateSelector               from '../../component/DateSelector.mjs';
 import DateUtil                   from '../../util/Date.mjs';
@@ -223,6 +224,7 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             let me = this;
 
+            me.setState('activeView', value);
             me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
 
             me.items[0].items[1].items.forEach(item => {
@@ -373,12 +375,14 @@ class MainContainer extends Container {
 
             // we need a short delay to ensure the items already got created
             me.timeout(10).then(() => {
-                me.items[0].items[1].add({
-                    handler: me.toggleSettings.bind(me),
-                    iconCls: 'fa fa-cog',
-                    size   : 'small',
-                    style  : {marginLeft: '10px'}
-                })
+                if (!me.isDestroyed && me.items?.[0]?.items?.[1]) {
+                    me.items[0].items[1].add({
+                        cls    : ['neo-calendar-settings-button'],
+                        handler: me.toggleSettings.bind(me),
+                        iconCls: 'fa fa-cog',
+                        size   : 'small'
+                    })
+                }
             })
         } else if (!value && oldValue) {
             // we only need this logic in case we dynamically change the config from true to false
@@ -486,7 +490,11 @@ class MainContainer extends Container {
                 handler: me.toggleSidebar.bind(me),
                 iconCls: 'fa fa-bars',
                 size   : 'small'
-            }, '->', {
+            }, {
+                module: Component,
+                cls   : ['neo-calendar-nav-spacer'],
+                flex  : 1
+            }, {
                 handler: me.onPreviousIntervalButtonClick.bind(me),
                 iconCls: 'fa fa-chevron-left',
                 size   : 'small'
@@ -502,7 +510,30 @@ class MainContainer extends Container {
         }, {
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
-            items : ['->', ...me.createViewHeaderButtons()]
+            items : [{
+                module   : Container,
+                cls      : ['neo-calendar-header-period'],
+                layout   : null,
+                reference: 'header-period',
+                bind     : {
+                    hidden: data => data.activeView === 'year'
+                },
+                items: [{
+                    module: Component,
+                    cls   : ['neo-calendar-period-full'],
+                    tag   : 'span',
+                    bind  : {
+                        text: data => data.headerPeriod.full
+                    }
+                }, {
+                    module: Component,
+                    cls   : ['neo-calendar-period-short'],
+                    tag   : 'span',
+                    bind  : {
+                        text: data => data.headerPeriod.short
+                    }
+                }]
+            }, '->', ...me.createViewHeaderButtons()]
         }]
     }
 
@@ -541,6 +572,7 @@ class MainContainer extends Container {
 
         me.items = [{
             module: Container,
+            cls   : ['neo-calendar-header', 'neo-container'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch'},
             items : me.createHeaderItems()
@@ -698,7 +730,7 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.stateProvider.setData({
-            currentDate: todayDate
+            currentDate: DateUtil.clone(todayDate)
         })
     }
 
@@ -720,8 +752,8 @@ class MainContainer extends Container {
      * @param {Number} multiplier
      */
     switchInterval(multiplier) {
-        let me            = this,
-            {currentDate} = me.data,
+        let me          = this,
+            currentDate = DateUtil.clone(me.data.currentDate),
 
         map = {
             day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
