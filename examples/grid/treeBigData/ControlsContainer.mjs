@@ -126,6 +126,7 @@ class ControlsContainer extends Container {
                     labelWidth: 70,
                     listeners : {change: 'up.onThemeRadioChange'},
                     name      : 'theme',
+                    reference : 'theme-dark-radio',
                     style     : {marginTop: '2em'},
                     value     : 'neo-theme-dark',
                     valueLabel: 'Dark'
@@ -135,6 +136,7 @@ class ControlsContainer extends Container {
                     labelWidth: 70,
                     listeners : {change: 'up.onThemeRadioChange'},
                     name      : 'theme',
+                    reference : 'theme-light-radio',
                     style     : {marginTop: '.3em'},
                     value     : 'neo-theme-light',
                     valueLabel: 'Light'
@@ -358,11 +360,30 @@ class ControlsContainer extends Container {
         let me      = this,
             {store} = me.grid;
 
+        if (me.parent) {
+            me.observeConfig(me.parent, 'theme', () => me.syncThemeRadios())
+        }
+
+        me.syncThemeRadios();
+
         store.on({
             filter: me.updateRowsLabel,
             load  : me.updateRowsLabel,
             scope : me
         })
+    }
+
+    /**
+     * @summary Aligns the Settings theme radio buttons with the parent viewport's active theme.
+     */
+    syncThemeRadios() {
+        let me     = this,
+            theme  = me.parent?.getTheme() || me.getTheme(),
+            target = me.getReference(theme === 'neo-theme-light' ? 'theme-light-radio' : 'theme-dark-radio');
+
+        if (target && !target.checked) {
+            target.checked = true
+        }
     }
 
     /**

@@ -205,13 +205,18 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
+     * @summary Initializes the default route and syncs theme-dependent chrome with the resolved start theme.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
 
+        let me = this;
+
+        me.observeConfig(me.component, 'theme', () => me.syncThemeChrome());
+        me.syncThemeChrome();
+
         if (!Neo.config.hash) {
-            this.onHashChange({
+            me.onHashChange({
                 country   : 'all',
                 hash      : {mainview: 'table'},
                 hashString: 'mainview=table'
@@ -373,50 +378,39 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Object} data
+     * @summary Switches the root viewport between `neo-theme-dark` and `neo-theme-light`.
      */
-    onSwitchThemeButtonClick(data) {
-        let me         = this,
-            button     = data.component,
-            component  = me.component,
-            logo       = me.getReference('logo'),
-            logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps/covid/',
-            mapView    = me.getReference('mapboxglmap'),
-            themeLight = button.text === 'Theme Light',
-            buttonText, cls, iconCls, mapViewStyle, theme;
+    onSwitchThemeButtonClick() {
+        let {component} = this;
 
-        if (themeLight) {
-            buttonText   = 'Theme Dark';
-            iconCls      = 'fa fa-moon';
-            mapViewStyle = mapView?.mapboxStyleLight;
-            theme        = 'neo-theme-light'
-        } else {
-            buttonText   = 'Theme Light';
-            iconCls      = 'fa fa-sun';
-            mapViewStyle = mapView?.mapboxStyleDark;
-            theme        = 'neo-theme-dark'
+        component.theme = component.getTheme() === 'neo-theme-light' ? 'neo-theme-dark' : 'neo-theme-light'
+    }
+
+    /**
+     * @summary Aligns the header logo, toggle button, and Mapbox style with the viewport's current theme.
+     */
+    syncThemeChrome() {
+        let me       = this,
+            button   = me.getReference('theme-button'),
+            isLight  = me.component.getTheme() === 'neo-theme-light',
+            logo     = me.getReference('logo'),
+            logoPath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/apps/covid/',
+            mapView  = me.getReference('mapboxglmap');
+
+        if (logo) {
+            logo.vdom.src = logoPath + (isLight ? 'covid_logo_light.jpg' : 'covid_logo_dark.jpg');
+            logo.update()
         }
 
-        logo.vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
-        logo.update();
-
-        cls = [...component.cls];
-
-        component.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item)
-            }
+        button?.set({
+            iconCls: isLight ? 'fa fa-moon' : 'fa fa-sun',
+            text   : isLight ? 'Theme Dark' : 'Theme Light'
         });
 
-        NeoArray.add(cls, theme);
-        component.cls = cls;
-
-        button.set({iconCls, text: buttonText});
-
         if (mapView) {
-            mapView.mapboxStyle = mapViewStyle
+            mapView.mapboxStyle = isLight ? mapView.mapboxStyleLight : mapView.mapboxStyleDark
         } else {
-            me.mapboxStyle = themeLight ? 'mapboxStyleLight' : 'mapboxStyleDark'
+            me.mapboxStyle = isLight ? 'mapboxStyleLight' : 'mapboxStyleDark'
         }
     }
 

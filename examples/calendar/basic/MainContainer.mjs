@@ -41,11 +41,12 @@ class MainContainer extends Viewport {
                 cls  : ['neo-examples-calendar-hint'],
                 text : 'Drag an event to move it, drag its lower edge to resize it'
             }, '->', {
-                module : Button,
-                handler: 'onSwitchThemeButtonClick',
-                height : 27,
-                iconCls: 'fa fa-moon',
-                text   : 'Theme Dark'
+                module   : Button,
+                handler  : 'onSwitchThemeButtonClick',
+                height   : 27,
+                iconCls  : 'fa fa-moon',
+                reference: 'theme-button',
+                text     : 'Theme Dark'
             }, {
                 module : Button,
                 height : 27,
