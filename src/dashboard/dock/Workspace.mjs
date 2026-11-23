@@ -1196,11 +1196,8 @@ class Workspace extends Container {
                 ]),
                 url = new URL(hostUrl);
 
-            // The vessel boots the SAME document. Which pane it shows is content, so `tearout` stays a
-            // URL parameter; whom it belongs to is identity, which rides the topology carrier — nothing
-            // about the owner is in the URL. Stripping first matters: a vessel re-torn from a vessel
-            // would otherwise inherit the parent's item and connect as the wrong pane.
-            url.searchParams.delete('tearout');
+            // The vessel boots the same document. Setting `tearout` replaces any inherited pane;
+            // ownership travels in the topology carrier.
             url.searchParams.set('tearout', itemId);
 
             // The vessel opens at the pane's size and where the user let go. A tab drag's proxy is the
