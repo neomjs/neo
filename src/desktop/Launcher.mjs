@@ -49,12 +49,13 @@ class Launcher extends List {
          */
         draggable: true,
         /**
-         * A group is a column, so SortZone's default vertical halves of an icon decide before or after
+         * A group's vertical halves decide before or after. A rejected hit clears the preview and shows feedback.
          * @member {Object} dragZoneConfig
          */
         dragZoneConfig: {
-            module         : SortZone,
-            dragProxyConfig: {cls: ['neo-list', 'neo-desktop-launcher-proxy']}
+            module           : SortZone,
+            dragProxyConfig  : {cls: ['neo-list', 'neo-desktop-launcher-proxy']},
+            requireDropTarget: true
         },
         /**
          * @member {Object} keys

@@ -98,6 +98,14 @@
     box-shadow      : 0 18px 40px -12px rgba(0, 0, 0, .55);
 }
 
+.neo-desktop-launcher-proxy.neo-sort-drop-rejected {
+    opacity: .65;
+}
+
+body.neo-drag-active:has(.neo-desktop-launcher-proxy.neo-sort-drop-rejected) {
+    cursor: no-drop !important;
+}
+
 /* A phone: rows of tiles a step smaller in narrower gutters, so a 375px screen holds four columns, and each caption
    heads its group's rows */
 @media (max-width: 600px) {
