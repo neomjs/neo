@@ -139,6 +139,21 @@ class PracticeViewport extends Viewport {
     }
 
     /**
+     * @summary Opens the Surgery appointment on first mount. Its bar remains visible below the editor.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        const scheduler = this.getReference('scheduler');
+        if (value && !scheduler.eventEditor) {
+            scheduler.openEventEditor(APPOINTMENTS.find(appointment => appointment.title === 'Root canal').id)
+        }
+    }
+
+    /**
      * @summary Names the appointment a save or a keyboard move wrote, with its room and its new times.
      * @param {Object} data
      * @param {Neo.data.Model} data.record
