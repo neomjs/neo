@@ -443,7 +443,7 @@ test.describe('Portal examples section', () => {
         }).toBe(appsCount)
     });
 
-    test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
+    test('the index is a navigation landmark of links: one Tab stop, Enter opens an entry, no entry claims to be a tab', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples`);
         await neuralLink.connectToApp('Portal');
 
@@ -454,11 +454,8 @@ test.describe('Portal examples section', () => {
         await expect(nav.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
         await expect(nav.locator('[role="tab"], [aria-selected]')).toHaveCount(0);
 
-        await links.first().focus();
-        for (let index = 1; index <= GROUPS.length; index++) {
-            await page.keyboard.press('Tab');
-            await expect(links.nth(index)).toBeFocused()
-        }
+        // The open destination's link is the one Tab stop; the arrow keys walk the rest (ExamplesSideNavKeys.spec.mjs)
+        await expect(nav.locator('a[href]:not([tabindex="-1"])')).toHaveCount(1);
 
         await links.nth(GROUPS.indexOf('Calendar') + 1).focus();
         await page.keyboard.press('Enter');
@@ -781,7 +778,7 @@ test.describe('Portal examples section', () => {
             expect(await paint(current)).toEqual(selected);
 
             await sidebar.getByRole('link', {name: /^Grid & Table, /}).focus();
-            await page.keyboard.press('Tab');
+            await page.keyboard.press('ArrowDown');
             await expect(trees).toBeFocused();
             await expect(trees).toHaveCSS('outline-style', 'solid')
         });

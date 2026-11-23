@@ -186,6 +186,7 @@ class Overview extends Container {
             flex          : 'none',
             groupTitles   : me.groupTitles,
             leadCard      : true,
+            listeners     : {leaveStart: 'onListLeaveStart'},
             reference     : 'overview-list',
             showGroup     : true,
             useWrapperNode: false, // the overview scrolls, not the list
@@ -243,6 +244,13 @@ class Overview extends Container {
      */
     getList() {
         return this.down({reference: 'overview-list'})
+    }
+
+    /**
+     * @returns {Portal.view.examples.List[]} The overview's one list, as a group page lists its cards and tiles
+     */
+    getLists() {
+        return [this.getList()]
     }
 
     /**

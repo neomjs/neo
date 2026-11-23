@@ -131,6 +131,36 @@ test.describe('Portal.view.examples.ListModel', () => {
         }
     });
 
+    test('ArrowLeft on the first card hands the step to the list\'s owner and keeps the selection; enter() returns to it, or else to the first card', async () => {
+        const {focusedIds, list, model, store} = await createMountedList(),
+              itemId                           = id => list.getItemId(list.getRecordId(store.get(id))),
+              firstId                          = itemId('workstation'),
+              secondId                         = itemId('grid-big-data'),
+              leaves                           = [];
+
+        list.on('leaveStart', data => leaves.push(data.record.id));
+
+        model.select(secondId);
+        model.onKeyDownLeft({path: [{id: secondId, cls: ['neo-list-item']}]});
+        expect(model.items).toEqual([firstId]);
+        expect(leaves).toEqual([]);
+
+        model.onKeyDownLeft({path: [{id: firstId, cls: ['neo-list-item']}]});
+        expect(leaves).toEqual(['workstation']);
+        expect(model.items).toEqual([firstId]);
+
+        model.select(secondId);
+        focusedIds.length = 0;
+        model.enter();
+        expect(model.items).toEqual([secondId]);
+        expect(focusedIds).toEqual([secondId]);
+
+        model.deselectAll();
+        model.enter();
+        expect(model.items).toEqual([firstId]);
+        expect(focusedIds.at(-1)).toBe(firstId)
+    });
+
     test('an earlier row measurement cannot replace a later Escape or card selection', async () => {
         const {focusedIds, list, model, store} = await createMountedList(),
               firstId                          = list.getItemId(list.getRecordId(store.get('workstation'))),

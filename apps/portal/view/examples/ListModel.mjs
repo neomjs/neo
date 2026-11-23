@@ -6,7 +6,8 @@ import BaseListModel from '../../../../src/selection/ListModel.mjs';
  * Separates native anchor launches (`.neo-title`, `.portal-example-open-cue`, `.neo-github-image`) from card-body
  * selection so clicking a link on card B launches once while preserving card A's selection (`selectOnFocus: false` /
  * `autoClick: false` on the owning list). Card-body clicks toggle selection (`select` / `deselect`), `Escape` clears
- * selection, `ArrowLeft` / `ArrowRight` step linearly across visible cards, and `ArrowUp` / `ArrowDown` traverse
+ * selection, `ArrowLeft` / `ArrowRight` step linearly across visible cards (`ArrowLeft` on the first card hands the step
+ * to the list's owner as `leaveStart`, and {@link #enter} is the way back in), and `ArrowUp` / `ArrowDown` traverse
  * visual grid rows via {@link Neo.component.Base#getDomRect} — handling uniform multi-column grids, `2×2` `leadCard`
  * hero layouts, and single-column narrow containers while keeping DOM focus and `.neo-selected` on the same card.
  *
@@ -34,6 +35,17 @@ class ListModel extends BaseListModel {
      * @private
      */
     #rowNavigationRequest = null
+
+    /**
+     * @summary Selects and focuses the selected card, or else the first visible one: the way into the cards from outside
+     * the list.
+     */
+    enter() {
+        const me      = this,
+              records = me.getNavigableRecords();
+
+        records.length && me.selectAndFocus(records[Math.max(me.getCurrentRecordIndex(null, records), 0)])
+    }
 
     /**
      * @summary Resolves the active index inside the visible record list from event focus path or current selection.
@@ -135,11 +147,25 @@ class ListModel extends BaseListModel {
     }
 
     /**
-     * @summary Moves selection and focus to the previous visible card.
+     * @summary Moves selection and focus to the previous visible card. The first card has none, so the list hands the
+     * step to its owner and the card keeps its selection.
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        this.stepLinear(data, -1)
+        const me      = this,
+              records = me.getNavigableRecords();
+
+        if (records.length && me.getCurrentRecordIndex(data, records) === 0) {
+            me.#rowNavigationRequest = null;
+
+            /**
+             * @event leaveStart
+             * @param {Object} record The first card's record
+             */
+            me.view.fire('leaveStart', {record: records[0]})
+        } else {
+            me.stepLinear(data, -1)
+        }
     }
 
     /**

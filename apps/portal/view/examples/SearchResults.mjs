@@ -126,10 +126,11 @@ class SearchResults extends Container {
         const me = this;
 
         return {
-            module  : List,
-            bind    : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
-            flex    : 'none',
-            leadCard: false,
+            module   : List,
+            bind     : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
+            flex     : 'none',
+            leadCard : false,
+            listeners: {leaveStart: 'onListLeaveStart'},
             ...(tiles ? {tiles: true} : {}),
             useWrapperNode: false,
             wrapperCls    : [
@@ -172,6 +173,13 @@ class SearchResults extends Container {
      */
     getGroupsContainer() {
         return this.down({reference: 'search-groups'})
+    }
+
+    /**
+     * @returns {Portal.view.examples.List[]} Every result list in reading order: each group's cards, then its tiles
+     */
+    getLists() {
+        return this.getGroupsContainer().items.flatMap(group => group.items.filter(item => item instanceof List))
     }
 
     /**

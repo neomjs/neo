@@ -78,6 +78,11 @@ class Navigator extends Base {
      * @param {Object} data
      */
     fixItemFocusability(data) {
+        // The subscriber renders its own Tab stop
+        if (data.rovingTabIndex === false) {
+            return
+        }
+
         // If the key events are being read from an external element, then that will always contain
         // focus, so we have nothing to do here. The navigable items wil be inert and not
         // focusable. Navigation will be "virtual". Select field navigates its dropdowns like this.
@@ -137,7 +142,7 @@ class Navigator extends Base {
             // This was internal navigation.
             // The items must be focusable, but *not* tabbable.
             // So remove tabbability on the last active item
-            if (subject.contains(relatedTarget)) {
+            if (data.rovingTabIndex !== false && subject.contains(relatedTarget)) {
                 relatedTarget.tabIndex = -1
             }
         }
@@ -154,7 +159,7 @@ class Navigator extends Base {
         target.closest(data.selector)?.classList.remove(data.activeCls);
 
         // On focusout, leave the last active item as tabbable so user can TAB back in here
-        if (!DomUtils.isTabbable(target)) {
+        if (data.rovingTabIndex !== false && !DomUtils.isTabbable(target)) {
             target.tabIndex = 0
         }
     }
@@ -498,6 +503,8 @@ class Navigator extends Base {
      * @param {Boolean} data.wrap Pass as `true` to have navigation wrap from first to last and vice versa.
      * @param {Boolean} [data.autoClick=false] Pass as `true` to have navigation click the target navigated to.
      * TabPanels will use this on their tab toolbar.
+     * @param {Boolean} [data.rovingTabIndex=true] Pass as `false` when the subscriber renders its own Tab stop, as an
+     * index of links marks its current page's link: the keys still move focus, and no item's `tabIndex` is written.
      * @param {String[]} [data.workerKeys] Keys owned by logical App-Worker navigation. Cancels their
      * browser default without a mounted-DOM action; the event still reaches the worker.
      * @param {Boolean} [data.workerChords=false] True when the App Worker owns the arrow, Home and End keys pressed
