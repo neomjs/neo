@@ -213,10 +213,12 @@ export const QUARANTINES = [];
 
 /**
  * The shard count the engine tier's full population runs on. A selection gets proportionally fewer shards, so each
- * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones.
+ * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones. A shard
+ * planned at the run step's six-minute ceiling times out on ordinary runner variance, so the count keeps the plan
+ * near five minutes: recount once {@link ENGINE_DURATIONS} totals more than 300 s per shard.
  * @member {{engine: Number}} FULL_SHARDS
  */
-export const FULL_SHARDS = {engine: 15};
+export const FULL_SHARDS = {engine: 18};
 
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
