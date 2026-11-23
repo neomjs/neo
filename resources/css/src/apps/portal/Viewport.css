@@ -90,30 +90,20 @@ body {
             radial-gradient(at 100% 100%, rgba(138, 43, 226, 0.05) 0px, transparent 50%);
     }
 
+    /* Grid-card layout + link reset only: the surface chrome lives in .portal-glass-card below, so a card
+       lights in place instead of lifting (a lift clipped the top border and moved every target inside the card). */
     .portal-content-box {
-        background-color: var(--sem-color-bg-neutral-default);
-        border          : 1px solid var(--sem-color-border-subtle);
-        border-radius   : 12px;
-        box-sizing      : border-box;
-        color           : var(--sem-color-text-neutral-default);
-        cursor          : pointer;
-        display         : flex;
-        flex-direction  : column;
-        min-height      : 300px;
-        padding         : 2rem;
-        position        : relative;
-        text-align      : left;
-        text-decoration : none;
-        transition      : transform var(--motion-base) var(--ease-out-soft), box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
-
-            &:hover {
-                border-color: var(--sem-color-border-focus);
-                box-shadow  : 0 10px 30px rgba(0, 0, 0, 0.05);
-                transform   : translateY(-4px);
-            }
-                &:active {
-            transform: scale(0.99);
-        }
+        box-sizing     : border-box;
+        color          : var(--sem-color-text-neutral-default);
+        display        : flex;
+        flex-direction : column;
+        margin         : 0;
+        max-width      : none;
+        min-height     : 300px;
+        min-width      : 0;
+        padding        : 2rem;
+        text-align     : left;
+        text-decoration: none;
 
         .portal-content-box-headline {
             color         : var(--sem-color-text-primary-default);
@@ -149,6 +139,11 @@ body {
                 }
             }
         }
+    }
+
+    /* Only a real link keeps the pointer: an About member card is not one */
+    a.portal-content-box {
+        cursor: pointer;
     }
 
     .portal-glass-card {
@@ -201,6 +196,7 @@ body {
         }
 
         &:hover,
+        &:focus-visible,
         &:has(:focus-visible) {
             border-color: var(--portal-glass-card-hover-border);
             box-shadow  : var(--portal-glass-card-hover-shadow);
@@ -215,6 +211,12 @@ body {
             &::before {
                 animation: portal-glass-card-sweep calc(var(--motion-stage) * 2) linear forwards;
             }
+        }
+
+        /* A card root can take keyboard focus itself (the Home cards are anchors): give it a clean ring */
+        &:focus-visible {
+            outline       : 2px solid var(--portal-glass-card-hover-border);
+            outline-offset: 2px;
         }
 
         .portal-content-box-headline {

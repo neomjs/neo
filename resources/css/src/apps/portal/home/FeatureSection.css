@@ -35,9 +35,9 @@
     }
 
     .neo-h2 {
-        font-size  : min(max(3.5vw, 24px), 35px);
+        font-size  : min(max(2.2vw, 22px), 30px);
         font-weight: 600;
-        line-height: 1em;
+        line-height: 1.15;
         margin     : 0;
         text-align : start;
     }

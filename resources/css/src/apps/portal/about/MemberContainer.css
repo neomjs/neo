@@ -1,4 +1,10 @@
 .portal-about-member-container {
+    /* A member card is not a link: it keeps the centered column sizing of the standalone glass card
+       and the default cursor once .portal-content-box no longer carries surface chrome. */
+    cursor       : default;
+    margin-left  : auto;
+    margin-right : auto;
+    max-width    : 800px;
     min-width    : 600px;
     padding      : 1em 1em 4em;
     position     : relative;

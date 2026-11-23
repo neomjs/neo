@@ -18,7 +18,7 @@ Everything a real application needs is already in the box, built on one class sy
 *   **Calendar** (`src/calendar/`, 28 classes), **Dock Layouts** for multi-window workspaces (`src/dashboard/dock`,
     42 classes), and tabs, dialogs, toolbars, menus, lists and trees.
 *   **8 layouts**: Card, Cube, Fit, Flexbox, Form, Grid, HBox and VBox.
-*   **39 main-thread addons**: charts (AmCharts), maps (Google Maps, Mapbox GL, OpenStreetMap, CesiumJS), the Monaco
+*   **40 main-thread addons**: charts (AmCharts), maps (Google Maps, Mapbox GL, OpenStreetMap, CesiumJS), the Monaco
     editor, Markdown, Mermaid, syntax highlighting, service workers, server-side rendering and web components.
 *   **The data layer**: stores, models, state providers, selection models and routing.
 *   **Themes** that nest, so one part of an application can carry its own look.

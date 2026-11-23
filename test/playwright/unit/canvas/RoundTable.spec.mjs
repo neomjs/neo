@@ -65,8 +65,8 @@ const createContext = () => new Proxy({canvas: {height: 0, width: 0}, measureTex
 });
 
 /** @summary The layout of the full team around a statement. */
-const arrange = (width, height, statement, deskMax = team.map(() => 4)) => RoundTable.layout({
-    ...statement, dayMax: 69, days: 7, deskMax, height, measures: renderer.measures, nameWidths: team.map(seat => seat.name.length * 7.5), seats: team, width
+const arrange = (width, height, statement, {dayMax = 69, measures = renderer.measures} = {}) => RoundTable.layout({
+    ...statement, dayMax, days: 7, deskMax: team.map(() => 4), height, measures, nameWidths: team.map(seat => seat.name.length * 7.5), seats: team, width
 });
 
 test.describe('Neo.canvas.RoundTable — the record as a frame reads it', () => {
@@ -206,6 +206,25 @@ test.describe('Neo.canvas.RoundTable — the scene stands around the statement',
 
     test('where not even the strip fits, nothing stands', () => {
         expect(arrange(390, 730, phone).mode).toBe('none')
+    })
+
+    test('a dense day uses the optional smaller square only after the usual ring and strip fail', () => {
+        const measures = {...renderer.measures, standaloneFallbackSquare: [2, 1]};
+
+        for (const [width, height, statement] of [[1440, 842, wide], [1440, 742, shorter], [900, 642, narrow], [390, 786, phone]]) {
+            expect(arrange(width, height, statement, {measures})).toEqual(arrange(width, height, statement))
+        }
+
+        // A 2px ring would fit here, but the existing standalone 5px strip still takes precedence.
+        expect(arrange(1440, 744, wide, {dayMax: 92, measures})).toMatchObject({
+            mode: 'strip', ring: null, strip: {ringed: false, size: 5}
+        });
+        expect(arrange(390, 786, phone, {dayMax: 100}).mode).toBe('none');
+        const place = arrange(390, 786, phone, {dayMax: 100, measures});
+        expect(place).toMatchObject({mode: 'strip', ring: null, strip: {gap: 1, ringed: false, size: 2}});
+        expect(place.strip.top).toBeGreaterThan(717);
+        expect(place.strip.captionY + 4).toBeLessThanOrEqual(786);
+        expect(arrange(390, 730, phone, {dayMax: 100, measures}).mode).toBe('none')
     })
 });
 
