@@ -30,7 +30,7 @@ class Color extends ComboBox {
         /**
          * Override the formatter to apply a custom background-color styling.
          * E.g. using CSS vars for different themes
-         * @member {Function} colorField=(scope,data)=>data[scope.colorField]
+         * @member {Function} colorFormatter=(scope,data)=>data[scope.colorField]
          */
         colorFormatter: (scope,data) => data[scope.colorField],
         /**
