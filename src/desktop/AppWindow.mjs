@@ -210,7 +210,7 @@ class AppWindow extends Dialog {
     }
 
     /**
-     * @summary Positions a popup over its desktop dialog, admitting one header activation at a time.
+     * @summary Positions a popup over its settled desktop dialog, admitting one header activation at a time.
      * @returns {Promise<Boolean>}
      */
     async popOutWindow() {
@@ -220,6 +220,11 @@ class AppWindow extends Dialog {
         this.#popOutPending = true;
 
         try {
+            if (this.mountFlight) {
+                await this.mountFlight;
+                if (!this.#canPopOut || this.windowId !== windowId) return false
+            }
+
             const [rect, windowData] = await Promise.all([
                 this.getDomRect(),
                 Neo.Main.getWindowData({windowId})
