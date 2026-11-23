@@ -424,29 +424,23 @@ class VdomLifecycle extends Base {
             // Start collection from the root of the update (me)
             collectScopes(me.id);
 
-            // A merge owner parked under a root this flight carries joins it: left parked, a held flight would
-            // strand its callbacks and every later projection waiting on them (a cold-boot Reset that never settles)
-            const pending = VDomUpdate.mergedCallbackMap;
-            if (pending.getCount() > componentMergedChildren.size) {
-                const pendingOwners = pending.items;
-                const carries       = (root, item, depth) => {
-                    if (depth === 1) return false;
-                    const parent = Neo.getComponent(item.parentId);
-                    return parent && parent.windowId === me.windowId &&
-                        (parent === root || carries(root, parent, depth === -1 ? -1 : depth - 1)) &&
-                        parent.items?.includes(item)
-                };
-                for (const [id, depth] of depths) {
-                    if (pending.getCount() <= componentMergedChildren.size) break;
-                    const root = Neo.getComponent(id);
-                    if (depth === 1 || !root?.items?.length) continue;
+            // A merge owner parked inside the scope of a collected root joins this flight. Left parked, its callbacks
+            // would wait for an owner update that may never run, and so would every projection waiting on them.
+            // Roots collected here can carry further parked owners, so the loop also visits the roots it adds.
+            const parkedOwnerIds = VDomUpdate.getParkedOwnerIds();
 
-                    for (const {ownerId, children} of pendingOwners) {
-                        if (!children.size || processed.has(ownerId)) continue;
-                        const owner = Neo.getComponent(ownerId);
-                        if (owner && !owner.isDestroyed && !owner.isVdomUpdating && owner.windowId === me.windowId &&
-                            carries(root, owner, depth)) collectScopes(ownerId)
-                    }
+            if (parkedOwnerIds.length) {
+                for (const [rootId, rootDepth] of depths) {
+                    const root = Neo.getComponent(rootId);
+
+                    parkedOwnerIds.forEach(ownerId => {
+                        const owner    = !processed.has(ownerId) && Neo.getComponent(ownerId),
+                              distance = owner && !owner.isDestroyed && !owner.isVdomUpdating ? me.getRenderDistance(owner, root) : null;
+
+                        if (distance !== null && me.hasUpdateCollision(rootDepth, distance)) {
+                            collectScopes(ownerId)
+                        }
+                    })
                 }
             }
 
@@ -689,6 +683,36 @@ class VdomLifecycle extends Base {
                 index++
             }
         }
+    }
+
+    /**
+     * @summary The render distance from `ancestor` down to `descendant`: the number of `items` steps between them.
+     * Only a rendered ancestor's payload can carry a descendant's vdom, so a logical `parent` that does not hold the
+     * component in its `items`, or one in another window, ends the walk.
+     * @param {Neo.component.Base} descendant
+     * @param {Neo.component.Base} ancestor
+     * @returns {Number|null} `null` when `descendant` does not render inside `ancestor` in its own window
+     */
+    getRenderDistance(descendant, ancestor) {
+        let item     = descendant,
+            distance = 0,
+            parent;
+
+        while (ancestor && (parent = Neo.getComponent(item.parentId))) {
+            if (parent.windowId !== descendant.windowId || !parent.items?.includes(item)) {
+                return null
+            }
+
+            distance++;
+
+            if (parent === ancestor) {
+                return distance
+            }
+
+            item = parent
+        }
+
+        return null
     }
 
     /**

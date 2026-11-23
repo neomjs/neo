@@ -527,6 +527,22 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * @summary The owners whose merged children still wait to be collected.
+     * A merge entry stays parked from {@link #registerMerged} until a flight collects it. An owner that never
+     * runs its own update again leaves its entry, and every callback parked on it, waiting.
+     * @returns {String[]} The owner ids
+     */
+    getParkedOwnerIds() {
+        const ids = [];
+
+        this.mergedCallbackMap.items.forEach(item => {
+            item.children.size > 0 && ids.push(item.ownerId)
+        });
+
+        return ids
+    }
+
+    /**
      * Widens the recorded depth of an update that is ALREADY in flight.
      *
      * `registerInFlightUpdate` records the depth once, when the cycle starts. The payload is built
