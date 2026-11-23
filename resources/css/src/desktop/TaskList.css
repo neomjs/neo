@@ -21,26 +21,23 @@
         height       : 40px;
         position     : relative;
 
-        /* The open indicator: an 18px bar under a running app, scaled to a 6px dot under a minimized one. It animates
-           the transform only, on the product motion tokens, which reduced motion sets to 0ms. */
+        /* Underline the icon and label of a running app; a minimized task keeps a centered 6px mark. */
         &::after {
             background-color: var(--desktop-task-list-accent-color);
             border-radius   : 2px;
             bottom          : 3px;
             content         : '';
             height          : 3px;
-            left            : 50%;
+            inset-inline    : 8px;
             position        : absolute;
-            transform       : translateX(-50%) scaleX(1);
-            transition      : transform var(--motion-base) var(--ease-out-soft);
-            width           : 18px;
+            transition      : inset-inline var(--motion-base) var(--ease-out-soft);
         }
 
         &.neo-desktop-task-minimized {
             opacity: .65;
 
             &::after {
-                transform: translateX(-50%) scaleX(.3333);
+                inset-inline: calc(50% - 3px);
             }
         }
     }

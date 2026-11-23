@@ -139,6 +139,56 @@ test.describe('web desktop apps', () => {
         expect(errors).toEqual([])
     });
 
+    test('detached Settings changes the theme of its desktop and companion windows', async ({context, page}) => {
+        const independent = await context.newPage();
+        await signIn(page);
+        await signIn(independent);
+
+        const popOut = async app => {
+            await page.locator(ICON).filter({hasText: app}).dblclick();
+            const opened = page.waitForEvent('popup');
+            await windowOf(page, app).getByRole('button', {name: 'Pop out window'}).click();
+            const popup = await opened;
+            await expect(popup.getByRole('button', {name: 'Back to desktop'})).toBeVisible();
+            return popup
+        };
+        const palette = target => target.locator('.neo-viewport').evaluate(view => {
+            const content = view.querySelector('.webdesktop-settings, .webdesktop-mail-message, .neo-desktop-taskbar') || view;
+            return {
+                body: [...document.body.classList].find(name => name.startsWith('neo-theme-')),
+                ink : getComputedStyle(content).getPropertyValue('--webdesktop-ink-dim').trim()
+            }
+        });
+        const mail = await popOut('Mail'), settings = await popOut('Settings'),
+              dark = await palette(independent);
+
+        expect(dark.body).toBe('neo-theme-neo-dark');
+        expect(dark.ink).not.toBe('');
+        await settings.getByRole('button', {name: 'Light', exact: true}).click();
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await expect.poll(async () => (await palette(page)).ink).not.toBe(dark.ink);
+        const light = await palette(page);
+        expect(light.ink).not.toBe('');
+        await expect.poll(() => Promise.all([mail, settings, independent].map(palette))).toEqual([light, light, dark]);
+
+        await mail.reload();
+        await expect(mail.getByRole('button', {name: 'Back to desktop'})).toBeVisible();
+        await expect.poll(() => palette(mail)).toEqual(light);
+        await settings.getByRole('button', {name: 'Dark', exact: true}).click();
+        await expect.poll(() => Promise.all([page, mail, settings, independent].map(palette))).toEqual([dark, dark, dark, dark]);
+
+        await settings.getByRole('button', {name: 'Light', exact: true}).click();
+        await expect.poll(() => palette(settings)).toEqual(light);
+        const closed = settings.waitForEvent('close');
+        await settings.getByRole('button', {name: 'Back to desktop'}).click();
+        await closed;
+        const returned = windowOf(page, 'Settings').locator('.webdesktop-settings');
+        await expect(returned).toBeVisible();
+        await expect.poll(() => returned.evaluate(el => getComputedStyle(el).getPropertyValue('--webdesktop-ink-dim').trim())).toBe(light.ink);
+        await page.getByRole('button', {name: 'Switch theme', exact: true}).click();
+        await expect.poll(() => Promise.all([page, mail, independent].map(palette))).toEqual([dark, dark, dark])
+    });
+
     test('the calendar opens on the week of today with its meetings in view', async ({page}) => {
         const errors = trackErrors(page);
 

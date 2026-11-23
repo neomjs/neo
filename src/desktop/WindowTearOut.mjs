@@ -182,6 +182,11 @@ class WindowTearOut extends Base {
             Neo.currentWorker.insertThemeFiles(windowId, Object.getPrototypeOf(owner));
 
             view.theme = owner.getTheme();
+            if (root) {
+                entry.stopThemeSync = view.observeConfig(root, 'theme', theme => {
+                    if (me.#entry === entry && entry.view === view && !view.isDestroyed) view.theme = theme || root.getTheme()
+                })
+            }
             target.parentComponent = owner;
             entry.keyListener = {
                 keydown: data => {
@@ -293,7 +298,10 @@ class WindowTearOut extends Base {
     }
 
     /** @summary Removes only bindings owned by this child renderer. @param {Object} entry */
-    #unhookTarget({target, view, keyListener}) {
+    #unhookTarget(entry) {
+        const {target, view, keyListener} = entry;
+        entry.stopThemeSync?.();
+        entry.stopThemeSync = null;
         if (target && !target.isDestroyed && keyListener) target.removeDomListeners(keyListener);
         if (view && !view.isDestroyed) view.setReturnHandler?.(null)
     }
