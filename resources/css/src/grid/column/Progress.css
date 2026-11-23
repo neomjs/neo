@@ -1,10 +1,14 @@
 .neo-grid-cell {
     .neo-progress-wrapper {
+        flex     : 1;
+        min-width: 0;
+
         progress[value] {
             appearance: none;
             border    : none;
             display   : flex;
             height    : var(--grid-cell-progress-height);
+            width     : 100%;
 
             @-moz-document url-prefix() {
                 background-color: var(--grid-cell-progress-track-color);
@@ -17,6 +21,7 @@
                 background-color: var(--grid-cell-progress-track-color);
                 border-radius   : var(--grid-cell-progress-border-radius);
                 box-shadow      : 0 2px 5px rgba(0, 0, 0, 0.25) inset;
+                width           : 100%;
             }
 
             /* for mozilla the progress-bar is the active range */
@@ -29,6 +34,24 @@
                 background-color: var(--grid-cell-progress-active-color);
                 border-radius   : var(--grid-cell-progress-border-radius);
             }
+        }
+    }
+}
+
+/* Same-record updates transition smoothly; scroll and pooled row recycling snap immediately. */
+.neo-grid-body:not(.neo-is-scrolling) .neo-grid-cell .neo-progress-wrapper progress[value].neo-progress-animate {
+    &::-moz-progress-bar {
+        transition: width 220ms ease-out;
+    }
+
+    &::-webkit-progress-value {
+        transition: width 220ms ease-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &::-moz-progress-bar,
+        &::-webkit-progress-value {
+            transition: none;
         }
     }
 }

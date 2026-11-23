@@ -78,12 +78,14 @@ class Component extends Column {
     }
 
     /**
-     * Override as needed inside class extensions
+     * @summary Maps record fields onto the pooled cell component config before `set()` or instantiation.
+     * Override as needed inside class extensions; `data` provides `{component, record, row, ...}` when called from `cellRenderer`.
      * @param {Object} config
      * @param {Record} record
+     * @param {Object} [data]
      * @returns {Object}
      */
-    applyRecordConfigs(config, record) {
+    applyRecordConfigs(config, record, data) {
         return config
     }
 
@@ -123,7 +125,7 @@ class Component extends Column {
             componentConfig = componentConfig(data)
         }
 
-        componentConfig = me.applyRecordConfigs(componentConfig, record);
+        componentConfig = me.applyRecordConfigs(componentConfig, record, data);
         componentConfig = {...componentConfig};
 
         if (component) {
