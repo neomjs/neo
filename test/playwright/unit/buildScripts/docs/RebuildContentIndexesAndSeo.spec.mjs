@@ -467,7 +467,8 @@ test.describe('rebuildContentIndexesAndSeo (#13260 / #20915)', () => {
         ]);
         expect(sitemapIndexXml).not.toContain('sitemap-archive.xml');
 
-        expect(llmsTxt).toContain('Neo.mjs v13.4.0 Release Notes');
+        const {version} = JSON.parse(await fs.readFile(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+        expect(llmsTxt).toContain(`Neo.mjs v${version} Release Notes`);
         expect(llmsTxt).not.toContain(': Update](');
         expect(llmsTxt).not.toContain('/childapp/');
         expect(sitemapCoreXml).toContain('<loc>https://neomjs.com/</loc>');
