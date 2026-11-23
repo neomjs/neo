@@ -185,7 +185,9 @@ class WindowTearOut extends Base {
             // theme change can reach that parent without publishing a change on the dialog itself.
             const parent = owner.parent || root,
                   sync   = () => {
-                      if (me.#entry === entry && entry.view === view && !view.isDestroyed) view.theme = owner.getTheme()
+                      if (me.#entry !== entry || entry.view !== view || view.isDestroyed) return;
+                      const ownScope = owner.parent || owner.theme || owner.cls?.some(cls => cls.startsWith('neo-theme-'));
+                      view.theme = (ownScope ? owner : root || owner).getTheme()
                   };
             sync();
             const stopOwner  = view.observeConfig(owner, 'theme', sync),
