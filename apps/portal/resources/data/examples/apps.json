@@ -43,6 +43,7 @@
             "Mobile"
         ],
         "image": "devmode/webdesktop-14-0.jpg",
+        "hasLightCover": true,
         "name": "Web Desktop",
         "sourceUrl": "apps/webdesktop",
         "urls": {

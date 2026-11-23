@@ -1387,7 +1387,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(intro.vdom.cn[2].text).toBe(overview.lead)
     });
 
-    test('pairs the Button and hosted-button tiles and gives published records visitor-facing names', () => {
+    test('pairs the Button, hosted-button and Web Desktop tiles and gives published records visitor-facing names', () => {
         const {store}     = createList(),
               dottedNames = store.items
                   .filter(record => modes.some(mode => Example.publishes(record, mode)) && /^[a-z][a-zA-Z0-9]*\.[A-Z]/.test(record.name || ''))
@@ -1395,6 +1395,7 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('button-base').hasLightCover).toBe(true);
         expect(store.get('functional-host-component').hasLightCover).toBe(true);
+        expect(store.get('webdesktop')).toMatchObject({hasLightCover: true, image: 'devmode/webdesktop-14-0.jpg'});
         expect(store.get('toast').name).toBe('Toast Notifications');
         expect(store.get('popover').name).toBe('Popover');
         expect(dottedNames).toEqual([])
