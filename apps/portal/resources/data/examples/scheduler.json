@@ -209,6 +209,7 @@
         "scope": "The forecast and the sampled light curve both use a simulated observing night.",
         "keywords": ["astronomy", "telescope", "resource scheduling", "dependencies", "clearance"],
         "image": "devmode/meridian-observatory-14.jpg",
+        "hasLightCover": true,
         "sourceUrl": "examples/scheduler/meridian",
         "urls": {
             "devmode": "examples/scheduler/meridian/index.html",

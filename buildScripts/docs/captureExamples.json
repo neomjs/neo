@@ -560,16 +560,6 @@
       "region": {"selector": ".air-layout", "anchor": "top-left", "offsetY": -10, "width": 640, "height": 360}
     },
     {
-      "id": "board-basic",
-      "viewport": {"width": 640, "height": 800},
-      "theme": "dark",
-      "state": "The sprint board's title over In progress, open above its WIP limit at 6/5, beside Review under its limit at 2/3, with their first cards; Done runs on past the right edge. Five 264 px columns are wider than any cover, so the board scrolls to the two limit states it opens with; a 640 x 360 viewport would leave the board 36 px beside the table, so the viewport is taller and the region keeps its top.",
-      "ready": [{"selector": ".neo-board-column-header", "text": "In progress"}, {"selector": ".neo-board-card-title", "text": "Design the search box"}],
-      "steps": [{"kind": "scroll", "selector": ".neo-board", "x": 552}],
-      "after": [{"selector": ".neo-theme-neo-dark .neo-board"}, {"selector": ".board-example-title", "text": "Sprint board", "inRegion": true}, {"selector": ".neo-board-column-wip-exceeded .neo-board-column-header", "text": "6/5", "inRegion": true}, {"selector": ".neo-board-column-header", "text": "2/3", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Design the search box", "inRegion": true}, {"selector": ".neo-board-card-title", "text": "Measure the export dialog", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "scheduler-drag-and-resize",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",

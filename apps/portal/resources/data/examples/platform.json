@@ -29,6 +29,7 @@
         "lookFor": "Type while the Task Worker runs, then run the App Worker and compare the heartbeat and results.",
         "featured": false,
         "image": "devmode/task-worker-14.jpg",
+        "hasLightCover": true,
         "name": "Heavy work off the UI",
         "sourceUrl": "examples/worker/task",
         "urls": {

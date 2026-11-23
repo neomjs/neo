@@ -129,6 +129,7 @@
     {
         "id": "gantt-task-columns",
         "image": "devmode/gantt-task-columns-14.jpg",
+        "hasLightCover": true,
         "name": "Your columns beside the plan",
         "sourceUrl": "examples/gantt/taskColumns",
         "urls": {

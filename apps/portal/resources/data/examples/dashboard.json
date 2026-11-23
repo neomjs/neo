@@ -33,6 +33,7 @@
         "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
         "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
         "image": "devmode/dock-layouts-14.jpg",
+        "hasLightCover": true,
         "sharedWorkers": false,
         "sourceUrl": "examples/dashboard/desk",
         "urls": {

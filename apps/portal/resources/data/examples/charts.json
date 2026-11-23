@@ -8,6 +8,7 @@
         "lookFor": "Fly between San Francisco and Iceland, change the zoom, then hide and restore one marker.",
         "scope": "Loads OpenLayers assets from jsDelivr and OpenStreetMap map tiles over the network.",
         "image": "devmode/open-street-maps-14.jpg",
+        "hasLightCover": true,
         "name": "OpenStreetMaps / OpenLayers",
         "sourceUrl": "examples/component/wrapper/openStreetMaps",
         "urls": {

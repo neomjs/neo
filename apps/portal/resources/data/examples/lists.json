@@ -82,6 +82,7 @@
         "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
         "featured": false,
         "image": "devmode/list-reorder-14.jpg",
+        "hasLightCover": true,
         "name": "Reorder by Drag",
         "sourceUrl": "examples/list/reorder",
         "urls": {
