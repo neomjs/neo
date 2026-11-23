@@ -212,5 +212,75 @@ test.describe('examples/stateProvider/advanced surfaces', () => {
             Neo.windowConfigs                = prevConfigs;
             Neo.currentWorker.isSharedWorker = prevShared
         }
+    });
+
+    test('overlapping second-window clicks serialize across pending isWindowOpen probes and release the lock in finally', async () => {
+        const prevShared       = Neo.currentWorker.isSharedWorker,
+              prevWindowOpen   = Neo.Main.windowOpen,
+              prevFocus        = Neo.Main.windowFocus,
+              prevIsWindowOpen = CompanionSurface.isWindowOpen,
+              prevConfigs      = Neo.windowConfigs,
+              openCalls        = [],
+              focusCalls       = [],
+              pendingProbes    = [];
+
+        let isOpenCalls = 0;
+
+        Neo.currentWorker.isSharedWorker = true;
+        Neo.windowConfigs = {
+            ...prevConfigs,
+            'win-race': {url: {href: 'http://localhost:8080/examples/stateProvider/advanced/index.html'}}
+        };
+        Neo.Main.windowOpen  = data => { openCalls.push(data); return Promise.resolve(true) };
+        Neo.Main.windowFocus = data => { focusCalls.push(data); return Promise.resolve(true) };
+
+        const view = Neo.create(MainContainer, {appName, windowId: 'win-race'});
+
+        try {
+            await view.initVnode();
+            view.mounted = true;
+
+            // Arm 1: two overlapping clicks while isWindowOpen is pending and resolves false -> single openWindow
+            CompanionSurface.isWindowOpen = () => {
+                isOpenCalls++;
+                return new Promise(resolve => { pendingProbes.push(resolve) })
+            };
+
+            const launchA = view.controller.onOpenSecondWindowClick(),
+                  launchB = view.controller.onOpenSecondWindowClick();
+
+            pendingProbes.splice(0).forEach(resolve => resolve(false));
+            await Promise.all([launchA, launchB]);
+
+            expect(openCalls).toHaveLength(1);
+            expect(isOpenCalls).toBe(1);
+            expect(focusCalls).toHaveLength(0);
+
+            // Arm 2: two overlapping clicks while isWindowOpen is pending and resolves true -> single focusWindow
+            const focusA = view.controller.onOpenSecondWindowClick(),
+                  focusB = view.controller.onOpenSecondWindowClick();
+
+            pendingProbes.splice(0).forEach(resolve => resolve(true));
+            await Promise.all([focusA, focusB]);
+
+            expect(isOpenCalls).toBe(2);
+            expect(openCalls).toHaveLength(1);
+            expect(focusCalls).toHaveLength(1);
+
+            // Arm 3: rejection during probe still clears #openingCompanion so a settled follow-up click runs
+            CompanionSurface.isWindowOpen = () => Promise.reject(new Error('probe rejected'));
+            await expect(view.controller.onOpenSecondWindowClick()).rejects.toThrow('probe rejected');
+
+            CompanionSurface.isWindowOpen = () => Promise.resolve(true);
+            await view.controller.onOpenSecondWindowClick();
+            expect(focusCalls).toHaveLength(2)
+        } finally {
+            view.destroy();
+            CompanionSurface.isWindowOpen    = prevIsWindowOpen;
+            Neo.Main.windowOpen              = prevWindowOpen;
+            Neo.Main.windowFocus             = prevFocus;
+            Neo.windowConfigs                = prevConfigs;
+            Neo.currentWorker.isSharedWorker = prevShared
+        }
     })
 });
