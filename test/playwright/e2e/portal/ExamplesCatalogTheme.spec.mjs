@@ -173,3 +173,304 @@ test.describe('Examples that start through resolveStartTheme', () => {
         })
     }
 });
+
+/**
+ * @summary Stubs external network assets used by `apps/covid` so tests stay deterministic and offline-safe.
+ * @param {import('@playwright/test').Page} page
+ */
+async function stubExternalCovidAssets(page) {
+    await page.context().route('https://disease.sh/**', route => route.fulfill({
+        json: [{
+            active  : 1, cases: 10, casesPerOneMillion: 1, country: 'USA', countryInfo: {iso3: 'USA', lat: 38, long: -97},
+            critical: 1, deaths: 1, recovered: 9, tests: 100, testsPerOneMillion: 10, todayCases: 0, todayDeaths: 0,
+            updated : 1700000000000
+        }]
+    }));
+    await page.context().route('https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static/all.json', route => route.fulfill({
+        json: {active: 1, cases: 10, deaths: 1, recovered: 9, updated: 1700000000000}
+    }));
+    await page.context().route('https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json', route => route.fulfill({
+        json: [{
+            active  : 1, cases: 10, casesPerOneMillion: 1, country: 'USA', countryInfo: {iso3: 'USA', lat: 38, long: -97},
+            critical: 1, deaths: 1, recovered: 9, tests: 100, testsPerOneMillion: 10, todayCases: 0, todayDeaths: 0
+        }]
+    }));
+    await page.context().route('https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/**', route => route.fulfill({
+        body: '', contentType: 'image/jpeg', status: 200
+    }));
+    await page.context().route('https://buttons.github.io/**', route => route.fulfill({
+        body: '', contentType: 'application/javascript', status: 200
+    }));
+    await page.context().route('https://api.mapbox.com/mapbox-gl-js/**/*.css', route => route.fulfill({
+        body: '', contentType: 'text/css', status: 200
+    }));
+    await page.context().route('https://api.mapbox.com/mapbox-gl-js/**/*.js', route => route.fulfill({
+        body       : 'window.mapboxgl={accessToken:"",Map:class{addLayer(){}addSource(){}flyTo(){}getSource(){return null}getStyle(){return{layers:[]}}loaded(){return true}on(){}once(){}remove(){}resize(){}setCenter(){}setFilter(){}setLayoutProperty(){}setPaintProperty(){}setZoom(){}}};',
+        contentType: 'application/javascript',
+        status     : 200
+    }));
+    await page.context().route('https://api.mapbox.com/styles/**', route => route.fulfill({
+        json: {layers: []}
+    }))
+}
+
+/**
+ * @summary Polls `app.queryComponent` until the first matching component exists and returns its serialized `properties`.
+ * @param {Object} app
+ * @param {Object} selector
+ * @param {String[]} properties
+ * @returns {Promise<Object>}
+ */
+async function queryProps(app, selector, properties) {
+    let props = null;
+
+    await expect.poll(async () => {
+        const matches = await app.queryComponent(selector, properties);
+
+        props = Array.isArray(matches) ? matches[0]?.properties : null;
+        return Boolean(props)
+    }).toBe(true);
+
+    return props
+}
+
+/**
+ * @summary Asserts that the App Worker viewport `getTheme()`, `.neo-viewport`, and `document.body` carry `expectedTheme`
+ * with no competing `neo-theme-*` class.
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} app
+ * @param {String} viewportId
+ * @param {String} expectedTheme
+ * @param {String} label
+ */
+async function expectAlignedTheme(page, app, viewportId, expectedTheme, label) {
+    await expect.poll(() => app.callMethod(viewportId, 'getTheme', []), `${label}: worker getTheme()`).toBe(expectedTheme);
+
+    await expect.poll(() => page.evaluate(id => {
+        const vpEl       = document.getElementById(id),
+              bodyThemes = [...document.body.classList].filter(c => c.startsWith('neo-theme-')),
+              vpThemes   = [...(vpEl?.classList || [])].filter(c => c.startsWith('neo-theme-'));
+
+        return {bodyThemes, vpThemes}
+    }, viewportId), `${label}: body and viewport theme classes`).toEqual({
+        bodyThemes: [expectedTheme],
+        vpThemes  : [expectedTheme]
+    })
+}
+
+const CUSTOM_TOGGLE_EXAMPLES = [{
+    appName      : 'Neo.examples.calendar.basic',
+    darkTheme    : 'neo-theme-dark',
+    lightTheme   : 'neo-theme-light',
+    name         : 'calendar/basic',
+    url          : '/examples/calendar/basic/index.html',
+    assertControl: async (page, app, expectedTheme) => {
+        const isDark = expectedTheme === 'neo-theme-dark',
+              btn    = await queryProps(app, {reference: 'theme-button'}, ['iconCls', 'text']),
+              bar    = await queryProps(app, {reference: 'headerToolbar'}, ['style']);
+
+        expect(btn.text).toBe(isDark ? 'Theme Light' : 'Theme Dark');
+        expect(btn.iconCls).toBe(isDark ? 'fa fa-sun' : 'fa fa-moon');
+        expect(bar.style.backgroundColor).toBe(isDark ? '#33343d' : '#f2f2f2')
+    },
+    triggerSwitch: async page => {
+        await page.locator('.neo-button', {hasText: /Theme (Light|Dark)/}).click()
+    }
+}, {
+    appName      : 'Neo.examples.dialog',
+    darkTheme    : DARK,
+    lightTheme   : LIGHT,
+    name         : 'dialog',
+    url          : '/examples/dialog/index.html',
+    assertControl: async (page, app, expectedTheme, {expectOpenDialog = false} = {}) => {
+        const expectedLabel = expectedTheme === DARK ? 'Neo Dark' : 'Neo Light',
+              switcher      = await queryProps(app, {ntype: 'theme-switcher'}, ['ariaLabel', 'text']);
+
+        expect(switcher.text).toBe(expectedLabel);
+        expect(switcher.ariaLabel).toBe(`Theme: ${expectedLabel}`);
+
+        if (expectOpenDialog) {
+            const dialog = page.locator('.neo-dialog');
+
+            await expect(dialog).toBeVisible();
+            await expect(dialog).toHaveClass(new RegExp(`\\b${expectedTheme}\\b`))
+        }
+    },
+    triggerSwitch: async (page, targetTheme) => {
+        if (await page.locator('.neo-dialog-modal-mask').isVisible()) {
+            await expect(page.locator('.neo-dialog input[name="name"]')).toBeFocused();
+            await page.keyboard.press('Escape');
+            await expect(page.locator('.neo-dialog')).toHaveCount(0)
+        }
+
+        const label = targetTheme === DARK ? 'Neo Dark' : 'Neo Light',
+              menu  = page.locator('.neo-theme-switcher-menu');
+
+        await page.locator('.neo-theme-switcher').first().click();
+        await expect(menu).toBeVisible();
+        await menu.getByRole('menuitemradio', {name: label, exact: true}).click()
+    }
+}, {
+    appName      : 'Covid',
+    darkTheme    : 'neo-theme-dark',
+    hash         : '#mainview=mapboxglmap',
+    lightTheme   : 'neo-theme-light',
+    name         : 'apps/covid',
+    url          : '/apps/covid/index.html',
+    assertControl: async (page, app, expectedTheme) => {
+        const isLight = expectedTheme === 'neo-theme-light',
+              btn     = await queryProps(app, {reference: 'theme-button'}, ['iconCls', 'text']),
+              map     = await queryProps(app, {reference: 'mapboxglmap'}, ['mapboxStyle', 'mapboxStyleDark', 'mapboxStyleLight']);
+
+        expect(btn.text).toBe(isLight ? 'Theme Dark' : 'Theme Light');
+        expect(btn.iconCls).toBe(isLight ? 'fa fa-moon' : 'fa fa-sun');
+        expect(map.mapboxStyle).toBe(isLight ? map.mapboxStyleLight : map.mapboxStyleDark);
+        await expect(page.locator('.covid-header-container img')).toHaveAttribute(
+            'src',
+            new RegExp(isLight ? 'covid_logo_light\\.jpg$' : 'covid_logo_dark\\.jpg$')
+        )
+    },
+    triggerSwitch: async page => {
+        await page.locator('.neo-button', {hasText: /Theme (Light|Dark)/}).click()
+    }
+}, {
+    appName      : 'Neo.examples.grid.bigData',
+    darkTheme    : 'neo-theme-dark',
+    lightTheme   : 'neo-theme-light',
+    name         : 'grid/bigData',
+    url          : '/examples/grid/bigData/index.html',
+    assertControl: async (page, app, expectedTheme) => {
+        const isLight    = expectedTheme === 'neo-theme-light',
+              darkRadio  = await queryProps(app, {reference: 'theme-dark-radio'},  ['checked']),
+              lightRadio = await queryProps(app, {reference: 'theme-light-radio'}, ['checked']);
+
+        expect(darkRadio.checked).toBe(!isLight);
+        expect(lightRadio.checked).toBe(isLight)
+    },
+    triggerSwitch: async (page, targetTheme) => {
+        const controls = page.locator('.neo-examples-bigdata-controls-container');
+
+        if (!(await controls.evaluate(el => el.classList.contains('neo-expanded')))) {
+            await page.locator('.controls-container-button').click();
+            await expect(page.locator('.neo-viewport')).toHaveClass(/\bneo-controls-expanded\b/)
+        }
+
+        const label = targetTheme === 'neo-theme-light' ? 'Light' : 'Dark';
+
+        await controls.locator('.neo-radiofield').filter({hasText: label}).click()
+    }
+}, {
+    appName      : 'Neo.examples.grid.treeBigData',
+    darkTheme    : 'neo-theme-dark',
+    lightTheme   : 'neo-theme-light',
+    name         : 'grid/treeBigData',
+    url          : '/examples/grid/treeBigData/index.html',
+    assertControl: async (page, app, expectedTheme) => {
+        const isLight    = expectedTheme === 'neo-theme-light',
+              darkRadio  = await queryProps(app, {reference: 'theme-dark-radio'},  ['checked']),
+              lightRadio = await queryProps(app, {reference: 'theme-light-radio'}, ['checked']);
+
+        expect(darkRadio.checked).toBe(!isLight);
+        expect(lightRadio.checked).toBe(isLight)
+    },
+    triggerSwitch: async (page, targetTheme) => {
+        const controls = page.locator('.neo-examples-treebigdata-controls-container');
+
+        if (!(await controls.evaluate(el => el.classList.contains('neo-expanded')))) {
+            await page.locator('.controls-container-button').click();
+            await expect(page.locator('.neo-viewport')).toHaveClass(/\bneo-controls-expanded\b/)
+        }
+
+        const label = targetTheme === 'neo-theme-light' ? 'Light' : 'Dark';
+
+        await controls.locator('.neo-radiofield').filter({hasText: label}).click()
+    }
+}, {
+    appName      : 'Neo.examples.grid.nestedRecordFields',
+    darkTheme    : 'neo-theme-dark',
+    lightTheme   : 'neo-theme-light',
+    name         : 'grid/nestedRecordFields',
+    url          : '/examples/grid/nestedRecordFields/index.html',
+    assertControl: async (page, app, expectedTheme) => {
+        const isLight = expectedTheme === 'neo-theme-light',
+              btn     = await queryProps(app, {reference: 'theme-button'}, ['iconCls', 'text']);
+
+        expect(btn.text).toBe(isLight ? 'Dark Theme' : 'Light Theme');
+        expect(btn.iconCls).toBe(isLight ? 'fa fa-moon' : 'fas fa-sun')
+    },
+    triggerSwitch: async page => {
+        await page.locator('.neo-button', {hasText: /(Light|Dark) Theme/}).click()
+    }
+}];
+
+test.describe('Examples with custom theme toggles (#21973)', () => {
+    test.beforeEach(async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await stubExternalCovidAssets(page);
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}))
+    });
+
+    for (const example of CUSTOM_TOGGLE_EXAMPLES) {
+        test(`${example.name} honors dark and light catalog launches and switches cleanly on the first action`, async ({page, neuralLink}) => {
+            const hash     = example.hash || '',
+                  isDialog = example.name === 'dialog';
+
+            // 1. Dark catalog launch (?theme=neo-theme-neo-dark) -> first switch to light
+            await page.goto(`${example.url}?theme=${DARK}${hash}`);
+            const darkViewportId = await page.locator('.neo-viewport').first().getAttribute('id');
+            expect(darkViewportId).toBeTruthy();
+
+            const darkApp = await neuralLink.connectToApp(example.appName);
+            await expectAlignedTheme(page, darkApp, darkViewportId, example.darkTheme, `${example.name} dark launch`);
+            await example.assertControl(page, darkApp, example.darkTheme, {expectOpenDialog: isDialog});
+
+            await example.triggerSwitch(page, example.lightTheme);
+            await expectAlignedTheme(page, darkApp, darkViewportId, example.lightTheme, `${example.name} dark->light first switch`);
+            await example.assertControl(page, darkApp, example.lightTheme);
+
+            // 2. Light catalog launch (?theme=neo-theme-neo-light) -> first switch to dark
+            await page.goto(`${example.url}?theme=${LIGHT}${hash}`);
+            const lightViewportId = await page.locator('.neo-viewport').first().getAttribute('id');
+            expect(lightViewportId).toBeTruthy();
+
+            const lightApp = await neuralLink.connectToApp(example.appName);
+            await expectAlignedTheme(page, lightApp, lightViewportId, example.lightTheme, `${example.name} light launch`);
+            await example.assertControl(page, lightApp, example.lightTheme, {expectOpenDialog: isDialog});
+
+            await example.triggerSwitch(page, example.darkTheme);
+            await expectAlignedTheme(page, lightApp, lightViewportId, example.darkTheme, `${example.name} light->dark first switch`);
+            await example.assertControl(page, lightApp, example.darkTheme)
+        })
+    }
+
+    test('examples/dialog default launch switches viewport, document.body, and an open editor on the first selection', async ({page, neuralLink}) => {
+        await page.goto('/examples/dialog/index.html');
+        await expect(page.locator('.neo-dialog input[name="name"]')).toBeFocused();
+
+        const viewportId = await page.locator('.neo-viewport').first().getAttribute('id'),
+              app        = await neuralLink.connectToApp('Neo.examples.dialog'),
+              startTheme = await app.callMethod(viewportId, 'getTheme', []),
+              nextTheme  = startTheme === DARK ? LIGHT : DARK,
+              nextLabel  = nextTheme === DARK ? 'Neo Dark' : 'Neo Light';
+
+        await expectAlignedTheme(page, app, viewportId, startTheme, 'dialog default launch');
+        await expect(page.locator('.neo-dialog')).toHaveClass(new RegExp(`\\b${startTheme}\\b`));
+
+        // Re-open the editor with Modal unchecked so the open dialog stays mounted while switching theme
+        await page.keyboard.press('Escape');
+        await expect(page.locator('.neo-dialog')).toHaveCount(0);
+        await page.locator('.neo-checkboxfield').filter({hasText: 'Modal'}).click();
+        await page.getByRole('button', {name: 'Edit selected contact', exact: true}).click();
+        await expect(page.locator('.neo-dialog')).toBeVisible();
+        await expect(page.locator('.neo-dialog')).toHaveClass(new RegExp(`\\b${startTheme}\\b`));
+
+        const menu = page.locator('.neo-theme-switcher-menu');
+        await page.locator('.neo-theme-switcher').first().click();
+        await expect(menu).toBeVisible();
+        await menu.getByRole('menuitemradio', {name: nextLabel, exact: true}).click();
+
+        await expectAlignedTheme(page, app, viewportId, nextTheme, 'dialog default first switch');
+        await expect(page.locator('.neo-dialog')).toHaveClass(new RegExp(`\\b${nextTheme}\\b`))
+    })
+});
