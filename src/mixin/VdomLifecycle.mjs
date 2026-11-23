@@ -424,6 +424,32 @@ class VdomLifecycle extends Base {
             // Start collection from the root of the update (me)
             collectScopes(me.id);
 
+            // A merge owner parked under a root this flight carries joins it: left parked, a held flight would
+            // strand its callbacks and every later projection waiting on them (a cold-boot Reset that never settles)
+            const pending = VDomUpdate.mergedCallbackMap;
+            if (pending.getCount() > componentMergedChildren.size) {
+                const pendingOwners = pending.items;
+                const carries       = (root, item, depth) => {
+                    if (depth === 1) return false;
+                    const parent = Neo.getComponent(item.parentId);
+                    return parent && parent.windowId === me.windowId &&
+                        (parent === root || carries(root, parent, depth === -1 ? -1 : depth - 1)) &&
+                        parent.items?.includes(item)
+                };
+                for (const [id, depth] of depths) {
+                    if (pending.getCount() <= componentMergedChildren.size) break;
+                    const root = Neo.getComponent(id);
+                    if (depth === 1 || !root?.items?.length) continue;
+
+                    for (const {ownerId, children} of pendingOwners) {
+                        if (!children.size || processed.has(ownerId)) continue;
+                        const owner = Neo.getComponent(ownerId);
+                        if (owner && !owner.isDestroyed && !owner.isVdomUpdating && owner.windowId === me.windowId &&
+                            carries(root, owner, depth)) collectScopes(ownerId)
+                    }
+                }
+            }
+
             // Boundary Planning: a root is absorbed only when its nearest emitted ancestor's payload carries its
             // whole scope, so ancestors decide first. Every emitted root then bounds the other payloads.
             const emitted = new Set(),
