@@ -1,12 +1,32 @@
 /**
  * @module Neo.examples.workbench.formatConfig
- * @summary Pure helpers that format and URL-serialize changed component configs.
+ * @summary Pure helpers that format component configs as source and URL-serialize the changed ones.
  */
 
 const
     JSON_NUMBER_RE      = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/,
     PROTO_CHAIN_KEYS    = new Set(['__proto__', 'constructor', 'prototype']),
     VALID_IDENTIFIER_RE = /^[a-zA-Z_$][\w$]*$/;
+
+/**
+ * @summary Copies the plain objects and arrays of an authored config and keeps classes, functions and instances by
+ * reference, so `Neo.create()` can consume the original while the copy stays as the author wrote it.
+ * @param {*} value
+ * @returns {*}
+ */
+export function cloneConfig(value) {
+    const type = Neo.typeOf(value);
+
+    if (type === 'Array') {
+        return value.map(cloneConfig)
+    }
+
+    if (type === 'Object') {
+        return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cloneConfig(item)]))
+    }
+
+    return value
+}
 
 /**
  * @summary Escapes a string literal as valid single-quoted Neo config source.
@@ -69,12 +89,40 @@ export function describeNonLiteralReason(value, seen=new Set()) {
 }
 
 /**
- * @summary Formats a literal Neo config value into valid indented JavaScript source.
+ * @summary Returns why one value cannot be written as source where it sits: a function, a live Neo instance, or a
+ * container that is one of its own ancestors. Null for anything else, plain objects and arrays included: they format
+ * entry by entry, so a function inside one costs a comment line, not the whole value.
+ * @param {*} value
+ * @param {Set<Object>} ancestors The objects and arrays currently being formatted around `value`
+ * @returns {String|null}
+ */
+function describeUnwritableReason(value, ancestors) {
+    const type = Neo.typeOf(value);
+
+    if (type === 'Function') {
+        return 'a function, not shown'
+    }
+
+    if (type === 'NeoInstance') {
+        return `a ${value.className || 'Neo'} instance, not shown`
+    }
+
+    if ((type === 'Array' || type === 'Object') && ancestors.has(value)) {
+        return 'a cyclic value, not shown'
+    }
+
+    return null
+}
+
+/**
+ * @summary Formats a Neo config value into valid indented JavaScript source. A function or live instance inside an
+ * object or array becomes a comment line where it sits.
  * @param {*} value
  * @param {Number} [indent=4]
+ * @param {Set<Object>} [ancestors=new Set()] The objects and arrays being formatted around `value`
  * @returns {String}
  */
-export function formatConfigValue(value, indent=4) {
+export function formatConfigValue(value, indent=4, ancestors=new Set()) {
     const
         type = Neo.typeOf(value),
         pad  = ' '.repeat(indent);
@@ -88,57 +136,66 @@ export function formatConfigValue(value, indent=4) {
     if (type === 'RegExp')   return String(value);
     if (type === 'NeoClass') return value.prototype?.className || 'null';
 
-    if (type === 'Array') {
-        if (value.length === 0) return '[]';
+    if (type === 'Array' || type === 'Object') {
+        const entries = type === 'Array' ? value.map(item => [null, item]) : Object.entries(value);
+
+        if (entries.length === 0) return type === 'Array' ? '[]' : '{}';
 
         const
             childPad = ' '.repeat(indent + 4),
-            items    = value.map(item => `${childPad}${formatConfigValue(item, indent + 4)}`);
+            comments = [],
+            written  = [];
 
-        return `[\n${items.join(',\n')}\n${pad}]`
-    }
+        ancestors.add(value);
 
-    if (type === 'Object') {
-        const entries = Object.entries(value);
+        entries.forEach(([key, item]) => {
+            const reason = describeUnwritableReason(item, ancestors);
 
-        if (entries.length === 0) return '{}';
+            if (reason) {
+                comments.push(`${childPad}// ${key === null ? '' : `${key}: `}${reason}`)
+            } else {
+                written.push([key === null ? null : formatConfigKey(key), formatConfigValue(item, indent + 4, ancestors)])
+            }
+        });
+
+        ancestors.delete(value);
 
         const
-            childPad = ' '.repeat(indent + 4),
-            keyPad   = Math.max(...entries.map(([key]) => formatConfigKey(key).length)),
-            lines    = entries.map(([key, item]) => {
-                const formattedKey = formatConfigKey(key).padEnd(keyPad, ' ');
-                return `${childPad}${formattedKey}: ${formatConfigValue(item, indent + 4)}`
-            });
+            keyPad        = Math.max(0, ...written.map(([key]) => key?.length || 0)),
+            lines         = written.map(([key, source]) => `${childPad}${key === null ? '' : `${key.padEnd(keyPad, ' ')}: `}${source}`),
+            body          = [lines.join(',\n'), ...comments].filter(Boolean).join('\n'),
+            [open, close] = type === 'Array' ? ['[', ']'] : ['{', '}'];
 
-        return `{\n${lines.join(',\n')}\n${pad}}`
+        return `${open}\n${body}\n${pad}${close}`
     }
 
     return String(value)
 }
 
 /**
- * @summary Builds evaluable Neo config source from a class name and changed configs, omitting non-literal entries as comments.
+ * @summary Builds evaluable Neo config source from a class name and configs. A function or live instance becomes a
+ * comment line where it sits, at the top level or nested.
  * @param {String|null} className
- * @param {Object} [changedConfigs={}]
+ * @param {Object} [configs={}]
  * @returns {String}
  */
-export function formatExampleCode(className, changedConfigs={}) {
-    if (!className && Object.keys(changedConfigs).length === 0) {
+export function formatExampleCode(className, configs={}) {
+    if (!className && Object.keys(configs).length === 0) {
         return '{\n}'
     }
 
     const
-        entries  = [['module', className || 'Neo.component.Base']],
-        comments = [];
+        ancestors = new Set([configs]),
+        entries   = [['module', className || 'Neo.component.Base']],
+        comments  = [];
 
-    Object.entries(changedConfigs).forEach(([key, value]) => {
-        const reason = describeNonLiteralReason(value);
+    Object.entries(configs).forEach(([key, value]) => {
+        const reason = describeUnwritableReason(value, ancestors);
 
         if (reason) {
             comments.push(`    // ${key}: ${reason}`)
         } else {
-            entries.push([formatConfigKey(key), formatConfigValue(value, 4)])
+            entries.push([formatConfigKey(key), formatConfigValue(value, 4, ancestors)])
         }
     });
 

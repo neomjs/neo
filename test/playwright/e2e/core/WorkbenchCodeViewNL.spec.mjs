@@ -17,7 +17,7 @@ async function findTextField(app) {
 }
 
 test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () => {
-    test('workbench code view tracks changed configs, copies matching Neo config text, and clears on Reset', async ({context, neuralLink, page}) => {
+    test('workbench code view shows the authored config, tracks changed configs, copies matching Neo config text, and returns to the authored config on Reset', async ({context, neuralLink, page}) => {
         await context.grantPermissions(['clipboard-read', 'clipboard-write']);
         await page.goto('/examples/button/base/index.html');
 
@@ -28,7 +28,12 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
 
         await expect(exampleBtn).toBeVisible({timeout: 15000});
         await expect(codeView).toBeVisible({timeout: 15000});
-        await expect(codeView).toHaveText('{\n    module: Neo.button.Base\n}');
+        // The config the example wrote: its menu stays, each handler a comment line
+        await expect(codeView).toContainText(/text\s*: 'Hello World'/);
+        await expect(codeView).toContainText('menu');
+        await expect(codeView).toContainText('// handler: a function, not shown');
+
+        const authoredCode = await codeView.textContent();
 
         await page.getByText('bottom-left', {exact: true}).click();
 
@@ -52,8 +57,8 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
 
         const displayedCode = await codeView.textContent();
 
-        expect(displayedCode).not.toContain('iconCls');
-        expect(displayedCode).not.toContain('menu');
+        expect(displayedCode).not.toContain('Hello World');
+        expect(displayedCode).toContain('iconCls');
         expect(displayedCode).not.toContain('wrapperStyle');
 
         await copyButton.click();
@@ -65,7 +70,7 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
 
         await page.getByRole('button', {name: 'Reset', exact: true}).click();
 
-        await expect(codeView).toHaveText('{\n    module: Neo.button.Base\n}');
+        await expect(codeView).toHaveText(authoredCode);
     });
 
     test('at 390x844 mobile viewport the code view keeps the stage on the first screen', async ({page}) => {
@@ -105,7 +110,9 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
             exampleBtn = page.locator('.neo-example-container .neo-button').first();
 
         await expect(exampleBtn).toBeVisible({timeout: 15000});
-        await expect(codeView).toHaveText('{\n    module: Neo.button.Base\n}');
+        await expect(codeView).toContainText(/text\s*: 'Hello World'/);
+
+        const authoredCode = await codeView.textContent();
 
         await page.getByText('bottom-left', {exact: true}).click();
 
@@ -162,7 +169,7 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
             timeout: 10000
         }).toMatch(/\/examples\/button\/base\/index\.html\?theme=neo-theme-neo-dark$/);
 
-        await expect(codeView).toHaveText('{\n    module: Neo.button.Base\n}');
+        await expect(codeView).toHaveText(authoredCode);
 
         const resetBtnProps  = await app.getComponent(btnId, ['badgePosition', 'text']),
               resetTextProps = await app.getComponent(reloadedTextFieldId, ['value']);

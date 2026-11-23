@@ -181,7 +181,7 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.component.Base}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module   : Button,
             badgeText: 'Badge',
             flex     : 'none',
@@ -238,7 +238,7 @@ class MainContainer extends ConfigurationViewport {
             /*tooltips: [{
                 text: 'Hello World Tooltip'
             }]*/
-        })
+        }
     }
 
     /**

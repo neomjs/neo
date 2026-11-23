@@ -205,7 +205,8 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.tab.Container} The configured TabContainer instance.
      */
     createExampleComponent() {
-        return Neo.create(TabContainer, {
+        return {
+            module        : TabContainer,
             dragResortable: true,
             height        : 300,
             headerActions : [{
@@ -247,7 +248,7 @@ class MainContainer extends ConfigurationViewport {
                 headerAction     : this.onHeaderAction,
                 scope            : this
             }
-        })
+        }
     }
 
     /**

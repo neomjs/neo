@@ -5,6 +5,7 @@ import HashHistory from '../src/util/HashHistory.mjs';
 import Panel       from '../src/container/Panel.mjs';
 import Viewport    from '../src/container/Viewport.mjs';
 import {
+    cloneConfig,
     formatExampleCode,
     parseConfigParams,
     serializeConfigParams
@@ -279,6 +280,15 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
+     * The config `createExampleComponent()` returned, copied before `Neo.create()` consumed it: the Code View shows it
+     * overlaid with the changed configs. Null when the example returns an instance or a class, which leaves the view
+     * at `module` plus changes.
+     * @member {Object|null} authoredConfig=null
+     * @protected
+     */
+    authoredConfig = null
+
+    /**
      * Config keys currently subscribed on `exampleComponent` via `observeConfig`.
      * @member {Set<String>} #observedExampleConfigs=new Set()
      * @private
@@ -326,17 +336,25 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     * @summary Builds the evaluable Neo config snippet for `exampleComponent` and its changed configs.
+     * @summary Builds the evaluable Neo config snippet for `exampleComponent`: its {@link #authoredConfig} overlaid
+     * with its changed configs.
      * @returns {String}
      */
     getCodeText() {
-        const me = this;
+        const
+            me       = this,
+            authored = {...me.authoredConfig};
 
         if (!me.exampleComponent) {
             return '{\n}'
         }
 
-        return formatExampleCode(me.exampleComponent.className || 'Neo.component.Base', me.getChangedConfigs())
+        // formatExampleCode() writes the root's identity as `module`, from the live class
+        delete authored.className;
+        delete authored.module;
+        delete authored.ntype;
+
+        return formatExampleCode(me.exampleComponent.className || 'Neo.component.Base', {...authored, ...me.getChangedConfigs()})
     }
 
     /**
@@ -810,6 +828,11 @@ class ConfigurationViewport extends Viewport {
         me.exampleComponent = me.createExampleComponent();
 
         exampleComponentType = Neo.typeOf(me.exampleComponent);
+
+        if (exampleComponentType === 'Object') {
+            // Creation consumes the config (setFields() removes its non-reactive keys), so the copy comes first
+            me.authoredConfig = cloneConfig(me.exampleComponent)
+        }
 
         if (exampleComponentType === 'NeoClass' || exampleComponentType === 'Object') {
             me.exampleComponent = Neo.create(me.exampleComponent);
