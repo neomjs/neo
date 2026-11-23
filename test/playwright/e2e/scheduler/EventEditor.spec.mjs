@@ -133,9 +133,14 @@ test.describe('Scheduler event editor example (#21615)', () => {
         await expect(page.locator(EDITOR)).toBeHidden();
         await expect.poll(() => focusedAppointment(page)).toBe('appt-1');
 
-        // A double-click opens an appointment, worded for the practice: a room, no progress
+        await page.locator('.neo-theme-switcher').first().click();
+        await page.getByRole('menuitemradio', {name: 'Neo Light', exact: true}).click();
+        await expect(page.locator('.neo-viewport').first()).toHaveClass(/\bneo-theme-neo-light\b/);
+
+        // A double-click reopens the editor in the current theme, with a room and no progress
         await bar(page, 'appt-2').dblclick();
         await expect(page.locator(EDITOR)).toBeVisible();
+        await expect(page.locator(EDITOR)).toHaveClass(/\bneo-theme-neo-light\b/);
         await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toHaveValue('Cleaning');
         await expect(page.locator(`${EDITOR} [id$="__field__endDate__time__input"]`)).toHaveValue('09:30');
         await expect(page.locator(`${EDITOR} label`, {hasText: 'Room'})).toBeVisible();

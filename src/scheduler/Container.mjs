@@ -321,6 +321,9 @@ class Container extends GridContainer {
      */
     timelineColumn = null
 
+    /** A theme supplied at editor creation takes precedence for that editor's lifetime. */
+    #editorInheritsTheme = false
+
     /** Axis instances constructed from this container's config. */
     #ownedAxes = new WeakSet()
 
@@ -398,6 +401,21 @@ class Container extends GridContainer {
     afterSetEventStore(value, oldValue) {
         this.relayTimelineConfig('eventStore', value, oldValue);
         if (oldValue && oldValue !== value && this.#ownedStores.has(oldValue)) oldValue.destroy()
+    }
+
+    /**
+     * @summary Keeps the floating editor in its owner's theme unless the editor declares its own.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        const editor = this.eventEditor;
+        if (this.#editorInheritsTheme && editor && !editor.isDestroyed) {
+            editor.theme = this.getTheme()
+        }
     }
 
     /** @summary Relays a replacement axis before releasing the previous owned axis. */
@@ -685,16 +703,17 @@ class Container extends GridContainer {
         const me = this;
 
         if (!me.eventEditor || me.eventEditor.isDestroyed) {
+            const config = {...me.getDefaultEditorConfig(), ...me.editorConfig};
             me.eventEditor = Neo.create({
                 module  : EventEditor,
                 appName : me.appName,
                 id      : `${me.id}__event-editor`,
                 owner   : me,
-                theme   : me.theme,
+                theme   : me.getTheme(),
                 windowId: me.windowId,
-                ...me.getDefaultEditorConfig(),
-                ...me.editorConfig
-            })
+                ...config
+            });
+            me.#editorInheritsTheme = !Object.hasOwn(config, 'theme')
         }
 
         return me.eventEditor

@@ -17,6 +17,22 @@ setup({neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: false, useDomApi
     appConfig: {name: appName, isMounted: () => true, vnodeInitialising: false}});
 
 test.describe('Neo.scheduler.Container', () => {
+    test('a theme change keeps editor creation lazy and preserves an explicitly themed editor', () => {
+        const scheduler = Neo.create(SchedulerContainer, {appName, editorConfig: {theme: 'neo-theme-cyberpunk'}});
+
+        try {
+            scheduler.theme = 'neo-theme-neo-light';
+            expect(scheduler.eventEditor).toBeNull();
+
+            const editor = scheduler.ensureEventEditor();
+            scheduler.theme = 'neo-theme-neo-dark';
+            expect(scheduler.eventEditor).toBe(editor);
+            expect(editor.theme).toBe('neo-theme-cyberpunk')
+        } finally {
+            scheduler.destroy()
+        }
+    });
+
     test('translates snapped proxy geometry to the visible track and pointer', () => {
         const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00Z', end: '2026-11-10T00:00Z', pxPerMinute: 1});
         const zone = Neo.create(SchedulerEventDragZone, {axis, trackOrigin: -100, offsetY: 12});

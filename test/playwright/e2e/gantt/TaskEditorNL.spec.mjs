@@ -78,7 +78,11 @@ test.describe('at 1440 × 900', () => {
     test('the editor opens on a task by double-click and by Enter, and Escape hands focus back to it', async ({page}) => {
         const editor = page.locator('.neo-timeline-event-editor');
 
+        await page.locator('.neo-theme-switcher').first().click();
+        await page.getByRole('menuitemradio', {name: 'Neo Light', exact: true}).click();
+        await expect(page.locator('.neo-viewport').first()).toHaveClass(/\bneo-theme-neo-light\b/);
         await editWireframes(page);
+        await expect(editor).toHaveClass(/\bneo-theme-neo-light\b/);
         await page.keyboard.press('Escape');
         await expect(editor).toBeHidden();
         await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeFocused();
