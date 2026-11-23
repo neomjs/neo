@@ -17,7 +17,6 @@
     {"path": "examples/form/field/trigger/copyToClipboard", "width": 224}, {"path": "examples/form/field/url", "width": 220},
     "examples/form/field/zipcode",
     {"path": "examples/form/fieldset", "width": 220}, {"path": "examples/component/dateSelector", "width": 200, "height": 200},
-    {"path": "examples/layout/form", "width": 240, "height": 150},
     "examples/button/base", "examples/menu/list",
     "examples/list/base", "examples/list/chip", "examples/list/color", "examples/list/buffered", "examples/list/circle",
     "examples/component/carousel",

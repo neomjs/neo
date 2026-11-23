@@ -2,5 +2,6 @@
     "appPath"    : "examples/layout/form/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-light", "neo-theme-neo-dark", "neo-theme-light", "neo-theme-dark"]
 }

@@ -5,6 +5,7 @@ import TextField             from '../../../src/form/field/Text.mjs';
 import FormLayout            from '../../../src/layout/Form.mjs';
 
 /**
+ * @summary Workbench demonstration for `Neo.layout.Form` showing shared `itemDefaults`, subgrid label alignment, and a nested fieldset.
  * @class Neo.examples.layout.form.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
@@ -12,10 +13,15 @@ class MainContainer extends ConfigurationViewport {
     static config = {
         className           : 'Neo.examples.layout.form.MainContainer',
         autoMount           : true,
+        componentName       : 'Form layout',
         configItemLabelWidth: 160,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }
 
+    /**
+     * @summary Builds the inspector controls for live `gap` and field `labelText` updates.
+     * @returns {Object[]}
+     */
     createConfigurationComponents() {
         let me = this;
 
@@ -73,11 +79,19 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /**
+     * @summary Creates the `layout-form` container with differing outer label widths and a nested `layout-form` fieldset.
+     * @returns {Neo.form.Container}
+     */
     createExampleComponent() {
         return Neo.create(Form, {
             layout      : {
                 ntype: 'layout-form',
                 gap  : '0 .5rem'
+            },
+            style       : {
+                maxWidth: '100%',
+                width   : '420px'
             },
             itemDefaults: {
                 ntype    : 'textfield',
@@ -114,7 +128,7 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * Update the textfield labelText, based on index
+     * @summary Updates the target demo textfield's `labelText` when an inspector field changes.
      * @param {Number} index
      * @param {Object} data
      */

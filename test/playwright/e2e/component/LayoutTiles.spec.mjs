@@ -117,5 +117,34 @@ test.describe('Layout tiles', () => {
 
         await page.getByRole('button', {name: 'Move the address to the top'}).click();
         await expect.poll(() => domRows(page)).toEqual([...fragment, '<div> Name', '<div> Email', '<div> Phone'])
+    });
+
+    test('the form layout opens in the requested theme, keeps >= 120 px inputs on desktop and phone, and updates labels live', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto('/examples/layout/form/index.html?theme=neo-theme-neo-dark');
+
+        await expect(page.locator('.neo-workbench-stage')).toBeVisible();
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+
+        await expect.poll(() => page.$$eval('.neo-layout-form .neo-input-wrapper', els => els.map(el => el.getBoundingClientRect().width)))
+            .toHaveLength(4);
+        const desktopWidths = await page.$$eval('.neo-layout-form .neo-input-wrapper', els => els.map(el => el.getBoundingClientRect().width));
+        desktopWidths.forEach(w => expect(w).toBeGreaterThanOrEqual(120));
+
+        // Update the first label through the inspector and verify the rendered form label updates live
+        const labelInput = page.locator('.neo-workbench-inspector input').nth(1);
+        await labelInput.fill('Account owner full legal name');
+        await labelInput.press('Tab');
+        await expect(page.locator('.neo-layout-form .neo-textfield-label').first()).toHaveText('Account owner full legal name');
+
+        // Narrow to phone width (390 × 844): zero horizontal overflow and every input stays >= 120 px wide
+        await page.setViewportSize({width: 390, height: 844});
+        await expect.poll(() => page.evaluate(() => ({
+            overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            allWide : [...document.querySelectorAll('.neo-layout-form .neo-input-wrapper')].every(el => el.getBoundingClientRect().width >= 120)
+        }))).toEqual({
+            overflow: 0,
+            allWide : true
+        })
     })
 });
