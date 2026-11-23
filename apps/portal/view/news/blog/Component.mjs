@@ -1,4 +1,5 @@
-import ContentComponent from '../../../../../src/app/content/Component.mjs';
+import ContentComponent   from '../../../../../src/app/content/Component.mjs';
+import {rewriteRepoLinks} from '../../../Util.mjs';
 
 /**
  * @summary Renders Markdown blog posts and routes relative `.md` links to the blog or learn views.
@@ -45,6 +46,22 @@ class Component extends ContentComponent {
         }
 
         return id.startsWith('blog/') ? `news/${id}` : `learn/${id}`
+    }
+
+    /**
+     * @summary Resolves the relative links the blog and learn routes leave alone against the post's folder in
+     * the repository, so a link to a source file opens it on GitHub.
+     * @param {String} html
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        let me   = this,
+            path = me.getContentPath(me.record);
+
+        html = super.rewriteLinks(html);
+
+        // Less the base path, the fetch path is the file's path in the repository
+        return path ? rewriteRepoLinks(html, path.slice(Neo.config.basePath.length)) : html
     }
 }
 

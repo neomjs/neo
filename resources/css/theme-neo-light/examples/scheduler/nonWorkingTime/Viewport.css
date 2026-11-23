@@ -1,0 +1,28 @@
+:where(.neo-theme-neo-light) {
+    --site-header-bg            : #ffffff;
+    --site-status-bg            : #f8fafc;
+    --site-border               : #d8dee8;
+    --site-title                : #17243a;
+    --site-muted                : #56657a;
+    --site-badge-bg             : #eef4ff;
+    --site-badge-border         : #b6caeb;
+    --site-badge-text           : #1e3a8a;
+    --site-control-bg           : #f6f8fb;
+    --site-hover-bg             : #e7edf6;
+    --site-switch-off-bg        : #e2e8f0;
+    --site-switch-active-surface: #e8effc;
+    --site-selected-bg          : #243e70;
+    --site-selected-text        : #ffffff;
+    --site-focus                : #285bd4;
+    --site-nw-bg                : rgba(15, 23, 42, 0.055);
+    --site-nw-stripe            : rgba(15, 23, 42, 0.065);
+    --site-nw-swatch-bg         : rgba(15, 23, 42, 0.1);
+    --site-nw-border            : rgba(15, 23, 42, 0.16);
+    --site-holiday-bg           : rgba(225, 29, 72, 0.075);
+    --site-holiday-stripe       : rgba(225, 29, 72, 0.1);
+    --site-holiday-swatch-bg    : rgba(225, 29, 72, 0.14);
+    --site-holiday-border       : rgba(225, 29, 72, 0.36);
+    --site-holiday-pill-bg      : rgba(225, 29, 72, 0.09);
+    --site-holiday-pill-text    : #9f1239;
+    --site-bar-shadow           : 0 2px 5px rgba(15, 23, 42, 0.14);
+}

@@ -315,7 +315,8 @@ class DragZone extends Base {
      * @summary The drag proxy's content: a fresh clone of the drag element (or of the configured proxy
      * vdom), wrapped unless `useProxyWrapper` is off. A cross-window target proxy renders the same
      * content as the local one: during a gesture the clone comes from the `dragElementSnapshot` the local
-     * proxy was built from, not from the element the sort zone has hidden since.
+     * proxy was built from, not from the element the sort zone has hidden since. Cloned form controls lose their
+     * `name`, so the copy never shares a radio group with its source.
      * @returns {Object|null} `null` while no drag element is known
      */
     getDragProxyVdom() {
@@ -323,15 +324,19 @@ class DragZone extends Base {
             source = me.dragProxyConfig?.vdom || me.dragElementSnapshot || me.dragElement,
             clone  = source && VDomUtil.clone(source);
 
+        clone && me.unnameFormControls(clone);
+
         return !clone ? null : me.useProxyWrapper ? {cn: [clone]} : clone
     }
 
     /**
      * @param {Object}  data
      * @param {Boolean} createComponent=true
+     * @param {AbortSignal} [signal] Cancels setup of a proxy and its placeholder.
      * @returns {Object|Neo.draggable.DragProxyComponent}
      */
-    async createDragProxy(data, createComponent=true) {
+    async createDragProxy(data, createComponent=true, signal) {
+        if (signal?.aborted) return;
         let me          = this,
             component   = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             rect        = me.dragElementRect,
@@ -402,6 +407,7 @@ class DragZone extends Base {
 
             if (isContainer) {
                 await proxy.mountedPromise;
+                if (signal?.aborted) return;
 
                 me.dragPlaceholder = Neo.create({
                     module: Component,
@@ -417,6 +423,7 @@ class DragZone extends Base {
 
                 // Fetch the vnode from the vdom worker, without mounting it.
                 const {vnode} = await Neo.vdom.Helper.create({vdom: me.dragPlaceholder.vdom});
+                if (signal?.aborted) return;
 
                 // Manual DOM manipulation to preserve Component state (e.g., Canvas or Charts)
                 await Neo.applyDeltas(me.windowId, [{
@@ -431,6 +438,7 @@ class DragZone extends Base {
                     parentId: proxy.id
                 }]);
 
+                if (signal?.aborted) return;
                 me.dragPlaceholder.set({
                     vnode,
                     mounted         : true,
@@ -472,15 +480,17 @@ class DragZone extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @summary Removes the gesture's visual state, including a proxy created during an unfinished start.
+     * @protected
      */
-    dragEnd(data) {
-        let me      = this,
-            {owner} = me,
-            {cls}   = owner;
+    clearDragVisuals() {
+        let me = this, {owner} = me;
 
-        NeoArray.remove(cls, 'neo-is-dragging');
-        owner.cls = cls;
+        if (owner) {
+            let {cls} = owner;
+            NeoArray.remove(cls, 'neo-is-dragging');
+            owner.cls = cls
+        }
 
         if (me.dragProxy) {
             if (me.dragPlaceholder) {
@@ -500,11 +510,14 @@ class DragZone extends Base {
             offsetX              : 0,
             offsetY              : 0,
             scrollContainerId    : null
-        });
+        })
+    }
 
-        me.fire('dragEnd', data);
-
-        me.resetData()
+    /** @param {Object} data */
+    dragEnd(data) {
+        this.clearDragVisuals();
+        this.fire('dragEnd', data);
+        this.resetData()
     }
 
     /**
@@ -534,8 +547,9 @@ class DragZone extends Base {
 
     /**
      * @param {Object} data
+     * @param {AbortSignal} [signal] Stops an unfinished drag after an asynchronous setup step.
      */
-    async dragStart(data) {
+    async dragStart(data, signal) {
         let me                         = this,
             {appName, owner, windowId} = me,
             {cls}                      = owner,
@@ -547,9 +561,10 @@ class DragZone extends Base {
         mainData = await Neo.main.addon.DragDrop.setConfigs({
             appName,
             windowId,
-            ...me.getMainThreadConfigs()
+            ...me.getMainThreadConfigs(data, rect)
         });
 
+        if (signal?.aborted) return;
         me.boundaryContainerRect = mainData.boundaryContainerRect
 
         NeoArray.add(cls, 'neo-is-dragging');
@@ -565,7 +580,8 @@ class DragZone extends Base {
         });
 
         if (me.useProxy) {
-            await me.createDragProxy(rect)
+            await me.createDragProxy(rect, true, signal);
+            if (signal?.aborted) return
         }
 
         me.fire('dragStart', {
@@ -614,10 +630,12 @@ class DragZone extends Base {
     /**
      * Override this method inside class extensions to add more configs
      * which get passed to main.addon.DragDrop onDragStart()
+     * @param {Object} [data] The `drag:start` data of the gesture, when called from {@link #dragStart}
+     * @param {Object} [rect] The drag element's rect, when called from {@link #dragStart}
      * @returns {Object}
      * @protected
      */
-    getMainThreadConfigs() {
+    getMainThreadConfigs(data, rect) {
         let me = this;
 
         return {
@@ -694,6 +712,20 @@ class DragZone extends Base {
             dragZoneId : me.id,
             ...data
         }
+    }
+
+    /**
+     * @summary Drops `name` from every native form control in a proxy's vdom clone, so a cloned radio never joins its
+     * source's group and unchecks the source when the proxy renders.
+     * @param {Object} node A node of the proxy's vdom clone
+     * @protected
+     */
+    unnameFormControls(node) {
+        if (node.tag === 'input' || node.tag === 'select' || node.tag === 'textarea') {
+            delete node.name
+        }
+
+        node.cn?.forEach(child => this.unnameFormControls(child))
     }
 }
 

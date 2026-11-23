@@ -1,0 +1,235 @@
+[
+    {
+        "id": "helix",
+        "family": "lists",
+        "order": 140,
+        "feature": "Image items on a 3D helix that you reshape live",
+        "lookFor": "Scroll over the helix, then change Radius and Perspective in Helix Controls.",
+        "featured": false,
+        "image": "devmode/helix-14.jpg",
+        "name": "3D Helix",
+        "sourceUrl": "examples/component/helix",
+        "urls": {
+            "devmode": "examples/component/helix/index.html",
+            "dist_dev": "dist/development/examples/component/helix/index.html",
+            "dist_esm": "dist/esm/examples/component/helix/index.html",
+            "dist_prod": "dist/production/examples/component/helix/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "covid-helix",
+        "family": "lists",
+        "order": 250,
+        "feature": "217 economies on a 3D helix, each with its flag and six World Bank figures, sorted by the one you pick",
+        "lookFor": "Under Sort By, choose Life and watch the countries reorder along the helix.",
+        "scope": "Reads the World Bank file the country grid ships with.",
+        "featured": false,
+        "image": "devmode/covid-helix-14.jpg",
+        "name": "Country Helix",
+        "sourceUrl": "examples/component/coronaHelix",
+        "urls": {
+            "devmode": "examples/component/coronaHelix/index.html",
+            "dist_dev": "dist/development/examples/component/coronaHelix/index.html",
+            "dist_esm": "dist/esm/examples/component/coronaHelix/index.html",
+            "dist_prod": "dist/production/examples/component/coronaHelix/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "covid-gallery",
+        "family": "lists",
+        "order": 260,
+        "feature": "217 economies in a 3D gallery, each with its flag and six World Bank figures, sorted by the one you pick",
+        "lookFor": "Under Sort By, choose GDP, then raise Amount Rows in Gallery Controls.",
+        "scope": "Reads the World Bank file the country grid ships with.",
+        "featured": false,
+        "image": "devmode/covid-gallery-14.jpg",
+        "name": "Country Gallery",
+        "sourceUrl": "examples/component/coronaGallery",
+        "urls": {
+            "devmode": "examples/component/coronaGallery/index.html",
+            "dist_dev": "dist/development/examples/component/coronaGallery/index.html",
+            "dist_esm": "dist/esm/examples/component/coronaGallery/index.html",
+            "dist_prod": "dist/production/examples/component/coronaGallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "gallery",
+        "family": "lists",
+        "order": 270,
+        "feature": "Image items in a 3D gallery that you reshape live",
+        "lookFor": "Raise Amount Rows in Gallery Controls until the wall fills the window, then press Order by Row.",
+        "featured": false,
+        "image": "devmode/gallery-14.jpg",
+        "name": "Gallery",
+        "sourceUrl": "examples/component/gallery",
+        "urls": {
+            "devmode": "examples/component/gallery/index.html",
+            "dist_dev": "dist/development/examples/component/gallery/index.html",
+            "dist_esm": "dist/esm/examples/component/gallery/index.html",
+            "dist_prod": "dist/production/examples/component/gallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-reorder",
+        "family": "lists",
+        "order": 280,
+        "alsoIn": ["drag-drop"],
+        "feature": "A checklist and a wall of portraits, each reordered by drag and drop over its own store",
+        "lookFor": "Drag Freeze the release branch below Write the release notes, then drag a portrait to another place on the wall.",
+        "featured": false,
+        "image": "devmode/list-reorder-14.jpg",
+        "hasLightCover": true,
+        "name": "Reorder by Drag",
+        "sourceUrl": "examples/list/reorder",
+        "urls": {
+            "devmode": "examples/list/reorder/index.html",
+            "dist_dev": "dist/development/examples/list/reorder/index.html",
+            "dist_esm": "dist/esm/examples/list/reorder/index.html",
+            "dist_prod": "dist/production/examples/list/reorder/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "list-animate",
+        "family": "lists",
+        "order": 290,
+        "feature": "Fifteen portrait cards that sort, filter and search, every move animated",
+        "lookFor": "Press Lastname, type an a into Search, then turn on Is online and watch the cards slide into place.",
+        "featured": false,
+        "image": "devmode/list-animate-14.jpg",
+        "hasLightCover": true,
+        "name": "Animated List",
+        "sourceUrl": "examples/list/animate",
+        "urls": {
+            "devmode": "examples/list/animate/index.html",
+            "dist_dev": "dist/development/examples/list/animate/index.html",
+            "dist_esm": "dist/esm/examples/list/animate/index.html",
+            "dist_prod": "dist/production/examples/list/animate/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "carousel",
+        "kind": "component",
+        "image": "devmode/tiles/component-carousel-14.jpg",
+        "hasLightCover": true,
+        "name": "Carousel",
+        "sourceUrl": "examples/component/carousel",
+        "urls": {
+            "devmode": "examples/component/carousel/index.html",
+            "dist_dev": "dist/development/examples/component/carousel/index.html",
+            "dist_esm": "dist/esm/examples/component/carousel/index.html",
+            "dist_prod": "dist/production/examples/component/carousel/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "order": 300,
+        "component": "Carousel",
+        "feature": "A carousel that advances through portraits on its own",
+        "lookFor": "Watch a portrait slide in every four seconds, then change the height and width in the panel."
+    },
+    {
+        "id": "list-base",
+        "kind": "component",
+        "image": "devmode/tiles/list-base-14.jpg",
+        "hasLightCover": true,
+        "name": "List",
+        "sourceUrl": "examples/list/base",
+        "urls": {
+            "devmode": "examples/list/base/index.html",
+            "dist_dev": "dist/development/examples/list/base/index.html",
+            "dist_esm": "dist/esm/examples/list/base/index.html",
+            "dist_prod": "dist/production/examples/list/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "order": 1370,
+        "component": "List",
+        "feature": "A list over a store, with selection, dragging and checkboxes as live configs",
+        "lookFor": "Select an item, then turn on useCheckBoxes or draggable in the panel."
+    },
+    {
+        "id": "chip-list",
+        "kind": "component",
+        "image": "devmode/tiles/list-chip-14.jpg",
+        "hasLightCover": true,
+        "name": "Chip list",
+        "sourceUrl": "examples/list/chip",
+        "urls": {
+            "devmode": "examples/list/chip/index.html",
+            "dist_dev": "dist/development/examples/list/chip/index.html",
+            "dist_esm": "dist/esm/examples/list/chip/index.html",
+            "dist_prod": "dist/production/examples/list/chip/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "order": 1380,
+        "component": "ChipList",
+        "feature": "A list of chips over a store, in a row or stacked",
+        "lookFor": "Select a chip, then toggle stacked in the panel."
+    },
+    {
+        "id": "color-list",
+        "kind": "component",
+        "image": "devmode/tiles/list-color-14.jpg",
+        "hasLightCover": true,
+        "name": "Color list",
+        "sourceUrl": "examples/list/color",
+        "urls": {
+            "devmode": "examples/list/color/index.html",
+            "dist_dev": "dist/development/examples/list/color/index.html",
+            "dist_esm": "dist/esm/examples/list/color/index.html",
+            "dist_prod": "dist/production/examples/list/color/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "order": 1390,
+        "component": "ColorList",
+        "feature": "A list of colors over a store",
+        "lookFor": "Select a color, then toggle disableSelection in the panel."
+    },
+    {
+        "id": "list-buffered",
+        "kind": "component",
+        "image": "devmode/tiles/list-buffered-14.jpg",
+        "hasLightCover": true,
+        "name": "Buffered list",
+        "sourceUrl": "examples/list/buffered",
+        "urls": {
+            "devmode": "examples/list/buffered/index.html",
+            "dist_dev": "dist/development/examples/list/buffered/index.html",
+            "dist_esm": "dist/esm/examples/list/buffered/index.html",
+            "dist_prod": "dist/production/examples/list/buffered/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "order": 1400,
+        "component": "Buffered",
+        "feature": "A list of 5,000 records that renders only the rows in view and recycles them as you scroll",
+        "lookFor": "Scroll through the records, then raise bufferRowRange or itemHeight in the panel."
+    },
+    {
+        "id": "list-circle",
+        "kind": "component",
+        "image": "devmode/tiles/list-circle-14.jpg",
+        "hasLightCover": true,
+        "name": "Circle list",
+        "sourceUrl": "examples/list/circle",
+        "urls": {
+            "devmode": "examples/list/circle/index.html",
+            "dist_dev": "dist/development/examples/list/circle/index.html",
+            "dist_esm": "dist/esm/examples/list/circle/index.html",
+            "dist_prod": "dist/production/examples/list/circle/index.html"
+        },
+        "hiddenIn": [],
+        "family": "lists",
+        "order": 1410,
+        "component": "CircleList",
+        "feature": "Groups as circles in a list, each showing its member count",
+        "lookFor": "Switch Sort to DESC, then rename a group in the panel."
+    }
+]

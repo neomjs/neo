@@ -309,6 +309,18 @@ class GridBody extends Component {
      */
     #scrollEdgeAnnouncedFor = null
     /**
+     * @summary Tracks silent VDOM mutations collected into an in-flight body payload until {@link #afterVnodeSync} lands.
+     * @member {Boolean} #inFlightSilentVdomChanges=false
+     */
+    #inFlightSilentVdomChanges = false
+    /**
+     * @summary Latches silent VDOM mutations until a landed {@link Neo.grid.View#syncBodies} or full body update
+     * flushes them, restoring the latch if the flight rejects.
+     * @member {Boolean} hasSilentVdomChanges=false
+     * @protected
+     */
+    hasSilentVdomChanges = false
+    /**
      * @member {Object[]} items=[]
      */
     items = []
@@ -330,6 +342,14 @@ class GridBody extends Component {
      */
     get rowGeometry() {
         return this.gridContainer?.view?.rowGeometry || null
+    }
+
+    /**
+     * The view's page offset: 0 unless fixed rows scroll in pages, see {@link Neo.grid.View#pageOffset}
+     * @member {Number} pageOffset
+     */
+    get pageOffset() {
+        return this.gridContainer?.view?.pageOffset || 0
     }
 
     /**
@@ -623,6 +643,7 @@ class GridBody extends Component {
                 filter: me.onStoreFilter,
                 load: me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
+                rowsChange: me.onStoreRowsChange,
                 scope: me
             };
 
@@ -753,12 +774,14 @@ class GridBody extends Component {
      * @protected
      */
     createRowPool() {
-        let me = this,
+        let me           = this,
             countRecords = me.store.count,
-            windowSize = me.availableRows + 2 * me.bufferRowRange,
-            needed = Math.min(windowSize, Math.max(me.items.length, countRecords)),
-            current = me.items.length,
-            delta = needed - current,
+            windowSize   = me.availableRows + 2 * me.bufferRowRange,
+            needed       = Math.min(windowSize, Math.max(me.items.length, countRecords)),
+            current      = me.items.length,
+            delta        = needed - current,
+            vdomRoot     = me.getVdomRoot(),
+            prevMeasure  = vdomRoot.cn?.[current] ?? null,
             i;
 
         me.rowPoolSize = needed;
@@ -800,8 +823,12 @@ class GridBody extends Component {
         // Fixed-DOM-Order Strategy:
         // We ensure the VDOM children (cn) matches the full pool of items exactly.
         // We never remove or reorder these nodes. We only update their content and transform.
-        me.getVdomRoot().cn = me.items.map(item => item.createVdomReference())
-        me.rowMeasureVdom && me.getVdomRoot().cn.push(me.rowMeasureVdom)
+        vdomRoot.cn = me.items.map(item => item.createVdomReference());
+        me.rowMeasureVdom && vdomRoot.cn.push(me.rowMeasureVdom);
+
+        if (delta !== 0 || prevMeasure !== (me.rowMeasureVdom ?? null)) {
+            me.hasSilentVdomChanges = true
+        }
     }
 
     /**
@@ -848,6 +875,7 @@ class GridBody extends Component {
 
             // registerPreUpdate() keeps one callback per id, so a later deferral must not drop an earlier one's intent
             me.#deferredViewData = {force: force || !!pending?.force, silent: silent && (pending?.silent ?? true)};
+            silent && (me.hasSilentVdomChanges = true);
 
             Neo.manager.VDomUpdate.registerPreUpdate(me.id, () => {
                 let {force, silent} = me.#deferredViewData;
@@ -1118,7 +1146,7 @@ class GridBody extends Component {
     }
 
     /**
-     * @summary The height of all rows, without the scroll room {@link #updateScrollHeight} adds below the last one.
+     * @summary The height of all rows, without the scroll room {@link #getScrollExtent} adds below the last one.
      * Content-sized rows count their known geometry plus the estimate for rows a chunked load has not delivered.
      * A header drag ends its proxy here when the rows stop above the grid's bottom.
      * @returns {Number}
@@ -1303,9 +1331,13 @@ class GridBody extends Component {
             }
         });
 
-        if (dirty && !silent) {
-            me.updateDepth = -1;
-            me.update()
+        if (dirty) {
+            if (silent) {
+                me.hasSilentVdomChanges = true
+            } else {
+                me.updateDepth = -1;
+                me.update()
+            }
         }
     }
 
@@ -1357,6 +1389,73 @@ class GridBody extends Component {
             poolSize = me.rowPoolSize ?? (me.availableRows + 2 * me.bufferRowRange);
 
         return `${me.id}__row-${rowIndex % poolSize}`
+    }
+
+    /**
+     * @summary The offset in px a row renders at: its logical offset, `index × rowHeight` or the
+     * {@link #rowGeometry}'s, less the view's {@link #pageOffset}.
+     * @param {Number} rowIndex
+     * @returns {Number}
+     */
+    getRowOffset(rowIndex) {
+        let {rowGeometry, rowHeight} = this;
+        return (rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight) - this.pageOffset
+    }
+
+    /**
+     * @summary The logical scroll extent in px: {@link #getContentHeight} plus one row of scroll room below the last
+     * row
+     * @returns {Number}
+     */
+    getScrollExtent() {
+        let {rowGeometry, rowHeight} = this;
+        return this.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)
+    }
+
+    /**
+     * @summary Clears {@link #inFlightSilentVdomChanges} once a vnode tree lands (and initial mount's pre-mount writes).
+     * @override
+     * @param {Object[]|null} deltas
+     * @protected
+     */
+    afterVnodeSync(deltas) {
+        super.afterVnodeSync(deltas);
+        this.#inFlightSilentVdomChanges = false;
+        deltas === null && (this.hasSilentVdomChanges = false)
+    }
+
+    /**
+     * @summary Restores {@link #hasSilentVdomChanges} when a standalone full or dense body flight fails to land.
+     * @override
+     */
+    async executeVdomUpdate() {
+        let me = this;
+
+        await super.executeVdomUpdate();
+
+        if (!me.isDestroyed && me.#inFlightSilentVdomChanges) {
+            me.#inFlightSilentVdomChanges = false;
+            me.hasSilentVdomChanges       = true
+        }
+    }
+
+    /**
+     * @summary Claims {@link #hasSilentVdomChanges} into {@link #inFlightSilentVdomChanges} on full or dense collection.
+     * @override
+     * @param {Set<String>|null} mergedChildIds
+     * @param {Number} [depth]
+     * @param {Set<String>|null} [boundaryIds=null]
+     * @returns {Object}
+     */
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
+        let me = this;
+
+        if (((depth ?? me.updateDepth) === -1 || me.denseUpdate) && me.hasSilentVdomChanges) {
+            me.#inFlightSilentVdomChanges = true;
+            me.hasSilentVdomChanges       = false
+        }
+
+        return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
     }
 
     /**
@@ -1485,12 +1584,16 @@ class GridBody extends Component {
 
         if (me.mounted && !postChunkLoad) {
             me.timeout(50)
-                .then(() => Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id: me.gridContainer.view.id,
-                    value: 0,
-                    windowId
-                }))
+                .then(() => {
+                    let {view} = me.gridContainer;
+
+                    // Paged, the top lies on the first page: the view moves the rows and the offset there together
+                    if (view.paged) {
+                        view.scrollToOffset(0)
+                    } else {
+                        return Neo.main.DomAccess.scrollTo({direction: 'top', id: view.id, value: 0, windowId})
+                    }
+                })
                 .catch(reason => {
                     reason !== Neo.isDestroyed && !Neo.currentWorker?.isDeparture?.(reason, windowId) &&
                         console.error('grid.Body: scroll-to-top dispatch failed', {reason, windowId})
@@ -1499,33 +1602,62 @@ class GridBody extends Component {
     }
 
     /**
+     * @summary Repaints the row that renders a changed record. A record of a store batch (`isBatch`) leaves its row
+     * to {@link #onStoreRowsChange}, which repaints the batch's rows in one pass.
      * @param {Object}         data
      * @param {Object[]}       data.fields Each field object contains the keys: name, oldValue, value
+     * @param {Boolean}        [data.isBatch]
      * @param {Neo.data.Model} data.model  The model instance of the changed record
      * @param {Object}         data.record
      */
-    onStoreRecordChange({ fields, record }) {
-        let me              = this,
-            fieldNames      = fields.map(field => field.name),
-            rowIndex        = me.store.indexOf(record),
-            { mountedRows } = me,
-            poolSize        = me.items.length,
-            itemIndex, row;
+    onStoreRecordChange({ fields, isBatch, record }) {
+        let me         = this,
+            fieldNames = fields.map(field => field.name),
+            row;
+
+        if (isBatch) {
+            return
+        }
 
         if (fieldNames.includes(me.colspanField)) {
             me.createViewData()
         } else {
             // the record's selection flag is the View's to follow (grid.View#onStoreRecordChange),
-            // once per grid; a body only repaints the row it renders
-            if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
-                itemIndex = rowIndex % poolSize;
-                row = me.items[itemIndex];
+            // once per grid; a body only repaints the row it renders. The pool is small, so an
+            // identity scan here is cheaper than asking a large store for the record's index.
+            row = me.items.find(item => item.record === record);
 
-                if (row) {
-                    row.createVdom(false, false)
-                }
+            if (row) {
+                row.createVdom(false, false)
             }
 
+            me.refreshNativeDragZoneRecords()
+        }
+    }
+
+    /**
+     * @summary Repaints the mounted rows a store batch changed ({@link Neo.data.Store#updateRows}) in one update, and
+     * keeps the scroll position, which {@link #onStoreLoad} would reset.
+     * Like {@link #onStoreRecordChange}, each row's VDOM is rebuilt at once, also while an update is in flight:
+     * {@link #createViewData} would defer the whole pass past that flight, after a column such as
+     * `Neo.grid.column.AnimatedChange` has marked the cells it found. A batch that changed no mounted row
+     * repaints nothing.
+     * @param {Object}   data
+     * @param {String[]} data.fields The fields the batch may have changed
+     * @param {Array}    data.keys   The changed rows' keys
+     */
+    onStoreRowsChange({ fields, keys }) {
+        let me      = this,
+            {store} = me,
+            changed = new Set(keys),
+            rows    = me.items.filter(row => row.record && changed.has(store.getKey(row.record)));
+
+        if (fields.includes(me.colspanField)) {
+            me.createViewData(false, true)
+        } else if (rows.length) {
+            rows.forEach(row => row.createVdom(true, false));
+            me.updateDepth = -1;
+            me.update();
             me.refreshNativeDragZoneRecords()
         }
     }
@@ -1577,11 +1709,7 @@ class GridBody extends Component {
                 scrollTop = (newIndex - me.availableRows) * me.rowHeight + lastRowGap
             }
 
-            Neo.main.DomAccess.scrollTo({
-                id: me.gridContainer.view.id,
-                value: scrollTop,
-                windowId: me.windowId
-            })
+            me.gridContainer.view.scrollToOffset(scrollTop)
         }
     }
 
@@ -1603,8 +1731,10 @@ class GridBody extends Component {
     }
 
     /**
-     * Lightweight update for column resizing, triggered by drag:move.
-     * Updates the width of the resized column's cells and the left position of all following cells.
+     * @summary Lightweight live column-resize pass (`drag:move`) that writes updated `width` and `left` geometry
+     * across active row VDOMs and ships them densely (`denseUpdate = true`) so concurrent row updates cannot skip
+     * non-merged rows. It moves the `columnPositions` entries in place, which the collection does not announce, so it
+     * fires `cellPositionsChange` for anything else drawn from them.
      * @param {String} dataField The dataField of the resized column
      * @param {Number} newWidth The new width in pixels
      */
@@ -1665,7 +1795,10 @@ class GridBody extends Component {
         });
 
         me.updateDepth = 2;
-        me.update()
+        me.denseUpdate = true;
+        me.update();
+
+        me.fire('cellPositionsChange', {dataField, width: newWidth})
     }
 
     /**
@@ -1811,18 +1944,43 @@ class GridBody extends Component {
     }
 
     /**
-     * @summary Sizes the scroller to {@link #getContentHeight} plus one row of scroll room below the last row.
+     * @summary Sizes the scroller to {@link #getScrollExtent}, up to the view's
+     * {@link Neo.grid.View#maxScrollHeight}: fixed rows past it scroll in pages. The center body then lets the view
+     * re-derive its pages.
      * @param {Boolean} silent=false
      */
     updateScrollHeight(silent = false) {
-        let me                         = this,
-            countRecords               = me.#initialTotalSize || me.store?.count || 0,
-            { rowGeometry, rowHeight } = me;
+        let me           = this,
+            countRecords = me.#initialTotalSize || me.store?.count || 0,
+            // A body sized while its container creates the view knows no cap yet
+            view         = me.gridContainer?.view,
+            height;
 
-        if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.height = `${me.getContentHeight() + (rowGeometry ? rowGeometry.estimate : rowHeight)}px`;
+        if (countRecords > 0 && me.rowHeight > 0) {
+            height = `${Math.min(me.getScrollExtent(), view?.maxScrollHeight ?? Infinity)}px`;
+
+            if (me.vdom.height !== height) {
+                me.vdom.height = height;
+                silent && (me.hasSilentVdomChanges = true)
+            }
+
+            view?.scrollPages && me.gridContainer.body === me && view.updateScrollPages();
             !silent && me.update()
         }
+    }
+
+    /**
+     * @summary Latches {@link #hasSilentVdomChanges} when a `setSilent` write mutates this body's VDOM.
+     * @override
+     * @param {Function} [resolve]
+     * @param {Function} [reject]
+     */
+    updateVdom(resolve, reject) {
+        if (this.silentVdomUpdate) {
+            this.hasSilentVdomChanges = true
+        }
+
+        super.updateVdom(resolve, reject)
     }
 
     /**

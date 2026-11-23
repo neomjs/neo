@@ -114,7 +114,7 @@ async function createGrid(config) {
         body.set({availableHeight: viewport, containerWidth: 600})
     });
 
-    await grid.timeout(50);
+    await expect.poll(() => grid.body.items.some(row => row.record)).toBe(true);
 
     return grid
 }
@@ -252,10 +252,12 @@ test.describe('Grid wrapText measurement', () => {
         // The first measurement, and the refresh its heights trigger
         await grid.view.measureRowHeights();
         await grid.view.promiseUpdate();
-        await grid.timeout(50)
+        await expect.poll(() => grid.body.items.filter(row => row.record).every(row =>
+            grid.view.rowGeometry.heightAt(row.rowIndex) === expectedHeight(row.record))).toBe(true)
     });
 
     test.afterEach(async () => {
+        // Teardown pacing: in-flight updates land before the grid is destroyed
         await grid.timeout(20);
         grid?.destroy();
         store?.destroy();
@@ -274,6 +276,7 @@ test.describe('Grid wrapText measurement', () => {
         await fixed.view.measureRowHeights();
         expect(reads).toEqual([]);
 
+        // Teardown pacing
         await fixed.timeout(20);
         fixed.destroy()
     });
@@ -315,9 +318,7 @@ test.describe('Grid wrapText measurement', () => {
 
         view.syncBodies(view.rowGeometry.offsetAt(100));
         await view.promiseUpdate();
-        await grid.timeout(50);
-
-        expect(reads.length).toBeGreaterThan(0);
+        await expect.poll(() => reads.length).toBeGreaterThan(0);
 
         // The first read after the scroll covers the rows that entered, in both bodies
         measuredIds = new Set(reads[0]);
@@ -328,6 +329,7 @@ test.describe('Grid wrapText measurement', () => {
         reads.length = 0;
         view.setRowHeights(new Map([[view.getRecordId(store.getAt(199)), 300]]));
         await view.promiseUpdate();
+        // An absence: a fixed window in which no read may go out
         await grid.timeout(50);
 
         expect(reads).toEqual([])
@@ -363,13 +365,13 @@ test.describe('Grid wrapText measurement', () => {
 
         respond = ids => Promise.resolve(readTextRects(grid, ids));
         release();
-        await grid.timeout(50);
+        await expect.poll(() => applied.length).toBeGreaterThan(0);
 
         expect(applied[0]).toContain(view.getRecordId(store.get(102)));
         expect(applied[0]).not.toContain(view.getRecordId(changed));
 
         // The row's own update measures the new cell
-        expect(applied.flat()).toContain(view.getRecordId(changed))
+        await expect.poll(() => applied.flat()).toContain(view.getRecordId(changed))
     });
 
     test('a reply for slots recycled to other records is dropped', async () => {
@@ -400,11 +402,13 @@ test.describe('Grid wrapText measurement', () => {
         await view.promiseUpdate();
 
         release();
+        // An absence: the held reply has no observable of its own, so a fixed window lets it land before the check
         await grid.timeout(50);
 
         stale = store.items.slice(40, 70).map(record => view.getRecordId(record));
 
-        expect(applied.length).toBeGreaterThan(0);
+        // The rows around 150 are measured, by a pass of their own
+        await expect.poll(() => applied).toContain(view.getRecordId(store.get(150)));
         expect(applied.filter(id => stale.includes(id))).toEqual([])
     });
 
@@ -425,9 +429,7 @@ test.describe('Grid wrapText measurement', () => {
 
         // The row's own update lands, and the pass it schedules reads the new note
         await row.promiseUpdate();
-        await grid.timeout(50);
-
-        expect(rowGeometry.heightAt(152)).toBe(expectedHeight(record))
+        await expect.poll(() => rowGeometry.heightAt(152)).toBe(expectedHeight(record))
     });
 
     test('a cell whose new width has not landed is read at that width once it does', async () => {
@@ -455,9 +457,7 @@ test.describe('Grid wrapText measurement', () => {
 
         // The row's update lands, and the pass it schedules reads the note at 250px: 4 × 200 / 250 lines
         await row.promiseUpdate();
-        await grid.timeout(50);
-
-        expect(applied[0]).toBe(4 * LINE * WIDTHS.note / 250 + CHROME)
+        await expect.poll(() => applied[0]).toBe(4 * LINE * WIDTHS.note / 250 + CHROME)
     });
 
     for (const from of ['html', 'text']) {
@@ -471,11 +471,11 @@ test.describe('Grid wrapText measurement', () => {
 
             respond = ids => Promise.resolve(shownTextRects(grid, ids));
 
-            // The text-mode note lands first
+            // The text-mode note lands first, and its pass is done before the recorder goes in
             if (from === 'text') {
                 switchNoteMode(row);
                 await row.promiseUpdate();
-                await grid.timeout(50)
+                await expect.poll(() => view.rowGeometry.heightAt(4)).toBe(heights.text)
             }
 
             view.setRowHeights = new Proxy(view.setRowHeights, {
@@ -491,9 +491,7 @@ test.describe('Grid wrapText measurement', () => {
             expect(applied, `the ${from} note is not read for the other mode`).toEqual([]);
 
             await row.promiseUpdate();
-            await grid.timeout(50);
-
-            expect(applied[0]).toBe(from === 'html' ? heights.text : heights.html)
+            await expect.poll(() => applied[0]).toBe(from === 'html' ? heights.text : heights.html)
         })
     }
 
@@ -508,10 +506,10 @@ test.describe('Grid wrapText measurement', () => {
 
         respond = ids => Promise.resolve(shownTextRects(grid, ids));
 
-        // A text-mode note with markup characters lands
+        // A text-mode note with markup characters lands, and its pass (one line, so the 2-line name decides) is done
         row.vdom.cn[index] = {...cell, cn: [{...container, text: 'Note 4 <b>'}]};
         await row.promiseUpdate();
-        await grid.timeout(50);
+        await expect.poll(() => view.rowGeometry.heightAt(4)).toBe(2 * LINE + CHROME);
 
         // The string renderer keeps it escaped in the vnode. A new, unmeasured cell asks for the same text.
         VNodeUtil.getById(row.vnode, container.id).textContent = 'Note 4 &lt;b&gt;';
@@ -558,15 +556,15 @@ test.describe('Grid wrapText measurement', () => {
 
         respond = ids => Promise.resolve(readTextRects(grid, ids));
         release();
-        await grid.timeout(50);
 
         // Record 104: a 3-line name (65px) and a 4-line note (85px). The held pass may only count the name.
+        await expect.poll(() => applied.find(([id]) => id === view.getRecordId(record))).toBeTruthy();
         first = applied.find(([id]) => id === view.getRecordId(record));
 
         expect(first).toEqual([view.getRecordId(record), 3 * LINE + CHROME]);
 
         // The cell is read again at its new width by a later pass
-        expect(view.rowGeometry.heightAt(104)).toBe(4 * LINE + CHROME)
+        await expect.poll(() => view.rowGeometry.heightAt(104)).toBe(4 * LINE + CHROME)
     });
 
     test('a changed record measures its row again, through the row\'s own update', async () => {
@@ -578,12 +576,11 @@ test.describe('Grid wrapText measurement', () => {
 
         // Three lines more of note: only the row of record 3 renders
         record.set({note: 'A longer note', noteLines: 4});
-        await grid.timeout(50);
+        await expect.poll(() => view.rowGeometry.heightAt(3)).toBe(4 * LINE + CHROME);
 
         textId = [...renderedTexts(grid).entries()].find(([id, text]) => text.record === record && text.field === 'note')[0];
 
-        expect(reads.flat()).toContain(textId);
-        expect(view.rowGeometry.heightAt(3)).toBe(4 * LINE + CHROME)
+        expect(reads.flat()).toContain(textId)
     });
 
     test('a replaced store forgets the measured texts of the old store\'s records', async () => {
@@ -603,19 +600,21 @@ test.describe('Grid wrapText measurement', () => {
 
         await view.measureRowHeights();
         await view.promiseUpdate();
-        await natural.timeout(50);
 
         // Record 8 of the first store: its 3-line name is its tallest text
-        expect(view.rowGeometry.heightAt(8)).toBe(3 * LINE + CHROME);
+        await expect.poll(() => view.rowGeometry.heightAt(8)).toBe(3 * LINE + CHROME);
 
         hideNames     = true;
         natural.store = other;
         other.fire('load', {items: other.items});
+        // An absence: rowHeight is also the value before the new store is measured, so a poll could pass early.
+        // A fixed window lets the wrong combination land if it exists.
         await natural.timeout(100);
 
         // Only the new note texts were read, and an old name height must not combine with them
         expect(view.rowGeometry.heightAt(8)).toBe(rowHeight);
 
+        // Teardown pacing
         await natural.timeout(20);
         natural.destroy();
         other.destroy()
@@ -631,10 +630,9 @@ test.describe('Grid wrapText measurement', () => {
         note.wrapText = false;
         name.wrapText = false;
         await view.promiseUpdate();
-        await grid.timeout(50);
 
-        expect(view.rowGeometry.heightAt(4)).toBe(rowHeight);
-        expect(renderedTexts(grid).size).toBe(0)
+        await expect.poll(() => view.rowGeometry.heightAt(4)).toBe(rowHeight);
+        await expect.poll(() => renderedTexts(grid).size).toBe(0)
     });
 
     test('a hidden cell is measured once a horizontal scroll shows it, at the same width', async () => {
@@ -657,20 +655,19 @@ test.describe('Grid wrapText measurement', () => {
 
         await view.measureRowHeights();
         await view.promiseUpdate();
-        await hidden.timeout(50);
 
         // Out of the horizontal range, the note cell stays in its row with display none: it is not read, and only
         // the name counts
+        await expect.poll(() => view.rowGeometry.heightAt(4)).toBe(Math.max(rowHeight, store.getAt(4).nameLines * LINE + CHROME));
         expect(noteCell().style.display).toBe('none');
         expect(reads.flat().filter(id => renderedTexts(hidden).get(id)?.field === 'note')).toEqual([]);
-        expect(view.rowGeometry.heightAt(4)).toBe(Math.max(rowHeight, store.getAt(4).nameLines * LINE + CHROME));
 
         // Scrolled to the horizontal end, 280px, the note column comes into range. This is what a scroll event of
         // the horizontal scrollbar does, without the hover sync a unit test has no main thread for.
         hidden.scrollManager.scrollLeft = 280;
         hidden.scrollManager.syncGridBody();
         await view.promiseUpdate();
-        await hidden.timeout(50);
+        await expect.poll(() => noteCell().style.display).toBeFalsy();
         await view.measureRowHeights();
         await view.promiseUpdate();
 
@@ -678,6 +675,7 @@ test.describe('Grid wrapText measurement', () => {
         expect(noteCell().style.width).toBe('200px');
         expect(view.rowGeometry.heightAt(4)).toBe(expectedHeight(store.getAt(4)));
 
+        // Teardown pacing
         await hidden.timeout(20);
         hidden.destroy()
     });
@@ -702,6 +700,7 @@ test.describe('Grid wrapText measurement', () => {
 
         respond = ids => Promise.resolve(readTextRects(grid, ids));
         release();
+        // The held reply has no observable of its own: a fixed window lets it land while the cell is still hidden
         await grid.timeout(50);
 
         // It shows again, unchanged: the reply for the hidden box was not kept, so the note is read now
@@ -715,24 +714,24 @@ test.describe('Grid wrapText measurement', () => {
         let {view}   = grid,
             nameOnly = record => Math.max(rowHeight, record.nameLines * LINE + CHROME);
 
-        // Measure the rows around 100, then scroll back: those rows keep only their stored heights
+        // Measure the rows around 100, then scroll back: those rows keep only their stored heights.
+        // Record 104: a 3-line name (65px) under a 4-line note (85px)
         view.syncBodies(view.rowGeometry.offsetAt(100));
         await view.promiseUpdate();
-        await grid.timeout(50);
+        await expect.poll(() => view.rowGeometry.heightAt(104)).toBe(4 * LINE + CHROME);
         view.syncBodies(0);
         await view.promiseUpdate();
+        // The scroll-back's passes have no observable of their own: a fixed window lets them land before the removal
         await grid.timeout(50);
 
-        // Record 104: a 3-line name (65px) under a 4-line note (85px)
         expect(view.rowGeometry.heightAt(104)).toBe(4 * LINE + CHROME);
 
         grid.columns.remove(grid.columns.get('note'));
         await view.promiseUpdate();
-        await grid.timeout(50);
         await view.measureRowHeights();
 
-        expect(view.rowGeometry.heightAt(104)).toBe(nameOnly(store.get(104)));
-        expect(view.rowGeometry.heightAt(4)).toBe(nameOnly(store.getAt(4)))
+        await expect.poll(() => view.rowGeometry.heightAt(104)).toBe(nameOnly(store.get(104)));
+        await expect.poll(() => view.rowGeometry.heightAt(4)).toBe(nameOnly(store.getAt(4)))
     });
 
     test('a new rowHeight floors the measured rows, and lowering it again restores their measured heights', async () => {
@@ -829,10 +828,12 @@ test.describe('Grid wrapText measurement — tree cells', () => {
 
         await grid.view.measureRowHeights();
         await grid.view.promiseUpdate();
-        await grid.timeout(50)
+        await expect.poll(() => grid.body.items.filter(row => row.record).every(row =>
+            grid.view.rowGeometry.heightAt(row.rowIndex) === Math.max(rowHeight, row.record.nameLines * LINE + CHROME))).toBe(true)
     });
 
     test.afterEach(async () => {
+        // Teardown pacing: in-flight updates land before the grid is destroyed
         await grid.timeout(20);
         grid?.destroy();
         store?.destroy();
@@ -875,10 +876,9 @@ test.describe('Grid wrapText measurement — tree cells', () => {
 
         // The cell's own update lands ahead of its row's, and the pass it schedules reads the new label
         await component.promiseUpdate();
-        await grid.timeout(50);
+        await expect.poll(() => rowGeometry.heightAt(50)).toBe(3 * LINE + CHROME);
 
-        expect(reads.flat()).toContain(component.textVdom.id);
-        expect(rowGeometry.heightAt(50)).toBe(3 * LINE + CHROME)
+        expect(reads.flat()).toContain(component.textVdom.id)
     });
 
     test('a tree cell re-bound to the same label one level deeper is not read before its own update lands', async () => {
@@ -895,10 +895,8 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         expect(reads.flat(), 'the label is not read at record 1\'s indent').not.toContain(component.textVdom.id);
 
         await component.promiseUpdate();
-        await grid.timeout(50);
-
-        expect(reads.flat()).toContain(component.textVdom.id);
-        expect(view.rowGeometry.heightAt(61)).toBe(2 * LINE + CHROME)
+        await expect.poll(() => reads.flat()).toContain(component.textVdom.id);
+        await expect.poll(() => view.rowGeometry.heightAt(61)).toBe(2 * LINE + CHROME)
     });
 
     test('a filter that shows other records re-binds the tree cells, and their rows fit the new labels', async () => {
@@ -908,7 +906,9 @@ test.describe('Grid wrapText measurement — tree cells', () => {
             store.filters = value ? [{operator: 'like', property: 'name', value}] : [];
 
             await view.promiseUpdate();
-            await grid.timeout(100);
+            await expect.poll(() => grid.body.items.filter(row => row.record).every(row =>
+                view.rowGeometry.heightAt(row.rowIndex) === Math.max(rowHeight, row.record.nameLines * LINE + CHROME)),
+                `filter ${value}: every row fits its label`).toBe(true);
 
             grid.body.items.filter(row => row.record).forEach(row => {
                 expect(view.rowGeometry.heightAt(row.rowIndex), `filter ${value}: row ${row.rowIndex}, ${row.record.name}`)
@@ -930,14 +930,12 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         for (let [target, key] of [[grid, 'contentSizedRows'], [column, 'wrapText']]) {
             target[key] = false;
             await view.promiseUpdate();
-            await grid.timeout(50);
-            expect(wraps().some(Boolean), `${key} off`).toBe(false);
+            await expect.poll(() => wraps().some(Boolean), `${key} off`).toBe(false);
 
             target[key] = true;
             await view.promiseUpdate();
-            await grid.timeout(100);
-            expect(wraps().every(Boolean), `${key} on`).toBe(true);
-            expect(view.rowGeometry.heightAt(2), `${key} on: row 2 measured again`).toBe(3 * LINE + CHROME)
+            await expect.poll(() => wraps().every(Boolean), `${key} on`).toBe(true);
+            await expect.poll(() => view.rowGeometry.heightAt(2), `${key} on: row 2 measured again`).toBe(3 * LINE + CHROME)
         }
     });
 
@@ -950,15 +948,14 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         for (let i = 0; i < 2; i++) {
             view.onFontChange({windowId: view.windowId});
             await view.promiseUpdate();
+            // Pacing: one font change's passes land before the next
             await grid.timeout(50)
         }
 
         // The label of record 1 now wraps onto a third line
         store.get(1).nameLines = 3;
         await view.promiseUpdate();
-        await grid.timeout(100);
-
-        expect(view.rowGeometry.heightAt(1)).toBe(3 * LINE + CHROME)
+        await expect.poll(() => view.rowGeometry.heightAt(1)).toBe(3 * LINE + CHROME)
     });
 
     test('hidden premeasurement constructs no tree cells', async () => {
@@ -972,6 +969,7 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         for (let i = 0; i < 3; i++) {
             store.get(10 + i).nameLines = 1 + i;
             await view.measureAheadRows();
+            // Pacing: one hidden pass lands before the next
             await grid.timeout(20)
         }
 
@@ -981,7 +979,7 @@ test.describe('Grid wrapText measurement — tree cells', () => {
         projector = Neo.create(Row, {appName: grid.appName, parentId: grid.body.id, windowId: grid.windowId});
 
         expect(projector.applyRendererOutput({
-            cache : {gridBody: grid.body, gridContainer: grid, store, selectedCells: [], measureOnly: true},
+            cache : {gridBody: grid.body, gridContainer: grid, store, measureOnly: true},
             cellId: `${projector.id}__measure`, column: grid.columns.get('name'), columnIndex: 0,
             record: store.get(20), rowIndex: 20, silent: true
         })).toBe(null);

@@ -178,10 +178,11 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.component.Base}
+     * @summary Returns the `Neo.button.Effect` config for the workbench stage.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module   : EffectButton,
             badgeText: 'Badge',
             flex     : 'none',
@@ -192,7 +193,7 @@ class MainContainer extends ConfigurationViewport {
             text     : 'Hello World',
             ui       : 'primary',
             width    : 150
-        })
+        }
     }
 
     /**

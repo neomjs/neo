@@ -1,0 +1,102 @@
+[
+    {
+        "id": "functional-define-component",
+        "kind": "component",
+        "image": "devmode/tiles/functional-defineComponent-14.jpg",
+        "hasLightCover": true,
+        "name": "Function component",
+        "sourceUrl": "examples/functional/defineComponent",
+        "urls": {
+            "devmode": "examples/functional/defineComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/defineComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/defineComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/defineComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "order": 1420,
+        "component": "defineComponent",
+        "feature": "A component written as a function with defineComponent(), its state in a hook",
+        "lookFor": "Click the greeting to switch the name, and change the greeting in the panel."
+    },
+    {
+        "id": "functional-host-component",
+        "kind": "component",
+        "image": "devmode/tiles/functional-hostComponent-14.jpg",
+        "hasLightCover": true,
+        "name": "Hosting a class component",
+        "sourceUrl": "examples/functional/hostComponent",
+        "urls": {
+            "devmode": "examples/functional/hostComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/hostComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/hostComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/hostComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "order": 1430,
+        "component": "defineComponent",
+        "feature": "A function component that hosts a class-based Button and counts its clicks",
+        "lookFor": "Click the button and watch the function's count go up."
+    },
+    {
+        "id": "functional-nested-template",
+        "kind": "component",
+        "image": "devmode/tiles/functional-nestedTemplateComponent-14.jpg",
+        "hasLightCover": true,
+        "name": "Nested templates",
+        "sourceUrl": "examples/functional/nestedTemplateComponent",
+        "urls": {
+            "devmode": "examples/functional/nestedTemplateComponent/index.html",
+            "dist_dev": "dist/development/examples/functional/nestedTemplateComponent/index.html",
+            "dist_esm": "dist/esm/examples/functional/nestedTemplateComponent/index.html",
+            "dist_prod": "dist/production/examples/functional/nestedTemplateComponent/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "order": 1440,
+        "component": "defineComponent",
+        "feature": "A function component built from nested HTML templates",
+        "lookFor": "Click the card to toggle its status, and open its details with the button."
+    },
+    {
+        "id": "functional-button-base",
+        "kind": "component",
+        "image": "devmode/tiles/functional-button-base-14.jpg",
+        "hasLightCover": true,
+        "name": "Click-counting button",
+        "sourceUrl": "examples/functional/button/base",
+        "urls": {
+            "devmode": "examples/functional/button/base/index.html",
+            "dist_dev": "dist/development/examples/functional/button/base/index.html",
+            "dist_esm": "dist/esm/examples/functional/button/base/index.html",
+            "dist_prod": "dist/production/examples/functional/button/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "order": 1450,
+        "component": "functional.button.Base",
+        "feature": "A functional button counts its clicks in a badge and keeps the Inspector in sync.",
+        "lookFor": "Click twice. The badge and its value in the Inspector go from 0 to 2."
+    },
+    {
+        "id": "functional-nested-components",
+        "kind": "component",
+        "image": "devmode/tiles/functional-nestedComponents-14.jpg",
+        "hasLightCover": true,
+        "name": "Nested functional components",
+        "sourceUrl": "examples/functional/nestedComponents",
+        "urls": {
+            "devmode": "examples/functional/nestedComponents/index.html",
+            "dist_dev": "dist/development/examples/functional/nestedComponents/index.html",
+            "dist_esm": "dist/esm/examples/functional/nestedComponents/index.html",
+            "dist_prod": "dist/production/examples/functional/nestedComponents/index.html"
+        },
+        "hiddenIn": [],
+        "family": "functional",
+        "order": 1455,
+        "component": "defineComponent",
+        "feature": "A functional parent passes values to two children, including one inside a classic container.",
+        "lookFor": "Change the root values in the Inspector and apply them. Both children update and keep their own click counts."
+    }
+]

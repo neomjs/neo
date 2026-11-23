@@ -135,6 +135,18 @@ class ListModel extends Model {
     }
 
     /**
+     * @summary A list whose selection is disabled takes none, so a direct call marks no item either.
+     * @param {Object|Object[]|String[]} items
+     * @param {Object[]|String[]} [itemCollection]
+     * @param {String} [selectedCls]
+     */
+    select(items, itemCollection, selectedCls) {
+        if (!this.view?.disableSelection) {
+            super.select(items, itemCollection, selectedCls)
+        }
+    }
+
+    /**
      * @param {Number} index
      */
     selectAt(index) {

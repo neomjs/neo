@@ -1,0 +1,52 @@
+:where(.neo-theme-light) { /* .neo-board */
+    /* The board in the light theme's register: its white tiles on grey wells, its #1c60a0 blue, its darkorange signal. */
+    --neo-board-background             : var(--neo-background-color, #fafafa);
+    --neo-board-color                  : var(--neo-color, #000);
+    --neo-board-font-family            : var(--neo-font-family);
+    --neo-board-font-size              : 14px;
+    --neo-board-gap                    : 12px;
+    --neo-board-padding                : 12px;
+    --neo-board-radius                 : 4px;
+    --neo-board-accent-color           : var(--button-text-color, #1c60a0);
+    --neo-board-focus-color            : var(--button-text-color, #1c60a0);
+
+    --neo-board-column-width           : 280px;
+    --neo-board-column-collapsed-width : 44px;
+    --neo-board-column-background      : var(--grid-container-cell-background-color-even, #f2f2f2);
+    --neo-board-column-border-color    : var(--panel-border-color, #ddd);
+    --neo-board-column-color           : var(--neo-color, #000);
+
+    --neo-board-badge-background       : var(--button-background-color-active, #ddd);
+    --neo-board-badge-color            : #555;
+    --neo-board-overdue-background     : #fff1f0;
+    --neo-board-overdue-border-color   : #cf1322;
+    --neo-board-overdue-color          : #a8071a;
+    --neo-board-wip-color              : var(--textfield-border-color-alert, darkorange);
+    --neo-board-wip-contrast-color     : var(--neo-color, #000);
+
+    --neo-board-card-gap               : 8px;
+    --neo-board-card-background        : var(--grid-container-cell-background-color, #fff);
+    --neo-board-card-border-color      : var(--grid-container-border-color, #ddd);
+    --neo-board-card-hover-border-color: #bbb;
+    --neo-board-card-selected-background  : var(--grid-rowmodel-selected-cell-background-color, #cee8fc);
+    --neo-board-card-selected-border-color: var(--button-text-color, #1c60a0);
+    --neo-board-card-color             : #2b2b2b;
+    --neo-board-card-muted-color       : var(--panel-header-text-color, #666);
+    --neo-board-card-shadow            : 0 1px 2px rgba(0, 0, 0, 0.1);
+    --neo-board-card-drag-border-color : var(--button-text-color, #1c60a0);
+    --neo-board-slot-background        : color-mix(in srgb, var(--neo-board-accent-color) 8%, transparent);
+    --neo-board-track-color            : var(--grid-container-border-color, #ddd);
+    --neo-board-avatar-background      : var(--button-badge-background-color, #1c60a0);
+    --neo-board-avatar-color           : var(--button-badge-color, #fff);
+
+    --neo-board-editor-width           : 440px;
+    --neo-board-editor-background      : var(--grid-container-cell-background-color, #fff);
+    --neo-board-editor-border-color    : var(--dialog-border-color, #ddd);
+    --neo-board-editor-shadow          : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, 0.4));
+
+    --neo-board-lane-background        : var(--grid-container-cell-background-color, #fff);
+    --neo-board-lane-header-background : var(--grid-container-cell-background-color-even, #f2f2f2);
+    --neo-board-lane-border-color      : var(--panel-border-color, #ddd);
+    --neo-board-lane-color             : #2b2b2b;
+    --neo-board-lane-column-max-height : 280px;
+}

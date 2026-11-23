@@ -18,7 +18,7 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : CheckBox,
-            checked  : false,
+            checked  : true,
             value    : 5,
             labelText: 'horizontal',
             listeners: {change: me.onConfigChange.bind(me, 'horizontal')}
@@ -37,41 +37,39 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the trip-log `Neo.container.Base` config wrapping `Neo.component.Process`. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Container,
-            style: {
-                overflow: 'auto',
-                maxHeight: '100%'
-            },
+            cls   : ['neo-examples-process-trip'],
             items : [{
-                html: '<h1>Configurable</h1>',
-                style: {textAlign: 'center'}
+                cls : ['neo-examples-process-heading'],
+                html: '<h1>Trip log</h1>'
             }, {
                 module    : Process,
                 flag      : 'color-change',
                 arrowColor: '#aaa',
-                horizontal: false,
+                horizontal: true,
                 iconColor : '#953499',
                 items     : [{
                     iconCls: 'fa fa-plane-departure',
-                    title  : 'Start Eingabe',
-                    text   : 'Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas porttitor congue massa. Fusce posuere, magna sed pulvinar ultricies, purus lectus malesuada libero, sit amet commodo magna eros quis urna.'
+                    title  : 'Departure',
+                    text   : 'Note the start time and the odometer reading before the trip begins.'
                 }, {
                     iconCls: 'fa fa-road',
-                    title  : 'Zwischenstand',
-                    text   : 'Nunc viverra imperdiet enim. Fusce est. Vivamus a tellus.'
+                    title  : 'On the road',
+                    text   : 'Log each stop on the way.'
                 }, {
                     iconCls: 'fa fa-plane-arrival',
-                    title  : 'Endstand vor dem Aufladen',
-                    text   : 'Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Proin pharetra nonummy pede. Mauris et orci.'
+                    title  : 'Arrival',
+                    text   : 'Note the end time and the odometer reading at the destination.'
                 }, {
                     iconCls: 'fa fa-square-poll-vertical',
-                    title  : 'Ausgabe',
-                    text   : 'Suspendisse dui purus, scelerisque at, vulputate vitae, pretium mattis, nunc. Mauris eget neque at sem venenatis eleifend. Ut nonummy.'
+                    title  : 'Trip report',
+                    text   : 'Distance and duration follow from the two readings.'
                 }]
             }]
-        })
+        }
     }
 
     /**

@@ -1,0 +1,32 @@
+:where(.neo-theme-light) {
+    --studio-header-bg       : #ffffff;
+    --studio-subbar-bg       : #f5f5f5;
+    --studio-border          : #d4d4d8;
+    --studio-title           : #18181b;
+    --studio-muted           : #52525b;
+    --studio-focus           : #1c60a0;
+    --studio-grip-rest       : #a1a1aa;
+
+    --studio-header-hover-bg : #e2e8f0;
+    --studio-header-drag-bg  : #e8f1fb;
+    --studio-folded-bg       : #f4f4f5;
+    --studio-locked-header-bg: #ecfdf5;
+
+    --studio-pill-bg         : #ffffff;
+    --studio-pill-border     : #d4d4d8;
+    --studio-pill-text       : #27272a;
+
+    --studio-lock-accent     : #047857;
+    --studio-lock-bg         : #ecfdf5;
+    --studio-lock-border     : #059669;
+
+    --studio-btn-bg          : #ffffff;
+    --studio-btn-border      : #a1a1aa;
+    --studio-btn-text        : #18181b;
+    --studio-btn-hover-bg    : #f4f4f5;
+    --studio-btn-hover-border: #71717a;
+    --studio-btn-active-bg   : #dbeafe;
+    --studio-btn-active-text : #1e40af;
+
+    --studio-drag-shadow     : 0 16px 34px rgba(24, 24, 27, 0.16), 0 0 0 1px rgba(28, 96, 160, 0.42);
+}

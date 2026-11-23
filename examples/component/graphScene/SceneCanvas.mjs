@@ -4,8 +4,8 @@ import {createClusteredScene, createDemoScene} from './demoScene.mjs';
 /**
  * @summary The App Worker half of the example: a `Neo.app.SharedCanvas` whose renderer is the example's
  * `Neo.canvas.GraphScene` singleton. It sends the demo scene once the canvas is ready and again whenever
- * `nodeCount` changes, forwards the pointer so a drag orbits and the wheel zooms, and passes the renderer's
- * stats and context controls through to the page.
+ * `nodeCount` changes, carries `data-drawn` while the canvas shows the latest scene, forwards the pointer so a
+ * drag orbits and the wheel zooms, and passes the renderer's stats and context controls through to the page.
  *
  * @class Neo.examples.component.graphScene.SceneCanvas
  * @extends Neo.app.SharedCanvas
@@ -32,6 +32,13 @@ class SceneCanvas extends SharedCanvas {
          */
         rendererImportPath: 'examples/component/graphScene/canvas/Renderer.mjs'
     }
+
+    /**
+     * Scenes sent so far; see {@link #drawScene}.
+     * @member {Number} scenesSent=0
+     * @protected
+     */
+    scenesSent = 0
 
     /**
      * @param {Object} config
@@ -75,6 +82,27 @@ class SceneCanvas extends SharedCanvas {
     }
 
     /**
+     * @summary Sends a scene and keeps `drawn` true only while the canvas shows it: false from the send on, then
+     * the renderer's `whenDrawn` answer. A newer scene outruns an older answer, so only the latest one sets it.
+     * @param {Object} scene
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async drawScene(scene) {
+        const me = this, sent = ++me.scenesSent, {renderer, windowId} = me;
+
+        me.drawn = false;
+
+        await renderer.setScene({...scene, windowId});
+
+        const drawn = await renderer.whenDrawn({windowId});
+
+        if (!me.isDestroyed && sent === me.scenesSent) {
+            me.drawn = drawn
+        }
+    }
+
+    /**
      * @summary Eases the renderer's camera to a node of the scene.
      * @param {Number} index
      * @returns {Promise<void>}
@@ -113,7 +141,7 @@ class SceneCanvas extends SharedCanvas {
      * @returns {Promise<void>}
      */
     sendClusteredScene() {
-        return this.renderer.setScene({...createClusteredScene(), windowId: this.windowId})
+        return this.drawScene(createClusteredScene())
     }
 
     /**
@@ -121,7 +149,7 @@ class SceneCanvas extends SharedCanvas {
      * @returns {Promise<void>}
      */
     sendScene() {
-        return this.renderer.setScene({...createDemoScene(this.nodeCount), windowId: this.windowId})
+        return this.drawScene(createDemoScene(this.nodeCount))
     }
 
     /**

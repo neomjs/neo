@@ -1,0 +1,9 @@
+/* The planning preview's card is about 890px wide in a 1440px window. */
+.portal-home-parts-planning {
+    /* Four columns end where the Gantt chart ends (881px); a narrower card shares its width out, down to 190px each */
+    .neo-board {
+        --neo-board-column-width: clamp(190px, calc((100% - 3 * var(--neo-board-gap)) / 4), 212.25px);
+        --neo-board-gap         : 8px;
+        --neo-board-padding     : 8px;
+    }
+}

@@ -1,0 +1,37 @@
+.neo-chip-list {
+    border  : var(--list-container-border);
+    overflow: auto;
+
+    .neo-list-item {
+        /* The item paints the chip's fill, so the list's hover, active and selected surfaces still reach the chip.
+           Declared on the item: a list carrying its own theme class out-ranks a token set on the list. */
+        --list-item-background-color: var(--chip-background-color);
+
+        border-radius: var(--chip-border-radius); /* the item shares the chip's box: its surfaces fill the pill, never a square */
+        padding      : 0;
+        outline      : 0 none !important; /* TODO. Fix order so important can be removed */
+
+        .neo-chip {
+            background-color: transparent;
+        }
+
+        &[aria-selected="true"] {
+            background-color: inherit !important; /* TODO. Fix order so important can be removed */
+            color           : inherit;
+            outline         : inherit;
+
+            .neo-chip {
+                background-color: var(--list-item-background-color-selected);
+            }
+
+            .neo-chip-close-button {
+                color: var(--chip-close-button-color-hover);
+            }
+        }
+        &.neo-navigator-active-item {
+            .neo-chip {
+                border-color : var(--list-item-border-color-active);
+            }
+        }
+    }
+}

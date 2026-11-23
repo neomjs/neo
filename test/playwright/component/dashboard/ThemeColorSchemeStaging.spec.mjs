@@ -7,7 +7,7 @@ import {test, expect} from '@playwright/test';
  * `stagedColorScheme`, has existed for a while and had exactly one caller.
  *
  * `Main#resolveThemeColorScheme` supplies it from the theme itself rather than from the caller.
- * Every theme declares `--neo-color-scheme` in its `Global.scss`, because the theme's NAME cannot
+ * Every theme declares `--neo-color-scheme` in its `Global.css`, because the theme's NAME cannot
  * carry the fact: `theme-cyberpunk` declares `dark` and is named neither. These arms exist to keep
  * that a declaration and never a derivation.
  *
@@ -77,7 +77,7 @@ test.describe('theme colour scheme — declared, never derived from the name', (
         // derivation, but it cannot be asserted here: this fixture ships only the two neo themes
         // (`neo-config.json`), and a theme class whose sheet is absent resolves nothing at all. That
         // is the same shape as the arm below, so testing it here would prove the fixture's theme
-        // list rather than cyberpunk's value. Its declaration lives in `theme-cyberpunk/Global.scss`.
+        // list rather than cyberpunk's value. Its declaration lives in `theme-cyberpunk/Global.css`.
 
         // A theme with no declaration must yield undefined, so `windowOpen` omits the parameter and
         // keeps the platform default rather than staging a guessed colour.

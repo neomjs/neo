@@ -1,4 +1,5 @@
-import Base from '../../../src/core/Base.mjs';
+import Base          from '../../../src/core/Base.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 
 /**
  * @class Neo.examples.dashboard.crossWindow.DemoBTourHost
@@ -49,6 +50,10 @@ class DemoBTourHost extends Base {
                 ntype    : 'component',
                 reference: 'tour-pips-b',
                 vdom     : {cn: getBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
+            }, {
+                module  : ThemeSwitcher,
+                flex    : 'none',
+                showText: false
             }]
         }
     }

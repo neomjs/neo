@@ -150,7 +150,7 @@ class NativeVesselTransaction extends Base {
         }
 
         return {retained: true, awaitingClosure: true, readmit: true,
-            closed: Neo.Main.windowNativeIsClosed({nativeHandleKey: handle.nativeHandleKey, windowId: handle.ownerWindowId})}
+            closed: this.observeVesselClosure(handle)}
     }
 
     /**
@@ -181,6 +181,71 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
+     * @summary Asks the platform to admit a vessel from its opener. The host retains its pane on refusal.
+     * @param {Object} config Native window request, including the opener window ID and vessel name.
+     * @returns {Promise<Boolean>}
+     */
+    static async openVessel(config) {
+        return Neo.Main.windowOpen(config)
+    }
+
+    /**
+     * @summary Opens the native movement and resize stream for one participating window, including its initial geometry.
+     * @param {String} windowId The participant's own Main realm.
+     * @returns {Promise<void>}
+     */
+    static async observeWindowGeometry(windowId) {
+        const addon = await Neo.currentWorker.getAddon('WindowPosition', windowId);
+        return addon.setConfigs({observeMovement: true, observeResize: true, windowId})
+    }
+
+    /**
+     * @summary Focuses the exact currently bound vessel or returns focus from that vessel to its opener.
+     * @param {Object} data
+     * @param {String} data.ownerWindowId
+     * @param {Object} data.route The exact admitted renderer's current route.
+     * @param {Boolean} [data.opener=false] Focus the opener from its vessel.
+     * @returns {Promise<Boolean>}
+     */
+    static async focusVessel({ownerWindowId, route, opener=false}) {
+        const {granted} = WindowManager.resolveNativeRoute({capability: 'focus', ownerWindowId, route});
+        if (!route || !granted) return false;
+
+        const {nativeHandleKey, targetWindowId} = route;
+        try {
+            const focused = opener
+                ? await Neo.Main.windowFocus({windowId: targetWindowId})
+                : await Neo.Main.windowNativeFocus({nativeHandleKey, targetWindowId, windowId: ownerWindowId});
+            return focused === true
+        } catch {
+            return false
+        }
+    }
+
+    /**
+     * @summary Observes the opener's physical vessel independently of its current document.
+     * @param {Object} handle The opener's retained handle, which survives a renderer reload.
+     * @param {String} handle.nativeHandleKey
+     * @param {String} handle.ownerWindowId
+     * @returns {Promise<Boolean|null>} Unknown handles return null.
+     */
+    static async observeVesselClosure({nativeHandleKey, ownerWindowId}) {
+        return Neo.Main.windowNativeIsClosed({nativeHandleKey, windowId: ownerWindowId})
+    }
+
+    /**
+     * @summary Releases the opener's exact closed handle once the vessel owner has settled its content.
+     * @param {Object} route
+     * @param {String} route.nativeHandleKey
+     * @param {String} route.ownerWindowId
+     * @param {String} route.windowName
+     * @returns {Promise<Boolean>}
+     */
+    static async releaseClosedVessel({nativeHandleKey, ownerWindowId, windowName}) {
+        return Neo.Main.windowNativeReleaseClosed({nativeHandleKey, windowId: ownerWindowId, windowName})
+    }
+
+    /**
      * @summary Opens a native render target for an existing semantic workspace identity.
      * Refusal revokes only this reservation and leaves its participant and history intact.
      * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet
@@ -197,7 +262,7 @@ class NativeVesselTransaction extends Base {
         try {
             const config = native.openConfig(reservation);
             if (config && workspaceSet.getParticipant(workspaceId) === participant) {
-                opened = await Neo.Main.windowOpen({...config, topologyIdentity: reservation,
+                opened = await this.openVessel({...config, topologyIdentity: reservation,
                     windowId: native.ownerWindowId()}) === true
             }
         } catch {}
@@ -381,13 +446,16 @@ class NativeVesselTransaction extends Base {
      * without a `windowId` is not a vessel yet, so it resolves to nothing.
      * @param {Object} data
      * @param {Object|null} data.nativeWindows The Group's native lifecycle.
+     * @param {Function} [data.resolveVessel] Exact admission lookup for a host that owns its semantic slot.
      * @param {String} data.sourceId The registration the host's effects were bound under.
      * @param {Function} data.windowNameFor `(itemId, workspaceKey) => String`, the host's semantic vessel name.
      * @param {String} itemId
      * @param {String} [workspaceKey] The vessel's Group key; without it the item's newest vessel answers.
      * @returns {Object|null}
      */
-    static resolveVessel({nativeWindows, sourceId, windowNameFor}, itemId, workspaceKey=nativeWindows?.keyOf(sourceId, itemId)) {
+    static resolveVessel({nativeWindows, resolveVessel, sourceId, windowNameFor}, itemId, workspaceKey=nativeWindows?.keyOf(sourceId, itemId)) {
+        if (resolveVessel) return resolveVessel(itemId, workspaceKey);
+
         const entry = nativeWindows?.getConnection(sourceId, workspaceKey) ?? nativeWindows?.getOwner(sourceId, workspaceKey);
 
         if (!entry?.windowId) {
@@ -422,6 +490,7 @@ class NativeVesselTransaction extends Base {
      * to a same-name close.
      * @param {Object} descriptor The host-varying surface, built per call.
      * @param {Object|null} descriptor.nativeWindows The Group's native lifecycle.
+     * @param {Function} [descriptor.resolveVessel] Exact admission lookup for a host that owns its semantic slot.
      * @param {String} descriptor.ownerWindowId The host's current `windowId`, which dispatches the close.
      * @param {String} descriptor.sourceId The registration this close was bound under.
      * @param {Function} descriptor.windowNameFor `itemId => String`, the host's semantic vessel name.

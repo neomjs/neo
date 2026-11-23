@@ -65,6 +65,7 @@ class List extends Component {
          */
         displayField: 'name',
         /**
+         * Items other than headers render `neo-draggable`, the delegate the drag zone starts on
          * @member {Boolean} draggable_=false
          * @reactive
          */
@@ -74,6 +75,7 @@ class List extends Component {
          */
         dragZone: null,
         /**
+         * Configs for the drag zone; `{module: Neo.draggable.list.SortZone}` reorders the records
          * @member {Object} dragZoneConfig=null
          */
         dragZoneConfig: null,
@@ -297,6 +299,9 @@ class List extends Component {
                 })
             })
         }
+
+        // The items render the affordance, so a runtime change renders them again
+        oldValue !== undefined && me.store?.getCount() > 0 && me.createItems()
     }
 
     /**
@@ -523,6 +528,7 @@ class List extends Component {
             item, removeDom;
 
         isHeader && cls.push('neo-list-header');
+        me.draggable && !isHeader && cls.push('neo-draggable');
 
         if (isSelected) {
             cls.push(selectionModel?.selectedCls || 'neo-selected')

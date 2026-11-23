@@ -1,0 +1,151 @@
+/* Neo.board.Column: a header (title, count badge, collapse toggle) over a scrolling body of cards. The WIP state
+   and the collapsed state are classes the column toggles; the accent is the column's own color when it has one. */
+.neo-board-column {
+    background   : var(--neo-board-column-background);
+    border       : 1px solid var(--neo-board-column-border-color);
+    border-radius: var(--neo-board-radius);
+    border-top   : 3px solid var(--neo-board-column-accent, var(--neo-board-column-border-color));
+    box-sizing   : border-box;
+    min-height   : 0;
+    min-width    : var(--neo-board-column-width);
+    width        : var(--neo-board-column-width);
+
+    /* Over its limit, the header's edge and badge speak; a full outline would read as a drop target */
+    &.neo-board-column-wip-exceeded {
+        border-top-color: var(--neo-board-wip-color);
+    }
+
+    &.neo-board-column-collapsed {
+        min-width: var(--neo-board-column-collapsed-width);
+        width    : var(--neo-board-column-collapsed-width);
+
+        .neo-board-column-header {
+            box-sizing    : border-box;
+            flex-direction: column;
+            max-height    : 100%;
+            padding       : 12px 0;
+        }
+
+        .neo-board-column-title,
+        .neo-board-column-summary {
+            flex            : 0 1 auto;
+            min-height      : 0;
+            text-orientation: mixed;
+            writing-mode    : vertical-rl;
+        }
+    }
+}
+
+.neo-board-column-header {
+    align-items: center;
+    color      : var(--neo-board-column-color);
+    display    : flex;
+    flex       : none;
+    font-weight: 600;
+    gap        : 8px;
+    padding    : 10px 12px;
+    user-select: none;
+
+    &.neo-draggable {
+        cursor: grab;
+
+        &:active {
+            cursor: grabbing;
+        }
+    }
+
+    &[aria-disabled="true"] {
+        cursor: default;
+    }
+
+    .neo-board-column-title {
+        flex         : 1;
+        order        : -2;
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .neo-board-column-summary {
+        font-size           : 0.85em;
+        font-variant-numeric: tabular-nums;
+        min-width           : 0;
+        order               : -1;
+        overflow            : hidden;
+        text-overflow       : ellipsis;
+        white-space         : nowrap;
+    }
+
+    .neo-board-column-count {
+        background   : var(--neo-board-badge-background);
+        border-radius: 999px;
+        color        : var(--neo-board-badge-color);
+        font-size    : 0.85em;
+        font-variant-numeric: tabular-nums;
+        line-height  : 1;
+        padding      : 4px 8px;
+
+        &.neo-board-column-wip-exceeded {
+            background: var(--neo-board-wip-color);
+            color     : var(--neo-board-wip-contrast-color);
+        }
+    }
+
+    .neo-board-column-collapse {
+        background   : transparent;
+        border       : 0;
+        border-radius: 4px;
+        color        : inherit;
+        cursor       : pointer;
+        font         : inherit;
+        line-height  : 1;
+        padding      : 2px 6px;
+
+        &:hover {
+            background: var(--neo-board-badge-background);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--neo-board-focus-color);
+            outline-offset: 1px;
+        }
+    }
+
+    .neo-board-column-lock {
+        color      : var(--neo-board-badge-color);
+        font-size  : 0.85em;
+        line-height: 1;
+    }
+}
+
+/* A dragged column rides in a proxy sized from its own rect. The proxy renders outside the scope that may set
+   --neo-board-column-width, so the column fills the proxy instead of falling back to the default width. */
+.neo-dragproxy > .neo-board-column {
+    box-shadow: var(--neo-board-card-shadow);
+    cursor    : grabbing;
+    height    : 100%;
+    min-width : 0;
+    width     : 100%;
+}
+
+.neo-board-column-body {
+    /* The body paints a surface, so a square corner would cover the column's arc: it follows the column's inner curve */
+    border-radius: 0 0 calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px);
+    box-sizing   : border-box;
+    flex         : 1 1 auto;
+    min-height   : 120px;
+    overflow-anchor: none;
+    overflow-y   : auto;
+    padding      : 4px 10px 12px;
+}
+
+.neo-board-column-cards {
+    display       : flex;
+    flex-direction: column;
+    gap           : var(--neo-board-card-gap);
+}
+
+.neo-board-spacer {
+    pointer-events: none;
+}

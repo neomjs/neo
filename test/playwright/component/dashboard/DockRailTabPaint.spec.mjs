@@ -129,7 +129,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail — rendered rail-tab paint',
 
         // Two rails in two subtrees, and a rule shaped exactly the way a consuming app writes one:
         // the token lands on the TAB's own selector under an app-root class, which is what
-        // `Workspace.scss` and `FleetCockpit.scss` both do. Setting the property on an ancestor
+        // `Workspace.css` and `FleetCockpit.css` both do. Setting the property on an ancestor
         // instead would test a mechanism no app uses — and does not even work, because the engine
         // re-declares the token defaults on every `.neo-dashboard`, including nested projected
         // zones, so an outer value is shadowed before it reaches the tab.

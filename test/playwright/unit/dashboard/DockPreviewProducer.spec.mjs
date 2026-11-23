@@ -329,6 +329,22 @@ test.describe('Neo.dashboard.dock.interaction.PreviewProducer (ADR 0029 ยง2.3 โ€
         expect(producer.produceCandidates()).toBeNull()                                                  // no args
     });
 
+    test('a center well is one drop target: zone-center wherever the pointer is, nothing for a whole stack, no menu', () => {
+        const zones = [{nodeId: 'root', rect: RECT, type: 'center-well', tabsNodeId: 'root-center-0'}];
+
+        // the middle, the left edge band and the top header strip of an ordinary zone
+        for (const pointer of [{x: 50, y: 50}, {x: 2, y: 50}, {x: 50, y: 2}]) {
+            const preview = producer.produce({pointer, zones, itemId: 'strategy'});
+
+            expect(preview.placement).toEqual({kind: 'zone-center', tabsNodeId: 'root-center-0'});
+            expect(preview.target.nodeId).toBe('root');
+            expect(PreviewContract.isValidPreview(preview)).toBe(true)
+        }
+
+        expect(producer.produce({pointer: {x: 50, y: 50}, zones, itemId: 'strategy', groupNodeId: 'side-tabs'})).toBeNull();
+        expect(producer.produceCandidates({pointer: {x: 50, y: 50}, zones, itemId: 'strategy'})).toBeNull()
+    });
+
     test('isValidCandidateSet rejects partial, duplicated, mismatched and lying menus', async () => {
         const TALL  = {x: 0, y: 0, width: 400, height: 300};
         const valid = (orientation='vertical') => producer.produceCandidates({

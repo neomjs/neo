@@ -1,0 +1,25 @@
+:where(.neo-theme-neo-dark) {
+    --air-scheme          : dark;
+    --air-night           : #101721;
+    --air-panel           : #192330;
+    --air-rule            : #394550;
+    --air-paper           : #f6f0df;
+    --air-muted           : #acb7bd;
+    --air-gold            : #f8c756;
+    --air-red             : #ff8174;
+    --air-hover           : #263442;
+    --air-selected        : #2b3641;
+    --air-grip            : #9da8af;
+    --air-order           : #92a1ad;
+    --air-duration        : #c3ccd0;
+    --air-btn-border      : #54606a;
+    --air-btn-hover-bg    : #263644;
+    --air-btn-hover-border: #97a2a6;
+    --air-btn-focus       : #ffe39a;
+    --air-btn-quiet       : #bec9ce;
+    --air-primary-ink     : #18202a;
+    --air-primary-hover   : #ffda7e;
+    --air-risk            : #ffac92;
+    --air-safe            : #98dcc5;
+    --air-marker-ring     : #17212a;
+}

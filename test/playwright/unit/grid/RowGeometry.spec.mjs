@@ -30,6 +30,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import Collection         from '../../../../src/collection/Base.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
@@ -123,7 +124,8 @@ function renderedGeometry(row) {
 }
 
 /**
- * Every row a body renders sits where the geometry puts its index
+ * Every row a body renders sits where the geometry puts its index, at its height without its extra: the extra is
+ * room below the row, inside its slot
  * @param {Neo.grid.Body} body
  * @param {Neo.grid.RowGeometry} geometry
  */
@@ -134,7 +136,7 @@ function expectRowsOnGeometry(body, geometry) {
 
     rows.forEach(row => {
         expect(renderedGeometry(row), `row ${row.rowIndex}`).toEqual({
-            height: geometry.heightAt(row.rowIndex),
+            height: geometry.heightAt(row.rowIndex) - geometry.extraHeightAt(row.rowIndex),
             offset: geometry.offsetAt(row.rowIndex)
         })
     })
@@ -260,7 +262,7 @@ test.describe('Neo.grid.RowGeometry', () => {
         expect(geometry.totalHeight).toBe(290)
     });
 
-    test('a lazy store keeps its records raw through a full pass', () => {
+    test('a lazy store keeps its records raw through a full pass and an extra read', () => {
         let lazy = Neo.create(Store, {
                 autoInitRecords: false,
                 data           : Array.from({length: 50}, (item, index) => ({id: index, name: `Row ${index}`})),
@@ -269,9 +271,11 @@ test.describe('Neo.grid.RowGeometry', () => {
             other = Neo.create(RowGeometry, {estimate: rowHeight, getRecordId: record => lazy.getKey(record), store: lazy});
 
         other.setHeights(new Map([[7, 90]]));
+        other.setExtraHeights(new Map([[9, 30]]));
 
         expect(other.offsetAt(8)).toBe(7 * 40 + 90);
-        // getAt() hydrates the record it reads: the full pass reads `items`
+        expect(other.extraHeightAt(9)).toBe(30);
+        // getAt() hydrates the record it reads: the full pass and the extra read both read `items`
         expect(lazy.items.filter(item => RecordFactory.isRecord(item))).toEqual([]);
 
         other.destroy();
@@ -316,6 +320,124 @@ test.describe('Neo.grid.RowGeometry', () => {
         expect(geometry.totalHeight).toBe(180)
     });
 
+    test('an extra height adds to its row and leaves the measured mean alone', () => {
+        geometry.setHeights(new Map([[1, 32], [2, 32]]));
+
+        expect(geometry.setExtraHeights(new Map([[1, 300]]))).toBe(true);
+        expect(geometry.measuredMean).toBe(32);
+        expect(geometry.hasHeight(1)).toBe(true);
+        expect([0, 1, 2, 3, 4].map(index => geometry.heightAt(index))).toEqual([40, 332, 32, 40, 40]);
+        expect([0, 1, 2, 3, 4, 5].map(index => geometry.offsetAt(index))).toEqual([0, 40, 372, 404, 444, 484]);
+        expect(geometry.totalHeight).toBe(484);
+
+        // A measured height under an extra changes only the measured part
+        geometry.setHeights(new Map([[1, 50]]));
+        expect(geometry.heightAt(1)).toBe(350);
+        expect(geometry.measuredMean).toBe(41);
+
+        expect(geometry.setExtraHeights(new Map([[1, 300]]))).toBe(false);
+
+        // 0 and null both remove an extra, and removing one restores the offsets
+        expect(geometry.setExtraHeights(new Map([[1, 0]]))).toBe(true);
+        expect(geometry.heightAt(1)).toBe(50);
+        expect(geometry.totalHeight).toBe(202);
+
+        geometry.setExtraHeights(new Map([[2, 100]]));
+        expect(geometry.totalHeight).toBe(302);
+        expect(geometry.setExtraHeights(new Map([[2, null]]))).toBe(true);
+        expect(geometry.totalHeight).toBe(202);
+        expect(geometry.setExtraHeights(new Map([[2, null]]))).toBe(false)
+    });
+
+    test('an extra height on a row without a known height adds to the estimate', () => {
+        expect(geometry.setExtraHeights(new Map([[2, 100]]))).toBe(true);
+
+        expect(geometry.measuredMean).toBe(null);
+        expect(geometry.hasHeight(2)).toBe(false);
+        expect([0, 1, 2, 3, 4].map(index => geometry.heightAt(index))).toEqual([40, 40, 140, 40, 40]);
+        expect(geometry.totalHeight).toBe(300);
+
+        geometry.estimate = 50;
+        expect(geometry.heightAt(2)).toBe(150);
+        expect(geometry.totalHeight).toBe(350)
+    });
+
+    test('a later extra height batch only sums the offsets again, without a full pass', () => {
+        let fullPasses = 0;
+
+        geometry.setHeights(new Map([[1, 100]]));
+        expect(geometry.totalHeight).toBe(260);
+
+        geometry.rebuild = function() {
+            fullPasses++;
+            return RowGeometry.prototype.rebuild.call(this)
+        };
+
+        expect(geometry.setExtraHeights(new Map([[3, 200]]))).toBe(true);
+        expect([0, 1, 2, 3, 4, 5].map(index => geometry.offsetAt(index))).toEqual([0, 40, 140, 180, 420, 460]);
+        expect(fullPasses).toBe(0)
+    });
+
+    test('clearing the known heights keeps the extra heights', () => {
+        geometry.setHeights(new Map([[1, 32], [2, 32]]));
+        geometry.setExtraHeights(new Map([[1, 300]]));
+
+        geometry.clearHeights();
+
+        expect(geometry.measuredMean).toBe(null);
+        expect(geometry.hasHeight(1)).toBe(false);
+        expect([0, 1, 2].map(index => geometry.heightAt(index))).toEqual([40, 340, 40]);
+        expect(geometry.totalHeight).toBe(500)
+    });
+
+    test('extra heights follow their records through a sort and a filter, and a new store starts without any', () => {
+        let other = createStore(5);
+
+        geometry.setHeights(new Map([[3, 10]]));
+        geometry.setExtraHeights(new Map([[1, 100], [3, 20]]));
+
+        store.sort({direction: 'DESC', property: 'id'});
+
+        // ids 4, 3, 2, 1, 0
+        expect([0, 1, 2, 3, 4].map(index => geometry.heightAt(index))).toEqual([40, 30, 40, 140, 40]);
+        expect(geometry.totalHeight).toBe(290);
+
+        store.filters = [{property: 'id', operator: '<', value: 3}];
+
+        // ids 2, 1, 0
+        expect([0, 1, 2].map(index => geometry.heightAt(index))).toEqual([40, 140, 40]);
+
+        // An extra set while its record is filtered out applies once the record returns
+        geometry.setExtraHeights(new Map([[4, 60]]));
+        expect(geometry.totalHeight).toBe(220);
+        store.filters = [];
+        expect(geometry.heightAt(0)).toBe(100);
+
+        // The same ids 0-4, naming other records
+        geometry.store = other;
+        expect([0, 1, 2, 3, 4].map(index => geometry.heightAt(index))).toEqual([40, 40, 40, 40, 40]);
+        expect(geometry.totalHeight).toBe(200);
+
+        geometry.store = store;
+        other.destroy()
+    });
+
+    test('the extra of a row reads by its index and follows its record', () => {
+        geometry.setExtraHeights(new Map([[1, 100], [3, 20]]));
+
+        expect([-1, 0, 1, 2, 3, 4, 5].map(index => geometry.extraHeightAt(index))).toEqual([0, 0, 100, 0, 20, 0, 0]);
+
+        store.sort({direction: 'DESC', property: 'id'});
+
+        // ids 4, 3, 2, 1, 0
+        expect([0, 1, 2, 3, 4].map(index => geometry.extraHeightAt(index))).toEqual([0, 20, 0, 100, 0]);
+
+        store.filters = [{property: 'id', operator: '<', value: 3}];
+
+        // ids 2, 1, 0
+        expect([0, 1, 2].map(index => geometry.extraHeightAt(index))).toEqual([0, 100, 0])
+    });
+
     test('a store listener bound before the geometry already reads the new order', () => {
         let reads = [],
             other = createStore(3),
@@ -336,6 +458,71 @@ test.describe('Neo.grid.RowGeometry', () => {
         later.destroy();
         other.destroy()
     })
+});
+
+test('Neo.grid.RowGeometry follows a plain Collection through order changes and replacement', () => {
+    const collection = Neo.create(Collection, {
+            keyProperty: 'key',
+            items      : [{key: 'a', rank: 3}, {key: 'b', rank: 1}, {key: 'c', rank: 2}]
+        }),
+        replacement = Neo.create(Collection, {keyProperty: 'key', items: [{key: 'a'}, {key: 'f'}]}),
+        geometry = Neo.create(RowGeometry, {
+            estimate   : rowHeight,
+            getRecordId: record => record.key,
+            store      : collection
+        });
+
+    try {
+        geometry.setHeights(new Map([['a', 80], ['c', 20]]));
+        expect([0, 1, 2, 3].map(index => geometry.offsetAt(index))).toEqual([0, 80, 120, 140]);
+        expect(geometry.totalHeight).toBe(140);
+        expect([79, 80, 120, 140].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 2, 2]);
+
+        collection.splice(1, 1, [{key: 'd', rank: 4}, {key: 'e', rank: 0}]);
+        expect(collection.items.map(record => record.key)).toEqual(['a', 'd', 'e', 'c']);
+        expect([0, 1, 2, 3, 4].map(index => geometry.offsetAt(index))).toEqual([0, 80, 120, 160, 180]);
+        expect(geometry.totalHeight).toBe(180);
+        expect([79, 80, 120, 160, 180].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 2, 3, 3]);
+
+        collection.sorters = [{property: 'rank', direction: 'ASC'}];
+        expect(collection.items.map(record => record.key)).toEqual(['e', 'c', 'a', 'd']);
+        expect([0, 1, 2, 3, 4].map(index => geometry.offsetAt(index))).toEqual([0, 40, 60, 140, 180]);
+        expect(geometry.totalHeight).toBe(180);
+        expect([39, 40, 60, 140].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 2, 3]);
+
+        collection.filters = [{property: 'rank', operator: '<', value: 3}];
+        expect(collection.items.map(record => record.key)).toEqual(['e', 'c']);
+        expect([0, 1, 2].map(index => geometry.offsetAt(index))).toEqual([0, 40, 60]);
+        expect(geometry.totalHeight).toBe(60);
+        expect([39, 40, 60].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 1]);
+        expect(geometry.hasHeight('a')).toBe(true);
+
+        collection.clearFilters();
+        expect(collection.items.map(record => record.key)).toEqual(['e', 'c', 'a', 'd']);
+        expect([0, 1, 2, 3, 4].map(index => geometry.offsetAt(index))).toEqual([0, 40, 60, 140, 180]);
+        expect(geometry.totalHeight).toBe(180);
+        expect([40, 60, 140].map(offset => geometry.indexAt(offset))).toEqual([1, 2, 3]);
+
+        geometry.store = replacement;
+        expect(geometry.hasHeight('a')).toBe(false);
+        expect(geometry.measuredMean).toBe(null);
+        expect([0, 1, 2].map(index => geometry.offsetAt(index))).toEqual([0, 40, 80]);
+        expect(geometry.totalHeight).toBe(80);
+        expect([39, 40, 80].map(offset => geometry.indexAt(offset))).toEqual([0, 1, 1]);
+
+        geometry.setHeights(new Map([['a', 90]]));
+        expect(geometry.totalHeight).toBe(130);
+        geometry.store = null;
+        expect(geometry.count).toBe(0);
+        expect(geometry.hasHeight('a')).toBe(false);
+        expect(geometry.offsetAt(0)).toBe(0);
+        expect(geometry.totalHeight).toBe(0);
+        expect(geometry.indexAt(40)).toBe(0)
+    } finally {
+        geometry.destroy();
+        collection.destroy();
+        replacement.destroy()
+    }
 });
 
 test.describe('Grid content-sized rows', () => {
@@ -359,6 +546,7 @@ test.describe('Grid content-sized rows', () => {
         expect(fixed.body.rowGeometry).toBeNull();
         expect(fixed.verticalScrollbar.rowGeometry).toBeNull();
         expect(fixed.view.setRowHeights(new Map([[0, 100]]))).toBe(false);
+        expect(fixed.view.setRowExtraHeights(new Map([[0, 100]]))).toBe(false);
 
         expect(fixed.body.availableRows).toBe(Math.ceil(viewport / rowHeight) - 1);
         expect(fixed.body.vdom.height).toBe(`${(store.count + 1) * rowHeight}px`);
@@ -490,7 +678,7 @@ test.describe('Grid content-sized rows', () => {
         }
     });
 
-    test('the start, center and end bodies of a view share each row height', async () => {
+    test('the start, center and end bodies of a view share each row height, and none renders the extra', async () => {
         let locked = await createGrid({
                 columns         : [
                     {dataField: 'id',   locked: 'start', text: 'ID',   width: 100},
@@ -506,12 +694,14 @@ test.describe('Grid content-sized rows', () => {
         expect(view.bodies.length).toBe(3);
 
         view.setRowHeights(heightsOf(locked, {1: 90, 4: 15}));
+        view.setRowExtraHeights(heightsOf(locked, {1: 50}));
         await view.promiseUpdate();
 
-        expect(geometry.heightAt(1)).toBe(90);
+        expect(geometry.heightAt(1)).toBe(140);
 
         view.bodies.forEach(body => {
             expect(body.rowGeometry).toBe(geometry);
+            expect(renderedGeometry(body.items.find(row => row.rowIndex === 1)).height).toBe(90);
             expectRowsOnGeometry(body, geometry)
         });
 
@@ -588,6 +778,41 @@ test.describe('Grid content-sized rows', () => {
         expectRowsOnGeometry(body, geometry);
         expect(body.vdom.height).toBe(`${75 + 20 + 100 + rowHeight}px`);
         expect(verticalScrollbar.vdom.cn[0].height).toBe(body.vdom.height)
+    });
+
+    test('a row renders at its height without the extra, which stays room below it in its slot', async () => {
+        let {body, view} = grid,
+            geometry     = view.rowGeometry,
+            rowAt        = index => body.items.find(row => row.rowIndex === index);
+
+        view.setRowHeights(heightsOf(grid, {0: 32}));
+        view.setRowExtraHeights(heightsOf(grid, {0: 300}));
+        await view.promiseUpdate();
+
+        expect(renderedGeometry(rowAt(0))).toEqual({height: 32, offset: 0});
+        expect(renderedGeometry(rowAt(1))).toEqual({height: rowHeight, offset: 332});
+        expect(geometry.heightAt(0)).toBe(332);
+        expectRowsOnGeometry(body, geometry)
+    });
+
+    test('a row stays current while only its extra changes, and the rows below it move', async () => {
+        let {body, view} = grid,
+            geometry     = view.rowGeometry,
+            rowAt        = index => body.items.find(row => row.rowIndex === index);
+
+        view.setRowHeights(heightsOf(grid, {0: 32}));
+        view.setRowExtraHeights(heightsOf(grid, {0: 300}));
+        await view.promiseUpdate();
+
+        expect([0, 1].map(index => rowAt(index).hasStaleGeometry())).toEqual([false, false]);
+
+        // Straight on the geometry, so no render catches up: the row keeps its own height and offset
+        geometry.setExtraHeights(heightsOf(grid, {0: 200}));
+        expect([0, 1].map(index => rowAt(index).hasStaleGeometry())).toEqual([false, true]);
+
+        // The measured height is the row's own
+        geometry.setHeights(heightsOf(grid, {0: 50}));
+        expect(rowAt(0).hasStaleGeometry()).toBe(true)
     });
 
     test('a height change moves the rows without re-rendering their cells', async () => {

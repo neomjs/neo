@@ -59,9 +59,9 @@ provider.setData({
 Let's see this in action. The following live example demonstrates how a component can bind to and modify state from a provider.
 
 ```javascript live-preview
-import Button    from 'neo.mjs/src/button/Base.mjs';
-import Container from 'neo.mjs/src/container/Base.mjs';
-import Label     from 'neo.mjs/src/component/Label.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -111,9 +111,9 @@ Notice the "Change First Name" button. It calls `setState` with an object that o
 Because the provider is built on `Neo.core.Effect`, creating computed properties ("formulas") is a native, first-class feature. You define them in a separate `formulas` config, and the provider automatically keeps them updated.
 
 ```javascript live-preview
-import Container from 'neo.mjs/src/container/Base.mjs';
-import Label from 'neo.mjs/src/component/Label.mjs';
-import TextField from 'neo.mjs/src/form/field/Text.mjs';
+import Container from '../container/Base.mjs';
+import Label from '../component/Label.mjs';
+import TextField from '../form/field/Text.mjs';
 
 class MainView extends Container {
     static config = {
@@ -160,9 +160,9 @@ When you edit the text fields, the `setState` call updates the base `user` data.
 The true power of the hierarchical system is revealed when formulas in a child provider can seamlessly use data from a parent. This allows you to create powerful, scoped calculations that still react to global application state.
 
 ```javascript live-preview
-import Button    from 'neo.mjs/src/button/Base.mjs';
-import Container from 'neo.mjs/src/container/Base.mjs';
-import Label     from 'neo.mjs/src/component/Label.mjs';
+import Button    from '../button/Base.mjs';
+import Container from '../container/Base.mjs';
+import Label     from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -225,8 +225,8 @@ In this example, the child provider's `totalPrice` formula depends on its own lo
 The v10 provider was engineered to handle different scopes of state with an intelligent hierarchical model. A child component can seamlessly access data from its own provider as well as any parent provider.
 
 ```javascript live-preview
-import Container from 'neo.mjs/src/container/Base.mjs';
-import Label from 'neo.mjs/src/component/Label.mjs';
+import Container from '../container/Base.mjs';
+import Label from '../component/Label.mjs';
 
 class MainView extends Container {
     static config = {
@@ -262,40 +262,43 @@ The nested component can access both `user` from its local provider and `theme` 
 Thanks to the v10 refactoring, state providers are now a first-class citizen in functional components. You can define a provider and bind to its data with the same power and simplicity as in class-based components.
 
 ```javascript live-preview
-import {defineComponent} from 'neo.mjs';
-import Label from 'neo.mjs/src/component/Label.mjs';
-import TextField from 'neo.mjs/src/form/field/Text.mjs';
+import {defineComponent} from '../functional/_export.mjs';
+import Label from '../component/Label.mjs';
+import TextField from '../form/field/Text.mjs';
 
 export default defineComponent({
-    stateProvider: {
-        data: {
-            user: {
-                firstName: 'Jane',
-                lastName : 'Doe'
+    config: {
+        className    : 'My.StateProvider.Example5',
+        stateProvider: {
+            data: {
+                user: {
+                    firstName: 'Jane',
+                    lastName : 'Doe'
+                }
+            },
+            formulas: {
+                fullName: data => `${data.user.firstName} ${data.user.lastName}`
             }
-        },
-        formulas: {
-            fullName: data => `${data.user.firstName} ${data.user.lastName}`
         }
     },
     createVdom(config) {
         return {
-            layout: {ntype: 'vbox', align: 'stretch'},
-            items: [{
+            style: {display: 'flex', flexDirection: 'column'},
+            cn: [{
                 module: Label,
-                bind: { text: data => `Welcome, ${config.data.fullName}!` },
+                bind: { text: data => `Welcome, ${data.fullName}!` },
                 style: {marginBottom: '10px'}
             }, {
                 module: TextField,
                 labelText: 'First Name',
-                bind: { value: data => config.data.user.firstName },
+                bind: { value: data => data.user.firstName },
                 listeners: {
                     change: ({value}) => config.setState({'user.firstName': value})
                 }
             }, {
                 module: TextField,
                 labelText: 'Last Name',
-                bind: { value: data => config.data.user.lastName },
+                bind: { value: data => data.user.lastName },
                 listeners: {
                     change: ({value}) => config.setState({'user.lastName': value})
                 }

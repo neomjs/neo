@@ -1,3 +1,7 @@
+---
+seoTitle: "Web Worker UI Architecture: App, Data, VDom & Canvas Threads | Neo.mjs"
+seoDescription: "Inside Neo.mjs multi-threaded Web Worker UI architecture: how App, VDom, Data, and Canvas workers communicate while keeping the main thread thin."
+---
 # Worker Architecture & Messaging
 
 Traditional web architectures face a fundamental constraint: everything competes for the same single thread. A heavy calculation locks your UI. A complex animation stutters during data processing.
@@ -21,7 +25,7 @@ It contains almost **no** application logic. This architecture ensures the UI ca
 ### 2. The App Worker (The Brain)
 This is where your code lives. The App worker hosts:
 *   Component trees and their Virtual DOM (VDOM).
-*   Controllers and ViewModels.
+*   Controllers and state providers.
 *   Application state.
 *   Business logic.
 

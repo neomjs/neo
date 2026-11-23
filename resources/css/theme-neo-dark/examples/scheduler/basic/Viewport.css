@@ -1,0 +1,11 @@
+:where(.neo-theme-neo-dark) {
+    --studio-header-bg: #171e2c;
+    --studio-border: #38465b;
+    --studio-title: #f1f5fb;
+    --studio-muted: #b0bed0;
+    --studio-control-bg: #253145;
+    --studio-hover-bg: #34445c;
+    --studio-selected-bg: #b9ccf6;
+    --studio-selected-text: #18253c;
+    --studio-focus: #a9c7ff;
+}

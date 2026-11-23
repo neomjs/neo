@@ -1,5 +1,5 @@
 import ComponentManager from '../../manager/Component.mjs';
-import SharedCanvas     from '../SharedCanvas.mjs';
+import MotionCanvas     from '../MotionCanvas.mjs';
 
 /**
  * @summary The App Worker component for the HeaderToolbar canvas overlay.
@@ -15,10 +15,10 @@ import SharedCanvas     from '../SharedCanvas.mjs';
  * ensuring the main thread and App Worker remain unblocked.
  *
  * @class Neo.app.header.Canvas
- * @extends Neo.app.SharedCanvas
+ * @extends Neo.app.MotionCanvas
  * @see Neo.canvas.Header
  */
-class Canvas extends SharedCanvas {
+class Canvas extends MotionCanvas {
     static config = {
         /**
          * @member {String} className='Neo.app.header.Canvas'
@@ -68,9 +68,19 @@ class Canvas extends SharedCanvas {
 
         let me = this;
 
-        if (value && me.activeId) {
+        if (value) {
+            me.renderer.updateConfig({still: me.still, windowId: me.windowId});
             me.renderer.updateActiveId({id: me.activeId, windowId: me.windowId})
         }
+    }
+
+    /**
+     * @summary Updates the renderer clock independently of the user's pulse setting.
+     * @param {Boolean} value
+     * @protected
+     */
+    afterSetStill(value) {
+        this.isCanvasReady && this.renderer.updateConfig({still: value, windowId: this.windowId})
     }
 
     /**

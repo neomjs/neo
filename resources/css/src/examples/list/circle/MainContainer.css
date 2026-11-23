@@ -1,0 +1,13 @@
+/* The list keeps its configured size while the stage has room, and scrolls inside a narrower stage */
+.neo-example-container .neo-circle-list.neo-list {
+    max-height: 100%;
+    max-width : 100%;
+    overflow  : auto;
+}
+
+/* A phone's stage is about 210px tall: at 60 % a 300px circle fits whole, and the list scrolls to the others */
+@media (max-width: 600px) {
+    .neo-example-container .neo-circle-list.neo-list {
+        zoom: .6;
+    }
+}

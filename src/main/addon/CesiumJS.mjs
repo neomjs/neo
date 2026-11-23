@@ -2,6 +2,7 @@ import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
+ * @summary Main-thread Cesium viewer commands wait for the library and stylesheet to load.
  * See: https://github.com/CesiumGS/cesium
  * @class Neo.main.addon.CesiumJS
  * @extends Neo.main.addon.Base
@@ -13,6 +14,8 @@ class CesiumJS extends Base {
          * @protected
          */
         className: 'Neo.main.addon.CesiumJS',
+
+        interceptRemotes: ['create', 'createOsmBuildings', 'flyTo'],
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -35,14 +38,7 @@ class CesiumJS extends Base {
     viewers = {}
 
     /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        this.loadFiles()
-    }
-
-    /**
+     * @summary Creates the requested globe after addon readiness admits the remote call.
      * @param {Object} data
      * @param {Boolean} data.createOsmBuildings
      * @param {String} data.id
@@ -58,6 +54,7 @@ class CesiumJS extends Base {
     }
 
     /**
+     * @summary Adds the library's OpenStreetMap buildings to an existing globe.
      * @param {Object} data
      * @param {String} data.id
      */
@@ -75,6 +72,7 @@ class CesiumJS extends Base {
     }
 
     /**
+     * @summary Flies an existing globe to the requested location and orientation.
      * @param {Object} data
      * @param {Number[]} data.destination
      * @param {Number} data.heading
@@ -92,21 +90,15 @@ class CesiumJS extends Base {
     }
 
     /**
+     * @summary Loads both Cesium resources and configures its token before the addon becomes ready.
+     * @returns {Promise<void>}
      * @protected
      */
-    loadFiles() {
-        Promise.all([
+    async loadFiles() {
+        await Promise.all([
             DomAccess.loadScript(    'https://cesium.com/downloads/cesiumjs/releases/1.92/Build/Cesium/Cesium.js'),
             DomAccess.loadStylesheet('https://cesium.com/downloads/cesiumjs/releases/1.92/Build/Cesium/Widgets/widgets.css')
-        ]).then(() => {
-            this.onFilesLoaded()
-        })
-    }
-
-    /**
-     *
-     */
-    onFilesLoaded() {
+        ]);
         Cesium.Ion.defaultAccessToken = Neo.config.cesiumJsToken
     }
 }

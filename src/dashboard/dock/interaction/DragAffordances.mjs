@@ -1,6 +1,7 @@
-import Base            from '../../../core/Base.mjs';
-import PreviewProducer from './PreviewProducer.mjs';
-import PreviewContract from '../model/PreviewContract.mjs';
+import Base              from '../../../core/Base.mjs';
+import PreviewProducer   from './PreviewProducer.mjs';
+import PreviewContract   from '../model/PreviewContract.mjs';
+import WorkspaceDocument from '../model/WorkspaceDocument.mjs';
 
 /**
  * @class Neo.dashboard.dock.interaction.DragAffordances
@@ -118,8 +119,8 @@ class DragAffordances extends Base {
     /**
      * @summary Measures once per gesture and window size (memoized as a promise so the
      * ~60hz move stream never stacks measurements): the host rect (the overlays' coordinate
-     * origin), every projected tabs-zone rect with its parent-split orientation, and the
-     * chips' root target — the boundary its owner declares through
+     * origin), every projected tabs-zone rect with its parent-split orientation, every center well
+     * ({@link #centerWellZones}), and the chips' root target — the boundary its owner declares through
      * {@link Neo.dashboard.dock.Workspace#resolveDockableRoot}, measured on that boundary's
      * own component so the chip's nodeId and its rect describe the same node.
      * @returns {Promise<Object|null>} {hostRect, zones, root} or null when nothing is measurable
@@ -141,10 +142,13 @@ class DragAffordances extends Base {
 
         if (!host) return Promise.resolve(null);
 
-        let zoneEntries = Object.keys(nodes)
-                .filter(nodeId => nodes[nodeId].type === 'tabs')
-                .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
-                .filter(zone => zone.container),
+        let zoneEntries = [
+                ...Object.keys(nodes)
+                    .filter(nodeId => nodes[nodeId].type === 'tabs')
+                    .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
+                    .filter(zone => zone.container),
+                ...DragAffordances.centerWellZones(host, me.owner?.dockModel)
+            ],
             // The boundary its owner declares — `Workspace#resolveDockableRoot` carries why the
             // nodeId and its rect must name ONE node. Resolved live every gesture: wrapping
             // rewrites `document.root`, so a captured id is stale one drop later.
@@ -170,7 +174,8 @@ class DragAffordances extends Base {
                     .map((zone, index) => ({
                         nodeId     : zone.nodeId,
                         rect       : zoneRects[index],
-                        orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null
+                        orientation: Object.values(nodes).find(node => node.type === 'split' && node.children?.includes(zone.nodeId))?.orientation ?? null,
+                        ...(zone.type && {tabsNodeId: zone.tabsNodeId, type: zone.type})
                     }))
                     // A zero-AREA rect is truthy but unmeasurable — a node measured before its
                     // layout settles reports 0×0 and can never contain a pointer. Treat it like
@@ -234,7 +239,8 @@ class DragAffordances extends Base {
 
     /**
      * The measured rect a preview paints against: the host rect for a root-edge placement, the
-     * target zone's rect otherwise; null before the geometry settles or for an unmeasured target.
+     * target zone's rect otherwise (a well's own rect for a zone placement, even in a root
+     * edge-zone); null before the geometry settles or for an unmeasured target.
      * @param {Object|null} preview a dockPreview
      * @returns {Object|null} viewport-space {x, y, width, height}
      */
@@ -244,9 +250,29 @@ class DragAffordances extends Base {
 
         if (!geometry || !nodeId) return null;
 
-        return nodeId === geometry.root.nodeId
+        return nodeId === geometry.root.nodeId && !PreviewContract.ZONE_KINDS.has(preview.placement?.kind)
             ? geometry.root.rect
             : geometry.zones.find(zone => zone.nodeId === nodeId)?.rect ?? null
+    }
+
+    /**
+     * @summary The zones a projected center well adds to a gesture's measurement: one per well, naming
+     * its edge-zone (`LayoutAdapter.createCenterWell`'s `dockEdgeZoneId`) and a tabs id that is free in
+     * `document`, which a drop on the well builds. A host that projects no well adds none.
+     * @param {Neo.component.Base} host The dock host the gesture measures.
+     * @param {Object|null} document The committed document the host projects.
+     * @returns {Object[]} [{container, nodeId, tabsNodeId, type: 'center-well'}]
+     * @static
+     */
+    static centerWellZones(host, document) {
+        if (!document?.nodes) return [];
+
+        return host.down({dockNodeType: 'center-well'}, false).map(well => ({
+            container : well,
+            nodeId    : well.dockEdgeZoneId,
+            tabsNodeId: WorkspaceDocument.genId(document, `${well.dockEdgeZoneId}-center`),
+            type      : 'center-well'
+        }))
     }
 
     /**
@@ -308,7 +334,8 @@ class DragAffordances extends Base {
               target   = document?.nodes?.[preview?.target?.nodeId],
               items    = document?.items;
 
-        if (target?.type !== 'edge-zone' || !items) return preview;
+        // A zone placement moves the pane into the free center, which pairs it with nothing
+        if (target?.type !== 'edge-zone' || !items || PreviewContract.ZONE_KINDS.has(preview.placement?.kind)) return preview;
 
         return Object.keys(items).length === 1 && items[itemId] ? null : preview
     }

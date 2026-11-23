@@ -74,6 +74,12 @@ export default defineConfig({
         // Real Google Chrome, matching the ledger's "macOS Chrome" receipts — the bare project
         // would launch bundled Chromium, a different browser than the one the evidence names.
         name: 'chrome',
-        use : {channel: 'chrome'}
+        use : {
+            channel      : 'chrome',
+            // The first window opens at the screen's origin, wherever an earlier run left Chrome: the rows
+            // that stage two windows plan inside an emulated 1920 × 1080 screen, and a window opened on a
+            // second display lies outside it.
+            launchOptions: {args: ['--window-position=0,0']}
+        }
     }]
 });

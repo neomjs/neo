@@ -17,6 +17,7 @@ import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
 import TabContainer             from '../../../../src/tab/Container.mjs';
+import VNodeUtil                from '../../../../src/util/VNode.mjs';
 // Side-effect imports: the projection instantiates by ntype, so the tab/toolbar/button classes must
 // be registered or `DockLayoutAdapter.project` throws `ntype tab-container does not exist`.
 import '../../../../src/manager/Instance.mjs';
@@ -272,6 +273,21 @@ test.describe('dock recreate — Phase 2 replaces the slot before releasing the 
         expect(container.items[1].id).toBe('recreate-fresh');
         expect(result.pane, 'the result exposes the exact component instantiated into the slot')
             .toBe(container.items[1])
+    });
+
+    test('an ancestor render still maps through the container before its own update lands', () => {
+        // The container's own render has not landed, so its stored vnode still names both children,
+        // and an ancestor render follows the live reference into it (the dock workspace's flight).
+        const retired = {id: livePane.id};
+
+        sibling._vnode   = {id: sibling.id};
+        livePane._vnode  = retired;
+        container._vnode = {id: container.id, childNodes: [{componentId: sibling.id}, {componentId: livePane.id}]};
+
+        expect(workspace.getPlugin('dock-header-actions').commitRecreateCandidate(livePane, {module: Component, id: 'recreate-fresh'}).ok).toBe(true);
+
+        expect(() => VNodeUtil.createMap({componentId: container.id}), 'no reference to the destroyed pane remains').not.toThrow();
+        expect(container.vnode.childNodes[1], 'its DOM node stays, as the vnode it last rendered').toBe(retired)
     });
 
     /**

@@ -1,0 +1,14 @@
+:where(.neo-theme-neo-light) {
+    --programme-header-bg    : #ffffff;
+    --programme-border       : #d8dee8;
+    --programme-title        : #17243a;
+    --programme-muted        : #56657a;
+    --programme-badge-bg     : #eef4ff;
+    --programme-badge-border : #b8cdf0;
+    --programme-badge-text   : #1e3a6e;
+    --programme-control-bg   : #f6f8fb;
+    --programme-hover-bg     : #e7edf6;
+    --programme-selected-bg  : #243e70;
+    --programme-selected-text: #ffffff;
+    --programme-focus        : #285bd4;
+}

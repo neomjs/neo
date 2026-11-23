@@ -3,6 +3,10 @@ import Container   from '../../../../src/container/Base.mjs';
 import LivePreview from '../../../../src/code/LivePreview.mjs';
 
 /**
+ * @summary One snap page of the home: a headline block beside a live preview or custom content.
+ *
+ * A live preview opens on its source and switches to the running result once its page has been the active one
+ * for a second, so nothing renders while the home is created.
  * @class Portal.view.home.FeatureSection
  * @extends Neo.container.Base
  */
@@ -45,6 +49,23 @@ class FeatureSection extends Container {
          */
         learnMoreRoute_: null,
         /**
+         * The text of the button that opens `learnMoreRoute`
+         * @member {String} learnMoreText_='Learn more'
+         * @reactive
+         */
+        learnMoreText_: 'Learn more',
+        /**
+         * Routes shown as a row of links under the paragraph, each `{route, text}`
+         * @member {Object[]|null} links_=null
+         * @reactive
+         */
+        links_: null,
+        /**
+         * The text in front of the links
+         * @member {String} linksLabel='More components:'
+         */
+        linksLabel: 'More components:',
+        /**
          * @member {String|null} livePreviewCode_=null
          * @reactive
          */
@@ -81,20 +102,26 @@ class FeatureSection extends Container {
                 cls      : 'neo-h1',
                 flex     : 'none',
                 reference: 'headline',
-                tag      : 'h1'
+                tag      : 'h2'
             }, {
                 cls      : 'neo-h2',
                 flex     : 'none',
                 reference: 'sub-headline',
-                tag      : 'h2'
+                tag      : 'h3'
             }, {
                 flex     : 'none',
                 reference: 'paragraph',
                 tag      : 'p'
             }, {
+                module   : Container,
+                cls      : ['portal-content-links'],
+                flex     : 'none',
+                hidden   : true,
+                layout   : 'base',
+                reference: 'links'
+            }, {
                 module   : Button,
                 reference: 'learn-more-button',
-                text     : 'Learn more',
                 ui       : 'secondary'
             }]
         }, {
@@ -106,7 +133,7 @@ class FeatureSection extends Container {
     }
 
     /**
-     *
+     * @summary Switches the live preview to its running result once this page has been the active one for a second.
      */
     async activate() {
         let me       = this,
@@ -139,6 +166,25 @@ class FeatureSection extends Container {
     }
 
     /**
+     * Triggered after the links config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @protected
+     */
+    afterSetLinks(value, oldValue) {
+        if (value || oldValue) {
+            // Before the items are created, getItem() returns the item's config object
+            let links = this.getItem('links');
+
+            links.hidden = !value?.length;
+            links.items  = [
+                {ntype: 'component', cls: ['portal-content-links-label'], tag: 'span', text: this.linksLabel},
+                ...(value || []).map(({route, text}) => ({module: Button, route, text, ui: 'ghost'}))
+            ]
+        }
+    }
+
+    /**
      * Triggered after the learnMoreRoute config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -147,6 +193,16 @@ class FeatureSection extends Container {
     afterSetLearnMoreRoute(value, oldValue) {
         let targetConfig = value.startsWith('http') ? 'url' : 'route';
         this.getItem('learn-more-button')[targetConfig] = value
+    }
+
+    /**
+     * Triggered after the learnMoreText config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLearnMoreText(value, oldValue) {
+        this.getItem('learn-more-button').text = value
     }
 
     /**

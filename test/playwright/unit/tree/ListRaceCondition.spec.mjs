@@ -47,17 +47,19 @@ test.describe('Neo.tree.List Race Conditions', () => {
 
         const folderId = tree.getItemId('folder1');
 
-        // Expand the parent folder via VDOM manipulation.
-        // This sets the folder to open in the VDOM, but does not update the Store record.
+        // Expand the parent folder. The VDOM opens it, and its record keeps the state.
         tree.expandParents('child1');
 
         let folderNode = tree.getVdomChild(folderId);
 
         expect(folderNode.cls).toContain('neo-folder-open');
+        expect(tree.store.get('folder1').collapsed).toBe(false);
 
-        // Simulate an external store update where the record is still collapsed.
+        // Simulate an external store update that collapses the record while the VDOM still shows it open.
         // This triggers onStoreRecordChange, which re-renders the item using the Store's state.
         const record = tree.store.get('folder1');
+
+        record.setSilent({collapsed: true});
 
         tree.store.fire('recordChange', {
             fields: [],

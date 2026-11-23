@@ -2,6 +2,7 @@ import Base     from './Base.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
+ * @summary Two-track CSS Grid + subgrid form layout aligning field labels and inputs across items.
  * @class Neo.layout.Form
  * @extends Neo.layout.Base
  */
@@ -18,21 +19,21 @@ class Form extends Base {
          */
         ntype: 'layout-form',
         /**
-         * @member {String|null} containerCls='neo-layout-fit'
+         * @member {String|null} containerCls='neo-layout-form'
          * @protected
          * @reactive
          */
         containerCls: 'neo-layout-form',
         /**
-         * flex css allows gap. This adds it to the component style
-         * @member {String} gap_=null
+         * CSS Grid `gap` (`row-gap column-gap`) applied to the bound container's wrapper style.
+         * @member {String|null} gap_=null
          * @reactive
          */
         gap_: null
     }
 
     /**
-     * Updates the Container style to add a gap to display:flex
+     * @summary Syncs the bound container's CSS Grid `gap` style when `gap` changes.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -49,7 +50,7 @@ class Form extends Base {
     }
 
     /**
-     * Applies the flex value to an item of the container this layout is bound to
+     * @summary Stamps form-layout wrapper classes (`subfieldset`, `legend`, or `item`) onto non-ignored children.
      * @param {Neo.component.Base} item
      * @param {Number} index
      */
@@ -66,8 +67,7 @@ class Form extends Base {
     }
 
     /**
-     * Removes all CSS rules from an container item this layout is bound to.
-     * Gets called when switching to a different layout.
+     * @summary Resets child wrapper flex styling when switching away from this layout.
      * @param {Neo.component.Base} item
      * @param {Number} index
      * @protected
@@ -80,7 +80,7 @@ class Form extends Base {
     }
 
     /**
-     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @summary Serializes the layout instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */
     toJSON() {

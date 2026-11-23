@@ -1,4 +1,5 @@
-import Base from '../../../src/core/Base.mjs';
+import Base        from '../../../src/core/Base.mjs';
+import countPrimes from './countPrimes.mjs';
 
 /**
  * @class Neo.examples.worker.task.MyTasks
@@ -30,16 +31,14 @@ class MyTasks extends Base {
     }
 
     /**
+     * @summary Counts one inclusive range on the Task Worker.
      * @param {Object} data
-     * @returns {Object}
+     * @param {Number} data.first
+     * @param {Number} data.last
+     * @returns {Number}
      */
-    compute(data) {
-        console.log('compute', {
-            data,
-            workerId: Neo.workerId
-        });
-
-        return {success: true}
+    compute({first, last}) {
+        return countPrimes(first, last)
     }
 }
 

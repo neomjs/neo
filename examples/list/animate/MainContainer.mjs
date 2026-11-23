@@ -4,6 +4,7 @@ import MainContainerController from './MainContainerController.mjs';
 import MainStore               from './MainStore.mjs';
 import NumberField             from '../../../src/form/field/Number.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
+import ThemeSwitcher           from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar                 from '../../../src/toolbar/Base.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -33,7 +34,9 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: Toolbar,
+            cls   : ['neo-examples-list-animate-toolbar'],
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
 
             itemDefaults: {
                 ntype: 'button',
@@ -75,6 +78,9 @@ class MainContainer extends Viewport {
                 labelWidth: 100,
                 listeners : {change: 'changeOrderByRow'},
                 style     : {marginLeft: '20px'}
+            }, '->', {
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
         }, {
             module    : TextField,

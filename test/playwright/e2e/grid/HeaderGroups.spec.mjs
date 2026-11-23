@@ -11,7 +11,9 @@ import {expect, test} from '../../fixtures.mjs';
 
 /**
  * Every group cell against its leaves, matched by the grid-wide column index: a cell spans `aria-colspan` leaves
- * from its own `aria-colindex`
+ * from its own `aria-colindex`. A drop re-renders the leaves and the group cells in turn, so a cell can name a leaf
+ * that is briefly absent: its leaf edges read `NaN` then, which fails every comparison, so a poll keeps polling
+ * where a throw would end it.
  * @param {Object} page
  * @returns {Promise<Object[]>} `{index, text, left, right, leafLeft, leafRight}` per group cell, `index` its first
  * column's `aria-colindex`
@@ -33,8 +35,8 @@ const groupEdges = page => page.evaluate(() => {
             text     : cell.textContent,
             left     : Math.round(rect.left),
             right    : Math.round(rect.right),
-            leafLeft : Math.round(leaves.get(first).left),
-            leafRight: Math.round(leaves.get(last).right)
+            leafLeft : Math.round(leaves.get(first)?.left ?? NaN),
+            leafRight: Math.round(leaves.get(last)?.right ?? NaN)
         }
     })
 });
@@ -663,17 +665,27 @@ test.describe('examples/grid/headerGroups', () => {
     const groupOrder = async page => (await groupEdges(page)).sort((a, b) => a.index - b.index).map(({text}) => text);
 
     /**
-     * After a group drop: no proxy is left, every group cell spans its leaves, and the body cells follow the headers
+     * After a group drop: no proxy is left, every group cell spans its leaves, and the body cells follow the headers.
+     * Cells still off their leaves after the poll get 10 s more: a stalled re-projection stays off, a slow runner
+     * heals, and the failure says which.
      * @param {Object} page
      */
     const expectRelaidOut = async page => {
-        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
-        await expect.poll(async () => {
-            const edges = await groupEdges(page);
+        const spanned   = edges => edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
+                  Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2),
+              relaidOut = timeout => expect.poll(async () => spanned(await groupEdges(page)), {timeout}).toBe(true);
 
-            return edges.length === 5 && edges.every(({left, right, leafLeft, leafRight}) =>
-                Math.abs(left - leafLeft) < 2 && Math.abs(right - leafRight) < 2)
-        }).toBe(true);
+        await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+
+        try {
+            await relaidOut()
+        } catch (error) {
+            const first  = await groupEdges(page),
+                  healed = await relaidOut(10000).then(() => true, () => false);
+
+            throw new Error(`Group cells off their leaves, ${healed ? 'healed' : 'still off'} within 10 s more: ${JSON.stringify({first, later: await groupEdges(page)})}`, {cause: error})
+        }
+
         await expect.poll(() => cellsFollowHeaders(page)).toBe(true)
     };
 
@@ -823,13 +835,16 @@ test.describe('examples/grid/headerGroups', () => {
 
             await expect.poll(() => page.evaluate(() => window.groupDragSettled)).toBe(true);
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q2', 'Q3', 'Q4', 'Year'] : ['Q1', 'Q3', 'Q2', 'Q4', 'Year']);
+            // The order can read right while the drop still re-renders the group cells, and the next drag measures them
+            await expectRelaidOut(page);
 
             // The next drag starts from the gesture's true result: a proxy, a dragging toolbar or a late move left
             // now is the first gesture's
             await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
             await expect.poll(() => groupOrder(page)).toEqual(escape ? ['Q1', 'Q4', 'Q2', 'Q3', 'Year'] : ['Q1', 'Q3', 'Q4', 'Q2', 'Year']);
-            expect(await page.evaluate(() =>
+            // The drop's own proxy can still be fading out; a stale one would never go
+            await expect.poll(() => page.evaluate(() =>
                 document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
             await expectRelaidOut(page)
         })
@@ -862,7 +877,7 @@ test.describe('examples/grid/headerGroups', () => {
         await dragGroup(page, 'Q4', (await groupBox(page, 'Q2')).x + 10);
 
         await expect.poll(() => groupOrder(page)).toEqual(['Q1', 'Q4', 'Q2', 'Q3', 'Year']);
-        expect(await page.evaluate(() =>
+        await expect.poll(() => page.evaluate(() =>
             document.querySelectorAll('.neo-dragproxy, .neo-grid-header-toolbar.neo-is-dragging').length)).toBe(0);
         await expectRelaidOut(page)
     });

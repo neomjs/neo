@@ -1,0 +1,115 @@
+[
+    {
+        "id": "dock-choreography",
+        "family": "dashboard",
+        "order": 120,
+        "component": "Dock Workspace",
+        "feature": "A scripted layout tour splits, groups and auto-hides live panes",
+        "lookFor": "Press Tour and watch the editor clock keep ticking as the panes rearrange.",
+        "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/dock-choreography-14.jpg",
+        "name": "Dock Choreography Demo",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/choreography",
+        "urls": {
+            "devmode": "examples/dashboard/choreography/index.html",
+            "dist_dev": "dist/development/examples/dashboard/choreography/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/choreography/index.html",
+            "dist_prod": "dist/production/examples/dashboard/choreography/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "dock-layouts",
+        "name": "Operations Desk",
+        "family": "dashboard",
+        "order": 1270,
+        "alsoIn": ["drag-drop"],
+        "component": "Dock Workspace",
+        "feature": "Ten docked panes are views of one data set: a selection and an edit cross them",
+        "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
+        "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
+        "image": "devmode/dock-layouts-14.jpg",
+        "hasLightCover": true,
+        "sharedWorkers": false,
+        "sourceUrl": "examples/dashboard/desk",
+        "urls": {
+            "devmode": "examples/dashboard/desk/index.html",
+            "dist_dev": "dist/development/examples/dashboard/desk/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/desk/index.html",
+            "dist_prod": "dist/production/examples/dashboard/desk/index.html"
+        }
+    },
+    {
+        "id": "dock-cross-window",
+        "name": "Dock Perspectives and Pop-outs",
+        "family": "dashboard",
+        "order": 1280,
+        "alsoIn": [
+            "multi-window"
+        ],
+        "component": "Dock Workspace",
+        "feature": "A live workbench travels between windows without restarting its counter",
+        "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
+        "scope": "Allow popups for the cross-window part of the tour.",
+        "image": "devmode/dock-cross-window-14.jpg",
+        "hasLightCover": true,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/crossWindow",
+        "urls": {
+            "devmode": "examples/dashboard/crossWindow/index.html",
+            "dist_dev": "dist/development/examples/dashboard/crossWindow/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/crossWindow/index.html",
+            "dist_prod": "dist/production/examples/dashboard/crossWindow/index.html"
+        }
+    },
+    {
+        "id": "dock-tear-out",
+        "name": "Dock Pane Pop-out",
+        "family": "dashboard",
+        "order": 1290,
+        "alsoIn": [
+            "multi-window"
+        ],
+        "component": "Dock Workspace",
+        "feature": "A Notes pane keeps its draft when it moves to a separate window",
+        "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
+        "scope": "Allow popups. The pane returns when its window closes.",
+        "image": "devmode/dock-tear-out-14.jpg",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/tearOut",
+        "urls": {
+            "devmode": "examples/dashboard/tearOut/index.html",
+            "dist_dev": "dist/development/examples/dashboard/tearOut/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/tearOut/index.html",
+            "dist_prod": "dist/production/examples/dashboard/tearOut/index.html"
+        }
+    },
+    {
+        "id": "dashboard-sortable",
+        "name": "Sortable Dashboard",
+        "family": "dashboard",
+        "order": 1480,
+        "alsoIn": [
+            "multi-window",
+            "drag-drop"
+        ],
+        "component": "Dashboard",
+        "feature": "Live key-figure tiles reorder by drag and open in a window of their own, still live",
+        "lookFor": "Drag a tile by its title down the board, then press its window button or drag it out of the window, and bring it back.",
+        "scope": "Allow popups. A tile returns when its window closes.",
+        "image": "devmode/dashboard-sortable-14.jpg",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/sortable",
+        "urls": {
+            "devmode": "examples/dashboard/sortable/index.html",
+            "dist_dev": "dist/development/examples/dashboard/sortable/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/sortable/index.html",
+            "dist_prod": "dist/production/examples/dashboard/sortable/index.html"
+        },
+        "hasLightCover": true
+    }
+]

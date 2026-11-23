@@ -10,6 +10,9 @@ const enterActivatedTags = {
     BUTTON: 1
 };
 
+// The keys a `workerChords` subscriber leaves to the App Worker while Ctrl or Cmd is down
+const chordKeys = new Set(['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'End', 'Home']);
+
 /**
  * Addon for Navigator
  * @class Neo.main.addon.Navigator
@@ -75,6 +78,11 @@ class Navigator extends Base {
      * @param {Object} data
      */
     fixItemFocusability(data) {
+        // The subscriber renders its own Tab stop
+        if (data.focusOnly) {
+            return
+        }
+
         // If the key events are being read from an external element, then that will always contain
         // focus, so we have nothing to do here. The navigable items wil be inert and not
         // focusable. Navigation will be "virtual". Select field navigates its dropdowns like this.
@@ -134,7 +142,7 @@ class Navigator extends Base {
             // This was internal navigation.
             // The items must be focusable, but *not* tabbable.
             // So remove tabbability on the last active item
-            if (subject.contains(relatedTarget)) {
+            if (!data.focusOnly && subject.contains(relatedTarget)) {
                 relatedTarget.tabIndex = -1
             }
         }
@@ -151,7 +159,7 @@ class Navigator extends Base {
         target.closest(data.selector)?.classList.remove(data.activeCls);
 
         // On focusout, leave the last active item as tabbable so user can TAB back in here
-        if (!DomUtils.isTabbable(target)) {
+        if (!data.focusOnly && !DomUtils.isTabbable(target)) {
             target.tabIndex = 0
         }
     }
@@ -188,7 +196,7 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateKeyDownHandler(keyEvent, data) {
-        if (data.workerKeys?.includes(keyEvent.key)) {
+        if (data.workerKeys?.includes(keyEvent.key) || data.workerChords && (keyEvent.ctrlKey || keyEvent.metaKey) && chordKeys.has(keyEvent.key)) {
             keyEvent.preventDefault();
             return
         }
@@ -433,7 +441,7 @@ class Navigator extends Base {
         });
 
         // Link the event source or the encapsulating element to the active item for A11Y
-        (data.eventSource || data.subject).setAttribute('aria-activedescendant', data.activeItem.id);
+        data.focusOnly || (data.eventSource || data.subject).setAttribute('aria-activedescendant', data.activeItem.id);
 
         // navigating to the same element should get ignored
         if (data.activeItem !== data.previousActiveItem || data.activeRecordId !== data.previousActiveRecordId) {
@@ -495,8 +503,13 @@ class Navigator extends Base {
      * @param {Boolean} data.wrap Pass as `true` to have navigation wrap from first to last and vice versa.
      * @param {Boolean} [data.autoClick=false] Pass as `true` to have navigation click the target navigated to.
      * TabPanels will use this on their tab toolbar.
+     * @param {Boolean} [data.focusOnly=false] Pass as `true` when the items are real focusable elements whose Tab stop and
+     * state the subscriber renders, as an index of links does: the keys only move focus, and no `tabIndex` or
+     * `aria-activedescendant` is written.
      * @param {String[]} [data.workerKeys] Keys owned by logical App-Worker navigation. Cancels their
      * browser default without a mounted-DOM action; the event still reaches the worker.
+     * @param {Boolean} [data.workerChords=false] True when the App Worker owns the arrow, Home and End keys pressed
+     * with Ctrl or Cmd, as a launcher's reorder does: the same treatment as `workerKeys`, while plain keys navigate.
      * @param {Boolean} [data.scrollIntoView=true] False when the worker owns logical scrolling.
      */
     subscribe(data) {

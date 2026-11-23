@@ -371,7 +371,7 @@ export const test = base.extend({
         // per context, because a popup loads its own config and a test may open contexts of its own (`newContext`).
         // A page route outranks a context route, so a spec that edits its config goes through `routeConfig` too.
         const routeConfig = (target, mutate = config => config, url = '**/neo-config.json*') => target.route(url, async route => {
-            const response = await route.fetch();
+            const response = await route.fetch({maxRetries: 2});
 
             if (!response.ok()) {
                 return route.fulfill({response})

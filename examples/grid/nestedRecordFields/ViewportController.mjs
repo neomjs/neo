@@ -1,16 +1,15 @@
-import Component from '../../../src/controller/Component.mjs';
-import Toast     from  '../../../src/component/Toast.mjs';
+import Component         from '../../../src/controller/Component.mjs';
+import Toast             from '../../../src/component/Toast.mjs';
+import {INITIAL_RECORDS} from './MainStore.mjs';
 
 /**
+ * @summary View controller for the dialog row-editing grid example, managing `EditUserDialog` instantiation,
+ * country-name rendering, store reset, column drag mode, and dark/light theme switching.
  * @class Neo.examples.grid.nestedRecordFields.ViewportController
  * @extends Neo.controller.Component
  */
 class ViewportController extends Component {
     static config = {
-        /**
-         * @member {String} className='Neo.examples.grid.nestedRecordFields.ViewportController'
-         * @protected
-         */
         className: 'Neo.examples.grid.nestedRecordFields.ViewportController'
     }
 
@@ -20,26 +19,31 @@ class ViewportController extends Component {
     dialog = null
 
     /**
+     * Resolves `record['address.country']` ISO codes through `stores.countries`.
      * @param {Object} data
+     * @returns {String}
      */
     countryRenderer({gridContainer, record}) {
-        let countryStore = gridContainer.getStateProvider().getStore('countries');
+        let code         = record['address.country'],
+            countryStore = gridContainer.getStateProvider().getStore('countries');
 
         if (countryStore.getCount() > 0) {
-            return countryStore.get(record.country).name
+            return countryStore.get(code)?.name || code || ''
         }
 
-        return ''
+        return code || ''
     }
 
     /**
+     * Opens `EditUserDialog` anchored to the clicked/activated row `Edit` button.
      * @param {Object} data
      */
     editButtonHandler(data) {
-        let me       = this,
-            {dialog} = me,
-            button   = data.component,
-            {appName, record, theme, windowId} = button;
+        let me                          = this,
+            {dialog}                    = me,
+            button                      = data.component,
+            {appName, record, windowId} = button,
+            theme                       = me.component.theme || button.theme;
 
         if (!dialog) {
             import('./EditUserDialog.mjs').then(module => {
@@ -47,42 +51,68 @@ class ViewportController extends Component {
                     module         : module.default,
                     animateTargetId: button.id,
                     appName,
-                    stateProvider  : {parent: me.getStateProvider()},
                     record,
+                    stateProvider  : {parent: me.getStateProvider()},
                     theme,
                     windowId
                 })
             })
         } else {
-            dialog.animateTargetId = button.id;
-            dialog.record          = record;
+            dialog.set({
+                animateTargetId: button.id,
+                record,
+                theme
+            });
 
             dialog.show()
         }
     }
 
     /**
-     * @param {Record[]} items
+     * @summary Observes the root viewport theme so the toolbar toggle button and open dialog track the active scheme.
      */
-    onCountryStoreLoad(items) {
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        let me = this;
+
+        me.observeConfig(me.component, 'theme', () => me.syncThemeButton());
+        me.syncThemeButton()
+    }
+
+    /**
+     * Repaints grid rows once `stores.countries` finishes loading so country names replace ISO codes cleanly.
+     */
+    onCountryStoreLoad() {
+        this.getReference('grid')?.body?.createViewData(false, true)
+    }
+
+    /**
+     * Restores all 28 partner records to their initial unmodified state and closes the dialog if open.
+     */
+    onResetButtonClick() {
         let me        = this,
             mainStore = me.getStore('mainStore'),
-            country;
+            dragBtn   = me.getReference('drag-mode-button'),
+            grid      = me.getReference('grid');
 
-        // if the main table store is already loaded, the country field renderer had no data
-        if (mainStore.getCount() > 0) {
-            mainStore.forEach(record => {
-                country = record.country;
+        if (me.dialog && !me.dialog.hidden) {
+            me.dialog.hide(false)
+        }
 
-                // hack resetting the current value to get a new record change
-                record.toJSON().country = null;
+        if (mainStore) {
+            mainStore.data = [];
+            mainStore.data = Neo.clone(INITIAL_RECORDS, true)
+        }
 
-                record.country = country
-            })
+        if (dragBtn && grid?.headerToolbar?.sortZone) {
+            dragBtn.set({iconCls: 'far fa-square'});
+            grid.headerToolbar.sortZone.moveColumnContent = true
         }
     }
 
     /**
+     * Toggles whether dragging a column header moves column cell content live or headers only.
      * @param {Object} data
      */
     onSwitchDragModeButtonClick(data) {
@@ -100,33 +130,44 @@ class ViewportController extends Component {
     }
 
     /**
+     * @summary Switches the viewport and open dialog between `neo-theme-dark` and `neo-theme-light`.
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
         let me          = this,
             button      = data.component,
-            isDarkTheme = button.theme !== 'neo-theme-light',
+            isDarkTheme = me.component.getTheme() !== 'neo-theme-light',
             theme       = isDarkTheme ? 'neo-theme-light' : 'neo-theme-dark';
 
-        button.set({
-            iconCls: isDarkTheme ? 'fa fa-moon' : 'fa fa-sun',
-            text   : isDarkTheme ? 'Dark Theme' : 'Light Theme'
-        });
-
         me.component.theme = theme;
+
+        Neo.toast({
+            appName       : button.appName,
+            msg           : isDarkTheme ? 'Light Theme' : 'Dark Theme',
+            position      : 'tl',
+            slideDirection: 'left',
+            title         : 'Switched Theme',
+            windowId      : button.windowId
+        })
+    }
+
+    /**
+     * @summary Aligns the toolbar theme toggle button and any open dialog with the viewport's current theme.
+     */
+    syncThemeButton() {
+        let me      = this,
+            button  = me.getReference('theme-button'),
+            theme   = me.component.getTheme(),
+            isLight = theme === 'neo-theme-light';
+
+        button?.set({
+            iconCls: isLight ? 'fa fa-moon' : 'fas fa-sun',
+            text   : isLight ? 'Dark Theme' : 'Light Theme'
+        });
 
         if (me.dialog) {
             me.dialog.theme = theme
         }
-
-        Neo.toast({
-            appName       : button.appName,
-            title         : 'Switched Theme',
-            msg           : isDarkTheme ? 'Light Theme' : 'Dark Theme',
-            position      : 'tl',
-            slideDirection: 'left',
-            windowId      : button.windowId
-        })
     }
 }
 

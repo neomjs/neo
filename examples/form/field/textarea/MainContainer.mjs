@@ -1,20 +1,40 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextAreaField         from '../../../../src/form/field/TextArea.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextAreaField  from '../../../../src/form/field/TextArea.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.textarea.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.textarea.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.textarea.MainContainer',
+        autoMount    : true,
+        componentName: 'Text area',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module            : TextAreaField,
+            clearable         : true,
+            height            : 110,
+            labelPosition     : 'top',
+            labelText         : 'Message',
+            maxLength         : 200,
+            minLength         : 10,
+            placeholderText   : 'What can we help with?',
+            showCharacterCount: true,
+            width             : 360
+        },
+        states: {
+            filled  : {value: 'The grid keeps its scroll position when I switch tabs. Can it restore the selection too?'},
+            empty   : {},
+            invalid : {value: 'Help?'},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     /**
@@ -185,22 +205,6 @@ class MainContainer extends ConfigurationViewport {
             name          : 'wrap',
             valueLabel    : 'null'
         }]
-    }
-
-    /**
-     * @summary Creates a text area with a visible character budget.
-     */
-    createExampleComponent() {
-        return Neo.create(TextAreaField, {
-            clearable         : true,
-            height            : 120,
-            labelText         : 'Label',
-            labelWidth        : 70,
-            maxLength         : 200,
-            showCharacterCount: true,
-            value             : 'Hello World',
-            width             : 400,
-        })
     }
 }
 

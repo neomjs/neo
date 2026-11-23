@@ -34,7 +34,7 @@ const
  * and mutated.
  *
  * **Visual Architecture:**
- * 1. **Kernel Layer (Parallax):** A deep, slow-moving background grid representing the framework core.
+ * 1. **Kernel Layer (Parallax):** A deep, slow-moving background grid representing the engine core.
  * 2. **Data Strata (Mid-Ground):** Floating clusters bridging the depth gap.
  * 3. **Application Layer (Fabric):** The main efficient structure (The App Engine).
  * 4. **Neural Agents:** High-speed packets visualizing throughput and intelligent maintenance.

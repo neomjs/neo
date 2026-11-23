@@ -387,8 +387,9 @@ Required fields:
 | `source.sortZoneId` | Optional source sort-zone identity when the drag starts inside a dashboard zone. | Runtime only. |
 | `target.containerId` | Stable id for the dock workspace/container being hovered. | Runtime only unless a drop commits into that container. |
 | `target.nodeId` | Candidate dock-zone node id receiving the drop. | Runtime only until converted into an operation. |
-| `placement.kind` | Candidate intent: `edge-top`, `edge-right`, `edge-bottom`, `edge-left`, `split-before`, `split-after`, `tab-before`, `tab-after`, `tab-into`, or `rejected`. | Runtime only. |
+| `placement.kind` | Candidate intent: `edge-top`, `edge-right`, `edge-bottom`, `edge-left`, `split-before`, `split-after`, `tab-before`, `tab-after`, `tab-into`, `zone-center`, or `rejected`. `zone-center` targets an `edge-zone` whose center is free, over the empty center well a host projects there. | Runtime only. |
 | `placement.orientation` | Required for split previews: `horizontal` or `vertical`. | Runtime only; accepted split operations persist orientation. |
+| `placement.tabsNodeId` | Required for `zone-center`: the id of the `tabs` node the drop builds, free in the document the hover measured. | Runtime only; an accepted drop persists the node under that id, or under a fresh one when a node claimed it after the hover. |
 | `placement.ratio` | Optional normalized split preview ratio. | Runtime only; accepted split operations persist normalized sizes. |
 | `placement.index` | Optional tab or child insertion index. | Runtime only; accepted operations persist item order. |
 | `feedback.state` | `accepted` or `rejected`. | Runtime only. |
@@ -415,6 +416,7 @@ Conversion rules on drop:
 | `tab-before`, `tab-after`, `tab-into` | `addTab` or `moveItem` into the target `tabs` node. |
 | `split-before`, `split-after` | `splitNode` with the preview orientation and normalized sizes. |
 | `edge-top`, `edge-right`, `edge-bottom`, `edge-left` | `splitNode` or edge-zone insertion chosen by the adapter, then `normalizeTree`. |
+| `zone-center` | `restoreTab` with `home: {parentId: <edge-zone>, slot: 'center'}` and `rebuild: true`, which always builds the `tabs` node in the free center: it never joins a node that claimed the id since the hover, and a center taken since refuses the drop. A whole-stack drag has no operation here and commits nothing. |
 | `rejected` | No model mutation; the renderer clears the preview. |
 
 Consumer boundaries:

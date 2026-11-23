@@ -55,6 +55,23 @@ class Container extends BaseContainer {
     }
 
     /**
+     * @summary Names the statement for the canvas: nothing is drawn under the logo, the sentence and the buttons,
+     * and no seat stands in the headline's row.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        const
+            content = this.getItem('content'),
+            idOf    = cls => content.items.find(item => item.cls?.includes(cls))?.id;
+
+        this.getItem('canvas').set({
+            bandIds : [content.getItem('magic-move').id],
+            blockIds: [idOf('logo-container'), idOf('neo-h3'), idOf('button-group')].filter(Boolean)
+        })
+    }
+
+    /**
      * @param {Object} data
      */
     onClick(data) {

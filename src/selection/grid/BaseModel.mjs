@@ -30,7 +30,9 @@ class BaseModel extends Model {
             value         : []
         },
         /**
-         * The record ids this model holds selected; the descriptor for the reason above.
+         * The grid's row ids this model holds selected: the store's internal ids while the grid's `useInternalId`
+         * is `true` (the default), the record keys otherwise. `getRowRecord()` resolves one to its record, and
+         * `Neo.grid.View#selectedRecords` reads them all. The descriptor for the reason above.
          * @member {Number[]|String[]} selectedRows_=[]
          * @protected
          * @reactive
@@ -63,11 +65,81 @@ class BaseModel extends Model {
     }
 
     /**
+     * The classes {@link #applyCellSelection} added to each cell vdom node and the ones it wanted, so a repaint
+     * withdraws exactly what it added and compares the wanted answer for its early return.
+     * @member {WeakMap<Object, Object>} #cellCls
+     * @private
+     */
+    #cellCls = new WeakMap()
+    /**
+     * `items` as a Set, with the array and length it was built from: the lookup behind {@link #isSelected}.
+     * @member {Object|null} #itemLookup=null
+     * @private
+     */
+    #itemLookup = null
+    /**
+     * The view instance: the `view` config resolves it by id on every read, and a row asks once per cell.
+     * @member {Neo.grid.View|null} #view=null
+     * @private
+     */
+    #view = null
+
+    /**
      * Convenience shortcut
      * @member {String[]} dataFields
      */
     get dataFields() {
         return this.view.gridContainer.columns.items.map(column => column.dataField)
+    }
+
+    /**
+     * Triggered after the view config got changed
+     * @param {String|null} value The view id
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetView(value, oldValue) {
+        this.#view = value ? Neo.getComponent(value) : null
+    }
+
+    /**
+     * @summary Writes this model's answer for one cell onto its vdom node: the selected class, `aria-selected`
+     * and the classes of {@link #getCellCls}. `grid.Row` calls it for every cell it renders and the granular
+     * repaints for the cells they revisit, so both paint alike. It withdraws only what it put on the node. A
+     * model overrides the two answers it reads, not this.
+     * @param {Object} cell The cell's vdom node
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {Boolean} true if the node changed
+     */
+    applyCellSelection(cell, record, dataField) {
+        let me      = this,
+            applied = me.#cellCls.get(cell),
+            cls     = me.isSelectedCell(record, dataField) ? [me.selectedCls, ...me.getCellCls(record, dataField)] : null,
+            added;
+
+        // The early return compares the wanted answer, which keeps an unchanged cell out of the update; only
+        // the classes this method added leave the node, so a class the cell carried before its selection stays.
+        if (applied ? Neo.isEqual(applied.cls, cls) : !cls) {
+            return false
+        }
+
+        cell.cls ??= [];
+
+        applied && NeoArray.remove(cell.cls, applied.added);
+
+        if (cls) {
+            added = cls.filter(name => !cell.cls.includes(name));
+
+            NeoArray.add(cell.cls, added);
+            cell['aria-selected'] = true;
+            me.#cellCls.set(cell, {added, cls})
+        } else {
+            delete cell['aria-selected'];
+            me.#cellCls.delete(cell)
+        }
+
+        return true
     }
 
     /**
@@ -99,7 +171,7 @@ class BaseModel extends Model {
      * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
      */
     updateRows(recordIds, silent=false) {
-        if (!recordIds || recordIds.length === 0) return;
+        if (recordIds == null || recordIds.length === 0) return;
 
         if (!Array.isArray(recordIds)) {
             recordIds = [recordIds]
@@ -190,34 +262,18 @@ class BaseModel extends Model {
             processed = new Set();
 
         logicalIds.forEach(logicalId => {
-            let hasChanged = false,
-                record     = body.getRecordFromLogicalId(logicalId),
-                row        = record && body.getRow(record);
+            let record = body.getRecordFromLogicalId(logicalId),
+                row    = record && body.getRow(record);
 
             if (row && !processed.has(logicalId)) {
                 processed.add(logicalId); // Process each logical cell only once per batch
 
                 // Find the cell node in the row's VDOM
-                let dataField     = body.getDataField(logicalId),
-                    cellNode      = row.vdom.cn.find(n => n.data?.field === dataField),
-                    shouldSelect  = me.isSelected(logicalId),
-                    alreadySelect = cellNode?.cls?.includes(me.selectedCls);
-
-                if (cellNode && shouldSelect !== alreadySelect) {
-                    // Mutate VDOM directly: Toggle selection class
-                    NeoArray[shouldSelect ? 'add' : 'remove'](cellNode.cls, me.selectedCls);
-
-                    if (shouldSelect) {
-                        cellNode['aria-selected'] = true
-                    } else {
-                        delete cellNode['aria-selected']
-                    }
-
-                    hasChanged = true
-                }
+                let dataField = body.getDataField(logicalId),
+                    cellNode  = row.vdom.cn.find(n => n.data?.field === dataField);
 
                 // We must trigger the update on the row to flush the VDOM change
-                if (hasChanged && !silent) {
+                if (cellNode && me.applyCellSelection(cellNode, record, dataField) && !silent) {
                     row.update()
                 }
             }
@@ -233,6 +289,7 @@ class BaseModel extends Model {
     deselect(item, silent, itemCollection, selectedCls) {
         let me = this;
 
+        me.#itemLookup = null;
         me.silently(() => super.deselect(item, silent, itemCollection, selectedCls));
 
         if (!silent) {
@@ -248,6 +305,7 @@ class BaseModel extends Model {
         let me    = this,
             items = [...itemCollection || me.items]; // Capture items before they are removed
 
+        me.#itemLookup = null;
         me.silently(() => super.deselectAll(silent, itemCollection));
 
         me.updateCells(items)
@@ -261,6 +319,7 @@ class BaseModel extends Model {
     select(items, itemCollection, selectedCls) {
         let me = this;
 
+        me.#itemLookup = null;
         me.silently(() => super.select(items, itemCollection, selectedCls));
 
         me.updateCells(items)
@@ -315,6 +374,34 @@ class BaseModel extends Model {
     }
 
     /**
+     * @returns {Set} `items` as a Set, rebuilt when the array or its length differs from the last build
+     * @private
+     */
+    #getItemLookup() {
+        let me      = this,
+            {items} = me,
+            lookup  = me.#itemLookup;
+
+        if (lookup?.items !== items || lookup.length !== items.length) {
+            lookup = me.#itemLookup = {items, length: items.length, set: new Set(items)}
+        }
+
+        return lookup.set
+    }
+
+    /**
+     * @summary The classes a selected cell carries beside `selectedCls`; none by default. Override it in a model
+     * that draws its selection, such as the outline of a rectangle. It is asked for selected cells only, and a
+     * class it stops returning leaves the cell on the next repaint.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {String[]}
+     */
+    getCellCls(record, dataField) {
+        return []
+    }
+
+    /**
      * @param {Object} path
      * @returns {Number|String|null}
      */
@@ -341,7 +428,7 @@ class BaseModel extends Model {
      * @returns {Neo.data.Record|null}
      */
     getRowRecord(id) {
-        if (!id) return null;
+        if (id == null) return null;
 
         let me    = this,
             {view} = me,
@@ -399,6 +486,32 @@ class BaseModel extends Model {
     }
 
     /**
+     * @summary Whether `items` holds an id, in constant time. The lookup is rebuilt on the first question after
+     * this model changed `items`, after `items` was assigned, or after its length changed. Code that replaces
+     * an entry of the array itself assigns `items` afterwards.
+     * @param {String} id
+     * @returns {Boolean}
+     */
+    isSelected(id) {
+        return this.#getItemLookup().has(id)
+    }
+
+    /**
+     * @summary Whether this model holds a cell selected: `grid.Row` asks it for every cell it renders. The
+     * default answers from `items`, the logical cell ids. Override it in a model that selects by a rule, such as
+     * the rectangle between two cells: keep `items` empty and call {@link #updateRenderedCells} when the rule
+     * changes.
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {Boolean}
+     */
+    isSelectedCell(record, dataField) {
+        let lookup = this.#getItemLookup();
+
+        return lookup.size > 0 && lookup.has(this.#view.getLogicalCellId(record, dataField))
+    }
+
+    /**
      * @param {String} dataField
      * @returns {Boolean} true in case the column is selected
      */
@@ -420,7 +533,12 @@ class BaseModel extends Model {
     register(component) {
         // grid.View registers as the single model's `view`; with one View-owned model there are no
         // sibling per-body models to adopt state from (the former multi-body Peer State Adoption).
-        super.register(component)
+        super.register(component);
+
+        // A model swapped at runtime lands on a grid whose ARIA root already exists. The View's own model
+        // registers while the grid container still constructs its ariaWrapper, so this first call can be a
+        // no-op; the container asks again once the wrapper exists (Neo.grid.Container#construct).
+        this.syncAriaMultiselectable()
     }
 
     /**
@@ -502,6 +620,48 @@ class BaseModel extends Model {
     }
 
     /**
+     * @summary States on the grid's ARIA root whether several rows or cells can be selected: the WAI-ARIA
+     * grid pattern asks a multi-selectable grid to say so, and silence announces a grid in which one item
+     * can be selected.
+     *
+     * `singleSelect` is the model's config, so the model is the only owner of the answer; the root belongs
+     * to {@link Neo.grid.Container#getAriaRoot}, which the model reaches through its View. Registration and
+     * unregistration call it, and `grid.Container` calls it once its `ariaWrapper` exists — the View's own
+     * model registers before that wrapper is created. The update is skipped when the root already states
+     * the answer, so a single-select model leaves the initial render alone.
+     * @param {Boolean} [multiselectable=!this.singleSelect] the state to write; `false` withdraws the attribute
+     * @protected
+     */
+    syncAriaMultiselectable(multiselectable=!this.singleSelect) {
+        let me        = this,
+            {view}    = me,
+            container = view?.gridContainer,
+            root;
+
+        if (!container?.ariaWrapper) {
+            return
+        }
+
+        root = container.getAriaRoot();
+
+        if (multiselectable) {
+            if (root['aria-multiselectable'] === true) {
+                return
+            }
+
+            root['aria-multiselectable'] = true
+        } else {
+            if (!('aria-multiselectable' in root)) {
+                return
+            }
+
+            delete root['aria-multiselectable']
+        }
+
+        container.ariaWrapper.update()
+    }
+
+    /**
      * @param {Number|String} recordId
      * @param {Boolean}       [silent=false]
      */
@@ -536,7 +696,8 @@ class BaseModel extends Model {
         // unchanged. A view that is being destroyed has nothing left to repaint.
         if (!me.view.isDestroying) {
             columns.length > 0 && me.updateColumns(columns);
-            rows.length    > 0 && me.updateRows(rows)
+            rows.length    > 0 && me.updateRows(rows);
+            me.syncAriaMultiselectable(false)
         }
 
         super.unregister()
@@ -594,6 +755,33 @@ class BaseModel extends Model {
                     if (dataFields.includes(field) && shouldPaint !== Boolean(cell.cls?.includes(cls))) {
                         cell.cls ??= [];
                         NeoArray.toggle(cell.cls, cls, shouldPaint);
+                        hasChanged = true
+                    }
+                });
+
+                hasChanged && !silent && row.update()
+            })
+        })
+    }
+
+    /**
+     * @summary Granular cell repaint without an id list, the cell half of {@link #updateColumns}: asks the model
+     * again for every rendered cell of every body and updates only the rows that changed. A model that selects
+     * by a rule calls it when the rule changes; the cost follows the rendered cells, not the selection's size.
+     * @param {Boolean} [silent=false] true to mutate the VDOM without updating the rows
+     */
+    updateRenderedCells(silent=false) {
+        let me = this;
+
+        me.view.bodies.forEach(body => {
+            body.items?.forEach(row => {
+                let {record}   = row,
+                    hasChanged = false;
+
+                record && row.vdom.cn?.forEach(cell => {
+                    const field = cell.data?.field;
+
+                    if (field && me.applyCellSelection(cell, record, field)) {
                         hasChanged = true
                     }
                 });

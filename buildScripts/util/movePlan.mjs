@@ -208,7 +208,7 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
         if (owner.appThemeFolder !== undefined) themeFolders.set(owner.namespace, owner.appThemeFolder);
     }
     const stylePath = name => getThemeNamespace(name, themeFolders.get(name.split('.')[0]))
-        .replace(/^Neo\./, '').split('.').join('/') + '.scss';
+        .replace(/^Neo\./, '').split('.').join('/') + '.css';
     const readSource = file => {
         const code = fs.existsSync(file) ? fs.readFileSync(file) : null;
         if (!files.has(file) && !readOnlyInputs.some(input => input.file === file)) {
@@ -266,10 +266,10 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
 
         for (const style of files) {
             const relative = path.relative(root, style).split(path.sep).join('/');
-            if (!relative.startsWith('resources/scss/')) continue;
+            if (!relative.startsWith('resources/css/')) continue;
             const parts = relative.split('/'), surface = parts[2];
             if ((surface === 'src' || surface.startsWith('theme-')) && parts.slice(3).join('/') === oldStyle) {
-                const target = path.join(root, 'resources/scss', surface, newStyle);
+                const target = path.join(root, 'resources/css', surface, newStyle);
                 if (target !== style && mapPath(style) === style) moves.push({from: style, to: target});
             }
         }
@@ -315,7 +315,7 @@ export function planMove({root, source, destination, namespaceRoots=[], referenc
                 nativeSites: nativeReferenceSites({code: original.toString('utf8'), file, root, engineRoot, mapPath})});
             referenceLedger.push(...classified);
             blockers.push(...classified.filter(reference => reference.status === 'blocked'));
-        } else if (extension === '.scss') {
+        } else if (extension === '.css') {
             result = rewriteStyle({code: original.toString('utf8'), from: file, to: target, mapPath, exists: name => files.has(name)});
             blockers.push(...result.unresolved.map(reference => ({file, ...reference})));
         } else if (extension === '.html') {

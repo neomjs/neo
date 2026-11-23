@@ -1,0 +1,49 @@
+/* The panel belongs to the taskbar, so it stays above every app window (`Neo.desktop.WindowManager` stacks them below
+   100) */
+.webdesktop-permission-panel {
+    backdrop-filter : blur(28px) saturate(160%);
+    background-color: var(--webdesktop-glass-strong);
+    border-left     : 1px solid var(--webdesktop-glass-border);
+    position        : relative;
+    width           : 320px;
+    z-index         : 100;
+
+    .webdesktop-panel-header {
+        padding: 22px 20px 12px;
+
+        h2 {
+            font-size  : 17px;
+            font-weight: 700;
+            margin     : 0 0 6px;
+        }
+
+        p {
+            color      : var(--webdesktop-ink-dim);
+            font-size  : 13px;
+            line-height: 1.5;
+            margin     : 0;
+        }
+    }
+}
+
+/* The open panel stays above the windows, so a maximized window keeps to its left and its header actions stay in
+   reach, and the note over an empty launcher centers beside it. The panel is in the DOM only while it is open. */
+@media (min-width: 601px) {
+    body:has(.webdesktop-permission-panel) .neo-dialog.neo-desktop-app-window.neo-maximized {
+        width: calc(100% - 320px) !important;
+    }
+
+    .neo-desktop-workspace:has(> .webdesktop-permission-panel) > .webdesktop-empty {
+        right: 320px;
+    }
+}
+
+/* A phone: the panel becomes a sheet over the workspace instead of squeezing the launcher beside it */
+@media (max-width: 600px) {
+    .webdesktop-permission-panel {
+        border-left: none;
+        inset      : 0;
+        position   : absolute;
+        width      : auto;
+    }
+}

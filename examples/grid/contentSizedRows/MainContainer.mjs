@@ -1,8 +1,10 @@
 import CheckBox      from '../../../src/form/field/CheckBox.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
+import Label         from '../../../src/component/Label.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
 import TextField     from '../../../src/form/field/Text.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar       from '../../../src/toolbar/Base.mjs';
 import Viewport      from '../../../src/container/Viewport.mjs';
 
@@ -24,6 +26,10 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.grid.contentSizedRows.MainContainer',
         /**
+         * @member {String[]} cls=['neo-examples-grid-content-sized-rows']
+         */
+        cls: ['neo-examples-grid-content-sized-rows'],
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'},
@@ -33,6 +39,7 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [{
                 module    : CheckBox,
                 checked   : true,
@@ -48,7 +55,6 @@ class MainContainer extends Viewport {
                 maxValue     : 10000,
                 minValue     : 1,
                 reference    : 'jump-to-row',
-                style        : {marginLeft: '1em'},
                 width        : 160
             }, {
                 module       : TextField,
@@ -56,9 +62,17 @@ class MainContainer extends Viewport {
                 labelText    : 'Filter summary',
                 listeners    : {change: 'up.onFilterChange'},
                 reference    : 'filter',
-                style        : {marginLeft: '1em'},
                 width        : 200
+            }, '->', {
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
+        }, {
+            module   : Label,
+            cls      : ['content-sized-rows-caption'],
+            flex     : 'none',
+            reference: 'caption',
+            text     : '10,000 rows, each as tall as its text.'
         }, {
             module          : GridContainer,
             cellEditing     : true,
@@ -85,7 +99,15 @@ class MainContainer extends Viewport {
      * @param {Boolean} data.value
      */
     onContentSizedChange({value}) {
-        this.getReference('grid').contentSizedRows = value
+        const
+            grid = this.getReference('grid'),
+            cls  = grid.cls.filter(item => item !== 'content-sized-rows-fixed');
+
+        grid.set({contentSizedRows: value, cls: value ? cls : [...cls, 'content-sized-rows-fixed']});
+
+        this.getReference('caption').text = value ?
+            '10,000 rows, each as tall as its text.' :
+            'Fixed-height rows clip overflowing text.'
     }
 
     /**

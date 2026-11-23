@@ -1,0 +1,82 @@
+[
+    {
+        "id": "offscreen-canvas",
+        "family": "platform",
+        "order": 160,
+        "alsoIn": [
+            "charts"
+        ],
+        "feature": "A million points, moved and drawn in a canvas worker every frame",
+        "lookFor": "Press \"Block the main thread for 5 seconds\": the page clock stops, the app's clock in the canvas runs on, and the points keep moving.",
+        "featured": false,
+        "image": "devmode/offscreen-canvas-14.jpg",
+        "hasLightCover": true,
+        "name": "Stop the main thread",
+        "sourceUrl": "examples/worker/canvas",
+        "urls": {
+            "devmode": "examples/worker/canvas/index.html",
+            "dist_dev": "dist/development/examples/worker/canvas/index.html",
+            "dist_esm": "dist/esm/examples/worker/canvas/index.html",
+            "dist_prod": "dist/production/examples/worker/canvas/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "task-worker",
+        "family": "platform",
+        "order": 165,
+        "feature": "The same prime count in two workers shows when the interface can keep responding.",
+        "lookFor": "Type while the Task Worker runs, then run the App Worker and compare the heartbeat and results.",
+        "featured": false,
+        "image": "devmode/task-worker-14.jpg",
+        "hasLightCover": true,
+        "name": "Heavy work off the UI",
+        "sourceUrl": "examples/worker/task",
+        "urls": {
+            "devmode": "examples/worker/task/index.html",
+            "dist_dev": "dist/development/examples/worker/task/index.html",
+            "dist_esm": "dist/esm/examples/worker/task/index.html",
+            "dist_prod": "dist/production/examples/worker/task/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "asset-preloading",
+        "family": "platform",
+        "order": 166,
+        "feature": "The Service Worker preloads the next portrait before its tab opens.",
+        "lookFor": "Hover over Alice’s tab or use Preload next tab. Turn on Cache-only mode, open her tab, and watch Cache opens increase.",
+        "scope": "Cache-only mode applies to this demo’s portraits.",
+        "image": "devmode/asset-preloading-14.jpg",
+        "hasLightCover": true,
+        "name": "Ready before the click",
+        "sourceUrl": "examples/preloadingAssets",
+        "urls": {
+            "devmode": "examples/preloadingAssets/index.html",
+            "dist_dev": "dist/development/examples/preloadingAssets/index.html",
+            "dist_esm": "dist/esm/examples/preloadingAssets/index.html",
+            "dist_prod": "dist/production/examples/preloadingAssets/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video-move",
+        "family": "platform",
+        "order": 510,
+        "component": "Video",
+        "feature": "A mounted video component moves between two containers without being recreated.",
+        "lookFor": "Press Move Video and watch the same player switch panels while the readout tracks its continuing playback.",
+        "scope": "Streams the CC BY 3.0 Big Buck Bunny trailer from neomjs/pages via jsDelivr.",
+        "image": "devmode/video-move-14.jpg",
+        "hasLightCover": true,
+        "name": "Moving a Video",
+        "sourceUrl": "examples/videoMove",
+        "urls": {
+            "devmode": "examples/videoMove/index.html",
+            "dist_dev": "dist/development/examples/videoMove/index.html",
+            "dist_esm": "dist/esm/examples/videoMove/index.html",
+            "dist_prod": "dist/production/examples/videoMove/index.html"
+        },
+        "hiddenIn": []
+    }
+]

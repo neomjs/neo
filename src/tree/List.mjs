@@ -191,7 +191,7 @@ class Tree extends Base {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                if (me.#setFolderOpen(node, false)) {
+                if (me.#setFolderOpen(node, false, item)) {
                     hasMatch = true
                 }
             }
@@ -212,6 +212,7 @@ class Tree extends Base {
      * 3.  **Sticky Positioning:** Sets `position: sticky` and calculates `top` offsets for folder nodes
      *     to ensure they stack correctly while scrolling.
      * 4.  **Content:** Creates the label and icon structure.
+     * 5.  **Selection:** An item the selection model holds renders as selected, so a render keeps the selection.
      *
      * @param {Object} record The data record from the store
      * @returns {Object} The VDOM object for the list item
@@ -222,6 +223,8 @@ class Tree extends Base {
             cls                  = [itemCls],
             contentCls           = [itemCls + '-content'],
             keyProperty          = me.getKeyProperty(),
+            {selectionModel}     = me,
+            zone                 = me.dragZone || me.sortZone,
             itemVdom;
 
         if (record.iconCls) {
@@ -240,6 +243,11 @@ class Tree extends Base {
             if (!record.collapsed) {
                 cls.push('neo-folder-open')
             }
+        }
+
+        // The zone marks the items that exist when it is created; an item rendered later marks itself
+        if (zone?.isDragEnabled() && zone.isItemDraggable(record)) {
+            cls.push('neo-draggable')
         }
 
         itemVdom = {
@@ -265,6 +273,11 @@ class Tree extends Base {
 
         if (me.itemsFocusable) {
             itemVdom.tabIndex = -1
+        }
+
+        // The model owns what "selected" looks like, as in `Neo.list.Base#createItem`
+        if (!me.disableSelection && selectionModel?.isSelected(itemVdom.id)) {
+            selectionModel.annotateItem(itemVdom)
         }
 
         return itemVdom
@@ -360,7 +373,7 @@ class Tree extends Base {
             if (!item.isLeaf) {
                 node = me.getVdomChild(me.getItemId(item.id), me.vdom);
 
-                if (me.#setFolderOpen(node, true)) {
+                if (me.#setFolderOpen(node, true, item)) {
                     hasMatch = true
                 }
             }
@@ -405,12 +418,12 @@ class Tree extends Base {
 
             while (parentId) {
                 node = me.getVdomChild(me.getItemId(parentId));
+                item = me.store.get(parentId);
 
-                if (node && me.#setFolderOpen(node, true)) {
+                if (node && me.#setFolderOpen(node, true, item)) {
                     hasMatch = true
                 }
 
-                item     = me.store.get(parentId);
                 parentId = item ? item.parentId : null
             }
         }
@@ -454,7 +467,7 @@ class Tree extends Base {
                     childReturnValue = true
                 } else {
                     childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch);
-                    me.#setFolderOpen(node, !hasValue || directMatch || !childReturnValue)
+                    me.#setFolderOpen(node, !hasValue || directMatch || !childReturnValue, item)
                 }
 
                 itemFiltered = hasValue && !(directMatch || parentMatch || !childReturnValue);
@@ -475,12 +488,14 @@ class Tree extends Base {
     }
 
     /**
-     * Updates a folder VDOM node's open state, sticky positioning, and child list visibility.
+     * Updates a folder VDOM node's open state, sticky positioning, and child list visibility, and writes the state
+     * to the folder's record as `collapsed`, so a render from the store keeps it.
      * @param {Object} node
      * @param {Boolean} isOpen
+     * @param {Object|null} record The folder's record
      * @returns {Boolean} true if the folder open state changed
      */
-    #setFolderOpen(node, isOpen) {
+    #setFolderOpen(node, isOpen, record) {
         let me      = this,
             wasOpen = node.cls.includes('neo-folder-open'),
             index, nextSibling, parentNode;
@@ -499,6 +514,12 @@ class Tree extends Base {
 
         if (nextSibling?.tag === 'ul') {
             nextSibling.removeDom = !isOpen
+        }
+
+        if (record?.isRecord) {
+            record.setSilent({collapsed: !isOpen})
+        } else if (record) {
+            record.collapsed = !isOpen
         }
 
         return true
@@ -530,6 +551,17 @@ class Tree extends Base {
         }
 
         return cn[0]
+    }
+
+    /**
+     * @summary A tree renders each item under its record's key, so a record resolves to that item:
+     * `selectionModel.select(record)` finds it. A rendered id still resolves back through `store.get()`, which
+     * reads every key the Store does.
+     * @param {Object} record
+     * @returns {Number|String}
+     */
+    getRecordId(record) {
+        return this.store.getKey(record)
     }
 
     /**
@@ -608,14 +640,7 @@ class Tree extends Base {
 
                 let isOpen = !item.cls.includes('neo-folder-open');
 
-                me.#setFolderOpen(item, isOpen);
-
-                if (record.isRecord) {
-                    record.setSilent({collapsed: !isOpen})
-                } else {
-                    record.collapsed = !isOpen
-                }
-
+                me.#setFolderOpen(item, isOpen, record);
                 me.update()
             } else {
                 me.onLeafItemClick(record);

@@ -1,7 +1,7 @@
 # Features and Benefits Summary
 
 Neo.mjs is a complete application platform for every desktop and mobile web application. It ships more than 450
-classes in 39 namespaces: the components, data layer and tooling that teams otherwise assemble from dozens of
+classes in 44 namespaces: the components, data layer and tooling that teams otherwise assemble from dozens of
 packages, in one MIT-licensed install. It builds the applications teams build with
 [Angular, React or Vue](../../comparisons/Overview.md) today, at
 [feature parity with Ext JS](../../comparisons/NeoVsExtJs.md) and generations ahead of it in architecture. Below are
@@ -11,14 +11,14 @@ the capabilities that set it apart.
 
 Everything a real application needs is already in the box, built on one class system and one config system:
 
-*   **Grids** (`src/grid/`, 38 classes): locked columns, header groups, cell editing, tree, sparkline, progress and
+*   **Grids** (`src/grid/`, 39 classes): locked columns, header groups, cell editing, tree, sparkline, progress and
     currency columns, and buffered rendering of 100,000 rows that keeps scrolling smooth.
 *   **Forms** (`src/form/`): 26 field types, nested and lazy-loaded forms, and a state provider built into every form.
     See the [Forms Engine](FormsEngine.md).
 *   **Calendar** (`src/calendar/`, 28 classes), **Dock Layouts** for multi-window workspaces (`src/dashboard/dock`,
     42 classes), and tabs, dialogs, toolbars, menus, lists and trees.
 *   **8 layouts**: Card, Cube, Fit, Flexbox, Form, Grid, HBox and VBox.
-*   **38 main-thread addons**: charts (AmCharts), maps (Google Maps, Mapbox GL, OpenStreetMap, CesiumJS), the Monaco
+*   **40 main-thread addons**: charts (AmCharts), maps (Google Maps, Mapbox GL, OpenStreetMap, CesiumJS), the Monaco
     editor, Markdown, Mermaid, syntax highlighting, service workers, server-side rendering and web components.
 *   **The data layer**: stores, models, state providers, selection models and routing.
 *   **Themes** that nest, so one part of an application can carry its own look.

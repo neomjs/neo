@@ -1,0 +1,14 @@
+:where(.neo-theme-neo-dark) { /* .neo-calendar-yearcomponent */
+    --c-y-cell-border-color             : var(--sem-color-border-default);
+    --c-y-cell-color                    : var(--sem-color-text-neutral-default);
+    /* One hue that grows stronger with a day's events, clear of today's red: yellow to red turns to mud on dark */
+    --c-y-events-high-background-color  : rgba(62, 99, 221, 0.8);
+    --c-y-events-low-background-color   : rgba(62, 99, 221, 0.25);
+    --c-y-events-medium-background-color: rgba(62, 99, 221, 0.5);
+    --c-y-month-color                   : var(--sem-color-text-neutral-default);
+    --c-y-today-background-color        : red;
+    --c-y-today-color                   : var(--sem-color-text-neutral-contrast);
+    --c-y-week-background-color         : var(--sem-color-bg-neutral-highlighted);
+    --c-y-week-color                    : var(--sem-color-text-neutral-subdued);
+    --c-y-year-color                    : var(--sem-color-text-primary-default);
+}

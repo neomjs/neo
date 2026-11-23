@@ -59,8 +59,9 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.form.Fieldset` config with three number fields. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Fieldset,
             title : 'My Fieldset',
             width : 300,
@@ -81,7 +82,7 @@ class MainContainer extends ConfigurationViewport {
             }, {
                 labelText: 'Field 3'
             }]
-        })
+        }
     }
 }
 

@@ -1,0 +1,32 @@
+.neo-examples-grid-container {
+    .neo-workbench-stage-desc {
+        line-height: 1.45;
+        max-width  : 96ch;
+    }
+
+    .neo-example-container,
+    .neo-grid-container {
+        min-height: 0;
+        min-width : 0;
+    }
+
+    @media (max-width: 600px) {
+        .neo-workbench-stage {
+            height    : 410px !important;
+            max-height: 49vh !important;
+        }
+
+        .neo-workbench-stage-header {
+            padding: 10px 12px;
+
+            .neo-workbench-stage-desc {
+                font-size  : 12px;
+                line-height: 1.35;
+            }
+        }
+
+        .neo-example-container {
+            padding: 10px !important;
+        }
+    }
+}

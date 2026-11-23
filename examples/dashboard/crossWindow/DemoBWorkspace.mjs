@@ -348,6 +348,13 @@ class DemoBWorkspace extends Container {
      */
     tearOutAcquisitionAttempts = 0
     /**
+     * What the user saw when the last driven tab drag armed: the proxy, the tab it lifted, the pane its
+     * vessel opens at and the pointer's travel. The tear-out matrix measures sizes from it.
+     * @member {Object|null} lastGestureArming=null
+     * @protected
+     */
+    lastGestureArming = null
+    /**
      * Supersession token for the async keyboard-cycle highlight: every highlight call bumps it,
      * and a paint whose measured geometry resolves after a newer call (or a clear) loses — a
      * fast candidate cycle must never leave a stale zone lit.
@@ -573,9 +580,9 @@ class DemoBWorkspace extends Container {
             reparentPane    : (pane, target, itemId) => me.reparentDockPane(pane, target, itemId),
             resolvePane     : itemId => me.paneCache[itemId] || null,
             // NEVER a resurrected node: the engine's default re-mints the remembered parent/slot,
-            // and the user watched that node collapse.
+            // and the user watched that node collapse. Only the center, kept as a well, takes its pane back.
             resolveReturnDescriptor: (document, itemId, placement) =>
-                Operations.appendingReturnDescriptor(document, itemId, placement),
+                Operations.centerWellReturnDescriptor(document, itemId, placement),
             settlePane      : pane => {
                 pane && !pane.isDestroyed && (pane.parent?.remove(pane, false), pane.destroy())
             }
@@ -1200,6 +1207,7 @@ class DemoBWorkspace extends Container {
         return DockLayoutAdapter.project(document, {
             applyDockZoneOperation   : descriptor => me.applyWorkspaceOperation(workspaceId, descriptor),
             crossWindowSortGroup     : me.crossWindowEnabled ? DemoBWorkspace.CROSS_WINDOW_SORT_GROUP : null,
+            enableDockCenterWell     : tearOut,
             enableDockTearOut        : tearOut,
             enableStackDrag          : stackDrag,
             enableVesselConversion   : tearOut && me.crossWindowEnabled,
@@ -1212,7 +1220,9 @@ class DemoBWorkspace extends Container {
             resolveRevealComponentRef: (reference, item, itemId) => me.resolvePane(itemId, item),
             workspaceId,
             ...(tearOut ? me.tearOutHandlers.getProjectionCallbacks() : null),
-            onDockTearOutExit: tearOut ? data => me.onDockTearOutExit(data) : undefined
+            // A tab tears out when it leaves the window's root, never on leaving its own tab strip.
+            dockTearOutBoundaryContainerId: tearOut ? me.id : undefined,
+            onDockTearOutExit             : tearOut ? data => me.onDockTearOutExit(data) : undefined
         })
     }
 

@@ -1,0 +1,17 @@
+/* The field fills the item's text slot, beside a tree item's icon. A tree item's content node takes no pointer
+   events; its field does. */
+.neo-list-item-editing {
+    .neo-list-item-content {
+        align-items: center;
+        display    : flex;
+        flex       : 1;
+    }
+
+    .neo-list-item-editor {
+        flex          : 1;
+        margin        : 0;
+        min-width     : 0;
+        pointer-events: auto;
+        width         : 100%;
+    }
+}

@@ -182,6 +182,12 @@ class MagicMoveText extends Component {
      */
     previousChars = []
     /**
+     * Whether the window this component lives in is hidden, as its app's `visibilitychange` reports it.
+     * @member {Boolean} windowHidden=false
+     * @protected
+     */
+    windowHidden = false
+    /**
      * A getter for the VDOM node used to measure character positions.
      * @member {Object} measureElement
      * @protected
@@ -221,6 +227,7 @@ class MagicMoveText extends Component {
             scope : me
         });
 
+        me.windowHidden = Boolean(Neo.currentWorker?.hiddenTick?.isHidden(me.windowId));
         me.app?.on('visibilitychange', me.onVisibilityChange, me)
     }
 
@@ -248,7 +255,7 @@ class MagicMoveText extends Component {
      * @protected
      */
     afterSetAutoCycle(value, oldValue) {
-        this.mounted && this.startAutoCycle(value)
+        this.mounted && this.startAutoCycle(value && !this.windowHidden)
     }
 
     /**
@@ -260,9 +267,8 @@ class MagicMoveText extends Component {
     afterSetAutoCycleInterval(value, oldValue) {
         let me = this;
 
-        if (oldValue && me.mounted) {
-            me.startAutoCycle(false);
-            me.startAutoCycle()
+        if (oldValue && me.mounted && me.autoCycle) {
+            me.startAutoCycle(!me.windowHidden)
         }
     }
 
@@ -304,7 +310,7 @@ class MagicMoveText extends Component {
         if (oldValue !== undefined) {
             me.addResizeObserver(value);
 
-            me.autoCycle && me.startAutoCycle(value)
+            me.autoCycle && me.startAutoCycle(value && !me.windowHidden)
         }
     }
 
@@ -438,6 +444,18 @@ class MagicMoveText extends Component {
     }
 
     /**
+     * @summary Stops any active auto-cycle timer and removes the app visibility listener before destruction.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.startAutoCycle(false);
+        me.app?.un('visibilitychange', me.onVisibilityChange, me);
+        super.destroy(...args)
+    }
+
+    /**
      * The first phase of the animation: calculating character positions.
      * If the positions for the current text are not in the cache, this method temporarily
      * renders the characters into a hidden div, measures their bounding rectangles,
@@ -524,8 +542,10 @@ class MagicMoveText extends Component {
     onVisibilityChange(data) {
         let me = this;
 
-        if (me.autoCycle) {
-            if (data.hidden) {
+        me.windowHidden = Boolean(data.hidden);
+
+        if (me.autoCycle && me.mounted) {
+            if (me.windowHidden) {
                 me.startAutoCycle(false)
             } else {
                 me.isRetrying    = false;
@@ -562,12 +582,23 @@ class MagicMoveText extends Component {
     startAutoCycle(start=true) {
         let me = this;
 
+        if (me.intervalId !== null) {
+            clearInterval(me.intervalId);
+            me.intervalId = null
+        }
+
         if (start) {
             me.intervalId = setInterval(me.cycleText.bind(me), me.autoCycleInterval);
 
-            me.timeout(20).then(() => {me.cycleText()})
-        } else {
-            clearInterval(me.intervalId)
+            me.timeout(20).then(() => {
+                if (me.intervalId !== null) {
+                    me.cycleText()
+                }
+            }).catch(error => {
+                if (error !== Neo.isDestroyed) {
+                    throw error
+                }
+            })
         }
     }
 

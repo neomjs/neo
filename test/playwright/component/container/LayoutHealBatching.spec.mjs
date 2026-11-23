@@ -274,5 +274,49 @@ test.describe('Neo.main.DeltaUpdates layout-heal batching', () => {
 
         expect(result.duringAnimation).toBe(0);
         expect(result.afterAnimation).toBe(1)
+    });
+
+    test('a heal leaves a scrolled ancestor where it was scrolled, and the bare toggle is proven to clamp it', async ({page}) => {
+        const result = await page.evaluate(async () => {
+            const root     = document.getElementById('component-test-viewport'),
+                  scroller = document.createElement('div'),
+                  parent   = document.createElement('div');
+
+            // A board column's shape: the moved-into parent holds all the content of its scrolled ancestor
+            root.innerHTML = '';
+            scroller.style.cssText = 'height: 100px; overflow-y: auto';
+            parent.id = 'heal-parent';
+            scroller.appendChild(parent);
+            root.appendChild(scroller);
+
+            for (let i = 0; i < 20; i++) {
+                const child = document.createElement('div');
+
+                child.id           = `heal-child-${i}`;
+                child.style.height = '40px';
+                parent.appendChild(child)
+            }
+
+            scroller.scrollTop = scroller.scrollHeight;
+
+            const end = scroller.scrollTop;
+
+            Neo.main.DeltaUpdates.update({deltas: [
+                {action: 'moveNode', id: 'heal-child-19', index: 0, parentId: 'heal-parent'}
+            ]});
+
+            const afterHeal = scroller.scrollTop;
+
+            // RED demonstration: the same toggle without the ancestor restore
+            parent.style.display = 'none';
+            void parent.offsetHeight;
+            parent.style.display = '';
+
+            return {afterHeal, afterToggle: scroller.scrollTop, end}
+        });
+
+        expect(result.end, 'the ancestor starts scrolled to its end').toBe(700);
+        expect(result.afterHeal, 'the heal keeps it there').toBe(result.end);
+        expect(result.afterToggle, 'the bare toggle clamps it').toBeLessThan(result.end)
     })
 });

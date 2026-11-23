@@ -1,0 +1,177 @@
+/* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
+.venue-viewport.neo-viewport {
+    .venue-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 16px;
+        min-height   : 56px;
+        padding      : 10px 20px;
+    }
+
+    .venue-title {
+        color         : var(--neo-timeline-header-color);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .venue-hint {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 13px;
+    }
+
+    /* One segmented control: the buttons share their borders, the pressed one carries the bar colour */
+    .venue-levels {
+        gap: 0;
+
+        .venue-level.neo-button {
+            background   : transparent;
+            border       : 1px solid var(--neo-timeline-border-color);
+            border-radius: 0;
+            color        : var(--neo-timeline-header-muted-color);
+            font-size    : 13px;
+            font-weight  : 600;
+            height       : 32px;
+            margin       : 0 0 0 -1px;
+            min-width    : 72px;
+            padding      : 0 14px;
+
+            &:first-child {
+                border-radius: 6px 0 0 6px;
+                margin-left  : 0;
+            }
+
+            &:last-child {
+                border-radius: 0 6px 6px 0;
+            }
+
+            &:hover {
+                color: var(--neo-timeline-header-color);
+            }
+
+            &.pressed {
+                background: var(--neo-timeline-bar-background);
+                border    : 1px solid var(--neo-timeline-bar-border-color);
+                color     : var(--neo-timeline-bar-color);
+                position  : relative;
+            }
+        }
+    }
+
+    /* What each bar colour means, in the bars' own colours */
+    .venue-legend {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        color        : var(--neo-timeline-header-muted-color);
+        display      : flex;
+        flex-wrap    : wrap;
+        font-size    : 12px;
+        gap          : 6px 18px;
+        padding      : 8px 20px;
+    }
+
+    .venue-legend-item {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 6px;
+
+        &::before {
+            border       : 1px solid;
+            border-radius: 3px;
+            content      : '';
+            height       : 10px;
+            width        : 10px;
+        }
+    }
+
+    .venue-legend-violet::before {
+        background  : var(--neo-scheduler-bar-violet-bg);
+        border-color: var(--neo-scheduler-bar-violet-border);
+    }
+
+    .venue-legend-talk::before {
+        background  : var(--neo-timeline-bar-background);
+        border-color: var(--neo-timeline-bar-border-color);
+    }
+
+    .venue-legend-emerald::before {
+        background  : var(--neo-scheduler-bar-emerald-bg);
+        border-color: var(--neo-scheduler-bar-emerald-border);
+    }
+
+    .venue-legend-amber::before {
+        background  : var(--neo-scheduler-bar-amber-bg);
+        border-color: var(--neo-scheduler-bar-amber-border);
+    }
+
+    .venue-room-name,
+    .venue-room-seats {
+        display      : block;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .venue-room-name {
+        font-weight: 600;
+    }
+
+    .venue-room-seats {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 12px;
+    }
+
+    /* A title takes two lines before it ends in an ellipsis; a session too short to name shows its shape only, as at
+       the week level, where an hour is nine pixels wide */
+    .neo-timeline-bar {
+        container-type: inline-size;
+
+        .neo-timeline-bar-label {
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            display           : -webkit-box;
+            line-height       : 1.25;
+            white-space       : normal;
+        }
+    }
+
+    @container (max-width: 36px) {
+        .neo-timeline-bar-label {
+            visibility: hidden;
+        }
+    }
+
+    @media (min-width: 721px) and (max-width: 1100px) {
+        .venue-toolbar.neo-toolbar {
+            gap    : 4px 16px;
+            padding: 8px 20px;
+        }
+
+        .venue-hint {
+            flex       : 0 0 100% !important;
+            order      : 2;
+            white-space: normal;
+        }
+    }
+
+    /* On a phone the hint gives the plan its height, and the three levels share the toolbar's width */
+    @media (max-width: 720px) {
+        .venue-hint {
+            display: none;
+        }
+
+        .venue-legend {
+            padding: 6px 12px;
+        }
+
+        .venue-levels {
+            flex : 1 0 100% !important;
+            order: 2;
+            width: 100%;
+        }
+    }
+}

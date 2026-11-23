@@ -96,27 +96,35 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.ntype({
             ntype : 'container',
+            cls   : ['neo-examples-splitter-panes'],
             height: 600,
             layout: {ntype: 'hbox', align: 'stretch'},
-            style : {border: '1px solid var(--panel-border-color)'},
             width : 600,
             items : [{
-                ntype: 'component'
+                ntype: 'component',
+                cls  : ['neo-examples-splitter-pane'],
+                vdom : {cn: [
+                    {tag: 'h3', text: 'Folders'},
+                    {tag: 'ul', cn: [
+                        {tag: 'li', text: 'Inbox'},
+                        {tag: 'li', text: 'Drafts'},
+                        {tag: 'li', text: 'Sent'},
+                        {tag: 'li', text: 'Archive'}
+                    ]}
+                ]}
             }, {
                 module    : Splitter,
                 liveResize: true
             }, {
-                ntype: 'component'
+                ntype: 'component',
+                cls  : ['neo-examples-splitter-pane'],
+                vdom : {cn: [
+                    {tag: 'h3', text: 'Inbox'},
+                    {tag: 'p',  text: 'Drag the bar between the panels: one side grows as the other shrinks.'},
+                    {tag: 'p',  text: 'With live resize on, both panels follow the pointer; with it off, they resize on release.'}
+                ]}
             }]
         })
-    }
-
-    /**
-     * A debugging helper method to log the instance of the splitter component to the console.
-     * This can be wired up to a button in the configuration panel for easy inspection.
-     */
-    logInstance() {
-        console.log(this.exampleComponent.down({module: Splitter}))
     }
 
     /**

@@ -348,6 +348,15 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @summary The owner-level switch that admits a drag start and commits its drop: the owner's `dragResortable`.
+     * A zone whose owner keeps a separate switch for these items (a board's columns beside its cards) overrides it.
+     * @returns {Boolean}
+     */
+    isResortable() {
+        return Boolean(this.owner?.dragResortable)
+    }
+
+    /**
      * @summary Returns the VDOM root cloned into the drag proxy for `draggedItem`.
      * @param {Neo.component.Base} draggedItem
      * @param {Object|null} [handleNode=null] The matched drag handle VDOM node resolved from `owner.vdom` when `dragHandleSelector` is active
@@ -596,7 +605,8 @@ class SortZone extends DragZone {
         // One latch per gesture: a newer drag's start lifts it, so that drag's own end gets through
         latch = me.dragEndLatch = {};
 
-        me.dragEndActive = true;
+        me.dragEndActive  = true;
+        me.isOverDragging = false;
 
         try {
             // Queued behind the drag's start: the end tears down what the start builds
@@ -664,21 +674,22 @@ class SortZone extends DragZone {
             return
         }
 
-        if (owner.dragResortable) {
+        if (me.isResortable()) {
             if (me.dragPlaceholder) {
                 const
                     component = me.dragComponent,
                     deltas    = [],
-                    index     = me.sortableItems.indexOf(me.dragPlaceholder);
+                    index     = owner.items.indexOf(component);
 
-                if (component && index > -1) {
-                    if (!me.isWindowDragging) {
+                if (me.sortableItems.includes(me.dragPlaceholder)) {
+                    // A component that left the owner has no restore slot, but its placeholder still needs cleanup.
+                    if (index > -1 && !me.isWindowDragging) {
                         // Only move DOM if not window dragging or if it's a remote drag being finalized locally
                         if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
                              deltas.push({
                                 action: 'moveNode',
                                 id    : component.id,
-                                index,    // Visually correct index (where placeholder is)
+                                index,    // Native siblings use owner order, including items excluded from sorting.
                                 parentId: owner.getVdomItemsRoot().id
                             })
                         }
@@ -794,7 +805,7 @@ class SortZone extends DragZone {
     }
 
     /**
-     * Handles the drag move event. This is the core logic loop for the drag operation.
+     * @summary Reorders the current drag snapshot and retires its async work when that snapshot changes.
      *
      * Responsibilities:
      * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
@@ -884,8 +895,8 @@ class SortZone extends DragZone {
                 me.currentIndex--;
                 await me.scrollToIndex();
 
-                // The drag can end while the scroll is awaited; the end-reset nulls itemRects
-                if (!me.itemRects) {
+                // An ended or replaced drag no longer owns this continuation's indices.
+                if (me.itemRects !== itemRects) {
                     return
                 }
 
@@ -898,8 +909,7 @@ class SortZone extends DragZone {
                 me.currentIndex++;
                 await me.scrollToIndex();
 
-                // See the isOverDraggingStart branch: bail when the drag ended mid-await
-                if (!me.itemRects) {
+                if (me.itemRects !== itemRects) {
                     return
                 }
 
@@ -940,7 +950,7 @@ class SortZone extends DragZone {
         if (me.isOverDragging) {
             await me.timeout(30); // wait for 1 frame
 
-            if (me.isOverDragging) {
+            if (me.isOverDragging && me.itemRects === itemRects) {
                 await me.onDragMove(data)
             }
         }
@@ -971,7 +981,7 @@ class SortZone extends DragZone {
             handleNode                                                               = null,
             draggedItem, index, indexMap, itemStyle, pinnedItems, rect, sortableItems;
 
-        if (owner.dragResortable) {
+        if (me.isResortable()) {
             if (ignoreDragSelector) {
                 const ignoreClassName = ignoreDragSelector.startsWith('.') ? ignoreDragSelector.substring(1) : ignoreDragSelector;
                 if (data.path[0].cls.includes(ignoreClassName)) {

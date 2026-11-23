@@ -54,12 +54,13 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.list.Chip` config bound to `MainStore`. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module      : ChipList,
             displayField: 'firstname',
             store       : MainStore
-        })
+        }
     }
 }
 

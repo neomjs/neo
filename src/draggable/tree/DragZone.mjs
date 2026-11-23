@@ -72,11 +72,20 @@ class DragZone extends BaseDragZone {
     getItemVdom(record, index) {
         let {owner} = this;
 
-        if (!(this.leafNodesOnly && !record.isLeaf)) {
+        if (this.isItemDraggable(record)) {
             return owner.getVdomChild(owner.getItemId(record[owner.getKeyProperty()]), owner.vdom)
         }
 
         return null
+    }
+
+    /**
+     * Whether a drag can start on the record's item: every item, or leaves only with `leafNodesOnly`
+     * @param {Object} record
+     * @returns {Boolean}
+     */
+    isItemDraggable(record) {
+        return !(this.leafNodesOnly && !record.isLeaf)
     }
 
     /**
@@ -85,7 +94,7 @@ class DragZone extends BaseDragZone {
     async onDragStart(data) {
         let me = this;
 
-        if (me.owner.draggable) {
+        if (me.isDragEnabled()) {
             me.dragElement = {
                 tag: 'ul',
                 cls: ['neo-list-container', 'neo-list'],

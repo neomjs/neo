@@ -110,10 +110,11 @@ class VesselWorkspace extends DockWorkspace {
     }
 
     /**
-     * Retained tab bars whose CSS entry animation is suppressed for the current re-projection —
-     * written by {@link #getReconcileOptions}'s staging seam, restored and cleared by
-     * {@link #afterRefreshDockWorkspace}. Refreshes serialize on the class's chain, so the field
-     * never sees two transactions at once.
+     * Retained tab bars whose CSS entry animation this host suppressed and has not restored yet —
+     * added by {@link #getReconcileOptions}'s staging seam, restored and cleared by
+     * {@link #afterRefreshDockWorkspace}. A refresh that a newer commit supersedes, or that fails,
+     * skips that restore, so its bars stay owned here and the next refresh restores them after its
+     * own animation window. A bar that already carried the class is never owned.
      * @member {Neo.toolbar.Base[]} animationSuppressedBars=[]
      * @protected
      */
@@ -720,7 +721,7 @@ class VesselWorkspace extends DockWorkspace {
                 const viewport = source.app?.mainView;
                 if (viewport && !viewport.isDestroyed) {
                     viewport.addCls('workstation-vessel-departing');
-                    // The designed exit (Viewport.scss): the theme-ground overlay fades in over `--motion-panel`
+                    // The designed exit (Viewport.css): the theme-ground overlay fades in over `--motion-panel`
                     // and holds before the OS close. Awaited through the browser's own Animation API in the
                     // vessel's window once the class has reached its DOM, then held one beat so the opaque ground
                     // is what the window dies on. Presentation never refuses a transfer: a view that cannot
@@ -955,8 +956,8 @@ class VesselWorkspace extends DockWorkspace {
      * The reconciler seams this host owns: retained tab bars suppress their CSS entry animation
      * across native reparenting (restored in {@link #afterRefreshDockWorkspace} once the chrome
      * window elapsed), and overflow projections are awaited through the app's four-fact readiness
-     * check. Refreshes serialize on the class's settled-tail chain, so the suppressed-bars field
-     * never sees two transactions at once.
+     * check. Bars an earlier, superseded refresh suppressed stay in the field and are restored with
+     * this refresh's own.
      * @param {Object|null} document The committed document this refresh projects.
      * @param {Object} refreshOptions The options {@link #getRefreshOptions} produced for it.
      * @returns {Object}
@@ -964,21 +965,17 @@ class VesselWorkspace extends DockWorkspace {
     getReconcileOptions(document, refreshOptions) {
         let me = this;
 
-        me.animationSuppressedBars = [];
-
         return {
             onProjectionStaged: ({plans}) => {
-                const retainedTabBars = [...plans.values()]
-                    .filter(plan => plan.tab)
-                    .map(plan => plan.tab.getTabBar());
-
-                me.animationSuppressedBars = retainedTabBars
-                    .filter(bar => !bar.cls.includes('neo-no-animation'));
-
                 // Native reparenting keeps each toolbar DOM node, but CSS animations restart when it
                 // re-enters the document. Retained indicators settle immediately; new chrome still enters.
-                me.animationSuppressedBars.forEach(bar => {
-                    bar.setSilent({cls: [...bar.cls, 'neo-no-animation']})
+                [...plans.values()].filter(plan => plan.tab).forEach(plan => {
+                    const bar = plan.tab.getTabBar();
+
+                    if (!bar.cls.includes('neo-no-animation')) {
+                        bar.setSilent({cls: [...bar.cls, 'neo-no-animation']});
+                        me.animationSuppressedBars.push(bar)
+                    }
                 })
             },
             waitForOverflowProjection: plugin => me.waitForOverflowProjection(plugin)
@@ -1046,8 +1043,8 @@ class VesselWorkspace extends DockWorkspace {
         await played;
         await chromeAnimationSettle;
 
-        (me.animationSuppressedBars || []).forEach(bar => {
-            bar.setSilent({cls: bar.cls.filter(cls => cls !== 'neo-no-animation')})
+        me.animationSuppressedBars.forEach(bar => {
+            bar.isDestroyed || bar.setSilent({cls: bar.cls.filter(cls => cls !== 'neo-no-animation')})
         });
         me.animationSuppressedBars = [];
 

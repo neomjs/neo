@@ -1,25 +1,18 @@
-import SharedCanvas from '../../../../../../src/app/SharedCanvas.mjs';
+import RoundTableCanvas from '../../../../../../src/app/roundtable/Canvas.mjs';
 
 /**
- * @summary The App Worker component for the Home Hero "Neural Swarm" canvas.
+ * @summary The hero's round table: a week of the repository's public record, replayed behind the statement.
  *
- * This component acts as the **Controller** and **Bridge** for the visual effect.
- * It does not perform any rendering itself. Instead, it coordinates the lifecycle and
- * data transfer to the `Portal.canvas.HomeCanvas` (SharedWorker) which handles the physics and drawing.
- *
- * **Responsibilities:**
- * 1. **Lifecycle Management:** Imports and initializes the SharedWorker graph when the canvas
- *    becomes available offscreen.
- * 2. **Resize Observation:** Tracks the DOM element's size via `ResizeObserver` and pushes
- *    dimensions to the worker to ensure the simulation matches the viewport.
- * 3. **Input Bridging:** Captures high-frequency mouse events (move, click, leave) and
- *    forwards normalized coordinates to the worker for interactive physics.
+ * The scene, its record and what the statement keeps free are the engine's ({@link Neo.app.roundtable.Canvas},
+ * {@link Neo.canvas.RoundTable}). This class names the Portal's part: the file the record comes from
+ * (`buildScripts/docs/recordWeek.mjs` writes it) and the colours per theme. A model family's colour is its
+ * identity on this page only; the warning colour is the one warm thing, so a change request is the event the eye
+ * finds.
  *
  * @class Portal.view.home.parts.hero.Canvas
- * @extends Neo.app.SharedCanvas
- * @see Portal.canvas.HomeCanvas
+ * @extends Neo.app.roundtable.Canvas
  */
-class CanvasComponent extends SharedCanvas {
+class CanvasComponent extends RoundTableCanvas {
     static config = {
         /**
          * @member {String} className='Portal.view.home.parts.hero.Canvas'
@@ -31,13 +24,40 @@ class CanvasComponent extends SharedCanvas {
          */
         cls: ['portal-home-hero-canvas'],
         /**
-         * @member {String} rendererClassName='Portal.canvas.HomeCanvas'
+         * @member {Object} look
          */
-        rendererClassName: 'Portal.canvas.HomeCanvas',
+        look: {
+            measures: {standaloneFallbackSquare: [2, 1]},
+            palettes: {
+                dark: {
+                    card  : 'rgba(13, 18, 36, 0.94)',
+                    door  : '#F2F4FA',
+                    ground: ['rgba(62, 99, 221, 0.15)', 'rgba(139, 166, 255, 0.15)'],
+                    groups: {claude: '#B49BFF', gemini: '#5EA2FF', gpt: '#3DD6C4'},
+                    ink   : '#E8ECF8',
+                    inkDim: '#8E9BBF',
+                    line  : 'rgba(160, 178, 255, 0.28)',
+                    merge : '#FFFFFF',
+                    warn  : '#FFB454'
+                },
+                light: {
+                    card  : 'rgba(255, 255, 255, 0.96)',
+                    chord : 0.9, // a thin line on white needs more of its colour than one on navy
+                    door  : '#39425C',
+                    ground: ['rgba(62, 99, 221, 0.05)', 'rgba(139, 166, 255, 0.05)'],
+                    groups: {claude: '#6D4AE6', gemini: '#1F6FEB', gpt: '#0E8F82'},
+                    ink   : '#1B2440',
+                    inkDim: '#5A6788',
+                    line  : 'rgba(62, 99, 221, 0.28)',
+                    merge : '#0F172A',
+                    warn  : '#B45309'
+                }
+            }
+        },
         /**
-         * @member {String} rendererImportPath='apps/portal/canvas/HomeCanvas.mjs'
+         * @member {String} recordUrl='../../apps/portal/resources/data/record-week.json'
          */
-        rendererImportPath: 'apps/portal/canvas/HomeCanvas.mjs'
+        recordUrl: '../../apps/portal/resources/data/record-week.json'
     }
 }
 

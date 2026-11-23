@@ -48,7 +48,7 @@ class Field extends Component {
         isTouched_: false,
         /**
          * Event name which sets isTouched to true. Valid options are 'focusEnter' & 'focusLeave'
-         * @member {String} isTouched_=false
+         * @member {String} isTouchedEvent_='focusLeave'
          * @reactive
          */
         isTouchedEvent_: 'focusLeave',
@@ -87,12 +87,30 @@ class Field extends Component {
     }
 
     /**
+     * Fields currently holding unresolved or outer-matched `#pendingFieldReferences`.
+     * @type {Set<Neo.form.field.Base>}
+     * @private
+     */
+    static #pendingReferenceFields = new Set()
+    /**
      * Config keys explicitly passed to this field at construction time (or via immediate container `itemDefaults`),
      * preserved so ancestor `form.Container#fieldDefaults` never overwrite them.
      * @type {Set<String>}
      * @private
      */
     #explicitConfigKeys = new Set()
+    /**
+     * Pending or outer-matched field-reference descriptors keyed by reactive config name (`{maxDepth, reference}`).
+     * @type {Map<String, {maxDepth: Number, reference: String}>}
+     * @private
+     */
+    #pendingFieldReferences = new Map()
+    /**
+     * Cleanup callbacks per observed ancestor container while `#pendingFieldReferences` is non-empty.
+     * @type {Map<Neo.component.Base, Function[]>}
+     * @private
+     */
+    #pendingReferenceParents = new Map()
     /**
      * An internal cache for formGroups of all parent levels
      * @member {String|null} formGroupString=null
@@ -138,7 +156,9 @@ class Field extends Component {
         super.afterSetParentId(value, oldValue);
 
         if (oldValue !== undefined && value && value !== 'document.body') {
-            this.applyParentFieldDefaults()
+            this.applyParentFieldDefaults();
+            this.#pendingFieldReferences.size > 0 && this.#flushPendingFieldReferences();
+            this.reference && Field.#notifyPendingReferences()
         }
     }
 
@@ -237,6 +257,17 @@ class Field extends Component {
      */
     afterSetRequired(value, oldValue) {
         oldValue !== undefined && this.validate(false)
+    }
+
+    /**
+     * @summary Notifies pending field-reference resolvers when a constructed field's `reference` changes.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetReference(value, oldValue) {
+        super.afterSetReference(value, oldValue);
+        this.isConstructed && value && Field.#notifyPendingReferences()
     }
 
     /**
@@ -480,6 +511,197 @@ class Field extends Component {
                 }
             })
         }
+    }
+
+    /**
+     * @summary Notifies pending field-reference resolvers once this field finishes construction with a `reference`.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.reference && Field.#notifyPendingReferences()
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.#clearPendingFieldReferences();
+        super.destroy(...args)
+    }
+
+    /**
+     * @private
+     */
+    static #notifyPendingReferences() {
+        for (const field of [...Field.#pendingReferenceFields]) {
+            field.#flushPendingFieldReferences()
+        }
+    }
+
+    /**
+     * @param {Neo.component.Base} container
+     * @returns {Boolean}
+     * @private
+     */
+    static #isCreatingItems(container) {
+        return !container.isConstructed
+            && Array.isArray(container._items)
+            && container._items.some(item =>
+                item && !(item instanceof Neo.core.Base) && !(Neo.isFunction(item.module) && !item.module.isClass)
+            )
+    }
+
+    /**
+     * @param {Neo.component.Base} parent
+     * @private
+     */
+    #releasePendingParent(parent) {
+        const cleanups = this.#pendingReferenceParents.get(parent);
+
+        if (cleanups) {
+            this.#pendingReferenceParents.delete(parent);
+            cleanups.forEach(fn => fn())
+        }
+    }
+
+    /**
+     * @private
+     */
+    #clearPendingFieldReferences() {
+        let me = this;
+
+        for (const parent of [...me.#pendingReferenceParents.keys()]) {
+            me.#releasePendingParent(parent)
+        }
+
+        me.#pendingFieldReferences.clear();
+        Field.#pendingReferenceFields.delete(me)
+    }
+
+    /**
+     * @param {Neo.component.Base[]} parents
+     * @private
+     */
+    #syncPendingReferenceObservers(parents) {
+        let me = this;
+
+        if (me.#pendingFieldReferences.size === 0) {
+            me.#clearPendingFieldReferences();
+            return
+        }
+
+        Field.#pendingReferenceFields.add(me);
+
+        let maxDepth = 0;
+
+        for (const entry of me.#pendingFieldReferences.values()) {
+            if (entry.maxDepth > maxDepth) {
+                maxDepth = entry.maxDepth
+            }
+        }
+
+        const needed = new Set(parents.slice(0, maxDepth));
+
+        for (const parent of [...me.#pendingReferenceParents.keys()]) {
+            !needed.has(parent) && me.#releasePendingParent(parent)
+        }
+
+        for (const parent of needed) {
+            if (!me.#pendingReferenceParents.has(parent) && !parent.isDestroyed) {
+                const cleanups = [];
+
+                if (!parent.isConstructed && Neo.isFunction(parent.on)) {
+                    parent.on('itemsCreated', me.#flushPendingFieldReferences, me);
+                    cleanups.push(() => !parent.isDestroyed && parent.un('itemsCreated', me.#flushPendingFieldReferences, me))
+                }
+
+                if (parent.isConfig?.('items')) {
+                    cleanups.push(me.observeConfig(parent, 'items', () => me.#flushPendingFieldReferences()))
+                }
+
+                if (parent.isConfig?.('isDestroying')) {
+                    cleanups.push(me.observeConfig(parent, 'isDestroying', destroying => {
+                        destroying && me.#releasePendingParent(parent)
+                    }))
+                }
+
+                me.#pendingReferenceParents.set(parent, cleanups)
+            }
+        }
+    }
+
+    /**
+     * @private
+     */
+    #flushPendingFieldReferences() {
+        let me = this;
+
+        if (me.isDestroyed || me.#pendingFieldReferences.size === 0) {
+            return
+        }
+
+        const parents = ComponentManager.getParents(me);
+        me.#syncPendingReferenceObservers(parents);
+
+        for (const [configName, entry] of [...me.#pendingFieldReferences.entries()]) {
+            const limit = Math.min(parents.length, entry.maxDepth);
+
+            for (let i = 0; i < limit; i++) {
+                const target = parents[i].getReference(entry.reference);
+
+                if (target && target !== me) {
+                    if (!parents.slice(0, i).some(p => Field.#isCreatingItems(p))) {
+                        me[configName] = entry.reference
+                    }
+                    break
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary Resolves a nearest-ancestor component `reference` string, observing nearer/constructing containers until definitively resolved or cleared.
+     * @param {Neo.component.Base|String|null} value
+     * @param {String} configName
+     * @returns {Neo.component.Base|null}
+     * @protected
+     */
+    resolveFieldReference(value, configName) {
+        let me = this;
+
+        if (!Neo.isString(value)) {
+            me.#pendingFieldReferences.delete(configName);
+            me.#syncPendingReferenceObservers(
+                me.#pendingFieldReferences.size > 0 ? ComponentManager.getParents(me) : []
+            );
+            return value
+        }
+
+        const parents = ComponentManager.getParents(me);
+
+        for (let i = 0; i < parents.length; i++) {
+            const target = parents[i].getReference(value);
+
+            if (target && target !== me) {
+                if (parents.slice(0, i).some(p => Field.#isCreatingItems(p))) {
+                    break
+                }
+
+                if (i === 0) {
+                    me.#pendingFieldReferences.delete(configName)
+                } else {
+                    me.#pendingFieldReferences.set(configName, {maxDepth: i, reference: value})
+                }
+
+                me.#syncPendingReferenceObservers(parents);
+                return target
+            }
+        }
+
+        me.#pendingFieldReferences.set(configName, {maxDepth: Infinity, reference: value});
+        me.#syncPendingReferenceObservers(parents);
+
+        return null
     }
 
     /**

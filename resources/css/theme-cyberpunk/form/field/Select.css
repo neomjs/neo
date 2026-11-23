@@ -1,0 +1,34 @@
+:root .neo-theme-cyberpunk { /* .neo-selectfield */
+    --selectfield-background                    : var(--cyber-bg);
+    --selectfield-background-disabled           : var(--cyber-bg);
+    --selectfield-border-color                  : #5c7a99;
+    --selectfield-border-color-disabled         : var(--cyber-border);
+    --selectfield-border-color-hovered          : color-mix(in srgb, var(--cyber-cyan) 65%, var(--cyber-border));
+    --selectfield-border-radius                 : 2px;
+    --selectfield-border-width                  : 1px;
+    --selectfield-checkmark-color               : var(--cyber-cyan);
+    --selectfield-color                         : var(--cyber-text);
+    --selectfield-color-disabled                : var(--cyber-text);
+    --selectfield-error-color                   : var(--cyber-red);
+    --selectfield-focus-color                   : var(--cyber-cyan);
+    --selectfield-input-font                    : 400 13px/17px var(--neo-font-family);
+    --selectfield-input-height                  : 26px;
+    --selectfield-input-padding                 : 3px 6px 2px;
+    --selectfield-label-color                   : var(--cyber-text);
+    --selectfield-label-color-disabled          : var(--cyber-text);
+    --selectfield-label-top-margin              : 0 0 3px;
+    --selectfield-opacity-disabled              : var(--neo-disabled-opacity);
+    --selectfield-option-background-color-hover : color-mix(in srgb, var(--cyber-cyan) 14%, var(--cyber-bg-alt));
+    --selectfield-option-background-color-selected: color-mix(in srgb, var(--cyber-cyan) 24%, var(--cyber-bg-alt));
+    --selectfield-option-color                  : var(--cyber-text);
+    --selectfield-option-color-disabled         : #6e7681;
+    --selectfield-option-color-selected         : var(--cyber-cyan);
+    --selectfield-picker-background-color       : var(--cyber-bg-alt);
+    --selectfield-picker-border-color           : var(--cyber-cyan);
+    --selectfield-picker-box-shadow             : 0 6px 20px rgba(0, 0, 0, .75), 0 0 8px rgba(0, 210, 255, .2);
+    --selectfield-placeholder-color             : color-mix(in srgb, var(--cyber-text) 65%, var(--cyber-bg));
+    --selectfield-trigger-background-color-hover: color-mix(in srgb, var(--cyber-cyan) 16%, var(--cyber-bg));
+    --selectfield-trigger-border-width          : 1px;
+    --selectfield-trigger-color                 : var(--cyber-cyan);
+    --selectfield-trigger-color-hover           : var(--cyber-cyan);
+}

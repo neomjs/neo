@@ -1,0 +1,53 @@
+:where(.neo-theme-neo-light) { /* .neo-board */
+    /* The board's own palette, in the light theme's register: paper surfaces, a teal accent, a warm WIP signal.
+       An app maps its palette onto these tokens; the components never name a color. */
+    --neo-board-background             : #f3f5f8;
+    --neo-board-color                  : #1f2937;
+    --neo-board-font-family            : system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --neo-board-font-size              : 14px;
+    --neo-board-gap                    : 12px;
+    --neo-board-padding                : 12px;
+    --neo-board-radius                 : 8px;
+    --neo-board-accent-color           : #0a7a6e;
+    --neo-board-focus-color            : #0a7a6e;
+
+    --neo-board-column-width           : 280px;
+    --neo-board-column-collapsed-width : 44px;
+    --neo-board-column-background      : #e9edf2;
+    --neo-board-column-border-color    : #d5dbe3;
+    --neo-board-column-color           : #1f2937;
+
+    --neo-board-badge-background       : #dde3ea;
+    --neo-board-badge-color            : #4b5563;
+    --neo-board-overdue-background     : #fef2f2;
+    --neo-board-overdue-border-color   : #dc2626;
+    --neo-board-overdue-color          : #991b1b;
+    --neo-board-wip-color              : #d97706;
+    --neo-board-wip-contrast-color     : #fffbeb;
+
+    --neo-board-card-gap               : 8px;
+    --neo-board-card-background        : #ffffff;
+    --neo-board-card-border-color      : #d5dbe3;
+    --neo-board-card-hover-border-color: #b5bfcc;
+    --neo-board-card-selected-background  : #eefaf8;
+    --neo-board-card-selected-border-color: #0a7a6e;
+    --neo-board-card-color             : #111827;
+    --neo-board-card-muted-color       : #6b7280;
+    --neo-board-card-shadow            : 0 1px 2px rgba(15, 23, 42, 0.08);
+    --neo-board-card-drag-border-color : #b5bfcc;
+    --neo-board-slot-background        : rgba(15, 159, 143, 0.08);
+    --neo-board-track-color            : #e5e9ef;
+    --neo-board-avatar-background      : #d7f0ec;
+    --neo-board-avatar-color           : #0b5f56;
+
+    --neo-board-editor-width           : 440px;
+    --neo-board-editor-background      : #ffffff;
+    --neo-board-editor-border-color    : #d5dbe3;
+    --neo-board-editor-shadow          : 0 12px 32px rgba(15, 23, 42, 0.16);
+
+    --neo-board-lane-background        : #eef2f6;
+    --neo-board-lane-header-background : #e3e8ef;
+    --neo-board-lane-border-color      : #d5dbe3;
+    --neo-board-lane-color             : #111827;
+    --neo-board-lane-column-max-height : 280px;
+}

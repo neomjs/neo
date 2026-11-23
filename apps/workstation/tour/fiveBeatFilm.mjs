@@ -1,7 +1,7 @@
 /**
  * @summary Workstation's flagship-film screenplay v2 — the `neo.tour.script.v1` narrative
  * authority for the 90–150s recorded journey, with narration captions as the spoken-text draft,
- * and the RUNNABLE screenplay the Workstation's own "Start film tour" plays.
+ * and the RUNNABLE screenplay `TourController#startFilmTour` plays through the tour driver.
  *
  * Authority chain, stated so no consumer confuses the layers:
  * - `test/playwright/e2e/workstation/WorkstationFiveBeatNL.spec.mjs` is the WITNESS authority

@@ -102,3 +102,102 @@ test.describe('ChipListComponent', () => {
         await expect(page.locator(`${listSelector} .neo-list-item.neo-navigator-active-item`)).toHaveCount(1);
     });
 });
+
+test.describe('ChipListComponent theme surfaces', () => {
+    // A chip shares its list item's box, so the item paints the chip's fill and its states reach the chip.
+    // The list carries its own theme class, as in a workbench: a classic theme's token rule then out-ranks one set on the list.
+    for (const theme of ['neo-theme-dark', 'neo-theme-light', 'neo-theme-neo-dark', 'neo-theme-neo-light']) {
+        test(`${theme}: a chip fills its pill, its text clears the border, and the list takes the theme's frame`, async ({page}) => {
+            const directory = theme.replace('neo-theme-', 'theme-'),
+                  sheets    = ['list/Base.css', 'component/Chip.css'].map(file => `/dist/development/css/${directory}/${file}`);
+
+            // The neo themes' design tokens live in their Global sheet
+            directory.startsWith('theme-neo-') && sheets.unshift(`/dist/development/css/${directory}/Global.css`);
+
+            await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
+            await page.waitForSelector('#component-test-viewport', {state: 'attached'});
+
+            await page.evaluate(async hrefs => {
+                for (const href of hrefs) {
+                    const link = Object.assign(document.createElement('link'), {href, rel: 'stylesheet'});
+
+                    await new Promise((resolve, reject) => {
+                        link.onload  = resolve;
+                        link.onerror = () => reject(new Error(`stylesheet did not load: ${href}`));
+                        document.head.appendChild(link)
+                    })
+                }
+            }, sheets);
+
+            // getTheme() reads the mainView, so the theme goes there before the list exists
+            await page.evaluate(async theme => {
+                const cls = await Neo.worker.App.getConfigs({id: 'component-test-viewport', keys: 'cls'}) || [];
+
+                await Neo.worker.App.setConfigs({cls: [...cls.filter(item => !item.startsWith('neo-theme-')), theme], id: 'component-test-viewport'})
+            }, theme);
+
+            const result = await page.evaluate(theme => Neo.worker.App.createNeoInstance({
+                displayField: 'name',
+                importPath  : '../list/Chip.mjs',
+                ntype       : 'chip-list',
+                parentId    : 'component-test-viewport',
+                theme,
+                width       : 300,
+                store       : {
+                    data : [{id: 1, name: 'Bastian'}, {id: 2, name: 'Gerard'}],
+                    model: {fields: [{name: 'id', type: 'Number'}, {name: 'name', type: 'String'}]}
+                }
+            }), theme);
+
+            expect(result.success, result.error?.message).toBe(true);
+
+            const item = page.locator(`#${result.id} .neo-list-item`).first(),
+                  chip = item.locator('.neo-chip'),
+                  read = () => item.evaluate((node, theme) => {
+                      const chip  = node.querySelector('.neo-chip'),
+                            list  = node.closest('.neo-chip-list'),
+                            probe = node.appendChild(document.createElement('div')),
+                            frame = style => style.borderTopStyle === 'none' ? 'none' : `${style.borderTopWidth} ${style.borderTopStyle} ${style.borderTopColor}`;
+
+                      // Resolves the theme's tokens where the item reads them
+                      probe.style.cssText = 'background-color: var(--chip-background-color); border-top: var(--list-container-border)';
+
+                      const values = {
+                          background    : getComputedStyle(node).backgroundColor,
+                          chipBackground: getComputedStyle(chip).backgroundColor,
+                          chipFill      : getComputedStyle(probe).backgroundColor,
+                          chipRadius    : getComputedStyle(chip).borderTopLeftRadius,
+                          frame         : frame(getComputedStyle(list)),
+                          listTheme     : list.classList.contains(theme),
+                          radius        : getComputedStyle(node).borderTopLeftRadius,
+                          textInset     : chip.querySelector('.neo-chip-text').getBoundingClientRect().left - chip.getBoundingClientRect().left,
+                          themeFrame    : frame(getComputedStyle(probe))
+                      };
+
+                      probe.remove();
+                      return values
+                  }, theme);
+
+            await expect(chip).toBeVisible();
+
+            const rest = await read();
+
+            expect(rest.listTheme).toBe(true);
+            expect(rest.chipFill).not.toBe('rgba(0, 0, 0, 0)');
+            expect(rest.background).toBe(rest.chipFill);
+            expect(rest.chipBackground).toBe('rgba(0, 0, 0, 0)');
+            expect(rest.chipRadius).not.toBe('0px');
+            expect(rest.radius).toBe(rest.chipRadius);
+            expect(rest.textInset).toBeGreaterThanOrEqual(7);
+            expect(rest.frame).toBe(rest.themeFrame);
+
+            await item.hover();
+            await expect.poll(async () => (await read()).background).not.toBe(rest.background);
+
+            await item.click();
+            await expect.poll(() => chip.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
+
+            await page.evaluate(id => Neo.worker.App.destroyNeoInstance(id), result.id)
+        });
+    }
+});

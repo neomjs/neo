@@ -1,4 +1,5 @@
-import Controller from '../../../src/controller/Component.mjs';
+import ColorService from '../service/ColorService.mjs';
+import Controller   from '../../../src/controller/Component.mjs';
 
 /**
  * @summary The main controller for the Colors demo application.
@@ -16,7 +17,22 @@ class ViewportController extends Controller {
          * @member {String} className='Colors.view.ViewportController'
          * @protected
          */
-        className: 'Colors.view.ViewportController'
+        className: 'Colors.view.ViewportController',
+        /**
+         * How long a call to the backend may take, in milliseconds, before the app generates its data itself.
+         * @member {Number} backendDeadline=2000
+         */
+        backendDeadline: 2000
+    }
+
+    /**
+     * @summary Builds the environment-aware relative URL for the child widget app.
+     * @returns {String}
+     */
+    static getWidgetPopupUrl() {
+        let {environment} = Neo.config;
+
+        return `${environment === 'development' ? '' : environment + '/'}apps/colors/childapps/widget/index.html`
     }
 
     /**
@@ -39,17 +55,10 @@ class ViewportController extends Controller {
 
             await dashboard.openWidgetInPopup(widget, rect)
         } else {
-            let {config, windowConfigs} = Neo,
-                {environment}           = config,
-                firstWindowId           = Object.keys(windowConfigs)[0],
-                {basePath}              = windowConfigs[firstWindowId],
-                url;
-
-            if (environment !== 'development') {
-                basePath = `${basePath + environment}/`
-            }
-
-            url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
+            let {windowConfigs} = Neo,
+                firstWindowId   = Object.keys(windowConfigs)[0],
+                {basePath}      = windowConfigs[firstWindowId],
+                url             = `${basePath}${ViewportController.getWidgetPopupUrl()}?name=${name}`;
 
             await Neo.Main.windowOpen({url, windowName: '_blank'})
         }
@@ -151,6 +160,45 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @summary Asks the backend for a batch, and answers null when none arrives before `backendDeadline`.
+     * @description This is the RPC layer at work: the app worker calls the backend's `ColorService.read()` as if it
+     * were a local method. A call on a socket that cannot connect never settles, so it races a deadline; a rejected
+     * call and a remotes api that never registers count as no answer too.
+     * @returns {Promise<Object|null>} The batch (`{summaryData, tableData}`), or null
+     */
+    async readFromBackend() {
+        let me            = this,
+            stateProvider = me.getStateProvider(),
+            abort         = new AbortController(),
+            expired       = false,
+            response;
+
+        const deadline = me.timeout(me.backendDeadline, {signal: abort.signal}).then(() => {expired = true}, Neo.emptyFn);
+
+        const answer = (async () => {
+            // The remotes api registers asynchronously: inside dist/development its namespace might not exist yet
+            while (!Colors.backend) {
+                await me.timeout(50);
+                if (expired) return null
+            }
+
+            response = await Colors.backend.ColorService.read({
+                amountColors : stateProvider.getData('amountColors'),
+                amountColumns: stateProvider.getData('amountColumns'),
+                amountRows   : stateProvider.getData('amountRows')
+            });
+
+            return response.data
+        })().catch(() => null);
+
+        const data = await Promise.race([answer, deadline]);
+
+        abort.abort();
+
+        return data || null
+    }
+
+    /**
      * @summary Starts the real-time data update interval.
      * @param {Object} data The event data.
      */
@@ -238,35 +286,38 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @summary Fetches new data from the backend service and updates all widgets.
-     * @description This is the main data refresh method. It reads the current settings from the state provider,
-     * and then uses Neo.mjs's RPC layer to seamlessly call the backend `ColorService.read()` method.
-     * This demonstrates remote method access, allowing the App Worker to invoke backend functionality
-     * as if it were a local method. After receiving the response, it distributes the new data to the grid and charts.
+     * @summary Fetches a new batch and hands it to the grid and the charts.
+     * @description The batch comes from the backend (`readFromBackend()`). When the backend does not answer in
+     * time, the state provider's `dataSource` switches to 'local', and this and every later batch come from
+     * `Colors.service.ColorService` inside the app: the same call, answered without a network. A reload asks the
+     * backend again.
      */
     async updateWidgets() {
         let me            = this,
             stateProvider = me.getStateProvider(),
-            response;
+            data;
 
-        // Timing issue inside dist/development => the namespace might not be registered yet
-        if (!Colors.backend) {
-            await me.timeout(50);
-            me.updateWidgets()
-        } else {
-            response = await Colors.backend.ColorService.read({
-                amountColors : stateProvider.getData('amountColors'),
-                amountColumns: stateProvider.getData('amountColumns'),
-                amountRows   : stateProvider.getData('amountRows')
-            });
+        if (stateProvider.getData('dataSource') === 'backend') {
+            data = await me.readFromBackend();
 
-            if (!me.isDestroyed) {
-                let {data} = response;
+            if (me.isDestroyed) return;
 
-                me.updateGrid(data.tableData);
-                me.updateCharts(data.summaryData)
+            if (!data) {
+                // Calls in flight together pass their deadlines together: the first one switches the source
+                if (stateProvider.getData('dataSource') === 'local') return;
+
+                stateProvider.setData('dataSource', 'local')
             }
         }
+
+        data ??= ColorService.read({
+            amountColors : stateProvider.getData('amountColors'),
+            amountColumns: stateProvider.getData('amountColumns'),
+            amountRows   : stateProvider.getData('amountRows')
+        }).data;
+
+        me.updateGrid(data.tableData);
+        me.updateCharts(data.summaryData)
     }
 }
 

@@ -72,7 +72,7 @@ class FooterContainer extends Container {
                     text   : 'API Docs'
                 }, {
                     iconCls: 'fas fa-blog',
-                    route  : '/blog',
+                    route  : '/news/blog',
                     text   : 'Blog'
                 }, {
                     iconCls: 'fas fa-graduation-cap',
@@ -135,7 +135,7 @@ class FooterContainer extends Container {
             items : [{
                 module: Component,
                 cls   : ['neo-version'],
-                text  : `© ${new Date().getFullYear()} Neo.mjs • v13.4.0 • MIT License`
+                text  : `© ${new Date().getFullYear()} Neo.mjs • v14.0.0 • MIT License`
             }]
         }],
         /**

@@ -1,3 +1,7 @@
+---
+seoTitle: "100k-Row JavaScript Data Grid: Dynamic Columns & Virtual Scrolling | Neo.mjs"
+seoDescription: "Reconfigure massive JavaScript data grids at runtime without memory bloat using Neo.mjs row and cell pooling, virtual scrolling, and dynamic field binding."
+---
 # Dynamic Grids & Virtualization
 
 Neo.mjs Grids are designed for high performance with massive datasets. This is achieved through **Virtualization** (rendering only visible rows and columns) and **Row/Cell Pooling** (recycling DOM nodes).

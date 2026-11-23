@@ -101,9 +101,10 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onSortFirstnameButtonClick(data) {
+        // The first sorter is the primary one
         this.helix.store.sorters = [
-            {property : 'lastname',  direction: 'ASC'},
-            {property : 'firstname', direction: 'ASC'}
+            {property : 'firstname', direction: 'ASC'},
+            {property : 'lastname',  direction: 'ASC'}
         ]
     }
 
@@ -112,8 +113,8 @@ class ViewportController extends Controller {
      */
     onSortLastnameButtonClick(data) {
         this.helix.store.sorters = [
-            {property : 'firstname', direction: 'ASC'},
-            {property : 'lastname',  direction: 'ASC'}
+            {property : 'lastname',  direction: 'ASC'},
+            {property : 'firstname', direction: 'ASC'}
         ]
     }
 }

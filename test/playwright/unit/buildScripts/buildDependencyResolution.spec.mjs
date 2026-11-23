@@ -27,7 +27,7 @@ test.describe('build programs resolve dependencies from their own module', () =>
             fs.symlinkSync(path.join(engineRoot, 'node_modules', name), path.join(root, 'node_modules', name), 'junction')
         }
 
-        for (const file of ['webpack/buildThreads.mjs', 'util/sanitizer.mjs',
+        for (const file of ['webpack/buildThreads.mjs', 'util/assertInteractivePrompt.mjs', 'util/buildId.mjs', 'util/runSteps.mjs', 'util/sanitizer.mjs',
                 ...BROWSER_BUNDLES.map(name => `build/${name}.mjs`)]) {
             fs.copySync(path.join(engineRoot, 'buildScripts', file), path.join(installedEngine, 'buildScripts', file))
         }
@@ -85,8 +85,10 @@ test.describe('build programs resolve dependencies from their own module', () =>
                 }
             }
 
+            // The threads run together, so their calls arrive in any order
             expect(result.status, result.stderr).toBe(0);
-            expect(result.calls).toEqual(expected)
+            expect(result.calls).toHaveLength(expected.length);
+            expect(result.calls).toEqual(expect.arrayContaining(expected))
         })
     }
 

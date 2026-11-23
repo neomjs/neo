@@ -1,0 +1,8 @@
+{
+    "appPath"    : "examples/tooltip/app.mjs",
+    "basePath"   : "../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-dark", "neo-theme-light"],
+    "useSharedWorkers": true
+}

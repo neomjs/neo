@@ -76,7 +76,8 @@ function createField() {
 }
 
 test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
-    let field;
+    const focusWindowId = 'picker-dismissal-focus';
+    let field, outsideFocusTarget;
 
     test.beforeEach(() => {
         added.length = 0;
@@ -86,6 +87,9 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
     });
 
     test.afterEach(() => {
+        FocusManager.removeWindow(focusWindowId);
+        outsideFocusTarget?.destroy();
+        outsideFocusTarget = null;
         !field?.isDestroyed && field.destroy()
     });
 
@@ -120,24 +124,24 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
         expect(dismissals).toBe(1)
     });
 
-    test('the field owns its picker: focus moving between them never leaves the field, leaving both dismisses once', async () => {
-        const picker  = field.picker,
-              outside = Neo.create(Component, {appName, id: Neo.getId('picker-focus-outside')}),
-              leaves  = [],
-              escape  = {};
-        let   dismissals = 0;
+    test('the field owns its picker: focus moving between them never leaves the field, leaving both dismisses once', () => {
+        const picker = field.picker,
+              leaves = [],
+              escape = {};
+        let dismissals = 0;
+
+        outsideFocusTarget = Neo.create(Component, {appName, id: Neo.getId('picker-focus-outside')});
 
         /**
          * One DOM focus move as the main thread reports it: a focusout, and the focusin inside the manager's gap.
          * The component path is the one `manager.DomEvent` hands over — read from the component tree.
          */
         const moveFocusTo = id => {
-            const windowId = field.windowId,
-                  [last]   = FocusManager.history[windowId] || [];
+            const [last] = FocusManager.history[focusWindowId] || [];
 
             // The first focus enters; every later one is a move
-            last && FocusManager.onFocusout({windowId, componentPath: last.componentPath, data: {path: []}});
-            FocusManager.onFocusin({windowId, componentPath: ComponentManager.getParentPath([id]), data: {path: [{id}]}})
+            last && FocusManager.onFocusout({windowId: focusWindowId, componentPath: last.componentPath, data: {path: []}});
+            FocusManager.onFocusin({windowId: focusWindowId, componentPath: ComponentManager.getParentPath([id]), data: {path: [{id}]}})
         };
 
         field.hidePicker = () => dismissals++;
@@ -158,7 +162,7 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
         expect(dismissals).toBe(0);
 
         moveFocusTo(picker.id);
-        moveFocusTo(outside.id);
+        moveFocusTo(outsideFocusTarget.id);
 
         expect(leaves, 'leaving field and picker is one leave').toEqual(['field']);
         expect(field.containsFocus).toBe(false);
@@ -167,11 +171,7 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
         field.pickerIsMounted = true;
         expect(field.onKeyDownEscape(escape)).toBe(false);
         expect(escape.cancelBubble).toBe(true);
-        expect(dismissals).toBe(2);
-
-        // The manager's pending focusout timers must not outlive the arm
-        await new Promise(resolve => setTimeout(resolve, FocusManager.maxFocusInOutGap + 20));
-        outside.destroy()
+        expect(dismissals).toBe(2)
     });
 
     test('removes the exact app-root listener during destroy', () => {
@@ -182,6 +182,32 @@ test.describe('Neo.form.field.Picker outside-pointer dismissal', () => {
         expect(removed).toHaveLength(1);
         expect(removed[0]).toBe(added[0]);
         expect(mainView.domListeners).toEqual([])
+    })
+});
+
+/**
+ * A field can unmount with its picker open: a grid editor whose cell leaves the row pool does. The picker closes through
+ * `hidden`, whose `hiddenChange` is what `pickerIsMounted` follows, so no later close is a no-op and Escape is free.
+ */
+test.describe('Neo.form.field.Picker unmount', () => {
+    test('a field unmounted with its picker open closes it through hidden, and Escape passes on', async () => {
+        const field  = createField(),
+              escape = {};
+
+        field.mounted = true;
+        field.showPicker();
+        await field.picker.mountFlight;
+
+        expect(field.pickerIsMounted).toBe(true);
+
+        field.mounted = false;
+
+        expect(field.picker.hidden).toBe(true);
+        expect(field.pickerIsMounted, 'the field heard its picker close').toBe(false);
+        expect(field.onKeyDownEscape(escape), 'Escape passes on to the field host').toBeUndefined();
+        expect(escape.cancelBubble).toBeUndefined();
+
+        field.destroy()
     })
 });
 

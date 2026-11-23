@@ -289,3 +289,139 @@ test.describe('Grid cellEditingReady', () => {
         expect(countPlugins(grid)).toBe(1)
     })
 });
+
+test.describe('CellEditing holdEdit and releaseEdit overlapping barrier', () => {
+    let grid, originalDomEvents, store;
+
+    test.beforeEach(async () => {
+        originalDomEvents = Neo.main?.DomEvents;
+        Neo.ns('Neo.main', true).DomEvents = {
+            registerPreventDefaultKeys() {},
+            unregisterPreventDefaultKeys() {},
+            ...originalDomEvents
+        };
+
+        store = Neo.create(Store, {
+            keyProperty: 'id',
+            data       : [{id: 1, firstname: 'Tobias', lastname: 'Uhlig'}],
+            model      : {
+                fields: [
+                    {name: 'id',        type: 'Integer'},
+                    {name: 'firstname', type: 'String'},
+                    {name: 'lastname',  type: 'String'}
+                ]
+            }
+        });
+
+        grid = Neo.create(GridContainer, {
+            appName       : 'GridCellEditingToggleTest',
+            height        : 200,
+            width         : 450,
+            rowHeight     : 40,
+            plugins       : [{module: CellEditingPlugin}],
+            store,
+            columnDefaults: {editable: true, width: 150},
+            columns       : [
+                {dataField: 'id',        text: 'ID', locked: 'start'},
+                {dataField: 'firstname', text: 'Firstname'},
+                {dataField: 'lastname',  text: 'Lastname'}
+            ]
+        });
+
+        await grid.initVnode();
+        grid.mounted = true;
+        await grid.timeout(20)
+    });
+
+    test.afterEach(async () => {
+        await grid.timeout(20);
+        grid?.destroy();
+        store?.destroy();
+        if (Neo.main) {
+            Neo.main.DomEvents = originalDomEvents
+        }
+    });
+
+    test('overlapping holdEdit calls await the first in-flight repaintRow and re-embed once on final release', async () => {
+        const plugin = grid.getPlugin('grid-cell-editing');
+
+        expect(plugin.startEdit(store.getAt(0), 'firstname', true)).toBe(true);
+        await plugin.session.editor.initVnode();
+        expect(plugin.session.editor.vnode).toBeTruthy();
+
+        let resolveHoldRender,
+            repaintRowCalls = 0,
+            repaintCalls    = 0,
+            firstSettled    = false,
+            secondSettled   = false;
+
+        plugin.repaintRow = () => {
+            repaintRowCalls++;
+            return new Promise(resolve => {resolveHoldRender = resolve})
+        };
+        plugin.repaint = () => {
+            repaintCalls++
+        };
+
+        const firstHold  = plugin.holdEdit().then(() => {firstSettled  = true}),
+              secondHold = plugin.holdEdit().then(() => {secondSettled = true});
+
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(repaintRowCalls).toBe(1);
+        expect(plugin.session.held).toBe(2);
+        expect(firstSettled).toBe(false);
+        expect(secondSettled).toBe(false);
+
+        resolveHoldRender();
+        await Promise.all([firstHold, secondHold]);
+
+        expect(firstSettled).toBe(true);
+        expect(secondSettled).toBe(true);
+
+        // First release keeps the editor held out until the second lock transition finishes
+        plugin.releaseEdit();
+        expect(plugin.session.held).toBe(1);
+        expect(repaintCalls).toBe(0);
+
+        // Final release clears holdPromise and re-embeds the editor once
+        plugin.releaseEdit();
+        expect(plugin.session.held).toBe(0);
+        expect(plugin.session.holdPromise).toBe(null);
+        expect(repaintCalls).toBe(1)
+    });
+
+    test('holdEdit resolves cleanly with no session or unembodied editor and refreshes holdPromise per cycle', async () => {
+        const plugin = grid.getPlugin('grid-cell-editing');
+
+        await expect(plugin.holdEdit()).resolves.toBeUndefined();
+
+        expect(plugin.startEdit(store.getAt(0), 'firstname', true)).toBe(true);
+        await plugin.session.editor.initVnode();
+
+        // Simulate unembodied editor (no vnode)
+        const savedVnode = plugin.session.editor.vnode;
+        plugin.session.editor.vnode = null;
+
+        await expect(plugin.holdEdit()).resolves.toBeUndefined();
+        expect(plugin.session.held).toBe(1);
+        plugin.releaseEdit();
+        expect(plugin.session.held).toBe(0);
+        expect(plugin.session.holdPromise).toBe(null);
+
+        // Restore vnode and verify a subsequent hold cycle creates a fresh holdPromise
+        plugin.session.editor.vnode = savedVnode;
+
+        let resolveCycle2;
+        plugin.repaintRow = () => new Promise(resolve => {resolveCycle2 = resolve});
+        plugin.repaint    = () => {};
+
+        const holdCycle2 = plugin.holdEdit();
+        expect(plugin.session.holdPromise).toBeInstanceOf(Promise);
+        resolveCycle2();
+        await holdCycle2;
+        plugin.releaseEdit();
+        expect(plugin.session.holdPromise).toBe(null)
+    });
+});

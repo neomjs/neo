@@ -152,6 +152,28 @@ test.describe('Neo.dashboard.dock.model.PreviewContract', () => {
         })
     });
 
+    test.describe('zone-center: a drop into an edge-zone\'s free center', () => {
+        const zonePreview = (overrides = {}) => preview({
+            target   : {containerId: 'workspace', nodeId: 'root'},
+            placement: {kind: 'zone-center', tabsNodeId: 'root-center-0'},
+            ...overrides
+        });
+
+        test('validates only with the tabs id the drop builds', () => {
+            expect(PreviewContract.isValidPreview(zonePreview())).toBe(true);
+            expect(PreviewContract.isValidPreview(zonePreview({placement: {kind: 'zone-center'}})), 'no tabs id').toBe(false);
+            expect(PreviewContract.isValidPreview(zonePreview({placement: {kind: 'zone-center', tabsNodeId: ''}}))).toBe(false)
+        });
+
+        test('maps to restoreTab into the free center; a whole stack and a malformed preview map to nothing', () => {
+            expect(PreviewContract.previewToOperation(zonePreview())).toEqual({
+                operation: 'restoreTab', itemId: 'strategy', tabsNodeId: 'root-center-0', home: {parentId: 'root', slot: 'center'}, rebuild: true
+            });
+            expect(PreviewContract.previewToOperation(zonePreview({groupNodeId: 'side-tabs'}))).toBeNull();
+            expect(PreviewContract.previewToOperation(zonePreview({placement: {kind: 'zone-center'}}))).toBeNull()
+        })
+    });
+
     test.describe('previewToOperation (semantic drop, never mutates)', () => {
         test('tab placements route to addTab with the target tabs node and index', () => {
             const op = PreviewContract.previewToOperation(preview({placement: {kind: 'tab-after', index: 1}}));

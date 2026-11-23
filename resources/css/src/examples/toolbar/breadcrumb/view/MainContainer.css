@@ -1,0 +1,45 @@
+.neo-breadcrumb-folders.neo-viewport {
+    background-color: var(--breadcrumb-folders-background);
+    color           : var(--breadcrumb-folders-text);
+    font-family     : var(--neo-font-family);
+    gap             : 12px;
+    padding         : 24px;
+
+    .neo-breadcrumb-folders-header {
+        border-bottom : 1px solid var(--breadcrumb-folders-rule);
+        gap           : 8px 12px;
+        padding-bottom: 8px;
+    }
+
+    .neo-breadcrumb-toolbar {
+        flex-wrap: wrap;
+
+        .neo-button {
+            font-size: 15px;
+        }
+    }
+
+    .neo-breadcrumb-folders-name {
+        font-size  : 24px;
+        font-weight: 600;
+        margin-top : 12px;
+    }
+
+    .neo-breadcrumb-folders-description,
+    .neo-breadcrumb-folders-empty {
+        color      : var(--breadcrumb-folders-muted);
+        font-size  : 15px;
+        line-height: 1.5;
+        max-width  : 40em;
+    }
+
+    .neo-breadcrumb-folders-children {
+        background-color: transparent;
+        gap             : 12px;
+        margin-top      : 8px;
+
+        .neo-button {
+            min-width: 9em;
+        }
+    }
+}

@@ -1,0 +1,32 @@
+:where(.neo-theme-neo-light) {
+    --editorial-avatar-bg        : #e0f2fe;
+    --editorial-avatar-border    : #7dd3fc;
+    --editorial-avatar-text      : #0c4a6e;
+    --editorial-border           : #dbe2ec;
+    --editorial-canvas-bg        : #f4f7fb;
+    --editorial-card-bg          : #ffffff;
+    --editorial-card-border      : #d8e0ec;
+    --editorial-card-hover-border: #94a3b8;
+    --editorial-card-shadow      : 0 1px 3px rgba(15, 23, 42, 0.06);
+    --editorial-col-bg           : #edf2f8;
+    --editorial-focus            : #0d9488;
+    --editorial-header-bg        : #ffffff;
+    --editorial-muted            : #475569;
+    --editorial-pill-bg          : #f1f5f9;
+    --editorial-pill-border      : #cbd5e1;
+    --editorial-pill-text        : #334155;
+    --editorial-progress-track   : #e2e8f0;
+    --editorial-seg-active-bg    : #0f766e;
+    --editorial-seg-active-border: #0f766e;
+    --editorial-seg-active-shadow: 0 1px 2px rgba(15, 23, 42, 0.14);
+    --editorial-seg-active-text  : #ffffff;
+    --editorial-seg-border       : #cbd5e1;
+    --editorial-seg-hover-bg     : #e2e8f0;
+    --editorial-seg-track-bg     : #f1f5f9;
+    --editorial-subbar-bg        : #f8fafc;
+    --editorial-tag-bg           : #f1f5f9;
+    --editorial-tag-border       : #cbd5e1;
+    --editorial-tag-text         : #334155;
+    --editorial-text             : #1e293b;
+    --editorial-title            : #0f172a;
+}

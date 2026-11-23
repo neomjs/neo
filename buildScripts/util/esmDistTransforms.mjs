@@ -38,37 +38,19 @@ export const esmOutputRoot = 'dist/esm';
 export const enginePackagePath = 'node_modules/neo.mjs';
 
 /**
- * Matches a static import, a dynamic import, or a re-export whose specifier mentions `node_modules`.
- *
- * A module-scope constant, compiled once. It was a factory, justified on the `g` flag carrying
- * `lastIndex` between callers — which is a real hazard and **does not reach either consumer here**:
- * `String.replace` and `String.matchAll` both leave `lastIndex` at 0 (`matchAll` iterates a clone).
- * Measured both ways before this was changed. A function around a literal is not a defence; it is
- * this cache discarded once per call, on a path that runs over every emitted module in the tree.
- *
- * **The invariant that keeps it safe, stated because it is now shared:** no consumer may leave
- * `lastIndex` dirty. `.exec()` or `.test()` against this constant would do exactly that, and the
- * next `matchAll` would silently start mid-string. Neither is used; a future one must reset it.
- *
- * Module-private for the same reason — an exported factory hands a fresh object to every caller and
- * so hides that invariant instead of stating it. Nothing outside this file consumed either pattern.
- *
- * The quote class is `["'`]` and the single quote is the point. It was `["`]` — double quote or
- * backtick only — while the engine's house style, and every generated workspace's, is the single
- * quote. So the rewrite added by https://github.com/neomjs/neo/issues/6752 never fired on the code
- * it was written for, and Terser
- * normalized the untouched specifiers to double quotes afterwards, which made the output *look*
- * like the rewrite had run.
- *
- * `export ... from` is matched for the same reason the quote class is wide: a re-export is a request
- * the browser makes, so a rewrite that skips it emits a specifier addressing the workspace's engine
- * from inside `dist/esm`. It used to be skipped, and the emitted path happened to resolve, so nothing
- * failed — it simply booted two disjoint engine graphs.
- *
- * @type {RegExp}
+ * @summary The single emitted destination for an admitted logical source file or directory.
+ * @param {String} sourcePath
+ * @param {Object} options
+ * @param {String} options.workspaceRoot
+ * @param {String} options.engineRoot
+ * @returns {String}
  */
-const IMPORT_SPECIFIER_REGEX =
-    /((?:import|export)(?:\s*(?:[\w*{}\n\r\t, ]+from\s*)?|\s*\(\s*)?)(["'`])((?:(?!\2).)*node_modules(?:(?!\2).)*)\2/g;
+export function esmDestination(sourcePath, {workspaceRoot, engineRoot}) {
+    const within = (root, file) => file === root || file.startsWith(root + path.sep),
+          root   = within(engineRoot, sourcePath) ? engineRoot : workspaceRoot;
+    if (!within(workspaceRoot, sourcePath)) throw new Error(`ESM source is outside the workspace: ${sourcePath}`);
+    return path.join(workspaceRoot, esmOutputRoot, path.relative(root, sourcePath))
+}
 
 /**
  * The AST node types whose `source` may name a module.
@@ -88,23 +70,73 @@ const SPECIFIER_NODE_TYPES = new Set([
 ]);
 
 /**
- * Rewrites `node_modules`-bearing specifiers for the flattened `dist/esm` layout.
- *
- * The engine is copied from `node_modules/neo.mjs/src` to `dist/esm/src`, which preserves the
- * relative depth — so dropping the `node_modules/neo.mjs/` segment is the whole rewrite. Any other
- * package keeps its `node_modules` path but sits two levels further away, hence the `../../`.
- *
- * @param {String} content
+ * @summary Rebases admitted workspace, package, Main-addon and Canvas-module modules through one emitted file plan.
+ * @description Planned static edges use their shared emitted destinations, including helpers reached by both
+ * App components and Main addons. The computed package contexts of Main and of the Canvas worker resolve under the
+ * emitted tree's `node_modules`, where their declared roots are emitted. Unadmitted dependencies retain the
+ * established host fallback; this transform does not discover dynamic imports.
+ * @param {String} content Source module text.
+ * @param {Object} options
+ * @param {String} options.sourcePath Source filename in the consuming workspace.
+ * @param {String} options.outputPath Emitted filename.
+ * @param {String} options.workspaceRoot Consuming workspace.
+ * @param {String} options.engineRoot Installed or in-repository Engine root.
+ * @param {Object[]} options.packageRoots Declared roots from `mainAddonPackageRoots` and `canvasModulePackageRoots`.
+ * @param {Map<String, Object>} [options.files] The build plan, keyed by logical source filename.
  * @returns {String}
  */
-export function rewriteImportPaths(content) {
-    return content.replace(IMPORT_SPECIFIER_REGEX, (match, prefix, quote, specifier) => {
-        const rewritten = specifier.includes('/node_modules/neo.mjs/')
-            ? specifier.replace('/node_modules/neo.mjs/', '/')
-            : '../../' + specifier;
+export function rewriteEsmImports(content, {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots, files}) {
+    const within          = (root, file) => file === root || file.startsWith(root + path.sep),
+          installedEngine = engineRoot !== workspaceRoot,
+          isMain          = sourcePath === path.join(engineRoot, 'src/Main.mjs'),
+          isCanvas        = sourcePath === path.join(engineRoot, 'src/worker/Canvas.mjs'),
+          isAddon         = packageRoots.some(entry => within(entry.sourceRoot, sourcePath)),
+          isPackage       = files?.has(sourcePath) && within(path.join(workspaceRoot, 'node_modules'), sourcePath) &&
+              (!installedEngine || !within(engineRoot, sourcePath)),
+          outputRoot = path.join(workspaceRoot, esmOutputRoot),
+          edits      = [];
+    visitImportSources(content, source => {
+        const entry = staticSpecifier(source, content);
+        if (!entry) return;
+        const quasi  = entry.computed ? source.quasis[0] : null,
+              prefix = quasi ? quasi.value.cooked : entry.specifier;
+        const relative = prefix.startsWith('./') || prefix.startsWith('../');
+        if (!relative && (isMain || isAddon || isPackage || !prefix.includes('node_modules'))) return;
 
-        return prefix + quote + rewritten + quote
-    })
+        let target;
+        const resolved = path.resolve(path.dirname(sourcePath), prefix),
+              mapped   = relative && !entry.computed && files?.get(resolved)?.outputPath;
+        if (mapped) {
+            target = mapped
+        } else if (entry.computed && (isMain && ['../../', '../node_modules/'].includes(prefix) ||
+            isCanvas && prefix === '../../../')) {
+            target = path.join(outputRoot, 'node_modules')
+        } else if (isAddon || isPackage) {
+            const owner        = packageRoots.find(root => within(root.sourceRoot, resolved)),
+                  engineTarget = within(engineRoot, resolved) &&
+                      (installedEngine || !within(path.join(workspaceRoot, 'node_modules'), resolved));
+            target = engineTarget || owner ? esmDestination(resolved, {workspaceRoot, engineRoot}) : resolved
+        } else if (prefix.includes('node_modules')) {
+            const rewritten = prefix.includes('/node_modules/neo.mjs/')
+                ? prefix.replace('/node_modules/neo.mjs/', '/') : '../../' + prefix;
+            target = path.resolve(path.dirname(outputPath), rewritten)
+        } else {
+            return
+        }
+
+        let replacement = path.relative(path.dirname(outputPath), target).split(path.sep).join('/');
+        if (!replacement.startsWith('.')) replacement = './' + replacement;
+        if (prefix.endsWith('/') && !replacement.endsWith('/')) replacement += '/';
+        edits.push(quasi ? {
+            start: quasi.start, end: quasi.end,
+            text : JSON.stringify(replacement).slice(1, -1).replaceAll('`', '\\`').replaceAll('${', '\\${')
+        } : {start: source.start, end: source.end, text: JSON.stringify(replacement)})
+    });
+
+    for (const edit of edits.sort((a, b) => b.start - a.start)) {
+        content = content.slice(0, edit.start) + edit.text + content.slice(edit.end)
+    }
+    return content
 }
 
 /**
@@ -333,9 +365,45 @@ export function staticSpecifier(source, code) {
  * @returns {Object[]} `{specifier, computed}` records, in source order
  */
 export function relativeSpecifiers(code) {
-    const
-        specifiers = [],
-        visit      = node => {
+    const specifiers = [];
+    visitImportSources(code, source => {
+        const entry = staticSpecifier(source, code);
+        if (entry && (entry.specifier.startsWith('./') || entry.specifier.startsWith('../'))) specifiers.push(entry)
+    });
+    return specifiers
+}
+
+/**
+ * @summary Returns static import/re-export edges without admitting runtime dynamic import expressions.
+ * @param {String} code
+ * @returns {String[]}
+ */
+export function staticModuleSpecifiers(code) {
+    const specifiers = [];
+    visitImportSources(code, (source, kind) => {
+        if (kind !== 'ImportExpression') specifiers.push(source.value)
+    });
+    return specifiers
+}
+
+/**
+ * @summary Returns non-computed runtime dynamic import specifiers without widening static discovery.
+ * @param {String} code
+ * @returns {String[]}
+ */
+export function literalDynamicSpecifiers(code) {
+    const specifiers = [];
+    visitImportSources(code, (source, kind) => {
+        if (kind !== 'ImportExpression') return;
+        const entry = staticSpecifier(source, code);
+        if (entry && !entry.computed) specifiers.push(entry.specifier)
+    });
+    return specifiers
+}
+
+/** @summary Visits actual import/re-export source nodes, excluding source-like prose strings. @param {String} code @param {Function} visitor */
+function visitImportSources(code, visitor) {
+    const visit = node => {
             if (!node || typeof node !== 'object') {
                 return
             }
@@ -346,11 +414,7 @@ export function relativeSpecifiers(code) {
             }
 
             if (SPECIFIER_NODE_TYPES.has(node.type) && node.source) {
-                const entry = staticSpecifier(node.source, code);
-
-                if (entry && (entry.specifier.startsWith('./') || entry.specifier.startsWith('../'))) {
-                    specifiers.push(entry)
-                }
+                visitor(node.source, node.type)
             }
 
             // A dynamic import can sit anywhere, so every child is visited rather than only the
@@ -360,8 +424,6 @@ export function relativeSpecifiers(code) {
         };
 
     visit(acorn.parse(code, {ecmaVersion: 'latest', sourceType: 'module'}));
-
-    return specifiers
 }
 
 /**

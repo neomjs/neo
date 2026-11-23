@@ -1,0 +1,8 @@
+:where(.neo-theme-neo-light) {
+    --examples-layouts-border : #dde3ea;
+    --examples-layouts-ground : #f4f6f9;
+    --examples-layouts-ink    : #1c2430;
+    --examples-layouts-ink-dim: #556070;
+    --examples-layouts-panel  : #fff;
+    --examples-layouts-stage  : #e9edf2;
+}

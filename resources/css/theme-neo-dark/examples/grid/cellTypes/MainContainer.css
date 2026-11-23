@@ -1,0 +1,12 @@
+:where(.neo-theme-neo-dark) {
+    --cell-types-accent    : #5eead4;
+    --cell-types-alternate : #182633;
+    --cell-types-background: #0f1a24;
+    --cell-types-border    : #294050;
+    --cell-types-header    : #1b2e3c;
+    --cell-types-hover     : #21453f;
+    --cell-types-muted     : #9aafbd;
+    --cell-types-surface   : #15222e;
+    --cell-types-text      : #c4d4e0;
+    --cell-types-title     : #eef6fa;
+}

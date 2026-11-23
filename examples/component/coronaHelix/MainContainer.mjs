@@ -1,13 +1,14 @@
-import BoxLabel     from '../../../src/component/BoxLabel.mjs';
-import CheckBox     from '../../../src/form/field/CheckBox.mjs';
-import CountryHelix from './CountryHelix.mjs';
-import Panel        from '../../../src/container/Panel.mjs';
-import RangeField   from '../../../src/form/field/Range.mjs';
-import Viewport     from '../../../src/container/Viewport.mjs';
+import BoxLabel      from '../../../src/component/BoxLabel.mjs';
+import CountryHelix  from './CountryHelix.mjs';
+import Panel         from '../../../src/container/Panel.mjs';
+import RangeField    from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.coronaHelix.MainContainer
  * @extends Neo.container.Viewport
+ * @summary 3D country indicators helix viewport with live theme-able controls panel.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -34,43 +35,18 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton=true
-         */
-        showGitHubStarButton: true,
-        /**
          * @member {Object[]} items
          */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
-
-            items: [{
-                ntype: 'component',
-                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
-                style: {
-                    position: 'absolute',
-                    right   : '150px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
-                    zIndex  : 1
-                }
-            }]
+            style : {position: 'relative'}
         }, {
             module: Panel,
             cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout: {ntype: 'vbox',align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
+            style : {maxWidth: '50%'},
             width : 250,
 
             containerConfig: {
@@ -78,10 +54,11 @@ class MainContainer extends Viewport {
             },
 
             headers: [{
-                dock: 'top',
-                items: [{
-                    ntype: 'button',
-                    text : 'X',
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype  : 'button',
+                    text   : 'X',
                     handler: function() {
                         const panel  = this.up('panel'),
                               expand = panel.width === 40;
@@ -92,13 +69,16 @@ class MainContainer extends Viewport {
                 }, {
                     ntype: 'label',
                     text : 'Helix Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
                 }]
             }],
 
             itemDefaults: {
                 ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '100px',
+                flex         : 'none',
+                labelPosition: 'top',
                 style        : {padding: '10px'},
                 useInputEvent: true,
 
@@ -223,28 +203,28 @@ class MainContainer extends Viewport {
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
                         ntype    : 'button',
-                        text     : 'Cases',
+                        text     : 'People',
                         listeners: {},
                         style    : {margin: '10px', marginTop: '0'},
 
                         domListeners: {
                             click: function() {
                                 Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'cases',
+                                    property : 'population',
                                     direction: 'DESC'
                                 }];
                             }
                         }
                     }, {
                         ntype    : 'button',
-                        text     : 'Deaths',
+                        text     : 'GDP',
                         listeners: {},
                         style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
 
                         domListeners: {
                             click: function() {
                                 Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'deaths',
+                                    property : 'gdp',
                                     direction: 'DESC'
                                 }];
                             }
@@ -265,15 +245,15 @@ class MainContainer extends Viewport {
                         }
                     }, {
                         ntype    : 'button',
-                        text     : 'Recovered',
+                        text     : 'Per head',
                         listeners: {},
                         style    : {margin: '10px', marginTop: 0},
 
                         domListeners: {
                             click: function() {
                                 Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'recovered',
-                                    direction: 'ASC'
+                                    property : 'gdpPerCapita',
+                                    direction: 'DESC'
                                 }];
                             }
                         }
@@ -283,42 +263,42 @@ class MainContainer extends Viewport {
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
                         ntype    : 'button',
-                        text     : 'Cases today',
+                        text     : 'Life',
                         listeners: {},
                         style    : {margin: '10px', marginTop: '0'},
 
                         domListeners: {
                             click: function() {
                                 Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'todayCases',
+                                    property : 'lifeExpectancy',
                                     direction: 'DESC'
                                 }];
                             }
                         }
                     }, {
                         ntype    : 'button',
-                        text     : 'Deaths today',
+                        text     : 'Online',
                         listeners: {},
                         style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
 
                         domListeners: {
                             click: function() {
                                 Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'todayDeaths',
+                                    property : 'internet',
                                     direction: 'DESC'
                                 }];
                             }
                         }
                     }, {
                         ntype    : 'button',
-                        text     : 'Critical',
+                        text     : 'Growth',
                         listeners: {},
-                        style: {margin: '10px', marginBottom: '43px', marginTop: 0},
+                        style    : {margin: '10px', marginBottom: '43px', marginTop: 0},
 
                         domListeners: {
                             click: function() {
                                 Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'critical',
+                                    property : 'populationGrowth',
                                     direction: 'DESC'
                                 }];
                             }
@@ -349,22 +329,6 @@ class MainContainer extends Viewport {
                     marginBottom: '10px'
                 }
             }, {
-                module        : CheckBox,
-                checked       : Neo.config.logDeltaUpdates,
-                hideLabel     : true,
-                hideValueLabel: false,
-                style         : {marginLeft: '10px', marginTop: '10px'},
-                valueLabel    : 'logDeltaUpdates',
-
-                listeners: {
-                    change: function (data) {
-                        Neo.Main.setNeoConfig({
-                            key: 'logDeltaUpdates',
-                            value: data.value
-                        });
-                    }
-                }
-            }, {
                 module: BoxLabel,
                 html  : [
                     '<b>Navigation Concept</b>',
@@ -377,9 +341,8 @@ class MainContainer extends Viewport {
                 cls   : ['neo-link-color'],
                 html  : [
                     '<b>Attribution</b>',
-                    '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
-                    '<p>Data provided by <a href="https://github.com/disease-sh/API">disease.sh/API</a>.</p>',
-                    '<p>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
+                    '<p>Data: <a href="https://data.worldbank.org">World Bank, World Development Indicators</a>, CC BY 4.0, retrieved 17 Nov 2026.</p>',
+                    '<p>Flags: <a href="https://github.com/HatScripts/circle-flags">circle-flags</a>, MIT.</p>'
                 ].join('')
             }]
         }]
@@ -391,10 +354,7 @@ class MainContainer extends Viewport {
     construct(config) {
         super.construct(config);
 
-        let me  = this,
-            url = Neo.config.useFallbackApi ?
-                'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json' :
-                'https://disease.sh/v3/covid-19/countries';
+        let me = this;
 
         me.helix = Neo.create({
             module: CountryHelix,
@@ -402,27 +362,7 @@ class MainContainer extends Viewport {
             ...me.helixConfig
         });
 
-        me.items[0].items.unshift(me.helix);
-
-        fetch(url)
-            .then(response => response.json())
-            .catch(err => console.log('Can’t access ' + url, err))
-            .then(data => me.addStoreItems(data));
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async   : true,
-                    defer   : true,
-                    src     : 'https://buttons.github.io/buttons.js',
-                    windowId: me.windowId
-                })
-            })
-        }
-    }
-
-    addStoreItems(data) {
-        this.getStore().data = data
+        me.items[0].items = [me.helix]
     }
 
     /**

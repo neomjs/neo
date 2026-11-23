@@ -1,0 +1,115 @@
+/* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
+.fs-viewport.neo-viewport {
+    .fs-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 16px;
+        min-height   : 56px;
+        padding      : 10px 20px;
+    }
+
+    .fs-title {
+        color         : var(--neo-timeline-header-color);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .fs-legend {
+        color    : var(--neo-timeline-header-muted-color);
+        display  : inline-flex;
+        flex-wrap: wrap;
+        font-size: 12px;
+        gap      : 6px 12px;
+    }
+
+    .fs-legend-item {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 6px;
+
+        &::before {
+            background   : var(--fs-swatch, var(--neo-timeline-bar-background));
+            border       : 1px solid var(--fs-swatch-border, var(--neo-timeline-bar-border-color));
+            border-radius: 3px;
+            content      : '';
+            height       : 10px;
+            width        : 10px;
+        }
+    }
+
+    .fs-legend-heat-pumps {
+        --fs-swatch       : var(--neo-scheduler-bar-emerald-bg);
+        --fs-swatch-border: var(--neo-scheduler-bar-emerald-border);
+    }
+
+    .fs-legend-electrical {
+        --fs-swatch       : var(--neo-scheduler-bar-amber-bg);
+        --fs-swatch-border: var(--neo-scheduler-bar-amber-border);
+    }
+
+    .fs-legend-plumbing {
+        --fs-swatch       : var(--neo-scheduler-bar-violet-bg);
+        --fs-swatch-border: var(--neo-scheduler-bar-violet-border);
+    }
+
+    .fs-hint {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 13px;
+    }
+
+    /* Below 720px only the name stays locked: the plan opens beside it, the other columns sit to its left */
+    .fs-hint-narrow {
+        display: none;
+    }
+
+    @media (min-width: 721px) and (max-width: 1080px) {
+        .fs-toolbar.neo-toolbar {
+            gap    : 4px 16px;
+            padding: 8px 20px;
+        }
+
+        .fs-hint {
+            flex : 0 0 100% !important;
+            order: 2;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .fs-toolbar.neo-toolbar {
+            gap    : 6px 10px;
+            padding: 8px 12px;
+        }
+
+        .fs-title {
+            font-size: 16px;
+        }
+
+        .fs-legend {
+            flex : 0 0 100% !important;
+            order: 2;
+        }
+
+        .fs-hint {
+            flex     : 0 0 100% !important;
+            font-size: 12px;
+            order    : 3;
+        }
+
+        .fs-hint-wide {
+            display: none;
+        }
+
+        .fs-hint-narrow {
+            display: inline;
+        }
+    }
+
+    /* Booked hours line up as numbers; the column's cellAlign puts them on the right */
+    .neo-grid-cell[data-field="hours"] {
+        font-variant-numeric: tabular-nums;
+    }
+}

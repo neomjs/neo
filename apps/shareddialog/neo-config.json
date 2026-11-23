@@ -4,6 +4,7 @@
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["DragDrop", "Stylesheet", "WindowPosition"],
+    "seo"             : false,
     "useAiClient"     : true,
     "useSharedWorkers": true
 }

@@ -1,6 +1,36 @@
 import {test, expect}        from '../../fixtures.mjs';
 import {placeBesideSource}   from '../utils/filmStage.mjs';
 import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
+import {
+    expectContentFillsWindow, expectFrameAtPaneSize, expectPanesRefill, expectProxyOverSource, readUnion, readWindowSize
+} from '../utils/tearOutGeometry.mjs';
+
+const
+    // The dock's panes in a window: what must refill it after a pane leaves or comes home.
+    dockPanes     = '.neo-dashboard-dock-tabs',
+    // A vessel's viewport holds the torn-out pane itself.
+    vesselContent = '.agentos-dockdemo-counter-pane';
+
+/**
+ * @summary What the user saw when the driven tab drag armed: proxy, tab, pane and pointer travel.
+ * @param {Object} app Neural Link app wrapper.
+ * @param {String} wsId Demo B workspace component id.
+ * @returns {Promise<Object>}
+ */
+async function readArming(app, wsId) {
+    return (await app.getComponent(wsId, ['lastGestureArming'])).lastGestureArming
+}
+
+/**
+ * @summary Reads the size a `window.open()` feature string asks for.
+ * @param {String} features
+ * @returns {{height: Number, width: Number}}
+ */
+function featureSize(features) {
+    const entries = Object.fromEntries(features.split(',').map(pair => pair.split('=')));
+
+    return {height: Number(entries.height), width: Number(entries.width)}
+}
 
 /**
  * @summary Whether a browser-owned Page is a tear-out vessel after its staged same-origin navigation.
@@ -228,6 +258,10 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
 
         await expect(popup.locator('.agentos-dockdemo-counter-pane'),
             'the target window must render the transferred live pane').toBeVisible({timeout: 10000});
+
+        expectProxyOverSource(await readArming(app, wsId));
+        // A stage window keeps its keyboard panel above the dock, so the pane's tabs fill the dock host.
+        await expectContentFillsWindow(popup, dockPanes, 'the target window', {within: '.agentos-dockdemo-dock-host'});
 
         const after                = await app.getComponent(wsId, ['crossWindowStats', 'dockModel', 'popupDocument', 'tearOutAcquisitionAttempts']),
               counter              = await readCounter(),
@@ -457,15 +491,22 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(liveTearOuts, 'exactly one tear-out Page survives as the detached terminal owner').toHaveLength(1);
 
         // Same-origin acquisition opens about:blank under a per-generation browser-owned name before
-        // minting its route; the vessel's 320×240 minimum extent tells its calls from the stage's popup.
-        const survivingTearOut  = liveTearOuts[0],
+        // minting its route. Every open besides the stage's own popup is a vessel acquisition, and each
+        // asks for the pane's size.
+        const arming            = await readArming(app, wsId),
+              survivingTearOut  = liveTearOuts[0],
+              stageTargetName   = await targetPopup.evaluate(() => globalThis.name),
               tearOutTargetName = await survivingTearOut.evaluate(() => globalThis.name),
-              tearOutOpenCalls  = windowOpenCalls.filter(call =>
-                  call.features.startsWith('height=240,') && call.features.endsWith(',width=320'));
+              tearOutOpenCalls  = windowOpenCalls.filter(call => call.target !== stageTargetName);
 
+        expectProxyOverSource(arming);
         expect(survivingTearOut, 'the surviving vessel is the fresh generation').not.toBe(firstTearOut);
         expect(tearOutOpenCalls, 'browser-realm instrumentation observes one acquisition per desktop leg')
             .toHaveLength(2);
+        tearOutOpenCalls.forEach((call, index) =>
+            expectFrameAtPaneSize(featureSize(call.features), arming.paneRect, `vessel ${index + 1}, as requested,`));
+        expectFrameAtPaneSize(firstVessel.frame, arming.paneRect, 'the first vessel');
+        expectFrameAtPaneSize(secondVessel.frame, arming.paneRect, 'the fresh vessel');
         expect(new Set(tearOutOpenCalls.map(call => call.target)).size, 'each generation opened under its own name').toBe(2);
         expect(tearOutOpenCalls.map(call => call.target), 'the survivor came from the second acquisition')
             .toContain(tearOutTargetName);
@@ -483,6 +524,11 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
 
         expect(finalCounterList, 'the journey never duplicates the live CounterPane').toHaveLength(1);
         await expect(survivingTearOut.locator('.agentos-dockdemo-counter-pane')).toBeVisible({timeout: 10000});
+
+        const survivorSize = await readWindowSize(survivingTearOut);
+
+        expectFrameAtPaneSize({height: survivorSize.outerHeight, width: survivorSize.outerWidth}, arming.paneRect, 'the fresh vessel, as the browser shows it,');
+        await expectContentFillsWindow(survivingTearOut, vesselContent, 'the fresh vessel');
         expect(after.tearOutAcquisitionAttempts).toBe(2);
         expect(after.popupDocument).toEqual(before.popupDocument);
         expect(after.dockModel.items.workbench).toEqual(before.dockModel.items.workbench);
@@ -553,7 +599,8 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
 
         // Through the desktop: the vessel born there retires on the target's claim, so Escape must
         // clear a target proxy whose pane already came home, with no vessel left anywhere.
-        const popupPromise  = page.waitForEvent('popup', {timeout: 30000}),
+        const panesBefore   = await readUnion(page, dockPanes),
+              popupPromise  = page.waitForEvent('popup', {timeout: 30000}),
               resultPromise = app.callMethod(wsId, 'executeCrossWindowStep', [{
                   itemId           : 'workbench',
                   sourceWorkspaceId: 'demo-b-main',
@@ -600,6 +647,11 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
         expect(result.proof.documentsUnchanged).toBe(true);
         expect(result.proof.acquisitionAttempts, 'the desktop leg acquired one vessel').toBe(1);
         expect(result.proof.firstVessel.windowId).toBeTruthy();
+
+        const arming = await readArming(app, wsId);
+
+        expectProxyOverSource(arming);
+        expectFrameAtPaneSize(result.proof.firstVessel.frame, arming.paneRect, 'the vessel');
         expect(result.proof.claim).toMatchObject({paneHome: true, settled: true, vesselRetired: true});
         expect(result.proof.vesselAfterCancel).toEqual({nativeHandleKey: null, windowId: null, windowName: null});
         expect(result.proof.remoteSnapshot).toMatchObject({
@@ -641,6 +693,7 @@ test.describe('Dashboard Demo B — real cross-window dock drag', () => {
             intervals: [50, 100]
         }).toBe(true);
         expect(popupPages.filter(isTearOutPage), 'exactly one vessel was born').toHaveLength(1);
+        await expectPanesRefill(page, dockPanes, panesBefore, 'the source window after Escape');
 
         expect(after.dockModel).toEqual(before.dockModel);
         expect(after.popupDocument).toEqual(before.popupDocument);

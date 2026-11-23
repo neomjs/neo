@@ -1,0 +1,49 @@
+.neo-combobox {
+    .neo-input-field-wrapper {
+        display  : flex;
+        flex     : 1 1 auto;
+        min-width: 0;
+        position : relative;
+
+        .neo-textfield-input:not(.neo-typeahead-input) {
+            background-color: transparent;
+            min-width       : 0;
+            position        : relative;
+            z-index         : 1;
+        }
+
+        .neo-typeahead-input {
+            border-color  : transparent;
+            color         : var(--combobox-input-hint-color);
+            font          : var(--textfield-input-font);
+            inset         : 0;
+            min-width     : 0;
+            opacity       : var(--combobox-input-hint-opacity);
+            pointer-events: none;
+            position      : absolute;
+        }
+    }
+
+    .neo-list {
+        overflow-x: hidden;
+        overflow-y: auto;
+        text-align: left;
+
+        .neo-highlight-search {
+            background-color: var(--combobox-list-search-background-color);
+            color           : var(--combobox-list-search-color) !important;
+        }
+
+        .neo-selected {
+            .neo-highlight-search {
+                color: var(--combobox-list-search-color-selected) !important;
+            }
+        }
+    }
+
+    .neo-picker-container {
+        border       : var(--combobox-picker-container-border);
+        border-radius: var(--combobox-picker-container-border-radius);
+        font-weight  : 400;
+    }
+}

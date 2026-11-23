@@ -3,6 +3,7 @@ import os                     from 'os';
 import path                   from 'path';
 import WebpackHookPlugin      from 'webpack-hook-plugin';
 import mainAddonContextPlugin from '../mainAddonContextPlugin.mjs';
+import {FONTAWESOME_COPY_LIST} from '../fontAwesomeCopyList.mjs';
 
 const cwd            = process.cwd(),
       requireJson    = path => JSON.parse(fs.readFileSync((path))),
@@ -29,7 +30,7 @@ if (!insideNeo) {
     fs.readdirSync(resourcesPath).forEach(itemName => {
         itemPath = path.resolve(resourcesPath, itemName);
 
-        if (!fs.lstatSync(itemPath).isFile() && itemName !== 'scss') {
+        if (!fs.lstatSync(itemPath).isFile() && itemName !== 'css') {
             target = path.resolve(cwd, buildTarget.folder, 'resources', itemName);
 
             fs.mkdirpSync(target);
@@ -62,10 +63,10 @@ export default {
     },
 
     plugins: [
-        mainAddonContextPlugin(insideNeo),
+        mainAddonContextPlugin(insideNeo, cwd),
         new WebpackHookPlugin({
             onBuildEnd: [
-                `${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo}`,
+                `${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo} -i ${FONTAWESOME_COPY_LIST.join(',')}`,
                 `${nodeCmd} ${minifyFile} ${defConfigFrom} ${defConfigTo}`
             ]
         }),

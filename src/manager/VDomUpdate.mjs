@@ -84,6 +84,12 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * @summary Component IDs paused in the pre-collection macrotask yield of `executeVdomUpdate`.
+     * @member {Set<String>} awaitingCollectionSet=new Set()
+     * @protected
+     */
+    awaitingCollectionSet = new Set()
+    /**
      * A Map that tracks the in-flight update status of descendants for each component.
      * This "Reverse Lookup" map allows ancestor components to check if any of their
      * descendants are currently updating in O(1) time, without walking the tree downwards.
@@ -386,7 +392,7 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * Calculates the required `updateDepth` for a parent component based on its own
+     * @summary Calculates the required `updateDepth` for a parent component based on its own
      * needs and the needs of all child components whose updates have been merged into it.
      * The final depth is the maximum required depth to ensure all changes are rendered.
      *
@@ -394,7 +400,8 @@ class VDomUpdate extends Collection {
      * a merged child 3 levels down needs a full subtree update (`childUpdateDepth: -1`),
      * this method will return -1, signaling a full recursive update from the parent.
      *
-     * This method is called by the parent component right before it dispatches its VDOM update.
+     * Pre-collection merge eligibility uses this query to preserve full-depth requirements carried by merged work.
+     * The query does not change the component's declared depth or its payload.
      * @param {String} ownerId The `id` of the parent component.
      * @returns {Number|null} The adjusted update depth, or `null` if no merged children exist.
      */
@@ -436,6 +443,35 @@ class VDomUpdate extends Collection {
      */
     hasInFlightDescendants(ownerId) {
         return this.descendantInFlightMap.has(ownerId)
+    }
+
+    /**
+     * @summary Whether any in-flight descendant of `ownerId` (excluding `excludeId`) has already passed collection.
+     * @param {String} ownerId The ancestor component `id`.
+     * @param {String} [excludeId] Waking descendant `id` to ignore.
+     * @returns {Boolean}
+     */
+    hasDispatchedDescendants(ownerId, excludeId) {
+        const map = this.descendantInFlightMap.get(ownerId);
+
+        if (map) {
+            for (const descendantId of map.keys()) {
+                if (descendantId !== excludeId && !this.awaitingCollectionSet.has(descendantId)) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * @summary Whether an update initiator is still in its pre-collection yield and can accept merged descendants.
+     * @param {String} ownerId The component `id`.
+     * @returns {Boolean}
+     */
+    isAwaitingCollection(ownerId) {
+        return this.awaitingCollectionSet.has(ownerId)
     }
 
     /**
@@ -700,6 +736,7 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId The `id` of the component owning the update.
      */
     unregisterInFlightUpdate(ownerId) {
+        this.awaitingCollectionSet.delete(ownerId);
         this.inFlightUpdateMap.delete(ownerId);
 
         // Disarm the wedge watchdog — the update settled (resolve OR reject), so it is not wedged.

@@ -5,6 +5,7 @@ import DockDropIndicators                 from '../../../src/dashboard/dock/inte
 import DockPreview                        from '../../../src/dashboard/dock/interaction/Preview.mjs';
 import DockService                        from '../../../src/ai/client/DockService.mjs';
 import DockWorkspace                      from '../../../src/dashboard/dock/Workspace.mjs';
+import ThemeSwitcher                      from '../../../src/button/ThemeSwitcher.mjs';
 import WorkspaceDocument                  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import TourRunner                         from '../../../src/ai/client/TourRunner.mjs';
 import {demoATourScript, initialDocument} from './demoADockChoreography.mjs';
@@ -219,6 +220,10 @@ class DemoAWorkspace extends DockWorkspace {
                 ntype    : 'component',
                 reference: 'tour-pips',
                 vdom     : {cn: DemoAWorkspace.totalBeats().map(() => ({cls: ['agentos-dockdemo-pip']}))}
+            }, {
+                module  : ThemeSwitcher,
+                flex    : 'none',
+                showText: false
             }]
         }
     }

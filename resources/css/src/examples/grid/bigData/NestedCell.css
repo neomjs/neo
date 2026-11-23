@@ -1,0 +1,20 @@
+.bigdata-nested-cell {
+    align-items     : center;
+    background-color: transparent;
+    display         : flex;
+    max-width       : 100%;
+    min-width       : 0;
+
+    .bigdata-nested-cell-label {
+        background-color: var(--examples-bigdata-nested-cell-background-color, #3a4754);
+        border          : 1px solid var(--examples-bigdata-nested-cell-border-color, #4f6a83);
+        border-radius   : 11px;
+        color           : var(--examples-bigdata-nested-cell-color, #d3e0ec);
+        font-size       : 12px;
+        line-height     : 20px;
+        overflow        : hidden;
+        padding         : 0 10px;
+        text-overflow   : ellipsis;
+        white-space     : nowrap;
+    }
+}

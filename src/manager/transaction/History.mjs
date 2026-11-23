@@ -1,5 +1,6 @@
 import Base       from '../../core/Base.mjs';
 import Collection from '../../collection/Base.mjs';
+import {generateUUID} from '../../util/UUID.mjs';
 
 /**
  * Whether a value is plain data: JSON-shaped primitives, arrays and prototype-less or `Object` objects,
@@ -187,7 +188,7 @@ class History extends Base {
         // a platform object), and only the clone can tell — so it runs before anything is committed.
         const row = deepFreeze(me.copy({
             ...descriptor,
-            id        : descriptor.id ?? crypto.randomUUID(),
+            id        : descriptor.id ?? generateUUID(),
             recordedAt: Date.now(),
             sequence  : me.sequence + 1
         }));
@@ -392,8 +393,6 @@ class History extends Base {
         try {
             rows.splice(0, rows.getRange().length);
             rows.add(state.rows);
-            // Silent update brackets leave count unchanged; restore its public cache explicitly.
-            rows.count = state.rows.length;
             this.cursor = state.cursor;
             this.sequence = state.sequence
         } finally {

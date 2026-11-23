@@ -1,0 +1,144 @@
+.portal-examples-overview {
+    /* Up to 1400 px of content, centered inside the stage; the gutter never falls under 24 px. */
+    --portal-examples-overview-gutter: max(24px, calc((100% - 1400px) / 2));
+
+    overflow-y: auto;
+    padding   : 24px var(--portal-examples-overview-gutter) 40px;
+
+    .portal-examples-overview-top {
+        gap     : 20px 32px;
+        overflow: visible;
+    }
+
+    .portal-examples-overview-intro {
+        min-width: min(100%, 480px);
+    }
+
+    .portal-examples-overview-eyebrow {
+        color         : var(--portal-examples-accent);
+        font-size     : 13px;
+        font-weight   : 600;
+        letter-spacing: 0.08em;
+        margin        : 0 0 6px;
+        text-transform: uppercase;
+    }
+
+    .portal-examples-overview-headline {
+        font-size  : 38px;
+        font-weight: 700;
+        line-height: 1.15;
+        margin     : 0 0 10px;
+    }
+
+    .portal-examples-overview-lead {
+        color      : var(--portal-examples-text-muted);
+        font-size  : 16.5px;
+        line-height: 1.55;
+        margin     : 0;
+        max-width  : 740px;
+    }
+
+    .portal-examples-overview-actions {
+        gap      : 12px 20px;
+        max-width: 100%;
+        min-width: 0;
+        overflow : visible;
+    }
+
+    .portal-examples-overview-start {
+        gap       : 12px;
+        margin-top: 28px;
+        overflow  : visible;
+    }
+
+    .portal-examples-overview-heading {
+        align-items: baseline;
+        display    : flex;
+        flex-wrap  : wrap;
+        font-size  : 20px;
+        font-weight: 600;
+        gap        : 4px 12px;
+        margin     : 0;
+
+        small {
+            color      : var(--portal-examples-text-muted);
+            font-size  : 14px;
+            font-weight: 400;
+        }
+    }
+
+    .portal-examples-overview-cards.portal-examples-list.neo-list {
+        margin-top: 14px;
+        overflow  : visible;
+        padding   : 0;
+    }
+
+    /* A phone shows the build control under the featured cards, so the first card moves up its first screen */
+    .portal-examples-overview-build-foot {
+        align-self: flex-start;
+        margin-top: 16px;
+    }
+
+    @media (min-width: 641px) {
+        .portal-examples-overview-build-foot {
+            display: none;
+        }
+    }
+
+    /* Desktop shows the persistent sidebar rail instead; phone renders the index below Start here. */
+    .portal-examples-overview-mobile-index {
+        display   : none;
+        margin-top: 32px;
+
+        > .portal-examples-overview-heading {
+            margin: 0 0 14px;
+        }
+    }
+
+    @media (max-width: 640px) {
+        --portal-examples-overview-gutter: 16px;
+
+        padding-top: 14px;
+
+        .portal-examples-overview-top {
+            gap: 14px 20px;
+        }
+
+        .portal-examples-overview-actions {
+            gap: 8px 10px;
+
+            .neo-button {
+                --button-margin: 0;
+            }
+
+            .neo-button-primary {
+                --button-padding: 0 10px;
+            }
+
+            .neo-button-tertiary {
+                --button-min-width: 0;
+                --button-padding  : 0;
+            }
+        }
+
+        .portal-examples-overview-start {
+            margin-top: 16px;
+
+            > .portal-examples-build-control {
+                display: none;
+            }
+        }
+
+        .portal-examples-overview-mobile-index {
+            display: flex;
+        }
+
+        .portal-examples-overview-headline {
+            font-size: 30px;
+        }
+
+        .portal-examples-overview-lead {
+            font-size: 16px;
+        }
+    }
+}

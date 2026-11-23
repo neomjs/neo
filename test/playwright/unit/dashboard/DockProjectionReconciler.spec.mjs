@@ -11,6 +11,7 @@ import Neo                      from '../../../../src/Neo.mjs';
 import * as core                from '../../../../src/core/_export.mjs';
 import Component                from '../../../../src/component/Base.mjs';
 import Container                from '../../../../src/container/Base.mjs';
+import Cycle                    from '../../../../src/dashboard/dock/projection/Cycle.mjs';
 import DockLayoutAdapter        from '../../../../src/dashboard/dock/projection/LayoutAdapter.mjs';
 import DockProjectionReconciler from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace            from '../../../../src/dashboard/dock/Workspace.mjs';
@@ -83,7 +84,7 @@ const createThreeChildSplitModel = () => {
 };
 
 // `beforeReconcile` runs on the live host after projection and before the transaction starts.
-const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
+const reconcileModel = async (model, mutate, {beforeReconcile=null, cycle=null, geometryOnly=false, preserveItemIds=[], retainTopology=false}={}) => {
     const
         panes = Object.fromEntries(Object.entries(model.items)
             .map(([itemId, item]) => [itemId, Neo.create(Component, {header: {text: item.title}})])),
@@ -116,6 +117,7 @@ const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly
     beforeReconcile?.({host, oldShell, panes});
 
     const result = await DockProjectionReconciler.reconcileProjection({
+        cycle,
         geometryOnly,
         host,
         nextConfig,
@@ -130,6 +132,66 @@ const reconcileModel = async (model, mutate, {beforeReconcile=null, geometryOnly
 
     return {host, nextModel, oldShell, panes, result, stagedCount}
 };
+
+test.describe('Neo.dashboard.dock.projection.Reconciler: the flight a reconcile waits on', () => {
+    test('settleFlight stamps a wait as it starts and as it settles, and names it in flight until it ends either way', async () => {
+        const cycle = Neo.create(Cycle);
+
+        expect(await DockProjectionReconciler.settleFlight(Promise.resolve('landed'), 'reconcileHost', cycle)).toBe('landed');
+        expect(cycle.timing).toHaveProperty('reconcileHostStarted');
+        expect(cycle.timing).toHaveProperty('reconcileHost');
+        expect(cycle.timing).not.toHaveProperty('awaiting');
+
+        await expect(DockProjectionReconciler.settleFlight(Promise.reject(new Error('rejected')), 'reconcileBars', cycle)).rejects.toThrow('rejected');
+        expect(cycle.timing).toHaveProperty('reconcileBarsStarted');
+        expect(cycle.timing).not.toHaveProperty('reconcileBars');
+        expect(cycle.timing).not.toHaveProperty('awaiting');
+
+        // A held flight is waited on for as long as it is held, and the receipt names it
+        let settled = false;
+        DockProjectionReconciler.settleFlight(new Promise(() => {}), 'reconcileOverflow', cycle).then(() => {settled = true});
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(settled).toBe(false);
+        expect(cycle.timing.awaiting).toBe('reconcileOverflow');
+        expect(cycle.timing).not.toHaveProperty('reconcileOverflow');
+
+        cycle.destroy()
+    });
+
+    test('a held wait stays named after an earlier wait of the same name has stamped its pair', async () => {
+        const cycle = Neo.create(Cycle);
+
+        // An ancestor loop: the first commit lands, the second is held
+        await DockProjectionReconciler.settleFlight(Promise.resolve(), 'reconcileAncestors', cycle);
+        DockProjectionReconciler.settleFlight(new Promise(() => {}), 'reconcileAncestors', cycle);
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        expect(cycle.timing).toHaveProperty('reconcileAncestorsStarted');
+        expect(cycle.timing).toHaveProperty('reconcileAncestors');
+        expect(cycle.timing.awaiting).toBe('reconcileAncestors');
+
+        cycle.destroy()
+    });
+
+    test('each flight of a projection stamps the cycle as its wait starts and as it settles, in place and staged', async () => {
+        for (const [mutate, options, expected] of [
+            [model => {model.nodes['root-split'].sizes = [0.5, 0.5]}, {geometryOnly: true}, ['reconcileHost', 'reconcileOverflow']],
+            [model => {model.nodes['root-split'].orientation = 'vertical'}, {}, ['reconcileShellStaged', 'reconcileHost', 'reconcileSwapped', 'reconcileOutgoing', 'reconcileReveals', 'reconcileOverflow']]
+        ]) {
+            const cycle  = Neo.create(Cycle),
+                  {host} = await reconcileModel(createSplitModel(), mutate, {...options, cycle});
+
+            expected.forEach(name => {
+                expect(cycle.timing, name).toHaveProperty(`${name}Started`);
+                expect(cycle.timing, name).toHaveProperty(name)
+            });
+            expect(cycle.timing).not.toHaveProperty('awaiting');
+
+            host.destroy();
+            cycle.destroy()
+        }
+    })
+});
 
 test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
     test('preparing a dormant lazy card preserves its slot identity without loading or duplicating it', async () => {
@@ -487,6 +549,62 @@ test.describe('Neo.dashboard.dock.projection.Reconciler', () => {
             expect(transitions, 'the swap never forces the action-mode control visible').toEqual([]);
             expect(control.hidden).toBe(true)
         } finally {
+            host.destroy()
+        }
+    })
+
+    test('the overflow recaptures a projection starts carry its supersession signal, staged and in place', async () => {
+        const
+            model = createSplitModel(),
+            panes = {
+                alpha: Neo.create(Component, {header: {text: 'Alpha'}}),
+                beta : Neo.create(Component, {header: {text: 'Beta'}}),
+                gamma: Neo.create(Component, {header: {text: 'Gamma'}})
+            },
+            resolveComponentRef = (_reference, _item, itemId) => panes[itemId],
+            host       = Neo.create(Container, {items: [DockLayoutAdapter.project(model, {resolveComponentRef})]}),
+            plugin     = host.items[0].items.find(item => item.dockNodeId === 'alpha-tabs').getTabBar().getPlugin('tab-overflow'),
+            proto      = Object.getPrototypeOf(plugin),
+            project    = proto.project,
+            controller = new AbortController(),
+            calls      = [],
+            next       = createThreeChildSplitModel(),
+            recaptures = () => calls.filter(call => call.recapture === true);
+
+        proto.project = function (recapture, options) {
+            calls.push({recapture, signal: options?.signal});
+            return project.call(this, recapture, options)
+        };
+
+        try {
+            const staged = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig  : DockLayoutAdapter.project(next, {resolveComponentRef}),
+                placeholders: new Map(),
+                resolveItem : itemId => panes[itemId],
+                signal      : controller.signal
+            });
+
+            expect(staged.landedInPlace).toBe(false);
+            expect(recaptures().length, 'the staged path recaptures its strips').toBeGreaterThan(0);
+            expect(recaptures().every(call => call.signal === controller.signal)).toBe(true);
+
+            calls.length = 0;
+
+            const inPlace = await DockProjectionReconciler.reconcileProjection({
+                host,
+                nextConfig    : DockLayoutAdapter.project(next, {resolveComponentRef}),
+                placeholders  : new Map(),
+                resolveItem   : itemId => panes[itemId],
+                retainTopology: true,
+                signal        : controller.signal
+            });
+
+            expect(inPlace.landedInPlace).toBe(true);
+            expect(recaptures().length, 'the in-place path recaptures its strips').toBeGreaterThan(0);
+            expect(recaptures().every(call => call.signal === controller.signal)).toBe(true)
+        } finally {
+            proto.project = project;
             host.destroy()
         }
     })

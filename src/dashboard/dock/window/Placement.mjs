@@ -5,6 +5,7 @@ import DragCoordinator from '../../../manager/DragCoordinator.mjs';
 import InstanceManager from '../../../manager/Instance.mjs';
 import {buffer}        from '../../../util/Function.mjs';
 import Persistence     from '../model/Persistence.mjs';
+import {generateUUID}  from '../../../util/UUID.mjs';
 
 /**
  * @summary Owns a Group's relative placement hints and observes native movement without recording
@@ -391,7 +392,7 @@ class Placement extends Base {
         const binding    = group?.bindings.get(workspaceKey), windowId = binding?.windowId;
         const generation = binding?.generation, popup = WindowManager.get(windowId);
         const route      = popup?.nativeRoute, mainBinding = group?.bindings.get(me.mainBindingKey);
-        const effectId   = crypto.randomUUID();
+        const effectId   = generateUUID();
         const live       = () => !me.isDestroyed && Transaction.get(me.groupId) === group &&
             group.bindings.get(workspaceKey)?.windowId === windowId &&
             group.bindings.get(workspaceKey)?.generation === generation &&

@@ -1,6 +1,7 @@
-import MainContainer from './MainContainer.mjs';
+import {resolveStartTheme} from '../../../src/util/Theme.mjs';
+import MainContainer       from './MainContainer.mjs';
 
 export const onStart = () => Neo.app({
-    mainView: MainContainer,
+    mainView: {module: MainContainer, theme: resolveStartTheme(Neo.config)},
     name    : 'Neo.examples.component.graphScene'
 });

@@ -1,0 +1,11 @@
+:where(.neo-theme-neo-dark) {
+    --zoom-header-bg: #171e2c;
+    --zoom-border: #38465b;
+    --zoom-title: #f1f5fb;
+    --zoom-muted: #b0bed0;
+    --zoom-track: #1f293a;
+    --zoom-hover: #34445c;
+    --zoom-selected: #b9ccf6;
+    --zoom-selected-text: #18253c;
+    --zoom-focus: #a9c7ff;
+}

@@ -11,7 +11,29 @@ setup({
 import {test, expect} from '@playwright/test';
 import '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
+import '../../../../src/manager/Instance.mjs';
 import Markdown from '../../../../src/component/Markdown.mjs';
+
+class DeferredMarkdown extends Markdown {
+    static config = {className: 'Test.Unit.Component.Markdown.DeferredMarkdown'}
+
+    highlights = []
+    mountDelays = []
+
+    processReadonlyCodeBlocks(code) {
+        return new Promise(resolve => this.highlights.push(() => resolve(code)))
+    }
+
+    timeout(time, options) {
+        if (time === 10) {
+            return new Promise(resolve => this.mountDelays.push(resolve))
+        }
+
+        return super.timeout(time, options)
+    }
+}
+
+Neo.setupClass(DeferredMarkdown);
 
 test.describe('Neo.component.Markdown', () => {
     const markdown = Object.create(Markdown.prototype);
@@ -100,5 +122,146 @@ test.describe('Neo.component.Markdown', () => {
         expect(markdown.wrapMarkdownTables(html)).toBe(
             '<div class="neo-markdown-table-wrapper"><table><tbody><tr><td>One</td></tr></tbody></table></div><p>Between</p><div class="neo-markdown-table-wrapper"><table class="wide"><tbody><tr><td>Two</td></tr></tbody></table></div>'
         )
-    })
+    });
+
+    test('excludes head-only SEO frontmatter keys (seoTitle, seoDescription, robots) without rendering an empty Frontmatter details block (#20917)', () => {
+        const component = Object.create(Markdown.prototype);
+
+        Object.assign(component, {
+            renderFrontmatter    : true,
+            replaceTicketIds     : false,
+            useFrontmatterDetails: true
+        });
+
+        const seoOnlyDoc = [
+            '---',
+            'seoTitle: "JavaScript Data Grid in a Web Worker | Neo.mjs"',
+            'seoDescription: "100k rows off the main thread."',
+            'robots: "noindex, follow"',
+            '---',
+            '# Main Heading',
+            '',
+            'Body paragraph.'
+        ].join('\n');
+
+        expect(component.frontMatterToHtml(component.parseFrontMatter(
+            'seoTitle: "JavaScript Data Grid"\nseoDescription: "Desc"\nrobots: "noindex, follow"'
+        ))).toBe('');
+
+        const seoOnlyRendered = component.modifyMarkdown(seoOnlyDoc);
+        expect(seoOnlyRendered).not.toContain('<details>');
+        expect(seoOnlyRendered).not.toContain('neo-frontmatter-table');
+        expect(seoOnlyRendered).not.toContain('seoTitle');
+        expect(seoOnlyRendered).toContain('<h1 class="neo-h1">Main Heading</h1>');
+
+        const mixedDoc = [
+            '---',
+            'title: Architecture Guide',
+            'status: published',
+            'seoTitle: "Web Worker UI Architecture | Neo.mjs"',
+            'seoDescription: "Off-main-thread UI guide."',
+            '---',
+            '# Worker Architecture'
+        ].join('\n');
+
+        const mixedRendered = component.modifyMarkdown(mixedDoc);
+        expect(mixedRendered).toContain('<details><summary>Frontmatter</summary><table class="neo-frontmatter-table"><tbody>');
+        expect(mixedRendered).toContain('<tr><td>title</td><td>Architecture Guide</td></tr>');
+        expect(mixedRendered).toContain('<tr><td>status</td><td>published</td></tr>');
+        expect(mixedRendered).not.toContain('seoTitle');
+        expect(mixedRendered).not.toContain('seoDescription');
+    });
+});
+
+test.describe('Neo.component.Markdown render order', () => {
+    const flush   = () => new Promise(resolve => setImmediate(resolve)),
+          article = (heading, id) => [
+              `# ${heading}`, '', '```json neo-component', JSON.stringify({id, html: id}), '```'
+          ].join('\n'),
+          orphanId = 'markdown-destroyed-owner-child';
+
+    let markdown, highlights, mountDelays;
+
+    test.beforeEach(() => {
+        markdown = Neo.create(DeferredMarkdown, {appName});
+        ({highlights, mountDelays} = markdown)
+    });
+
+    test.afterEach(async () => {
+        highlights.forEach(resume => resume());
+        await flush();
+        mountDelays.forEach(resume => resume());
+        await flush();
+        markdown.destroy();
+        Neo.get(orphanId)?.destroy()
+    });
+
+    test('a delayed highlight pass cannot replace the latest HTML', async () => {
+        markdown.value = '# Earlier heading';
+        markdown.value = '# Current heading';
+
+        highlights[1]();
+        await flush();
+
+        expect(markdown.html).toContain('Current heading');
+
+        highlights[0]();
+        await flush();
+
+        expect(markdown.html).toContain('Current heading')
+    });
+
+    test('an obsolete mount delay cannot add a child to the current article', async () => {
+        markdown.value = article('Earlier article', 'markdown-earlier-widget');
+        highlights[0]();
+        await flush();
+
+        markdown.value = article('Current article', 'markdown-current-widget');
+        highlights[1]();
+        await flush();
+
+        mountDelays[1]();
+        await flush();
+
+        const [current] = markdown.activeComponents;
+
+        expect(current.id).toBe('markdown-current-widget');
+
+        mountDelays[0]();
+        await flush();
+
+        expect(markdown.activeComponents).toEqual([current]);
+        expect(Neo.get('markdown-earlier-widget')).toBeFalsy()
+    });
+
+    test('a ready mount delay cannot register a child after its owner is destroyed', async () => {
+        markdown.value = article('Closing article', orphanId);
+        highlights[0]();
+        await flush();
+
+        mountDelays[0]();
+        markdown.destroy();
+        await flush();
+
+        expect(Neo.get(orphanId)).toBeFalsy()
+    });
+
+    test('a pending mount delay settles when its owner is destroyed', async () => {
+        const mountQueued = Promise.withResolvers();
+
+        markdown.timeout = (time, options) => {
+            const pending = Markdown.prototype.timeout.call(markdown, time, options);
+            mountQueued.resolve();
+            return pending
+        };
+
+        const render = markdown.render({code: article('Closing article', orphanId)});
+        highlights[0]();
+        await mountQueued.promise;
+
+        markdown.destroy();
+
+        await expect(render).resolves.toEqual({});
+        expect(Neo.get(orphanId)).toBeFalsy()
+    });
 });

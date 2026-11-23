@@ -1,0 +1,8 @@
+.neo-progress-wrapper {
+    color: var(--progress-label-color);
+
+    progress {
+        /* The native track follows the theme's declared scheme, as the select field does */
+        color-scheme: var(--neo-color-scheme);
+    }
+}

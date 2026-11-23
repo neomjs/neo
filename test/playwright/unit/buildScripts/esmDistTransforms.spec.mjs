@@ -1,3 +1,4 @@
+import fs             from 'fs';
 import path           from 'path';
 import {test, expect} from '@playwright/test';
 
@@ -35,7 +36,20 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         transforms = await import('../../../../buildScripts/util/esmDistTransforms.mjs')
     });
 
-    test.describe('rewriteImportPaths — the workspace rewrite must see house-style code', () => {
+    test.describe('rewriteEsmImports — the planned workspace rewrite must see house-style code', () => {
+        /** @summary Exercises the production AST rewrite with the nonempty file plan the build supplies. */
+        const rewrite = (source, depth = 3) => {
+            const workspaceRoot = path.resolve('/rewrite-workspace'),
+                  engineRoot    = path.join(workspaceRoot, 'node_modules/neo.mjs'),
+                  outputRoot    = path.join(workspaceRoot, 'dist/esm'),
+                  relativePath  = path.join(...Array.from({length: depth}, (_, index) => 'level' + index), 'Module.mjs'),
+                  sourcePath    = path.join(workspaceRoot, relativePath), outputPath = path.join(outputRoot, relativePath),
+                  files         = new Map([[sourcePath, {outputPath, type: 'module'}]]);
+            for (const file of ['src/core/Base.mjs', 'src/Neo.mjs', 'src/util/Function.mjs', 'src/A.mjs']) {
+                files.set(path.join(engineRoot, file), {outputPath: path.join(outputRoot, file), type: 'module'})
+            }
+            return transforms.rewriteEsmImports(source, {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots: [], files})
+        };
         /**
          * The engine's convention, and every generated workspace's, is the single quote. The shipped
          * pattern matched double quotes and backticks only, so the rewrite that exists for exactly
@@ -46,15 +60,19 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
             test(`static import, quoted with ${quote}`, () => {
                 const source = `import Base from ${quote}../../../node_modules/neo.mjs/src/core/Base.mjs${quote};`;
 
-                expect(transforms.rewriteImportPaths(source))
-                    .toBe(`import Base from ${quote}../../../src/core/Base.mjs${quote};`)
+                if (quote === '`') {
+                    expect(() => rewrite(source), 'static imports cannot use template literals').toThrow()
+                } else {
+                    expect(transforms.relativeSpecifiers(rewrite(source)))
+                        .toEqual([literal('../../../src/core/Base.mjs')])
+                }
             });
 
             test(`dynamic import, quoted with ${quote}`, () => {
                 const source = `const m = await import(${quote}../../node_modules/neo.mjs/src/Neo.mjs${quote});`;
 
-                expect(transforms.rewriteImportPaths(source))
-                    .toBe(`const m = await import(${quote}../../src/Neo.mjs${quote});`)
+                expect(transforms.relativeSpecifiers(rewrite(source, 2)))
+                    .toEqual([literal('../../src/Neo.mjs')])
             })
         });
 
@@ -65,10 +83,10 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
          * nothing, which is the failure this whole file is about.
          */
         test('the relative depth is preserved exactly', () => {
-            const rewritten = transforms.rewriteImportPaths(
-                "import x from '../../../../node_modules/neo.mjs/src/util/Function.mjs';");
+            const rewritten = rewrite(
+                "import x from '../../../../node_modules/neo.mjs/src/util/Function.mjs';", 4);
 
-            expect(rewritten).toBe("import x from '../../../../src/util/Function.mjs';")
+            expect(transforms.relativeSpecifiers(rewritten)).toEqual([literal('../../../../src/util/Function.mjs')])
         });
 
         /**
@@ -86,7 +104,8 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
              "export * as Neo from '../src/Neo.mjs';"]
         ].forEach(([source, expected], index) => {
             test(`a re-export of the engine is rewritten too (form ${index})`, () => {
-                expect(transforms.rewriteImportPaths(source)).toBe(expected)
+                expect(transforms.relativeSpecifiers(rewrite(source, index === 0 ? 2 : 1)))
+                    .toEqual(transforms.relativeSpecifiers(expected))
             })
         });
 
@@ -94,31 +113,182 @@ test.describe('esmDistTransforms — a dist/esm build that finishes must also be
         test('an exported string that merely contains node_modules is untouched', () => {
             const source = "export const dir = 'x/node_modules/neo.mjs/y';";
 
-            expect(transforms.rewriteImportPaths(source)).toBe(source)
+            expect(rewrite(source)).toBe(source)
+        });
+
+        test('source-like imports inside prose strings are untouched', () => {
+            const source = `const example = "import Base from '../../node_modules/neo.mjs/src/core/Base.mjs';";`;
+            expect(rewrite(source)).toBe(source)
         });
 
         /** A third-party package is not flattened; it moves two levels deeper with the output tree. */
         test('a non-neo package keeps node_modules and gains the output-tree offset', () => {
-            expect(transforms.rewriteImportPaths("import x from '../../node_modules/some-lib/index.mjs';"))
-                .toBe("import x from '../../../../node_modules/some-lib/index.mjs';")
+            expect(transforms.relativeSpecifiers(rewrite("import x from '../../node_modules/some-lib/index.mjs';", 2)))
+                .toEqual([literal('../../../../node_modules/some-lib/index.mjs')])
         });
 
         /** Nothing without `node_modules` is touched; the rewrite must not be a general path mangler. */
         test('a plain relative import is left alone', () => {
             const source = "import x from '../view/Viewport.mjs';";
 
-            expect(transforms.rewriteImportPaths(source)).toBe(source)
+            expect(rewrite(source)).toBe(source)
         });
 
-        /**
-         * The pattern carries the `g` flag. Handing callers one shared instance would leak
-         * `lastIndex` between them and drop matches depending on call order, so it is a factory —
-         * asserted here because the failure would be intermittent and blamed on anything else.
-         */
+        /** Each call owns its AST edits; earlier input must not affect a later rewrite. */
         test('repeated calls are independent', () => {
             const source = "import a from '../node_modules/neo.mjs/src/A.mjs';";
 
-            expect(transforms.rewriteImportPaths(source)).toBe(transforms.rewriteImportPaths(source))
+            expect(rewrite(source, 1)).toBe(rewrite(source, 1))
+        })
+    });
+
+    test.describe('rewriteEsmImports — package addons share the emitted Engine (#20821)', () => {
+        const workspaceRoot = path.resolve('/main-addon-workspace'),
+              engineRoot    = path.join(workspaceRoot, 'node_modules/neo.mjs'),
+              relativeRoot  = 'node_modules/@fixture/native-tools/src/main/addon',
+              sourceRoot    = path.join(workspaceRoot, relativeRoot),
+              outputRoot    = path.join(workspaceRoot, 'dist/esm'),
+              sourcePath    = path.join(sourceRoot, 'Probe.mjs'),
+              outputPath    = path.join(outputRoot, relativeRoot, 'Probe.mjs'),
+              packageRoots  = [{packageName: '@fixture/native-tools', sourceRoot, relativeRoot}],
+              options       = {sourcePath, outputPath, workspaceRoot, engineRoot, packageRoots},
+              resolveOutput = specifier => path.resolve(path.dirname(outputPath), specifier);
+
+        test('a scoped addon resolves Neo, Base and DeltaUpdates in the one flattened Engine tree', () => {
+            const source = [
+                "import Neo from '../../../../../neo.mjs/src/Neo.mjs';",
+                "import Base from '../../../../../neo.mjs/src/main/addon/Base.mjs';",
+                "import DeltaUpdates from '../../../../../neo.mjs/src/main/DeltaUpdates.mjs';"
+            ].join('\n');
+            const emitted    = transforms.rewriteEsmImports(source, options),
+                  specifiers = transforms.relativeSpecifiers(emitted),
+                  targets    = specifiers.map(entry => resolveOutput(entry.specifier));
+
+            expect(targets).toEqual([
+                path.join(outputRoot, 'src/Neo.mjs'),
+                path.join(outputRoot, 'src/main/addon/Base.mjs'),
+                path.join(outputRoot, 'src/main/DeltaUpdates.mjs')
+            ]);
+            expect(specifiers.every(entry => !entry.computed)).toBe(true);
+            expect(transforms.findUnresolvableImports(
+                [{outputPath, specifiers}], candidate => targets.includes(candidate),
+                (file, specifier) => path.resolve(path.dirname(file), specifier), workspaceRoot
+            )).toEqual([])
+        });
+
+        test('re-exports and computed Engine imports follow the copied Engine without altering expressions', () => {
+            const source = [
+                "export {default as Base} from '../../../../../neo.mjs/src/main/addon/Base.mjs';",
+                "export * from '../../../../../neo.mjs/src/Neo.mjs';",
+                'export const load = name => import(`../../../../../neo.mjs/src/main/${name}.mjs`);'
+            ].join('\n');
+            const emitted = transforms.rewriteEsmImports(source, options),
+                  entries = transforms.relativeSpecifiers(emitted);
+
+            expect(entries).toHaveLength(3);
+            expect(resolveOutput(entries[0].specifier)).toBe(path.join(outputRoot, 'src/main/addon/Base.mjs'));
+            expect(resolveOutput(entries[1].specifier)).toBe(path.join(outputRoot, 'src/Neo.mjs'));
+            expect(entries[2].computed).toBe(true);
+            expect(entries[2].specifier.endsWith('/${name}.mjs')).toBe(true);
+            expect(resolveOutput(transforms.computedSpecifierRoot(entries[2].specifier)))
+                .toBe(path.join(outputRoot, 'src/main'))
+        });
+
+        test('local and peer declared imports stay emitted while an undeclared dependency stays at its host path', () => {
+            const peerRelative = 'node_modules/@fixture/peer/src/native',
+                  peer         = {packageName: '@fixture/peer', sourceRoot: path.join(workspaceRoot, peerRelative), relativeRoot: peerRelative},
+                  source       = [
+                      "import Local from './support/Local.mjs';",
+                      "export {default as Peer} from '../../../../peer/src/native/Peer.mjs';",
+                      "import External from '../../../../plain/External.mjs';"
+                  ].join('\n'),
+                  emitted = transforms.rewriteEsmImports(source, {...options, packageRoots: [...packageRoots, peer]});
+
+            expect(transforms.relativeSpecifiers(emitted).map(entry => resolveOutput(entry.specifier))).toEqual([
+                path.join(outputRoot, relativeRoot, 'support/Local.mjs'),
+                path.join(outputRoot, peerRelative, 'Peer.mjs'),
+                path.join(workspaceRoot, 'node_modules/@fixture/plain/External.mjs')
+            ])
+        });
+
+        test('source-like strings and comments are untouched, and quoted interpolation markers remain literal', () => {
+            const sample     = "export {default} from '../../../../../neo.mjs/src/core/Base.mjs';",
+                  text       = `export const example = ${JSON.stringify(sample)};`,
+                  comment    = '// import Fake from "../../../../../neo.mjs/src/Neo.mjs";',
+                  expression = 'export const arbitrary = (base, name) => import(base + name);',
+                  source     = [text, comment, expression,
+                      "export const literal = () => import('../../../../../neo.mjs/src/main/${name}.mjs');"
+                  ].join('\n'),
+                  emitted = transforms.rewriteEsmImports(source, options),
+                  entries = transforms.relativeSpecifiers(emitted);
+
+            expect(emitted).toContain(text);
+            expect(emitted).toContain(comment);
+            expect(emitted).toContain(expression);
+            expect(entries).toHaveLength(1);
+            expect(entries[0].computed).toBe(false);
+            expect(resolveOutput(entries[0].specifier)).toBe(path.join(outputRoot, 'src/main/${name}.mjs'))
+        });
+
+        test('both Main package contexts target emitted node_modules while Engine and WS contexts keep their roots', () => {
+            const mainOutput = path.join(outputRoot, 'src/Main.mjs'),
+                  source     = [
+                      'const installed = name => import(`../../${name}.mjs`);',
+                      'const sourceTree = name => import(`../node_modules/${name}.mjs`);',
+                      'const workspace = name => import(`../../../src/main/addon/${name}.mjs`);',
+                      'const engine = name => import(`./main/addon/${name}.mjs`);'
+                  ].join('\n'),
+                  emitted = transforms.rewriteEsmImports(source, {
+                      ...options, sourcePath: path.join(engineRoot, 'src/Main.mjs'), outputPath: mainOutput
+                  }),
+                  entries = transforms.relativeSpecifiers(emitted);
+
+            expect(entries).toEqual([
+                computed('../node_modules/${name}.mjs'),
+                computed('../node_modules/${name}.mjs'),
+                computed('../../../src/main/addon/${name}.mjs'),
+                computed('./main/addon/${name}.mjs')
+            ]);
+            for (const entry of entries.slice(0, 2)) {
+                expect(path.resolve(path.dirname(mainOutput), entry.specifier.replace('${name}', '@fixture/native-tools/src/main/addon/Probe')))
+                    .toBe(outputPath)
+            }
+        });
+
+        test("the real Canvas worker's package context targets emitted node_modules while its other contexts keep their roots", () => {
+            const canvasOutput = path.join(outputRoot, 'src/worker/Canvas.mjs'),
+                  source       = fs.readFileSync(path.resolve(import.meta.dirname, '../../../../src/worker/Canvas.mjs'), 'utf8'),
+                  emitted      = transforms.rewriteEsmImports(source, {
+                      ...options, sourcePath: path.join(engineRoot, 'src/worker/Canvas.mjs'), outputPath: canvasOutput
+                  });
+
+            expect(transforms.relativeSpecifiers(emitted).filter(entry => entry.computed)).toEqual([
+                computed('../canvas/${path.slice(11)}.mjs'),
+                computed('../../node_modules/${path.slice(13)}.mjs'),
+                computed('../../${path}.mjs'),
+                computed('../../${path}/canvas.mjs')
+            ]);
+            expect(path.resolve(path.dirname(canvasOutput), '../../node_modules')).toBe(path.join(outputRoot, 'node_modules'))
+        });
+
+        test('ordinary workspace modules retain the established Engine and external-package rewrite', () => {
+            const source = [
+                "import Base from '../../node_modules/neo.mjs/src/core/Base.mjs';",
+                "export {default as Other} from '../../node_modules/other/index.mjs';",
+                "import Local from './Local.mjs';"
+            ].join('\n');
+
+            const sourcePath = path.join(workspaceRoot, 'apps/probe/Viewport.mjs'),
+                  outputPath = path.join(outputRoot, 'apps/probe/Viewport.mjs'),
+                  emitted    = transforms.rewriteEsmImports(source, {
+                ...options,
+                sourcePath, outputPath, files: new Map([[sourcePath, {outputPath, type: 'module'}]])
+            });
+            expect(transforms.relativeSpecifiers(emitted)).toEqual([
+                literal('../../src/core/Base.mjs'),
+                literal('../../../../node_modules/other/index.mjs'),
+                literal('./Local.mjs')
+            ])
         })
     });
 

@@ -1,0 +1,44 @@
+/* The team board example's chrome: a toolbar over the board. It reads the board's own tokens, so each theme that
+   styles the board styles the example too. Its columns are narrower than the theme's, so all five fit a 1440px
+   screen. */
+.board-swimlanes-example {
+    --neo-board-column-width: 264px;
+
+    background: var(--neo-board-background);
+
+    .board-swimlanes-example-toolbar.neo-toolbar {
+        align-items  : baseline;
+        background   : var(--neo-board-column-background);
+        border-bottom: 1px solid var(--neo-board-column-border-color);
+        flex-wrap    : wrap;
+        gap          : 4px 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+    }
+
+    .board-swimlanes-example-title {
+        color         : var(--neo-board-card-color);
+        font-size     : 19px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .board-swimlanes-example-hint {
+        color    : var(--neo-board-card-muted-color);
+        font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+        .board-swimlanes-example-toolbar.neo-toolbar {
+            align-items: center;
+            min-height : auto;
+            padding    : 8px 14px;
+        }
+
+        .board-swimlanes-example-hint {
+            font-size: 12px;
+            order    : 2;
+            width    : 100%;
+        }
+    }
+}

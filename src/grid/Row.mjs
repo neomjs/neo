@@ -79,6 +79,13 @@ class Row extends Component {
     }
 
     /**
+     * The view's page offset this row last rendered with, see {@link Neo.grid.View#pageOffset}
+     * @member {Number} renderedPageOffset=0
+     * @protected
+     */
+    renderedPageOffset = 0
+
+    /**
      * Triggered after an update of this row landed in the DOM, e.g. for a changed record. Content-sized rows
      * measure what it rendered.
      * @protected
@@ -156,7 +163,7 @@ class Row extends Component {
      * @returns {Object} VDOM object for the cell
      */
     applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
-        let {colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache;
+        let {cellSelectionModel, colspanField, editsCells, gridBody, gridContainer, highlightModifiedCells, selectionModel, store} = cache;
 
         // Premeasurement projects declared text only, without constructing component cells or an edit surface. A
         // component column declares its cells' depth, also when it builds them from `defaults` like column.Tree.
@@ -220,6 +227,13 @@ class Row extends Component {
             if (extraCls) {
                 NeoArray.add(cellCls, extraCls)
             }
+        }
+
+        // A column whose cells carry state, like AnimatedChange's change marks, renders it with every pass
+        let stateCls = column.getCellStateCls?.(rendererConfig);
+
+        if (stateCls) {
+            NeoArray.add(cellCls, stateCls)
         }
 
         if (rendererOutput instanceof AbstractComponent) {
@@ -300,10 +314,7 @@ class Row extends Component {
             style          : rendererOutput.style || {}
         };
 
-        if (selectedCells?.length > 0 && selectedCells.includes(gridBody.getLogicalCellId(record, dataField))) {
-            cellCls.push('neo-selected');
-            cellConfig['aria-selected'] = true
-        }
+        cellSelectionModel?.applyCellSelection(cellConfig, record, dataField);
 
         // Only a grid that edits has cells to tell apart: while its editing is on, the others are read-only
         if (editsCells && !column.editable) {
@@ -396,19 +407,18 @@ class Row extends Component {
             delete vdom.data?.recordId;
 
             vdom.style = {display: 'none'};
-            !silent && me.update();
+            silent ? (gridBody && (gridBody.hasSilentVdomChanges = true)) : me.update();
             return
         }
 
         let {
                 cellPoolSize, columnPositions, colspanField, highlightModifiedCells,
-                mountedColumns, rowHeight, store
+                mountedColumns, store
             }              = gridBody,
             // selection is the View's: a row paints its projection and never holds or mutates it
-            view           = gridContainer?.view,
-            selectedCells  = view?.selectedCells ?? [],
-            selectionModel = view?.selectionModel ?? null,
-            {rowGeometry}  = gridBody,
+            view               = gridContainer?.view,
+            cellSelectionModel = view?.cellSelectionModel ?? null,
+            selectionModel     = view?.selectionModel ?? null,
             recordId       = gridBody.getRecordId(record),
             countColumns   = columns.getCount(),
             cellEditing    = gridContainer.getPlugin('grid-cell-editing'),
@@ -416,15 +426,17 @@ class Row extends Component {
             editsCells     = !!cellEditing && !cellEditing.disabled,
             ariaColumnOffset = gridContainer.getAriaColumnOffset(gridBody.region),
             ariaRow        = gridBody.isAriaLeadRegion,
-            cache          = {ariaColumnOffset, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
+            cache          = {ariaColumnOffset, cellSelectionModel, colspanField, columnPositions, editSession, editsCells, gridBody, gridContainer, highlightModifiedCells, selectionModel, store};
+
+        me.renderedPageOffset = gridBody.pageOffset;
 
         Object.assign(vdom, {
             data : {recordId, rowId: rowIndex},
             // Content-sized rows take height and offset from the view's geometry, fixed rows multiply
             style: {
                 display  : null, // Reset display in case it was hidden
-                height   : (rowGeometry ? rowGeometry.heightAt(rowIndex) : rowHeight) + 'px',
-                transform: me.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
+                height   : me.getRowHeight(rowIndex) + 'px',
+                transform: me.getRowTransform(gridBody.getRowOffset(rowIndex))
             }
         });
 
@@ -690,7 +702,7 @@ class Row extends Component {
             }
         }
 
-        !silent && me.update()
+        silent ? (gridBody && (gridBody.hasSilentVdomChanges = true)) : me.update()
     }
 
     /**
@@ -718,6 +730,20 @@ class Row extends Component {
     }
 
     /**
+     * The height in px this row renders at an index: the grid's `rowHeight`, or in content-sized mode the view's
+     * geometry height without the extra height. The extra is room below the row inside its slot, so the cells
+     * keep the row's own height and a click there does not reach the row.
+     * @param {Number} rowIndex
+     * @returns {Number}
+     * @protected
+     */
+    getRowHeight(rowIndex) {
+        let {rowGeometry, rowHeight} = this.parent;
+
+        return rowGeometry ? rowGeometry.heightAt(rowIndex) - rowGeometry.extraHeightAt(rowIndex) : rowHeight
+    }
+
+    /**
      * The transform that places this row at an offset in px. `--grid-row-pin-offset` is the scroll pinning
      * delta of the `GridRowScrollPinning` main-thread addon.
      * @param {Number} offset
@@ -728,21 +754,23 @@ class Row extends Component {
     }
 
     /**
-     * Content-sized rows move when a row above them changes its height, while their record and index stay the
-     * same. True if the height or offset this row rendered no longer matches the view's row geometry.
+     * Rows move while their record and index stay the same: every row when the view crosses into another scroll page,
+     * and a content-sized row when a row above it changes its height. True if the page offset, height or offset this
+     * row rendered no longer matches the view's. A change of only its extra height leaves the row itself current.
      * @returns {Boolean}
      * @protected
      */
     hasStaleGeometry() {
         let me            = this,
-            {rowGeometry} = me.parent,
+            gridBody      = me.parent,
+            {rowGeometry} = gridBody,
             {rowIndex}    = me,
             {style}       = me.vdom;
 
-        return !!(rowGeometry && me.record) && (
-            style.height    !== rowGeometry.heightAt(rowIndex) + 'px' ||
-            style.transform !== me.getRowTransform(rowGeometry.offsetAt(rowIndex))
-        )
+        return !!me.record && (me.renderedPageOffset !== gridBody.pageOffset || !!rowGeometry && (
+            style.height    !== me.getRowHeight(rowIndex) + 'px' ||
+            style.transform !== me.getRowTransform(gridBody.getRowOffset(rowIndex))
+        ))
     }
 
     /**

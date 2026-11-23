@@ -1,6 +1,9 @@
 import Base from '../core/Base.mjs';
 
+const formats = new Map();
+
 /**
+ * @summary Static calendar and wall-clock date utilities.
  * @class Neo.util.Date
  * @extends Neo.core.Base
  */
@@ -50,6 +53,26 @@ class DateUtil extends Base {
      */
     static convertToyyyymmdd(date) {
         return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0]
+    }
+
+    /**
+     * @summary Formats wall-clock fields carried by a Date's UTC getters, or the range up to an inclusive end.
+     * @param {String} locale
+     * @param {Object} options `Intl.DateTimeFormat` options; the zone is UTC because the date already holds wall time
+     * @param {Date} wall
+     * @param {Date} [wallEnd]
+     * @returns {String}
+     */
+    static formatWall(locale, options, wall, wallEnd) {
+        const key    = `${locale}|${JSON.stringify(options)}`;
+        let   format = formats.get(key);
+
+        if (!format) {
+            format = new Intl.DateTimeFormat(locale, {...options, timeZone: 'UTC'});
+            formats.set(key, format)
+        }
+
+        return wallEnd ? format.formatRange(wall, wallEnd) : format.format(wall)
     }
 
     /**

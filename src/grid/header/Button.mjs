@@ -8,12 +8,20 @@ import TextField  from '../../form/field/Text.mjs';
  */
 class Button extends BaseButton {
     /**
-     * Valid values for align
-     * @member {String[]} cellAlignValues: ['left','center','right']
+     * Valid values for cellAlign
+     * @member {String[]} cellAlignValues=['left','center','right']
      * @protected
      * @static
      */
     static cellAlignValues = ['left', 'center', 'right']
+
+    /**
+     * Valid values for headerAlign
+     * @member {String[]} headerAlignValues=['auto','left','center','right']
+     * @protected
+     * @static
+     */
+    static headerAlignValues = ['auto', 'left', 'center', 'right']
 
     static config = {
         /**
@@ -36,6 +44,14 @@ class Button extends BaseButton {
          * @reactive
          */
         cellAlign_: 'left',
+        /**
+         * Alignment of this header's label. Valid values are auto, left, center, right.
+         * auto takes the value of cellAlign, so a right-aligned numeric column's header label
+         * sits over its digits without repeating the column's alignment config.
+         * @member {String} headerAlign_='left'
+         * @reactive
+         */
+        headerAlign_: 'left',
         /**
          * Enables the optional value-filter surface on this header.
          * @member {Boolean} columnMenu_=false
@@ -146,14 +162,14 @@ class Button extends BaseButton {
      */
     afterSetDataField(value, oldValue) {
         if (oldValue !== undefined) {
-            const container = this.up('grid-container');
+            const container = this.getGridContainer();
             if (container) this.isFiltered = container.isColumnFiltered(value)
         }
     }
 
     /**
      * @summary Marks the header root and describes it as filtered. With a menu, the menu keeps its trigger shown;
-     * without one, the header shows its own mark (Button.scss).
+     * without one, the header shows its own mark (Button.css).
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -176,7 +192,7 @@ class Button extends BaseButton {
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
-            container = me.up('grid-container'),
+            container = me.getGridContainer(),
             // WAI-ARIA 1.2 allows aria-sort on a columnheader only: the outer wrapper when this header has a
             // column menu, or the button itself otherwise. The arrow class below is invisible to a screen reader,
             // so the attribute is the announcement. A null direction has to remove it, or a header that clears
@@ -402,6 +418,16 @@ class Button extends BaseButton {
         }
     }
 
+    /**
+     * @summary Returns the grid this header belongs to: the one that set itself on this header's toolbar, which finds
+     * a grid subclass with an ntype of its own (`scheduler`, `gantt`) too. A header placed under a bare
+     * `grid-container` without a header toolbar is found by that ntype.
+     * @returns {Neo.grid.Container|null}
+     */
+    getGridContainer() {
+        return this.parent?.gridContainer || this.up('grid-container')
+    }
+
     /** @summary Returns the native sort-button vdom. @returns {Object} */
     getVdomRoot() {
         return this.menuRootWrapped ? this.vdom.cn[0] : super.getVdomRoot()
@@ -467,6 +493,29 @@ class Button extends BaseButton {
     }
 
     /**
+     * Triggered after the cellAlign config got changed.
+     * When headerAlign is 'auto', the header label follows the new cellAlign.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCellAlign(value, oldValue) {
+        if (oldValue !== undefined && this.headerAlign === 'auto') {
+            this.updateHeaderAlignCls()
+        }
+    }
+
+    /**
+     * Triggered after the headerAlign config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetHeaderAlign(value, oldValue) {
+        this.updateHeaderAlignCls()
+    }
+
+    /**
      * Triggered before the cellAlign config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -474,6 +523,39 @@ class Button extends BaseButton {
      */
     beforeSetCellAlign(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'cellAlign', 'cellAlignValues')
+    }
+
+    /**
+     * Triggered before the headerAlign config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetHeaderAlign(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'headerAlign', 'headerAlignValues')
+    }
+
+    /**
+     * @summary Applies or removes the CSS classes that position the header label.
+     * The effective alignment is cellAlign when headerAlign is 'auto', otherwise headerAlign.
+     * 'left' sets no class (the button's default layout already places the label at the left edge).
+     * @protected
+     */
+    updateHeaderAlignCls() {
+        const
+            effective = this.headerAlign === 'auto' ? this.cellAlign : this.headerAlign,
+            {cls}     = this;
+
+        NeoArray.remove(cls, 'neo-header-align-center');
+        NeoArray.remove(cls, 'neo-header-align-right');
+
+        if (effective === 'center') {
+            NeoArray.add(cls, 'neo-header-align-center')
+        } else if (effective === 'right') {
+            NeoArray.add(cls, 'neo-header-align-right')
+        }
+
+        this.cls = cls
     }
 
     /**
@@ -528,7 +610,7 @@ class Button extends BaseButton {
      */
     changeFilterOperator(data) {
         let me            = this,
-            gridContainer = me.up('grid-container'),
+            gridContainer = me.getGridContainer(),
             store         = gridContainer?.store,
             operator      = data.value,
             filter;
@@ -556,7 +638,7 @@ class Button extends BaseButton {
      */
     changeFilterValue(data) {
         let me            = this,
-            gridContainer = me.up('grid-container'),
+            gridContainer = me.getGridContainer(),
             store         = gridContainer?.store,
             {value}       = data,
             field, filter, model;
@@ -568,6 +650,11 @@ class Button extends BaseButton {
 
             if (value && field?.type?.toLowerCase() === 'date') {
                 value = new Date(value)
+            }
+
+            // A ComboBox's value is a record; rows hold its display value
+            if (Neo.isRecord(value)) {
+                value = value[me.filterField.displayField]
             }
 
             if (!filter) {
@@ -615,6 +702,7 @@ class Button extends BaseButton {
         return {
             ...super.toJSON(),
             cellAlign           : me.cellAlign,
+            headerAlign         : me.headerAlign,
             columnMenu          : me.columnMenu,
             dataField           : me.dataField,
             defaultSortDirection: me.defaultSortDirection,

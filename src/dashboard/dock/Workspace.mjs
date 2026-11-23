@@ -529,7 +529,7 @@ class Workspace extends Container {
     scheduledProjection = null
 
     /**
-     * The newest projection {@link #refreshDockWorkspace} parked because its window had departed, as
+     * The newest projection {@link #refreshDockWorkspace} parked because its host is headless or its window had departed, as
      * `{document, refreshOptions, tabInsertDescriptor}`; the next mount runs it (see {@link #afterSetMounted}).
      * @member {Object|null} departedProjection=null
      * @protected
@@ -546,6 +546,16 @@ class Workspace extends Container {
      * @protected
      */
     projectionCycle = null
+
+    /**
+     * The newest commit's supersession. {@link #projectDockZoneDocument} creates one per commit and aborts the one
+     * before it, whether that refresh is in flight or still queued; a refresh queued outside a commit joins the one
+     * current when it is queued ({@link #getProjectionAbort}). The reconciler hands its signal to the overflow
+     * recaptures it starts, so a read that never answers cannot hold a newer projection behind it.
+     * @member {AbortController|null} projectionAbort=null
+     * @protected
+     */
+    projectionAbort = null
 
     /**
      * @summary The Group-owned native lifecycle; this view contributes effects, not native state.
@@ -1157,13 +1167,14 @@ class Workspace extends Container {
      * still overrides, and the override remains authoritative.
      * @param {Object} request
      * @param {String} request.itemId
-     * @param {Object} [request.proxyRect] Where the user released the drag proxy.
+     * @param {Object} [request.proxyRect] Where the user released the drag proxy: the vessel's position.
+     * @param {Object|null} [request.sourceRect] The pane's rect, measured at drag arming: the vessel's size.
      * @param {Object} request.topologyIdentity The slot the host reserved; `Main.windowOpen` writes it
      *   into the vessel's carrier, and the vessel presents it when it connects.
-     * @returns {Promise<Object|null>} `{windowName}`, or `null` when no vessel opened.
+     * @returns {Promise<Object|null>} `{popupHeight, popupWidth, windowName}`, or `null` when no vessel opened.
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}={}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect=null, topologyIdentity}={}) {
         let me         = this,
             {windowId} = me;
 
@@ -1176,28 +1187,27 @@ class Workspace extends Container {
         }
 
         try {
-            let [hostUrl, winData] = await Promise.all([
+            // The vessel's size rule lives with the Group's placement, which a single-window app never loads.
+            let [hostUrl, winData, {default: Placement}, {default: NativeVesselTransaction}] = await Promise.all([
                     Neo.Main.getByPath({path: 'document.URL', windowId}),
-                    Neo.Main.getWindowData({windowId})
+                    Neo.Main.getWindowData({windowId}),
+                    import('./window/Placement.mjs'),
+                    import('./window/NativeVesselTransaction.mjs')
                 ]),
                 url = new URL(hostUrl);
 
-            // The vessel boots the SAME document. Which pane it shows is content, so `tearout` stays a
-            // URL parameter; whom it belongs to is identity, which rides the topology carrier — nothing
-            // about the owner is in the URL. Stripping first matters: a vessel re-torn from a vessel
-            // would otherwise inherit the parent's item and connect as the wrong pane.
-            url.searchParams.delete('tearout');
+            // The vessel boots the same document. Setting `tearout` replaces any inherited pane;
+            // ownership travels in the topology carrier.
             url.searchParams.set('tearout', itemId);
 
-            // The proxy rect is the pane the user dragged, so the vessel opens where they let go.
-            // Floors keep a degenerate rect (a collapsed rail tab) from opening an unusable window.
-            let height     = Math.max(Math.round(proxyRect?.height || 360), 240),
-                width      = Math.max(Math.round(proxyRect?.width  || 480), 320),
-                left       = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
-                top        = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
-                windowName = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
+            // The vessel opens at the pane's size and where the user let go. A tab drag's proxy is the
+            // tab's header button, so it places the window and never sizes it.
+            let {height, width} = Placement.resolveVesselSize({screen: winData?.screen, sourceRect}),
+                left            = Math.round((proxyRect?.x ?? 120) + (winData?.screenLeft || 0)),
+                top             = Math.round((proxyRect?.y ?? 120) + ((winData?.outerHeight - winData?.innerHeight) || 0) + (winData?.screenTop || 0)),
+                windowName      = me.tearOutWindowName(itemId, topologyIdentity?.workspaceKey);
 
-            const opened = await Neo.Main.windowOpen({
+            const opened = await NativeVesselTransaction.openVessel({
                 nativeCapabilities: {close: true, position: true, resize: true},
                 topologyIdentity,
                 url               : url.href,
@@ -1213,7 +1223,7 @@ class Workspace extends Container {
                 return null
             }
 
-            return {windowName}
+            return {popupHeight: height, popupWidth: width, windowName}
         } catch (error) {
             console.warn(`Dock tear-out: opening a vessel for "${itemId}" threw`, me.id, error);
             return null
@@ -1539,9 +1549,7 @@ class Workspace extends Container {
      * @protected
      */
     async observeWindowGeometry(windowId) {
-        const WindowPosition = await Neo.currentWorker.getAddon('WindowPosition', windowId);
-
-        return WindowPosition.setConfigs({observeMovement: true, observeResize: true, windowId})
+        return NativeVesselTransaction.observeWindowGeometry(windowId)
     }
 
     /**
@@ -2296,17 +2304,11 @@ class Workspace extends Container {
               classes    = new Set(Array.isArray(operations)
                   ? operations.map(value => Operations.changeClassFor(value?.operation)) : []);
 
-        if (classes.size !== 1) return {};
+        const changeClass = classes.size === 1 ? classes.values().next().value : null;
 
-        switch (classes.values().next().value) {
-            case 'geometry':
-                return {geometryOnly: true};
+        if (changeClass === 'geometry') return {geometryOnly: true};
 
-            case 'itemFlags':
-                return {retainTopology: true}
-        }
-
-        return {}
+        return changeClass === 'activation' || changeClass === 'itemFlags' ? {retainTopology: true} : {}
     }
 
     /**
@@ -2471,7 +2473,7 @@ class Workspace extends Container {
             commitOptions, preserved, tabInsertDescriptor, refreshOptions, tail;
 
         // Presentation owners release transient state before the outgoing shell is reconciled.
-        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, source, workspaceKey});
+        me.fire('beforeDockZoneDocumentChange', {descriptor, document, previousDocument, workspaceKey});
 
         tabInsertDescriptor = me.getTabInsertProjectionDescriptor(document, descriptor);
         commitOptions       = me.getRefreshOptions(descriptor, source);
@@ -2490,7 +2492,7 @@ class Workspace extends Container {
 
         // The cycle's own record (see {@link #projectionCycle}), handed to the refresh beside the options
         // rather than inside them: the options are a consumer-visible contract, the cycle is not.
-        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {waitedForTail: Boolean(me.refreshPromise)});
+        const cycle = me.projectionCycle = Neo.create(ProjectionCycle, {predecessorTiming: ProjectionCycle.timingOf(me.projectionCycle, me.refreshPromise), waitedForTail: Boolean(me.refreshPromise)});
 
         // Header truth is written at the commit boundary: every leaf self-diffs, so the bindings
         // whose inputs this commit changed re-evaluate now — a lock reaches its header, its pane and
@@ -2504,7 +2506,13 @@ class Workspace extends Container {
         // commit as the newer one and stands down — a `null` document, the clear, included.
         me.scheduledProjection = {document};
 
-        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle));
+        // Every refresh this commit replaces is superseded, the one in flight or one still queued: its overflow
+        // recaptures stop waiting on their reads, so this projection never queues behind a read that may not answer.
+        me.projectionAbort?.abort();
+
+        const projectionAbort = me.projectionAbort = new AbortController();
+
+        me.refreshPromise = cycle.run(tail, me, () => me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, cycle, projectionAbort));
         return me.refreshPromise
     }
 
@@ -2636,7 +2644,8 @@ class Workspace extends Container {
     }
 
     /**
-     * Re-projects a committed document through the identity-preserving reconciler: the outgoing
+     * @summary Re-projects a committed document through the identity-preserving reconciler.
+     * The outgoing
      * geometry is FLIP-snapshotted FIRST, then the consumer's chrome hook runs (so chrome mutation
      * can never alter the captured first rects), the staged shell is projected with hidden
      * placeholders, the reconciler hands every surviving pane and tab button into it, and the FLIP
@@ -2669,10 +2678,12 @@ class Workspace extends Container {
      * @param {Neo.dashboard.dock.projection.Cycle|null} [cycle=null] The scheduling commit's record of
      *     this one cycle, kept out of the options the hooks receive: the refresh stamps its receipt and
      *     settles its adoption once the reconcile has landed.
+     * @param {AbortController|null} [abort=null] The supersession this refresh answers to, taken where it was queued,
+     *     so a commit queued behind it has aborted it before it starts. A call outside the queue takes the current one.
      * @returns {Promise<void>}
      * @protected
      */
-    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null) {
+    async refreshDockWorkspace(tabInsertDescriptor=null, document=this.dockModel, refreshOptions={}, cycle=null, abort=null) {
         const
             me                 = this,
             host               = me.getDockHost(),
@@ -2680,23 +2691,24 @@ class Workspace extends Container {
             placeholders       = new Map(),
             {flipMarkerPrefix} = me,
             {geometryOnly=false, retainTopology=false} = refreshOptions,
+            projectionAbort    = abort || me.getProjectionAbort(),
             superseded         = () => refreshOptions.isCurrent?.() === false;
 
         if (!host) {
             throw new Error(`Workspace ${me.id}: dockHostReference "${me.dockHostReference}" resolved to no live dock host — the committed document is not rendered`)
         }
 
-        // A departed window renders nothing a projection could land in, and the warm reload that adopts this
-        // Workspace into the next window would move the host mid-transaction, leaving a staged shell hidden over
-        // the panes it took. The newest such projection waits for the next mount.
-        if (Neo.currentWorker?.isWindowDeparted?.(host.windowId)) {
+        // A departed window or an unmounted headless host renders nothing a projection could land in;
+        // parking the newest snapshot lets the next mount project once without stranding promiseUpdate().
+        if (Neo.currentWorker?.isWindowDeparted?.(host.windowId) || (!host.mounted && !host.windowId && !host.parent && (!Neo.config.unitTestMode || Neo.config.allowVdomUpdatesInTests))) {
             me.departedProjection = {document, refreshOptions, tabInsertDescriptor};
             return
         }
 
         if (!host.mounted) {
             try {
-                await host.promiseUpdate()
+                await host.promiseUpdate();
+                cycle?.stamp('hostMounted')
             } catch (error) {
                 if (error === Neo.isDestroyed || me.isDestroyed || host.isDestroyed) {
                     return
@@ -2717,6 +2729,8 @@ class Workspace extends Container {
             await flip?.captureFirst({hostId: host.id, markerPrefix: flipMarkerPrefix, windowId: host.windowId})
         } catch (error) {/* instant landing */}
 
+        cycle?.stamp('captured');
+
         if (me.isDestroyed || superseded()) {
             return
         }
@@ -2724,6 +2738,7 @@ class Workspace extends Container {
         me.beforeRefreshDockWorkspace(document, refreshOptions);
 
         await me.releaseStaleRevealPanes(document);
+        cycle?.stamp('released');
 
         if (me.isDestroyed || superseded()) {
             return
@@ -2753,6 +2768,7 @@ class Workspace extends Container {
             me.getReconcileOptions(document, refreshOptions) || {};
 
         const projection = {
+            cycle,
             geometryOnly,
             host,
             nextConfig,
@@ -2771,6 +2787,7 @@ class Workspace extends Container {
             ),
             retainTopology: forcedRetainTopology ?? retainTopology,
             shellIndex    : me.dockShellIndex,
+            signal        : projectionAbort.signal,
             waitForOverflowProjection
         };
 
@@ -2792,6 +2809,14 @@ class Workspace extends Container {
         // over a shell the committed document does not describe would animate the recovery itself,
         // and `afterRefreshDockWorkspace` consumers read `result` as a completed projection.
         if (result === null) return;
+
+        // A newer committed document is queued behind this one. Its refresh releases panes and runs the
+        // presentation against the catalog that is current then, so this obsolete catalog cannot retire a
+        // pane the newer document restarts. The landed document still adopts: it is in the host.
+        if (projectionAbort.signal.aborted || superseded()) {
+            cycle?.adopt(result);
+            return
+        }
 
         me.releaseDeclaredPanes(document);
 
@@ -2913,18 +2938,30 @@ class Workspace extends Container {
      * @protected
      */
     chainProjection({document, refreshOptions, tabInsertDescriptor}) {
-        const me   = this,
-              tail = me.refreshPromise?.catch(() => {}) || Promise.resolve();
+        const me    = this,
+              abort = me.getProjectionAbort(),
+              tail  = me.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         me.refreshPromise = tail
             .then(() => me.timeout(0).catch(error => {if (error !== Neo.isDestroyed) throw error}))
             .then(() => {
                 if (me.isDestroyed || (me.scheduledProjection && me.scheduledProjection.document !== document)) return;
 
-                return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions)
+                return me.refreshDockWorkspace(tabInsertDescriptor, document, refreshOptions, null, abort)
             });
 
         return me.refreshPromise
+    }
+
+    /**
+     * @summary The supersession a refresh queued now answers to, which the next commit aborts.
+     * A repair, a parked replay or a direct projection supersedes nothing, so it joins the one current when it is
+     * queued: bound when it starts, it would hold a live signal while a newer commit waits behind it.
+     * @returns {AbortController} The newest commit's, or one bound now when no commit has bound one yet.
+     * @protected
+     */
+    getProjectionAbort() {
+        return this.projectionAbort ??= new AbortController()
     }
 
     /**

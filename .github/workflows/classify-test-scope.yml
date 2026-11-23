@@ -15,9 +15,10 @@ name: Classify test scope
 # `neomjs/neo-agent-skills#14` centralises non-product governance and explicitly excludes
 # repository-specific product tests, so these Engine path predicates stay in this repository.
 #
-# Sharing a classifier does NOT couple the suites' reds. Callers keep separate workflow
-# identities and separate checks, which is the half of #14685's failing-honest intent that
-# outlived its retired mechanism: an e2e failure must not be readable as `test.yml` being red.
+# Sharing a classifier does NOT couple the suites' reds. Every tier keeps its own checks, which is
+# the half of #14685's failing-honest intent that outlived its retired mechanism: an e2e failure reads
+# as `e2e-engine`, never as `unit` or `components`. One workflow, `test.yml`, calls this once for every
+# tier, because a workflow cannot read another workflow's job outputs.
 
 on:
   workflow_call:
@@ -36,6 +37,9 @@ on:
       run_e2e:
         description: Whether the e2e (engine tier) suite is relevant to the changed paths.
         value: ${{ jobs.classify.outputs.run_e2e }}
+      run_red_on_base:
+        description: Whether a pull request changed a unit spec and a path outside test/, so red-on-base has a comparison to run.
+        value: ${{ jobs.classify.outputs.run_red_on_base }}
       e2e_selection:
         description: With `select_e2e` on a pull request the boundary admits, `full` or `selected`; empty otherwise, and every admitted tier then runs in full.
         value: ${{ jobs.classify.outputs.e2e_selection }}
@@ -54,6 +58,9 @@ on:
       skip_reason:
         description: Human-readable reason a caller can print when it skips.
         value: ${{ jobs.classify.outputs.skip_reason }}
+      e2e_skip_reason:
+        description: The e2e tier's reason, which is the selection's when a pull request's selection reached no spec. Kept apart from `skip_reason`, which the other tiers print.
+        value: ${{ jobs.classify.outputs.e2e_skip_reason }}
       e2e_boundary_report:
         description: One line per changed file, saying whether the E2E boundary admits it and which rule leaves it out.
         value: ${{ jobs.classify.outputs.e2e_boundary_report }}
@@ -67,7 +74,9 @@ jobs:
       run_unit: ${{ steps.scope.outputs.run_unit }}
       run_components: ${{ steps.scope.outputs.run_components }}
       run_e2e: ${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}
-      skip_reason: ${{ steps.select.outputs.skip_reason || steps.scope.outputs.skip_reason }}
+      run_red_on_base: ${{ steps.scope.outputs.run_red_on_base }}
+      skip_reason: ${{ steps.scope.outputs.skip_reason }}
+      e2e_skip_reason: ${{ steps.select.outputs.skip_reason || steps.scope.outputs.skip_reason }}
       e2e_boundary_report: ${{ steps.scope.outputs.e2e_boundary_report }}
       e2e_selection: ${{ steps.select.outputs.e2e_selection }}
       e2e_engine_paths: ${{ steps.select.outputs.e2e_engine_paths }}
@@ -88,6 +97,9 @@ jobs:
 
             // The base a push's changed files were diffed from; its content reads compare against it too
             let pushBase = null;
+
+            // PR file records carry the status and previous path needed for safe selection.
+            let fileRecords = [];
 
             // A newer push cancels this workflow's older run, so diffing from `before` would leave
             // the cancelled push's commits in no classified range. Diff from the head of this
@@ -133,6 +145,8 @@ jobs:
                   pull_number: context.payload.pull_request.number,
                   per_page   : 100
                 });
+
+                fileRecords = files;
 
                 return files.map(file => file.filename);
               }
@@ -181,6 +195,7 @@ jobs:
               core.setOutput('run_unit', 'false');
               core.setOutput('run_components', 'false');
               core.setOutput('run_e2e', 'false');
+              core.setOutput('run_red_on_base', 'false');
               core.setOutput('skip_reason', reason);
               await core.summary
                 .addHeading('Stale workflow attempt')
@@ -201,11 +216,13 @@ jobs:
               core.setOutput('run_unit', 'true');
               core.setOutput('run_components', 'true');
               core.setOutput('run_e2e', 'true');
+              core.setOutput('run_red_on_base', 'true');
               core.setOutput('skip_reason', unavailableReason);
               return;
             }
 
-            const normalizedFiles = files.map(file => file.replace(/\\/g, '/'));
+            const normalizePath   = file => file.replace(/\\/g, '/');
+            const normalizedFiles = files.map(normalizePath);
 
             // package.json carries unrelated kinds of change, and the path atom cannot tell them
             // apart, so resolve the CONTENT at both refs:
@@ -369,7 +386,7 @@ jobs:
               file.startsWith('learn/');
 
             // Whitelist: the components suite mounts real components in a browser against
-            // the webpack dev server — engine (src/), live-compiled theme SCSS, the component
+            // the dev server — engine (src/), the theme sources it builds, the component
             // specs + their harness apps, the config chain, dep manifests, or this workflow.
             // Same completeness rule as integration: a missed path silently skips the suite
             // (#15368 — this suite ran in NO workflow at all until it was wired here).
@@ -380,7 +397,7 @@ jobs:
             // invisible to the suites it decides for.
             const isComponentsRelevantPath = file =>
               file.startsWith('src/') ||
-              file.startsWith('resources/scss/') ||
+              file.startsWith('resources/css/') ||
               file.startsWith('test/playwright/component/') ||
               file === 'test/playwright/playwright.config.component.mjs' ||
               (file === 'package.json' && packageJsonDependencyChange) ||
@@ -402,8 +419,8 @@ jobs:
             //
             //   src/                  the engine under test
             //   examples/, apps/      navigated by the grid, colors, dock and workstation specs
-            //   resources/scss/       compiled to the theme the paint and geometry arms measure
-            //   buildScripts/         the theme assets, the webpack server `server-start` runs,
+            //   resources/css/        built into the theme the paint and geometry arms measure
+            //   buildScripts/         the theme assets, the file server `server-start` runs,
             //                         and `e2eCiSelection.mjs`, which DECIDES the spec population
             //   test/playwright/      the config, the fixtures, the helpers they import, the specs
             //
@@ -420,16 +437,22 @@ jobs:
             //
             //   apps/portal/resources/data/blog.json   read only by the lazily loaded news/blog view,
             //                                          a route no e2e spec opens; every blog post
-            //                                          registers itself there. The rest of the portal's
-            //                                          data stays in (`seo.json` loads on every route)
+            //                                          registers itself there
+            //   apps/portal/resources/data/{seo,ssg-archive-routes}.json
+            //                                          consumed exclusively by Node SSR/SSG tooling;
+            //                                          never fetched by the browser Portal SPA
             //   buildScripts/{create,helpers,release}/ outside the launch chain except create/move.mjs,
             //                                          executed by SourceMoveWorkspaceNL
             //
             // A unit arm reds when either premise stops holding. A false positive is not cheap either:
-            // one starts the engine tier's fourteen shards on a twenty-job cap.
-            const isPortalBlogRegistry    = file => file === 'apps/portal/resources/data/blog.json';
-            const isOutsideE2eLaunchChain = file =>
-              /^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs';
+            // one starts the engine tier's eighteen shards from the org's shared runner pool.
+            const isPortalBlogRegistry      = file => file === 'apps/portal/resources/data/blog.json';
+            const isPortalServerOnlySeoData = file =>
+              file === 'apps/portal/resources/data/seo.json' ||
+              file === 'apps/portal/resources/data/ssg-archive-routes.json';
+            const isOutsideE2eLaunchChain   = file =>
+              file === 'buildScripts/util/claimResponse.mjs' || // contributor workflows and their unit tests
+              (/^buildScripts\/(create|helpers|release)\//.test(file) && file !== 'buildScripts/create/move.mjs');
 
             const isE2eTestSupportPath = file =>
               file.startsWith('test/playwright/component/apps/') || (
@@ -441,45 +464,68 @@ jobs:
             const isE2eRelevantPath = file =>
               file.startsWith('src/') ||
               file.startsWith('examples/') ||
-              (file.startsWith('apps/') && !isPortalBlogRegistry(file)) ||
-              file.startsWith('resources/scss/') ||
+              (file.startsWith('apps/') && !isPortalBlogRegistry(file) && !isPortalServerOnlySeoData(file)) ||
+              file.startsWith('resources/css/') ||
               (file.startsWith('buildScripts/') && !isOutsideE2eLaunchChain(file)) ||
               isE2eTestSupportPath(file) ||
               (file === 'package.json' && (packageJsonDependencyChange || packageJsonE2eScriptChange)) ||
               (file === 'package-lock.json' && packageLockChange) ||
-              file === '.github/workflows/test-e2e.yml' ||
+              file === '.github/workflows/test.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
             // Each changed file against the boundary, for the skip summary to print: a misclassified
             // path then shows the rule that left it out on the pull request that carries it.
             const e2eBoundaryRule = file =>
-              isE2eRelevantPath(file)       ? 'in' :
-              isPortalBlogRegistry(file)    ? 'out (portal blog registry, read only on the news route)' :
-              isOutsideE2eLaunchChain(file) ? 'out (buildScripts outside the e2e launch chain)' :
+              isE2eRelevantPath(file)         ? 'in' :
+              isPortalBlogRegistry(file)      ? 'out (portal blog registry, read only on the news route)' :
+              isPortalServerOnlySeoData(file) ? 'out (portal SSR/SSG SEO metadata, never fetched by the browser SPA)' :
+              isOutsideE2eLaunchChain(file)   ? 'out (buildScripts outside the e2e launch chain)' :
               file === 'package-lock.json'  ? 'out (unchanged beyond browser-unreachable packages)' :
               file === 'package.json'       ? 'out (no dependency-kind or invoked-script change)' :
               isDocsOnlyPath(file)          ? 'out (docs or content)' :
                                               'out (no e2e rule matches)';
 
+            // Moving a stylesheet out of the boundary still removes a theme input at its old path.
+            const previousCssFiles = new Set(fileRecords
+              .map(file => file.previous_filename)
+              .filter(file => typeof file === 'string')
+              .map(normalizePath)
+              .filter(file => file.startsWith('resources/css/')));
+            const e2ePaths = [...new Set([...normalizedFiles, ...previousCssFiles])];
+            const e2eFiles = e2ePaths.filter(isE2eRelevantPath);
+
+            // The selector still verifies ownership. Removed, moved and unknown files keep full coverage.
+            const e2eExampleCss = fileRecords
+              .filter(file => (file.status === 'added' || file.status === 'modified') && !Object.hasOwn(file, 'previous_filename'))
+              .map(file => normalizePath(file.filename))
+              .filter(file => file.startsWith('resources/css/') && file.endsWith('.css') && !previousCssFiles.has(file));
+
             const runUnit        = normalizedFiles.some(file => !isDocsOnlyPath(file) || requiresUnitForContent(file));
             const runComponents  = normalizedFiles.some(isComponentsRelevantPath);
-            const runE2e         = normalizedFiles.some(isE2eRelevantPath);
+            const runE2e         = e2eFiles.length > 0;
+            // red-on-base runs the unit specs still at head against the base's source, so it needs both. Its
+            // comparison diffs without rename detection, so a rename's old path counts as changed too.
+            const runRedOnBase   = fileRecords.some(({filename, status}) => status !== 'removed' && /^test\/playwright\/unit\/.*\.spec\.mjs$/.test(filename)) &&
+                                   fileRecords.some(({filename, previous_filename}) => [filename, previous_filename].some(file => file && !file.startsWith('test/')));
 
             core.info(`Changed files: ${normalizedFiles.join(', ')}`);
             core.info(`run_unit=${runUnit}`);
             core.info(`run_components=${runComponents}`);
             core.info(`run_e2e=${runE2e}`);
+            core.info(`run_red_on_base=${runRedOnBase}`);
 
             core.setOutput('run_unit', String(runUnit));
             core.setOutput('run_components', String(runComponents));
             core.setOutput('run_e2e', String(runE2e));
-            const boundaryReport = normalizedFiles.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n');
+            core.setOutput('run_red_on_base', String(runRedOnBase));
+            const boundaryReport = e2ePaths.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n');
             const skipReason     = 'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)';
 
             core.setOutput('e2e_boundary_report', boundaryReport);
             core.setOutput('skip_reason', skipReason);
             // What a selection may narrow: the files that admitted the e2e tier
-            core.setOutput('e2e_files', JSON.stringify(normalizedFiles.filter(isE2eRelevantPath)));
+            core.setOutput('e2e_files', JSON.stringify(e2eFiles));
+            core.setOutput('e2e_example_css', JSON.stringify(e2eExampleCss));
 
             // A ruled-out tier starts no runner, so its reason lives here: each changed file and the
             // rule that left it out, so a misclassification shows on the pull request that carries it.
@@ -506,11 +552,19 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Materialize the route parser for example CSS selection
+        id: route-parser
+        if: ${{ inputs.select_e2e && github.event_name == 'pull_request' && contains(steps.scope.outputs.e2e_example_css, '/examples/') }}
+        # The selector falls back to the full tier if its locked parser is unavailable.
+        continue-on-error: true
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
       - name: Select the e2e specs the change reaches
         id: select
         if: ${{ inputs.select_e2e && github.event_name == 'pull_request' && steps.scope.outputs.e2e_files != '' && steps.scope.outputs.e2e_files != '[]' }}
         env:
           E2E_FILES: ${{ steps.scope.outputs.e2e_files }}
+          E2E_EXAMPLE_CSS: ${{ steps.scope.outputs.e2e_example_css }}
         # Into the log as well: no API returns a job summary, so the log is where a reader can see why
         run: |
           set -o pipefail

@@ -2,6 +2,7 @@ import * as selection from '../../../src/selection/grid/_export.mjs';
 import CheckBox       from '../../../src/form/field/CheckBox.mjs';
 import ComboBox       from '../../../src/form/field/ComboBox.mjs';
 import Container      from '../../../src/container/Base.mjs';
+import MainStore      from './MainStore.mjs';
 import Radio          from '../../../src/form/field/Radio.mjs';
 import TabContainer   from '../../../src/tab/Container.mjs';
 
@@ -70,14 +71,14 @@ class ControlsContainer extends Container {
                     labelText : 'Amount Rows',
                     labelWidth: 120,
                     listeners : {change: 'up.onAmountRowsChange'},
-                    store     : ['1000', '5000', '10000', '20000', '50000', '100000'],
+                    store     : MainStore.amountRowsOptions.map(String),
                     value     : '20000',
                     width     : 200
                 }, {
                     labelText : 'Amount Columns',
                     labelWidth: 145,
                     listeners : {change: 'up.onAmountColumnsChange'},
-                    store     : ['10', '25', '50', '75', '100', '200'],
+                    store     : MainStore.amountColumnsOptions.map(String),
                     value     : '50',
                     width     : 200
                 }, {
@@ -101,6 +102,7 @@ class ControlsContainer extends Container {
                     labelWidth: 70,
                     listeners : {change: 'up.onThemeRadioChange'},
                     name      : 'theme',
+                    reference : 'theme-dark-radio',
                     style     : {marginTop: '2em'},
                     value     : 'neo-theme-dark',
                     valueLabel: 'Dark'
@@ -110,6 +112,7 @@ class ControlsContainer extends Container {
                     labelWidth: 70,
                     listeners : {change: 'up.onThemeRadioChange'},
                     name      : 'theme',
+                    reference : 'theme-light-radio',
                     style     : {marginTop: '.3em'},
                     value     : 'neo-theme-light',
                     valueLabel: 'Light'
@@ -143,10 +146,6 @@ class ControlsContainer extends Container {
                     listeners : {change: 'up.onFilterFieldChange'},
                     name      : 'lastname',
                     width     : 200
-                }, {
-                    ntype    : 'label',
-                    reference: 'count-rows-label',
-                    style    : {marginTop: '1em'}
                 }]
             }, {
                 module: Container,
@@ -265,6 +264,8 @@ class ControlsContainer extends Container {
     }
 
     /**
+     * @summary Slides the panel in or out. Once it is in, the view pads its right edge (`neo-controls-expanded`),
+     * so the header and the grid make room for it.
      * @param {Object} data
      */
     async onControlsToggleButtonClick(data) {
@@ -278,7 +279,7 @@ class ControlsContainer extends Container {
 
         await me.timeout(button.expanded ? 250 : 0);
 
-        me.grid.toggleCls('neo-extend-margin-right');
+        me.parent.toggleCls('neo-controls-expanded')
     }
 
     onConstructed() {
@@ -290,13 +291,26 @@ class ControlsContainer extends Container {
         // The checkbox mirrors the grid, never a default of its own
         me.getItem('column-menu').checked = grid.columnMenu;
 
-        grid.on('columnMenuChange', me.onGridColumnMenuChange, me);
+        if (me.parent) {
+            me.observeConfig(me.parent, 'theme', () => me.syncThemeRadios())
+        }
 
-        grid.store.on({
-            filter: me.updateRowsLabel,
-            load  : me.updateRowsLabel,
-            scope : me
-        })
+        me.syncThemeRadios();
+
+        grid.on('columnMenuChange', me.onGridColumnMenuChange, me)
+    }
+
+    /**
+     * @summary Aligns the Settings theme radio buttons with the parent viewport's active theme.
+     */
+    syncThemeRadios() {
+        let me     = this,
+            theme  = me.parent?.getTheme() || me.getTheme(),
+            target = me.getReference(theme === 'neo-theme-light' ? 'theme-light-radio' : 'theme-dark-radio');
+
+        if (target && !target.checked) {
+            target.checked = true
+        }
     }
 
     /**
@@ -329,17 +343,6 @@ class ControlsContainer extends Container {
      */
     onSelectionModelChange(data) {
         this.grid.view.selectionModel = data.component.selectionModel
-    }
-
-    /**
-     *
-     */
-    updateRowsLabel() {
-        let {store} = this.grid;
-
-        if (!store.isLoading) {
-            this.getItem('count-rows-label').text = 'Filtered rows: ' + store.getCount()
-        }
     }
 }
 

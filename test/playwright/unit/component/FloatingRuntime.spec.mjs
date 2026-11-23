@@ -4,7 +4,7 @@
  * the config in both directions, and a component that never floats never gains it.
  *
  * Why the class is the assertion rather than the position: `neo-floating` is what carries
- * `position: fixed` (`resources/scss/src/component/Base.scss:23`), so the class IS the contract the
+ * `position: fixed` (`resources/css/src/component/Base.css:23`), so the class IS the contract the
  * DOM reads. Alignment and focus ride on top of it; the second suite pins when a landing mount may ask for them.
  */
 
@@ -84,7 +84,7 @@ test.describe('component.Base floating as a runtime config', () => {
     test('a Button keeps its own base classes across a floating flip', () => {
         // The Button rung matters on its own: `.neo-button` sets `position: relative` and
         // `.neo-button.neo-floating` is the higher-specificity rule that restores `fixed`
-        // (`resources/scss/src/button/Base.scss:40`). A flip that dropped `neo-button` would leave
+        // (`resources/css/src/button/Base.css:40`). A flip that dropped `neo-button` would leave
         // the compound selector unmatched and the button mispositioned rather than unstyled.
         const button = create(Button, {text: 'Probe'});
 

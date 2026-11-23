@@ -16,6 +16,10 @@ import Canvas from '../component/Canvas.mjs';
  * 5.  **Visibility**: Pausing the render loop while the host's window is hidden. A hidden window and the host's own
  *     `pause()` are separate reasons, and the loop runs only while neither holds.
  *
+ * Every call the host makes to its renderer carries `canvasId` beside `windowId`. The window routes the call to its
+ * canvas worker; the canvas lets one renderer class serve several hosts by keeping its state per canvas. A renderer
+ * that keeps one canvas, like `Neo.canvas.Base`, ignores `canvasId`.
+ *
  * Subclasses must define:
  * - `rendererClassName`: String name of the SharedWorker singleton (e.g. 'Neo.canvas.Header')
  * - `rendererImportPath`: Import path for the renderer module (e.g. 'src/canvas/Header.mjs')
@@ -79,7 +83,8 @@ class SharedCanvas extends Canvas {
      */
     rendererAdmitted = false
     /**
-     * The renderer and window whose graph this host started; clearing claims ownership before awaiting remote work.
+     * The renderer, canvas and window whose graph this host started; clearing claims ownership before awaiting remote
+     * work.
      * @member {Object|null} rendererGraph=null
      * @protected
      */
@@ -98,8 +103,8 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (value) {
-            me.renderer?.setTheme({theme: me.resolveColorScheme(), windowId: me.windowId});
-            (me.hostPaused || me.windowHidden) && me.renderer?.pause({windowId: me.windowId});
+            me.renderer?.setTheme({canvasId: me.getCanvasId(), theme: me.resolveColorScheme(), windowId: me.windowId});
+            (me.hostPaused || me.windowHidden) && me.renderer?.pause({canvasId: me.getCanvasId(), windowId: me.windowId});
             me.fire('canvasReady')
         }
     }
@@ -150,10 +155,10 @@ class SharedCanvas extends Canvas {
                 throw new Error('Canvas component missing rendererClassName config')
             }
 
-            const graph = {renderer: me.renderer, windowId: me.windowId};
+            const graph = {canvasId: me.getCanvasId(), renderer: me.renderer, windowId: me.windowId};
 
             me.rendererGraph = graph;
-            await graph.renderer.initGraph({canvasId: me.getCanvasId(), windowId: graph.windowId});
+            await graph.renderer.initGraph({canvasId: graph.canvasId, windowId: graph.windowId});
 
             if (me.isDestroyed || me.rendererGraph !== graph || me.windowId !== graph.windowId) return;
 
@@ -173,7 +178,7 @@ class SharedCanvas extends Canvas {
         super.afterSetTheme(value, oldValue);
 
         if (this.isCanvasReady) {
-            this.renderer.setTheme({theme: this.resolveColorScheme(), windowId: this.windowId})
+            this.renderer.setTheme({canvasId: this.getCanvasId(), theme: this.resolveColorScheme(), windowId: this.windowId})
         }
     }
 
@@ -240,7 +245,7 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * @summary Releases only the graph this host started, once, using its original renderer and window.
+     * @summary Releases only the graph this host started, once, using its original renderer, canvas and window.
      * @returns {Promise<void>}
      * @protected
      */
@@ -253,7 +258,7 @@ class SharedCanvas extends Canvas {
         me.isCanvasReady = false;
 
         try {
-            await graph.renderer.clearGraph({windowId: graph.windowId})
+            await graph.renderer.clearGraph({canvasId: graph.canvasId, windowId: graph.windowId})
         } catch (error) {
             if (error !== Neo.isDestroyed && !Neo.currentWorker.isDeparture(error, graph.windowId)) {
                 console.error('Neo.app.SharedCanvas: renderer cleanup failed', error)
@@ -286,6 +291,7 @@ class SharedCanvas extends Canvas {
 
     /**
      * @summary Admits this host only after successful module loading and remote-stub registration.
+     * A window replacement discards the old attempt and continues this initialization flight for the current binding.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -298,34 +304,39 @@ class SharedCanvas extends Canvas {
             return
         }
 
-        if (!me.isDestroyed) {
+        while (!me.isDestroyed) {
             let {windowId} = me;
 
             try {
                 await me.trap(Neo.worker.Manager.startWorker({name: 'canvas', windowId}));
                 await me.trap(Neo.currentWorker.whenCanvasReady(windowId))
             } catch (error) {
-                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed || Neo.currentWorker.isDeparture(error, windowId)) return;
+                if (me.isDestroyed || error === Neo.isDestroyed) return;
+                if (me.windowId !== windowId) continue;
+                if (Neo.currentWorker.isDeparture(error, windowId)) return;
 
                 console.error('Neo.app.SharedCanvas: canvas worker unavailable', error);
                 me.onCanvasLoadFailed('worker-unavailable', error.message);
                 return
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             let loaded;
 
             try {
                 loaded = await me.trap(Neo.worker.Canvas.loadModule({path: me.rendererImportPath, windowId}))
             } catch (error) {
-                if (me.isDestroyed || me.windowId !== windowId || error === Neo.isDestroyed) return;
+                if (me.isDestroyed || error === Neo.isDestroyed) return;
+                if (me.windowId !== windowId) continue;
 
                 me.onCanvasLoadFailed('module-load-failed', error.message);
                 return
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             if (loaded?.success !== true) {
                 me.onCanvasLoadFailed('module-load-failed', loaded?.error || 'Renderer module did not load');
@@ -344,14 +355,16 @@ class SharedCanvas extends Canvas {
                 throw error
             }
 
-            if (me.isDestroyed || me.windowId !== windowId) return;
+            if (me.isDestroyed) return;
+            if (me.windowId !== windowId) continue;
 
             if (!me.renderer) {
                 me.onCanvasLoadFailed('renderer-unavailable', 'Renderer remote stub did not register');
                 return
             }
 
-            me.rendererAdmitted = true
+            me.rendererAdmitted = true;
+            return
         }
     }
 
@@ -368,7 +381,33 @@ class SharedCanvas extends Canvas {
     }
 
     /**
-     * Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
+     * @summary Resolves a pointer in canvas-local CSS pixels without another DOM read. Native offsets belong only
+     * to the canvas target and start at its padding edge; adding its border retains this host's border-edge origin.
+     * Other reports use a matching event rectangle, or the last measured rectangle when current facts are absent.
+     * @param {Object} data The DOM event data
+     * @returns {Object|null} The local `{x, y}`, or null when the report carries no complete position.
+     */
+    getPointerPosition(data) {
+        let me                                                 = this,
+            {clientX, clientY, offsetX, offsetY, path, target} = data;
+
+        if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+
+        const canvasId = me.getCanvasId();
+
+        if (target?.id === canvasId && Number.isFinite(offsetX) && Number.isFinite(offsetY) &&
+            Number.isFinite(target.clientLeft) && Number.isFinite(target.clientTop)) {
+            return {x: offsetX + target.clientLeft, y: offsetY + target.clientTop}
+        }
+
+        const rect = (target?.id === canvasId && target.rect) ||
+            path?.find(node => node.id === canvasId)?.rect || me.canvasRect;
+
+        return rect ? {x: clientX - rect.left, y: clientY - rect.top} : null
+    }
+
+    /**
+     * @summary Forwards one pointer report to the renderer: the canvas-relative position, then the button and modifier facts
      * the DOM event carries (`button`, `buttons`, `altKey`, `ctrlKey`, `metaKey`, `shiftKey`), then what the caller
      * adds (`click`, `down`, `up`, `wheel`). Nothing leaves before the canvas is ready and measured.
      * @param {Object} data The DOM event data
@@ -380,22 +419,17 @@ class SharedCanvas extends Canvas {
             {canvasRect} = me;
 
         if (me.isCanvasReady && canvasRect) {
-            let facts = {};
+            let facts = me.getPointerPosition(data) || {};
 
             // Only facts the event carries: a report without a position leaves the worker's position alone, and
             // one without modifiers must not reset them.
-            if (typeof data.clientX === 'number' && typeof data.clientY === 'number') {
-                facts.x = data.clientX - canvasRect.left;
-                facts.y = data.clientY - canvasRect.top
-            }
-
             for (const key of ['altKey', 'button', 'buttons', 'ctrlKey', 'metaKey', 'shiftKey']) {
                 if (data[key] !== undefined) {
                     facts[key] = data[key]
                 }
             }
 
-            me.renderer.updateMouseState({...facts, ...extra, windowId: me.windowId})
+            me.renderer.updateMouseState({...facts, ...extra, canvasId: me.getCanvasId(), windowId: me.windowId})
         }
     }
 
@@ -430,7 +464,7 @@ class SharedCanvas extends Canvas {
      */
     onMouseLeave(data) {
         if (this.isCanvasReady) {
-            this.renderer.updateMouseState({leave: true, windowId: this.windowId})
+            this.renderer.updateMouseState({canvasId: this.getCanvasId(), leave: true, windowId: this.windowId})
         }
     }
 
@@ -514,7 +548,7 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (me.isCanvasReady) {
-            me.renderer[me.hostPaused || me.windowHidden ? 'pause' : 'resume']({windowId: me.windowId})
+            me.renderer[me.hostPaused || me.windowHidden ? 'pause' : 'resume']({canvasId: me.getCanvasId(), windowId: me.windowId})
         }
     }
 
@@ -538,6 +572,7 @@ class SharedCanvas extends Canvas {
         if (rect) {
             me.canvasRect = pointerRect;
             me.offscreenRegistered && await me.renderer?.updateSize({
+                canvasId        : me.getCanvasId(),
                 devicePixelRatio: Neo.config.devicePixelRatio || 1,
                 height          : rect.height,
                 width           : rect.width,

@@ -1,0 +1,57 @@
+/* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
+.dp-viewport.neo-viewport {
+    .dp-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 16px;
+        min-height   : 56px;
+        padding      : 10px 20px;
+    }
+
+    .dp-title {
+        color         : var(--neo-timeline-header-color);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .dp-hint {
+        align-items: center;
+        color      : var(--neo-timeline-header-color);
+        display    : inline-flex;
+        flex-wrap  : wrap;
+        font-size  : 14px;
+        gap        : 4px 8px;
+    }
+
+    /* The rule the editor enforces, stated before anyone opens it */
+    .dp-minimum {
+        font-weight: 600;
+    }
+
+    .dp-hint-narrow {
+        display: none;
+    }
+
+    @media (max-width: 720px) {
+        .dp-hint-wide {
+            display: none;
+        }
+
+        .dp-hint-narrow {
+            display: inline;
+        }
+    }
+
+    /* Holds its line while empty, so the first save does not push the plan down on a phone */
+    .dp-status {
+        color               : var(--neo-timeline-header-color);
+        font-size           : 14px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+        min-height          : 1.4em;
+    }
+}

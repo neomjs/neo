@@ -79,9 +79,12 @@ class ViewportController extends Controller {
      * @param {Object} data
      */
     onSortButtonClick(data) {
+        let {field} = data.component;
+
+        // Countries read A to Z, every figure largest first
         this.gallery.store.sorters = [{
-            property : data.component.field,
-            direction: 'DESC'
+            property : field,
+            direction: field === 'country' ? 'ASC' : 'DESC'
         }]
     }
 }

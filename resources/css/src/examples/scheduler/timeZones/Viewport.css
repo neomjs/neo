@@ -1,0 +1,174 @@
+/* The example takes its colours from the timeline's and the scheduler's theme tokens, so every theme styles it */
+.tz-viewport.neo-viewport {
+    .tz-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 16px;
+        min-height   : 56px;
+        padding      : 10px 20px;
+    }
+
+    .tz-title {
+        color         : var(--neo-timeline-header-color);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .tz-hint {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 13px;
+    }
+
+    /* One segmented switch: the buttons share borders, the pressed one carries the accent */
+    .tz-zones {
+        flex-wrap: wrap;
+        gap      : 0;
+
+        .tz-zone.neo-button {
+            background   : transparent;
+            border       : 1px solid var(--neo-timeline-border-color);
+            border-radius: 0;
+            color        : var(--neo-timeline-header-muted-color);
+            font-size    : 13px;
+            height       : 32px;
+            margin       : 0 0 0 -1px;
+            padding      : 0 12px;
+
+            &:first-child {
+                border-radius: 6px 0 0 6px;
+                margin-left  : 0;
+            }
+
+            &:last-child {
+                border-radius: 0 6px 6px 0;
+            }
+
+            &:hover {
+                color: var(--neo-timeline-header-color);
+            }
+
+            &.pressed {
+                background: var(--neo-timeline-bar-background);
+                border    : 1px solid var(--neo-timeline-bar-border-color);
+                color     : var(--neo-timeline-bar-color);
+                position  : relative;
+            }
+        }
+    }
+
+    /* On a phone the four zones sit in two rows of two, each row as wide as the toolbar; the hint gives the plan its
+       height, and the clocks of the readout pair up */
+    @media (max-width: 720px) {
+        .tz-hint {
+            display: none;
+        }
+
+        .tz-readout {
+            padding: 8px 12px;
+
+            .tz-readout-clocks {
+                display              : grid;
+                grid-template-columns: 1fr 1fr;
+                width                : 100%;
+            }
+        }
+
+        .tz-zones {
+            display              : grid;
+            grid-template-columns: 1fr 1fr;
+            order                : 2;
+            width                : 100%;
+
+            .tz-zone.neo-button {
+                margin: -1px 0 0 -1px;
+
+                &:first-child {
+                    border-radius: 6px 0 0 0;
+                    margin       : 0;
+                }
+
+                &:nth-child(2) {
+                    border-radius: 0 6px 0 0;
+                    margin-top   : 0;
+                }
+
+                &:nth-child(3) {
+                    border-radius: 0 0 0 6px;
+                    margin-left  : 0;
+                }
+
+                &:last-child {
+                    border-radius: 0 0 6px 0;
+                }
+            }
+        }
+    }
+
+    /* The readout: whose shift, the same span on every clock as one chip each, then the stored UTC times */
+    .tz-readout {
+        align-items  : center;
+        background   : var(--neo-timeline-header-background);
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        color        : var(--neo-timeline-header-muted-color);
+        display      : flex;
+        flex-wrap    : wrap;
+        font-size    : 13px;
+        gap          : 6px 14px;
+        padding      : 8px 20px;
+    }
+
+    .tz-readout-shift {
+        color      : var(--neo-timeline-header-color);
+        font-weight: 600;
+    }
+
+    .tz-readout-clocks {
+        display  : flex;
+        flex-wrap: wrap;
+        gap      : 6px;
+    }
+
+    /* One clock: the city small above the span; the axis' clock carries the accent of the pressed zone */
+    .tz-clock {
+        border        : 1px solid var(--neo-timeline-border-color);
+        border-radius : 6px;
+        display       : flex;
+        flex-direction: column;
+        padding       : 3px 10px;
+    }
+
+    .tz-clock-axis {
+        background: var(--neo-timeline-bar-background);
+        border    : 1px solid var(--neo-timeline-bar-border-color);
+    }
+
+    .tz-clock-city {
+        font-size: 11px;
+    }
+
+    .tz-clock-time {
+        color               : var(--neo-timeline-header-color);
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+    }
+
+    .tz-readout-stored {
+        font-size           : 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* The agent cell names the person and, below, the city whose clock they keep */
+    .tz-agent-name,
+    .tz-agent-city {
+        display: block;
+    }
+
+    .tz-agent-city {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 12px;
+    }
+}

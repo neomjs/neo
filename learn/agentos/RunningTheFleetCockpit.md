@@ -1,13 +1,11 @@
 # Running the Fleet Cockpit
 
-> **Concepts:** the architecture this runbook operates — the topology, roles, identity facts, and
-> the truth pipeline — is taught at [Fleet Manager Architecture](FleetManagerArchitecture.md);
-> the decisions behind it live in [ADR 0038](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0038-fm-client-topology.md).
+> **Concepts & companion guides:** this runbook owns launching the supervised `npm run cockpit` local session, per-seat Memory/KB target switching, and MCP/wake health checks. If you are booting the browser app or native Electron vessel directly from an `neomjs/neo-agent-institution` checkout and binding `NEO_FLEET_PLANE_*`, open [Running the Institution](https://neomjs.com/learn/institution/RunningTheInstitution); to learn how each pane distinguishes transport connection from source capability, read [Tour the Cockpit](https://neomjs.com/learn/institution/CockpitTour). The credential and truth-pipeline architecture is taught at [Fleet Manager Architecture](FleetManagerArchitecture.md), and the client-topology decisions live in [ADR 0038](https://github.com/neomjs/neo-agent-institution/blob/dev/learn/agentos/decisions/0038-fm-client-topology.md).
 
 The Fleet Manager cockpit is the operator's mission-control surface: the live agent roster, the
 activity stream, per-agent drill-in, and the lifecycle controls (start / stop / restart, the
-one-click morning start). A LIVE session needs two processes — the webpack dev server that serves
-the app, and the fleet HTTP transport the cockpit's controls and live feeds ride on.
+one-click morning start). A LIVE session needs two processes — the dev server that serves the app
+(`npm run server-start`), and the fleet HTTP transport the cockpit's controls and live feeds ride on.
 
 ## The one command
 
@@ -138,8 +136,8 @@ projection and removes the receipt, leaving no remote bearer reference behind. U
 Fleet-owned transport fields fail closed instead of being overwritten.
 
 For deployment-side auth, identity, and readiness details, continue with
-[Cloud deployment security](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Security.md) and the
-[Day-0 tutorial](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Day0Tutorial.md).
+[Cloud deployment security](https://neomjs.com/learn/agentos/cloud-deployment/Security) and the
+[Day-0 tutorial](https://neomjs.com/learn/agentos/cloud-deployment/Day0Tutorial).
 
 ## The one command against the live plane
 
@@ -166,7 +164,7 @@ The launcher resolves the plane binding itself, naming every source it used:
    for an explicit destination). All three empty refuses with the remediation; a
    pinned-but-unreadable file refuses rather than falling through to a different credential. The
    resolved value is held in launcher memory and injected into the fleet child's environment only —
-   never the webpack child, never a log line.
+   never the dev server's, never a log line.
 3. **Plane probe** — before anything spawns, an unauthenticated call to the plane's MCP ingress
    must answer with its auth guard's `401` (that refusal IS the plane's identity signature).
    Nothing serving there fails fast with the plane-start command
@@ -217,8 +215,8 @@ keeps honoring the variable for advanced setups).
 
 ### Dev-server ports when several seats share one machine
 
-The dev server reads `PORT` and binds it. Left unset, webpack-dev-server keeps its own default and
-auto-bump, so a plain `npm run server-start` is unchanged.
+The dev server reads `PORT` and binds it, and fails if that port is taken. Left unset, it starts at
+8080 and moves up past a taken port, so a plain `npm run server-start` is unchanged.
 
 That matters because a seat's port cannot be a committed value — several agents run on one host, and
 whoever starts second gets a different number. Anything that launches the dev server has to *choose*
@@ -228,7 +226,7 @@ while a healthy server serves the tree on another.
 
 **Claude-Code seats** get this from the tracked `.claude/launch.json` — `autoPort: true` and no port
 flag in `runtimeArgs`, so the harness allocates a free port and publishes it through `PORT`. Do not
-add `--port` there; pinning webpack leaves the harness's allocation unread, which is the same
+add `--port` there; a pinned port leaves the harness's allocation unread, which is the same
 divergence with the sides swapped.
 
 **Every other harness** (OpenCode, Kimi CLI, Codex, Gemini) has no `launch.json` contract, so pass
@@ -245,6 +243,6 @@ Never bind a measurement to "the port that answered." On a shared host several s
 serving a different checkout, and the one on the default port is as likely to be a stale clone as
 yours. A styling defect was once "reproduced" against another seat's tree for exactly this reason.
 
-Record the **checkout path and SHA** the server is serving. Webpack prints the path it serves at
-startup (`Content not from webpack is served from '<dir>'`), and `curl -s localhost:<port>/package.json`
+Record the **checkout path and SHA** the server is serving. The dev server prints the path it serves
+at startup (`[file-server] serving <dir> at http://localhost:<port>/`), and `curl -s localhost:<port>/package.json`
 is the cheap live check when a report has to name what was measured.

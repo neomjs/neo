@@ -340,6 +340,33 @@ test.describe('Neo.menu.List submenu cache', () => {
 
         expect(root.activeSubMenu).not.toBe(firstSubmenu);
         expect(firstSubmenu.mounted).toBe(false)
+    });
+
+    test('items that replace the items rebuild the submenu of an item whose id they reuse', () => {
+        const
+            root     = createMenu({floating: true, isRoot: true}),
+            moved    = [],
+            moveMenu = (file, folders) => [{id: 'move', text: 'Move to', items: folders.map(folder => ({
+                handler: () => moved.push(`${file} to ${folder}`), id: folder, text: folder
+            }))}],
+            showMove = () => root.showSubMenu(root.getItemId(root.store.get('move')), root.store.get('move'));
+
+        menus.push(root);
+
+        root.items = moveMenu('Alpha', ['Images', 'Archive']);
+        showMove();
+
+        const alphaSubmenu = root.activeSubMenu;
+
+        root.items = moveMenu('Beta', ['Documents', 'Archive']);
+        showMove();
+
+        expect(alphaSubmenu.isDestroyed).toBe(true);
+        expect(root.activeSubMenu.store.items.map(record => record.text)).toEqual(['Documents', 'Archive']);
+
+        root.activeSubMenu.store.get('Archive').handler();
+
+        expect(moved).toEqual(['Beta to Archive'])
     })
 });
 
@@ -515,5 +542,60 @@ test.describe('Neo.menu.List pointer rest', () => {
 
         expect(root.activeSubMenu).toBe(submenu);
         expect(submenu.focusOnMount).toBe(true)
+    });
+
+    test('leaves zIndex null by default, roots floating submenus in the floating portal, and cascades explicit zIndex overrides across cached submenus', () => {
+        const
+            {root, parentId} = createMountedRoot({subMenuHoverDelay: 0}),
+            inlineRoot       = createMenu({
+                floating         : false,
+                isRoot           : true,
+                items            : [{id: 'group', text: 'Group', items: [{id: 'leaf', text: 'Leaf'}]}],
+                parentId         : 'inline-host-panel',
+                subMenuHoverDelay: 0
+            });
+
+        menus.push(inlineRoot);
+
+        expect(root.zIndex).toBe(null);
+        expect(root.style?.zIndex).toBeUndefined();
+
+        root.onItemMouseEnter({currentTarget: parentId});
+
+        const submenu = root.activeSubMenu,
+              nested  = submenu.store.getAt(0);
+
+        nested.items     = [{text: 'Deeper'}];
+        submenu._mounted = true;
+        submenu.onItemMouseEnter({currentTarget: submenu.getItemId(nested)});
+
+        const grandSubMenu = submenu.activeSubMenu;
+
+        expect(submenu.parentId).toBe(root.parentId);
+        expect(submenu.zIndex).toBe(null);
+        expect(submenu.style?.zIndex).toBeUndefined();
+        expect(grandSubMenu.zIndex).toBe(null);
+
+        const inlineItem = inlineRoot.store.getAt(0);
+        inlineRoot.showSubMenu(inlineRoot.getItemId(inlineItem), inlineItem, false);
+        expect(inlineRoot.activeSubMenu.parentId).toBe('document.body');
+        expect(inlineRoot.activeSubMenu.zIndex).toBe(null);
+
+        // Explicit zIndex cascades +1 per submenu and clears back to null cleanly
+        root.zIndex = 1500;
+
+        expect(root.style.zIndex).toBe(1500);
+        expect(submenu.zIndex).toBe(1501);
+        expect(submenu.style.zIndex).toBe(1501);
+        expect(grandSubMenu.zIndex).toBe(1502);
+        expect(grandSubMenu.style.zIndex).toBe(1502);
+
+        root.zIndex = null;
+
+        expect(root.style.zIndex).toBe(null);
+        expect(submenu.zIndex).toBe(null);
+        expect(submenu.style.zIndex).toBe(null);
+        expect(grandSubMenu.zIndex).toBe(null);
+        expect(grandSubMenu.style.zIndex).toBe(null)
     })
 });

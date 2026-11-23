@@ -279,6 +279,22 @@ test.describe('Grid header value-menu shared state and lifetime', () => {
             }
         });
 
+    test('a store batch recounts an open island, also for rows that stay raw (#20968)', async ({page, neuralLink}) => {
+        const state = await setup(page, neuralLink);
+        // A Turbo Mode population taller than the grid: a row past the viewport is never hydrated, so its edit
+        // publishes no recordChange, only the batch's rowsChange
+        const turbo = await state.app.createInstance({className: 'Neo.data.Store', config: {
+            autoInitRecords: false, keyProperty: 'id', model: {fields: [{name: 'id', type: 'Int'}, {name: 'status'}, {name: 'region'}]},
+            data: Array.from({length: 200}, (_, i) => ({id: i + 1, status: i < 100 ? 'Open' : 'Closed', region: 'North'}))
+        }});
+        await state.app.setProperties(state.gridId, {store: turbo.id});
+        const surface = await open(page, await menuFor({...state, storeId: turbo.id}));
+        await expect(surface.getByRole('option', {name: 'Open, 100 matches', exact: true})).toBeVisible();
+        await state.app.callMethod(turbo.id, 'updateRows', [[{key: 190, values: {status: 'Open'}}]]);
+        await expect(surface.getByRole('option', {name: 'Open, 101 matches', exact: true})).toBeVisible();
+        await expect(surface.getByRole('option', {name: 'Closed, 99 matches', exact: true})).toBeVisible()
+    });
+
     test('recreation, field/source rebinding and external replacement have zero projection writes; retired observers stay detached',
         async ({page, neuralLink}, testInfo) => {
             const base = await setup(page, neuralLink), state = await menuFor(base);

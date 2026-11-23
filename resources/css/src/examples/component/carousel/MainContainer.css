@@ -1,0 +1,52 @@
+/* The carousel's own sheet sizes a text slide (14rem, 9rem inside); a portrait slide takes the whole box instead */
+.neo-carousel.example-carousel {
+    box-sizing: border-box;
+    max-height: 100%;
+
+    /* The root and its first child both carry .neo-carousel: the child fills the root and drops its own padding */
+    > .neo-carousel {
+        box-sizing    : border-box;
+        display       : flex;
+        flex-direction: column;
+        height        : 100%;
+        padding       : 0;
+    }
+
+    .neo-carousel-inner {
+        flex  : 1;
+        height: auto;
+
+        /* The edge fades suit sliding text, not a photo */
+        &:before,
+        &:after {
+            display: none;
+        }
+
+        .neo-carousel-item {
+            display       : flex;
+            flex-direction: column;
+            height        : 100%;
+            padding       : 0;
+        }
+    }
+
+    img {
+        flex      : 1;
+        min-height: 0;
+        object-fit: cover;
+        width     : 100%;
+    }
+
+    .example-carousel-caption {
+        flex       : none;
+        font-weight: 600;
+        padding    : .6em 0;
+    }
+
+    /* A phone's stage is far shorter than the 400px slide: the whole portrait shows, letterboxed, instead of a crop */
+    @media (max-width: 600px) {
+        img {
+            object-fit: contain;
+        }
+    }
+}

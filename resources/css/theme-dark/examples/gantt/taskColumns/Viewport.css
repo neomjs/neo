@@ -1,0 +1,13 @@
+:where(.neo-theme-dark) {
+    --tc-header-bg    : var(--grid-container-border-color, #2b2b2b);
+    --tc-border       : #4b5052;
+    --tc-title        : #e8eaed;
+    --tc-muted        : var(--neo-color);
+    --tc-badge-l      : 0.4;
+    --tc-badge-c      : 0.07;
+    --tc-badge-ink-l  : 0.93;
+    --tc-badge-ink-c  : 0.04;
+    --tc-done-track   : #4b5052;
+    --tc-done-fill    : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --tc-done-complete: #81c784;
+}

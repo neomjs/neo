@@ -1,0 +1,456 @@
+[
+    {
+        "id": "grid-big-data",
+        "featured": true,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/grid-big-data-14.jpg",
+        "hasLightCover": true,
+        "name": "Data Grid: 100k Rows & 200 Columns",
+        "sourceUrl": "examples/grid/bigData",
+        "urls": {
+            "devmode": "examples/grid/bigData/index.html",
+            "dist_dev": "dist/development/examples/grid/bigData/index.html",
+            "dist_esm": "dist/esm/examples/grid/bigData/index.html",
+            "dist_prod": "dist/production/examples/grid/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 20,
+        "component": "Grid",
+        "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
+        "lookFor": "Read the size below the rows, raise rows and columns in ☰ Settings, then scroll both ways and press a button in a cell.",
+        "keywords": [
+            "virtual",
+            "scroll",
+            "performance",
+            "100000",
+            "benchmark"
+        ]
+    },
+    {
+        "id": "grid-tree-big-data",
+        "featured": true,
+        "alsoIn": [
+            "tree"
+        ],
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/grid-tree-big-data-14.jpg",
+        "hasLightCover": true,
+        "name": "TreeGrid - Big Data",
+        "sourceUrl": "examples/grid/treeBigData",
+        "urls": {
+            "devmode": "examples/grid/treeBigData/index.html",
+            "dist_dev": "dist/development/examples/grid/treeBigData/index.html",
+            "dist_esm": "dist/esm/examples/grid/treeBigData/index.html",
+            "dist_prod": "dist/production/examples/grid/treeBigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 30,
+        "component": "Grid",
+        "feature": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels",
+        "lookFor": "Open a squad to its people, give kudos from a cell, then raise rows and depth in ☰ and expand all; filter by first name."
+    },
+    {
+        "id": "grid-issues",
+        "featured": true,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/grid-issues-14.jpg",
+        "hasLightCover": true,
+        "name": "GitHub Issues Grid",
+        "sourceUrl": "examples/grid/issues",
+        "urls": {
+            "devmode": "examples/grid/issues/index.html",
+            "dist_dev": "dist/development/examples/grid/issues/index.html",
+            "dist_esm": "dist/esm/examples/grid/issues/index.html",
+            "dist_prod": "dist/production/examples/grid/issues/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 60,
+        "component": "Grid",
+        "feature": "Searchable issue snapshot with wrapped rows",
+        "lookFor": "Search the issue snapshot, open column menus, toggle content-sized rows, and compare light and dark themes.",
+        "scope": "Displays a public issue snapshot rather than a live GitHub feed."
+    },
+    {
+        "id": "grid-countries",
+        "featured": false,
+        "image": "devmode/grid-countries-14.jpg",
+        "hasLightCover": true,
+        "name": "Country Statistics Grid",
+        "sourceUrl": "examples/grid/countries",
+        "urls": {
+            "devmode": "examples/grid/countries/index.html",
+            "dist_dev": "dist/development/examples/grid/countries/index.html",
+            "dist_esm": "dist/esm/examples/grid/countries/index.html",
+            "dist_prod": "dist/production/examples/grid/countries/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 130,
+        "component": "Grid",
+        "feature": "217 World Bank economies with flags, formatted figures and growth tinted by value",
+        "lookFor": "Sort by any figure: growth turns green or red, rank and country stay in place, and the arrow keys move the selection.",
+        "scope": "Shows the World Bank's latest indicators (CC BY 4.0) as retrieved on 17 Nov 2026; the flags load from an outside image host."
+    },
+    {
+        "id": "table-filtering",
+        "featured": false,
+        "image": "devmode/table-filtering-14.jpg",
+        "hasLightCover": true,
+        "name": "Table Filtering",
+        "sourceUrl": "examples/tableFiltering",
+        "urls": {
+            "devmode": "examples/tableFiltering/",
+            "dist_dev": "dist/development/examples/tableFiltering/",
+            "dist_esm": "dist/esm/examples/tableFiltering/",
+            "dist_prod": "dist/production/examples/tableFiltering/"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 540,
+        "component": "Table",
+        "feature": "Typed header filters",
+        "lookFor": "Show or hide filters and combine text, country, number, date and boolean criteria."
+    },
+    {
+        "id": "grid-animated-row-sorting",
+        "image": "devmode/grid-animated-row-sorting-14.jpg",
+        "name": "Animated Row Sorting",
+        "sourceUrl": "examples/grid/animatedRowSorting",
+        "urls": {
+            "devmode": "examples/grid/animatedRowSorting/index.html",
+            "dist_dev": "dist/development/examples/grid/animatedRowSorting/index.html",
+            "dist_esm": "dist/esm/examples/grid/animatedRowSorting/index.html",
+            "dist_prod": "dist/production/examples/grid/animatedRowSorting/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 600,
+        "component": "Grid",
+        "feature": "Animated sorting and filtering",
+        "lookFor": "Sort a header or filter Firstname, then adjust the transition duration to watch the rows move."
+    },
+    {
+        "id": "grid-cell-editing",
+        "image": "devmode/grid-cell-editing-14.jpg",
+        "name": "Grid Cell Editing",
+        "sourceUrl": "examples/grid/cellEditing",
+        "urls": {
+            "devmode": "examples/grid/cellEditing/index.html",
+            "dist_dev": "dist/development/examples/grid/cellEditing/index.html",
+            "dist_esm": "dist/esm/examples/grid/cellEditing/index.html",
+            "dist_prod": "dist/production/examples/grid/cellEditing/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 610,
+        "component": "Grid",
+        "feature": "An order sheet with typed editors, a refused quantity and a calculated line total",
+        "lookFor": "Double-click or press Enter to edit, Tab to move on. A quantity over 50 is refused, and the line total follows each edit."
+    },
+    {
+        "id": "grid-container",
+        "image": "devmode/grid-container-14.jpg",
+        "name": "Grid Selection Modes",
+        "sourceUrl": "examples/grid/container",
+        "urls": {
+            "devmode": "examples/grid/container/index.html",
+            "dist_dev": "dist/development/examples/grid/container/index.html",
+            "dist_esm": "dist/esm/examples/grid/container/index.html",
+            "dist_prod": "dist/production/examples/grid/container/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 620,
+        "component": "Grid",
+        "feature": "Cell, row, column and crosshair selection modes",
+        "lookFor": "Click any shift on a 42-clinician weekly roster, move with ArrowUp/Down/Left/Right, and switch between Cell, Column, Row and combined crosshair models."
+    },
+    {
+        "id": "grid-content-sized-rows",
+        "image": "devmode/grid-content-sized-rows-14.jpg",
+        "hasLightCover": true,
+        "name": "Content-Sized Grid Rows",
+        "sourceUrl": "examples/grid/contentSizedRows",
+        "urls": {
+            "devmode": "examples/grid/contentSizedRows/index.html",
+            "dist_dev": "dist/development/examples/grid/contentSizedRows/index.html",
+            "dist_esm": "dist/esm/examples/grid/contentSizedRows/index.html",
+            "dist_prod": "dist/production/examples/grid/contentSizedRows/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 630,
+        "component": "Grid",
+        "feature": "Wrapped content with locked columns",
+        "lookFor": "Toggle content-sized rows, edit a summary, filter, or jump through 10,000 records; scroll to the wrapped Details column."
+    },
+    {
+        "id": "grid-filtering",
+        "image": "devmode/grid-filtering-14.jpg",
+        "name": "Grid Header Filters",
+        "sourceUrl": "examples/grid/filtering",
+        "urls": {
+            "devmode": "examples/grid/filtering/index.html",
+            "dist_dev": "dist/development/examples/grid/filtering/index.html",
+            "dist_esm": "dist/esm/examples/grid/filtering/index.html",
+            "dist_prod": "dist/production/examples/grid/filtering/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 640,
+        "component": "Grid",
+        "feature": "Five typed filters in the column headers: text, ComboBox, amount, date and status",
+        "lookFor": "Pick a category and compare an amount: the count says how many of 10,000 orders stay, and Reset clears every field."
+    },
+    {
+        "id": "grid-export",
+        "image": "devmode/grid-export-14.jpg",
+        "name": "Grid CSV Export",
+        "sourceUrl": "examples/grid/export",
+        "urls": {
+            "devmode": "examples/grid/export/index.html",
+            "dist_dev": "dist/development/examples/grid/export/index.html",
+            "dist_esm": "dist/esm/examples/grid/export/index.html",
+            "dist_prod": "dist/production/examples/grid/export/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 650,
+        "component": "Grid",
+        "feature": "CSV export of the filtered and sorted rows with toCsv() and exportCsv()",
+        "lookFor": "Filter and sort 300 invoices, show the CSV beside the grid, switch to semicolons, then download it."
+    },
+    {
+        "id": "grid-server-side",
+        "image": "devmode/grid-server-side-14.jpg",
+        "hasLightCover": true,
+        "name": "Grid Server-side Paging",
+        "sourceUrl": "examples/grid/serverSide",
+        "urls": {
+            "devmode": "examples/grid/serverSide/index.html",
+            "dist_dev": "dist/development/examples/grid/serverSide/index.html",
+            "dist_esm": "dist/esm/examples/grid/serverSide/index.html",
+            "dist_prod": "dist/production/examples/grid/serverSide/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 660,
+        "alsoIn": [
+            "buttons",
+            "state"
+        ],
+        "component": "Grid",
+        "feature": "One-page loading with remote sorting and filtering over 100,000 seeded orders",
+        "lookFor": "Change page, sort a header or choose a country: the request line shows the parameters and only one page reaches the grid.",
+        "scope": "The server is simulated inside the example; no HTTP API or backend process is required."
+    },
+    {
+        "id": "grid-header-groups",
+        "image": "devmode/grid-header-groups-14.jpg",
+        "hasLightCover": true,
+        "name": "Grouped Grid Headers",
+        "sourceUrl": "examples/grid/headerGroups",
+        "urls": {
+            "devmode": "examples/grid/headerGroups/index.html",
+            "dist_dev": "dist/development/examples/grid/headerGroups/index.html",
+            "dist_esm": "dist/esm/examples/grid/headerGroups/index.html",
+            "dist_prod": "dist/production/examples/grid/headerGroups/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 670,
+        "component": "Grid",
+        "feature": "Quarter and month column headers",
+        "lookFor": "Explore month columns beneath quarter headers while Region and the Year total stay locked at opposite edges."
+    },
+    {
+        "id": "grid-locked-columns",
+        "image": "devmode/grid-locked-columns-14.jpg",
+        "name": "Pinned Grid Columns",
+        "keywords": [
+            "freeze",
+            "sticky",
+            "locked",
+            "pinned"
+        ],
+        "sourceUrl": "examples/grid/pinnedColumns",
+        "urls": {
+            "devmode": "examples/grid/pinnedColumns/index.html",
+            "dist_dev": "dist/development/examples/grid/pinnedColumns/index.html",
+            "dist_esm": "dist/esm/examples/grid/pinnedColumns/index.html",
+            "dist_prod": "dist/production/examples/grid/pinnedColumns/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 680,
+        "component": "Grid",
+        "feature": "Columns pinned with locked: product and region at the start, the total at the end",
+        "lookFor": "Scroll sideways through 36 months: product, region and total stay; the arrow keys move the selection."
+    },
+    {
+        "id": "grid-cell-types",
+        "image": "devmode/grid-cell-types-14.jpg",
+        "hasLightCover": true,
+        "name": "Built-in Cell Types",
+        "keywords": [
+            "columns",
+            "sparkline",
+            "currency",
+            "progress",
+            "avatar",
+            "flags"
+        ],
+        "sourceUrl": "examples/grid/cellTypes",
+        "urls": {
+            "devmode": "examples/grid/cellTypes/index.html",
+            "dist_dev": "dist/development/examples/grid/cellTypes/index.html",
+            "dist_esm": "dist/esm/examples/grid/cellTypes/index.html",
+            "dist_prod": "dist/production/examples/grid/cellTypes/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 690,
+        "component": "Grid",
+        "feature": "Fourteen built-in column types on one maintainer directory",
+        "lookFor": "Watch Pledged and Commits tick live, click +$250 on a row, and scroll across all 14 column types.",
+        "scope": "Public GitHub and LinkedIn profile data; pledges, goals, funded %, commits and tiers are generated locally."
+    },
+    {
+        "id": "grid-nested-record-fields",
+        "image": "devmode/grid-nested-record-fields-14.jpg",
+        "name": "Edit a Row in a Dialog",
+        "sourceUrl": "examples/grid/nestedRecordFields",
+        "urls": {
+            "devmode": "examples/grid/nestedRecordFields/index.html",
+            "dist_dev": "dist/development/examples/grid/nestedRecordFields/index.html",
+            "dist_esm": "dist/esm/examples/grid/nestedRecordFields/index.html",
+            "dist_prod": "dist/production/examples/grid/nestedRecordFields/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 700,
+        "component": "Grid",
+        "feature": "Modal form editing on a grid row",
+        "lookFor": "Press Edit in any row to open its dialog form, change contact or nested address fields, and save to highlight modified cells; compare header-only and full-column dragging."
+    },
+    {
+        "id": "grid-streaming",
+        "image": "devmode/grid-streaming-14.jpg",
+        "name": "Streaming 50,000 Rows",
+        "sourceUrl": "examples/grid/streaming",
+        "urls": {
+            "devmode": "examples/grid/streaming/index.html",
+            "dist_dev": "dist/development/examples/grid/streaming/index.html",
+            "dist_esm": "dist/esm/examples/grid/streaming/index.html",
+            "dist_prod": "dist/production/examples/grid/streaming/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 710,
+        "alsoIn": [
+            "state"
+        ],
+        "component": "Grid",
+        "feature": "50,000 NDJSON rows arriving in chunks with a live footer progress bar",
+        "lookFor": "Scroll, sort or select while batches arrive, then press Load again to empty the grid and stream from zero.",
+        "scope": "Generates and streams all 50,000 rows in-browser; no external backend is required."
+    },
+    {
+        "id": "grid-tree",
+        "image": "devmode/grid-tree-14.jpg",
+        "hasLightCover": true,
+        "name": "Tree Grid",
+        "sourceUrl": "examples/grid/tree",
+        "urls": {
+            "devmode": "examples/grid/tree/index.html",
+            "dist_dev": "dist/development/examples/grid/tree/index.html",
+            "dist_esm": "dist/esm/examples/grid/tree/index.html",
+            "dist_prod": "dist/production/examples/grid/tree/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 720,
+        "alsoIn": [
+            "tree"
+        ],
+        "component": "Grid",
+        "feature": "A three-level budget hierarchy whose parent rows roll up seats, budget and spend from their children",
+        "lookFor": "Expand a team with its arrow or Right/Left keys and check that its items sum to the team and department totals."
+    },
+    {
+        "id": "grid-value-banding",
+        "image": "devmode/grid-value-banding-14.jpg",
+        "name": "Grid Value Banding",
+        "sourceUrl": "examples/grid/valueBanding",
+        "urls": {
+            "devmode": "examples/grid/valueBanding/index.html",
+            "dist_dev": "dist/development/examples/grid/valueBanding/index.html",
+            "dist_esm": "dist/esm/examples/grid/valueBanding/index.html",
+            "dist_prod": "dist/production/examples/grid/valueBanding/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 730,
+        "component": "Grid",
+        "feature": "Country and department value banding",
+        "lookFor": "Compare unequal country bands in a fictional staff directory. Enable Department banding for a second level, or switch on alternating row stripes."
+    },
+    {
+        "id": "table-container",
+        "image": "devmode/table-container-14.jpg",
+        "name": "When to Use a Table",
+        "sourceUrl": "examples/table/container",
+        "urls": {
+            "devmode": "examples/table/container/index.html",
+            "dist_dev": "dist/development/examples/table/container/index.html",
+            "dist_esm": "dist/esm/examples/table/container/index.html",
+            "dist_prod": "dist/production/examples/table/container/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 740,
+        "component": "Table",
+        "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
+        "lookFor": "Compare 14 service tier specifications where columns size to their text and notes wrap. Sort, filter inline, resize or drag-reorder headers, and toggle Fit width."
+    },
+    {
+        "id": "timeline-basic",
+        "image": "devmode/timeline-basic-14.jpg",
+        "hasLightCover": true,
+        "name": "Resource Timeline",
+        "sourceUrl": "examples/timeline/basic",
+        "urls": {
+            "devmode": "examples/timeline/basic/index.html",
+            "dist_dev": "dist/development/examples/timeline/basic/index.html",
+            "dist_esm": "dist/esm/examples/timeline/basic/index.html",
+            "dist_prod": "dist/production/examples/timeline/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "order": 1260,
+        "alsoIn": [
+            "scheduler"
+        ],
+        "component": "Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "lookFor": "Click Shift to advance the interval by one hour and watch the bar follow the record change.",
+        "keywords": [
+            "date",
+            "calendar",
+            "gantt",
+            "bars"
+        ]
+    }
+]

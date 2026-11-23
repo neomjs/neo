@@ -4,62 +4,13 @@ import Config                        from '../core/Config.mjs';
 import Effect                        from '../core/Effect.mjs';
 import EffectManager                 from '../core/EffectManager.mjs';
 import Observable                    from '../core/Observable.mjs';
+import RecordFactory                 from '../data/RecordFactory.mjs';
 import Store                         from '../data/Store.mjs';
+import StoreManager                  from '../manager/Store.mjs';
 import {createHierarchicalDataProxy} from './createHierarchicalDataProxy.mjs';
 import {isDescriptor}                from '../core/ConfigSymbols.mjs';
 
-const
-    recordChangeBindings = new WeakMap(),
-    twoWayBindingSymbol  = Symbol.for('twoWayBinding');
-
-/**
- * Returns the shared notifyChange wrapper state for a Record instance.
- * @summary Lets multiple StateProviders observe one Record while restoring the original method after cleanup.
- * @param {Object} record
- * @returns {Object}
- */
-function getRecordChangeBinding(record) {
-    let binding = recordChangeBindings.get(record);
-
-    if (!binding) {
-        const
-            originalNotifyChange = record.notifyChange,
-            prototype            = Object.getPrototypeOf(record),
-            handlers             = new Set();
-
-        binding = {
-            handlers,
-            originalNotifyChange,
-            wrapper(data, silent=false) {
-                const result = originalNotifyChange.call(this, {
-                    changedFields: [],
-                    ...data
-                }, silent);
-
-                handlers.forEach(handler => handler(result));
-
-                return result
-            },
-            restore() {
-                if (record.notifyChange === binding.wrapper) {
-                    if (prototype.notifyChange === originalNotifyChange) {
-                        delete record.notifyChange
-                    } else {
-                        record.notifyChange = originalNotifyChange
-                    }
-                }
-            }
-        };
-
-        recordChangeBindings.set(record, binding)
-    }
-
-    if (record.notifyChange !== binding.wrapper) {
-        record.notifyChange = binding.wrapper
-    }
-
-    return binding
-}
+const twoWayBindingSymbol = Symbol.for('twoWayBinding');
 
 /**
  * An optional component state provider for adding bindings to configs
@@ -323,62 +274,96 @@ class Provider extends Base {
 
     /**
      * Triggered before the stores config gets changed.
-     * @summary Normalizes provider-local store configs before instantiation, including predictable same-provider
-     * ids and sibling-key `sourceId` references.
+     * @summary Builds a new store map as one step: the successors first, then the owned stores it replaces retire.
+     * A map that throws destroys the successors it built and leaves the previous stores live and registered, so no
+     * borrower resolves a destroyed store. Configs get predictable same-provider ids and sibling-key `sourceId`s.
      * @param {Object|null} value
      * @param {Object|null} oldValue
      * @returns {Object|null}
      * @protected
      */
     beforeSetStores(value, oldValue) {
-        const me = this;
+        const
+            me         = this,
+            owned      = me.#ownedStores,
+            generation = me.#storesGeneration,
+            reused     = new Set(Object.values(value || {}).filter(storeValue => Neo.typeOf(storeValue) === 'NeoInstance')),
+            // Owned instances the new map no longer hosts; passed-in instances stay externally owned
+            retiring   = Object.values(oldValue || {}).filter(store => owned.has(store) && !reused.has(store)),
+            created    = [],
+            released   = [],
+            storeIds   = {},
+            unregister = store => {Neo.manager.Instance.unregister(store); StoreManager.unregister(store)},
+            // A rollback teardown that throws still frees its registrations, so the restore always runs
+            retire     = store => {try {store.destroy()} catch {unregister(store)}};
 
-        // reactive replacement (or null-removal): an owned instance the provider no longer hosts
-        // gets destroyed NOW — deferring it to provider destroy would leak a live, registered
-        // store nothing can resolve anymore. Passed-in instances stay externally owned.
-        // ORDER MATTERS: this runs BEFORE the new value instantiates, freeing explicit ids for safe
-        // reuse while the generation bump gives implicit same-key replacements a fresh predictable id.
-        if (oldValue) {
-            const reusedInstances = new Set(
-                Object.values(value || {}).filter(storeValue => Neo.typeOf(storeValue) === 'NeoInstance')
-            );
+        let pendingHolder = null,
+            pendingId     = null;
 
-            me.#storesGeneration++;
+        // A fresh generation gives implicit same-key successors fresh predictable ids
+        oldValue && me.#storesGeneration++;
 
-            Object.values(oldValue).forEach(store => {
-                if (me.#ownedStores.has(store) && !reusedInstances.has(store)) {
-                    me.#ownedStores.delete(store);
-                    store.destroy()
-                }
-            })
+        try {
+            if (value) {
+                const instances = {};
+
+                Object.entries(value).forEach(([key, storeValue]) => {
+                    const storeId = me.getProviderStoreId(key, storeValue);
+
+                    if (storeId) {
+                        storeIds[key] = storeId
+                    }
+                });
+
+                // An explicit id the new map reuses leaves its old store, which stays restorable until the map stands
+                retiring.forEach(store => {
+                    if (Object.values(storeIds).includes(store.id)) {
+                        unregister(store);
+                        released.push(store)
+                    }
+                });
+
+                Object.entries(value).forEach(([key, storeValue]) => {
+                    const providerCreates = Neo.typeOf(storeValue) !== 'NeoInstance';
+
+                    // Whoever holds the id before the build tells a half-built store apart if the build throws
+                    pendingId     = storeIds[key] || null;
+                    pendingHolder = pendingId && Neo.get(pendingId);
+                    storeValue    = me.normalizeProviderStoreConfig(key, storeValue, storeIds);
+
+                    // support mapping string based listeners into the stateProvider instance
+                    Object.entries(storeValue.listeners || {}).forEach(([listenerKey, listener]) => {
+                        me.bindCallback(listener, listenerKey, me, storeValue.listeners)
+                    });
+
+                    const store = ClassSystemUtil.beforeSetInstance(storeValue, Store);
+
+                    instances[key] = store;
+
+                    // Only an instance this build made is the provider's to own, or to destroy on a rollback
+                    providerCreates && Neo.typeOf(store) === 'NeoInstance' && created.push(store)
+                });
+
+                Object.assign(value, instances);
+                created.forEach(store => owned.add(store))
+            }
+        } catch (error) {
+            // A store that threw while its configs applied took its id, and nothing else reaches it
+            const halfBuilt = pendingId && Neo.get(pendingId);
+
+            created.forEach(retire);
+            halfBuilt && halfBuilt !== pendingHolder && retire(halfBuilt);
+
+            released.forEach(store => {Neo.manager.Instance.register(store); StoreManager.register(store)});
+            me.#storesGeneration = generation;
+
+            throw error
         }
 
-        if (value) {
-            const storeIds = {};
-
-            Object.entries(value).forEach(([key, storeValue]) => {
-                const storeId = me.getProviderStoreId(key, storeValue);
-
-                if (storeId) {
-                    storeIds[key] = storeId
-                }
-            });
-
-            Object.entries(value).forEach(([key, storeValue]) => {
-                const providerCreates = Neo.typeOf(storeValue) !== 'NeoInstance';
-
-                storeValue = me.normalizeProviderStoreConfig(key, storeValue, storeIds);
-
-                // support mapping string based listeners into the stateProvider instance
-                Object.entries(storeValue.listeners || {}).forEach(([listenerKey, listener]) => {
-                    me.bindCallback(listener, listenerKey, me, storeValue.listeners)
-                })
-
-                value[key] = ClassSystemUtil.beforeSetInstance(storeValue, Store);
-
-                providerCreates && me.#ownedStores.add(value[key])
-            })
-        }
+        retiring.forEach(store => {
+            owned.delete(store);
+            store.destroy()
+        });
 
         return value
     }
@@ -956,15 +941,15 @@ class Provider extends Base {
      * @private
      */
     #onRecordDataChange(path, payload) {
-        const {changedFields=[], silent} = payload;
+        const {fields} = payload;
 
-        if (silent || this.isDestroying || !changedFields.length) {
+        if (this.isDestroying) {
             return
         }
 
         EffectManager.pause();
         try {
-            changedFields.forEach(({name, oldValue, value}) => {
+            fields.forEach(({name, oldValue, value}) => {
                 const fieldPath = `${path}.${name}`;
 
                 this.#setConfigValue(this, fieldPath, value, oldValue);
@@ -977,7 +962,7 @@ class Provider extends Base {
 
     /**
      * Registers this provider for field changes on a Record stored in data.
-     * @summary Uses a removable wrapper around Record#notifyChange instead of an append-only sequence.
+     * @summary Mirrors only committed field changes from the native record publisher.
      * @param {String} path
      * @param {Object} record
      * @private
@@ -992,13 +977,8 @@ class Provider extends Base {
 
         this.#unbindRecordData(path);
 
-        const
-            binding = getRecordChangeBinding(record),
-            handler = payload => this.#onRecordDataChange(path, payload);
-
-        binding.handlers.add(handler);
-
-        this.#recordDataBindings.set(path, {binding, handler, record});
+        const unsubscribe = RecordFactory.observeRecord(record, data => this.#onRecordDataChange(path, data));
+        this.#recordDataBindings.set(path, {record, unsubscribe});
         this.#syncRecordDataFields(path, record)
     }
 
@@ -1087,11 +1067,7 @@ class Provider extends Base {
             return
         }
 
-        current.binding.handlers.delete(current.handler);
-
-        if (!current.binding.handlers.size) {
-            current.binding.restore()
-        }
+        current.unsubscribe();
 
         this.#recordDataBindings.delete(path)
     }

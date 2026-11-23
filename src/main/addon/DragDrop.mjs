@@ -4,6 +4,8 @@ import DomEvents from '../DomEvents.mjs';
 import Resize    from '../draggable/Resize.mjs';
 import Rectangle from '../../util/Rectangle.mjs';
 
+let nextGestureId = 0;
+
 /**
  * @class Neo.main.addon.DragDrop
  * @extends Neo.main.addon.Base
@@ -46,13 +48,19 @@ class DragDrop extends Base {
          */
         dragElementRootId: null,
         /**
-         * True after Escape cancelled the active gesture and until the native sensor ends it.
+         * True after Escape or `pointercancel` cancelled the active gesture and until `resetDragState()` clears it.
          * While set, move/end/drop traffic is suppressed because `drag:cancel` already closed
          * the worker-side session.
          * @member {Boolean} dragCancelled=false
          * @protected
          */
         dragCancelled: false,
+        /**
+         * The current physical gesture in this window. A delayed popup admission must still match it.
+         * @member {Number|null} gestureId=null
+         * @protected
+         */
+        gestureId: null,
         /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
@@ -292,8 +300,8 @@ class DragDrop extends Base {
     }
 
     /**
-     * @summary Forwards the sensor's terminal, plus a `drop` when it lands on a drop zone. A captured
-     * release names the document root, so the drop takes the hit-test path and target instead.
+     * @summary Forwards the sensor's terminal: `pointercancel` routes to `drag:cancel`, while an
+     * intentional release emits `drag:end` plus `drop` when the hit-test path lands on a drop zone.
      * @param {Event} event
      */
     onDragEnd(event) {
@@ -309,32 +317,46 @@ class DragDrop extends Base {
         }
 
         if (!me.dragCancelled) {
-            let parsedEvent = me.getEventData(event),
-                isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath),
-                resize      = me.dragResize?.finish(parsedEvent);
+            let parsedEvent = me.getEventData(event);
 
-            DomEvents.sendMessageToApp({
-                ...parsedEvent,
-                ...(resize ? {
-                    resizeAxis      : resize.axis,
-                    resizeGeneration: resize.generation,
-                    resizeSize      : resize.size,
-                    resizeTargetId  : resize.targetId
-                } : {}),
-                dragZoneId: me.dragZoneId,
-                isDrop,
-                offsetX   : me.offsetX,
-                offsetY   : me.offsetY,
-                type      : 'drag:end'
-            });
+            if (event.detail?.originalEvent?.type === 'pointercancel') {
+                if (!me.cancelDrag(parsedEvent)) {
+                    me.dragCancelled = true;
+                    me.dragResize?.cancel();
 
-            if (isDrop) {
+                    DomEvents.sendMessageToApp({
+                        ...parsedEvent,
+                        dragZoneId: null,
+                        type      : 'drag:cancel'
+                    })
+                }
+            } else {
+                let isDrop = me.pathIncludesDropZone(parsedEvent.targetPath),
+                    resize = me.dragResize?.finish(parsedEvent);
+
                 DomEvents.sendMessageToApp({
-                    ...DomEvents.getMouseEventData(event.detail.originalEvent),
-                    ...(event.detail.eventPath ? {path: parsedEvent.targetPath, target: parsedEvent.target} : {}),
+                    ...parsedEvent,
+                    ...(resize ? {
+                        resizeAxis      : resize.axis,
+                        resizeGeneration: resize.generation,
+                        resizeSize      : resize.size,
+                        resizeTargetId  : resize.targetId
+                    } : {}),
                     dragZoneId: me.dragZoneId,
-                    type      : 'drop'
-                })
+                    isDrop,
+                    offsetX   : me.offsetX,
+                    offsetY   : me.offsetY,
+                    type      : 'drag:end'
+                });
+
+                if (isDrop) {
+                    DomEvents.sendMessageToApp({
+                        ...DomEvents.getMouseEventData(event.detail.originalEvent),
+                        ...(event.detail.eventPath ? {path: parsedEvent.targetPath, target: parsedEvent.target} : {}),
+                        dragZoneId: me.dragZoneId,
+                        type      : 'drop'
+                    })
+                }
             }
         }
 
@@ -342,18 +364,18 @@ class DragDrop extends Base {
     }
 
     /**
-     * @summary Cancels the gesture this window owns, as Escape at the owner does.
+     * @summary Cancels the gesture this window owns, for Escape or `pointercancel` at the owner.
      * One `drag:cancel` goes to the active worker drag zone, after which native move/end events are
      * ignored until the sensor releases. Without a gesture, or once it is cancelled, nothing happens.
      * The App Worker calls it when Escape reached another window of a cross-window drag.
-     * @param {Object} [data] Fields the `drag:cancel` carries: Escape's keyboard data at the owner, or
+     * @param {Object} [data] Fields the `drag:cancel` carries: keyboard/pointer data at the owner, or
      * the App Worker's routing `windowId`
      * @returns {Boolean} true when this call cancelled the gesture
      */
     cancelDrag(data) {
         let me = this;
 
-        if (me.dragZoneId && !me.dragCancelled) {
+        if (me.dragZoneId && !me.dragCancelled && (data?.gestureId == null || data.gestureId === me.gestureId)) {
             me.dragCancelled = true;
             me.dragResize?.cancel();
 
@@ -419,6 +441,7 @@ class DragDrop extends Base {
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragZoneId            : null,
+            gestureId             : null,
             dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
@@ -574,6 +597,7 @@ class DragDrop extends Base {
             clientY      : event.detail.clientY,
             dragCancelled: false,
             dragProxyRect: rect,
+            gestureId    : ++nextGestureId,
             offsetX      : event.detail.clientX - rect.left,
             offsetY      : event.detail.clientY - rect.top
         });
@@ -591,6 +615,7 @@ class DragDrop extends Base {
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             dragZoneId: me.dragZoneId,
+            gestureId : me.gestureId,
             type      : 'drag:start'
         })
     }
@@ -850,14 +875,16 @@ class DragDrop extends Base {
      * DragZones will set these configs inside their dragStart() method.
      * The gesture-scoped keys only persist until the end of a drag OP — with one exception:
      * the `dragElementRootId → dragZoneId` pair ALSO refreshes the zone registry
-     * ({@link zoneRegistrations}), which deliberately outlives the gesture (zones outlive
-     * drags, and the registry is what lets the next drag:start resolve its zone synchronously).
+     * ({@link zoneRegistrations}), which lets the next drag:start resolve its zone synchronously.
+     * A late handshake can fill a missing root mapping; only a current handshake can replace an owner
+     * or change the resize descriptor.
      * @param {Object}               data
      * @param {Boolean}              data.alwaysFireDragMove
      * @param {String|String[]|null} data.boundaryContainerId
      * @param {String}               [data.dragElementRootId] refreshes the zone registry
      * @param {String}               [data.dragZoneId]       the registry value for the root id
      * @param {String|null}          data.scrollContainerId
+     * @param {Number}               [data.gestureId] Apply only to the named source gesture
      * @param {Number}               data.scrollFactorLeft
      * @param {Number}               data.scrollFactorTop
      * @returns {Object} return the boundaryContainerRect
@@ -867,6 +894,14 @@ class DragDrop extends Base {
             {boundaryContainerId} = data,
             node, rects;
 
+        if (data.gestureId != null && (data.gestureId !== me.gestureId || me.dragCancelled)) {
+            const {dragElementRootId, dragZoneId} = data;
+            if (dragElementRootId && dragZoneId) {
+                me.zoneRegistrations[dragElementRootId] ??= dragZoneId
+            }
+            return {boundaryContainerRect: null}
+        }
+        delete data.gestureId;
         delete data.appName;
         delete data.windowId;
 
@@ -938,9 +973,13 @@ class DragDrop extends Base {
      * @param {Number} data.popupHeight
      * @param {String} data.popupName
      * @param {Number} data.popupWidth
+     * @param {Number} [data.gestureId] The source gesture to which the native admission belongs
+     * @returns {Boolean} Whether the native drag was engaged
      */
-    startWindowDrag({popupHeight, popupName, popupWidth}) {
-        Object.assign(this, {isWindowDragging: true, popupHeight, popupName, popupWidth})
+    startWindowDrag({gestureId, popupHeight, popupName, popupWidth}) {
+        if (gestureId != null && (gestureId !== this.gestureId || this.dragCancelled)) return false;
+        Object.assign(this, {isWindowDragging: true, popupHeight, popupName, popupWidth});
+        return true
     }
 }
 

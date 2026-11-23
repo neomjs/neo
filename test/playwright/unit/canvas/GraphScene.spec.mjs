@@ -149,6 +149,39 @@ test.describe('Neo.canvas.GraphScene — labels and flights, the math', () => {
         expect(GraphScene.flightStep(flight, -1), 'a share before the start holds at the start').toEqual({dist: 8, target: [0, 0, 0]});
         expect(GraphScene.flightStep(flight, 0.5), 'halfway in time: the middle of the line and the geometric middle of the distances').toEqual({dist: 4, target: [2, -1, 0]});
         expect(GraphScene.flightStep(flight, 2), 'a share past the end holds at the end').toEqual({dist: 2, target: [4, -2, 0]})
+    });
+
+    test('a wheel step keeps the point of the target\'s depth plane under the pointer in its place, closing in and backing off', () => {
+        const
+            width  = 800,
+            height = 400,
+            aspect = width / height,
+            round  = point => point.map(value => Math.round(value * 1000) / 1000);
+
+        for (const camera of [{dist: 6, pitch: 0, target: [0, 0, 0], yaw: 0}, {dist: 6, pitch: 0.4, target: [5, -3, 12], yaw: 1.1}]) {
+            const
+                {pitch, target, yaw} = camera,
+                right                = [Math.cos(yaw), 0, Math.sin(yaw)],
+                up                   = [Math.sin(yaw) * Math.sin(pitch), Math.cos(pitch), -Math.cos(yaw) * Math.sin(pitch)],
+                // a point of the target's depth plane, off the centre on both axes
+                point = target.map((value, axis) => value + 1.5 * right[axis] - 0.8 * up[axis]),
+                [x, y] = GraphScene.project(GraphScene.orbitMatrix(camera, aspect, FOV), ...point, width, height);
+
+            expect(x, 'the point lies right of the centre').toBeGreaterThan(width / 2);
+            expect(y, 'and below it').toBeGreaterThan(height / 2);
+
+            for (const dist of [2, 15]) {
+                const moved = GraphScene.zoomTarget({aspect, camera, dist, fov: FOV, height, width, x, y});
+
+                expect(round(GraphScene.project(GraphScene.orbitMatrix({...camera, dist, target: moved}, aspect, FOV), ...point, width, height)),
+                    `at distance ${dist} the point is still under the pointer`).toEqual(round([x, y]))
+            }
+
+            expect(GraphScene.zoomTarget({aspect, camera, dist: 2, fov: FOV, height, width, x: width / 2, y: height / 2}),
+                'at the centre the target stays').toEqual(target);
+            expect(GraphScene.zoomTarget({aspect, camera, dist: camera.dist, fov: FOV, height, width, x, y}),
+                'an unchanged distance leaves the target').toEqual(target)
+        }
     })
 });
 
@@ -231,6 +264,29 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         renderer.isPaused = true;
 
         await expect.poll(() => renderer.getStats().owed, {message: 'the frame that runs settles it'}).toBe(false)
+    });
+
+    test('whenDrawn answers true once the owed frame drew, never before; at once when nothing is owed; false when the graph is cleared first', async () => {
+        const answers = [];
+
+        renderer.whenDrawn().then(value => answers.push(value));
+        renderer.clearGraph();
+        await expect.poll(() => answers, {message: 'a cleared graph answers its waiter'}).toEqual([false]);
+
+        const context = createContext();
+
+        context.clear = context.clearColor = () => {};
+        renderer.context  = context;
+        renderer.isPaused = false;
+        renderer.requestFrame();
+        renderer.whenDrawn().then(value => answers.push(value));
+
+        expect(renderer.getStats().owed, 'the request owes a frame').toBe(true);
+        expect(answers, 'no answer while the frame is owed').toEqual([false]);
+
+        await expect.poll(() => answers, {message: 'the drawn frame answers'}).toEqual([false, true]);
+        expect(renderer.getStats().frames).toBe(1);
+        expect(await renderer.whenDrawn(), 'nothing owed after a drawn frame').toBe(true)
     });
 
     test('the drawing buffer is the size times the message\'s pixel ratio, and 1:1 without one', () => {
@@ -384,6 +440,60 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
         expect(renderer.getStats().flying).toBe(false)
     });
 
+    test('the wheel zooms toward the pointer; a bound of the zoom, no pointer or zoomToPointer off keep the target; it ends a flight, takes the camera and owes one frame', () => {
+        let frames = 0;
+
+        renderer.context = createContext(400, 200);
+        renderer.updateSize({width: 400, height: 200});
+        renderer.setScene({positions: [0, 0, 0,  2, 1, 0], windowId: 'window-1'});
+
+        const {fittedDistance, zoom} = renderer, requestFrame = renderer.requestFrame.bind(renderer);
+
+        renderer.requestFrame = () => {frames++; requestFrame()};
+
+        renderer.onWheel({wheel: {deltaY: -100}});
+
+        expect(renderer.camera.target, 'without a pointer position the wheel zooms toward the target').toEqual([1, 0.5, 0]);
+
+        renderer.flyTo({index: 1, distance: 1, duration: 100});
+        renderer.updateMouseState({x: 300, y: 50});
+
+        const
+            before = {...renderer.camera, target: [...renderer.camera.target]},
+            M      = renderer.matrix(),
+            // the point of the target's depth plane under the pointer
+            depth  = M[3] * before.target[0] + M[7] * before.target[1] + M[11] * before.target[2] + M[15],
+            point  = GraphScene.zoomTarget({aspect: 2, camera: before, dist: 0, fov: renderer.fov, height: 200, width: 400, x: 300, y: 50});
+
+        frames = 0;
+        renderer.updateMouseState({wheel: {deltaY: -100}});
+
+        expect(depth).toBeCloseTo(before.dist);
+        expect(renderer.camera.dist, 'the wheel still zooms in').toBeLessThan(before.dist);
+        expect(renderer.camera.target, 'the target moves toward the pointer').not.toEqual(before.target);
+        expect(GraphScene.project(renderer.matrix(), ...point, 400, 200).map(value => Math.round(value * 1000) / 1000),
+            'the point under the pointer stays under it').toEqual([300, 50]);
+        expect(renderer.flightPlan, 'the wheel ends the flight').toBeNull();
+        expect(renderer.camera.touched).toBe(true);
+        expect(frames, 'one frame is owed').toBe(1);
+
+        renderer.updateMouseState({wheel: {deltaY: -100000}});
+
+        const held = [...renderer.camera.target];
+
+        expect(renderer.camera.dist, 'held at the nearest the zoom allows').toBeCloseTo(fittedDistance * zoom.min);
+
+        renderer.updateMouseState({x: 20, y: 180, wheel: {deltaY: -100}});
+
+        expect(renderer.camera.target, 'at a bound the target stops moving').toEqual(held);
+
+        renderer.zoomToPointer = false;
+        renderer.updateMouseState({x: 20, y: 180, wheel: {deltaY: 100}});
+
+        expect(renderer.camera.target, 'zoomToPointer off zooms toward the target').toEqual(held);
+        expect(renderer.camera.dist).toBeGreaterThan(fittedDistance * zoom.min)
+    });
+
     test('a lost context keeps the scene, drops its GL objects and leaves the buffer alone until the restore', () => {
         let prevented = false;
 
@@ -400,6 +510,70 @@ test.describe('Neo.canvas.GraphScene — the renderer without a GL context', () 
 
         expect([renderer.gl.canvas.width, renderer.gl.canvas.height], 'a lost context is not resized').toEqual([400, 200]);
         expect(renderer.canvasSize, 'the size waits for the restore').toMatchObject({width: 100, height: 50})
+    });
+
+    test('held pointer moves orbit only for a primary press on this canvas and stop after up, leave, or buttons 0', () => {
+        renderer.context = createContext(400, 200);
+        renderer.setScene({positions: [0, 0, 0,  2, 1, 0], windowId: 'window-1'});
+
+        const
+            initialYaw   = renderer.camera.yaw,
+            initialPitch = renderer.camera.pitch;
+
+        // 1. Move with buttons: 1 and no down (drag from outside canvas) changes nothing
+        renderer.updateMouseState({x: 10, y: 20, buttons: 1});
+        renderer.updateMouseState({x: 60, y: 40, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(initialYaw);
+        expect(renderer.camera.pitch).toBe(initialPitch);
+        expect(renderer.camera.touched).toBe(false);
+        expect(renderer.flightPlan).toBeNull();
+
+        // Same during an active flight: flightPlan survives
+        renderer.flyTo({index: 0, distance: 1, duration: 100});
+        const activeFlight = renderer.flightPlan;
+
+        renderer.updateMouseState({x: 90, y: 50, buttons: 1});
+        expect(renderer.flightPlan).toBe(activeFlight);
+        expect(renderer.camera.yaw).toBe(initialYaw);
+        expect(renderer.camera.pitch).toBe(initialPitch);
+
+        // 2. Press on canvas followed by moves orbits and ends the flight
+        renderer.updateMouseState({x: 20, y: 20, buttons: 0});
+        renderer.updateMouseState({x: 20, y: 20, button: 0, buttons: 1, down: true});
+        renderer.updateMouseState({x: 70, y: 50, buttons: 1});
+
+        expect(renderer.flightPlan).toBeNull();
+        expect(renderer.camera.touched).toBe(true);
+        expect(renderer.camera.yaw).toBeCloseTo(initialYaw + 50 * renderer.orbitSpeed, 10);
+        expect(renderer.camera.pitch).toBeCloseTo(initialPitch + 30 * renderer.orbitSpeed, 10);
+
+        // 3a. After up, a held move without a new down does not orbit
+        let lockedYaw   = renderer.camera.yaw,
+            lockedPitch = renderer.camera.pitch;
+
+        renderer.updateMouseState({x: 70, y: 50, button: 0, buttons: 0, up: true});
+        renderer.updateMouseState({x: 110, y: 70, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(lockedYaw);
+        expect(renderer.camera.pitch).toBe(lockedPitch);
+
+        // 3b. After leave, a later held move without a new down does not orbit
+        renderer.updateMouseState({x: 110, y: 70, button: 0, buttons: 1, down: true});
+        renderer.updateMouseState({leave: true});
+        renderer.updateMouseState({x: 30, y: 20, buttons: 1});
+        renderer.updateMouseState({x: 80, y: 60, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(lockedYaw);
+        expect(renderer.camera.pitch).toBe(lockedPitch);
+
+        // 3c. After a report with buttons: 0 (no up), a later held move does not orbit
+        renderer.updateMouseState({x: 80, y: 60, button: 0, buttons: 1, down: true});
+        renderer.updateMouseState({x: 30, y: 25, buttons: 0});
+        renderer.updateMouseState({x: 90, y: 75, buttons: 1});
+
+        expect(renderer.camera.yaw).toBe(lockedYaw);
+        expect(renderer.camera.pitch).toBe(lockedPitch)
     });
 });
 
@@ -768,6 +942,7 @@ test.describe('Neo.app.SharedCanvas — the size message', () => {
 
         // Own data properties shadow the prototype's config accessors, which need a constructed instance.
         for (const [key, value] of Object.entries({
+            canvasId           : 'canvas-1',
             offscreenRegistered: true,
             ready              : async () => {},
             renderer           : {updateSize: async size => {sizes.push(size)}},
@@ -784,6 +959,6 @@ test.describe('Neo.app.SharedCanvas — the size message', () => {
             Neo.config.devicePixelRatio = previous
         }
 
-        expect(sizes).toEqual([{devicePixelRatio: 2, height: 100, width: 200, windowId: 'window-1'}])
+        expect(sizes).toEqual([{canvasId: 'canvas-1', devicePixelRatio: 2, height: 100, width: 200, windowId: 'window-1'}])
     })
 });

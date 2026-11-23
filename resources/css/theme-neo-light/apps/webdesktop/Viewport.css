@@ -1,0 +1,16 @@
+/* Stays at theme-root weight (0,2,0) deliberately: an application projection outranks the
+   engine's :where() value sheets by weight, never by load order (#18102). */
+:root .neo-theme-neo-light {
+    --webdesktop-accent      : #2563eb;
+    --webdesktop-glass       : rgba(255, 255, 255, .55);
+    --webdesktop-glass-active: rgba(15, 23, 42, .09);
+    --webdesktop-glass-border: rgba(15, 23, 42, .08);
+    --webdesktop-glass-hover : rgba(15, 23, 42, .05);
+    --webdesktop-glass-strong: rgba(255, 255, 255, .78);
+    --webdesktop-ink         : #0f172a;
+    --webdesktop-ink-dim     : rgba(15, 23, 42, .66);
+    --webdesktop-ink-faint   : rgba(15, 23, 42, .42);
+    --webdesktop-shadow      : 0 30px 80px -24px rgba(30, 41, 59, .35);
+    --webdesktop-switch-off  : rgba(100, 116, 139, .35);
+    --webdesktop-switch-on   : #16a34a;
+}

@@ -1,0 +1,41 @@
+.webdesktop-mail-inbox {
+    border-right: 1px solid var(--desktop-app-window-border-color);
+}
+
+.webdesktop-mail-message {
+    overflow-y: auto;
+    padding   : 20px 24px;
+
+    h2 {
+        font-family: inherit;
+        font-size  : 18px;
+        font-weight: 700;
+        margin     : 0 0 6px;
+    }
+
+    p {
+        font-family: inherit;
+        font-size  : 14px;
+        line-height: 1.55;
+        margin     : 0 0 12px;
+    }
+
+    .webdesktop-mail-meta {
+        border-bottom  : 1px solid var(--desktop-app-window-border-color);
+        color          : var(--webdesktop-ink-dim);
+        display        : flex;
+        font-size      : 12.5px;
+        justify-content: space-between;
+        margin-bottom  : 14px;
+        padding-bottom : 10px;
+    }
+
+    .webdesktop-mail-from {
+        color      : var(--desktop-app-window-color);
+        font-weight: 600;
+    }
+
+    .webdesktop-mail-empty {
+        color: var(--webdesktop-ink-faint);
+    }
+}

@@ -1,0 +1,15 @@
+:where(.neo-theme-neo-light) { /* .neo-desktop-taskbar and its start menu: light glass */
+    --desktop-start-button-color                    : #fff;
+    --desktop-start-menu-background-color           : rgba(255, 255, 255, .88);
+    --desktop-start-menu-border-color               : rgba(15, 23, 42, .08);
+    --desktop-start-menu-color                      : #0f172a;
+    --desktop-start-menu-icon-color                 : #2563eb;
+    --desktop-start-menu-item-background-color-hover: rgba(15, 23, 42, .05);
+    --desktop-start-menu-shadow                     : 0 30px 80px -24px rgba(30, 41, 59, .35);
+    --desktop-taskbar-accent-color                  : #2563eb;
+    --desktop-taskbar-background-color              : rgba(255, 255, 255, .78);
+    --desktop-taskbar-border-color                  : rgba(15, 23, 42, .08);
+    --desktop-taskbar-color                         : #0f172a;
+    --desktop-taskbar-item-background-color-active  : rgba(15, 23, 42, .09);
+    --desktop-taskbar-item-background-color-hover   : rgba(15, 23, 42, .05);
+}

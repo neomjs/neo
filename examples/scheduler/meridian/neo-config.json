@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/scheduler/meridian/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-light", "neo-theme-dark", "neo-theme-cyberpunk"]
+}

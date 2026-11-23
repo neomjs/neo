@@ -1,0 +1,141 @@
+.portal-examples-group-index {
+    color: var(--portal-examples-text);
+
+    h3 {
+        color         : var(--portal-examples-text-muted);
+        font-size     : 12px;
+        font-weight   : 600;
+        letter-spacing: 0.08em;
+        margin        : 0 0 6px;
+        padding       : 0 8px;
+        text-transform: uppercase;
+    }
+
+    ul {
+        list-style: none;
+        margin    : 0;
+        padding   : 0;
+    }
+
+    li {
+        break-inside: avoid;
+    }
+
+    a {
+        align-items          : center;
+        border-radius        : 8px;
+        color                : inherit;
+        column-gap           : 10px;
+        display              : grid;
+        font-size            : 15px;
+        grid-template-columns: 20px 1fr auto;
+        line-height          : 1.3;
+        padding              : 5px 8px;
+        text-decoration      : none;
+        transition           : background-color var(--motion-fast) var(--ease-out-soft);
+
+        &:hover {
+            background-color: var(--portal-examples-entry-hover);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--portal-examples-accent);
+            outline-offset: -2px;
+        }
+
+        &[aria-current="page"] {
+            background-color: var(--portal-examples-entry-current);
+            box-shadow      : inset 3px 0 0 var(--portal-examples-accent);
+            font-weight     : 600;
+        }
+    }
+
+    .portal-examples-group-index-zero a {
+        color  : var(--portal-examples-text-muted);
+        opacity: 0.45;
+
+        .portal-examples-group-index-icon {
+            color: var(--portal-examples-text-muted);
+        }
+
+        &:hover,
+        &:focus-visible {
+            opacity: 0.85;
+        }
+    }
+
+    .portal-examples-group-index-icon {
+        color     : var(--portal-examples-accent);
+        text-align: center;
+    }
+
+    .portal-examples-group-index-count {
+        color               : var(--portal-examples-text-muted);
+        font-size           : 13px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .portal-examples-group-index-all {
+        color        : var(--portal-examples-accent);
+        font-weight  : 600;
+        margin-bottom: 4px;
+    }
+
+    .portal-examples-group-index-top {
+        margin-bottom: 4px;
+    }
+
+    .portal-examples-group-index-note {
+        color    : var(--portal-examples-text-muted);
+        font-size: 13px;
+        margin   : 10px 0 0;
+        padding  : 0 8px;
+    }
+}
+
+/* Mobile-only overview presentation sets Apps above the five banded sections. */
+.portal-examples-group-index-overview {
+    display              : grid;
+    gap                  : 16px 28px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+
+    .portal-examples-group-index-top,
+    .portal-examples-group-index-note {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 640px) {
+        gap                  : 14px;
+        grid-template-columns: 1fr;
+
+        ul {
+            column-gap: 12px;
+            columns   : 2;
+        }
+
+        a {
+            font-size: 14px;
+        }
+    }
+}
+
+.portal-examples-group-index-list,
+.portal-examples-group-index-sheet {
+    display       : flex;
+    flex-direction: column;
+    gap           : 12px;
+}
+
+/* Upright beside the stage on desktop, compact spacing keeps the 21 groups scannable. */
+.portal-examples-group-index-list {
+    gap: 8px;
+
+    h3 {
+        margin-bottom: 4px;
+    }
+
+    a {
+        font-size    : 14px;
+        padding-block: 3.5px;
+    }
+}

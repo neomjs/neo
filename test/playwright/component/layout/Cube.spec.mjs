@@ -102,7 +102,7 @@ async function turnTo(page, face) {
  * worker call resolves, so a helper that only counts stable transform frames can
  * report "settled" on the value it started from. Then the transform that MOVES
  * the cube belongs to `.neo-box` and transitions over 300ms
- * (`resources/scss/src/layout/Cube.scss`); a hit test taken during that
+ * (`resources/css/src/layout/Cube.css`); a hit test taken during that
  * transition sees the cube mid-turn and returns the face it is passing through,
  * not the one it is turning to.
  *

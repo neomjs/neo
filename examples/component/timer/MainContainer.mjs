@@ -36,8 +36,9 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.container.Base` config wrapping `Neo.component.Timer`. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Container,
             style : {
                 overflow : 'auto',
@@ -52,7 +53,7 @@ class MainContainer extends ConfigurationViewport {
                 flag      : 'timer-component',
                 dimensions: '8rem'
             }]
-        })
+        }
     }
 
     /**

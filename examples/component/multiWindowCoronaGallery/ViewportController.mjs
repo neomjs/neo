@@ -3,6 +3,7 @@ import Controller from '../coronaGallery/ViewportController.mjs';
 /**
  * @class Neo.examples.component.multiWindowCoronaGallery.ViewportController
  * @extends Neo.examples.component.coronaGallery.ViewportController
+ * @summary Synchronizes detached controls window lifecycle and theme changes across SharedWorker windows.
  */
 class ViewportController extends Controller {
     static config = {
@@ -77,7 +78,17 @@ class ViewportController extends Controller {
 
             me.connectedApps.push(appName);
 
-            this.getReference('header-toolbar').hidden = true;
+            if (mainView.theme !== me.component.theme) {
+                mainView.theme = me.component.theme
+            }
+
+            me.observeConfig(mainView, 'theme', theme => {
+                if (!me.component.isDestroyed && me.component.theme !== theme) {
+                    me.component.theme = theme
+                }
+            });
+
+            me.getReference('maximise-button').hidden = true;
 
             mainView.add(me.getReference('controls-panel'))
         }
@@ -94,7 +105,7 @@ class ViewportController extends Controller {
 
         if (appName === 'GalleryControls') {
             me.component.add(me.getReference('controls-panel'));
-            me.getReference('header-toolbar').hidden = false
+            me.getReference('maximise-button').hidden = false
         }
         // Close popup windows when closing or reloading the main window
         else if (appName === 'Neo.examples.component.multiWindowCoronaGallery') {
@@ -113,6 +124,16 @@ class ViewportController extends Controller {
             connect   : me.onAppConnect,
             disconnect: me.onAppDisconnect,
             scope     : me
+        });
+
+        me.observeConfig(me.component, 'theme', theme => {
+            for (const app of Object.values(Neo.apps || {})) {
+                const otherView = app?.mainView;
+
+                if (otherView && !otherView.isDestroyed && otherView !== me.component && otherView.theme !== theme) {
+                    otherView.theme = theme
+                }
+            }
         })
     }
 

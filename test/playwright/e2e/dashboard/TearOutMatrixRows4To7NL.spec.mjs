@@ -1,5 +1,16 @@
 import {expect, test}        from '../../fixtures.mjs';
 import {readNativeLifecycle} from '../utils/dockNativeLifecycle.mjs';
+import {
+    expectContentFillsWindow, expectFrameAtPaneSize, expectPanesRefill, expectProxyOverSource, readUnion
+} from '../utils/tearOutGeometry.mjs';
+
+const
+    // The dock's panes in a window: what must refill it after a pane leaves or comes home.
+    dockPanes     = '.neo-dashboard-dock-tabs',
+    // The place a center pane leaves behind while it is away.
+    centerWell    = '.neo-dashboard-dock-center-well',
+    // A vessel's viewport holds the torn-out pane itself.
+    vesselContent = '.agentos-dockdemo-counter-pane';
 
 /**
  * @summary Headed macOS receipts for the dock-tier half of the tear-out portability matrix.
@@ -30,6 +41,16 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         expect(counters, 'exactly one worker-owned CounterPane instance may exist').toHaveLength(1);
 
         return counters[0]
+    }
+
+    /**
+     * @summary What the user saw when the driven tab drag armed: proxy, tab, pane and pointer travel.
+     * @param {Object} app Neural Link app wrapper.
+     * @param {String} wsId Demo B workspace component id.
+     * @returns {Promise<Object>}
+     */
+    async function readArming(app, wsId) {
+        return (await app.getComponent(wsId, ['lastGestureArming'])).lastGestureArming
     }
 
     /**
@@ -317,6 +338,11 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         expect(popup.url()).toContain('popout=workbench');
         expect(page.context().pages().filter(candidate => candidate.url().includes('popout=workbench'))).toEqual([popup]);
 
+        const arming = await readArming(app, wsId);
+
+        expectProxyOverSource(arming);
+        expectFrameAtPaneSize(result.proof.vesselFrame, arming.paneRect, 'the vessel');
+
         await expect.poll(async () => {
             const state = await getLifecycleState(app, wsId),
                   pane  = await getCounter(app),
@@ -333,6 +359,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
 
         await popup.locator('.agentos-dockdemo-counter-pane').waitFor();
         expect(await popup.locator('.agentos-dockdemo-counter-pane').getAttribute('id')).toBe(paneBefore.id);
+        await expectContentFillsWindow(popup, vesselContent, 'the vessel');
         await expect.poll(async () => (await getCounter(app))?.frames, {
             message  : 'the same instance heartbeat must advance while mounted in the vessel',
             intervals: [100, 250],
@@ -463,6 +490,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             }
         });
 
+        const arming = await readArming(app, wsId);
+
+        expectProxyOverSource(arming);
+        expectFrameAtPaneSize(result.proof.vesselFrame, arming.paneRect, 'the vessel');
+        await popup.locator('.agentos-dockdemo-counter-pane').waitFor();
+        await expectContentFillsWindow(popup, vesselContent, 'the vessel');
         await persistDockReceipt(app, wsId, 'Row7Drop', result.proof.documentAfter);
 
         const
@@ -547,10 +580,39 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
         }))
     });
 
+    test('row 7 — the main window refills after its center pane leaves and after it comes home', async ({page, neuralLink}) => {
+        const {app, wsId} = await bootDemoB(page, neuralLink),
+              panesBefore = await readUnion(page, dockPanes),
+              popupWait   = page.waitForEvent('popup', {timeout: 30000}),
+              result      = await app.callMethod(wsId, 'executeTearOutStep', [{
+                  itemId      : 'workbench',
+                  sourceNodeId: 'workbench-tabs'
+              }, {postBirthMoves: 4}]),
+              popup       = await popupWait;
+
+        expect(result).toMatchObject({applied: true, errors: []});
+        // The center stays a place: the band keeps its edge and the well fills the rest.
+        await expectPanesRefill(page, `${dockPanes}, ${centerWell}`, panesBefore, 'the main window after the drop');
+        await expect(page.locator(`${centerWell}-text`)).toHaveText('Workbench is in its own window');
+
+        const popupClosed = popup.waitForEvent('close');
+
+        await popup.evaluate(() => window.close());
+        await popupClosed;
+        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window after the pane came home');
+        await expect(page.locator(centerWell)).toHaveCount(0);
+
+        const {lifecycle} = await getTerminalSnapshot(page, app, wsId),
+              centerId    = lifecycle.dockModel.nodes.root.zones.center?.nodeId;
+
+        expect(lifecycle.dockModel.nodes[centerId]?.items, 'the pane came home to a rebuilt center').toEqual(['workbench'])
+    });
+
     test('row 7 — post-birth cancel restores the same pane and cleans once', async ({page, neuralLink}) => {
         const ledger      = await installErrorLedger(page, '__recordMatrixRow7Cancel');
         const {app, wsId} = await bootDemoB(page, neuralLink);
         const before      = await getTerminalSnapshot(page, app, wsId);
+        const panesBefore = await readUnion(page, dockPanes);
 
         const result = await app.callMethod(wsId, 'executeTearOutStep', [{
             itemId      : 'workbench',
@@ -582,6 +644,12 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
             intervals: [100, 250],
             timeout  : 10000
         }).toEqual({active: null, panes: 0, popups: 0, windows: 1});
+
+        const arming = await readArming(app, wsId);
+
+        expectProxyOverSource(arming);
+        expectFrameAtPaneSize(result.proof.vesselFrame, arming.paneRect, 'the vessel');
+        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window after the cancel');
 
         await persistDockReceipt(app, wsId, 'Row7Cancel', before.lifecycle.dockModel);
 
@@ -641,6 +709,7 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
 
         const {app, wsId} = await bootDemoB(page, neuralLink);
         const before      = await getTerminalSnapshot(page, app, wsId);
+        const panesBefore = await readUnion(page, dockPanes);
 
         await page.evaluate(() => {
             globalThis.__matrixRow7BlockOpen = true
@@ -664,6 +733,9 @@ test.describe('tear-out portability matrix — Demo B dock lifecycle, headed', (
 
         expect(openCalls.length).toBeGreaterThan(0);
         expect(openCalls.every(call => call.blocked && call.url === 'about:blank' && call.target)).toBe(true);
+
+        expectProxyOverSource(await readArming(app, wsId));
+        await expectPanesRefill(page, dockPanes, panesBefore, 'the main window after the refused vessel');
 
         await persistDockReceipt(app, wsId, 'Row7Blocked', before.lifecycle.dockModel);
 

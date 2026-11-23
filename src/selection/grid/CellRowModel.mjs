@@ -58,7 +58,7 @@ class CellRowModel extends CellModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            recordId     = me.selectedRows[0] || view.getRecordId(store.getAt(0)),
+            recordId     = me.selectedRows[0] ?? view.getRecordId(store.getAt(0)),
             record       = me.getRowRecord(recordId),
             index        = store.indexOf(record),
             newIndex     = (index + step) % countRecords;
@@ -74,7 +74,7 @@ class CellRowModel extends CellModel {
         } else {
             recordId = view.getRecordId(record);
 
-            if (recordId) {
+            if (recordId != null) {
                 me.selectRow(recordId, true) // silent
             }
         }

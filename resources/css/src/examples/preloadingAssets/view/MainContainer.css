@@ -1,0 +1,79 @@
+.neo-preload-demo.neo-viewport {
+    background: var(--sem-color-surface-neutral-default);
+    color: var(--sem-color-text-neutral-default);
+    gap: 16px;
+    overflow: auto;
+    padding: clamp(16px, 4vw, 48px);
+
+    > * {
+        margin-inline: auto;
+        max-width: 52rem;
+        width: 100%;
+    }
+
+    .neo-preload-heading,
+    .neo-preload-controls {
+        background: transparent;
+        gap: 12px;
+    }
+
+    h1 {
+        font-size: clamp(26px, 4vw, 44px);
+        line-height: 1.12;
+        margin: 0;
+    }
+
+    h2 {
+        font-size: clamp(22px, 3vw, 32px);
+        margin: 0;
+    }
+
+    p {
+        line-height: 1.5;
+        margin-block: 0;
+    }
+
+    .neo-preload-intro,
+    .neo-preload-profile-copy p {
+        color: var(--sem-color-text-neutral-subdued);
+    }
+
+    .neo-preload-counter {
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 6px;
+        font-variant-numeric: tabular-nums;
+        padding: 7px 10px;
+    }
+
+    .neo-preload-profiles {
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 12px;
+        overflow: clip;
+    }
+
+    .neo-preload-profile {
+        background: var(--sem-color-surface-neutral-highlighted);
+        border-end-end-radius: 12px;
+        border-end-start-radius: 12px;
+        gap: clamp(16px, 5vw, 40px);
+        min-height: 14rem;
+        padding: clamp(16px, 4vw, 28px);
+
+        img {
+            border-radius: 12px;
+            height: clamp(96px, 20vw, 160px);
+            object-fit: cover;
+            width: clamp(96px, 20vw, 160px);
+        }
+    }
+
+    .neo-preload-activity {
+        border-inline-start: 3px solid var(--sem-color-border-default);
+        min-height: 3em;
+        padding-inline-start: 12px;
+    }
+
+    @media (max-width: 480px) {
+        gap: 12px;
+    }
+}

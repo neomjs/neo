@@ -1,6 +1,7 @@
 import Container          from '../../../src/container/Base.mjs';
 import DockDropIndicators from '../../../src/dashboard/dock/interaction/DropIndicators.mjs';
 import DockPreview        from '../../../src/dashboard/dock/interaction/Preview.mjs';
+import DragAffordances    from '../../../src/dashboard/dock/interaction/DragAffordances.mjs';
 import WorkspaceDocument  from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 import PreviewContract    from '../../../src/dashboard/dock/model/PreviewContract.mjs';
 
@@ -640,10 +641,13 @@ export function createCrossWindowStage(seams) {
 
         if (!host || host.isDestroyed) return null;
 
-        let zoneEntries = Object.keys(nodes)
-                .filter(nodeId => nodes[nodeId].type === 'tabs')
-                .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
-                .filter(zone => zone.container),
+        let zoneEntries = [
+                ...Object.keys(nodes)
+                    .filter(nodeId => nodes[nodeId].type === 'tabs')
+                    .map(nodeId => ({nodeId, container: host.down({dockNodeId: nodeId})}))
+                    .filter(zone => zone.container),
+                ...DragAffordances.centerWellZones(host, document)
+            ],
             // A zone entry is an OBJECT DESCRIPTOR ({nodeId, …}; the v13.2 contract retired the
             // string shorthand), so reading `zones.center` directly yields an object where an id
             // belongs. `PreviewProducer.resolveRootEdge` then fails its `typeof nodeId === 'string'`
@@ -673,7 +677,8 @@ export function createCrossWindowStage(seams) {
                             : zoneRects[index],
                     orientation: Object.values(nodes).find(node =>
                         node.type === 'split' && node.children?.includes(zone.nodeId)
-                    )?.orientation ?? null
+                    )?.orientation ?? null,
+                    ...(zone.type && {tabsNodeId: zone.tabsNodeId, type: zone.type})
                 }))
                 .filter(zone => zone.rect)
         };

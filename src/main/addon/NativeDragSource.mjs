@@ -10,7 +10,7 @@ const templateToken = /\{(record\.)?([\w-]+)\}/g;
 
 /**
  * The `body` class marking a native drag in flight, from `dragstart` to `dragend`. Frame shields
- * that key on other state — the dock rail reveal's in `dashboard/Container.scss` — lift while it is
+ * that key on other state — the dock rail reveal's in `dashboard/Container.css` — lift while it is
  * present, so the drop can be hit-tested onto the frame it is aimed at.
  * @type {String}
  */
@@ -172,7 +172,7 @@ class NativeDragSource extends Base {
         // Every native drag this document starts lifts the frame shields for its lifetime, armed by
         // this addon or not: `pointer-events: none` removes a frame as a drop target, and a drop has
         // to be able to land in an editor frame whichever node carried the payload. The rail reveal's
-        // shield (`dashboard/Container.scss`) keys on this class; cleared in {@link #onGestureEnd}.
+        // shield (`dashboard/Container.css`) keys on this class; cleared in {@link #onGestureEnd}.
         document.body.classList.add(nativeDragCls);
 
         if (!armed || event.target !== armed.node || !dataTransfer) {

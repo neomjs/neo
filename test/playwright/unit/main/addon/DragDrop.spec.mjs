@@ -124,6 +124,18 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
             .toEqual({height: 240, width: 320, x: 480, y: 290})
     });
 
+    test('a delayed desktop popup grant applies only to the same live, uncancelled source gesture', () => {
+        const native = {}, grant = {gestureId: 1, popupName: 'child', popupHeight: 240, popupWidth: 320};
+        for (const [id, cancelled] of [[null, false], [2, false], [1, true]]) {
+            Object.assign(native, {gestureId: id, dragCancelled: cancelled});
+            expect(DragDrop.prototype.startWindowDrag.call(native, grant)).toBe(false);
+            expect(native.isWindowDragging).toBeUndefined()
+        }
+        native.dragCancelled = false;
+        expect(DragDrop.prototype.startWindowDrag.call(native, grant)).toBe(true);
+        expect(native.popupName).toBe('child')
+    });
+
     test('a refused native move skips only that move: the drag frame still flows and nothing goes unhandled', async () => {
         const sent    = [],
               seen    = [],
@@ -457,6 +469,35 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         expect(state.style.getPropertyValue('width'), 'acceptance retains terminal pixels until projection owns them')
             .toBe('220px');
         expect(state.resize.pendingTerminal).toBeNull()
+    });
+
+    for (const [action, resizeConfig] of [['replaces', {axis: 'width', targetId: 'retired-target'}], ['cancels', null]]) {
+        test(`a stale handshake recovers a recreated root and never ${action} the active resize`, () => {
+            const {resize, style} = createState(),
+                  active          = resize.state,
+                  addon           = {dragResize: resize, gestureId: 2, offsetX: 12, zoneRegistrations: {}},
+                  path            = [{id: 'recreated-root'}];
+
+            resize.gesture = {dragZoneId: 'splitter-zone', clientX: 100, clientY: 0};
+            resize.createState = () => null; // A retired target has no measurable DOM node.
+            resize.apply({clientX: 150, clientY: 0});
+            expect(style.getPropertyValue('width')).toBe('250px');
+
+            expect(DragDrop.prototype.setConfigs.call(addon, {
+                dragElementRootId: path[0].id, dragZoneId: 'splitter-zone', gestureId: 1, offsetX: 99, resizeConfig
+            })).toEqual({boundaryContainerRect: null});
+            expect(DragDrop.prototype.resolveDragZoneId.call(addon, path)).toBe('splitter-zone');
+            expect(resize.resolve(path)).toBeNull();
+            expect(resize.state).toBe(active);
+            expect(style.getPropertyValue('width')).toBe('250px');
+            expect(addon.offsetX).toBe(12)
+        })
+    }
+
+    test('a cancelled handshake cannot displace the newer owner of a reused root', () => {
+        const addon = {dragCancelled: true, gestureId: 2, zoneRegistrations: {'reused-root': 'new-zone'}};
+        DragDrop.prototype.setConfigs.call(addon, {dragElementRootId: 'reused-root', dragZoneId: 'old-zone', gestureId: 2});
+        expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'reused-root'}])).toBe('new-zone')
     });
 
     test('a same-gesture registration replaces a retired target and replays the latest pointer frame', () => {
@@ -913,6 +954,12 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
     })
 });
 
+test('a popup Escape from a retired gesture cannot cancel a newer source drag', () => {
+    const source = {dragZoneId: 'window-zone', gestureId: 2};
+    expect(DragDrop.prototype.cancelDrag.call(source, {gestureId: 1, key: 'Escape'})).toBe(false);
+    expect(source.dragCancelled).toBeUndefined()
+});
+
 /**
  * @summary A re-render can replace the pressed node inside the sensor's start delay; the sensor then
  * dispatches `drag:start` on `document`, and the addon must read the press from `detail`.
@@ -1121,5 +1168,114 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
         expect(sent[1].path.map(node => node.id), 'the App routes the drop by this path').toEqual(['hit', 'hit-parent', undefined]);
         expect(sent[1].target.id).toBe('hit');
         expect(sent[1].dragZoneId).toBe('zone-1')
+    });
+
+    test('a captured pointercancel over a drop zone emits drag:cancel, cancels active resize, and commits no drop', () => {
+        let cancelCalls = 0,
+            finishCalls = 0,
+            resetCalls  = 0;
+
+        const
+            originalSend = DomEvents.sendMessageToApp,
+            sent         = [],
+            addon        = {
+                bodyCursorStyle     : null,
+                cancelDrag          : DragDrop.prototype.cancelDrag,
+                dragCancelled       : false,
+                dragResize          : {cancel: () => cancelCalls++, finish: () => {finishCalls++; return {axis: 'width', generation: 1, size: 320, targetId: 'pane-1'}}},
+                dragZoneId          : 'zone-1',
+                dropZoneIdentifier  : {cls: ['drop-zone']},
+                getEventData        : DragDrop.prototype.getEventData,
+                offsetX             : 0,
+                offsetY             : 0,
+                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
+                resetDragState      : () => {resetCalls++},
+                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
+            };
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointercancel', [hit, parent, windowRef]))
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(sent.map(data => data.type)).toEqual(['drag:cancel']);
+        expect(sent[0]).toMatchObject({clientX: 40, clientY: 30, dragZoneId: 'zone-1', type: 'drag:cancel'});
+        expect(sent[0].target.id).toBe('hit');
+        expect(cancelCalls, 'active resize is cancelled rather than finished').toBe(1);
+        expect(finishCalls).toBe(0);
+        expect(addon.dragCancelled).toBe(true);
+        expect(resetCalls).toBe(1)
+    });
+
+    test('a zoneless pointercancel cancels active resize and emits drag:cancel without dropping', () => {
+        let cancelCalls = 0,
+            finishCalls = 0;
+
+        const
+            originalSend = DomEvents.sendMessageToApp,
+            sent         = [],
+            addon        = {
+                bodyCursorStyle     : null,
+                cancelDrag          : DragDrop.prototype.cancelDrag,
+                dragCancelled       : false,
+                dragResize          : {cancel: () => cancelCalls++, finish: () => {finishCalls++; return null}},
+                dragZoneId          : null,
+                dropZoneIdentifier  : {cls: ['drop-zone']},
+                getEventData        : DragDrop.prototype.getEventData,
+                offsetX             : 0,
+                offsetY             : 0,
+                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
+                resetDragState      : () => {},
+                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
+            };
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointercancel', [hit, parent, windowRef]))
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(sent.map(data => data.type)).toEqual(['drag:cancel']);
+        expect(sent[0].dragZoneId).toBeNull();
+        expect(cancelCalls).toBe(1);
+        expect(finishCalls).toBe(0)
+    });
+
+    test('a lost-release pointermove terminal still commits drag:end and drop', () => {
+        let finishCalls = 0;
+
+        const
+            originalSend = DomEvents.sendMessageToApp,
+            sent         = [],
+            addon        = {
+                bodyCursorStyle     : null,
+                cancelDrag          : DragDrop.prototype.cancelDrag,
+                dragCancelled       : false,
+                dragResize          : {cancel: () => {}, finish: () => {finishCalls++; return null}},
+                dragZoneId          : 'zone-1',
+                dropZoneIdentifier  : {cls: ['drop-zone']},
+                getEventData        : DragDrop.prototype.getEventData,
+                offsetX             : 0,
+                offsetY             : 0,
+                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
+                resetDragState      : () => {},
+                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
+            };
+
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        try {
+            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointermove', [hit, parent, windowRef]))
+        } finally {
+            DomEvents.sendMessageToApp = originalSend
+        }
+
+        expect(sent.map(data => data.type)).toEqual(['drag:end', 'drop']);
+        expect(finishCalls).toBe(1)
     })
 });

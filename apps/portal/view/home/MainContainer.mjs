@@ -1,12 +1,14 @@
-import AiToolchain from './parts/AiToolchain.mjs';
-import Colors      from './parts/Colors.mjs';
-import Container   from '../../../../src/container/Base.mjs';
-import Features    from './parts/Features.mjs';
-import Helix       from './parts/Helix.mjs';
+import AiToolchain   from './parts/AiToolchain.mjs';
+import AudienceDoors from './parts/AudienceDoors.mjs';
+import Container     from '../../../../src/container/Base.mjs';
+import Features      from './parts/Features.mjs';
+import Grid          from './parts/Grid.mjs';
 import HeroContainer from './parts/hero/Container.mjs';
-import How         from './parts/How.mjs';
+import How           from './parts/How.mjs';
+import Planning      from './parts/Planning.mjs';
 
 /**
+ * @summary Scroll-snapped home view sequencing the Hero, AudienceDoors, Engine showcase, and Agent OS stages.
  * @class Portal.view.home.MainContainer
  * @extends Neo.container.Base
  */
@@ -17,6 +19,11 @@ class MainContainer extends Container {
          * @protected
          */
         className: 'Portal.view.home.MainContainer',
+        /**
+         * @member {String} ntype='portal-home-maincontainer'
+         * @protected
+         */
+        ntype: 'portal-home-maincontainer',
         /**
          * @member {String[]} cls=['portal-home-maincontainer', 'portal-shared-background']
          * @reactive
@@ -33,11 +40,6 @@ class MainContainer extends Container {
                 this.items.forEach(item => {
                     item[item.id === id ? 'activate' : 'deactivate']?.()
                 })
-            },
-            scroll(event) {
-                if (event.target.cls.includes('portal-home-maincontainer')) {
-                    this.toggleCls('hide-sidebar', event.scrollTop > 80)
-                }
             }
         }],
         /**
@@ -52,11 +54,12 @@ class MainContainer extends Container {
         items: [
             {ntype: 'component', cls: ['portal-home-progress']},
             HeroContainer,
-            Colors,
-            Helix,
+            {module: AudienceDoors, reference: 'home-audience-doors'},
+            {module: Planning,      reference: 'home-body-entry'},
+            Grid,
             How,
             Features,
-            AiToolchain
+            {module: AiToolchain,   reference: 'home-agent-os'}
         ],
         /**
          * @member {Boolean} scrollable=true
@@ -93,6 +96,32 @@ class MainContainer extends Container {
                 windowId
             })
         })
+    }
+
+    /**
+     * @summary Syncs AudienceDoors section anchor hrefs once sibling Home stage instances exist.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.getItem('home-audience-doors')?.syncSectionTargets(this)
+    }
+
+    /**
+     * @summary Smoothly scrolls the home container to a referenced landing-page stage.
+     * @param {String} reference
+     * @returns {Promise<any>|undefined}
+     */
+    scrollToPart(reference) {
+        const target = this.getItem(reference);
+
+        if (target) {
+            return Neo.main.DomAccess.scrollIntoView({
+                behavior: 'smooth',
+                block   : 'start',
+                id      : target.id,
+                windowId: this.windowId
+            })
+        }
     }
 }
 

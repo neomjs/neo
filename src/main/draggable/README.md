@@ -42,12 +42,13 @@ gesture has two windows, and each has its own mechanism:
 
 | Window | Carried by | Why |
 |---|---|---|
-| press → threshold | `neo-drag-active` and the iframe shield keyed on it (`Global.scss`) | nothing is engaged yet; a press that never becomes a drag must still click its own element |
+| press → threshold | `neo-drag-active` and the iframe shield keyed on it (`Global.css`) | nothing is engaged yet; a press that never becomes a drag must still click its own element |
 | `drag:start` → terminal | pointer capture on `document.documentElement` | no click is at stake, and a lost release here would strand an engaged drag |
 
 Capture routes every later event of the pointer to the document, whatever lies under it (an
 iframe included), and guarantees that its `pointerup` or `pointercancel` arrives. Both end the
-gesture with one `drag:end`; `pointercancel` is a terminal, not an error. A captured event names the
+sensor's gesture with one `drag:end`; `main/addon/DragDrop.mjs` routes `pointercancel` to
+`drag:cancel` rather than a committing drop. A captured event names the
 document root, so the sensor adds `eventPath` (the hit-test path the uncaptured event would carry),
 which `main/addon/DragDrop.mjs` serializes in place of the event's own. Coordinates stay what the
 retired sensors reported: mouse and pen floor the pointer's fractional position to whole pixels, as

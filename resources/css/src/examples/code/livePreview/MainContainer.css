@@ -1,0 +1,53 @@
+.neo-examples-livepreview {
+    gap    : 12px;
+    padding: 0 1rem 1rem;
+
+    .neo-examples-livepreview-header {
+        gap            : 12px;
+        justify-content: space-between;
+        padding-top    : 1rem;
+    }
+
+    .neo-examples-livepreview-intro {
+        flex     : 1 1 320px;
+        min-width: 0;
+    }
+
+    /* Whole-pixel line heights keep the editor on a whole pixel, which its cover crop needs */
+    .neo-examples-livepreview-title {
+        font-size  : 20px;
+        font-weight: 600;
+        line-height: 25px;
+        margin     : 0 0 4px;
+    }
+
+    .neo-examples-livepreview-instruction {
+        font-size  : 13px;
+        line-height: 19px;
+        margin     : 0;
+        opacity    : .85;
+    }
+
+    .neo-code-live-preview {
+        min-height: 0;
+    }
+
+    @media (max-width: 600px) {
+        gap    : 10px;
+        padding: 0 10px 10px;
+
+        .neo-examples-livepreview-header {
+            padding-top: 10px;
+        }
+
+        .neo-examples-livepreview-title {
+            font-size  : 17px;
+            line-height: 21px;
+        }
+
+        .neo-examples-livepreview-instruction {
+            font-size  : 12px;
+            line-height: 16px;
+        }
+    }
+}

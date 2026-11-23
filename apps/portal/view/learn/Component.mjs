@@ -1,4 +1,5 @@
-import ContentComponent from '../../../../src/app/content/Component.mjs';
+import ContentComponent   from '../../../../src/app/content/Component.mjs';
+import {rewriteRepoLinks} from '../../Util.mjs';
 
 /**
  * @class Portal.view.learn.Component
@@ -32,6 +33,37 @@ class Component extends ContentComponent {
             pagesFolder = path.includes('/learn/') ? '' : 'pages/';
 
         return path + `${pagesFolder + record.id.replaceAll('.', '/')}.md`
+    }
+
+    /**
+     * @summary Resolves relative repository links and upgrades canonical `https://neomjs.com/learn/<id>` links
+     * to in-SPA `#/learn/<id>` navigation whenever `<id>` is present in the loaded Learn tree store.
+     * @param {String} html
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        let me    = this,
+            path  = me.getContentPath(me.record),
+            store = me.getStateProvider()?.getStore('tree');
+
+        // Less the base path, the fetch path is the file's path in the repository
+        html = rewriteRepoLinks(super.rewriteLinks(html), path.slice(Neo.config.basePath.length));
+
+        return html.replace(/<a\b[^>]*>/gi, tag => {
+            const match = /(\shref\s*=\s*)(["'])https:\/\/neomjs\.com\/learn\/([^"'?#]+)(#[^"']*)?\2/i.exec(tag);
+
+            if (!match) {
+                return tag
+            }
+
+            const [, attr, quote, itemId, fragment = ''] = match;
+
+            if (store?.get(itemId)) {
+                return tag.replace(match[0], `${attr}${quote}${me.contentRoute}${itemId}${fragment}${quote}`)
+            }
+
+            return /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
+        })
     }
 }
 

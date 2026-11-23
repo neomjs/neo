@@ -1,0 +1,137 @@
+[
+    {
+        "id": "context-menu-files",
+        "family": "buttons",
+        "order": 520,
+        "component": "Context Menu",
+        "feature": "A right-click on a project file opens its actions at the pointer, and every action changes the list.",
+        "lookFor": "Right-click a file to move, star, duplicate or delete it; right-click the free space below the files for a new one.",
+        "image": "devmode/context-menu-files-14.jpg",
+        "name": "Context Menu",
+        "sourceUrl": "examples/menu/contextFiles",
+        "urls": {
+            "devmode": "examples/menu/contextFiles/index.html",
+            "dist_dev": "dist/development/examples/menu/contextFiles/index.html",
+            "dist_esm": "dist/esm/examples/menu/contextFiles/index.html",
+            "dist_prod": "dist/production/examples/menu/contextFiles/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "breadcrumb",
+        "family": "buttons",
+        "order": 530,
+        "component": "Breadcrumb",
+        "feature": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up.",
+        "lookFor": "Open grid under src, then press the neo crumb to return to the top; reload and the page keeps its folder.",
+        "image": "devmode/breadcrumb-14.jpg",
+        "hasLightCover": true,
+        "name": "Breadcrumb Toolbar",
+        "sourceUrl": "examples/toolbar/breadcrumb",
+        "urls": {
+            "devmode": "examples/toolbar/breadcrumb/index.html",
+            "dist_dev": "dist/development/examples/toolbar/breadcrumb/index.html",
+            "dist_esm": "dist/esm/examples/toolbar/breadcrumb/index.html",
+            "dist_prod": "dist/production/examples/toolbar/breadcrumb/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "toolbar-application",
+        "family": "buttons",
+        "order": 535,
+        "component": "Toolbar",
+        "feature": "A split button, a font toggle, and an action group loaded from one JSON file",
+        "lookFor": "Open Insert to add a checklist item. Toggle Monospace to change the draft’s font, or edit the JSON file and reload to change the toolbar.",
+        "image": "devmode/toolbar-application-14.jpg",
+        "name": "A toolbar loaded from JSON",
+        "sourceUrl": "examples/toolbar/application",
+        "urls": {
+            "devmode": "examples/toolbar/application/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/toolbar/application/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/toolbar/application/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/toolbar/application/index.html?theme=neo-theme-neo-dark"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "button-base",
+        "kind": "component",
+        "image": "devmode/tiles/button-base-14.jpg",
+        "hasLightCover": true,
+        "name": "Button",
+        "sourceUrl": "examples/button/base",
+        "urls": {
+            "devmode": "examples/button/base/index.html",
+            "dist_dev": "dist/development/examples/button/base/index.html",
+            "dist_esm": "dist/esm/examples/button/base/index.html",
+            "dist_prod": "dist/production/examples/button/base/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "order": 1350,
+        "component": "Button",
+        "feature": "A button with icon, badge, ripple and tooltip, each a live config",
+        "lookFor": "Move the icon or the badge, change the text, and toggle disabled in the panel."
+    },
+    {
+        "id": "button-split",
+        "kind": "component",
+        "image": "devmode/tiles/button-split-14.jpg",
+        "hasLightCover": true,
+        "name": "Split button",
+        "sourceUrl": "examples/button/split",
+        "urls": {
+            "devmode": "examples/button/split/index.html",
+            "dist_dev": "dist/development/examples/button/split/index.html",
+            "dist_esm": "dist/esm/examples/button/split/index.html",
+            "dist_prod": "dist/production/examples/button/split/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "order": 1355,
+        "component": "SplitButton",
+        "feature": "A button with a menu of its own: the main part runs its handler, the arrow opens the alternatives",
+        "lookFor": "Press Save for the main action or the arrow for Save as…, Export and Print, and move the icon in the panel."
+    },
+    {
+        "id": "menu-list",
+        "kind": "component",
+        "image": "devmode/tiles/menu-list-14.jpg",
+        "hasLightCover": true,
+        "name": "Menu list",
+        "sourceUrl": "examples/menu/list",
+        "urls": {
+            "devmode": "examples/menu/list/index.html",
+            "dist_dev": "dist/development/examples/menu/list/index.html",
+            "dist_esm": "dist/esm/examples/menu/list/index.html",
+            "dist_prod": "dist/production/examples/menu/list/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "order": 1360,
+        "component": "MenuList",
+        "feature": "A menu list over a store",
+        "lookFor": "Move through the items with the arrow keys, and resize the menu in the panel."
+    },
+    {
+        "id": "menu-tree",
+        "kind": "component",
+        "image": "devmode/tiles/menu-tree-14.jpg",
+        "hasLightCover": true,
+        "name": "Menu tree",
+        "sourceUrl": "examples/menu/tree",
+        "urls": {
+            "devmode": "examples/menu/tree/index.html",
+            "dist_dev": "dist/development/examples/menu/tree/index.html",
+            "dist_esm": "dist/esm/examples/menu/tree/index.html",
+            "dist_prod": "dist/production/examples/menu/tree/index.html"
+        },
+        "hiddenIn": [],
+        "family": "buttons",
+        "order": 1365,
+        "component": "MenuList",
+        "feature": "A cascading menu read from a tree store, three levels deep",
+        "lookFor": "Open File and then New with the pointer, or step in with the arrow keys and open a submenu with the right arrow."
+    }
+]

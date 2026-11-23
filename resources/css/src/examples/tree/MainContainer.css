@@ -1,0 +1,62 @@
+/* The tree list above the playlist it drags into, centred on the stage */
+.examples-tree-library {
+    &.neo-examples-configuration-viewport .neo-stage-compact > .neo-example-container {
+        gap            : 24px;
+        justify-content: safe center;
+
+        /* Neither gives way to the other on a short stage, which scrolls instead */
+        > * {
+            flex-shrink: 0;
+            margin     : 0 auto;
+        }
+    }
+
+    .tree-playlist {
+        border       : 1px solid var(--panel-border-color);
+        border-radius: 8px;
+        overflow     : hidden;
+
+        .neo-list-item {
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+        }
+    }
+
+    .tree-playlist-drop {
+        display       : flex;
+        flex-direction: column;
+    }
+
+    .tree-playlist-hint {
+        border-top: 1px dashed var(--panel-border-color);
+        opacity   : .7;
+        padding   : 12px;
+        text-align: center;
+    }
+}
+
+/* While a tree item is dragged the playlist shows it takes the drop. A drag takes every element out of the pointer's
+   hit test (`draggable/DragProxyComponent.css`); the playlist opts back in, so the drop lands on it, as the meridian
+   scheduler's drop surface does */
+body:has(.tree-library.neo-is-dragging) {
+    .tree-playlist {
+        outline       : 2px dashed color-mix(in srgb, var(--neo-color) 60%, transparent);
+        outline-offset: 2px;
+    }
+
+    .tree-playlist-drop {
+        pointer-events: auto !important;
+    }
+}
+
+/* An icon per level. The rules hang on the tree's own class, so the drag proxy draws the same icon, and name the
+   folder class, so they outrank the theme's folder icons */
+.neo-tree-list .neo-list-item .neo-list-item-content.tree-track:before {
+    content: "\f001";
+}
+
+.neo-tree-list .neo-list-item.neo-list-folder .neo-list-item-content {
+    &.tree-artist:before {content: "\f007" !important; color: color-mix(in srgb, #a855f7 70%, var(--neo-color));}
+    &.tree-album:before  {content: "\f51f" !important; color: color-mix(in srgb, #3b82f6 75%, var(--neo-color));}
+}

@@ -9,6 +9,46 @@
             "path": null
         },
         {
+            "date": "2026-11-23",
+            "id": "blog/web-desktop-built-by-ai-peers-who-own-their-work",
+            "isLeaf": true,
+            "name": "A web desktop whose windows leave the browser tab, built by AI peers who own their work",
+            "parentId": "2026",
+            "path": "learn/blog/web-desktop-built-by-ai-peers-who-own-their-work.md"
+        },
+        {
+            "date": "2026-11-17",
+            "id": "blog/codebase-knowledge-base-for-ai-coding-agents",
+            "isLeaf": true,
+            "name": "Codebase RAG vs grep for AI coding agents: the same grep hits scored 10, 30 or 34 of 40 (part 3 of 8)",
+            "parentId": "2026",
+            "path": "learn/blog/codebase-knowledge-base-for-ai-coding-agents.md"
+        },
+        {
+            "date": "2026-11-16",
+            "id": "blog/role-based-navigation-from-one-store-filter",
+            "isLeaf": true,
+            "name": "Role-based navigation from one store filter: menus and windows that follow the user's permissions",
+            "parentId": "2026",
+            "path": "learn/blog/role-based-navigation-from-one-store-filter.md"
+        },
+        {
+            "date": "2026-11-14",
+            "id": "blog/one-websocket-across-browser-windows-with-sharedworkers",
+            "isLeaf": true,
+            "name": "A SharedWorker WebSocket still copies state into every tab—unless the store lives there too",
+            "parentId": "2026",
+            "path": "learn/blog/one-websocket-across-browser-windows-with-sharedworkers.md"
+        },
+        {
+            "date": "2026-11-10",
+            "id": "blog/json-ld-xss-json-stringify-in-a-script-tag",
+            "isLeaf": true,
+            "name": "JSON.stringify is not safe inside a script tag: the JSON-LD XSS and its one-line fix",
+            "parentId": "2026",
+            "path": "learn/blog/json-ld-xss-json-stringify-in-a-script-tag.md"
+        },
+        {
             "date": "2026-11-07",
             "id": "blog/context-compaction-recovery-for-ai-coding-agents",
             "isLeaf": true,

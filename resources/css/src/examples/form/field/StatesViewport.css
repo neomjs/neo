@@ -1,0 +1,46 @@
+.neo-field-states-viewport {
+    /* A short stage (a phone) scrolls: the live field and its states keep their height */
+    .neo-example-container > :first-child,
+    .neo-field-states {
+        flex-shrink: 0;
+    }
+
+    /* The live field and its states centre as one group, not as two items with the stage's space between them */
+    .neo-workbench-stage.neo-stage-compact > .neo-example-container {
+        > :first-child {
+            margin: auto auto 0;
+        }
+
+        > .neo-field-states {
+            margin: 32px auto auto;
+        }
+    }
+
+    .neo-field-states {
+        border-top           : 1px solid var(--panel-border-color);
+        display              : grid;
+        gap                  : 20px 40px;
+        grid-template-columns: repeat(2, max-content);
+        padding-top          : 24px;
+    }
+
+    .neo-field-state {
+        display       : flex;
+        flex-direction: column;
+        gap           : 6px;
+    }
+
+    .neo-field-state-caption {
+        color         : var(--secondary-text-color, #888);
+        font-size     : 11px;
+        font-weight   : 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    @media (max-width: 1100px) {
+        .neo-field-states {
+            grid-template-columns: max-content;
+        }
+    }
+}

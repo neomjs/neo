@@ -1,0 +1,37 @@
+:where(.neo-theme-cyberpunk) {
+    --due-avatar-bg         : #1f1638;
+    --due-avatar-border     : #00f0ff;
+    --due-avatar-text       : #7df9ff;
+    --due-border            : #2d1f4e;
+    --due-btn-bg            : #160f2b;
+    --due-btn-border        : #422b73;
+    --due-btn-hover-bg      : #231642;
+    --due-btn-text          : #ede9fe;
+    --due-canvas-bg         : #090614;
+    --due-card-bg           : #150e29;
+    --due-card-border       : #34235c;
+    --due-card-hover-border : #00f0ff;
+    --due-card-shadow       : 0 2px 10px rgba(0, 0, 0, 0.5);
+    --due-col-bg            : #0f0a1f;
+    --due-focus             : #00f0ff;
+    --due-header-bg         : #0d081b;
+    --due-late-active-bg    : #6d0e35;
+    --due-late-active-border: #ff2a6d;
+    --due-late-active-text  : #fff1f5;
+    --due-late-bg           : rgba(255, 42, 109, 0.18);
+    --due-late-border       : #ff2a6d;
+    --due-late-text         : #ff9ebb;
+    --due-muted             : #c4b5fd;
+    --due-pill-bg           : #1c1236;
+    --due-pill-border       : #492f7d;
+    --due-pill-text         : #e9d5ff;
+    --due-progress-track    : #2a1c4a;
+    --due-subbar-bg         : #0b0718;
+    --due-tag-bg            : #221640;
+    --due-tag-border        : #462e7a;
+    --due-tag-text          : #f3e8ff;
+    --due-text              : #ede9fe;
+    --due-title             : #faf5ff;
+    --due-today-border      : #00f0ff;
+    --due-today-text        : #7df9ff;
+}

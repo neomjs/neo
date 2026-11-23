@@ -30,6 +30,9 @@ class SectionsList extends List {
      */
     isAnimating = false
 
+    /** @member {Number} #scrollRequest Identifies the current section jump. */
+    #scrollRequest = 0
+
     /**
      * @param {Object} record
      * @param {Number} index
@@ -68,26 +71,31 @@ class SectionsList extends List {
     }
 
     /**
+     * @summary Aligns anchored headings immediately so scroll anchoring can preserve them during later reflow.
      * @param {Object} data
+     * @param {Object} data.record
      */
-    async onSelectionChange(data) {
-        let me     = this,
-            record = data.record;
-
+    async onSelectionChange({record}) {
         if (record) {
+            const me       = this,
+                  request  = ++me.#scrollRequest,
+                  behavior = typeof record.anchor === 'string' ? 'instant' : 'smooth',
+                  heading  = `[data-record-id='${record.id}']`,
+                  selector = record.sourceId ? `#${record.sourceId} ${heading}` : heading;
+
             me.isAnimating = true;
 
             me.fire('pageListSelect', {record});
 
-            await Neo.main.DomAccess.scrollIntoView({
-                querySelector: `[data-record-id='${record.id}']`,
-                windowId     : me.windowId
-            });
+            try {
+                await Neo.main.DomAccess.scrollIntoView({behavior, querySelector: selector, windowId: me.windowId});
 
-            // better safe than sorry
-            await me.timeout(200);
-
-            me.isAnimating = false
+                if (behavior === 'smooth') await me.timeout(200)
+            } catch (error) {
+                if (error !== Neo.isDestroyed) throw error
+            } finally {
+                if (request === me.#scrollRequest) me.isAnimating = false
+            }
         }
     }
 

@@ -8,6 +8,13 @@ import NeoArray  from '../util/Array.mjs';
  */
 class EffectButton extends Component {
     /**
+     * Valid WAI-ARIA `aria-current` token values (plus `null` to omit the attribute).
+     * @member {Array} ariaCurrentValues=['date','location','page','step','time','true',null]
+     * @protected
+     * @static
+     */
+    static ariaCurrentValues = ['date', 'location', 'page', 'step', 'time', 'true', null]
+    /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
      * @protected
@@ -33,6 +40,13 @@ class EffectButton extends Component {
          * @protected
          */
         ntype: 'effect-button',
+        /**
+         * WAI-ARIA `aria-current` token (`'page'`, `'step'`, `'location'`, `'date'`, `'time'`, `'true'`),
+         * `Boolean` shorthand (`true -> 'true'`, `false -> null`), or `null` to omit.
+         * @member {Boolean|String|null} ariaCurrent_=null
+         * @reactive
+         */
+        ariaCurrent_: null,
         /**
          * @member {String} badgePosition_='top-right'
          * @reactive
@@ -100,11 +114,12 @@ class EffectButton extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * The pressed state of the Button. `null` marks a plain button (no toggle semantics),
+         * a Boolean value renders the `aria-pressed` attribute for assistive technology.
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -212,7 +227,7 @@ class EffectButton extends Component {
         let vdomCls = [...this.baseCls, ...this.cls];
 
         NeoArray.toggle(vdomCls, 'no-text', !this.text);
-        NeoArray.toggle(vdomCls, 'pressed', this.pressed);
+        NeoArray.toggle(vdomCls, 'pressed', this.pressed === true);
         vdomCls.push('icon-' + this.iconPosition);
 
         return vdomCls;
@@ -225,20 +240,31 @@ class EffectButton extends Component {
      * @protected
      */
     getVdomConfig() {
-        let me   = this,
-            link = !me.editRoute && me.route || me.url,
-            tag  = link ? 'a' : 'button';
+        let me         = this,
+            link       = !me.editRoute && me.route || me.url,
+            tag        = link ? 'a' : 'button',
+            vdomConfig = {
+                tag,
+                cls   : me.getVdomCls(),
+                href  : link ? (link.startsWith('#') ? link : '#' + link) : null,
+                id    : me.id,
+                style : me.style,
+                target: me.url ? me.urlTarget : null,
+                type  : tag === 'button' ? 'button' : null,
+                cn    : me.getVdomChildren()
+            };
 
-        return {
-            tag,
-            cls    : this.getVdomCls(),
-            href   : link ? (link.startsWith('#') ? link : '#' + link) : null,
-            id     : me.id,
-            style  : me.style,
-            target : me.url ? me.urlTarget : null,
-            type   : tag === 'button' ? 'button' : null,
-            cn     : this.getVdomChildren()
-        };
+        if (me.ariaCurrent) {
+            vdomConfig['aria-current'] = me.ariaCurrent
+        }
+
+        // A Boolean marks a toggle and renders aria-pressed, null marks a plain button.
+        // aria-pressed is only valid for the button role, so a link root omits it.
+        if (tag === 'button' && Neo.isBoolean(me.pressed)) {
+            vdomConfig['aria-pressed'] = String(me.pressed === true)
+        }
+
+        return vdomConfig
     }
 
     /**
@@ -250,11 +276,11 @@ class EffectButton extends Component {
     afterSetMenu(value, oldValue) {
         if (value) {
             import('../menu/List.mjs').then(module => {
-                let me            = this,
-                    isArray       = Array.isArray(value),
-                    items         = isArray ? value : value.items,
-                    menuConfig    = isArray ? {} : value,
-                    stateProvider = me.getStateProvider(),
+                let me                         = this,
+                    isArray                    = Array.isArray(value),
+                    items                      = isArray ? value : value.items,
+                    menuConfig                 = isArray ? {} : value,
+                    stateProvider              = me.getStateProvider(),
                     {appName, theme, windowId} = me,
 
                     config = Neo.merge({
@@ -327,6 +353,25 @@ class EffectButton extends Component {
         }
 
         return iconCls
+    }
+
+    /**
+     * @summary Normalizes boolean shorthand (`false -> null`, `true -> 'true'`) and validates `ariaCurrentValues`.
+     * @param {Boolean|String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetAriaCurrent(value, oldValue) {
+        if (value === false) {
+            return null
+        }
+
+        if (value === true) {
+            value = 'true'
+        }
+
+        return this.beforeSetEnumValue(value, oldValue, 'ariaCurrent', 'ariaCurrentValues')
     }
 
     /**

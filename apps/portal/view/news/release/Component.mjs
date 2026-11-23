@@ -1,4 +1,5 @@
-import ContentComponent from '../../../../../src/app/content/Component.mjs';
+import ContentComponent   from '../../../../../src/app/content/Component.mjs';
+import {rewriteRepoLinks} from '../../../Util.mjs';
 
 /**
  * @class Portal.view.news.release.Component
@@ -26,6 +27,21 @@ class Component extends ContentComponent {
      */
     getContentPath({path}) {
         return path ? Neo.config.basePath + Neo.config.releaseNotesBasePath + path : null
+    }
+
+    /**
+     * @summary Resolves the relative links of a release note against its folder in the repository.
+     * @param {String} html
+     * @returns {String}
+     */
+    rewriteLinks(html) {
+        let me   = this,
+            path = me.getContentPath(me.record);
+
+        html = super.rewriteLinks(html);
+
+        // Less the base path, the fetch path is the file's path in the repository
+        return path ? rewriteRepoLinks(html, path.slice(Neo.config.basePath.length)) : html
     }
 }
 

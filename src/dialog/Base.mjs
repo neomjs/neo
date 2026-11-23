@@ -1,7 +1,8 @@
-import NeoArray from '../util/Array.mjs';
-import Panel    from '../container/Panel.mjs';
-import Toolbar  from './header/Toolbar.mjs';
-import VDomUtil from '../util/VDom.mjs';
+import ComponentManager from '../manager/Component.mjs';
+import NeoArray         from '../util/Array.mjs';
+import Panel            from '../container/Panel.mjs';
+import Toolbar          from './header/Toolbar.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 
 let DragZone;
 
@@ -56,10 +57,12 @@ class Dialog extends Panel {
          */
         baseCls: ['neo-dialog', 'neo-panel', 'neo-container'],
         /**
-         * Either a dom node id, 'document.body' or null
-         * @member {String|null} boundaryContainerId='document.body'
+         * Either a dom node id, 'document.body' or null. A move and a resize stay inside it, and so does a
+         * {@link #keepInBoundary} dialog when it changes size.
+         * @member {String|null} boundaryContainerId_='document.body'
+         * @reactive
          */
-        boundaryContainerId: 'document.body',
+        boundaryContainerId_: 'document.body',
         /**
          * Define what happens in case you click on the close button
          * close will destroy the instance, hide will keep it for later re-use.
@@ -103,6 +106,13 @@ class Dialog extends Panel {
          */
         isDragging: false,
         /**
+         * Keeps the dialog inside its {@link #boundaryContainerId} when that container changes size
+         * ({@link #constrainToBoundary}). A grown container moves and sizes nothing.
+         * @member {Boolean} keepInBoundary_=false
+         * @reactive
+         */
+        keepInBoundary_: false,
+        /**
          * @member {Object} keys={Escape:'onKeyDownEscape'}
          * @reactive
          */
@@ -110,18 +120,22 @@ class Dialog extends Panel {
             Escape: 'onKeyDownEscape'
         },
         /**
-         * @member {String} maximizeCls='far fa-window-maximize'
+         * The maximize action's glyph while the dialog is not maximized. The window glyphs are one set: a line, a
+         * square, two offset squares and a cross.
+         * @member {String} maximizeCls='far fa-square'
          */
-        maximizeCls: 'far fa-window-maximize',
+        maximizeCls: 'far fa-square',
         /**
          * @member {Boolean} maximized_=false
          * @reactive
          */
         maximized_: false,
         /**
-         * @member {String} minimizeCls='far fa-window-minimize'
+         * The minimize action's glyph. The dialog has no minimize of its own: the action fires `headerAction`, and
+         * a window manager that can restore the dialog handles it (`Neo.desktop.WindowManager`).
+         * @member {String} minimizeCls='fas fa-minus'
          */
-        minimizeCls: 'far fa-window-minimize',
+        minimizeCls: 'fas fa-minus',
         /**
          * @member {Boolean} modal_=false
          * @reactive
@@ -137,6 +151,11 @@ class Dialog extends Panel {
          */
         resizablePluginConfig: null,
         /**
+         * The maximize action's glyph while the dialog is maximized: a click restores it
+         * @member {String} restoreCls='far fa-clone'
+         */
+        restoreCls: 'far fa-clone',
+        /**
          * @member {String|null} title_=null
          * @reactive
          */
@@ -151,6 +170,46 @@ class Dialog extends Panel {
     }
 
     /**
+     * The animations moving or sizing the dialog now: a boundary check waits for them to end
+     * @member {Number} #animations=0
+     */
+    #animations = 0
+    /**
+     * Counts the boundary checks: one that a newer check overtook writes nothing
+     * @member {Number} #boundaryChecks=0
+     */
+    #boundaryChecks = 0
+    /**
+     * The `resize` listener on the boundary container, while {@link #keepInBoundary} observes one
+     * @member {Object|null} #boundaryListener=null
+     */
+    #boundaryListener = null
+    /**
+     * The main-thread observation the boundary listener arms, `{componentId, id, windowId}`. Removing a `resize`
+     * listener leaves its `Neo.main.addon.ResizeObserver` entry in place, so the dialog releases this one itself.
+     * @member {Object|null} #boundaryObservation=null
+     */
+    #boundaryObservation = null
+    /**
+     * The boundary container's size at the last check: a notification of the same size checks nothing
+     * @member {Object|null} #boundarySize=null
+     */
+    #boundarySize = null
+
+    /**
+     * The geometry a move or a resize writes into `style`: a boundary check measured before one of them landed must
+     * not overwrite it
+     * @returns {String}
+     */
+    get #geometry() {
+        let {height, left, top, width} = this.style || {};
+
+        return `${left},${top},${width},${height}`
+    }
+
+    /**
+     * The component the animation starts from. Null when `animateTargetId` names a node without a component, such as
+     * a list item: the animation still runs, and the dialog keeps its own `windowId` and `appName`.
      * @member {Neo.component.Base|null} animateTarget=null
      */
     get animateTarget() {
@@ -202,6 +261,16 @@ class Dialog extends Panel {
     }
 
     /**
+     * Triggered after the boundaryContainerId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetBoundaryContainerId(value, oldValue) {
+        oldValue !== undefined && this.#syncBoundaryListener()
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -222,8 +291,9 @@ class Dialog extends Panel {
 
             if (!me.dragListenersAdded) {
                 const dragListeners = [
-                    {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
-                    {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                    {'drag:cancel': me.onDragCancel, scope: me, delegate: '.neo-header-toolbar'},
+                    {'drag:end'   : me.onDragEnd,    scope: me, delegate: '.neo-header-toolbar'},
+                    {'drag:start' : me.onDragStart,  scope: me, delegate: '.neo-header-toolbar'}
                 ];
 
                 if (me.dragZoneConfig?.alwaysFireDragMove) {
@@ -239,7 +309,18 @@ class Dialog extends Panel {
     }
 
     /**
-     * Triggered after the maximized config got changed
+     * Triggered after the keepInBoundary config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetKeepInBoundary(value, oldValue) {
+        oldValue !== undefined && this.#syncBoundaryListener()
+    }
+
+    /**
+     * Triggered after the maximized config got changed. A restore returns the geometry the dialog had before, which
+     * a {@link #keepInBoundary} dialog then keeps inside its boundary container.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -253,8 +334,10 @@ class Dialog extends Panel {
         NeoArray.toggle(cls, 'neo-maximized', value);
         me.update();
 
+        me.syncMaximizeAction();
+
         if (!firstCall) {
-            await(me.timeout(250));
+            await me.#afterAnimation(me.timeout(250));
 
             NeoArray.remove(cls, 'animated-hiding-showing');
             me.update()
@@ -285,8 +368,18 @@ class Dialog extends Panel {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
+        let me = this;
+
         // Ensure focus trapping is up-to-date, enabled or disabled.
-        oldValue !== undefined && this.syncTrapFocus()
+        oldValue !== undefined && me.syncTrapFocus();
+
+        if (value) {
+            // A mounted modal dialog is on the page now: the mask goes below it
+            me.syncModalMask();
+
+            // The container may have changed size while the dialog was away
+            me.keepInBoundary && me.constrainToBoundary()
+        }
     }
 
     /**
@@ -306,6 +399,9 @@ class Dialog extends Panel {
                     module       : module.default,
                     appName,
                     delegationCls: 'neo-dialog',
+                    // A move writes the dialog's geometry into `style` (onDragEnd), which would mask a resize in
+                    // `wrapperStyle`
+                    styleConfig  : 'style',
                     ...me.resizablePluginConfig
                 });
 
@@ -345,8 +441,9 @@ class Dialog extends Panel {
      * @protected
      */
     afterSetWindowId(value, oldValue) {
-        let me        = this,
-            resizable = me.getPlugin('resizable');
+        let me          = this,
+            observation = me.#boundaryObservation,
+            resizable   = me.getPlugin('resizable');
 
         if (me.dragZone) {
             me.dragZone.windowId = value
@@ -354,6 +451,12 @@ class Dialog extends Panel {
 
         if (resizable) {
             resizable.windowId = value
+        }
+
+        // The old window releases its observation of the boundary container; the mount in the new one registers anew
+        if (observation && observation.windowId !== value) {
+            me.#releaseBoundaryObservation();
+            me.#boundaryObservation = {...observation, windowId: value}
         }
 
         super.afterSetWindowId(value, oldValue)
@@ -368,8 +471,12 @@ class Dialog extends Panel {
             rects, windowId;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = windowId = animateTarget.windowId;
-        me.appName  = animateTarget.appName;
+        if (animateTarget) {
+            me.windowId = animateTarget.windowId;
+            me.appName  = animateTarget.appName
+        }
+
+        windowId = me.windowId;
 
         rects = await me.getDomRect([id, me.animateTargetId])
 
@@ -414,11 +521,13 @@ class Dialog extends Panel {
     async animateShow() {
         let me                         = this,
             {animateTarget, id, style} = me,
-            appName, rect;
+            rect;
 
         // Assuming that we want to show the dialog inside the same browser window as the animation target
-        me.windowId = animateTarget.windowId;
-        me.appName  = appName = animateTarget.appName;
+        if (animateTarget) {
+            me.windowId = animateTarget.windowId;
+            me.appName  = animateTarget.appName
+        }
 
         rect = await me.getDomRect(me.animateTargetId);
 
@@ -470,8 +579,13 @@ class Dialog extends Panel {
 
         await me.timeout(200);
 
-        // Remove the animation class
-        await Neo.applyDeltas(me.windowId, {id, cls: {remove: ['animated-hiding-showing']}});
+        // Remove the animation class. The measured height was only its end point: a dialog whose height nothing
+        // declares follows its content again, so a message its form shows below a field has room.
+        await Neo.applyDeltas(me.windowId, {
+            id,
+            cls: {remove: ['animated-hiding-showing']},
+            ...!(me.height || style?.height || me.wrapperStyle?.height) && {style: {height: null}}
+        });
 
         // show() holds this as a mount flight, which lands on the latest hidden: a hide() during the animation wins
         if (!me._hidden) {
@@ -499,22 +613,20 @@ class Dialog extends Panel {
         me.revertFocus();
 
         if (animate) {
-            me.animateHide()
+            me.#afterAnimation(me.animateHide())
         } else {
+            // destroy() takes the mask along and retires the instance and its timers
             me.fire('close');
             me.destroy(true)
         }
     }
 
     /**
+     * Runs the {@link #closeAction}: what the close button and Escape do
      * @param {Boolean} animate=!!this.animateTargetId
      */
-    async closeOrHide(animate=!!this.animateTargetId) {
-        let me = this;
-
-        me[me.closeAction](animate);
-        await me.timeout(30);
-        me.syncModalMask(me.id)
+    closeOrHide(animate=!!this.animateTargetId) {
+        this[this.closeAction](animate)
     }
 
     /**
@@ -527,11 +639,58 @@ class Dialog extends Panel {
     }
 
     /**
+     * @summary Keeps the dialog inside its {@link #boundaryContainerId}: it moves back by the smallest distance and
+     * shrinks only on an axis it cannot fit on (`Neo.util.Rectangle#fitTo`), never below its `minWidth` and `minHeight`
+     * in px. A minimum larger than the container keeps the top-left corner inside. A dialog inside gets no write.
      *
+     * Nothing is written while the dialog is hidden, maximized, animating or held in a move or resize, nor once a newer
+     * check, a move, a resize or a change of {@link #keepInBoundary} or the container overtook the measurement, nor
+     * when either box measures no area (a hidden or missing container). A {@link #keepInBoundary} dialog checks when
+     * its container changes size, when it mounts, and when an animation or a restore from maximized ends; a move lands
+     * inside on its own ({@link #onDragEnd}).
+     * @returns {Promise<void>}
+     */
+    async constrainToBoundary() {
+        let me                        = this,
+            check                     = ++me.#boundaryChecks,
+            {boundaryContainerId, id} = me,
+            changes                   = {},
+            bounds, fitted, geometry, rect;
+
+        if (!boundaryContainerId || me.#isGeometryHeld()) {
+            return
+        }
+
+        geometry       = me.#geometry;
+        [rect, bounds] = await me.getDomRect([id, boundaryContainerId]);
+
+        // A container that is hidden (0 × 0) or gone ({}) gives no box to keep inside, and a boxless dialog none to keep
+        if (check !== me.#boundaryChecks || me.#isGeometryHeld() || me.#geometry !== geometry || !me.#hasArea(rect) ||
+            !me.#hasArea(bounds)) {
+            return
+        }
+
+        fitted = me.#fitToBoundary(rect, bounds);
+
+        // Half a pixel is measuring noise, not a move
+        if (Math.abs(fitted.x - rect.x) >= .5 || Math.abs(fitted.y - rect.y) >= .5) {
+            Object.assign(changes, {left: `${fitted.x}px`, top: `${fitted.y}px`, transform: 'none'})
+        }
+
+        if (Math.abs(fitted.height - rect.height) >= .5) {changes.height = `${fitted.height}px`}
+        if (Math.abs(fitted.width  - rect.width)  >= .5) {changes.width  = `${fitted.width}px`}
+
+        Object.keys(changes).length > 0 && (me.style = {...me.style, ...changes})
+    }
+
+    /**
+     * Creates the header toolbar. Its vocabulary gets the window controls the dialog dresses from its own configs
+     * ({@link #getWindowActionMap}); an entry of `headerConfig.actionMap` with the same name replaces one.
      */
     createHeader() {
         let me                  = this,
             {appName, windowId} = me,
+            headerConfig        = me.headerConfig || {},
             cls                 = ['neo-header-toolbar', 'neo-toolbar'],
             headers             = me.headers || [];
 
@@ -544,15 +703,35 @@ class Dialog extends Panel {
             dock     : 'top',
             flex     : 'none',
             id       : me.getHeaderToolbarId(),
-            listeners: {headerAction: me.executeHeaderAction, scope: me},
+            // A rebuilt action list builds maximize unpressed: the sync states it again
+            listeners: {actionsChange: me.syncMaximizeAction, headerAction: me.executeHeaderAction, scope: me},
             title    : me.title,
             windowId,
-            ...me.headerConfig
+            ...headerConfig,
+            actionMap: {...me.getWindowActionMap(), ...headerConfig.actionMap}
         });
+
+        // A dialog created maximized offers the restore at once
+        me.maximized && me.syncMaximizeAction();
 
         headers.unshift(me.headerToolbar);
 
         me.headers = headers
+    }
+
+    /**
+     * A modal dialog on the page releases its mask however it leaves: through close(), or destroyed by its owner.
+     * @param {...*} args Arguments to pass to the superclass destroy method.
+     */
+    destroy(...args) {
+        let me = this;
+
+        me.dragStartAbortController?.abort();
+        me.dragZone?.un('dragCancel', me.onDragCancel, me);
+        me.mounted && me.modal && me.syncModalMask(me.id, false);
+        me.#releaseBoundaryObservation();
+
+        super.destroy(...args)
     }
 
     /**
@@ -575,11 +754,54 @@ class Dialog extends Panel {
     }
 
     /**
+     * @summary A dialog opens on its first field, so a form takes input at once: the window controls of its header
+     * come first in the DOM. Without a field, it takes focus as every floating component does.
+     * @protected
+     */
+    focusOnArrival() {
+        const field = this.getFirstField();
+
+        field ? field.focus(field.id, true) : super.focusOnArrival()
+    }
+
+    /**
      * Returns the id of the animation node
      * @returns {String}
      */
     getAnimateTargetId() {
         return this.id + '-animate'
+    }
+
+    /**
+     * @summary The first enabled, visible field in item order, which is the order on the page. `down()` walks the
+     * order components registered in, so a form that rebuilt its fields would answer with a later one.
+     * @param {Neo.component.Base} [component=this]
+     * @returns {Neo.form.field.Base|null}
+     * @protected
+     */
+    getFirstField(component=this) {
+        for (const item of component.items || []) {
+            if (!item.hidden && !item.disabled) {
+                const field = ComponentManager.hasPrototypePropertyValue(item, 'ntype', 'basefield') ?
+                    item : this.getFirstField(item);
+
+                if (field) {
+                    return field
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * A dialog hands focus back to the component focus came from, else to its opener, the {@link #animateTarget} it
+     * grows out of: focus enters from the body when the opener disables itself, or when a browser does not focus a
+     * clicked button.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        return super.getFocusReturnTarget() || this.animateTarget
     }
 
     /**
@@ -598,6 +820,30 @@ class Dialog extends Panel {
     }
 
     /**
+     * The window controls the dialog dresses from its own configs. Maximize is a `Neo.toolbar.ActionButton`
+     * toggle: `maximized` presses it ({@link #syncMaximizeAction}), also when the header builds it anew, and its glyph
+     * and accessible name then say what a click does next. Minimize is listed in no default `actions`: it belongs on a
+     * dialog a window manager can restore.
+     * @returns {Object} Action name → config factory
+     * @protected
+     */
+    getWindowActionMap() {
+        let me = this;
+
+        return {
+            maximize: () => ({
+                action            : 'maximize',
+                actionLabel       : 'maximize',
+                iconCls           : me.maximizeCls,
+                ntype             : 'toolbar-action-button',
+                pressedActionLabel: 'restore',
+                pressedIconCls    : me.restoreCls
+            }),
+            minimize: () => ({action: 'minimize', iconCls: me.minimizeCls})
+        }
+    }
+
+    /**
      * Hides the dialog and writes `hidden`. A landed dialog can animate out. Otherwise component.Base#hide
      * removes it, and leaves a dialog still in its mount flight to the flight.
      * @param {Boolean} animate=!!this.animateTargetId
@@ -606,7 +852,7 @@ class Dialog extends Panel {
         let me = this;
 
         if (animate && me.mounted && !me.mountFlight) {
-            me.animateHide()
+            me.#afterAnimation(me.animateHide())
         } else {
             super.hide();
             me.fire('hide')
@@ -618,31 +864,22 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * A dialog with an animation target is created unmounted ({@link #afterSetAnimateTargetId}): `autoShow` shows it
      */
     init() {
         super.init();
 
         let me = this;
 
-        if (me.animateTargetId) {
-            me.autoShow && me.show()
-        } else {
-            me.timeout(100).then(() => {
-                me.syncModalMask()
-            })
-        }
+        me.animateTargetId && me.autoShow && me.show()
     }
 
     /**
+     * The maximize action's handler: maximizes the dialog, or restores a maximized one
      * @param {Object} [data]
      */
     maximize(data) {
-        let me = this;
-
-        data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
-
-        me.maximized = !me.maximized
+        this.maximized = !this.maximized
     }
 
     /**
@@ -655,7 +892,39 @@ class Dialog extends Panel {
 
         me.headerToolbar = me.down({
             id: me.getHeaderToolbarId()
-        })
+        });
+
+        me.#syncBoundaryListener()
+    }
+
+    /**
+     * @summary Restores pre-drag opacity and resets drag state when a header drag is cancelled without moving the dialog.
+     * @param {Object} [data]
+     */
+    onDragCancel(data) {
+        let me = this,
+            style;
+
+        if (!me.isDragging) {
+            return
+        }
+
+        me.dragStartAbortController?.abort();
+        me.dragStartAbortController = null;
+        me.isDragging               = false;
+
+        style                = me.style || {};
+        style.opacity        = me.dragStartOpacity ?? null;
+        me.dragStartOpacity  = undefined;
+        me.style             = style;
+
+        if (me.dragZone) {
+            if (!data?.dragZoneId || Neo.get(data.dragZoneId) !== me.dragZone) {
+                me.dragZone.dragEnd({...data, cancelled: true})
+            }
+
+            me.dragZone.boundaryContainerId = null
+        }
     }
 
     /**
@@ -663,10 +932,26 @@ class Dialog extends Panel {
      */
     onDragEnd(data) {
         let me = this,
-            initialTransitionProperty, style;
+            bounded, initialTransitionProperty, proxyId, style;
 
         if (!me.maximized) {
-            me.getDomRect(me.dragZone.dragProxy.id).then(rect => {
+            me.dragStartAbortController = null;
+            me.dragStartOpacity         = undefined;
+
+            // A drop at the edge can land a pixel or two past it, and the container may have changed size during the
+            // move: a keepInBoundary dialog lands inside it
+            bounded = me.keepInBoundary && me.boundaryContainerId;
+            proxyId = me.dragZone.dragProxy.id;
+
+            me.getDomRect(bounded ? [proxyId, me.boundaryContainerId] : proxyId).then(result => {
+                if (me.isDestroyed) {
+                    return
+                }
+
+                let [proxyRect, bounds] = bounded ? result : [result],
+                    // A hidden or gone container leaves the drop where the proxy is
+                    rect = me.#hasArea(bounds) ? me.#fitToBoundary(proxyRect, bounds) : proxyRect;
+
                 style = me.style;
 
                 Object.assign(style, {
@@ -722,7 +1007,10 @@ class Dialog extends Panel {
             style                   = me.style || {};
 
         if (!me.maximized) {
-            me.isDragging = true;
+            me.dragStartAbortController?.abort();
+            me.dragStartAbortController = new AbortController();
+            me.dragStartOpacity         = style.opacity;
+            me.isDragging               = true;
 
             me.getPlugin('resizable')?.removeAllNodes();
 
@@ -740,12 +1028,13 @@ class Dialog extends Panel {
                     ...me.dragZoneConfig
                 });
 
+                me.dragZone.on('dragCancel', me.onDragCancel, me);
                 me.fire('dragZoneCreated', {dragZone: me.dragZone, id})
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId
             }
 
-            me.dragZone.dragStart(data);
+            me.dragZone.dragStart(data, me.dragStartAbortController.signal);
 
             style.opacity = 0.7;
 
@@ -754,16 +1043,94 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * Holds the boundary check while an animation moves or sizes the dialog, and runs it on the geometry the animation
+     * leaves
+     * @param {Promise} animation
+     * @returns {Promise<void>}
      */
-    onKeyDownEscape() {
-        this.hidden = true
+    async #afterAnimation(animation) {
+        let me = this;
+
+        me.#animations++;
+
+        try {
+            await animation
+        } finally {
+            me.#animations--
+        }
+
+        me.keepInBoundary && me.constrainToBoundary()
     }
 
     /**
-     * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     * @param {Neo.util.Rectangle} rect The dialog's box
+     * @param {Neo.util.Rectangle} bounds The boundary container's box
+     * @returns {Neo.util.Rectangle} The box inside the container (`Neo.util.Rectangle#fitTo`)
      */
-    async render(mount) {
+    #fitToBoundary(rect, bounds) {
+        let me = this;
+
+        // Only a minimum in px takes part: one in other units still holds in the browser
+        rect.minHeight = Neo.isNumber(me.minHeight) ? me.minHeight : null;
+        rect.minWidth  = Neo.isNumber(me.minWidth)  ? me.minWidth  : null;
+
+        return rect.fitTo(bounds)
+    }
+
+    /**
+     * @param {Object} [rect]
+     * @returns {Boolean} Whether a measured box has an area: a hidden node measures 0 × 0, a missing one `{}`
+     */
+    #hasArea(rect) {
+        return rect?.width > 0 && rect.height > 0
+    }
+
+    /**
+     * Whether the dialog's geometry is not its own to keep now: destroyed, unmounted, hidden, maximized, animating, or
+     * held in a move or resize
+     * @returns {Boolean}
+     */
+    #isGeometryHeld() {
+        let me = this;
+
+        return me.isDestroyed || !me.mounted || me.hidden || me.maximized || me.isDragging || me.#animations > 0 ||
+            Boolean(me.getPlugin('resizable')?.isDragging)
+    }
+
+    /**
+     * A size the boundary container did not have at the last check runs {@link #constrainToBoundary}. The `resize`
+     * listeners of a component share one stream, so a notification for another node is not this listener's.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.rect
+     * @protected
+     */
+    onBoundaryContainerResize({id, rect}) {
+        let me   = this,
+            size = me.#boundarySize;
+
+        if (id === me.boundaryContainerId && (rect.height !== size?.height || rect.width !== size?.width)) {
+            me.#boundarySize = {height: rect.height, width: rect.width};
+            me.constrainToBoundary()
+        }
+    }
+
+    /**
+     * Escape does what the close button does, with or without the animation
+     */
+    onKeyDownEscape() {
+        this.closeOrHide()
+    }
+
+    /**
+     * Lifecycle override: show() mounts a dialog through initVnode(), so the revert of the initial
+     * offscreen positioning from .neo-floating has to ride that method. An override parked on a
+     * differently named lifecycle method would never run, leaving a dialog shown without an
+     * animation target at its offscreen position.
+     * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     * @returns {Promise<Object>}
+     */
+    async initVnode(mount) {
         let me             = this,
             {wrapperStyle} = me;
 
@@ -781,7 +1148,7 @@ class Dialog extends Panel {
             me.wrapperStyle = wrapperStyle
         }
 
-        await super.render(mount)
+        return super.initVnode(mount)
     }
 
     /**
@@ -794,7 +1161,7 @@ class Dialog extends Panel {
 
         if (animate && !me.mounted && !me.mountFlight) {
             me._hidden = false;
-            me.startMountFlight(me.animateShow())
+            me.startMountFlight(me.#afterAnimation(me.animateShow()))
         } else {
             super.show();
             me.fire('show')
@@ -804,13 +1171,59 @@ class Dialog extends Panel {
     }
 
     /**
-     * @param {String} id=this.id
+     * States `maximized` as the maximize action's `pressed`, for a click and a programmatic change alike. A header
+     * without that action has nothing to sync.
+     * @protected
      */
-    syncModalMask(id=this.id) {
-        let {modal, windowId} = this;
+    syncMaximizeAction() {
+        this.headerToolbar?.getAction?.('maximize')?.set({pressed: this.maximized})
+    }
 
-        // This should sync the visibility and position of the modal mask element.
-        Neo.main.DomAccess.syncModalMask({id, modal, windowId})
+    /**
+     * Releases the main-thread observation {@link #syncBoundaryListener} armed, in the window it armed it: removing
+     * the `resize` listener alone leaves the observation, and the hidden-document poll, running
+     */
+    #releaseBoundaryObservation() {
+        let observation = this.#boundaryObservation;
+
+        if (observation) {
+            this.#boundaryObservation = null;
+            Neo.main.addon.ResizeObserver?.unregister(observation)
+        }
+    }
+
+    /**
+     * Observes the boundary container while {@link #keepInBoundary} is on, and only then. A new container starts from
+     * no known size, and a measurement already in flight, taken for the old state, writes nothing.
+     */
+    #syncBoundaryListener() {
+        let me       = this,
+            id       = me.keepInBoundary && me.boundaryContainerId || null,
+            listener = me.#boundaryListener;
+
+        me.#boundaryChecks++;
+
+        if (listener?.delegate !== `#${id}`) {
+            if (listener) {
+                me.removeDomListeners(listener);
+                me.#releaseBoundaryObservation()
+            }
+
+            me.#boundaryListener    = id && {resize: me.onBoundaryContainerResize, delegate: `#${id}`, scope: me};
+            me.#boundaryObservation = id && {componentId: me.id, id, windowId: me.windowId};
+            me.#boundarySize        = null;
+
+            id && me.addDomListeners(me.#boundaryListener)
+        }
+    }
+
+    /**
+     * Syncs the visibility and position of the modal mask element
+     * @param {String}  id=this.id
+     * @param {Boolean} modal=this.modal `false` releases the mask while the dialog is still on the page
+     */
+    syncModalMask(id=this.id, modal=this.modal) {
+        Neo.main.DomAccess.syncModalMask({id, modal, windowId: this.windowId})
     }
 
     /**

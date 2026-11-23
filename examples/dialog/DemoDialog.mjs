@@ -1,8 +1,11 @@
 import Button   from '../../src/button/Base.mjs';
 import ComboBox from '../../src/form/field/ComboBox.mjs';
 import Dialog   from '../../src/dialog/Base.mjs';
+import Text     from '../../src/form/field/Text.mjs';
+import Toolbar  from '../../src/toolbar/Base.mjs';
 
 /**
+ * @summary Edits a contact in an independent draft until Save writes it back to the list's Store.
  * @class Neo.examples.dialog.DemoDialog
  * @extends Neo.dialog.Base
  */
@@ -14,103 +17,124 @@ class DemoDialog extends Dialog {
          */
         className: 'Neo.examples.dialog.DemoDialog',
         /**
-         * Custom config to dynamically enable / disable the animateTargetId
+         * Whether the editor opens and closes through its opener.
          * @member {Boolean} animated_=true
          * @reactive
          */
         animated_: true,
         /**
+         * @member {String[]} cls
+         */
+        cls: ['neo-dialog-contact-editor'],
+        /**
          * @member {Object} containerConfig
          */
-        containerConfig: {
-            style: {
-                padding: '1em'
-            }
-        },
-        /**
-         * Custom config to show the current dialog number
-         * @member {Number} index=1
-         */
-        index: 1,
+        containerConfig: {cls: ['neo-dialog-contact-fields'], layout: {ntype: 'vbox', align: 'stretch', gap: '0.75em'}},
         /**
          * @member {Boolean} modal=true
-         * @reactive
          */
         modal: true,
         /**
-         * Custom config used by animated_
+         * The opener remains available when the scene switches animation back on.
          * @member {String|null} optionalAnimateTargetId=null
          */
         optionalAnimateTargetId: null,
         /**
-         * @member {Object} wrapperStyle
+         * The contact this editor writes only on Save.
+         * @member {Object|null} record=null
          */
-        wrapperStyle: {
-            width : '40%'
-        }
+        record: null
     }
 
     /**
-     * Custom class field to store the created dialog.Base instance
-     * @member {Neo.dialog.Base|null} dialog=null
+     * @member {Neo.examples.dialog.DemoDialog|null} dialog=null
      */
-    dialog = null
+    dialog = null;
 
     /**
+     * Guards the nest action while measuring the parent.
+     * @member {Boolean} #openingDialog=false
+     */
+    #openingDialog = false;
+
+    /**
+     * @summary Builds the contact draft and action row.
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);
+        const {record} = config,
+              width    = 'min(34rem, calc(100vw - 2rem))';
 
-        let me = this;
+        super.construct({
+            ...config,
+            title       : `Edit ${record.name}`,
+            wrapperStyle: config.animated !== false
+                ? {width}
+                : {width, left: '50%', top: '50%', transform: 'translate(-50%, -50%)'}
+        });
 
-        me.items = [{
-            module    : ComboBox,
-            labelText : 'Select',
-            labelWidth: 80,
-
-            store: {
-                data: (() => {
-                    const result = [];
-
-                    for (let i = 0; i < 20; i++) {
-                        result.push({
-                            id   : i,
-                            name : `Option ${i + 1}`
-                        })
-                    }
-
-                    return result
-                })()
-            }
+        this.items = [{
+            module       : Text,
+            reference    : 'contactName',
+            name         : 'name',
+            labelText    : 'Name',
+            labelPosition: 'top',
+            value        : record.name
         }, {
-            module   : Button,
-            handler  : me.createDialog.bind(me),
-            iconCls  : 'fa fa-window-maximize',
-            reference: 'create-dialog-button',
-            style    : {marginTop: '3em'},
-            text     : 'Create Dialog ' + (me.index + 1),
+            module       : Text,
+            reference    : 'contactEmail',
+            name         : 'email',
+            labelText    : 'Email',
+            labelPosition: 'top',
+            value        : record.email
+        }, {
+            module       : ComboBox,
+            reference    : 'contactTeam',
+            name         : 'team',
+            labelText    : 'Team',
+            labelPosition: 'top',
+            value        : record.team,
+            store        : {data: [
+                {id: 'design', name: 'Design'},
+                {id: 'engineering', name: 'Engineering'},
+                {id: 'production', name: 'Production'},
+                {id: 'operations', name: 'Operations'}
+            ]}
+        }, {
+            module: Toolbar,
+            cls   : ['neo-dialog-contact-actions'],
+            layout: {ntype: 'hbox', align: 'center', gap: '0.5em', wrap: 'wrap'},
+            items : [{
+                module : Button,
+                handler: 'up.createDialog',
+                text   : 'Edit another contact'
+            }, '->', {
+                module : Button,
+                handler: 'up.cancel',
+                text   : 'Cancel'
+            }, {
+                module : Button,
+                handler: 'up.save',
+                text   : 'Save'
+            }]
         }]
     }
 
     /**
-     * Triggered after the animated config got changed
+     * @summary Selects the opener as the animation target when animation is enabled.
      * @param {Boolean} value
-     * @param {Boolean} oldValue
      * @protected
      */
-    afterSetAnimated(value, oldValue) {
-        let me = this;
+    afterSetAnimated(value) {
+        this.animateTargetId = value ? this.optionalAnimateTargetId : null;
 
-        me.animateTargetId = value ? me.optionalAnimateTargetId : null;
-
-        if (me.dialog) {
-            me.dialog.animated = value
+        if (this.dialog) {
+            this.dialog.animated = value
         }
     }
 
     /**
-     * Triggered after the modal config got changed
+     * @summary Carries the scene's modal setting into an open nested editor.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -124,46 +148,98 @@ class DemoDialog extends Dialog {
     }
 
     /**
+     * @summary Opens a nested draft for the next contact and remembers the button that opened it.
      * @param {Object} data
      */
-    createDialog(data) {
-        let me        = this,
-            button    = data.component,
-            nextIndex = me.index + 1;
+    async createDialog(data) {
+        if (this.dialog || this.#openingDialog) return;
 
-        button.disabled = true;
+        this.#openingDialog = true;
 
-        me.dialog = Neo.create(DemoDialog, {
-            animated               : me.animated,
-            appName                : me.appName,
-            boundaryContainerId    : me.boundaryContainerId,
-            index                  : nextIndex,
-            listeners              : {close: me.onWindowClose, scope: me},
-            modal                  : me.app.mainView.down({valueLabel: 'Modal'}).checked,
-            trapFocus              : true,
-            optionalAnimateTargetId: button.id,
-            style                  : {left: me.getOffset(), top: me.getOffset()},
-            title                  : 'Dialog ' + nextIndex,
-            windowId               : me.windowId
-        })
+        try {
+            const style = this.maximized ? undefined : await this.getNestedPosition();
+
+            if (!this.mounted || this.hidden || this.isDestroyed) return;
+
+            const contacts = this.app.mainView.getReference('contactList').store,
+                  next     = (contacts.indexOf(this.record) + 1) % contacts.getCount();
+
+            this.dialog = Neo.create(DemoDialog, {
+                animated               : this.animated,
+                appName                : this.appName,
+                boundaryContainerId    : this.boundaryContainerId,
+                keepInBoundary         : true,
+                listeners              : {close: this.onWindowClose, scope: this},
+                modal                  : this.modal,
+                optionalAnimateTargetId: data.component.id,
+                record                 : contacts.getAt(next),
+                ...(style && {style}),
+                theme    : this.getTheme(),
+                trapFocus: true,
+                windowId : this.windowId
+            })
+        } finally {
+            this.#openingDialog = false
+        }
     }
 
     /**
-     * We want new dialogs to have a random left & top offset between -100px & 100px,
-     * to ensure they are not at the exact same position.
-     * @returns {String}
+     * @summary Offsets a nested editor toward the available space beside the parent on each axis.
+     * @returns {Promise<Object|undefined>}
      */
-    getOffset() {
-        let offset = Math.floor(Math.random() * 200 - 100);
-        return `calc(50% + ${offset}px)`
+    async getNestedPosition() {
+        const [parent, body] = await this.getDomRect([this.id, 'document.body']);
+
+        if (!parent || !body) return;
+
+        const shift = (position, start, end, size) => {
+            const step   = 24,
+                  min    = start + 8,
+                  max    = Math.max(min, end - size - 8),
+                  before = position - min,
+                  after  = max - position,
+                  target = position + (after >= step || after >= before ? step : -step);
+
+            return `${Math.max(min, Math.min(max, target))}px`
+        };
+
+        return {
+            left     : shift(parent.left, body.left, body.right, parent.width),
+            top      : shift(parent.top, body.top, body.bottom, parent.height),
+            transform: 'none'
+        }
     }
 
-    /**
-     *
-     */
+    /** @summary Commits the draft to the contact and closes the editor. */
+    save() {
+        const team = this.getReference('contactTeam').value;
+
+        this.record.set({
+            name : this.getReference('contactName').value,
+            email: this.getReference('contactEmail').value,
+            team : Neo.isRecord(team) ? team.id : team
+        });
+
+        this.closeOrHide()
+    }
+
+    /** @summary Closes without writing the draft to the contact. */
+    cancel() {
+        this.closeOrHide()
+    }
+
+    /** @summary Releases the closed nested editor. */
     onWindowClose() {
-        this.dialog = null;
-        this.getReference('create-dialog-button').disabled = false
+        this.dialog = null
+    }
+
+    /**
+     * @summary Disposes any nested draft with its owning editor.
+     * @param {...*} args Arguments to pass to the superclass destroy method.
+     */
+    destroy(...args) {
+        this.dialog?.destroy(true);
+        super.destroy(...args)
     }
 }
 

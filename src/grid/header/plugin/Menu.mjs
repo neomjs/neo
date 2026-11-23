@@ -113,7 +113,7 @@ class Menu extends Plugin {
             owner.addDomListeners(me.#domListeners)
         }
         me.#releaseField = me.observeConfig(owner, 'dataField', () => me.bindStore(me.#store));
-        const grid = owner.up('grid-container');
+        const grid = owner.getGridContainer();
         if (grid) {
             me.#releaseStore = me.observeConfig(grid, 'store', store => me.bindStore(store));
             me.bindStore(grid.store)
@@ -178,10 +178,14 @@ class Menu extends Plugin {
         trigger.update()
     }
 
-    /** @summary Returns a fresh listener config because Observable consumes its scope key. @returns {Object} */
+    /**
+     * @summary Returns a fresh listener config because Observable consumes its scope key. A batch's raw rows publish
+     * only `rowsChange`, so the counts follow it too.
+     * @returns {Object}
+     */
     sourceListeners() {
         return {filter: 'scheduleRefresh', load: 'scheduleRefresh', mutate: 'scheduleRefresh',
-            recordChange: 'scheduleRefresh', scope: this}
+            recordChange: 'scheduleRefresh', rowsChange: 'scheduleRefresh', scope: this}
     }
 
     /** @summary Coalesces open-surface recounts and discards old-source or retired work. */

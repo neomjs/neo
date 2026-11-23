@@ -681,12 +681,12 @@ test.describe('Neo.dashboard.dock.interaction.DockSplitter — drag-proxy token 
               path = await import('node:path'),
               url  = await import('node:url');
 
-        const scssPath = path.resolve(
+        const cssPath = path.resolve(
             path.dirname(url.fileURLToPath(import.meta.url)),
-            '../../../../resources/scss/src/dashboard/Container.scss'
+            '../../../../resources/css/src/dashboard/Container.css'
         );
 
-        const source = await fs.readFile(scssPath, 'utf8'),
+        const source = await fs.readFile(cssPath, 'utf8'),
               open   = source.indexOf('.neo-dashboard {'),
               block  = source.slice(open, source.indexOf('\n}', open));
 

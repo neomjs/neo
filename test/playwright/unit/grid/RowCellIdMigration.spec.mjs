@@ -68,15 +68,15 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
                 getCount: () => columnPositions.length
             },
             getAriaRowOwns        : () => null,
-            getLogicalCellId      : (rec, dataField) => `logical__${rec.id}__${dataField}`,
             getRecordId           : rec => rec.id,
             getRowClass           : () => ['neo-grid-row'],
+            getRowOffset          : rowIndex => rowIndex * 32,
             gridContainer,
             highlightModifiedCells: false,
             isAriaLeadRegion      : true,
             mountedColumns        : [0, globalColumns.length - 1],
+            pageOffset            : 0,
             rowHeight             : 32,
-            selectedCells         : [],
             selectedRecordField   : null,
             selectedRows          : null,
             store                 : {},
@@ -87,6 +87,7 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
             applyRendererOutput: Row.prototype.applyRendererOutput,
             createVdom         : Row.prototype.createVdom,
             getCellId          : Row.prototype.getCellId,
+            getRowHeight       : Row.prototype.getRowHeight,
             getRowTransform    : Row.prototype.getRowTransform,
             id                 : ROW_ID,
             parent             : gridBody,
@@ -204,7 +205,7 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
         expect(livingCells(row, 'beta').length).toBe(1)
     });
 
-    test('Pass 2 is skipped when all columns are pooled and getLogicalCellId is lazy', () => {
+    test('Pass 2 is skipped when all columns are pooled, and the View\'s cell model is asked once per living cell', () => {
         const columns = Array.from({length: 20}, (_, index) => ({
             dataField: `col${index}`,
             hideMode : 'removeDom',
@@ -213,18 +214,11 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
         }));
         const row = createRowFake(columns);
 
-        let getLogicalCellIdCalls = 0,
-            columnGetCalls        = 0,
-            positionGetAtCalls    = 0;
+        let columnGetCalls     = 0,
+            positionGetAtCalls = 0;
 
         row.parent.gridContainer.columns._items = columns;
         row.parent.mountedColumns = [0, 2];
-
-        const origGetLogicalCellId = row.parent.getLogicalCellId;
-        row.parent.getLogicalCellId = (rec, dataField) => {
-            getLogicalCellIdCalls++;
-            return origGetLogicalCellId(rec, dataField)
-        };
 
         const origColumnsGet = row.parent.gridContainer.columns.get;
         row.parent.gridContainer.columns.get = dataField => {
@@ -243,15 +237,21 @@ test.describe('Neo.grid.Row cell-id scheme migration (#12930)', () => {
         // Mounted range [0, 2] touches 3 positions in Pass 1 and 0 in Pass 2; aligned _items avoids columns.get
         expect(positionGetAtCalls).toBe(3);
         expect(columnGetCalls).toBe(0);
-        expect(getLogicalCellIdCalls).toBe(0);
 
-        // Selecting a cell triggers lazy getLogicalCellId evaluation and applies aria-selected
+        // A View with a cell-selecting model: the row hands it each living cell once, and its paint reaches the cell
+        const asked = [];
+
         row.parent.gridContainer.view = {
-            selectedCells: ['logical__r1__col1']
+            cellSelectionModel: {
+                applyCellSelection(cell, rec, dataField) {
+                    asked.push(dataField);
+                    dataField === 'col1' && (cell['aria-selected'] = true)
+                }
+            }
         };
         row.createVdom(true, false);
 
-        expect(getLogicalCellIdCalls).toBe(3);
+        expect(asked).toEqual(['col0', 'col1', 'col2']);
         expect(livingCells(row, 'col1')[0]['aria-selected']).toBe(true)
     });
 });

@@ -1,5 +1,6 @@
 import Base          from '../../core/Base.mjs';
 import EffectManager from '../../core/EffectManager.mjs';
+import {generateUUID} from '../../util/UUID.mjs';
 
 /**
  * @summary Executes one Group's semantic write, with presentation outside its critical section.
@@ -78,7 +79,7 @@ class Commit extends Base {
         if (request.adopt !== undefined) {
             throw new TypeError('write uses registered compensatable participants, not an adopt callback')
         }
-        const transactionId = crypto.randomUUID();
+        const transactionId = generateUUID();
         const priorRow      = cursorAction === 'undo' || cursorAction === 'redo' ? group.history?.peek(cursorAction) : null;
         if ((cursorAction === 'undo' || cursorAction === 'redo') && !priorRow) {
             return {row: null, snapshot: group.snapshot ?? null, transactionId, participants: [], notificationErrors: [], plans: [], effects: []}

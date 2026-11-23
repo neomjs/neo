@@ -95,5 +95,5 @@ myMammal.speak(); // Logs "Creature is grunting."
 export default Neo.setupClass(Mammal);
 ```
 
-
-
+How a Neo class turns these plain JavaScript class features into configs, type flags and lifecycle hooks is the
+subject of [Extending Neo Classes](../guides/fundamentals/ExtendingNeoClasses.md).

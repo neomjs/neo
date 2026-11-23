@@ -1,0 +1,170 @@
+.portal-header-toolbar {
+    box-shadow: var(--portal-header-shadow);
+    z-index   : 8;
+
+    .neo-button.neo-button-ghost {
+        &:hover,
+        &:active {
+            background-color: transparent !important;
+            border-color    : transparent !important;
+        }
+
+        &:not(:first-child) {
+            margin-left: 10px;
+        }
+
+        &.no-text {
+            margin-left: 0;
+            width      : 1.2em;
+
+            &.github-button {
+                margin-left: 5em;
+            }
+
+            .neo-button-glyph {
+                font-size: 24px;
+            }
+        }
+
+        .neo-button-glyph {
+            &.neo-logo-blue {
+                background-image   : url("../../../../../../resources/images/logo/neo_logo_primary.svg");
+                background-position: center center;
+                background-repeat  : no-repeat;
+                background-size    : contain;
+                height             : 24px;
+                min-height         : 24px;
+                min-width          : 24px;
+                width              : 24px;
+            }
+        }
+    }
+
+    /* Must stay aligned with `Viewport#getSize` (`x-small` <= 640px) and `HeaderToolbar` `home-button` text bind */
+    @media (max-width: 640px) {
+        --button-min-width     : 30px;
+        --button-padding       : 0 4px;
+        --button-text-font-size: 13px;
+
+        .neo-button.neo-button-ghost {
+            &:not(:first-child) {
+                margin-left: 2px;
+            }
+
+            &.no-text {
+                margin-left: 0;
+                padding    : 0;
+                width      : 30px;
+
+                .neo-button-glyph {
+                    font-size: 18px;
+                    margin   : 0;
+                }
+            }
+
+            &.logo {
+                margin-left: 0;
+                padding    : 0;
+                width      : 30px;
+
+                .neo-button-glyph.neo-logo-blue {
+                    height    : 22px;
+                    margin    : 0;
+                    min-height: 22px;
+                    min-width : 22px;
+                    width     : 22px;
+                }
+
+                .neo-button-text {
+                    display: none;
+                }
+            }
+        }
+
+        .portal-header-actions {
+            gap        : 2px;
+            margin-left: 2px;
+        }
+    }
+
+    @media (min-width: 390px) and (max-width: 640px) {
+        --button-min-width: 36px;
+        --button-padding  : 0 6px;
+
+        .neo-button.neo-button-ghost {
+            &.no-text,
+            &.logo {
+                width: 36px;
+            }
+        }
+
+        .portal-header-actions {
+            margin-left: 6px;
+        }
+    }
+}
+
+.logo-container {
+    animation: fade-and-scale-animation auto linear;
+    animation-timeline: --page-scroll;
+}
+
+.portal-home-maincontainer {
+    scroll-timeline: --page-scroll block;
+}
+
+@keyframes rotateAnimation {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fade-and-scale-animation {
+    0% {
+        opacity  : 1;
+        transform: scale(1);
+    }
+    12%, 100% {
+        opacity  : 0;
+        transform: scale(1.5);
+    }
+}
+
+.button-group {
+    overflow: visible;
+}
+
+.get-started-button {
+    opacity  : 0;
+    animation: show-get-started-button 400ms 1300ms linear forwards;
+}
+
+.hero-audience-cue {
+    opacity  : 0;
+    animation: show-audience-cue 600ms 1150ms linear forwards;
+}
+
+@keyframes show-get-started-button {
+    from {
+        opacity  : 0;
+        transform: translate(70px, 30px);
+    }
+    to {
+        opacity  : 1;
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes show-audience-cue {
+    from {
+        opacity  : 0;
+        transform: translate(-70px, 50px);
+    }
+    to {
+        opacity  : 1;
+        transform: translate(0, 0);
+    }
+}

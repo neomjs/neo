@@ -1,0 +1,29 @@
+.neo-examples-list-animate {
+    .neo-is-online {
+        background-color: #22c55e;
+        border-radius   : 50%;
+        height          : .7em;
+        margin-top      : .5em;
+        width           : .7em;
+    }
+
+    .neo-lastname {
+        color      : var(--sem-color-text-primary-default);
+        font-weight: bold;
+    }
+
+    .neo-list-item {
+        background-color: var(--sem-color-surface-neutral-default);
+        border          : 1px solid var(--sem-color-border-default);
+        border-radius   : 6px;
+        color           : var(--sem-color-text-neutral-default);
+    }
+
+    .neo-list-item-content {
+        display: flex;
+    }
+
+    .neo-list-item-text {
+        margin-left: 10px;
+    }
+}

@@ -1,0 +1,62 @@
+.project-toolbar.neo-toolbar {
+    align-items: center;
+    gap: 8px;
+    min-height: 64px;
+    padding: 12px 24px;
+    background: var(--project-header-bg);
+    border-bottom: 1px solid var(--project-border);
+
+    .project-title { color: var(--project-title); font-size: 18px; font-weight: 700; }
+    .project-subtitle, .project-save-status { color: var(--project-muted); font-size: 12px; }
+    .project-save-status:empty { display: none; }
+    .project-zoom-group { gap: 6px; }
+    .project-control {
+        --button-background-color-hover: var(--project-hover);
+        --button-secondary-background-color-hover: var(--project-hover);
+        --button-secondary-border-hover: 1px solid var(--project-border);
+        --button-secondary-border-pressed: 1px solid var(--project-selected);
+        --button-secondary-text-color: var(--project-muted);
+        --button-secondary-text-color-active: var(--project-title);
+        --button-secondary-text-color-hover: var(--project-title);
+        --button-text-color: var(--project-muted);
+        --button-text-color-active: var(--project-title);
+        --button-text-color-hover: var(--project-title);
+        background: var(--project-control);
+        border: 1px solid var(--project-border);
+        border-radius: 6px;
+        min-height: 34px;
+        padding: 0 12px;
+
+        &.pressed {
+            --button-background-color-hover: var(--project-selected);
+            --button-secondary-background-color-hover: var(--project-selected);
+            --button-secondary-border-hover: 1px solid var(--project-selected);
+            --button-secondary-border-pressed: 1px solid var(--project-selected);
+            --button-secondary-text-color: var(--project-selected-text);
+            --button-secondary-text-color-active: var(--project-selected-text);
+            --button-secondary-text-color-hover: var(--project-selected-text);
+            --button-text-color: var(--project-selected-text);
+            --button-text-color-active: var(--project-selected-text);
+            --button-text-color-hover: var(--project-selected-text);
+            background: var(--project-selected);
+            border-color: var(--project-selected);
+            .neo-button-text { color: var(--project-selected-text); }
+        }
+        &:focus-visible { outline: 2px solid var(--project-focus); outline-offset: 2px; }
+    }
+}
+
+@media (max-width: 767px) {
+    .project-toolbar.neo-toolbar {
+        gap       : 5px 6px;
+        min-height: auto;
+        padding   : 8px 10px;
+
+        .project-title { font-size: 15px; }
+        .project-subtitle { display: none; }
+        .project-control { font-size: 11px; min-height: 28px; padding: 0 8px; }
+        .neo-theme-switcher { order: 1; }
+        .project-zoom-group { gap: 4px; order: 2; }
+        .project-save-status { font-size: 10px; margin-left: auto; order: 3; }
+    }
+}

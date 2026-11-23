@@ -116,6 +116,13 @@ class DemoBTearOutGesture extends Base {
             // the exit never fires (mechanic 1: arming precedes boundary moves).
             let armed = await me.waitForTearOutDragArmed(sortZone);
 
+            me.lastGestureArming = armed ? await me.readArmingGeometry(sortZone, buttonRect, {x: 20, y: 24}, (x, y) =>
+                me.interactionService.simulateEvent({events: [{
+                    delay  : 16, targetId: button.id, type: 'mousemove', windowId: button.windowId,
+                    options: opt(startX + x, startY + y, startSX + x, startSY + y, 1)
+                }]})
+            ) : null;
+
             if (!armed) {
                 let cancellation = await me.cancelTearOutGesture(button, {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY});
 
@@ -168,6 +175,8 @@ class DemoBTearOutGesture extends Base {
                 }
             }
 
+            let vesselFrame = await me.readWindowFrame(me.resolveTearOutVessel(itemId)?.windowId);
+
             // Post-birth survival probe: deliberate OUTWARD moves must NOT reap the newborn
             // vessel — each stays further out (below reattachThreshold), so no false re-entry fires.
             let probeMoves = Math.max(2, postBirthMoves);
@@ -199,6 +208,7 @@ class DemoBTearOutGesture extends Base {
                         documentBefore,
                         documentAfter,
                         documentsUnchanged: JSON.stringify(documentBefore) === JSON.stringify(documentAfter),
+                        vesselFrame,
                         vesselWindowName  : `tearout-${itemId}`
                     }
                 }
@@ -229,6 +239,7 @@ class DemoBTearOutGesture extends Base {
                     itemAbsentFromTree: absentFromTree,
                     itemKeptInCatalog : keptInCatalog,
                     catalogPreserved  : catalogBefore.every(id => Boolean(documentAfter.items?.[id])),
+                    vesselFrame,
                     vesselWindowName  : `tearout-${itemId}`
                 }
             }
@@ -237,6 +248,78 @@ class DemoBTearOutGesture extends Base {
 
             return {applied: false, errors: [error?.message || String(error)]}
         }
+    }
+
+    /**
+     * @summary Reads what the user sees once a tab drag arms: the proxy beside the tab it lifted, and the
+     * pane rect its vessel opens at.
+     *
+     * A proxy is born over its tab and follows the pointer from the first move after the main thread holds
+     * it, so the pointer moves on in 2 px steps until the proxy has left its tab, the way a hand keeps moving.
+     * @param {Neo.draggable.container.SortZone} sortZone The armed zone.
+     * @param {Object} sourceRect The tab button's rect before the press.
+     * @param {Object} travel The pointer's first travel from the press, `{x, y}`.
+     * @param {Function} move `async (x, y) => void`, moving the pointer to that offset from the press.
+     * @returns {Promise<Object>} `{paneRect, pointerDelta, proxyRect, sourceRect, windowDragging}`, where
+     *   `windowDragging` says the gesture already left its window.
+     * @protected
+     */
+    async readArmingGeometry(sortZone, sourceRect, travel, move) {
+        let me           = this,
+            proxy        = sortZone.dragProxy,
+            pointerDelta = {...travel},
+            proxyRect    = null;
+
+        for (let attempt = 0; proxy && attempt < 10; attempt++) {
+            attempt && (pointerDelta.x += 2);
+            await move(pointerDelta.x, pointerDelta.y);
+            proxyRect = await me.readSettledRect(proxy);
+
+            if (proxyRect && (proxyRect.x !== sourceRect.x || proxyRect.y !== sourceRect.y)) break
+        }
+
+        return {
+            paneRect      : sortZone.dockSourceCardRect ?? null,
+            pointerDelta,
+            proxyRect,
+            sourceRect,
+            windowDragging: Boolean(sortZone.isWindowDragging)
+        }
+    }
+
+    /**
+     * @summary A component's rect once it has painted and two frames agree on it.
+     * @param {Neo.component.Base} component
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async readSettledRect(component) {
+        let me   = this,
+            rect = null,
+            previous;
+
+        for (let attempt = 0; attempt < 30; attempt++) {
+            attempt && await me.timeout(16);
+            previous = rect;
+            [rect]   = await component.getDomRect([component.id], component.windowId);
+
+            if (rect?.width > 0 && ['height', 'width', 'x', 'y'].every(key => rect[key] === previous?.[key])) break
+        }
+
+        return rect ?? null
+    }
+
+    /**
+     * @summary A window's frame size, as the Window manager recorded it when the window connected.
+     * @param {String|null} windowId
+     * @returns {Promise<{height: Number, width: Number}|null>}
+     * @protected
+     */
+    async readWindowFrame(windowId) {
+        let WindowManager = (await import('../../../src/manager/Window.mjs')).default,
+            frame         = WindowManager.get(windowId)?.outerRect;
+
+        return frame ? {height: frame.height, width: frame.width} : null
     }
 
     /**

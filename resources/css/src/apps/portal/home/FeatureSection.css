@@ -1,0 +1,106 @@
+.portal-home-feature-section {
+    align-items      : stretch;
+    background-color : transparent;
+    display          : flex;
+    flex-wrap        : nowrap;
+    justify-content  : center;
+    min-height       : 100%;
+    scroll-snap-align: center;
+
+    @media (max-width: 840px) {
+        flex-direction: column;
+    }
+
+    @media (min-width: 841px) {
+        &.portal-position-end {
+            flex-direction: row-reverse;
+        }
+
+        /* A live preview fills its page and scrolls inside: a grid taller than the page does not grow the page. */
+        &:has(.page-live-preview) {
+            max-height: 100%;
+        }
+    }
+
+    .neo-content {
+        font-size: min(max(2.3vw, 16px), 30px);
+    }
+
+    .neo-h1 {
+        color      : var(--purple-400);
+        font-size  : min(max(4.5vw, 30px), 44px);
+        line-height: 1em;
+        margin     : 0;
+        text-align : start;
+    }
+
+    .neo-h2 {
+        font-size  : min(max(2.2vw, 22px), 30px);
+        font-weight: 600;
+        line-height: 1.15;
+        margin     : 0;
+        text-align : start;
+    }
+
+    /* No wider than its page: on a phone a preview's own content is wider than the screen */
+    .page-live-preview {
+        height   : 100%;
+        margin   : 0;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .portal-content-text {
+        align-items     : start;
+        background-color: transparent;
+        display         : flex;
+        flex            : 1;
+        flex-direction  : column;
+        flex-wrap       : nowrap;
+        justify-content : center;
+        padding         : 2rem;
+
+        @media (max-width: 600px) {
+            flex           : .5 !important;
+            justify-content: start;
+            padding        : 1rem;
+        }
+
+        .neo-button {
+            margin-left: 0;
+        }
+    }
+
+    .portal-content-links {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-wrap       : wrap;
+        gap             : .25rem;
+
+        .portal-content-links-label {
+            margin-right: .5rem;
+            opacity     : .7;
+        }
+
+        .neo-button {
+            height : 2rem;
+            margin : 0;
+            padding: 0 .6rem;
+        }
+    }
+
+    /* A flex item is as wide and as tall as its content unless told otherwise: the content scrolls inside. */
+    .portal-content-wrapper {
+        flex      : 2;
+        min-height: 0;
+        min-width : 0;
+        padding   : 20px;
+
+        @media (max-width: 600px) {
+            max-height: 35em;
+            min-height: 35em;
+            padding   : 5px;
+        }
+    }
+}

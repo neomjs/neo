@@ -136,6 +136,42 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
+     * @summary The gap between a target and a subject aligned beside it, relative to the subject's box: on the side
+     * that faces the target, as deep as the gap, and across both boxes along that side. A pointer on its way from the
+     * target to the subject crosses it; one beside the subject anywhere else does not.
+     * @param {{height: Number, width: Number, x: Number, y: Number}} target
+     * @param {{height: Number, width: Number, x: Number, y: Number}} subject
+     * @returns {{height: Number, left: Number, top: Number, width: Number}|null} Null when the boxes touch or overlap
+     */
+    static gapBetween(target, subject) {
+        let targetBottom  = target.y  + target.height,
+            targetRight   = target.x  + target.width,
+            subjectBottom = subject.y + subject.height,
+            subjectRight  = subject.x + subject.width,
+            // Across both boxes, for a gap above or below the subject, and beside it
+            across        = {left: Math.min(target.x, subject.x) - subject.x, width: Math.max(targetRight, subjectRight) - Math.min(target.x, subject.x)},
+            along         = {top : Math.min(target.y, subject.y) - subject.y, height: Math.max(targetBottom, subjectBottom) - Math.min(target.y, subject.y)};
+
+        if (subject.y > targetBottom) {
+            return {...across, height: subject.y - targetBottom, top: targetBottom - subject.y}
+        }
+
+        if (subjectBottom < target.y) {
+            return {...across, height: target.y - subjectBottom, top: subject.height}
+        }
+
+        if (subject.x > targetRight) {
+            return {...along, left: targetRight - subject.x, width: subject.x - targetRight}
+        }
+
+        if (subjectRight < target.x) {
+            return {...along, left: subject.width, width: target.x - subjectRight}
+        }
+
+        return null
+    }
+
+    /**
      * Returns the overlapping area of rect1 & rect2 as a new Rectangle
      * @param {DOMRect|Neo.util.Rectangle} rect1
      * @param {DOMRect|Neo.util.Rectangle} rect2
@@ -367,9 +403,28 @@ export default class Rectangle extends DOMRect {
     }
 
     /**
+     * @summary Fits the current size into bounds. When a minimum exceeds the bounds, the leading
+     * edge remains reachable on that axis.
+     * @param {Rectangle} bounds
+     * @param {Number|null} [minWidth=0]
+     * @param {Number|null} [minHeight=0]
+     * @returns {Rectangle}
+     */
+    #fitToBounds(bounds, minWidth=0, minHeight=0) {
+        const result = this.clone();
+
+        result.width  = Math.max(minWidth,  Math.min(this.width,  bounds.width));
+        result.height = Math.max(minHeight, Math.min(this.height, bounds.height));
+        result.x      = Math.max(bounds.x, Math.min(this.x, bounds.right  - result.width));
+        result.y      = Math.max(bounds.y, Math.min(this.y, bounds.bottom - result.height));
+
+        return result
+    }
+
+    /**
      * Returns a copy of this Rectangle constrained to fit within the passed Rectangle
      * @param {Rectangle} constrainTo
-     * @returns {Rectangle|Boolean} A new Rectangle constrained to te passed Rectangle, or false if it could not be constrained.
+     * @returns {Rectangle|Boolean} A new constrained Rectangle, or false if it could not be constrained.
      */
     constrainTo(constrainTo) {
         const
@@ -382,22 +437,25 @@ export default class Rectangle extends DOMRect {
             return false;
         }
 
-        // We do not mutate this Rectangle, but return a constrained version
-        const result = me.clone();
+        return me.#fitToBounds(constrainTo)
+    }
 
-        // Translate result so that the top and left are visible
-        result.x = Math.max(me.x + Math.min(constrainTo.right  - result.right,  0), constrainTo.x);
-        result.y = Math.max(me.y + Math.min(constrainTo.bottom - result.bottom, 0), constrainTo.y);
-
-        // Pull in any resulting overflow
-        result.bottom = Math.min(result.bottom, constrainTo.bottom);
-        result.right = Math.min(result.right, constrainTo.right);
-
-        return result;
+    /**
+     * @summary Returns a copy of this Rectangle inside the bounds: moved by the smallest distance, and shrunk only on
+     * an axis it cannot fit on, never below its `minWidth` and `minHeight`. A minimum larger than the bounds keeps the
+     * leading edge inside, as {@link #alignTo} does when no side fits. A Rectangle inside the bounds comes back as it is.
+     * @param {DOMRect|Neo.util.Rectangle} bounds
+     * @returns {Neo.util.Rectangle}
+     */
+    fitTo(bounds) {
+        return this.#fitToBounds(bounds, this.minWidth, this.minHeight)
     }
 
     /**
      * @summary Returns an immutable Rectangle aligned to a target, optionally constrained and offset.
+     * If no side fits at the usual size, use the side with the largest usable area and shrink to
+     * its bounds. If the declared minima rule out every side, keep the leading edges reachable
+     * in the overall constraint. The final offset applies after placement.
      * @param {Object} align
      * @param {Boolean|String} [align.axisLock]
      * @param {DOMRect|HTMLElement|Rectangle|String} [align.constrainTo]
@@ -545,7 +603,11 @@ export default class Rectangle extends DOMRect {
                 zonesToTry[i].constrainRect = c;
             }
 
-            // Now try to constrain our result into each zone's constraintZone
+            // Preserve the first ordinary fit. When every side needs a smaller rectangle, keep the
+            // one that shows the most content. Equal areas retain the existing side preference.
+            const requested = result;
+            let   bestFit   = null, bestArea = 0;
+
             for (let i = 0; i < zonesToTry.length; i++) {
                 const
                     {
@@ -576,7 +638,25 @@ export default class Rectangle extends DOMRect {
                     solution.position = zoneNames[zone];
                     return finishAlignResult(solution, offset);
                 }
+
+                const fitted = result.#fitToBounds(constrainRect, result.minWidth, result.minHeight),
+                      area   = fitted.width * fitted.height;
+
+                if (area > bestArea && constrainRect.contains(fitted)) {
+                    bestArea         = area;
+                    bestFit          = fitted;
+                    bestFit.zone     = zone;
+                    bestFit.position = zoneNames[zone]
+                }
             }
+
+            if (bestFit) {
+                return finishAlignResult(bestFit, offset)
+            }
+            // No side can accommodate the explicit minima. Keep the start of the subject accessible.
+            result          = requested.#fitToBounds(constrainRect, requested.minWidth, requested.minHeight);
+            result.zone     = requested.zone;
+            result.position = requested.position
         }
 
         return finishAlignResult(result, offset);

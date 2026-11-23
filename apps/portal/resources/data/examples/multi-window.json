@@ -1,0 +1,157 @@
+[
+    {
+        "id": "workstation",
+        "family": "multi-window",
+        "order": 10,
+        "alsoIn": [
+            "apps"
+        ],
+        "component": "Dock Workspace",
+        "keywords": [
+            "drag",
+            "dock",
+            "popout",
+            "tear-out",
+            "ide",
+            "multi-window"
+        ],
+        "feature": "A living-data workspace whose panes can leave the browser window",
+        "lookFor": "Pop out the 100k Matrix tab, use it in its own window, then close that window to bring it back.",
+        "scope": "Allow popups; the displayed work items and signals are demonstration data.",
+        "featured": true,
+        "environments": [
+            "Desktop"
+        ],
+        "image": "devmode/workstation-13-2.jpg",
+        "name": "Workstation",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/workstation",
+        "urls": {
+            "devmode": "apps/workstation/index.html",
+            "dist_dev": "dist/development/apps/workstation/index.html",
+            "dist_esm": "dist/esm/apps/workstation/index.html",
+            "dist_prod": "dist/production/apps/workstation/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "shared-covid",
+        "family": "multi-window",
+        "order": 50,
+        "alsoIn": [
+            "apps"
+        ],
+        "component": "Shared Views",
+        "feature": "A historical country-data chart can move into its own window",
+        "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
+        "scope": "Allow popups. Country data depends on the example's external data source.",
+        "featured": true,
+        "image": "devmode/sharedcovid.png",
+        "name": "Multi Window Covid App",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/sharedcovid",
+        "urls": {
+            "devmode": "apps/sharedcovid/index.html#mainview=table",
+            "dist_dev": "dist/development/apps/sharedcovid/index.html#mainview=table",
+            "dist_esm": "dist/esm/apps/sharedcovid/index.html#mainview=table",
+            "dist_prod": "dist/production/apps/sharedcovid/index.html#mainview=table"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "shared-planning",
+        "family": "multi-window",
+        "order": 145,
+        "alsoIn": [
+            "scheduler",
+            "gantt",
+            "board",
+            "drag-drop"
+        ],
+        "name": "One plan, three windows",
+        "component": "Dock Workspace",
+        "environments": ["Desktop", "Mobile"],
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "lookFor": "Move Focus lighting one day later. Sound check follows on the Gantt, and the card shows the new dates. Close a detached window to return its view.",
+        "scope": "Allow popups for separate windows. On a phone, use the three tabs.",
+        "image": "devmode/shared-planning-14.jpg",
+        "hasLightCover": true,
+        "sharedWorkers": true,
+        "sourceUrl": "examples/dashboard/planning",
+        "urls": {
+            "devmode": "examples/dashboard/planning/index.html",
+            "dist_dev": "dist/development/examples/dashboard/planning/index.html",
+            "dist_esm": "dist/esm/examples/dashboard/planning/index.html",
+            "dist_prod": "dist/production/examples/dashboard/planning/index.html"
+        }
+    },
+    {
+        "id": "multi-window-covid-gallery",
+        "family": "multi-window",
+        "order": 150,
+        "component": "Gallery",
+        "feature": "Gallery controls move into a second window while still controlling the gallery",
+        "lookFor": "Maximise Gallery Controls, change Translate X in the popup, then close it to return the controls.",
+        "scope": "Allow popups. Reads the World Bank file the country grid ships with.",
+        "featured": false,
+        "image": "devmode/mwCoronaGallery.png",
+        "name": "Multi Window Country Gallery",
+        "sharedWorkers": true,
+        "sourceUrl": "examples/component/multiWindowCoronaGallery",
+        "urls": {
+            "devmode": "examples/component/multiWindowCoronaGallery/index.html",
+            "dist_dev": "dist/development/examples/component/multiWindowCoronaGallery/index.html",
+            "dist_esm": "dist/esm/examples/component/multiWindowCoronaGallery/index.html",
+            "dist_prod": "dist/production/examples/component/multiWindowCoronaGallery/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "shared-offscreen-canvas",
+        "family": "multi-window",
+        "order": 170,
+        "alsoIn": [
+            "platform"
+        ],
+        "component": "OffscreenCanvas",
+        "feature": "A rendered canvas moves into a second browser window",
+        "lookFor": "Press Move Canvas and find the colored point scene in the popup.",
+        "scope": "External Chromium demo; allow popups. Requires SharedWorker, OffscreenCanvas and WebGL support.",
+        "featured": false,
+        "image": "devmode/sharedOffscreenCanvas.png",
+        "name": "Multi-Window OffscreenCanvas",
+        "sourceUrl": "https://github.com/neomjs/shared-offscreen",
+        "sharedWorkers": true,
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/apps/mainapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/development/apps/mainapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-shared-offscreen-canvas-demo/dist/production/apps/mainapp/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "colors-dashboard",
+        "family": "multi-window",
+        "order": 230,
+        "alsoIn": [
+            "apps",
+            "dashboard"
+        ],
+        "component": "Dashboard",
+        "feature": "The dashboard's color grid keeps updating in its own window",
+        "lookFor": "Press Grid to detach it, press Start and watch the popup update; close it to return the grid.",
+        "scope": "Allow popups. The color data streams from a WebSocket backend; when that backend does not answer, the app generates the same data itself.",
+        "featured": false,
+        "image": "dist_prod/colorsApp.png",
+        "name": "Colors Dashboard",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/colors",
+        "urls": {
+            "devmode": "apps/colors/index.html",
+            "dist_dev": "dist/development/apps/colors/index.html",
+            "dist_esm": "dist/esm/apps/colors/index.html",
+            "dist_prod": "dist/production/apps/colors/index.html"
+        },
+        "hiddenIn": []
+    }
+]

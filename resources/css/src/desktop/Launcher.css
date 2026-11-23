@@ -1,0 +1,159 @@
+/* The list drawn as a desktop: no list chrome, icon tiles, groups as captions.
+   A dragged icon's proxy is mounted on the body, so it carries the tile rules under its own class. */
+.neo-desktop-launcher,
+.neo-desktop-launcher-proxy {
+    --list-container-list-color          : var(--desktop-launcher-color);
+    --list-item-background-color         : transparent;
+    --list-item-background-color-active  : var(--desktop-launcher-item-background-color-active);
+    --list-item-background-color-hover   : var(--desktop-launcher-item-background-color-hover);
+    --list-item-background-color-selected: var(--desktop-launcher-item-background-color-active);
+    --list-item-color-selected           : var(--desktop-launcher-color);
+    --list-item-focus-outline            : 2px solid var(--desktop-launcher-focus-color);
+    --list-item-focus-outline-offset     : 2px;
+    --list-item-padding                  : 9px 4px 8px;
+
+    .neo-list-item:not(.neo-list-header) {
+        align-items   : center;
+        border-radius : 16px;
+        display       : flex;
+        flex-direction: column;
+        gap           : 8px;
+        margin        : 0;
+        transition    : background-color var(--motion-fast) var(--ease-out-soft), transform var(--motion-base) var(--ease-out-soft);
+
+        &:hover {
+            transform: translateY(-2px);
+
+            .neo-desktop-app-icon {
+                box-shadow: 0 16px 34px -10px color-mix(in srgb, var(--desktop-app-color) 85%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+            }
+        }
+    }
+
+    .neo-desktop-app-icon {
+        align-items    : center;
+        background     : linear-gradient(145deg, color-mix(in srgb, var(--desktop-app-color) 70%, white), var(--desktop-app-color) 55%, color-mix(in srgb, var(--desktop-app-color) 82%, black));
+        border-radius  : 16px;
+        box-shadow     : 0 10px 24px -10px color-mix(in srgb, var(--desktop-app-color) 75%, transparent), inset 0 1px 0 rgba(255, 255, 255, .35);
+        color          : #fff;
+        display        : flex;
+        font-size      : 24px;
+        height         : 56px;
+        justify-content: center;
+        transition     : box-shadow var(--motion-base) var(--ease-out-soft);
+        width          : 56px;
+    }
+
+    .neo-desktop-app-label {
+        font-size    : 12.5px;
+        font-weight  : 600;
+        line-height  : 1.2;
+        max-width    : 100%;
+        overflow     : hidden;
+        text-align   : center;
+        text-overflow: ellipsis;
+        text-shadow  : var(--desktop-launcher-label-shadow);
+    }
+}
+
+/* A desktop's icons run in columns from the top left, so each group is a column under its caption. The grid flows by
+   column in 24px rows: a caption takes one and starts at row 1, which opens a new column for it, and a tile spans
+   four. A group taller than the launcher continues in the next column. */
+.neo-desktop-launcher {
+    align-content     : start;
+    column-gap        : 12px;
+    display           : grid;
+    grid-auto-columns : 100px;
+    grid-auto-flow    : column;
+    grid-template-rows: repeat(auto-fill, 24px);
+    padding           : 20px 28px;
+
+    .neo-list-item:not(.neo-list-header) {
+        grid-row-end: span 4;
+    }
+
+    .neo-list-header {
+        align-self    : end;
+        color         : var(--desktop-launcher-header-color);
+        font-size     : 12px;
+        font-weight   : 600;
+        grid-row-start: 1;
+        overflow      : hidden;
+        padding       : 0 0 4px;
+        text-align    : center;
+        text-overflow : ellipsis;
+        text-shadow   : var(--desktop-launcher-label-shadow);
+    }
+
+    /* The icon fades while the proxy carries it. An outlined slot marks the proposed new position. */
+    .neo-list-item.neo-sort-source {
+        opacity  : .3;
+        transform: none;
+    }
+
+    .neo-list-item.neo-sort-source.neo-sort-placement {
+        opacity       : 1;
+        outline       : 2px dashed var(--desktop-launcher-focus-color);
+        outline-offset: -2px;
+
+        > * {
+            opacity: .3;
+        }
+    }
+}
+
+/* The proxy is the icon lifted off the desktop */
+.neo-desktop-launcher-proxy .neo-list-item {
+    background-color: var(--desktop-launcher-item-background-color-active);
+    box-shadow      : 0 18px 40px -12px rgba(0, 0, 0, .55);
+}
+
+.neo-desktop-launcher-proxy.neo-sort-drop-rejected {
+    opacity: .65;
+}
+
+body.neo-drag-active:has(.neo-desktop-launcher-proxy.neo-sort-drop-rejected) {
+    cursor: no-drop !important;
+}
+
+/* A phone: rows of tiles a step smaller in narrower gutters, so a 375px screen holds four columns, and each caption
+   heads its group's rows */
+@media (max-width: 600px) {
+    .neo-desktop-launcher {
+        gap                  : 4px;
+        grid-auto-flow       : row;
+        grid-template-columns: repeat(auto-fill, 80px);
+        grid-template-rows   : none;
+        padding              : 16px;
+
+        .neo-list-item:not(.neo-list-header) {
+            grid-row-end: auto;
+        }
+
+        .neo-list-header {
+            grid-column   : 1 / -1;
+            grid-row-start: auto;
+            margin-top    : 8px;
+            padding-left  : 4px;
+            text-align    : start;
+
+            &:first-child {
+                margin-top: 0;
+            }
+        }
+    }
+
+    .neo-desktop-launcher,
+    .neo-desktop-launcher-proxy {
+        .neo-desktop-app-icon {
+            border-radius: 14px;
+            font-size    : 21px;
+            height       : 48px;
+            width        : 48px;
+        }
+
+        .neo-desktop-app-label {
+            font-size: 12px;
+        }
+    }
+}

@@ -220,7 +220,7 @@ async function runWorkstationAppThemeProbe() {
 
 /**
  * @summary Runs one native-window authority scenario against the real Main singleton in an isolated process.
- * @param {'cross-origin'|'invalid-scheme'|'native-focus-stale'|'native-move-stale'|'native-resize'|'native-resize-default-denied'|'native-resize-denied'|'navigation-failure'|'persisted-pagehide'|'same-origin'} scenario
+ * @param {String} scenario
  * @returns {Promise<Object>}
  */
 async function runNativeWindowRouteProbe(scenario) {
@@ -492,6 +492,7 @@ async function runNativeWindowRouteProbe(scenario) {
                     }
                 },
                 location: {
+                    get href() {return state.replacedUrl},
                     replace(url) {
                         events.push('replace');
 
@@ -514,10 +515,14 @@ async function runNativeWindowRouteProbe(scenario) {
             const url = scenario === 'cross-origin'
                 ? 'https://other.example.test/popup'
                 : './popup.html?mode=tear-out';
+            const closesBeforeRoute        = scenario.startsWith('named-close-before-route'),
+                  renewNativeRouteOnReload = scenario.startsWith('native-release-closed') ||
+                      scenario.startsWith('native-route-reload') || scenario === 'named-close-before-route-renewable';
             const success = Main.windowOpen({
                 nativeCapabilities: scenario === 'native-resize-default-denied'
                     ? {close: true}
                     : {close: true, resize: scenario !== 'native-resize-denied'},
+                renewNativeRouteOnReload,
                 stagedColorScheme: scenario === 'invalid-scheme'
                     ? 'dark light'
                     : scenario === 'missing-scheme'
@@ -528,22 +533,111 @@ async function runNativeWindowRouteProbe(scenario) {
                 windowFeatures: 'popup,width=900,height=600',
                 windowName    : 'tear-out'
             });
-            const route = state.token
+            const route = !closesBeforeRoute && state.token
                 ? Main.consumeNativeWindowRoute({targetWindowId: 'child-window', token: state.token, win: popup})
                 : null;
             let
                 exactCompletion = null,
                 closure = null,
                 geometry = null,
+                retirement = null,
+                reload   = null,
                 resize   = null;
 
-            if (scenario === 'native-close-observation') {
+            if (closesBeforeRoute) {
+                state.closed = true;
+                exactCompletion = Main.windowClose({names: ['tear-out']});
+                closure = {
+                    missing: Main.windowClose({names: ['tear-out']}),
+                    late   : Main.consumeNativeWindowRoute({targetWindowId: 'late-window', token: state.token, win: popup})
+                };
+            } else if (scenario === 'native-release-closed-replaced') {
+                Main.windowOpen({renewNativeRouteOnReload, url, useTotalHeight: false, windowName: route.windowName});
+                const successor = Main.consumeNativeWindowRoute({targetWindowId: 'successor-window', token: state.token, win: popup});
+
+                state.closed = true;
+                retirement = {
+                    oldHandleIgnored: !Main.windowNativeReleaseClosed(route),
+                    predecessorUnknown: await Main.windowNativeIsClosed(route),
+                    samePhysicalTarget: openArgs[0].targetName === openArgs[1].targetName,
+                    successorStillRegistered: Main.openWindows[route.windowName]?.nativeHandleKey === successor.nativeHandleKey,
+                    successorClosed: await Main.windowNativeIsClosed(successor)
+                };
+            } else if (scenario === 'native-release-closed') {
+                const live = Main.windowNativeReleaseClosed(route);
+                state.throwClosed = true;
+                const unreachable = Main.windowNativeReleaseClosed(route);
+                state.throwClosed = false;
+                Main.releaseNativeWindowRoute({...route, win: popup});
+                state.closed = true;
+
+                const wrongName = Main.windowNativeReleaseClosed({...route, windowName: 'other-window'}),
+                      unknownKey = Main.windowNativeReleaseClosed({...route, nativeHandleKey: 'unknown'}),
+                      observed = await Promise.all([Main.windowNativeIsClosed(route), Main.windowNativeIsClosed(route)]),
+                      stillRegistered = Main.openWindows[route.windowName]?.nativeHandleKey === route.nativeHandleKey;
+
+                retirement = {
+                    live,
+                    manifest: Main.remote.app.includes('windowNativeReleaseClosed'),
+                    observed,
+                    released: Main.windowNativeReleaseClosed(route),
+                    releasedAgain: Main.windowNativeReleaseClosed(route),
+                    stillRegistered,
+                    unregistered: await Main.windowNativeIsClosed(route),
+                    unknownKey,
+                    unreachable,
+                    wrongName
+                };
+            } else if (scenario === 'native-route-reload-replaced-document') {
+                const initialToken = state.token;
+                popup.document = {};
+                reload = {
+                    oldRouteClosedBeforeRenewal: await Main.windowNativeClose(route),
+                    released: Main.releaseNativeWindowRoute({...route, win: popup}),
+                    tokenChanged: state.token !== initialToken
+                };
+            } else if (renewNativeRouteOnReload) {
+                const initialToken = state.token,
+                      released     = Main.releaseNativeWindowRoute({...route, win: popup}),
+                      renewedToken = state.token,
+                      oldRouteClosedBeforeRenewal = await Main.windowNativeClose(route);
+
+                if (scenario === 'native-route-reload-navigated') {
+                    state.replacedUrl = state.replacedUrl.replace('mode=tear-out', 'mode=other')
+                } else if (scenario === 'native-route-reload-expired') {
+                    const expiresAt = Date.now() + Main.nativeRouteTtl;
+                    Date.now = () => expiresAt + 1
+                } else {
+                    state.replacedUrl += '#reloaded'
+                }
+
+                if (scenario !== 'native-route-reload-same-document') {
+                    popup.document = {}
+                }
+
+                const targetWindowId = scenario === 'native-route-reload-old-target' ? route.targetWindowId : 'reloaded-window',
+                      win            = scenario === 'native-route-reload-wrong-window' ? {...popup} : popup,
+                      renewed        = Main.consumeNativeWindowRoute({targetWindowId, token: renewedToken, win});
+
+                reload = {
+                    oldRouteClosedAfterRenewal: await Main.windowNativeClose(route),
+                    oldRouteClosedBeforeRenewal,
+                    released,
+                    renewed,
+                    replayed: Main.consumeNativeWindowRoute({targetWindowId: 'third-window', token: renewedToken, win: popup}),
+                    staleRelease: Main.releaseNativeWindowRoute({...route, win: popup}),
+                    tokenChanged: renewedToken !== initialToken,
+                    windowClosed: renewed && await Main.windowNativeClose(renewed)
+                };
+            } else if (scenario === 'native-close-observation') {
                 globalThis.setTimeout = callback => nativeTimeout(callback, 0);
+                const initialToken = state.token;
                 Main.releaseNativeWindowRoute({...route, win: popup});
                 closure = {
                     open: await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey}),
                     unknown: await Main.windowNativeIsClosed({nativeHandleKey: 'unknown'}),
-                    missing: await Main.windowNativeIsClosed({})
+                    missing: await Main.windowNativeIsClosed({}),
+                    tokenChanged: state.token !== initialToken
                 };
                 state.throwClosed = true;
                 closure.unreachable = await Main.windowNativeIsClosed({nativeHandleKey: route.nativeHandleKey});
@@ -641,8 +735,10 @@ async function runNativeWindowRouteProbe(scenario) {
                 height   : state.height,
                 openArgs,
                 published: state.published,
+                reload,
                 replacedUrl: state.replacedUrl ?? null,
                 resize,
+                retirement,
                 route,
                 stagedMeta: state.stagedMeta ?? null,
                 success,
@@ -851,8 +947,93 @@ test.describe('Neo.Main native window routes (#15396)', () => {
     test('physical closure remains observable after control-route release without confusing reload or a successor', async () => {
         const result = await runNativeWindowRouteProbe('native-close-observation');
 
-        expect(result.closure).toEqual({open: false, unknown: null, missing: null, unreachable: null, closed: true, superseded: null})
+        expect(result.closure).toEqual({open: false, unknown: null, missing: null, unreachable: null, closed: true, superseded: null, tokenChanged: false})
     });
+
+    test('an already-closed popup without a bound route acknowledges retirement only when opted in', async () => {
+        const [renewable, legacy] = await Promise.all([
+            runNativeWindowRouteProbe('named-close-before-route-renewable'),
+            runNativeWindowRouteProbe('named-close-before-route-legacy')
+        ]);
+
+        expect(renewable.exactCompletion).toBe(true);
+        expect(legacy.exactCompletion).toBe(false);
+        for (const result of [renewable, legacy]) {
+            expect(result.route).toBeNull();
+            expect(result.tokenMinted).toBe(true);
+            expect(result.closure).toEqual({missing: false, late: null});
+            expect(result.hasEntry).toBe(false);
+            expect(result.events).not.toContain('close')
+        }
+    });
+
+    test('only an explicit exact release forgets the confirmed closed popup', async () => {
+        const {events, hasEntry, retirement} = await runNativeWindowRouteProbe('native-release-closed');
+
+        expect(retirement).toEqual({
+            live           : false,
+            manifest       : true,
+            observed       : [true, true],
+            released       : true,
+            releasedAgain  : false,
+            stillRegistered: true,
+            unregistered   : null,
+            unknownKey     : false,
+            unreachable    : false,
+            wrongName      : false
+        });
+        expect(hasEntry).toBe(false);
+        expect(events).not.toContain('close')
+    });
+
+    test('a stale handle cannot release a same-name successor even after the successor closes', async () => {
+        const {events, hasEntry, retirement} = await runNativeWindowRouteProbe('native-release-closed-replaced');
+
+        expect(retirement).toEqual({
+            oldHandleIgnored        : true,
+            predecessorUnknown      : null,
+            samePhysicalTarget      : true,
+            successorStillRegistered: true,
+            successorClosed         : true
+        });
+        expect(hasEntry).toBe(true);
+        expect(events).not.toContain('close')
+    });
+
+    test('an opted-in popup renews its route on reload and only the new target can close it', async () => {
+        const {route, reload, closed, hasEntry} = await runNativeWindowRouteProbe('native-route-reload');
+
+        expect(route.windowName).toBe('tear-out');
+        expect(reload).toEqual({
+            oldRouteClosedAfterRenewal : false,
+            oldRouteClosedBeforeRenewal: false,
+            released                   : true,
+            renewed                    : {...route, targetWindowId: 'reloaded-window'},
+            replayed                   : null,
+            staleRelease               : false,
+            tokenChanged               : true,
+            windowClosed               : true
+        });
+        expect(closed).toBe(true);
+        expect(hasEntry).toBe(false)
+    });
+
+    test('replacing a popup document also invalidates its control route without pagehide', async () => {
+        const {reload, closed} = await runNativeWindowRouteProbe('native-route-reload-replaced-document');
+
+        expect(reload).toEqual({oldRouteClosedBeforeRenewal: false, released: true, tokenChanged: false});
+        expect(closed).toBe(false)
+    });
+
+    for (const scenario of ['expired', 'navigated', 'old-target', 'same-document', 'wrong-window']) {
+        test(`an opted-in popup rejects a ${scenario} reload grant`, async () => {
+            const {reload, closed} = await runNativeWindowRouteProbe(`native-route-reload-${scenario}`);
+
+            expect(reload.tokenChanged).toBe(true);
+            expect(reload.renewed).toBeNull();
+            expect(closed).toBe(false)
+        })
+    }
 
     test('a native close is the VERIFIED outcome: a deferred close answers false and keeps the route, a done close retires the entry', async () => {
         // Before this contract `windowNativeClose` returned true for the attempt and dropped the route at

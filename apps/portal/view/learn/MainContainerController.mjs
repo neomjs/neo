@@ -1,5 +1,6 @@
 import Controller        from '../../../../src/controller/Component.mjs';
 import CubeLayoutButton  from './CubeLayoutButton.mjs'; // required for the Portal App .md file
+import SeoService        from '../../service/Seo.mjs';
 import {getSearchParams} from '../../Util.mjs';
 
 /**
@@ -21,6 +22,9 @@ class MainContainerController extends Controller {
             '/learn/{*itemId}': 'onRouteLearnItem'
         }
     }
+
+    /** @member {Number} #learnRouteRequest Identifies the latest Learn navigation while the tree loads. */
+    #learnRouteRequest = 0
 
     /**
      * @param {Object} config
@@ -95,6 +99,9 @@ class MainContainerController extends Controller {
     onRouteDefault(data) {
         let currentPageRecord = this.getStateProvider().data.currentPageRecord;
 
+        this.#learnRouteRequest++;
+        this.getReference('content')?.setRouteSection(currentPageRecord);
+
         if (!currentPageRecord) {
             this.onRouteLearnItem({itemId: 'benefits/Introduction'})
         } else {
@@ -103,6 +110,7 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @summary Selects the requested article and section and sets the window title.
      * @param {Object} data
      * @param {String} data.itemId
      * @param {Object} value
@@ -118,7 +126,12 @@ class MainContainerController extends Controller {
         // through means an exact-lookup miss and a blank page — the id has to be separated from the
         // in-page anchor here. Route params are the app's to interpret; widening the shared router's
         // wildcard would change capture semantics for every routed app.
-        const recordId = itemId.split('#')[0];
+        const request              = ++this.#learnRouteRequest,
+              [recordId, fragment] = itemId.split('#', 2),
+              route                = value?.hashString || `/learn/${recordId}`,
+              navigationId         = value?.hashString
+                  ? SeoService.registerNavigation({route: value.hashString, windowId: this.windowId})
+                  : undefined;
 
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/learn') {
@@ -126,6 +139,8 @@ class MainContainerController extends Controller {
         }
 
         const select = async () => {
+            if (request !== this.#learnRouteRequest || this.isDestroyed) return;
+
             const record = store.get(recordId);
 
             if (record?.route) {
@@ -136,7 +151,17 @@ class MainContainerController extends Controller {
                 return
             }
 
+            this.getReference('content')?.setRouteSection(record, fragment);
             stateProvider.data.currentPageRecord = record;
+
+            if (record?.name) {
+                SeoService.setRouteTitle({
+                    navigationId,
+                    route,
+                    title   : /neo\.mjs/i.test(record.name) ? record.name : `${record.name} - Neo.mjs`,
+                    windowId: this.windowId
+                })
+            }
 
             if (!oldValue?.hashString?.startsWith('/learn')) {
                 await tree.expandAndScrollToItem(recordId)
@@ -153,6 +178,24 @@ class MainContainerController extends Controller {
                 delay: 10,
                 once : true
             })
+        }
+    }
+
+    /**
+     * @summary Synchronizes the contents selection and reveals an explicitly routed heading.
+     * @param {Object} data
+     * @param {Object|null} data.record
+     * @param {Boolean} [data.scrollToHeading=true]
+     */
+    onRouteSection({record, scrollToHeading=true}) {
+        const {list} = this.getReference('page-sections-container');
+
+        if (record) {
+            list.selectionModel.select(record);
+
+            if (scrollToHeading) return list.onSelectionChange({record})
+        } else {
+            list.selectionModel.deselectAll()
         }
     }
 

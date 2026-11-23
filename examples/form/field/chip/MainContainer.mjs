@@ -1,21 +1,39 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ChipField             from '../../../../src/form/field/Chip.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import MainStore             from './MainStore.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import ChipField      from '../../../../src/form/field/Chip.mjs';
+import MainStore      from './MainStore.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.chip.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.chip.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.chip.MainContainer',
+        autoMount    : true,
+        componentName: 'Chip field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module         : ChipField,
+            displayField   : 'name',
+            labelPosition  : 'inline',
+            labelText      : 'US states',
+            placeholderText: 'Type a state',
+            store          : {module: MainStore},
+            valueField     : 'abbreviation',
+            width          : 300
+        },
+        states: {
+            filled  : {value: ['CA', 'NY']},
+            empty   : {},
+            invalid : {required: true},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -120,23 +138,6 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create({
-            module       : ChipField,
-            displayField : 'name',
-            labelPosition: 'inline',
-            labelText    : 'US States',
-            labelWidth   : 80,
-            value        : ['CA', 'NY'],
-            valueField   : 'abbreviation',
-            width        : 300,
-
-            store: {
-                module: MainStore
-            }
-        })
     }
 }
 

@@ -92,9 +92,7 @@ class Base extends CoreBase {
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
-        }).catch(error => {
-            console.log('RealWorld2.api.Base:get()', error);
-        });
+        }).catch(error => this.onRequestFailure(error, 'delete'));
     }
 
     /**
@@ -119,9 +117,7 @@ class Base extends CoreBase {
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
-        }).catch(error => {
-            console.log('RealWorld2.api.Base:get()', error);
-        });
+        }).catch(error => this.onRequestFailure(error, 'get'));
     }
 
     /**
@@ -138,6 +134,23 @@ class Base extends CoreBase {
 
         me.isReady = true;
         me.fire('ready', token);
+    }
+
+    /**
+     * @summary Hands a refused request whose body names `errors` back as its result, and logs any other failure.
+     * The API refuses a request with `{errors}` in its body, a 422 for an invalid form for example, and the views
+     * show `data.json.errors`. Any other failure resolves the request without a result.
+     * @param {Object} error The rejection of `Neo.Xhr.promiseJson()`
+     * @param {String} method The api method that sent the request
+     * @returns {Object|undefined} The refused response, when its body names `errors`
+     * @protected
+     */
+    onRequestFailure(error, method) {
+        if (error?.json?.errors) {
+            return error;
+        }
+
+        console.log(`RealWorld2.api.Base:${method}()`, error);
     }
 
     /**
@@ -165,9 +178,7 @@ class Base extends CoreBase {
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
-        }).catch(error => {
-            console.log('RealWorld2.api.Base:post()', error);
-        });
+        }).catch(error => this.onRequestFailure(error, 'post'));
     }
 
     /**
@@ -195,9 +206,7 @@ class Base extends CoreBase {
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
-        }).catch(error => {
-            console.log('RealWorld2.api.Base:put()', error);
-        });
+        }).catch(error => this.onRequestFailure(error, 'put'));
     }
 }
 

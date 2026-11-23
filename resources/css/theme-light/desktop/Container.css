@@ -1,0 +1,7 @@
+:where(.neo-theme-light) { /* .neo-desktop: dark ink on the light theme's greys under a faint light of its blue */
+    --desktop-color    : var(--neo-color, #000);
+    --desktop-wallpaper:
+        radial-gradient(1000px 700px at 15% 15%, rgba(28, 96, 160, .10), transparent 60%),
+        radial-gradient(900px 700px at 85% 90%, rgba(28, 96, 160, .06), transparent 60%),
+        linear-gradient(160deg, #f2f2f2 0%, #fafafa 50%, #ececec 100%);
+}

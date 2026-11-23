@@ -66,7 +66,7 @@ class DragProxyContainer extends BaseContainer {
         super.afterSetWindowId(value, oldValue);
 
         // We want to reuse the styling of the DragProxyComponent, since both use the same baseCls.
-        // Instead of duplicating the scss file, we are forcing the ThemeEngine to load the component file.
+        // Instead of duplicating the stylesheet, we are forcing the ThemeEngine to load the component file.
         if (value) {
             Neo.currentWorker.insertThemeFiles(value, DragProxyComponent.prototype)
         }

@@ -1,0 +1,199 @@
+[
+    {
+        "id": "board-basic",
+        "featured": true,
+        "image": "devmode/board-basic-14.jpg",
+        "hasLightCover": true,
+        "name": "Sprint Board",
+        "sourceUrl": "examples/board/basic",
+        "urls": {
+            "devmode": "examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/basic/index.html?theme=neo-theme-neo-dark"
+        },
+        "hiddenIn": [],
+        "family": "board",
+        "order": 90,
+        "alsoIn": ["drag-drop"],
+        "component": "Board",
+        "feature": "A kanban board and a table over one store of cards",
+        "lookFor": "Drag a card to another column, and the table below the board shows its new status.",
+        "keywords": [
+            "drag",
+            "drop",
+            "kanban",
+            "agile",
+            "cards",
+            "columns"
+        ]
+    },
+    {
+        "id": "board-swimlanes",
+        "image": "devmode/board-swimlanes-14.jpg",
+        "hasLightCover": true,
+        "name": "A board by team, in rows that collapse",
+        "sourceUrl": "examples/board/swimlanes",
+        "urls": {
+            "devmode": "examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/swimlanes/index.html?theme=neo-theme-neo-dark"
+        },
+        "hiddenIn": [],
+        "family": "board",
+        "order": 1030,
+        "component": "Board",
+        "feature": "One row per team over the same five columns, each with its card count",
+        "lookFor": "Collapse a team, then drag a card into another team's row: the card joins that team and both counts change.",
+        "keywords": [
+            "kanban",
+            "swimlanes",
+            "drag",
+            "agile"
+        ]
+    },
+    {
+        "id": "board-big-data",
+        "image": "devmode/board-big-data-14.jpg",
+        "hasLightCover": true,
+        "name": "A board of 10,000 cards",
+        "sourceUrl": "examples/board/bigData",
+        "urls": {
+            "devmode": "examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/bigData/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/bigData/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "order": 1190,
+        "component": "Board",
+        "feature": "10,000 seeded tickets in five columns, about 100 rendered per column",
+        "lookFor": "Scroll the first column to its end, then drag its last card into another column: the counts change and the DOM stays small."
+    },
+    {
+        "id": "board-wip-limits",
+        "image": "devmode/board-wip-limits-14.jpg",
+        "hasLightCover": true,
+        "name": "Work-in-progress limits",
+        "sourceUrl": "examples/board/wipLimits",
+        "urls": {
+            "devmode": "examples/board/wipLimits/index.html",
+            "dist_dev": "dist/development/examples/board/wipLimits/index.html",
+            "dist_esm": "dist/esm/examples/board/wipLimits/index.html",
+            "dist_prod": "dist/production/examples/board/wipLimits/index.html"
+        },
+        "family": "board",
+        "order": 1200,
+        "component": "Board",
+        "feature": "Columns with a limit: the header counts against it, and an overloaded stage stands out",
+        "lookFor": "The bench is over its limit of 3. Move a repair on to Testing: the bench recovers, and Testing goes over."
+    },
+    {
+        "id": "board-card-designs",
+        "image": "devmode/board-card-designs-14.jpg",
+        "hasLightCover": true,
+        "name": "Card designs",
+        "sourceUrl": "examples/board/cardDesigns",
+        "urls": {
+            "devmode": "examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "order": 1210,
+        "component": "Board",
+        "feature": "The same articles as compact, standard and detailed cards, built from five card items",
+        "lookFor": "Switch between the three designs: the cards re-draw in place and keep their columns."
+    },
+    {
+        "id": "board-card-editor",
+        "image": "devmode/board-card-editor-14.jpg",
+        "name": "Edit a card",
+        "sourceUrl": "examples/board/cardEditor",
+        "urls": {
+            "devmode": "examples/board/cardEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "order": 1220,
+        "component": "Board",
+        "feature": "A card's title edited in place, its stage, tags and owner in the card editor",
+        "lookFor": "Rename a candidate on the card itself. Open the card and move it to Interview from the editor: it changes column."
+    },
+    {
+        "id": "board-multi-select",
+        "image": "devmode/board-multi-select-14.jpg",
+        "name": "Select many, move once",
+        "sourceUrl": "examples/board/multiSelect",
+        "urls": {
+            "devmode": "examples/board/multiSelect/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "order": 1230,
+        "component": "Board",
+        "feature": "Cards selected by click, Shift and a modifier key, dragged together into another column",
+        "lookFor": "Click a report, Shift-click one further down, then drag the selection into This sprint. Both headers' counts follow."
+    },
+    {
+        "id": "board-columns",
+        "image": "devmode/board-columns-14.jpg",
+        "hasLightCover": true,
+        "name": "Arrange the columns",
+        "sourceUrl": "examples/board/columns",
+        "urls": {
+            "devmode": "examples/board/columns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/columns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/columns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/columns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "order": 1240,
+        "alsoIn": ["drag-drop"],
+        "component": "Board",
+        "feature": "Columns reordered by drag, folded to a strip, or locked in place",
+        "lookFor": "Drag Review in front of In work. Open the Archive strip. Try to move Delivered: it is locked."
+    },
+    {
+        "id": "board-sales-pipeline",
+        "image": "devmode/board-sales-pipeline-14.jpg",
+        "hasLightCover": true,
+        "name": "A sales pipeline",
+        "sourceUrl": "examples/board/salesPipeline",
+        "urls": {
+            "devmode": "examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Each sales stage totals the value of its deals",
+        "lookFor": "Advance Harbor Museum. Its $18,000 leaves Proposal and appears in Negotiation. Drag another deal, or reset the pipeline.",
+        "order": 1241
+    },
+    {
+        "id": "board-due-dates",
+        "image": "devmode/board-due-dates-14.jpg",
+        "hasLightCover": true,
+        "name": "Due dates and what is late",
+        "sourceUrl": "examples/board/dueDates",
+        "urls": {
+            "devmode": "examples/board/dueDates/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/board/dueDates/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/board/dueDates/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/board/dueDates/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "board",
+        "component": "Board",
+        "feature": "Twenty release deliverables carry deadlines relative to today, with overdue badges and a one-click late filter",
+        "lookFor": "Click ⋯ on any card to change its due date in the card editor, or press 'Late only' to narrow the four columns to overdue work.",
+        "order": 1242
+    }
+]

@@ -1,0 +1,142 @@
+/* Neo.timeline.TimeAxisHeader: two-tier horizontal time scale inside Neo.grid.header.Toolbar.
+   Renders only viewport-visible major and minor ticks positioned at their exact TimeAxis offsets.
+   `overflow: clip` instead of `hidden` keeps the scrolled toolbar the sticky labels' scroll container. */
+/* Draw the header seam inside the header items when a timeline column is present so `.neo-timeline-now` crosses it (#21679).
+   Every item draws it in the grid's border colour: it stands in for the one line grid/header/Toolbar.css draws elsewhere. */
+.neo-grid-header-wrapper:has(.neo-timeline-header) .neo-grid-header-toolbar {
+    border-bottom: 0;
+
+    .neo-grid-menu-wrapper {
+        align-self: stretch;
+    }
+
+    .neo-grid-header-button:not(.neo-timeline-header) {
+        /* Locked and scrollable toolbars share the row, even when the time axis is in another toolbar. */
+        align-self: stretch;
+        height    : auto;
+
+        &, &:hover {
+            border-bottom-color: var(--grid-container-border-color);
+        }
+    }
+}
+
+.neo-timeline-header.neo-grid-header-button {
+    background    : var(--neo-timeline-header-background);
+    border-bottom : 0;
+    /* The button's transparent left border would start every tick, band and the now line 1px right of the body */
+    border-left   : 0;
+    box-shadow    : inset 0 -1px var(--grid-container-border-color);
+    box-sizing    : border-box;
+    color         : var(--neo-timeline-header-color);
+    cursor        : default;
+    display       : flex;
+    flex-direction: column;
+    height        : var(--neo-timeline-header-height, 44px);
+    overflow      : clip;
+    padding       : 0;
+    position      : relative;
+    user-select   : none;
+
+    /* A first locked-end timeline keeps its left border: its cells open on that 1px seam (grid/Body.css), drawn here
+       in the color grid/header/Button.css gives it */
+    &.neo-locked-end:first-child {
+        border-left-style: solid;
+        border-left-width: 1px;
+    }
+
+    /* A scale, not a sortable column: the hover grid/header/Button.css gives every header button keeps the rest look */
+    &:hover {
+        background-color: var(--neo-timeline-header-background);
+        border-color    : transparent;
+        box-shadow      : inset 0 -1px var(--grid-container-border-color);
+
+        &:not(:last-child) {
+            border-right-color: var(--grid-header-button-border-right-color);
+        }
+
+        &.neo-locked-end:first-child {
+            border-left-color: var(--grid-header-button-border-right-color);
+        }
+
+        &:last-child::after {
+            background-color: var(--grid-header-button-border-right-color);
+        }
+    }
+
+    .neo-timeline-header-row {
+        box-sizing: border-box;
+        flex      : 1 1 50%;
+        overflow  : clip;
+        position  : relative;
+        width     : 100%;
+    }
+
+    .neo-timeline-header-major {
+        border-bottom: 1px solid var(--neo-timeline-border-color);
+        font-size    : 11px;
+        font-weight  : 600;
+    }
+
+    .neo-timeline-header-minor {
+        color    : var(--neo-timeline-header-muted-color);
+        font-size: 11px;
+    }
+
+    .neo-timeline-non-working {
+        background    : var(--neo-timeline-non-working-bg);
+        border-left   : 1px solid var(--neo-timeline-non-working-border);
+        border-right  : 1px solid var(--neo-timeline-non-working-border);
+        bottom        : 0;
+        box-sizing    : border-box;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+        z-index       : 0;
+    }
+
+    .neo-timeline-tick {
+        align-items  : center;
+        border-right : 1px solid var(--neo-timeline-tick-border-color);
+        bottom       : 0;
+        box-sizing   : border-box;
+        display      : flex;
+        overflow     : hidden;
+        padding      : 0 6px;
+        position     : absolute;
+        text-overflow: ellipsis;
+        top          : 0;
+        white-space  : nowrap;
+        z-index      : 1;
+    }
+
+    /* A day, week or month whose start is scrolled out keeps its name at the visible left edge, in either row.
+       An hour does not: a pinned `08:00` would mark 08:30 */
+    .neo-timeline-tick-major,
+    .neo-timeline-tick-minor:is([data-unit="day"], [data-unit="week"], [data-unit="month"]) {
+        overflow: clip;
+
+        .neo-timeline-tick-label {
+            left         : 0;
+            overflow     : hidden;
+            position     : sticky;
+            text-overflow: ellipsis;
+        }
+    }
+
+    .neo-timeline-tick-current {
+        color      : var(--neo-timeline-now-color);
+        font-weight: 600;
+    }
+
+    .neo-timeline-now {
+        background    : var(--neo-timeline-now-color);
+        bottom        : 0;
+        margin-left   : -1px;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+        width         : 2px;
+        z-index       : 2;
+    }
+}

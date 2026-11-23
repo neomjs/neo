@@ -8,10 +8,10 @@ import {
     ensureDevelopmentThemeAssets,
     inspectDevelopmentThemeAssets
 } from '../../../../../buildScripts/util/developmentThemeAssets.mjs';
-import webpackServerConfig, {
-    createDevelopmentThemeFreshnessHooks,
+import {
+    createDevelopmentThemeFreshness,
     DEVELOPMENT_THEME_RECHECK_INTERVAL_MS
-} from '../../../../../buildScripts/webpack/webpack.server.config.mjs';
+} from '../../../../../buildScripts/util/developmentThemeFreshness.mjs';
 
 /**
  * @summary Pins the ordinary E2E theme preflight across fresh, missing, stale, failed-build,
@@ -43,9 +43,9 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         writeFile(root, 'dist/development/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
-    function seedScss(root, mtimeMs=1000) {
-        writeFile(root, 'resources/scss/src/Global.scss', mtimeMs);
-        writeFile(root, 'resources/scss/theme-neo-dark/Global.scss', mtimeMs)
+    function seedSources(root, mtimeMs=1000) {
+        writeFile(root, 'resources/css/src/Global.css', mtimeMs);
+        writeFile(root, 'resources/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
     test.afterAll(() => {
@@ -56,7 +56,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
 
         const result = await ensureDevelopmentThemeAssets({
@@ -74,7 +74,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(root, 'resources/theme-map.json', 3000, JSON.stringify({
             Neo: {Global: ['src']} // fresh, parseable, non-empty — but theme-neo-dark is not reachable
@@ -104,8 +104,8 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root, 1000);
-        writeFile(root, 'resources/scss/src/button/Base.scss', 1000);
+        seedSources(root, 1000);
+        writeFile(root, 'resources/css/src/button/Base.css', 1000);
         materialize(root, 2000);
         writeFile(root, 'dist/development/css/src/button/Base.css', 2000);
 
@@ -131,10 +131,10 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         expect(builds).toBe(1)
     });
 
-    test('the SCSS source tree, not additive retired theme-map entries, owns the CSS census', () => {
+    test('the theme source tree, not additive retired theme-map entries, owns the CSS census', () => {
         const root = createRoot();
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(root, 'resources/theme-map.json', 2000, JSON.stringify({
             'Neo.apps.agentos.RetiredPanel': ['src', 'theme-neo-dark'],
@@ -159,7 +159,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
             const root   = createRoot();
             let   builds = 0;
 
-            seedScss(root, 1000);
+            seedSources(root, 1000);
             materialize(root, 2000);
             fs.rmSync(path.join(root, missingPath));
 
@@ -186,7 +186,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
             const root   = createRoot();
             let   builds = 0;
 
-            seedScss(root, 2000);
+            seedSources(root, 2000);
             materialize(root, 3000);
             fs.utimesSync(path.join(root, stalePath), 1, 1);
 
@@ -208,7 +208,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
     test('a failed builder aborts before browser startup and names the canonical recovery command', async () => {
         const root = createRoot();
 
-        seedScss(root);
+        seedSources(root);
 
         await expect(ensureDevelopmentThemeAssets({
             repoRoot: root,
@@ -221,7 +221,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         const root   = createRoot();
         let   builds = 0;
 
-        seedScss(root);
+        seedSources(root);
 
         await expect(ensureDevelopmentThemeAssets({
             repoRoot: root,
@@ -237,7 +237,7 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
               foreign    = createRoot(),
               linkedPath = path.join(root, 'dist/development/css/src/Global.css');
 
-        seedScss(root, 1000);
+        seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(foreign, 'Global.css', 3000);
         fs.rmSync(linkedPath);
@@ -254,43 +254,28 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
  * @summary Pins the development-server consumer: startup inspection, bounded request-time
  * revalidation, transition-based warning de-duplication, and fail-soft request handling.
  */
-test.describe('webpack development-theme freshness hooks (#15666)', () => {
-    test('the live config wires a 5s guard before static serving', () => {
-        const staticMiddleware = {name: 'express-static', middleware() {}};
-        const middlewares      = webpackServerConfig.devServer.setupMiddlewares([staticMiddleware]);
-
-        expect(DEVELOPMENT_THEME_RECHECK_INTERVAL_MS).toBe(5000);
-        expect(webpackServerConfig.devServer.static.map(entry => entry.watch)).toEqual([false, false]);
-        expect(typeof webpackServerConfig.devServer.onListening).toBe('function');
-        expect(middlewares[0].name).toBe('development-theme-freshness');
-        expect(middlewares[1]).toBe(staticMiddleware)
-    });
-
+test.describe('development-theme freshness check (#15666)', () => {
     test('startup + bounded CSS requests warn once per fresh-to-stale transition', () => {
         const
             readyStates = [false, false, true, false],
             warnings    = [];
 
         let inspections = 0,
-            nextCalls   = 0,
             now         = 0;
 
-        const hooks = createDevelopmentThemeFreshnessHooks({
+        const hooks = createDevelopmentThemeFreshness({
             inspect: () => ({ready: readyStates[inspections++]}),
             logger : {warn: message => warnings.push(message)},
             now    : () => now
         });
-        const middleware = hooks.setupMiddlewares([])[0].middleware;
+
+        expect(DEVELOPMENT_THEME_RECHECK_INTERVAL_MS).toBe(5000);
 
         hooks.onListening();
 
         const requestAt = time => {
             now = time;
-            middleware(
-                {url: '/dist/development/css/src/Global.css?theme=dark'},
-                {},
-                () => nextCalls++
-            )
+            hooks.onRequest('/dist/development/css/src/Global.css')
         };
 
         requestAt(4999);  // startup result is reused
@@ -300,7 +285,6 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
         requestAt(15000); // next fresh -> stale transition warns again
 
         expect(inspections).toBe(4);
-        expect(nextCalls).toBe(5);
         expect(warnings).toHaveLength(2);
         warnings.forEach(message => {
             expect(message).toContain(DEVELOPMENT_THEME_BUILD_COMMAND)
@@ -312,10 +296,9 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
 
         let inspections = 0,
             mode        = 'error',
-            nextCalls   = 0,
             now         = 0;
 
-        const hooks = createDevelopmentThemeFreshnessHooks({
+        const hooks = createDevelopmentThemeFreshness({
             inspect: () => {
                 inspections++;
                 if (mode === 'error') throw new Error('fixture inspection failed');
@@ -324,34 +307,27 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
             logger: {warn: message => warnings.push(message)},
             now   : () => now
         });
-        const middleware = hooks.setupMiddlewares([])[0].middleware;
 
         expect(() => hooks.onListening()).not.toThrow();
 
         now = 5000;
-        expect(() => middleware(
-            {url: '/dist/development/css/src/Global.css'},
-            {},
-            () => nextCalls++
-        )).not.toThrow();
+        expect(() => hooks.onRequest('/dist/development/css/src/Global.css')).not.toThrow();
 
         expect(inspections).toBe(2);
-        expect(nextCalls).toBe(1);
         expect(warnings).toHaveLength(1);
 
         mode = 'fresh';
         now  = 10000;
-        middleware({url: '/dist/development/css/src/Global.css'}, {}, () => nextCalls++);
+        hooks.onRequest('/dist/development/css/src/Global.css');
 
         mode = 'error';
         now  = 15000;
-        middleware({url: '/dist/development/css/src/Global.css'}, {}, () => nextCalls++);
+        hooks.onRequest('/dist/development/css/src/Global.css');
 
         now = 20000;
-        middleware({url: '/src/Neo.mjs'}, {}, () => nextCalls++);
+        hooks.onRequest('/src/Neo.mjs');
 
         expect(inspections).toBe(4); // the non-theme request never inspects
-        expect(nextCalls).toBe(4);
         expect(warnings).toHaveLength(2); // a successful check reset the error transition
         expect(warnings[0]).toContain('fixture inspection failed');
         expect(warnings[0]).toContain(DEVELOPMENT_THEME_BUILD_COMMAND)
@@ -361,7 +337,7 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
         // An app workspace: the engine sits in node_modules and its CSS ships prebuilt, so the recovery
         // command a warning prints would rebuild nothing the server serves
         const warnings = [],
-              hooks    = createDevelopmentThemeFreshnessHooks({
+              hooks    = createDevelopmentThemeFreshness({
                   buildsThemes: () => false,
                   inspect     : () => ({ready: false}),
                   logger      : {warn: message => warnings.push(message)},
@@ -377,31 +353,21 @@ test.describe('webpack development-theme freshness hooks (#15666)', () => {
               warningsAt = root => {
                   const warnings = [];
 
-                  createDevelopmentThemeFreshnessHooks({root, logger: {warn: message => warnings.push(message)}, now: () => 0}).onListening();
+                  createDevelopmentThemeFreshness({root, logger: {warn: message => warnings.push(message)}, now: () => 0}).onListening();
                   return warnings
               };
 
         try {
-            // A fresh scaffold: its resources/scss holds no buildable theme source
-            fs.mkdirSync(path.join(workspace, 'resources', 'scss'), {recursive: true});
+            // A fresh scaffold: its resources/css holds no buildable theme source
+            fs.mkdirSync(path.join(workspace, 'resources', 'css'), {recursive: true});
             expect(warningsAt(workspace), 'a workspace root builds no theme').toEqual([]);
 
             // The same root once it owns a theme source with nothing built from it
-            fs.mkdirSync(path.join(workspace, 'resources', 'scss', 'src'), {recursive: true});
-            fs.writeFileSync(path.join(workspace, 'resources', 'scss', 'src', 'Global.scss'), '');
+            fs.mkdirSync(path.join(workspace, 'resources', 'css', 'src'), {recursive: true});
+            fs.writeFileSync(path.join(workspace, 'resources', 'css', 'src', 'Global.css'), '');
             expect(warningsAt(workspace), 'a root with a theme source and no build warns').toHaveLength(1)
         } finally {
             fs.rmSync(workspace, {force: true, recursive: true})
         }
-    })
-});
-
-test.describe('webpack dev server release notes (#19166)', () => {
-    test('serves the engine release notes at their own path, without allowing dotfiles anywhere', () => {
-        const entries = webpackServerConfig.devServer.static;
-
-        expect(entries.map(entry => entry.publicPath)).toEqual([undefined, '/.github/RELEASE_NOTES']);
-        expect(entries[1].directory).toBe(path.resolve('.github/RELEASE_NOTES'));
-        expect(entries.filter(entry => entry.staticOptions)).toEqual([])
     })
 });

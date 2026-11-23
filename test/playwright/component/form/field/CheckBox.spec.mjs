@@ -171,13 +171,14 @@ test.describe('Neo.form.field.CheckBox', () => {
 
     test('the public form example places its group error without per-choice suppression flags', async ({page}) => {
         await page.goto('/apps/form/index.html');
-        await page.getByText('CheckBoxes', {exact: true}).click();
-        for (const fruit of ['Lemon', 'Orange']) {
-            await page.locator('.neo-checkboxfield').filter({hasText: fruit}).locator('label').click()
+        await page.getByText('Preferences', {exact: true}).click();
+        // the two topics checked by default: unchecking both leaves the required group empty
+        for (const topic of ['Data grids', 'Forms']) {
+            await page.locator('.neo-checkboxfield').filter({hasText: topic}).locator('label').click()
         }
-        const last = page.locator('.neo-checkboxfield').filter({hasText: 'Strawberry'});
+        const last = page.locator('.neo-checkboxfield').filter({hasText: 'Planning tools'});
         await expect(page.locator('.neo-error:visible')).toHaveCount(1);
-        await expect(last.locator('.neo-error')).toHaveText('Please check at least one item of the group: my.fruits[0].basket');
+        await expect(last.locator('.neo-error')).toHaveText('Please check at least one item of the group: topics');
         await page.screenshot({path: test.info().outputPath('form-checkbox-group.png')});
         await last.locator('label').click();
         await expect(page.locator('.neo-error:visible')).toHaveCount(0)

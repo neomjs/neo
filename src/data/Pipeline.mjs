@@ -1,6 +1,10 @@
 import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import InterceptorChain from './interceptor/Chain.mjs';
+import {generateUUID}  from '../util/UUID.mjs';
+
+// Built-in loader transport rejections retain the established cold-start retry budget.
+const retryableLoaderCall = Symbol('retryableLoaderCall');
 
 /**
  * @summary The central orchestrator for data transformation and remote execution.
@@ -111,6 +115,8 @@ class Pipeline extends Base {
         cacheTTL: 0,
         /**
          * The connection configuration or instance (e.g., Fetch, WebSocket, Rpc).
+         * For Data-worker execution, custom classes require className and a scoped .mjs modulePath;
+         * built-in Neo.data classes need only className. modulePath is consumed before stage construction.
          * @member {Object|Neo.data.connection.Base|null} connection_=null
          * @reactive
          */
@@ -141,12 +147,16 @@ class Pipeline extends Base {
         logTelemetry: false,
         /**
          * The normalizer configuration or instance.
+         * For Data-worker execution, custom classes require className and a scoped .mjs modulePath;
+         * built-in Neo.data classes need only className. modulePath is consumed before stage construction.
          * @member {Object|Neo.data.normalizer.Base|null} normalizer_=null
          * @reactive
          */
         normalizer_: null,
         /**
          * The parser configuration or instance.
+         * For Data-worker execution, custom classes require className and a scoped .mjs modulePath;
+         * built-in Neo.data classes need only className. modulePath is consumed before stage construction.
          * @member {Object|Neo.data.parser.Base|null} parser_=null
          * @reactive
          */
@@ -171,7 +181,9 @@ class Pipeline extends Base {
         store: null,
         /**
          * Emit one `telemetry` event per executed attempt, preserving all data results and events.
-         * Stage timestamps use the executing realm's performance clock. Bytes are measured only
+         * Stage timestamps use the executing realm's performance clock, and `worker` names that realm.
+         * With interceptors, `request`, `response` and `postParse` time their hook chains; a stream's
+         * `postParse` runs inside its parser stage and stays null. Bytes are measured only
          * for strings and binary values; arrays expose record counts, other sizes remain null.
          * Configure this at construction for Data-worker pushes. Request calls capture their choice
          * before awaiting remote setup, so a later flag change cannot change the result carrier.
@@ -207,6 +219,12 @@ class Pipeline extends Base {
     remoteConnectionPromise = null
     /** @member {Error|null} remoteInitializationError @protected */
     remoteInitializationError = null
+    /**
+     * Descriptor or preload failure, separate from retryable counterpart creation failures.
+     * @member {Error|null} remotePreloadError
+     * @protected
+     */
+    remotePreloadError = null
 
     /**
      * @summary Validates the cache lifetime before construction and retains the existing counterpart setup.
@@ -495,13 +513,20 @@ class Pipeline extends Base {
 
     /**
      * @summary Performs one shared counterpart attempt, retaining failures for configured callers.
+     * Validates every stage modulePath before any worker call. Custom stages use the scoped module
+     * loader; built-ins without modulePath retain the data loader. Loader metadata is removed from
+     * construction configs. A refused preload retains its class and reason in remotePreloadError,
+     * which remote operations reject before dispatching to an absent counterpart. Counterpart creation
+     * failures retain the existing read/execute transport retry budget.
      * @returns {Promise<void>}
      * @protected
      */
     async createRemoteExecution() {
-        const me = this;
+        const me         = this;
+        let   preloading = true;
         me.isRemoteConnecting = true;
         me.remoteInitializationError = null;
+        me.remotePreloadError = null;
 
         try {
             const remoteConfig = {
@@ -513,18 +538,40 @@ class Pipeline extends Base {
                 normalizer: me.serializeConfig(me._normalizer), parser: me.serializeConfig(me._parser),
                 telemetry : me.telemetry, workerExecution: 'app'
             };
-            // Pre-load required modules in the Data Worker using strictly scoped imports
-            const modulesToLoad = [];
+            // Admit every descriptor before starting any IPC, including otherwise valid earlier stages.
+            const stages = [];
+            for (const name of ['connection', 'normalizer', 'parser']) {
+                const config = remoteConfig[name];
+                if (!config) continue;
+                const {className, modulePath} = config;
+                if (modulePath !== undefined) {
+                    InterceptorChain.validateModulePath(modulePath, `${name} (${className}).modulePath`);
+                    if (typeof className !== 'string' || !className) {
+                        throw new TypeError(`${name}.modulePath requires a className`)
+                    }
+                }
+                if (className) {
+                    if (modulePath === undefined && (typeof className !== 'string' || !className.startsWith('Neo.data.'))) {
+                        throw new TypeError(`${className} requires modulePath for Data-worker execution`)
+                    }
+                    stages.push({className, modulePath})
+                }
+                delete config.modulePath
+            }
 
-            if (remoteConfig.connection?.className) {
-                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.connection.className}))
-            }
-            if (remoteConfig.normalizer?.className) {
-                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.normalizer.className}))
-            }
-            if (remoteConfig.parser?.className) {
-                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.parser.className}))
-            }
+            const modulesToLoad = stages.map(async ({className, modulePath}) => {
+                let result;
+                try {
+                    result = await (modulePath === undefined
+                        ? Neo.worker.Data.loadDataModule({className})
+                        : Neo.worker.Data.loadModule({path: modulePath, className}));
+                } catch (error) {
+                    const failure = new Error(`Failed to load ${className}: ${error?.message ?? error}`, {cause: error});
+                    if (modulePath === undefined) failure[retryableLoaderCall] = true;
+                    throw failure
+                }
+                if (!result?.success) throw new Error(`Failed to load ${className}: ${result?.error ?? 'No successful loader result'}`)
+            });
             if (remoteConfig.interceptors) {
                 modulesToLoad.push(Pipeline.preloadInterceptors(remoteConfig.interceptors))
             }
@@ -535,6 +582,7 @@ class Pipeline extends Base {
 
             if (me.isDestroyed) return;
 
+            preloading = false;
             const data = await Neo.worker.Data.createInstance({
                 config: remoteConfig,
                 path  : 'src/data/Pipeline.mjs'
@@ -553,7 +601,10 @@ class Pipeline extends Base {
                 console.error('Pipeline: Failed to create remote instance', data.error)
             }
         } catch (e) {
-            if (!me.isDestroyed) me.remoteInitializationError = e;
+            if (!me.isDestroyed) {
+                me.remoteInitializationError = e;
+                if (preloading && !e?.[retryableLoaderCall]) me.remotePreloadError = e
+            }
             console.error('Pipeline: IPC error during remote instantiation', e)
         } finally {
             if (!me.isDestroyed) me.isRemoteConnecting = false
@@ -608,7 +659,7 @@ class Pipeline extends Base {
             }
 
             if (me.isDestroyed) return null;
-            if (me.interceptors != null && !me.remoteId && me.remoteInitializationError) {
+            if (!me.remoteId && (me.remotePreloadError || me.interceptors != null && me.remoteInitializationError)) {
                 throw me.remoteInitializationError
             }
 
@@ -684,7 +735,7 @@ class Pipeline extends Base {
                     && me.interceptorChain === localChain
             };
             if (operation !== 'push') {
-                params = context.params = await me.intercept('request', params, context)
+                params = context.params = await me.measureStage(telemetry, 'request', () => me.intercept('request', params, context))
             }
             return await me.runPrepared(operation, params, method, telemetry, context)
         } catch (error) {
@@ -814,7 +865,7 @@ class Pipeline extends Base {
                     rawData = error;
                     rejected = true
                 }
-                rawData = await me.interceptResponse(rawData, rejected, context)
+                rawData = await me.measureStage(telemetry, 'response', () => me.interceptResponse(rawData, rejected, context))
             } else rawData = await me.measureStage(telemetry, 'connection', invoke)
         }
         if (telemetry) telemetry.rawSize = me.getTelemetrySize(rawData);
@@ -829,7 +880,9 @@ class Pipeline extends Base {
             shapedData = await me.measureStage(telemetry, 'parser', () => parser[parserMethod](shapedData,
                 context && streaming ? {transformChunk: chunk => me.intercept('postParse', chunk, context)} : undefined))
         }
-        if (context && !streaming) shapedData = await me.intercept('postParse', shapedData, context);
+        if (context && !streaming) {
+            shapedData = await me.measureStage(telemetry, 'postParse', () => me.intercept('postParse', shapedData, context))
+        }
         if (telemetry) telemetry.parsedSize = me.getTelemetrySize(shapedData);
         const {normalizer}     = me;
         const normalizerMethod = operation === 'execute' && typeof normalizer?.[method] === 'function' ? method
@@ -993,11 +1046,12 @@ class Pipeline extends Base {
     async profile({operation, params, method = operation}) {
         if (!['create', 'execute', 'read', 'update', 'push'].includes(operation)) throw new Error('Invalid Pipeline operation');
         const telemetry = {
-            id: crypto.randomUUID(), pipelineId: this.appPipelineId || this.id,
-            operation, status: 'fulfilled',
-            connectionStart: null, connectionEnd: null, parserStart: null, parserEnd: null,
-            normalizerStart: null, normalizerEnd: null,
-            rawSize        : {bytes: null, records: null}, parsedSize: {bytes: null, records: null}
+            id: generateUUID(), pipelineId: this.appPipelineId || this.id,
+            operation, status: 'fulfilled', worker: Neo.workerId ?? null,
+            requestStart  : null, requestEnd: null, connectionStart: null, connectionEnd: null,
+            responseStart : null, responseEnd: null, parserStart: null, parserEnd: null,
+            postParseStart: null, postParseEnd: null, normalizerStart: null, normalizerEnd: null,
+            rawSize       : {bytes: null, records: null}, parsedSize: {bytes: null, records: null}
         };
         try {
             return {result: await this.runLocal(operation, params, method, telemetry), telemetry}

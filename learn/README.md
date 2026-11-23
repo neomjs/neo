@@ -1,6 +1,6 @@
 # Neo.mjs Learning Base
 
-Neo.mjs is a complete application platform — 461 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot. It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and generations ahead of it in architecture, for desktop and mobile browsers.
+Neo.mjs is a complete application platform — 514 classes from grid to forms to calendar to dashboards — for every desktop and mobile web application, with a multi-threaded runtime that goes where single-threaded libraries cannot. It builds the applications teams build with [Angular, React or Vue](./comparisons/Overview.md) today, at [feature parity with Ext JS](./comparisons/NeoVsExtJs.md) and generations ahead of it in architecture, for desktop and mobile browsers.
 
 These Markdown documents power the interactive learning portal on [neomjs.com](https://neomjs.com/#/learn) (complete with live editable previews that can tear out into separate browser windows) and serve as the primary documentation corpus for the **Neo.mjs Knowledge Base MCP Server**.
 
@@ -26,17 +26,18 @@ If you are building any desktop or mobile web application — from everyday form
 1. **[Introduction](./benefits/Introduction.md)** & **[Architecture Overview](./benefits/ArchitectureOverview.md):** How the Off-Main-Thread worker topology, JSON blueprints, and the Neural Link fit together.
 2. **[Getting Started](./gettingstarted/Workspaces.md):** Create your first workspace (`npx neo-app`), run unbundled ES modules in `dev` mode, and inspect how components mount across workers.
 3. **[Guides](./guides/fundamentals/CodebaseOverview.md):**
-   - **Fundamentals & Core Engine:** Class system (`Neo.setupClass`), reactive config descriptors (`beforeSet*` / `afterSet*`), and component lifecycle across all `461` platform classes.
+   - **Fundamentals & Core Engine:** Class system (`Neo.setupClass`), reactive config descriptors (`beforeSet*` / `afterSet*`), and component lifecycle across all `514` platform classes.
    - **Data Handling, Forms & Grids:** `Neo.data.Store`, `Neo.data.Model`, hierarchical `state.Provider`, the `26`-field [Forms Engine](./benefits/body/FormsEngine.md), and buffered `Neo.grid.Container` rendering.
-   - **UI Building Blocks, Addons & Multi-Window Docking:** The `42`-class dock-layout and cross-window tear-out shelf (`DockContainer`, `DockZone`, `Workspace`, `Perspectives`), `8` layouts, and `38` main-thread addons.
+   - **UI Building Blocks, Addons & Multi-Window Docking:** The `42`-class dock-layout and cross-window tear-out shelf (`DockContainer`, `DockZone`, `Workspace`, `Perspectives`), `8` layouts, and `40` main-thread addons.
 4. **[Tutorials](./tutorials/DockLayoutsFirstLayout.md):** Step-by-step application walkthroughs with runnable live-preview examples.
 
 ### 2. Evaluating Neo.mjs Against Frameworks or Ext JS (Evaluator & Architect Path)
 If you are evaluating Neo.mjs for desktop or mobile web applications, migrating from Ext JS, or replacing a fragmented React, Angular, or Vue stack:
-1. **[Introduction (Claims & Proof Register)](./benefits/Introduction.md):** Every architectural claim paired with its source coordinate, test suite, or reproducible benchmark receipt.
-2. **[Body Benefits](./benefits/body/OffTheMainThread.md):** Off-main-thread execution, [Multi-Window SharedWorker state](./benefits/body/MultiWindow.md), [Object Permanence](./benefits/body/ObjectPermanence.md), [Four Environments](./benefits/body/FourEnvironments.md) (zero-build ESM development through bundled production), and the [RPC Layer](./benefits/body/RPCLayer.md).
-3. **[Engine vs Frameworks](./comparisons/Overview.md):** Architectural comparisons against React, Angular, Vue, Solid, Svelte, and [Sencha Ext JS](./comparisons/NeoVsExtJs.md).
-4. **[Testing Guides](./guides/testing/WhiteboxE2E.md):** Deterministic unit and whitebox E2E verification with Playwright and the Neural Link fixture.
+1. **[Enterprise Evaluation](./benefits/EnterpriseEvaluation.md):** The questions an architecture review asks before adopting the engine (licence, supply chain, maintainers, upgrades, browsers, security, accessibility), each answered with a command or a public record, and a one-week evaluation plan.
+2. **[Introduction (Claims & Proof Register)](./benefits/Introduction.md):** Every architectural claim paired with its source coordinate, test suite, or reproducible benchmark receipt.
+3. **[Body Benefits](./benefits/body/OffTheMainThread.md):** Off-main-thread execution, [Multi-Window SharedWorker state](./benefits/body/MultiWindow.md), [Object Permanence](./benefits/body/ObjectPermanence.md), [Four Environments](./benefits/body/FourEnvironments.md) (zero-build ESM development through bundled production), and the [RPC Layer](./benefits/body/RPCLayer.md).
+4. **[Engine vs Frameworks](./comparisons/Overview.md):** Architectural comparisons against React, Angular, Vue, Solid, Svelte, and [Sencha Ext JS](./comparisons/NeoVsExtJs.md).
+5. **[Testing Guides](./guides/testing/WhiteboxE2E.md):** Deterministic unit and whitebox E2E verification with Playwright and the Neural Link fixture.
 
 ### 3. Running or Integrating Coding Agents (Agent Operator Path)
 If you are connecting coding agents (Claude Code, Codex, Gemini / Antigravity) to a Neo.mjs app or operating an agent team:

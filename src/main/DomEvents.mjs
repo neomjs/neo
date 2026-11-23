@@ -139,6 +139,11 @@ class DomEvents extends Base {
      * @member {Object|null} #fontEvents=null
      */
     #fontEvents = null
+    /**
+     * The route the App worker last received, in `'pathname'` mode
+     * @member {String|null} #lastRoute=null
+     */
+    #lastRoute = null
 
     /**
      * @summary Registers main-thread DOM and native font events.
@@ -160,6 +165,14 @@ class DomEvents extends Base {
         if (Neo.config.useSharedWorkers) {
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
             window.addEventListener('pagehide',     me.onPageHide    .bind(me))
+        }
+
+        // The History API fires no hashchange: Back and Forward report a 'pathname' route as popstate. A #/… URL
+        // from hash mode becomes its path before any worker reads the route.
+        if (Neo.config.routerMode === 'pathname') {
+            window.addEventListener('popstate', me.sendRoute.bind(me));
+            me.upgradeHashRoute(true);
+            me.#lastRoute = me.getRoute()
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -250,10 +263,17 @@ class DomEvents extends Base {
     }
 
     /**
-     * Local domEvent listener
+     * @summary Forwards local DOM events to the App Worker unless an active `Clipboard` addon registration owns the gesture.
      * @param {Event} event
      */
     domEventListener(event) {
+        if (
+            (event.type === 'copy' || event.type === 'cut' || event.type === 'paste') &&
+            Neo.main.addon?.Clipboard?.claimsEvent?.(event)
+        ) {
+            return
+        }
+
         let me       = this,
             {target} = event,
 
@@ -363,11 +383,14 @@ class DomEvents extends Base {
     }
 
     /**
-     * @param {MouseEvent} event
+     * `pointerType` names the pointer behind a `PointerEvent` (`'mouse'`, `'pen'` or `'touch'`), as a click is in
+     * current Chromium. A `MouseEvent` (a dblclick, a mousedown, a click in a browser that dispatches one) leaves it
+     * `undefined`: no signal, which a consumer answers from the device (`Neo.config.hasTouchEvents`), never as a mouse.
+     * @param {MouseEvent|PointerEvent} event
      * @returns {Object}
      */
     getMouseEventData(event) {
-        let {altKey, button, buttons, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
+        let {altKey, button, buttons, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, pointerType, screenX, screenY, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
@@ -383,6 +406,7 @@ class DomEvents extends Base {
             offsetY,
             pageX,
             pageY,
+            pointerType,
             screenX,
             screenY,
             shiftKey
@@ -406,6 +430,39 @@ class DomEvents extends Base {
         }
 
         return path
+    }
+
+    /**
+     * @summary The current route: the hash in `'hash'` mode. In `'pathname'` mode, the path after
+     * `Neo.config.routerBasePath`. The page's search stays out of the route in both modes, so a campaign query
+     * leaves a controller's route match alone.
+     * @returns {String} '' without a route
+     */
+    getRoute() {
+        let {routerBasePath, routerMode} = Neo.config,
+            {hash, pathname}             = location,
+            path;
+
+        if (routerMode !== 'pathname') {
+            return hash.substring(1)
+        }
+
+        path = pathname === routerBasePath || pathname.startsWith(routerBasePath + '/') ?
+            pathname.substring(routerBasePath.length) :
+            pathname;
+
+        return path && path !== '/' ? path : ''
+    }
+
+    /**
+     * @summary The current route in the shape a worker receives as `Neo.config.hash`.
+     * @param {Number} windowId
+     * @returns {Object|null} null without a route
+     */
+    getRouteConfig(windowId) {
+        let hashString = this.getRoute();
+
+        return hashString ? {hash: this.parseHash(hashString), hashString, windowId} : null
     }
 
     /**
@@ -639,21 +696,17 @@ class DomEvents extends Base {
     }
 
     /**
-     *
+     * @summary Forwards a hash change to the App worker. In `'pathname'` mode only a `#/…` link is a route: it moves
+     * into the path first, replacing the entry the link pushed. Any other fragment is an in-page anchor.
      */
     onHashChange() {
-        let {Manager}  = Neo.worker,
-            hashString = location.hash.substring(1);
+        let me = this;
 
-        Manager.sendMessage('app', {
-            action: 'hashChange',
-            data  : {
-                appNames: Manager.appNames,
-                hash    : this.parseHash(hashString),
-                hashString,
-                windowId: Manager.windowId
-            }
-        })
+        if (Neo.config.routerMode === 'pathname' && !me.upgradeHashRoute()) {
+            return
+        }
+
+        me.sendRoute()
     }
 
     /**
@@ -686,7 +739,10 @@ class DomEvents extends Base {
 
             // A key the App Worker handles for this exact node: it still gets the event, only the default is gone.
             // The worker cannot cancel a default after the fact, so it registers the node before the key arrives.
-            if (preventDefaultKeys[target.id]?.includes(event.key)) {
+            // When the target is `document.body`, callers register against `'document.body'` because body often has no id.
+            const preventId = target === document.body ? (target.id || 'document.body') : target.id;
+
+            if (preventDefaultKeys[preventId]?.includes(event.key)) {
                 event.preventDefault()
             }
 
@@ -998,7 +1054,7 @@ class DomEvents extends Base {
     }
 
     /**
-     * Example for Array values: "categories[]=test1&categories[]=test2"
+     * @summary Parses `&`-delimited hash tokens into typed values and `key[]` arrays, skipping malformed URI entries.
      * @param {String} str
      * @returns {Object}
      */
@@ -1009,20 +1065,33 @@ class DomEvents extends Base {
 
         let pieces = str.split('&'),
             data   = {},
-            i, key, parts, value;
+            eqIndex, i, key, value;
 
         for (i = 0; i < pieces.length; i++) {
-            parts = pieces[i].split('=');
+            eqIndex = pieces[i].indexOf('=');
 
-            if (parts.length < 2) {
-                parts.push('')
+            try {
+                if (eqIndex === -1) {
+                    key   = decodeURIComponent(pieces[i]);
+                    value = ''
+                } else {
+                    key   = decodeURIComponent(pieces[i].slice(0, eqIndex));
+                    value = decodeURIComponent(pieces[i].slice(eqIndex + 1))
+                }
+            } catch {
+                continue
             }
 
-            key   = decodeURIComponent(parts[0]);
-            value = decodeURIComponent(parts[1]);
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                continue
+            }
 
             if (key.indexOf('[]') !== -1) {
                 key = key.substring(0, key.indexOf('[]'));
+
+                if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                    continue
+                }
 
                 if (typeof data[key] === 'undefined') {
                     data[key] = [];
@@ -1117,6 +1186,68 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Sends the current route to the App worker. In `'pathname'` mode an unchanged route is not sent:
+     * following an in-page anchor pops a history entry of the same path.
+     */
+    sendRoute() {
+        let me         = this,
+            {Manager}  = Neo.worker,
+            hashString = me.getRoute();
+
+        if (Neo.config.routerMode === 'pathname') {
+            if (hashString === me.#lastRoute) {
+                return
+            }
+
+            me.#lastRoute = hashString
+        }
+
+        Manager.sendMessage('app', {
+            action: 'hashChange',
+            data  : {
+                appNames: Manager.appNames,
+                hash    : me.parseHash(hashString),
+                hashString,
+                windowId: Manager.windowId
+            }
+        })
+    }
+
+    /**
+     * @summary Moves the route. `'hash'` mode assigns or replaces the hash; `'pathname'` mode pushes or replaces the path.
+     * @param {String} route
+     * @param {Boolean} [replace=false]
+     */
+    setRoute(route, replace=false) {
+        let me = this;
+
+        if (Neo.config.routerMode !== 'pathname') {
+            if (replace) {
+                const
+                    cleanHash = route ? `#${route.replace(/^#/, '')}` : '',
+                    nextUrl   = `${location.pathname}${location.search}${cleanHash}`;
+
+                if (`${location.pathname}${location.search}${location.hash}` !== nextUrl) {
+                    history.replaceState(history.state, '', nextUrl);
+                    me.sendRoute()
+                }
+                return
+            }
+
+            location.hash = route;
+            return
+        }
+
+        // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
+        route = '/' + route.replace(/^\/+/, '');
+
+        if (route !== (me.getRoute() || '/') + (route.includes('?') ? location.search : '')) {
+            history[replace ? 'replaceState' : 'pushState'](replace ? history.state : null, '', Neo.config.routerBasePath + route);
+            me.sendRoute()
+        }
+    }
+
+    /**
      * hello <foo>world thorsten! 3 < 4 and 5 > 3
      * @param {String} value
      * @returns {String}
@@ -1170,6 +1301,28 @@ class DomEvents extends Base {
      */
     unregisterPreventDefaultKeys(data) {
         delete preventDefaultKeys[data.id]
+    }
+
+    /**
+     * @summary In `'pathname'` mode, moves a `#/…` route (a hash-mode link or bookmark) into the path, replacing the
+     * current history entry. The URL is composed in order: the route's path, its query and the page's search, then
+     * the route's own anchor (`#/learn/Intro#section`) as the fragment.
+     * @param {Boolean} [keepSearch=false] true keeps the page's search, as a bookmark from hash mode carries it;
+     * a link names a whole route
+     * @returns {Boolean} true if the hash was a route
+     */
+    upgradeHashRoute(keepSearch=false) {
+        let {hash, search} = location,
+            [, route, query = '', anchor = ''] = hash.match(/^#(\/[^?#]*)(?:\?([^#]*))?(#.*)?$/) || [];
+
+        if (Neo.config.routerMode !== 'pathname' || !route) {
+            return false
+        }
+
+        query = [query, keepSearch ? search.substring(1) : ''].filter(Boolean).join('&');
+
+        history.replaceState(history.state, '', Neo.config.routerBasePath + route + (query && `?${query}`) + anchor);
+        return true
     }
 }
 

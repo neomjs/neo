@@ -53,7 +53,7 @@ test.describe('table header resize', () => {
     test('a header drag widens and narrows its column, the body follows, and nothing sorts', async ({page}) => {
         await page.goto('/examples/table/container/index.html');
 
-        const header = await pinHeader(page, 'Firstname'),
+        const header = await pinHeader(page, 'Specification'),
               column = await header.evaluate(th => th.cellIndex),
               cell   = page.locator(`tbody tr:first-child td:nth-child(${column + 1})`),
               gap    = async () => Math.abs(await widthOf(cell) - await widthOf(header));
@@ -72,18 +72,21 @@ test.describe('table header resize', () => {
         await expect.poll(gap).toBeLessThan(2);
 
         await expect(header).not.toHaveAttribute('aria-sort');
-        await expect(page.locator('tbody tr:first-child td').first()).toHaveText('Tobias')
+        await expect(page.locator('tbody tr:first-child td').first()).toHaveText('Dedicated compute')
     });
 
     test('header drag-reorder still works after a resize', async ({page}) => {
         await page.goto('/examples/table/container/index.html');
 
-        const first = await pinHeader(page, 'Firstname'),
+        const first = await pinHeader(page, 'Specification'),
               order = () => page.locator('thead th').allTextContents();
 
-        await resizeBy(page, first, 60);
+        const before = await resizeBy(page, first, 60);
 
-        const source = await pinHeader(page, 'Lastname'),
+        await expect.poll(() => widthOf(first)).toBeGreaterThan(before + 40);
+        await expect(page.locator('.neo-table-header-toolbar')).not.toHaveClass(/neo-is-resizing/);
+
+        const source = await pinHeader(page, 'Area'),
               sb     = await source.boundingBox(),
               fb     = await first.boundingBox(),
               y      = sb.y + sb.height / 2;
@@ -94,7 +97,7 @@ test.describe('table header resize', () => {
         await page.mouse.move(fb.x + 10, y, {steps: 12});
         await page.mouse.up();
 
-        await expect.poll(async () => (await order())[0].trim()).toBe('Lastname')
+        await expect.poll(async () => (await order())[0].trim()).toBe('Area')
     });
 
     test('resizing a left-docked column moves the next docked column in header and body', async ({page}) => {

@@ -44,6 +44,8 @@ class BooleanContainer extends Container {
      * @param {Boolean|null} oldValue
      */
     afterSetValue(value, oldValue) {
+        this.projectValue(value);
+
         if (oldValue !== undefined) {
             this.fire('change', {
                 component: this,
@@ -88,6 +90,25 @@ class BooleanContainer extends Container {
         }];
 
         super.createItems()
+    }
+
+    /**
+     * @summary Checks the radio standing for the container's value without echoing a radio change. A value set in
+     * code (a reset, or `plugin.HeaderFilter#syncField`) shows like a click; the group unchecks the other radios.
+     * @param {Boolean|null} value
+     */
+    projectValue(value) {
+        const radio = this.items?.find(item => item?.isConstructed && item.fieldValue === value);
+
+        if (radio) {
+            const suspended = radio.suspendEvents;
+            radio.suspendEvents = true;
+            try {
+                radio.checked = true
+            } finally {
+                radio.suspendEvents = suspended
+            }
+        }
     }
 
     /**

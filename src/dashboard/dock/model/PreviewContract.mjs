@@ -60,17 +60,25 @@ class PreviewContract extends Base {
     /** @member {Set<String>} TAB_KINDS */
     TAB_KINDS = new Set(['tab-before', 'tab-after', 'tab-into']);
 
+    /**
+     * A drop into an edge-zone's free center: `target.nodeId` names the edge-zone and
+     * `placement.tabsNodeId` the tabs node the drop builds there.
+     * @member {Set<String>} ZONE_KINDS
+     */
+    ZONE_KINDS = new Set(['zone-center']);
+
     /** Every candidate `placement.kind`, including `rejected`. @member {Set<String>} VALID_PLACEMENT_KINDS */
-    VALID_PLACEMENT_KINDS = new Set([...this.EDGE_KINDS, ...this.SPLIT_KINDS, ...this.TAB_KINDS, 'rejected']);
+    VALID_PLACEMENT_KINDS = new Set([...this.EDGE_KINDS, ...this.SPLIT_KINDS, ...this.TAB_KINDS, ...this.ZONE_KINDS, 'rejected']);
 
     /**
      * @summary Structural validity gate for a dockPreview object (fail-closed).
      *
      * Returns true only for a well-formed `neo.dock.preview.v1` payload that carries a stable
      * `itemId`, a `target.nodeId`, a known `placement.kind`, an accept/reject `feedback.state`, and (for
-     * split placements) a valid `placement.orientation`. A whole-stack gesture may additionally carry
-     * a runtime-only `groupNodeId`; when present it must be a non-empty string. Anything malformed,
-     * partial or unknown returns false so consumers clear/fail rather than guess.
+     * split placements) a valid `placement.orientation`, (for a zone placement) a `placement.tabsNodeId`.
+     * A whole-stack gesture may additionally carry a runtime-only `groupNodeId`; when present it must be
+     * a non-empty string. Anything malformed, partial or unknown returns false so consumers clear/fail
+     * rather than guess.
      * @param {Object|null} preview
      * @returns {Boolean}
      */
@@ -90,6 +98,11 @@ class PreviewContract extends Base {
         // Split placements MUST carry an orientation (contract: required for split previews).
         if (this.SPLIT_KINDS.has(placement.kind) &&
             placement.orientation !== 'horizontal' && placement.orientation !== 'vertical') {
+            return false
+        }
+
+        // A zone placement builds a tabs node, so it names one
+        if (this.ZONE_KINDS.has(placement.kind) && (typeof placement.tabsNodeId !== 'string' || !placement.tabsNodeId)) {
             return false
         }
 
@@ -238,9 +251,11 @@ class PreviewContract extends Base {
      *
      * The one authored path from a hover preview to a `model.Operations` operation. Invalid previews,
      * `rejected` placements, and non-accepted feedback all yield null (no commit). Item previews emit
-     * `addTab` / `splitNode` as before. A preview carrying `groupNodeId` instead emits one
+     * `addTab` / `splitNode` as before, and `zone-center` emits `restoreTab`, which builds its tabs node in
+     * the edge-zone's free center. A preview carrying `groupNodeId` instead emits one
      * `transferNode` descriptor whose nested target uses the same tab/split placement grammar — the
-     * preview remains the single placement authority for both item and whole-stack drops.
+     * preview remains the single placement authority for both item and whole-stack drops. No operation
+     * places a whole stack into a free center, so a group's zone placement yields null.
      * @param {Object|null} preview
      * @returns {Object|null}
      */
@@ -253,6 +268,10 @@ class PreviewContract extends Base {
         if (kind === 'rejected' || feedback.state !== 'accepted') return null;
 
         let nodeId = target.nodeId;
+
+        if (this.ZONE_KINDS.has(kind)) {
+            return groupNodeId ? null : {operation: 'restoreTab', itemId, tabsNodeId: placement.tabsNodeId, home: {parentId: nodeId, slot: 'center'}, rebuild: true}
+        }
 
         if (groupNodeId) {
             let nodePlacement;

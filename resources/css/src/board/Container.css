@@ -1,0 +1,45 @@
+/* Neo.board.Container: a row of columns over one store. Surfaces and sizes come from the board tokens the themes
+   set (theme-neo-dark / theme-neo-light → board/Container.css), so an app palette mapped onto those
+   tokens carries the whole board. */
+.neo-board {
+    background : var(--neo-board-background);
+    box-sizing : border-box;
+    color      : var(--neo-board-color);
+    flex       : 1;
+    font-family: var(--neo-board-font-family);
+    font-size  : var(--neo-board-font-size);
+    gap        : var(--neo-board-gap);
+    height     : 100%;
+    min-height : 0;
+    overflow-x : auto;
+    overflow-y : hidden;
+    padding    : var(--neo-board-padding);
+    position   : relative;
+
+    /* One track as wide as the widest lane (and at least the board): every lane, open, narrowed by its own collapsed
+       columns or folded, spans the scroll range, so its sticky header label stays in view */
+    &.neo-board-lanes {
+        align-content        : start;
+        grid-template-columns: minmax(max-content, 1fr);
+        overflow-y           : auto;
+    }
+
+    .neo-board-live-region {
+        border     : 0;
+        clip       : rect(0 0 0 0);
+        clip-path  : inset(50%);
+        height     : 1px;
+        margin     : -1px;
+        overflow   : hidden;
+        padding    : 0;
+        position   : absolute;
+        white-space: nowrap;
+        width      : 1px;
+    }
+
+    &.neo-dragproxy {
+        background: transparent;
+        overflow  : visible;
+        padding   : 0;
+    }
+}

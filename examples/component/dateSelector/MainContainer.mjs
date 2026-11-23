@@ -186,11 +186,13 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.DateSelector` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create(DateSelector, {
+        return {
+            module: DateSelector,
             height: 300,
             width : 300
-        })
+        }
     }
 
     onMonthRadioChange(value, opts) {

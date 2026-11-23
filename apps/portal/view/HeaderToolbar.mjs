@@ -1,6 +1,7 @@
 import BaseHeaderToolbar from '../../../src/app/header/Toolbar.mjs';
 
 /**
+ * @summary Portal top navigation bar keeping the logo, four section links, and Theme/GitHub/Discord actions on one 58px row across desktop and phone viewports.
  * @class Portal.view.HeaderToolbar
  * @extends Neo.app.header.Toolbar
  */
@@ -20,12 +21,13 @@ class HeaderToolbar extends BaseHeaderToolbar {
          * @member {Object[]} items
          */
         items: [{
-            cls     : ['logo'],
-            iconCls : 'neo-logo-blue',
-            minWidth: 60,
+            ariaLabel: 'Neo.mjs Home',
+            // Keep `x-small` (`Viewport#getSize` <= 640px) aligned with `@media (max-width: 640px)` in HeaderToolbar.css
+            bind     : {text: data => data.size === 'x-small' ? null : 'Neo.mjs'},
+            cls      : ['logo'],
+            iconCls  : 'neo-logo-blue',
             reference: 'home-button',
-            route   : '/home',
-            text    : 'Neo.mjs'
+            route    : '/'
         }, '->', {
             reference: 'learn-button',
             text     : 'Learn',
@@ -44,6 +46,7 @@ class HeaderToolbar extends BaseHeaderToolbar {
             route    : '/services',
             text     : 'Connect'
         }, {
+            cls      : ['portal-header-actions'],
             ntype    : 'container',
             layout   : 'hbox',
             reference: 'header-social-icons',
@@ -55,29 +58,31 @@ class HeaderToolbar extends BaseHeaderToolbar {
             },
 
             items: [{
-                handler: 'onSwitchTheme',
-                iconCls: 'fa-solid fa-moon',
+                ariaLabel: 'Switch Theme',
+                handler  : 'onSwitchTheme',
+                iconCls  : 'fa-solid fa-moon',
                 reference: 'theme-switch-button',
-                tooltip: {
+                tooltip  : {
                     text     : 'Switch Theme',
-                    showDelay: 0,
-                    hideDelay: 0
+                    showDelay: 0
                 }
             }, {
-                iconCls: 'fa-brands fa-github',
-                url    : 'https://github.com/neomjs/neo',
-                tooltip: {
+                ariaLabel: 'GitHub',
+                iconCls  : 'fa-brands fa-github',
+                reference: 'github-header-button',
+                url      : 'https://github.com/neomjs/neo',
+                tooltip  : {
                     text     : 'GitHub',
-                    showDelay: 0,
-                    hideDelay: 0
+                    showDelay: 0
                 }
             }, {
-                iconCls: 'fa-brands fa-discord',
-                url    : 'https://discord.gg/6p8paPq',
-                tooltip: {
+                ariaLabel: 'Join Discord',
+                iconCls  : 'fa-brands fa-discord',
+                reference: 'discord-header-button',
+                url      : 'https://discord.gg/6p8paPq',
+                tooltip  : {
                     text     : 'Join Discord',
-                    showDelay: 0,
-                    hideDelay: 0
+                    showDelay: 0
                 }
             }]
         }]

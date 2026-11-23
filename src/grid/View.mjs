@@ -4,6 +4,7 @@ import NeoArray        from '../util/Array.mjs';
 import RowGeometry     from './RowGeometry.mjs';
 import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
+import ScrollPages     from './ScrollPages.mjs';
 import StringUtil      from '../util/String.mjs';
 import VNodeUtil       from '../util/VNode.mjs';
 
@@ -96,8 +97,26 @@ class View extends Base {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * The current scroll top position of the grid view
+         * The largest scroll extent in px the bodies and the vertical scrollbar take. A mounted view sets it to the
+         * browser's cap ({@link Neo.main.DomAccess#getMaxScrollHeight}) less 1%, because Gecko corrupts the layout
+         * values it reports close to its cap. Fixed rows past it scroll in pages, see {@link #pageOffset}.
+         * Content-sized rows stop at it.
+         * @member {Number} maxScrollHeight_=Infinity
+         * @reactive
+         */
+        maxScrollHeight_: Infinity,
+        /**
+         * True while fixed rows reach past {@link #maxScrollHeight} and scroll in pages, see {@link Neo.grid.ScrollPages}
+         * @member {Boolean} paged_=false
+         * @protected
+         * @reactive
+         */
+        paged_: false,
+        /**
+         * The current scroll top position of the grid view: the logical one, which counts every row, see
+         * {@link #pageOffset}
          * @member {Number} scrollTop_=0
+         * @reactive
          */
         scrollTop_: 0,
         /**
@@ -127,6 +146,18 @@ class View extends Base {
      * @member {Neo.grid.RowGeometry|null} rowGeometry=null
      */
     rowGeometry = null
+    /**
+     * The logical offset in px where the physical scroll range starts: 0 unless fixed rows scroll in pages, see
+     * {@link Neo.grid.ScrollPages}. A row renders at its logical offset minus this one, and the main thread's scroll
+     * offset plus this one is {@link #scrollTop}.
+     * @member {Number} pageOffset=0
+     */
+    pageOffset = 0
+    /**
+     * Splits the scroll range into pages once fixed rows reach past {@link #maxScrollHeight}
+     * @member {Neo.grid.ScrollPages|null} scrollPages=null
+     */
+    scrollPages = null
 
     /**
      * Content-sized rows: the padding and borders of a cell in px, per data field, as the last read found them. They
@@ -139,6 +170,11 @@ class View extends Base {
      * @member {Map|null} #heldHeights=null
      */
     #heldHeights = null
+    /**
+     * Content-sized rows: extra heights that arrived during a thumb drag, applied at its end
+     * @member {Map|null} #heldExtraHeights=null
+     */
+    #heldExtraHeights = null
     /**
      * Estimate refinement and font reset held alongside a thumb drag's height batch.
      * @member {Boolean} #heldEstimate=false
@@ -167,6 +203,17 @@ class View extends Base {
      * @member {Object[]} #pendingCorrections=[]
      */
     #pendingCorrections = []
+    /**
+     * The main thread's scroll offset after the last {@link #pageScroll}, its corrections included: a report that moves
+     * further than a viewport from it is a jump
+     * @member {Number} #physicalOffset=0
+     */
+    #physicalOffset = 0
+    /**
+     * Content-sized rows past {@link #maxScrollHeight}: true once their error is logged, until they fit again
+     * @member {Boolean} #refusedPages=false
+     */
+    #refusedPages = false
     /**
      * The scheduled {@link #measureRowHeights} pass, while it is pending
      * @member {Promise|null} #rowMeasure=null
@@ -230,6 +277,16 @@ class View extends Base {
      * @member {Promise|null} #aheadFlight=null
      */
     #aheadFlight = null
+    /**
+     * Bodies whose silent mutations were collected into the active View payload, cleared once {@link #afterVnodeSync} lands.
+     * @member {Set<Neo.grid.Body>|null} #inFlightSilentBodies=null
+     */
+    #inFlightSilentBodies = null
+    /**
+     * Bodies whose {@link Neo.grid.Body#hasSilentVdomChanges} latch {@link #syncBodies} claimed for the next payload collection.
+     * @member {Set<Neo.grid.Body>} #pendingSilentBodies
+     */
+    #pendingSilentBodies = new Set()
 
     /**
      * The active bodies in visual order (`bodyStart`, `body`, `bodyEnd`) — the render/event delegates
@@ -241,6 +298,15 @@ class View extends Base {
             container = me.gridContainer;
 
         return container ? [me.bodyStart, container.body, me.bodyEnd].filter(Boolean) : []
+    }
+
+    /**
+     * The one model when it selects cells, else `null`. A row asks it for every cell it renders.
+     * @returns {Neo.selection.grid.BaseModel|null}
+     */
+    get cellSelectionModel() {
+        let {selectionModel} = this;
+        return selectionModel?.selectsCells ? selectionModel : null
     }
 
     /**
@@ -280,12 +346,31 @@ class View extends Base {
      * @returns {String[]}
      */
     get selectedCells() {
-        let {selectionModel} = this;
-        return selectionModel?.selectsCells ? selectionModel.items : []
+        return this.cellSelectionModel?.items ?? []
     }
 
     /**
-     * The record ids the View's model holds selected — `[]` under a cell or column model, and under none.
+     * @summary The records of the rows the View's model holds selected, in the order of {@link #selectedRows}.
+     *
+     * Each row id resolves through the model's `getRowRecord()`. An id that resolves to no record is left out, so
+     * the array can be shorter than `selectedRows`. A new array on every read — `[]` under a cell or column model,
+     * and under none.
+     * @returns {Neo.data.Record[]}
+     */
+    get selectedRecords() {
+        let {rowSelectionModel} = this;
+
+        if (!rowSelectionModel) {
+            return []
+        }
+
+        return rowSelectionModel.selectedRows.map(id => rowSelectionModel.getRowRecord(id)).filter(Boolean)
+    }
+
+    /**
+     * The grid's row ids the View's model holds selected: the store's internal ids while `useInternalId` is `true`
+     * (the default), the record keys otherwise. Read {@link #selectedRecords} for the records themselves.
+     * `[]` under a cell or column model, and under none.
      * @returns {Number[]|String[]}
      */
     get selectedRows() {
@@ -302,11 +387,18 @@ class View extends Base {
     }
 
     /**
-     * Triggered after an update of this view landed in the DOM. Content-sized rows measure what it rendered.
+     * @summary Schedules a content-sized row measurement pass after this view, or a covering ancestor, renders into the DOM.
+     *
+     * Runs for both view-owned updates and structural ancestor updates (`updateDepth: -1`, e.g. `ariaWrapper`
+     * after a yielded sort) whose full-tree payload absorbs this view and its bodies without emitting `View`
+     * as a standalone root. Initial mount (`deltas === null`) is skipped.
+     * @param {Object[]|null} deltas
      * @protected
      */
-    afterExecuteVdomUpdate() {
-        this.rowGeometry && this.scheduleRowMeasure()
+    afterVnodeSync(deltas) {
+        super.afterVnodeSync(deltas);
+        this.#inFlightSilentBodies = null;
+        deltas && this.rowGeometry && this.scheduleRowMeasure()
     }
 
     /**
@@ -367,25 +459,78 @@ class View extends Base {
     }
 
     /**
-     * Triggered after the isThumbDragging config got changed. The end of a drag applies the heights held during it.
+     * Triggered after the isThumbDragging config got changed. The end of a drag applies the heights and extra
+     * heights held during it.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetIsThumbDragging(value, oldValue) {
         let me       = this,
+            extras   = me.#heldExtraHeights,
             heights  = me.#heldHeights,
             estimate = me.#heldEstimate;
 
         if (!value) {
             me.#heldHeights = null;
+            me.#heldExtraHeights = null;
             me.#heldEstimate = false;
             if (me.#heldReset) {
                 me.#heldReset = false;
                 me.resetRowHeights()
             }
-            heights && me.setRowHeights(heights, estimate)
+            heights && me.setRowHeights(heights, estimate);
+            extras && me.setRowExtraHeights(extras);
             me.#fontRefresh?.heights.size && me.commitFontHeights()
+        }
+    }
+
+    /**
+     * Triggered after the maxScrollHeight config got changed. Hands the cap to the vertical scrollbar. A mounted view
+     * whose rows reach past it re-derives both scroll extents and its page.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMaxScrollHeight(value, oldValue) {
+        let me        = this,
+            scrollbar = me.gridContainer?.verticalScrollbar;
+
+        if (scrollbar) {
+            scrollbar.maxScrollHeight = value
+        }
+
+        if (oldValue !== undefined && me.mounted && me.gridContainer.body.getScrollExtent() > Math.min(value, oldValue)) {
+            me.bodies.forEach(body => body.updateScrollHeight(true));
+            scrollbar?.updateScrollHeight();
+            me.syncBodies(me.scrollTop)
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed. The first mount reads the browser's scroll extent cap.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        value && this.maxScrollHeight === Infinity && this.measureMaxScrollHeight()
+    }
+
+    /**
+     * Triggered after the paged config got changed. A page crossing is a scroll correction, which the
+     * `GridRowScrollPinning` main-thread addon applies, so a grid without row scroll pinning registers the addon while
+     * it pages.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetPaged(value, oldValue) {
+        let scrollManager = this.gridContainer?.scrollManager;
+
+        if (oldValue !== undefined && scrollManager?.mounted && !scrollManager.rowScrollPinning) {
+            scrollManager.updateRowScrollPinningAddon(value)
         }
     }
 
@@ -425,9 +570,11 @@ class View extends Base {
     /**
      * Registers the model the View's own configs created, once every config — `keys` and the
      * bodies included — is in place, and starts following the store for the selection field.
+     * Creates the {@link #scrollPages}.
      */
     onConstructed() {
         super.onConstructed();
+        this.scrollPages = Neo.create(ScrollPages);
         this.selectionModel?.register(this);
         this.bindStore(this.store, null);
         Neo.currentWorker.on('fontChange', this.onFontChange, this);
@@ -471,6 +618,7 @@ class View extends Base {
         // Heights held during a thumb drag are keyed by the records of the old store
         if (oldValue) {
             me.#heldHeights = null;
+            me.#heldExtraHeights = null;
             me.#heldEstimate = false;
             me.#heldReset = false
         }
@@ -536,8 +684,7 @@ class View extends Base {
     /**
      * Content-sized rows: moves the scroll offset by an anchor correction, which the next update hands to the main
      * thread. The scroll manager's offset moves along: it re-syncs the bodies once a scroll ends, and the offset
-     * from before the correction would render the rows of a place the main thread has already left. Until the main
-     * thread applies the correction, an offset it reports lacks the distance, see {@link #reconcileScrollTop}.
+     * from before the correction would render the rows of a place the main thread has already left.
      * @param {Number} correction The distance in px
      * @private
      */
@@ -545,12 +692,88 @@ class View extends Base {
         let me              = this,
             {scrollManager} = me.gridContainer;
 
-        me.#scrollCorrection += correction;
-        me.#scrollEpoch++;
-        me.#pendingCorrections.push({distance: correction, epoch: me.#scrollEpoch});
+        me.#queueCorrection(correction);
         me.scrollTop += correction;
 
         scrollManager && (scrollManager.scrollTop = me.scrollTop)
+    }
+
+    /**
+     * The distance in px of the corrections the main thread has not acknowledged yet, see {@link #reconcileScrollTop}
+     * @returns {Number}
+     * @private
+     */
+    #pendingDistance() {
+        return this.#pendingCorrections.reduce((sum, {distance}) => sum + distance, 0)
+    }
+
+    /**
+     * Picks the page for a logical scroll offset while fixed rows reach past {@link #maxScrollHeight}, and returns the
+     * logical offset to render, see {@link Neo.grid.ScrollPages}:
+     *
+     * - **A thumb drag** owns the physical offset. It picks its page in proportion, and the logical offset follows.
+     *   The main thread drops a correction that lands during the drag, so the page comes from the offset it reported.
+     * - **A jump to an end** of the physical range, a move of more than a viewport such as the browser's Home or End,
+     *   picks the first or the last page. A load returns to the top through {@link #scrollToOffset}.
+     * - **Any other scroll** keeps the logical offset, also one the browser stopped at an end of the physical range.
+     *   Crossing into another page moves the physical offset by the difference of the two page offsets, as a scroll
+     *   correction in the update that renders the moved rows.
+     *
+     * See {@link #updateScrollPages} for content-sized rows.
+     * @param {Number} scrollTop The logical offset: the main thread's offset plus the current {@link #pageOffset}
+     * @returns {Number}
+     * @private
+     */
+    #pageScroll(scrollTop) {
+        let me           = this,
+            {pageOffset} = me,
+            pages        = me.updateScrollPages(),
+            physical     = scrollTop - pageOffset,
+            jumped       = Math.abs(physical - me.#physicalOffset) > pages.viewHeight,
+            logical      = scrollTop,
+            offset, page;
+
+        if (!me.paged) {
+            me.pageOffset = 0;
+            logical       = physical
+        } else if (me.isThumbDragging) {
+            // The main thread drops corrections during a drag, so the offset it reported is where the thumb is
+            physical -= me.#pendingDistance();
+            page      = pages.thumbPageAt(physical)
+        } else if (jumped && physical <= 0) {
+            page = 0
+        } else if (jumped && physical >= pages.physicalExtent - pages.viewHeight) {
+            page = pages.pageCount - 1
+        } else {
+            offset = pages.offsetAt(pages.pageAt(scrollTop));
+
+            if (offset !== pageOffset) {
+                me.#queueCorrection(pageOffset - offset);
+                me.pageOffset = offset
+            }
+        }
+
+        if (page !== undefined) {
+            me.pageOffset = pages.offsetAt(page);
+            logical       = physical + me.pageOffset
+        }
+
+        me.#physicalOffset = logical - me.pageOffset;
+        return logical
+    }
+
+    /**
+     * Queues a move of the main thread's scroll offset, which the next update hands over as `scrollCorrection`. Until
+     * the main thread applies it, an offset it reports lacks the distance, see {@link #reconcileScrollTop}.
+     * @param {Number} distance The distance in px
+     * @private
+     */
+    #queueCorrection(distance) {
+        let me = this;
+
+        me.#scrollCorrection += distance;
+        me.#scrollEpoch++;
+        me.#pendingCorrections.push({distance, epoch: me.#scrollEpoch})
     }
 
     /**
@@ -621,6 +844,7 @@ class View extends Base {
         me.clearMeasureProjection();
         me.selectionModel?.destroy?.();
         me.rowGeometry?.destroy();
+        me.scrollPages?.destroy();
         super.destroy(...args)
     }
 
@@ -729,15 +953,67 @@ class View extends Base {
     }
 
     /**
-     * The scroll origin this update renders, for `GridRowScrollPinning`. In content-sized mode it also carries the
-     * scroll correction of moved anchor rows: once, with the update that renders the moved rows, so the main
-     * thread moves the scroll offset in the same task as the row transforms. When an ancestor's update absorbs
-     * this one, `Neo.mixin.VdomLifecycle` sends the meta along with that batch.
+     * @summary Restores {@link Neo.grid.Body#hasSilentVdomChanges} when a View flight fails before {@link #afterVnodeSync}.
+     * @override
+     */
+    async executeVdomUpdate() {
+        let me = this;
+
+        await super.executeVdomUpdate();
+
+        if (!me.isDestroyed && (me.#inFlightSilentBodies || (!me.isVdomUpdating && !me.needsVdomUpdate && me.#pendingSilentBodies.size > 0))) {
+            let unlanded = me.#inFlightSilentBodies;
+
+            me.#inFlightSilentBodies = null;
+
+            if ((me.isVdomUpdating || me.needsVdomUpdate) && (me.updateDepth === -1 || me.denseUpdate)) {
+                unlanded?.forEach(body => !body.isDestroyed && me.#pendingSilentBodies.add(body))
+            } else {
+                unlanded?.forEach(body => {
+                    if (!body.isDestroyed) {
+                        body.hasSilentVdomChanges = true
+                    }
+                });
+                me.#pendingSilentBodies.forEach(body => {
+                    if (!body.isDestroyed) {
+                        body.hasSilentVdomChanges = true
+                    }
+                });
+                me.#pendingSilentBodies.clear()
+            }
+        }
+    }
+
+    /**
+     * @summary Transfers {@link #pendingSilentBodies} into {@link #inFlightSilentBodies} when collecting a dense or full payload.
+     * @override
+     * @param {Set<String>|null} mergedChildIds
+     * @param {Number} [depth]
+     * @param {Set<String>|null} [boundaryIds=null]
+     * @returns {Object}
+     */
+    getVdomUpdatePayload(mergedChildIds, depth, boundaryIds=null) {
+        let me = this;
+
+        if (me.#pendingSilentBodies.size > 0 && ((depth ?? me.updateDepth) === -1 || me.denseUpdate)) {
+            me.#inFlightSilentBodies = new Set(me.#pendingSilentBodies);
+            me.#pendingSilentBodies.clear()
+        }
+
+        return super.getVdomUpdatePayload(mergedChildIds, depth, boundaryIds)
+    }
+
+    /**
+     * The scroll origin this update renders, for `GridRowScrollPinning`: the main thread's offset, which is the
+     * logical one less the {@link #pageOffset}. It also carries the scroll correction of moved anchor rows or of a
+     * page crossing: once, with the update that renders the moved rows, so the main thread moves the scroll offset in
+     * the same task as the row transforms. When an ancestor's update absorbs this one, `Neo.mixin.VdomLifecycle`
+     * sends the meta along with that batch.
      * @returns {Object}
      */
     getVdomUpdateMeta() {
         let me   = this,
-            meta = {scrollEpoch: me.#scrollEpoch, scrollTop: me.scrollTop};
+            meta = {scrollEpoch: me.#scrollEpoch, scrollTop: me.scrollTop - me.pageOffset};
 
         if (me.#scrollCorrection !== 0) {
             meta.scrollCorrection = me.#scrollCorrection;
@@ -918,7 +1194,7 @@ class View extends Base {
                 // The region's last column drops its right border, as in Row#createVdom: 1px of text width
                 let cellId = `${projector.id}__measure_${generation}_${index}_${columnIndex}`,
                     cell   = projector.applyRendererOutput({
-                        cache: {gridBody: body, gridContainer: me.gridContainer, store, selectedCells: [], measureOnly: true},
+                        cache: {gridBody: body, gridContainer: me.gridContainer, store, measureOnly: true},
                         cellId, column, columnIndex, isLastColumn: columnIndex === body.columnPositions.getCount() - 1,
                         record, rowIndex: index, silent: true
                     });
@@ -1114,11 +1390,11 @@ class View extends Base {
     }
 
     /**
-     * Content-sized rows: what a scroll offset the main thread reported means in this view's current geometry. A
+     * What a scroll offset the main thread reported means in this view's current geometry: the logical offset. A
      * scroll event carries the epoch of the last correction the main thread had applied, which
      * `Neo.main.addon.GridRowScrollPinning` stamps on the view node. An offset reported before later corrections
      * landed lacks their distances, and syncing the bodies to it would render the rows of a place the main thread
-     * is about to leave.
+     * is about to leave. The {@link #pageOffset} turns the corrected offset into the logical one.
      * @param {Number} scrollTop The reported offset
      * @param {Number|String} [epoch=0] The reported epoch, as the node's dataset holds it
      * @returns {Number}
@@ -1133,7 +1409,7 @@ class View extends Base {
             pending.shift()
         }
 
-        return pending.reduce((offset, {distance}) => offset + distance, scrollTop)
+        return scrollTop + this.#pendingDistance() + this.pageOffset
     }
 
     /**
@@ -1167,6 +1443,25 @@ class View extends Base {
             me.syncBodies(me.scrollTop, force);
             busy ? me.promiseUpdate().then(() => scrollbar?.updateScrollHeight()) : scrollbar?.updateScrollHeight()
         }
+    }
+
+    /**
+     * Reads the browser's scroll extent cap from the main thread of this view's window, see {@link #maxScrollHeight}.
+     * A view destroyed meanwhile drops the answer, and a closed window is no failure.
+     * @protected
+     */
+    measureMaxScrollHeight() {
+        let me         = this,
+            {windowId} = me;
+
+        Neo.main.DomAccess.getMaxScrollHeight({windowId})
+            .then(height => {
+                me.isDestroyed || (me.maxScrollHeight = Math.floor(height * 0.99))
+            })
+            .catch(reason => {
+                Neo.currentWorker?.isDeparture?.(reason, windowId) ||
+                    console.error('grid.View: reading the maximum scroll height failed', {id: me.id, reason, windowId})
+            })
     }
 
     /**
@@ -1233,6 +1528,34 @@ class View extends Base {
     }
 
     /**
+     * Scrolls to a logical offset, for keyboard navigation. Unpaged, the main thread scrolls there. Paged, the offset
+     * can lie on another page: the rows and the main thread's offset then move together, as a scroll correction in
+     * the update that renders the rows, see {@link #pageScroll}.
+     * @param {Number} scrollTop The logical offset in px
+     */
+    scrollToOffset(scrollTop) {
+        let me    = this,
+            pages = me.updateScrollPages(),
+            distance, offset;
+
+        if (!me.paged) {
+            Neo.main.DomAccess.scrollTo({id: me.id, value: scrollTop, windowId: me.windowId});
+            return
+        }
+
+        // A row near the end, top-aligned, asks for more than the range scrolls
+        scrollTop = Math.max(0, Math.min(scrollTop, pages.extent - pages.viewHeight));
+        offset    = pages.offsetAt(pages.pageAt(scrollTop));
+        distance  = scrollTop - offset - (me.scrollTop - me.pageOffset);
+
+        // Every body resets a loaded store to the top: only the first of them moves the offset
+        distance && me.#queueCorrection(distance);
+        me.pageOffset = offset;
+        me.gridContainer.scrollManager.scrollTop = scrollTop;
+        me.syncBodies(scrollTop)
+    }
+
+    /**
      * Content-sized rows: scrolls the row at `index` to an edge of the view, for keyboard navigation. The row stays at
      * that edge while the rows around it are measured, until another scroll, load or filter.
      * @param {Number} index
@@ -1249,6 +1572,30 @@ class View extends Base {
         me.#navigationTarget = target;
 
         Neo.main.DomAccess.scrollTo({id: me.id, value: target.scrollTop, windowId: me.windowId})
+    }
+
+    /**
+     * @summary Applies extra row heights in content-sized mode: room below a row's cells for something that is not
+     * a cell. Each one adds to its row's measured or estimated height, but never to the measured mean that refines the
+     * estimate of unseen rows. Like {@link #setRowHeights}, the row at the scroll offset holds still on screen,
+     * and during a thumb drag the extra heights wait for the drag's end. A wrap or font change keeps them; a new
+     * store clears them.
+     * @param {Map<Number|String, Number|null>} heights Extra heights in px, keyed by record id. `0` or `null`
+     * removes the extra height of a record.
+     * @returns {Boolean} True if at least one extra height changed now. Always false without content-sized rows.
+     */
+    setRowExtraHeights(heights) {
+        let me = this, {rowGeometry} = me;
+
+        if (!rowGeometry) return false;
+
+        if (me.isThumbDragging) {
+            me.#heldExtraHeights ??= new Map();
+            heights.forEach((extra, recordId) => me.#heldExtraHeights.set(recordId, extra));
+            return false
+        }
+
+        return me.#changeRowHeights(() => rowGeometry.setExtraHeights(heights))
     }
 
     /**
@@ -1287,26 +1634,38 @@ class View extends Base {
     }
 
     /**
-     * Pushes synchronized scrolling coordinates (startIndex / scrollTop) into all active bodies
-     * (`bodyStart`, `body`, `bodyEnd`). Owned here because grid.View is the body orchestrator; the
-     * horizontal scroll position is read from the gridContainer macro layer, which retains the
-     * ScrollManager.
+     * @summary Pushes synchronized scrolling coordinates into all active bodies and flushes only when VDOM mutated.
+     *
+     * Owned here because grid.View is the body orchestrator; the horizontal scroll position is read from the
+     * gridContainer macro layer, which retains the ScrollManager.
      *
      * Preserves the row/cell pooling invariant: each body recomputes view data for a fixed node pool
      * via the silent `createViewData(true)` path — never inserting, removing, or moving DOM nodes
-     * while scrolling.
+     * while scrolling. Starts a VDOM flight only when `force` is true, a scroll correction is queued, or at least
+     * one body latched {@link Neo.grid.Body#hasSilentVdomChanges} during the pass.
      * In content-sized mode the start row and the last visible row come from the {@link #rowGeometry} instead of
-     * dividing by `rowHeight`.
-     * @param {Number} scrollTop
+     * dividing by `rowHeight`. Fixed rows past {@link #maxScrollHeight} pick their page first, see {@link #pageScroll}.
+     * @param {Number} scrollTop The logical offset
      * @param {Boolean} [force=false] Re-projects every row, also one whose record and index did not change
      */
     syncBodies(scrollTop, force = false) {
-        let me                                = this,
-            container                         = me.gridContainer,
+        let me      = this,
+            logical = me.#pageScroll(scrollTop);
+
+        // A jump or a thumb drag moved the logical offset. The scroll manager re-syncs the bodies once a scroll ends,
+        // and its offset from before would land on the old page's place in the new page.
+        if (logical !== scrollTop && me.gridContainer.scrollManager) {
+            me.gridContainer.scrollManager.scrollTop = logical
+        }
+
+        scrollTop = logical;
+
+        let container                         = me.gridContainer,
             {body, scrollManager}             = container,
             {bodyEnd, bodyStart, rowGeometry} = me,
             {bufferRowRange, rowHeight}       = body,
-            newStartIndex                     = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight);
+            newStartIndex                     = rowGeometry ? rowGeometry.indexAt(scrollTop) : Math.floor(scrollTop / rowHeight),
+            bodies                            = [bodyStart, body, bodyEnd].filter(Boolean);
 
         let updateBody = _body => {
             let isCenter = _body === body;
@@ -1340,6 +1699,26 @@ class View extends Base {
 
         me.scrollTop = scrollTop;
 
+        if (me.#inFlightSilentBodies && !me.isVdomUpdating && !me.isParentUpdating(me.parentId)) {
+            me.#inFlightSilentBodies.forEach(item => {
+                if (!item.isDestroyed) {
+                    item.hasSilentVdomChanges = true
+                }
+            });
+            me.#inFlightSilentBodies = null
+        }
+
+        if (!force && me.#scrollCorrection === 0 && !bodies.some(item => item.hasSilentVdomChanges)) {
+            return
+        }
+
+        for (const item of bodies) {
+            if (item.hasSilentVdomChanges) {
+                item.hasSilentVdomChanges = false;
+                me.#pendingSilentBodies.add(item)
+            }
+        }
+
         // The scroll repaints a row's subtree as one silent transaction, so the depth has to reach the
         // cell CONTENTS, not the cell. `updateDepth` is 1-based and `TreeBuilder` decrements it only when
         // it crosses a component boundary, so View → Body → Row costs 3 and everything past the boundary
@@ -1359,6 +1738,37 @@ class View extends Base {
         // The rows changed silently, so a body update merging into this cycle must not make it sparse
         me.denseUpdate = true;
         me.update()
+    }
+
+    /**
+     * Feeds the {@link #scrollPages} the current scroll extent, cap and viewport, and updates {@link #paged}. The
+     * center body calls it whenever it sizes its scroller, so a store that grows past the cap pages before its first
+     * scroll. Content-sized rows never page: each measurement moves their total height, and with it every page offset.
+     * Past the cap they log an error once, and their extent stops at the cap.
+     * @returns {Neo.grid.ScrollPages}
+     * @protected
+     */
+    updateScrollPages() {
+        let me            = this,
+            {body}        = me.gridContainer,
+            {rowGeometry} = me,
+            pages         = me.scrollPages;
+
+        pages.set({extent: body.getScrollExtent(), maxExtent: me.maxScrollHeight, viewHeight: body.availableHeight});
+
+        if (rowGeometry && pages.paged !== me.#refusedPages) {
+            me.#refusedPages = pages.paged;
+
+            pages.paged && console.error(
+                'grid.View: content-sized rows reach past the browser\'s maximum scroll height. The rows past it cannot ' +
+                'be scrolled to; fixed-height rows scroll in pages instead.',
+                {extent: pages.extent, id: me.id, maxScrollHeight: me.maxScrollHeight}
+            )
+        }
+
+        me.paged = pages.paged && !rowGeometry;
+
+        return pages
     }
 
     /**

@@ -20,7 +20,13 @@ class PooledRow extends Component {
          * @member {Object|null} record_=null
          * @reactive
          */
-        record_: null
+        record_: null,
+        /**
+         * The store's record count, which every row names beside its own place
+         * @member {Number|null} total_=null
+         * @reactive
+         */
+        total_: null
     }
 
     /**
@@ -28,7 +34,26 @@ class PooledRow extends Component {
      * @param {Object|null} oldValue
      */
     afterSetRecord(value, oldValue) {
-        this.text = value ? `${value.id} — ${value.name}` : ''
+        this.updateText()
+    }
+
+    /**
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     */
+    afterSetTotal(value, oldValue) {
+        this.updateText()
+    }
+
+    /**
+     * Writes "Record 1 of 5,000": the row's place in the store, then the store's count
+     * @protected
+     */
+    updateText() {
+        let {record, total} = this,
+            format          = value => value.toLocaleString('en-US');
+
+        this.text = record ? `Record ${format(record.id + 1)}${total ? ` of ${format(total)}` : ''}` : ''
     }
 }
 

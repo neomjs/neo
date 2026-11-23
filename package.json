@@ -1,6 +1,6 @@
 {
     "name"       : "neo.mjs",
-    "version"    : "13.4.0",
+    "version"    : "14.0.0",
     "description": "Neo.mjs is a multi-threaded application engine — the Body of a self-evolving software organism — with object permanence, worker isolation, JSON-first UIs, and zero-build native ES modules.",
     "type"       : "module",
     "repository" : {
@@ -28,6 +28,7 @@
         "bundle-mermaid"                       : "node ./buildScripts/build/mermaid.mjs",
         "bundle-monaco"                        : "node ./buildScripts/build/monaco.mjs",
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
+        "capture-examples"                     : "node ./buildScripts/docs/captureExamples.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-class-module-scope"             : "node ./buildScripts/util/check-class-module-scope.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",
@@ -36,12 +37,12 @@
         "check-package-contents"               : "node ./buildScripts/util/check-package-contents.mjs",
         "check-reactive-tags"                  : "node ./buildScripts/helpers/checkReactiveTags.mjs",
         "check-relative-links"                 : "node ./buildScripts/util/check-relative-links.mjs",
-        "convert-design-tokens"                : "node ./buildScripts/helpers/convertDesignTokens.mjs",
         "create-app"                           : "node ./buildScripts/create/app.mjs",
         "create-app-minimal"                   : "node ./buildScripts/create/appMinimal.mjs",
         "create-class"                         : "node ./buildScripts/create/class.mjs",
         "create-component"                     : "node ./buildScripts/create/component.mjs",
         "create-theme"                         : "node ./buildScripts/create/theme.mjs",
+        "generate-agents-md"                   : "neo-agent-skills-agents-md --repo neo,neo-agent-brain --out AGENTS.md --pointer",
         "generate-docs-json"                   : "node ./buildScripts/docs/generateDocsJson.mjs",
         "move-files"                           : "node ./buildScripts/create/move.mjs",
         "postpack"                             : "node ./buildScripts/util/npmIgnoreComposition.mjs restore",
@@ -49,8 +50,9 @@
         "prepare"                              : "node ./buildScripts/util/prepare.mjs",
         "preserver-start"                      : "node ./buildScripts/util/check-installed-dependencies.mjs",
         "seat:start"                           : "node ./buildScripts/helpers/seatStart.mjs",
-        "server-start"                         : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
+        "server-start"                         : "node ./buildScripts/util/fileServer.mjs --open",
         "test"                                 : "playwright test -c test/playwright/playwright.config.mjs",
+        "test-clipboard"                       : "playwright test -c test/playwright/playwright.config.clipboard.mjs",
         "test-components"                      : "playwright test -c test/playwright/playwright.config.component.mjs",
         "test-e2e"                             : "playwright test -c test/playwright/playwright.config.e2e.mjs",
         "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
@@ -116,6 +118,7 @@
         "fast-glob"                    : "^3.3.3",
         "fs-extra"                     : "^11.4.1",
         "gray-matter"                  : "^4.0.3",
+        "highlight.js"                 : "^11.12.0",
         "highlightjs-line-numbers.js"  : "^2.9.1",
         "html-minifier-terser"         : "^7.2.0",
         "husky"                        : "^9.1.7",
@@ -126,19 +129,16 @@
         "marked"                       : "^18.1.0",
         "mermaid"                      : "^12.1.0",
         "monaco-editor"                : "0.57.0",
-        "neo-agent-skills"             : "1.2.0",
+        "neo-agent-skills"             : "2.4.0",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.29",
-        "postcss-scss"                 : "^4.0.9",
         "postcss-selector-parser"      : "^7.1.7",
         "postcss-value-parser"         : "^4.2.0",
-        "sass"                         : "^1.105.1",
         "semver"                       : "^7.8.5",
         "terser"                       : "^5.51.2",
         "url"                          : "^0.11.4",
         "webpack"                      : "^5.111.1",
         "webpack-cli"                  : "^7.2.3",
-        "webpack-dev-server"           : "^6.0.0",
         "webpack-hook-plugin"          : "^1.0.7",
         "ws"                           : "^8.22.0"
     },
@@ -176,12 +176,13 @@
         "{apps,buildScripts,src}/**/*.mjs": [
             "node ./buildScripts/util/check-content-root-derivations.mjs"
         ],
-        "src/**/*.mjs": [
+        "{apps,examples,src}/**/*.mjs": [
             "node ./buildScripts/util/check-class-module-scope.mjs"
         ],
-        "resources/scss/**/*.scss": [
+        "resources/css/**/*.css": [
             "node ./buildScripts/util/check-theme-coverage.mjs",
-            "node ./buildScripts/util/check-theme-value-files.mjs"
+            "node ./buildScripts/util/check-theme-value-files.mjs",
+            "node ./buildScripts/util/check-theme-var-references.mjs"
         ],
         "learn/**/*.md": [
             "node ./buildScripts/util/check-relative-links.mjs"

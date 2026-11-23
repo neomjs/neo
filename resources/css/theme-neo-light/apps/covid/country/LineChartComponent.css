@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-light) { /* .covid-line-chart */
+    --covid-line-chart-background-color: #fff;
+}

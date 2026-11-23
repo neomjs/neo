@@ -1,3 +1,7 @@
+---
+seoTitle: "Off-Main-Thread JavaScript UI in Web Workers | Neo.mjs"
+seoDescription: "Run your JavaScript UI, state, data stores, and VDOM diffing inside Web Workers across multiple CPU cores so the browser main thread never freezes."
+---
 # Off the Main Thread
 
 ## How many Cores are on a Computer or Smartphone?
@@ -128,7 +132,7 @@ your main App.
 
 * Your App will import your used Components
 * Meaning: your Component instances live within the App-Worker
-* View Models & View Controllers also live here
+* State Providers & View Controllers also live here
 * Most parts of the Neo.mjs application engine live here
 * You can directly communicate with other Actors via remote method access (RPC)
 

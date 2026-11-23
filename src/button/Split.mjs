@@ -3,6 +3,8 @@ import Button from './Base.mjs';
 /**
  * A wrapper div containing 2 Buttons.
  * We are extending button.Base and are using getVdomRoot() to map the main Button into the first vdom child.
+ * A click on the main button runs its handler. The trigger button opens the menu, if one is configured,
+ * and runs splitButtonHandler.
  * @class Neo.button.Split
  * @extends Neo.button.Base
  */
@@ -59,6 +61,11 @@ class Split extends Button {
     }
 
     /**
+     * Creates the trigger button as a child this split button references in its vdom, so it renders once
+     * and updates in place. A click on it runs this split button's own splitButtonHandler, never a controller
+     * method of that name; a handler name in triggerButtonConfig resolves from this split button's controllers.
+     * It owns the menu, in this split button's theme: the menu aligns to it, a click on it toggles the menu, and
+     * a press anywhere else closes it.
      * @param {Object} config
      */
     construct(config) {
@@ -67,21 +74,25 @@ class Split extends Button {
         let me = this;
 
         me.triggerButton = Neo.create({
-            module  : Button,
-            appName : me.appName,
-            cls     : ['neo-trigger-button'],
-            disabled: me.disabled,
-            handler : me.splitButtonHandler,
-            hidden  : me.hideTriggerButton,
-            iconCls : me.triggerButtonIconCls,
-            parentId: me.vdom.id, // wrapper id
-            pressed : me.pressed,
-            ui      : me.ui,
+            module      : Button,
+            appName     : me.appName,
+            cls         : ['neo-trigger-button'],
+            disabled    : me.disabled,
+            handler     : data => me.splitButtonHandler(data),
+            handlerScope: me,
+            hidden      : me.hideTriggerButton,
+            iconCls     : me.triggerButtonIconCls,
+            menu        : me.menu,
+            parentId    : me.id,
+            pressed     : me.pressed,
+            theme       : me.theme,
+            ui          : me.ui,
+            windowId    : me.windowId,
             ...me.triggerButtonConfig
         });
 
-        me.vdom.cn.push(me.triggerButton.vdom);
-        me.update();
+        me.vdom.cn.push(me.triggerButton.createVdomReference());
+        me.update()
     }
 
     /**
@@ -133,6 +144,21 @@ class Split extends Button {
     }
 
     /**
+     * Triggered after the menu config got changed. The trigger button owns the menu, so this split button
+     * builds no list of its own, and a click on the main button leaves the menu alone.
+     * @param {Object|Object[]|null} value
+     * @param {Object|Object[]|null} oldValue
+     * @protected
+     */
+    afterSetMenu(value, oldValue) {
+        let {triggerButton} = this;
+
+        if (triggerButton) {
+            triggerButton.menu = value
+        }
+    }
+
+    /**
      * Triggered after the pressed config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -146,6 +172,23 @@ class Split extends Button {
         }
 
         super.afterSetPressed(value, oldValue);
+    }
+
+    /**
+     * Triggered after the theme config got changed. The trigger button follows, and with it the floating menu it
+     * owns, which inherits no theme from the page where it floats.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        let {triggerButton} = this;
+
+        if (triggerButton) {
+            triggerButton.theme = value
+        }
+
+        super.afterSetTheme(value, oldValue)
     }
 
     /**
@@ -190,7 +233,7 @@ class Split extends Button {
         let {triggerButton} = this;
 
         if (triggerButton) {
-            triggerButton.appName = value;
+            triggerButton.windowId = value
         }
 
         super.afterSetWindowId(value, oldValue)
@@ -220,11 +263,33 @@ class Split extends Button {
     }
 
     /**
-     * Override as needed or pass a controller based handler into triggerButtonConfig
-     * @param {Object} data
+     * A click on the trigger button reaches this split button as well: the trigger is its child, and a DOM event
+     * bubbles through a component's logical parents. That click belongs to the trigger, which opens the menu and
+     * runs splitButtonHandler, so this split button runs its own handler only for a click on the main button.
+     * @param {Object} data The click event data object.
+     */
+    onClick(data) {
+        let {triggerButton} = this;
+
+        if (!triggerButton || !data.path?.some(node => node.id === triggerButton.id)) {
+            super.onClick(data)
+        }
+    }
+
+    /**
+     * Runs on a click on the trigger button, in the scope of this split button. Override as needed or pass a
+     * controller based handler into triggerButtonConfig.
+     * @param {Object} data The click event data object.
      */
     splitButtonHandler(data) {
 
+    }
+
+    /**
+     * Toggles the menu, which the trigger button owns.
+     */
+    async toggleMenu() {
+        await this.triggerButton.toggleMenu()
     }
 }
 

@@ -1,0 +1,140 @@
+/* Neo.timeline.Column: center-region timeline track cells and positioned event/task bars.
+   The column sizes its own cell: in a plain grid nothing else gives the track a height to resolve against */
+.neo-timeline-cell {
+    box-sizing: border-box;
+    height    : 100%;
+    overflow  : hidden;
+    padding   : 0 !important;
+    position  : relative;
+    width     : 100%;
+}
+
+/* The row separator sits inside the cell, where the now line covers it and meets the next row's: the grid's own
+   border-bottom lies outside the clipped track */
+.neo-grid-body .neo-grid-row .neo-grid-cell.neo-timeline-cell {
+    border-bottom-width: 0;
+    box-shadow         : inset 0 -1px var(--grid-container-border-color);
+
+    &.neo-last-column {
+        box-shadow: 1px 0 var(--grid-container-border-color), inset 0 -1px var(--grid-container-border-color);
+    }
+}
+
+.neo-timeline-track {
+    background-image: repeating-linear-gradient(
+        to right,
+        transparent 0,
+        transparent calc(var(--neo-timeline-gridline-step, 120px) - 1px),
+        var(--neo-timeline-gridline-color) calc(var(--neo-timeline-gridline-step, 120px) - 1px),
+        var(--neo-timeline-gridline-color) var(--neo-timeline-gridline-step, 120px)
+    );
+    box-sizing: border-box;
+    height    : 100%;
+    position  : relative;
+}
+
+.neo-timeline-non-working {
+    background    : var(--neo-timeline-non-working-bg);
+    border-left   : 1px solid var(--neo-timeline-non-working-border);
+    border-right  : 1px solid var(--neo-timeline-non-working-border);
+    bottom        : 0;
+    box-sizing    : border-box;
+    pointer-events: none;
+    position      : absolute;
+    top           : 0;
+    z-index       : 0;
+}
+
+/* The current time (TimeAxis#now), drawn beneath the bars so it never crosses a title */
+.neo-timeline-now {
+    background    : var(--neo-timeline-now-color);
+    bottom        : 0;
+    margin-left   : -1px;
+    pointer-events: none;
+    position      : absolute;
+    top           : 0;
+    width         : 2px;
+    z-index       : 0;
+}
+
+.neo-timeline-bar {
+    align-items  : center;
+    background   : var(--neo-timeline-bar-background);
+    border       : 1px solid var(--neo-timeline-bar-border-color);
+    border-radius: var(--neo-timeline-bar-radius, 4px);
+    box-shadow   : var(--neo-timeline-bar-shadow);
+    box-sizing   : border-box;
+    color        : var(--neo-timeline-bar-color);
+    display      : flex;
+    font-size    : 12px;
+    font-weight  : 500;
+    overflow     : hidden;
+    padding      : 0 8px;
+    position     : absolute;
+    user-select  : none;
+    z-index      : 1;
+
+    &:hover {
+        border-color: var(--neo-timeline-bar-hover-border-color);
+    }
+
+    &:focus-visible {
+        outline       : 2px solid var(--neo-timeline-focus-color);
+        outline-offset: 1px;
+    }
+
+    &.neo-draggable {
+        cursor: grab;
+        &:active {
+            cursor: grabbing;
+        }
+    }
+
+    &.neo-timeline-bar-highlighted {
+        background  : var(--neo-timeline-bar-highlighted-background, var(--neo-timeline-bar-background));
+        border-color: var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-focus-color));
+        box-shadow  : 0 0 0 1px var(--neo-timeline-bar-highlighted-border-color, var(--neo-timeline-focus-color));
+    }
+
+    .neo-timeline-bar-progress {
+        background    : var(--neo-timeline-bar-progress-background);
+        bottom        : 0;
+        left          : 0;
+        pointer-events: none;
+        position      : absolute;
+        top           : 0;
+    }
+
+    /* While the bar's start is scrolled out, the title moves into its visible part:
+       the body's scroll offset, less the track's and the bar's offsets, keeping 48px of the bar */
+    .neo-timeline-bar-label {
+        --neo-timeline-bar-label-shift: clamp(0px, calc(var(--grid-scroll-left, 0px) - var(--neo-timeline-track-x, 0px) - var(--neo-timeline-bar-left, 0px)), calc(var(--neo-timeline-bar-width, 0px) - 48px));
+
+        left         : var(--neo-timeline-bar-label-shift);
+        max-width    : calc(100% - var(--neo-timeline-bar-label-shift));
+        overflow     : hidden;
+        position     : relative;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+        z-index      : 1;
+    }
+
+    .neo-timeline-bar-handle {
+        bottom  : 0;
+        height  : 100%;
+        position: absolute;
+        top     : 0;
+        width   : 6px;
+        z-index : 2;
+
+        &.neo-resizable-start {
+            cursor: ew-resize;
+            left  : 0;
+        }
+
+        &.neo-resizable-end {
+            cursor: ew-resize;
+            right : 0;
+        }
+    }
+}

@@ -1,0 +1,204 @@
+.neo-selectfield {
+    display       : flex;
+    flex-direction: column;
+    margin-bottom : 5px;
+    margin-top    : 5px;
+
+    .neo-selectfield-label {
+        color      : var(--selectfield-label-color);
+        margin     : var(--selectfield-label-top-margin);
+        user-select: none;
+    }
+
+    /* labelPosition: 'left'. The label's width comes from labelWidth; an error takes the select's column below it */
+    &.label-left {
+        align-items          : center;
+        display              : grid;
+        grid-template-columns: auto minmax(0, 1fr);
+
+        .neo-selectfield-label {
+            margin: 0;
+        }
+
+        .neo-selectfield-input,
+        .neo-selectfield-error {
+            grid-column: 2;
+        }
+    }
+
+    .neo-selectfield-input {
+        --selectfield-divider-color: var(--selectfield-border-color);
+        background-color           : var(--selectfield-background);
+        border                     : var(--selectfield-border-width) solid var(--selectfield-border-color);
+        border-radius              : var(--selectfield-border-radius);
+        box-sizing                 : border-box;
+        color                      : var(--selectfield-color);
+        color-scheme               : var(--neo-color-scheme);
+        cursor                     : pointer;
+        font                       : var(--selectfield-input-font);
+        height                     : calc(var(--selectfield-input-height) + var(--selectfield-border-width) * 2);
+        min-height                 : calc(var(--selectfield-input-height) + var(--selectfield-border-width) * 2);
+        padding                    : var(--selectfield-input-padding);
+        transition                 : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
+        width                      : 100%;
+
+        &:has(> option[value=""]:checked) {
+            color: var(--selectfield-placeholder-color);
+        }
+
+        &:hover:not(:disabled, :focus, :focus-visible) {
+            border-color: var(--selectfield-border-color-hovered);
+        }
+
+        &:focus,
+        &:focus-visible {
+            border-color: var(--selectfield-focus-color);
+            outline     : none;
+        }
+    }
+
+    &.neo-hovered:not(.neo-focus, .neo-disabled) .neo-selectfield-input {
+        border-color: var(--selectfield-border-color-hovered);
+    }
+
+    &.neo-focus:not(.neo-disabled) .neo-selectfield-input {
+        border-color: var(--selectfield-focus-color);
+        outline     : none;
+    }
+
+    @supports (appearance: base-select) {
+        &.neo-selectfield-customizable {
+            .neo-selectfield-input {
+                align-items        : center;
+                appearance         : base-select;
+                background-image   : linear-gradient(
+                    to right,
+                    var(--selectfield-divider-color) 0 var(--selectfield-trigger-border-width),
+                    transparent var(--selectfield-trigger-border-width)
+                );
+                background-position: right top;
+                background-repeat  : no-repeat;
+                background-size    : 22px 100%;
+                display            : flex;
+                gap                : 6px;
+                overflow           : hidden;
+                padding            : 0 0 0 6px;
+                white-space        : nowrap;
+
+                &::picker-icon {
+                    border-bottom: 1.5px solid currentColor;
+                    border-right : 1.5px solid currentColor;
+                    box-sizing   : border-box;
+                    color        : var(--selectfield-trigger-color);
+                    content      : "";
+                    display      : block;
+                    flex-shrink  : 0;
+                    height       : 6px;
+                    margin       : 0 7.5px 0 auto;
+                    transform    : translateY(-1.5px) rotate(45deg);
+                    transition   : transform 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+                    width        : 6px;
+                }
+
+                &:hover:not(:disabled) {
+                    background-image: linear-gradient(
+                        to right,
+                        var(--selectfield-divider-color) 0 var(--selectfield-trigger-border-width),
+                        var(--selectfield-trigger-background-color-hover) var(--selectfield-trigger-border-width)
+                    );
+
+                    &::picker-icon {
+                        color: var(--selectfield-trigger-color-hover);
+                    }
+                }
+
+                &:open {
+                    border-color: var(--selectfield-focus-color);
+                    outline     : none;
+
+                    &::picker-icon {
+                        color    : var(--selectfield-trigger-color-hover);
+                        transform: translateY(1.5px) rotate(225deg);
+                    }
+                }
+
+                &::picker(select) {
+                    appearance      : base-select;
+                    background-color: var(--selectfield-picker-background-color);
+                    border          : var(--selectfield-border-width) solid var(--selectfield-picker-border-color);
+                    border-radius   : var(--selectfield-border-radius);
+                    box-shadow      : var(--selectfield-picker-box-shadow);
+                    color           : var(--selectfield-option-color);
+                    color-scheme    : var(--neo-color-scheme);
+                    font            : var(--selectfield-input-font);
+                    margin-block    : 2px;
+                    padding         : 4px 0;
+                }
+
+                option {
+                    align-items     : center;
+                    background-color: transparent;
+                    color           : var(--selectfield-option-color);
+                    cursor          : pointer;
+                    font            : var(--selectfield-input-font);
+                    gap             : 6px;
+                    min-height      : 28px;
+                    padding         : 4px 10px;
+
+                    &:hover:not(:disabled) {
+                        background-color: var(--selectfield-option-background-color-hover);
+                    }
+
+                    &:checked {
+                        background-color: var(--selectfield-option-background-color-selected);
+                        color           : var(--selectfield-option-color-selected);
+                    }
+
+                    &:focus-visible {
+                        outline       : 2px solid var(--selectfield-focus-color);
+                        outline-offset: -2px;
+                    }
+
+                    &:disabled {
+                        color  : var(--selectfield-option-color-disabled);
+                        cursor : default;
+                        opacity: var(--selectfield-opacity-disabled);
+                    }
+
+                    &::checkmark {
+                        color    : var(--selectfield-checkmark-color);
+                        font-size: 12px;
+                    }
+                }
+            }
+        }
+    }
+
+    .neo-selectfield-error {
+        color      : var(--selectfield-error-color);
+        font-size  : 11px;
+        margin-top : .3em;
+        white-space: break-spaces;
+        word-break : break-word;
+    }
+
+    &.neo-invalid:not(.neo-disabled) .neo-selectfield-input {
+        border-color: var(--selectfield-error-color);
+    }
+
+    &.neo-disabled {
+        opacity: var(--selectfield-opacity-disabled);
+
+        .neo-selectfield-label {
+            color: var(--selectfield-label-color-disabled);
+        }
+
+        .neo-selectfield-input {
+            --selectfield-divider-color: var(--selectfield-border-color-disabled);
+            background-color           : var(--selectfield-background-disabled);
+            border-color               : var(--selectfield-border-color-disabled);
+            color                      : var(--selectfield-color-disabled);
+            cursor                     : default;
+        }
+    }
+}

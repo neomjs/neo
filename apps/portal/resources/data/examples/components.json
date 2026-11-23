@@ -1,0 +1,304 @@
+[
+    {
+        "id": "chip",
+        "family": "components",
+        "order": 310,
+        "component": "Chip",
+        "feature": "A compact chip combines an icon, editable text and an optional close action.",
+        "lookFor": "Change the text or icon class, and toggle closable to show or hide the close button.",
+        "kind": "component",
+        "image": "devmode/tiles/component-chip-14.jpg",
+        "hasLightCover": true,
+        "name": "Chip",
+        "sourceUrl": "examples/component/chip",
+        "urls": {
+            "devmode": "examples/component/chip/index.html",
+            "dist_dev": "dist/development/examples/component/chip/index.html",
+            "dist_esm": "dist/esm/examples/component/chip/index.html",
+            "dist_prod": "dist/production/examples/component/chip/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "circle",
+        "family": "components",
+        "order": 320,
+        "component": "Circle",
+        "feature": "A three-dimensional circle distributes items around a configurable radius.",
+        "lookFor": "Change the item size, maximum item count and rotation, then press Expand, Collapse or Flip.",
+        "kind": "component",
+        "image": "devmode/tiles/component-circle-14.jpg",
+        "hasLightCover": true,
+        "name": "Circle",
+        "sourceUrl": "examples/component/circle",
+        "urls": {
+            "devmode": "examples/component/circle/index.html",
+            "dist_dev": "dist/development/examples/component/circle/index.html",
+            "dist_esm": "dist/esm/examples/component/circle/index.html",
+            "dist_prod": "dist/production/examples/component/circle/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "clock",
+        "family": "components",
+        "order": 330,
+        "component": "Clock",
+        "feature": "A clock face renders a settable time at an adjustable size",
+        "lookFor": "Change the time to 09:45 and compare the hands, then change size and fontSize to resize the face and its hands.",
+        "kind": "component",
+        "image": "devmode/tiles/component-clock-14.jpg",
+        "hasLightCover": true,
+        "name": "Clock",
+        "sourceUrl": "examples/component/clock",
+        "urls": {
+            "devmode": "examples/component/clock/index.html",
+            "dist_dev": "dist/development/examples/component/clock/index.html",
+            "dist_esm": "dist/esm/examples/component/clock/index.html",
+            "dist_prod": "dist/production/examples/component/clock/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "magic-move-text",
+        "family": "components",
+        "order": 340,
+        "component": "MagicMoveText",
+        "feature": "Characters animate between changing strings while remaining inside one text component.",
+        "lookFor": "Wait for automatic cycling or change autoCycle, then adjust the move and fade colors to follow the transition.",
+        "kind": "component",
+        "image": "devmode/tiles/component-magicmovetext-14.jpg",
+        "hasLightCover": true,
+        "name": "Magic move text",
+        "sourceUrl": "examples/component/magicmovetext",
+        "urls": {
+            "devmode": "examples/component/magicmovetext/index.html",
+            "dist_dev": "dist/development/examples/component/magicmovetext/index.html",
+            "dist_esm": "dist/esm/examples/component/magicmovetext/index.html",
+            "dist_prod": "dist/production/examples/component/magicmovetext/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "markdown",
+        "family": "components",
+        "order": 350,
+        "component": "Markdown VDOM",
+        "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
+        "lookFor": "The page opens streaming: headings, lists, code, a table and a quote render as the text arrives. Its last lines show a script tag and a javascript: link rendered as plain text.",
+        "image": "devmode/markdown-14.jpg",
+        "hasLightCover": true,
+        "name": "Markdown VDOM",
+        "sourceUrl": "examples/component/markdown",
+        "urls": {
+            "devmode": "examples/component/markdown/index.html",
+            "dist_dev": "dist/development/examples/component/markdown/index.html",
+            "dist_esm": "dist/esm/examples/component/markdown/index.html",
+            "dist_prod": "dist/production/examples/component/markdown/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "live-preview",
+        "family": "components",
+        "order": 360,
+        "alsoIn": [
+            "functional"
+        ],
+        "component": "Live Preview",
+        "feature": "The engine's code editor runs the function component it holds, and runs it again after every edit.",
+        "lookFor": "Open Preview and press the counter, then change its text in Source: Preview shows the edited component, and only that one.",
+        "image": "devmode/live-preview-14.jpg",
+        "name": "Live Preview",
+        "sourceUrl": "examples/code/livePreview",
+        "urls": {
+            "devmode": "examples/code/livePreview/index.html",
+            "dist_dev": "dist/development/examples/code/livePreview/index.html",
+            "dist_esm": "dist/esm/examples/code/livePreview/index.html",
+            "dist_prod": "dist/production/examples/code/livePreview/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "process",
+        "family": "components",
+        "order": 370,
+        "component": "Process",
+        "feature": "A process component connects ordered steps with configurable orientation, arrows and icons.",
+        "lookFor": "Toggle horizontal and change the arrow or icon color; the trip's four stages reflow without losing their order.",
+        "kind": "component",
+        "image": "devmode/tiles/component-process-14.jpg",
+        "hasLightCover": true,
+        "name": "Process",
+        "sourceUrl": "examples/component/process",
+        "urls": {
+            "devmode": "examples/component/process/index.html",
+            "dist_dev": "dist/development/examples/component/process/index.html",
+            "dist_esm": "dist/esm/examples/component/process/index.html",
+            "dist_prod": "dist/production/examples/component/process/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "progress",
+        "family": "components",
+        "order": 380,
+        "component": "Progress",
+        "feature": "A labelled progress bar exposes a percentage value and configurable dimensions.",
+        "lookFor": "Change the value, label and size in the configuration panel and watch the bar and label update.",
+        "kind": "component",
+        "image": "devmode/tiles/component-progress-14.jpg",
+        "hasLightCover": true,
+        "name": "Progress bar",
+        "sourceUrl": "examples/component/progress",
+        "urls": {
+            "devmode": "examples/component/progress/index.html",
+            "dist_dev": "dist/development/examples/component/progress/index.html",
+            "dist_esm": "dist/esm/examples/component/progress/index.html",
+            "dist_prod": "dist/production/examples/component/progress/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "splitter",
+        "family": "components",
+        "order": 390,
+        "component": "Splitter",
+        "feature": "A draggable splitter resizes adjacent panels in either orientation.",
+        "lookFor": "Drag the bar between the folders and the inbox, then toggle horizontal and live resize in the configuration panel.",
+        "kind": "component",
+        "image": "devmode/tiles/component-splitter-14.jpg",
+        "hasLightCover": true,
+        "name": "Splitter",
+        "sourceUrl": "examples/component/splitter",
+        "urls": {
+            "devmode": "examples/component/splitter/index.html",
+            "dist_dev": "dist/development/examples/component/splitter/index.html",
+            "dist_esm": "dist/esm/examples/component/splitter/index.html",
+            "dist_prod": "dist/production/examples/component/splitter/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "status-badge",
+        "family": "components",
+        "order": 400,
+        "component": "StatusBadge",
+        "feature": "Status badges support alert, error, info, neutral and success states with configurable labels and icons.",
+        "lookFor": "Switch the state radio and toggle the state or side icons; the badge label and decoration update.",
+        "kind": "component",
+        "image": "devmode/tiles/component-statusbadge-14.jpg",
+        "hasLightCover": true,
+        "name": "Status badge",
+        "sourceUrl": "examples/component/statusbadge",
+        "urls": {
+            "devmode": "examples/component/statusbadge/index.html",
+            "dist_dev": "dist/development/examples/component/statusbadge/index.html",
+            "dist_esm": "dist/esm/examples/component/statusbadge/index.html",
+            "dist_prod": "dist/production/examples/component/statusbadge/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "timer",
+        "family": "components",
+        "order": 410,
+        "component": "Timer",
+        "feature": "A circular countdown timer accepts a duration and animates a gradient progress ring.",
+        "lookFor": "Enter 10s and press play; the card flips to the countdown and the ring drains as time passes.",
+        "kind": "component",
+        "image": "devmode/tiles/component-timer-14.jpg",
+        "hasLightCover": true,
+        "name": "Timer",
+        "sourceUrl": "examples/component/timer",
+        "urls": {
+            "devmode": "examples/component/timer/index.html",
+            "dist_dev": "dist/development/examples/component/timer/index.html",
+            "dist_esm": "dist/esm/examples/component/timer/index.html",
+            "dist_prod": "dist/production/examples/component/timer/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "video",
+        "family": "components",
+        "order": 440,
+        "component": "Video",
+        "feature": "A video component switches between its play overlay and native playback controls inside any container.",
+        "lookFor": "Toggle playing in the inspector to switch between the live player and the play overlay, or resize width and height.",
+        "scope": "Streams the CC BY 3.0 Big Buck Bunny trailer from neomjs/pages via jsDelivr.",
+        "kind": "component",
+        "image": "devmode/tiles/component-video-14.jpg",
+        "hasLightCover": true,
+        "name": "Video",
+        "sourceUrl": "examples/component/video",
+        "urls": {
+            "devmode": "examples/component/video/index.html",
+            "dist_dev": "dist/development/examples/component/video/index.html",
+            "dist_esm": "dist/esm/examples/component/video/index.html",
+            "dist_prod": "dist/production/examples/component/video/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "monaco-editor",
+        "family": "components",
+        "order": 450,
+        "component": "Monaco Editor",
+        "feature": "A Monaco editor wrapper exposes themes, cursor behavior, read-only state, minimap and sizing options.",
+        "lookFor": "Edit the sample function, then switch the editor theme and the cursor blinking mode, or toggle the minimap.",
+        "kind": "component",
+        "image": "devmode/tiles/component-wrapper-monacoEditor-14.jpg",
+        "hasLightCover": true,
+        "name": "Monaco editor",
+        "sourceUrl": "examples/component/wrapper/monacoEditor",
+        "urls": {
+            "devmode": "examples/component/wrapper/monacoEditor/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/monacoEditor/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/monacoEditor/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/monacoEditor/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "sitemap",
+        "family": "components",
+        "order": 460,
+        "component": "Sitemap",
+        "feature": "A two-column sitemap groups real pages from the Neo.mjs Portal.",
+        "lookFor": "Follow a link in either group, or resize the sitemap in the inspector.",
+        "kind": "component",
+        "image": "devmode/tiles/sitemap-14.jpg",
+        "hasLightCover": true,
+        "name": "Sitemap",
+        "sourceUrl": "examples/sitemap",
+        "urls": {
+            "devmode": "examples/sitemap/index.html",
+            "dist_dev": "dist/development/examples/sitemap/index.html",
+            "dist_esm": "dist/esm/examples/sitemap/index.html",
+            "dist_prod": "dist/production/examples/sitemap/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "liquid-glass",
+        "family": "components",
+        "order": 590,
+        "feature": "A liquid glass panel that bends the photo beneath it as it drifts",
+        "lookFor": "Watch the glass panel cross the room photo and distort what lies under it.",
+        "scope": "External demo.",
+        "featured": false,
+        "image": "devmode/liquid-glass.png",
+        "name": "Liquid Glass effect",
+        "sourceUrl": "https://github.com/neomjs/liquid-glass-demo/blob/main/apps/myapp/view/GlassComponent.mjs",
+        "urls": {
+            "devmode": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/apps/myapp/index.html",
+            "dist_dev": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/development/apps/myapp/index.html",
+            "dist_esm": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/esm/apps/myapp/index.html",
+            "dist_prod": "https://neomjs.github.io/pages2/workspace/neo-liquid-glass-demo/dist/production/apps/myapp/index.html"
+        },
+        "hiddenIn": [
+            "devmode"
+        ]
+    }
+]

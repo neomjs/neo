@@ -1,0 +1,31 @@
+/* The explorer's tree: a bordered panel in one colour. The items share the container's colour, so an open folder
+   that sticks to the top covers the rows scrolling under it, and the indents show no gutter. */
+.neo-tree-list.fe-tree {
+    --list-container-background-color: color-mix(in srgb, var(--neo-color) 3%, var(--neo-background-color));
+    --list-item-background-color     : color-mix(in srgb, var(--neo-color) 3%, var(--neo-background-color));
+
+    border       : 1px solid color-mix(in srgb, var(--neo-color) 14%, transparent);
+    border-radius: 8px;
+
+    .neo-list-container {
+        border: none;
+    }
+
+    .neo-list-folder .neo-list-item-content:before {
+        color: color-mix(in srgb, #e0a526 80%, var(--neo-color));
+    }
+}
+
+/* An icon per kind of file. The kind comes from the name as an icon class on the item (`FileModel`'s `iconCls`).
+   The rules hang on the tree's base class, not on `fe-tree`, so the drag proxy draws the same icon */
+.neo-tree-list .neo-list-item .neo-list-item-content {
+    &.fe-kind-config:before {content: "\f013"; color: color-mix(in srgb, #14b8a6 75%, var(--neo-color));}
+    &.fe-kind-css:before    {content: "\f1fc"; color: color-mix(in srgb, #3b82f6 75%, var(--neo-color));}
+    &.fe-kind-data:before   {content: "\f121"; color: color-mix(in srgb, #22c55e 70%, var(--neo-color));}
+    &.fe-kind-file:before   {content: "\f15b";}
+    &.fe-kind-html:before   {content: "\f0ac"; color: color-mix(in srgb, #f97316 75%, var(--neo-color));}
+    &.fe-kind-image:before  {content: "\f1c5"; color: color-mix(in srgb, #a855f7 70%, var(--neo-color));}
+    &.fe-kind-log:before    {content: "\f022";}
+    &.fe-kind-script:before {content: "\f1c9"; color: color-mix(in srgb, #eab308 75%, var(--neo-color));}
+    &.fe-kind-text:before   {content: "\f15c";}
+}

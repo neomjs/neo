@@ -71,10 +71,15 @@ class Util extends Base {
     }
 
     /**
+     * @summary Maps a country name to its public flag icon URL, returning null when the name is missing or blank.
      * @param {String} name
-     * @returns {String} url
+     * @returns {String|null} url
      */
     static getCountryFlagUrl(name) {
+        if (!name || typeof name !== 'string' || !name.trim()) {
+            return null
+        }
+
         const map = {
             'bosnia'                               : 'bosnia-and-herzegovina',
             'cabo-verde'                           : 'cape-verde',

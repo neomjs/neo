@@ -4,7 +4,7 @@ import {test, expect} from '../../fixtures.mjs';
  * Whitebox-e2e: the dock edge rail's paint is engine capability, skinned by token.
  *
  * The rail's whole visual identity used to exist once, as four declarations inside
- * `apps/workstation/Workspace.scss`. A second consumer could reach that look only by copying CSS
+ * `apps/workstation/Workspace.css`. A second consumer could reach that look only by copying CSS
  * out of another application — there was no layer that answered "what does a dock rail look like".
  *
  * The promotion is deliberately NOT a redesign: the engine's defaults are empty identity slots

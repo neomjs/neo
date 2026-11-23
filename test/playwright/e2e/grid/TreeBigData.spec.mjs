@@ -20,29 +20,58 @@ test.describe('TreeGrid Big Data E2E', () => {
         await expect(page.locator('.neo-grid-row:visible')).not.toHaveCount(0, { timeout: 30000 });
     });
 
+    /**
+     * The first frame of the seeded organization, row by row from the top: the names it shows and their levels
+     * @param {Object} page
+     * @returns {Promise<String[]>} e.g. '1 Engineering'
+     */
+    const firstFrame = page => page.locator('.neo-grid-container .neo-grid-row').evaluateAll(rows => rows
+        .filter(row => row.getBoundingClientRect().bottom <= window.innerHeight)
+        .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
+        .map(row => `${row.getAttribute('aria-level')} ${row.querySelector(".neo-grid-cell[data-field='name']")?.textContent.trim()}`));
+
+    test('the first frame opens an organization three levels deep, the same on every load', async ({ page }) => {
+        const footer = page.locator('.neo-examples-treebigdata-footer');
+
+        await expect(footer).toHaveText('20,000 rows · 5 levels of units · 72 shown');
+        await expect(page.locator('.neo-grid-row[aria-level="3"] .neo-tree-toggle.is-expanded')).toBeVisible();
+
+        const first = await firstFrame(page);
+
+        expect(first.slice(0, 3)).toEqual(['1 Engineering', '2 Platform', '3 Team Atlas']);
+        expect(new Set(first.map(row => row.split(' ')[0])).size, 'levels in the first frame').toBeGreaterThanOrEqual(3);
+        expect(first.filter(row => /^\d+ (Folder|File) \d+$/.test(row))).toEqual([]);
+        await expect(page.locator('.neo-grid-container .show-helper-lines').first()).toBeVisible();
+
+        await page.reload();
+        await expect(footer).toHaveText('20,000 rows · 5 levels of units · 72 shown', { timeout: 30000 });
+        // The footer can read before the rows are laid out
+        await expect.poll(() => firstFrame(page)).toEqual(first);
+
+        // A phone still shows two levels and more
+        await page.setViewportSize({ width: 390, height: 844 });
+        await expect.poll(async () => new Set((await firstFrame(page)).map(row => row.split(' ')[0])).size).toBeGreaterThanOrEqual(2)
+    });
+
     test('Expand / Collapse node via clicks', async ({ page }) => {
-        // Find the first folder node (isLeaf: false)
-        const firstFolderRow = page.locator('.neo-grid-row:has(.neo-tree-toggle)').first();
-        const toggleIcon     = firstFolderRow.locator('.neo-tree-toggle');
-        await expect(toggleIcon).toBeVisible();
+        // The first frame opens three levels, so expand the first COLLAPSED unit. A click on an open one
+        // collapses it, and the class it still shows before the worker's delta lands passes the expand check
+        const folderId    = await page.locator('.neo-grid-row:has(.neo-tree-toggle.is-collapsed)').first().getAttribute('data-record-id');
+        const folderRow   = page.locator(`.neo-grid-row[data-record-id="${folderId}"]`);
+        const toggleIcon  = folderRow.locator('.neo-tree-toggle');
+        const rowBelow    = folderRow.locator('+ .neo-grid-row');
+        const level       = Number(await folderRow.getAttribute('aria-level'));
+        const siblingText = await rowBelow.textContent();
 
-        // Get the text of the row immediately below it (its sibling initially)
-        const nextRowBeforeExpand = firstFolderRow.locator('+ .neo-grid-row');
-        const siblingText         = await nextRowBeforeExpand.textContent();
-
-        // Click the toggle icon to EXPAND
         await toggleIcon.click();
         await expect(toggleIcon).toHaveClass(/is-expanded/);
+        // The row below is now its child
+        await expect(rowBelow).toHaveAttribute('aria-level', String(level + 1));
 
-        // Wait for the row immediately below it to CHANGE (it should now be its child, not its sibling)
-        await expect(firstFolderRow.locator('+ .neo-grid-row')).not.toHaveText(siblingText);
-
-        // Click the toggle icon to COLLAPSE
         await toggleIcon.click();
         await expect(toggleIcon).toHaveClass(/is-collapsed/);
-
-        // Wait for the row immediately below it to revert back to the sibling
-        await expect(firstFolderRow.locator('+ .neo-grid-row')).toHaveText(siblingText);
+        // and its sibling again
+        await expect(rowBelow).toHaveText(siblingText);
     });
 
     /**
@@ -71,11 +100,14 @@ test.describe('TreeGrid Big Data E2E', () => {
         await firstRow.locator('.neo-grid-cell').nth(2).click({ force: true });
         await expect(firstRow).toHaveClass(/neo-selected/);
 
-        // 2. Selection after single expand
-        const folderId   = await page.locator('.neo-grid-row:has(.neo-tree-toggle)').first().getAttribute('data-record-id');
+        // 2. Selection after single expand. The first frame opens the first division, so close it first
+        const folderId   = await page.locator('.neo-grid-row[aria-level="1"]:has(.neo-tree-toggle)').first().getAttribute('data-record-id');
         const folderRow  = page.locator(`.neo-grid-row[data-record-id="${folderId}"]`);
         const toggleIcon = folderRow.locator('.neo-tree-toggle');
-        await expect(toggleIcon).toBeVisible();
+        await expect(toggleIcon).toHaveClass(/is-expanded/);
+
+        await toggleIcon.click();
+        await expect(toggleIcon).toHaveClass(/is-collapsed/);
 
         await toggleIcon.click();
         await expect(toggleIcon).toHaveClass(/is-expanded/);
@@ -176,8 +208,10 @@ test.describe('TreeGrid Big Data E2E', () => {
      * @summary Verifies "ancestor-aware" filtering inside virtualized tree projections.
      */
     test('Filtering', async ({ page }) => {
-        // Wait for initial render. The data generator creates exactly 10 roots.
-        await expect(page.locator('.neo-grid-row:visible')).toHaveCount(10, { timeout: 10000 });
+        const footer = page.locator('.neo-examples-treebigdata-footer');
+
+        // The seeded first frame opens one path of the organization: 72 of its 20,000 rows show
+        await expect(footer).toHaveText('20,000 rows · 5 levels of units · 72 shown', { timeout: 10000 });
 
         // Open the settings panel
         await page.locator('.controls-container-button').click();
@@ -188,10 +222,8 @@ test.describe('TreeGrid Big Data E2E', () => {
         // 1. Valid Filter
         await firstnameInput.fill('Amanda');
 
-        // Wait for grid to update. Filtering by 'Amanda' will match many children,
-        // causing their parents to auto-expand. The visible row count will jump
-        // from 10 to fill the virtual viewport (e.g., ~29 rows).
-        await expect(page.locator('.neo-grid-row:visible')).not.toHaveCount(10, { timeout: 10000 });
+        // Every Amanda keeps her units open, so the footer counts other rows than the first frame's
+        await expect(footer).not.toHaveText(/· 72 shown$/, { timeout: 10000 });
 
         // Verify that the filtered content actually appears in the visible rows
         await expect(page.locator('.neo-grid-row:visible').filter({ hasText: 'Amanda' })).not.toHaveCount(0);
@@ -202,6 +234,7 @@ test.describe('TreeGrid Big Data E2E', () => {
 
         // Wait for grid to update. Filtering by a non-existent name should reduce the count to 0.
         await expect(page.locator('.neo-grid-row:visible')).toHaveCount(0, { timeout: 10000 });
+        await expect(footer).toHaveText(/· 0 shown$/);
 
         // 3. Clear Filter
         await firstnameInput.fill('');
@@ -210,7 +243,7 @@ test.describe('TreeGrid Big Data E2E', () => {
         // Since 'Amanda' caused nodes to auto-expand, and clearing filters does not re-collapse them,
         // the grid will remain expanded, filling the virtual viewport.
         await expect(page.locator('.neo-grid-row:visible')).not.toHaveCount(0, { timeout: 10000 });
-        await expect(page.locator('.neo-grid-row:visible')).not.toHaveCount(10);
+        await expect(footer).not.toHaveText(/· 0 shown$/);
 
         // Close the settings panel
         await page.locator('.controls-container-button').click();
@@ -246,5 +279,29 @@ test.describe('TreeGrid Big Data E2E', () => {
         // The bug: Visually, the row might not get the selection class.
         // We assert that the row MUST get the .neo-selected class.
         await expect(targetRow).toHaveClass(/neo-selected/, { timeout: 5000 });
+    });
+
+    test('the headline holds the Settings button, and the open panel leaves the grid its columns', async ({ page }) => {
+        await page.setViewportSize({ width: 1024, height: 768 });
+
+        const grid   = page.locator('.neo-examples-treebigdata-maincontainer > .neo-grid-container'),
+              button = page.locator('.controls-container-button'),
+              panel  = page.locator('.neo-examples-treebigdata-controls-container');
+
+        await expect(page.locator('.neo-examples-treebigdata-title')).toHaveText('An organization of 20,000 people as a tree grid');
+
+        // Closed, the button sits in the header band, above the grid's header row
+        await expect.poll(async () => {
+            const [gridBox, buttonBox] = [await grid.boundingBox(), await button.boundingBox()];
+            return buttonBox.y + buttonBox.height <= gridBox.y
+        }).toBe(true);
+
+        // Open, the grid ends left of the panel
+        await button.click();
+        await expect(panel).toHaveClass(/neo-expanded/);
+        await expect.poll(async () => {
+            const [gridBox, panelBox] = [await grid.boundingBox(), await panel.boundingBox()];
+            return gridBox.x + gridBox.width <= panelBox.x
+        }).toBe(true)
     });
 });

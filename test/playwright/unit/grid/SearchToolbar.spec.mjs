@@ -171,10 +171,15 @@ test.describe('Grid record search toolbar', () => {
             summary = toolbar.getItem('summary'),
             entries = toolbar.getItem('entries');
 
+        expect(toolbar.getItem('case').pressed).toBe(false);
+        expect(toolbar.getItem('case').getVdomRoot()['aria-pressed']).toBe('false');
+
         toolbar.writeSearch({value: 'Falcon', fields: ['title'], caseSensitive: true});
         const filter = toolbar.getSearchFilter();
         expect(ids(store)).toEqual([101, 102]);
         expect(query.value).toBe('Falcon');
+        expect(toolbar.getItem('case').pressed).toBe(true);
+        expect(toolbar.getItem('case').getVdomRoot()['aria-pressed']).toBe('true');
         expect(entries.items).toHaveLength(0);
         expect(summary.hidden).toBe(true);
         expect(clearIsVisible(toolbar)).toBe(false);

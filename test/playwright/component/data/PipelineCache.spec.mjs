@@ -22,7 +22,8 @@ test.describe('Pipeline cache across worker realms', () => {
     for (const realm of ['app', 'data']) for (const cache of [false, true]) {
         test(`${realm}: cache ${cache} preserves reads and explicit refresh`, async ({page, context, baseURL}) => {
             let reads = 0;
-            await context.route('**/pipeline-cache-read', route => route.fulfill({
+            // Each read carries its params in the query (`?page=1`), so the pattern ends in a wildcard
+            await context.route('**/pipeline-cache-read*', route => route.fulfill({
                 status: 200, contentType: 'application/json', headers: {'Cache-Control': 'no-store'},
                 body  : JSON.stringify({id: ++reads})
             }));

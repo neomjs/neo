@@ -29,8 +29,10 @@ export default defineConfig({
     //
     // Enforced rather than incidental: the aggregate runner also sets `retries` below, which would defeat
     // that project's deliberate `retries: 0` invariant — a goal bar passing on attempt two has already
-    // told you the chain is unreliable.
-    testIgnore   : /update-chain\//,
+    // told you the chain is unreliable. `clipboard/` is likewise opt-in (`npm run test-clipboard`) because
+    // it mutates the host OS clipboard across Chromium, WebKit, and Firefox while default suites stay
+    // OS-clipboard-free and hosted CI installs Chromium only.
+    testIgnore   : /update-chain\/|clipboard\//,
     outputDir    : path.join(__dirname, 'test-results/all'),
     fullyParallel: false,
     forbidOnly   : !!process.env.CI,

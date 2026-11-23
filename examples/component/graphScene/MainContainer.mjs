@@ -1,8 +1,9 @@
-import Button      from '../../../src/button/Base.mjs';
-import Component   from '../../../src/component/Base.mjs';
-import SceneCanvas from './SceneCanvas.mjs';
-import Toolbar     from '../../../src/toolbar/Base.mjs';
-import Viewport    from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Component     from '../../../src/component/Base.mjs';
+import SceneCanvas   from './SceneCanvas.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @summary A `Neo.canvas.GraphScene` on the canvas worker. Drag to orbit, scroll to zoom. The toolbar sends
@@ -31,6 +32,7 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             items : [{
                 module : Button,
                 handler: 'up.onNodeCountButton',
@@ -73,6 +75,9 @@ class MainContainer extends Viewport {
                 handler  : 'up.onStatsButton',
                 reference: 'read-stats',
                 text     : 'Read stats'
+            }, {
+                module  : ThemeSwitcher,
+                showText: false
             }]
         }, {
             module   : Component,

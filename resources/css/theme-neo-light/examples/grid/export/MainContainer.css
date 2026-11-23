@@ -1,0 +1,13 @@
+:where(.neo-theme-neo-light) {
+    --grid-export-accent    : #176b72;
+    --grid-export-alternate : #f8fafc;
+    --grid-export-background: #f1f5f8;
+    --grid-export-border    : #dce5eb;
+    --grid-export-code      : #1d3a48;
+    --grid-export-header    : #eaf1f5;
+    --grid-export-hover     : #dcefed;
+    --grid-export-muted     : #647786;
+    --grid-export-surface   : #fff;
+    --grid-export-text      : #455c6b;
+    --grid-export-title     : #182e3b;
+}

@@ -33,6 +33,15 @@ const
  * @extends Neo.component.Base
  */
 class Markdown extends Component {
+    /**
+     * YAML frontmatter keys consumed exclusively by the build-time SEO/head pipeline (`seoJson.mjs`,
+     * `Portal.service.Seo`) rather than rendered as visible metadata rows inside the document body.
+     * @member {Set<String>} headOnlyFrontMatterKeys=new Set(['robots','seoDescription','seoTitle'])
+     * @protected
+     * @static
+     */
+    static headOnlyFrontMatterKeys = new Set(['robots', 'seoDescription', 'seoTitle'])
+
     static config = {
         /**
          * @member {String} className='Neo.component.Markdown'
@@ -88,6 +97,12 @@ class Markdown extends Component {
     activeComponents = []
 
     /**
+     * @member {Number} #renderId=0
+     * @private
+     */
+    #renderId = 0
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -118,22 +133,23 @@ class Markdown extends Component {
     }
 
     /**
-     * Triggered after the value config got changed
+     * @summary Invalidates earlier renders and rebuilds the content for the current value.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     async afterSetValue(value, oldValue) {
-        if (value) {
-            let me = this;
+        const me       = this,
+              renderId = ++me.#renderId;
 
-            value = me.modifyMarkdown(value);
+        if (!value || !me.#isCurrentRender(renderId)) return;
 
-            // Clean up previous instances
-            me.destroyComponents();
+        const code = me.modifyMarkdown(value);
 
-            await me.render({code: value})
-        }
+        if (!me.#isCurrentRender(renderId)) return;
+
+        me.destroyComponents();
+        await me.render({code}, renderId)
     }
 
     /**
@@ -177,13 +193,41 @@ class Markdown extends Component {
     }
 
     /**
-     * Destroys all components created by the last render pass.
+     * @summary Releases the current embedded components before running their teardown hooks.
      */
     destroyComponents() {
-        let me = this;
+        const {activeComponents} = this;
 
-        me.activeComponents.forEach(component => component.destroy());
-        me.activeComponents = []
+        this.activeComponents = [];
+        activeComponents.forEach(component => component.destroy())
+    }
+
+    /**
+     * @summary Creates a child and adopts it only while its render still owns the content.
+     * @param {Number} renderId
+     * @param {Object} config
+     * @private
+     */
+    #createRenderComponent(renderId, config) {
+        if (!this.#isCurrentRender(renderId)) return;
+
+        const component = Neo.create(config);
+
+        if (this.#isCurrentRender(renderId)) {
+            this.activeComponents.push(component)
+        } else {
+            component.destroy()
+        }
+    }
+
+    /**
+     * @summary Checks whether a render can still write to the component.
+     * @param {Number} renderId
+     * @returns {Boolean}
+     * @private
+     */
+    #isCurrentRender(renderId) {
+        return renderId === this.#renderId && !this.isDestroying && !this.isDestroyed
     }
 
     /**
@@ -224,14 +268,26 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Converts parsed YAML frontmatter entries into a metadata HTML table, excluding head-only SEO keys.
+     *
+     * Filters out keys listed in `headOnlyFrontMatterKeys` (`seoTitle`, `seoDescription`, `robots`) so documents
+     * carrying build-time `<head>` metadata do not leak SEO fields or render an empty `<details>` widget in the
+     * visible Markdown body. Returns `''` when no displayable entries remain.
      * @param {Object} data
      * @returns {String}
      */
     frontMatterToHtml(data) {
-        let me   = this,
-            html = '<table class="neo-frontmatter-table"><tbody>';
+        let me       = this,
+            headOnly = me.constructor.headOnlyFrontMatterKeys,
+            entries  = Object.entries(data || {}).filter(([key]) => !headOnly.has(key));
 
-        Object.entries(data).forEach(([key, value]) => {
+        if (!entries.length) {
+            return ''
+        }
+
+        let html = '<table class="neo-frontmatter-table"><tbody>';
+
+        entries.forEach(([key, value]) => {
             html += `<tr><td>${key}</td><td>${me.formatFrontMatterValue(value)}</td></tr>`
         });
 
@@ -298,7 +354,8 @@ class Markdown extends Component {
                 }
 
                 try {
-                    return me.frontMatterToHtml(me.parseFrontMatter(frontmatter)) + '\n'
+                    let html = me.frontMatterToHtml(me.parseFrontMatter(frontmatter));
+                    return html ? html + '\n' : ''
                 } catch (e) {
                     console.error('Error parsing FrontMatter', e);
                     return match
@@ -565,9 +622,12 @@ class Markdown extends Component {
      *
      * @param {Object} data
      * @param {String} data.code
+     * @param {Number} [renderId] Identity reserved by the value change, or allocated for a direct call.
      * @returns {Promise<Object>}
      */
-    async render({code}) {
+    async render({code}, renderId = ++this.#renderId) {
+        if (!this.#isCurrentRender(renderId)) return {};
+
         let me            = this,
             {windowId}    = me,
             content       = code,
@@ -582,11 +642,7 @@ class Markdown extends Component {
                 theme          : me.theme,
                 windowId
             },
-            html, instance;
-
-        // Initialize maps for custom components and live previews
-        neoComponents = {};
-        neoDivs       = {};
+            html;
 
         // Process custom Neo.mjs component blocks (synchronous)
         content = me.processNeoComponentsBlocks(content, neoComponents);
@@ -600,6 +656,8 @@ class Markdown extends Component {
         // Process custom Readonly Code blocks (asynchronous due to HighlightJS)
         // This will replace the markdown fenced block with the highlighted HTML <pre> tag.
         content = await me.processReadonlyCodeBlocks(content, baseConfigs.windowId);
+
+        if (!me.#isCurrentRender(renderId)) return {};
 
         // Parse the (now modified) markdown content into HTML
         // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
@@ -617,24 +675,33 @@ class Markdown extends Component {
         html = html.replace(/<img([^>]*)>/g, '<div class="neo-markdown-image-wrapper"><img$1></div>');
 
         // Insert lab divs (these are markdown comments, so process on the final HTML)
-        await me.set({html: me.insertLabDivs(html)});
-        await me.timeout(10);
+        html = me.insertLabDivs(html);
 
-        if (Object.keys(neoComponents).length > 0) {
-            Object.keys(neoComponents).forEach(key => {
-                instance = Neo.create({
-                    ...baseConfigs,
-                    className: 'Neo.component.Base',
-                    parentId : key,
-                    ...neoComponents[key]
-                });
-                me.activeComponents.push(instance)
-            });
+        if (!me.#isCurrentRender(renderId)) return {};
+
+        await me.set({html});
+
+        if (!me.#isCurrentRender(renderId)) return {};
+
+        await me.timeout(10).catch(error => {
+            if (error !== Neo.isDestroyed) throw error
+        });
+
+        if (!me.#isCurrentRender(renderId)) return {};
+
+        for (const [parentId, config] of Object.entries(neoComponents)) {
+            me.#createRenderComponent(renderId, {
+                ...baseConfigs,
+                className: 'Neo.component.Base',
+                parentId,
+                ...config
+            })
         }
 
-        if (Object.keys(neoDivs).length > 0) {
-            const LivePreviewModule = await import('../code/LivePreview.mjs');
-            const LivePreviewClass  = LivePreviewModule.default;
+        if (me.#isCurrentRender(renderId) && Object.keys(neoDivs).length > 0) {
+            const {default: LivePreviewClass} = await import('../code/LivePreview.mjs');
+
+            if (!me.#isCurrentRender(renderId)) return {};
 
             Object.keys(neoDivs).forEach(key => {
                 const config = {
@@ -649,24 +716,23 @@ class Markdown extends Component {
                     config.windowUrl = me.windowUrl
                 }
 
-                instance = Neo.create(config);
-                me.activeComponents.push(instance);
+                me.#createRenderComponent(renderId, config)
             });
         }
 
-        if (Object.keys(mermaidDivs).length > 0) {
-            const MermaidModule = await import('./wrapper/Mermaid.mjs');
-            const MermaidClass  = MermaidModule.default;
+        if (me.#isCurrentRender(renderId) && Object.keys(mermaidDivs).length > 0) {
+            const {default: MermaidClass} = await import('./wrapper/Mermaid.mjs');
+
+            if (!me.#isCurrentRender(renderId)) return {};
 
             Object.keys(mermaidDivs).forEach(key => {
-                instance = Neo.create({
+                me.#createRenderComponent(renderId, {
                     ...baseConfigs,
                     module  : MermaidClass,
                     parentId: key,
                     theme   : me.theme,
                     value   : mermaidDivs[key]
-                });
-                me.activeComponents.push(instance)
+                })
             })
         }
 

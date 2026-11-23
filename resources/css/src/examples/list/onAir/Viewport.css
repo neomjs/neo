@@ -1,0 +1,546 @@
+/* The operator's desk and the detached cue screen share one studio palette. The rundown
+   list may render its drag proxy on the document body, outside either viewport. */
+.air-desk,
+.air-presenter-window,
+.air-list {
+    --air-mono : ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --air-sans : "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --air-serif: Georgia, "Times New Roman", serif;
+}
+
+.air-desk,
+.air-presenter-window {
+    background  : var(--air-night);
+    box-sizing  : border-box;
+    color       : var(--air-paper);
+    color-scheme: var(--air-scheme, dark);
+    font-family : var(--air-sans);
+    overflow-y  : auto;
+}
+
+.air-desk {
+    padding: 0 clamp(20px, 4vw, 72px) 32px;
+
+    & > :is(.air-mast, .air-heading, .air-layout) {
+        box-sizing  : border-box;
+        margin-inline: auto;
+        max-width   : 1460px;
+        width       : 100%;
+    }
+
+    :is(.air-mast, .air-clock, .air-heading, .air-layout, .air-vision, .air-rundown, .air-transport, .air-monitor-actions) {
+        background-color: transparent;
+        min-width       : 0;
+    }
+}
+
+.air-mast {
+    align-items    : center;
+    border-bottom  : 1px solid var(--air-rule);
+    display        : flex;
+    gap            : 18px;
+    justify-content: space-between;
+    min-height     : 56px;
+}
+
+.air-mast-end {
+    align-items     : center;
+    background-color: transparent;
+    display         : flex;
+    flex            : none;
+    gap             : 10px;
+}
+
+.air-station,
+.air-clock,
+.air-kicker,
+.air-tally,
+.air-channel,
+.air-feed-label,
+.air-feed-sub {
+    font-family: var(--air-mono);
+}
+
+.air-station {
+    align-items   : center;
+    display       : flex;
+    font-size     : 12px;
+    font-weight   : 700;
+    gap           : 10px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+
+    &::before {
+        background: repeating-linear-gradient(90deg, var(--air-gold) 0 4px, transparent 4px 7px);
+        clip-path : polygon(0 35%, 20% 35%, 20% 15%, 49% 15%, 49% 0, 71% 0, 71% 22%, 100% 22%,
+                            100% 80%, 71% 80%, 71% 100%, 49% 100%, 49% 85%, 20% 85%, 20% 65%, 0 65%);
+        content   : "";
+        flex      : 0 0 25px;
+        height    : 22px;
+    }
+}
+
+.air-clock {
+    align-items         : baseline;
+    color               : var(--air-gold);
+    display             : flex;
+    font-size           : clamp(13px, 1.25vw, 18px);
+    font-variant-numeric: tabular-nums;
+    gap                 : 9px;
+    letter-spacing      : .06em;
+    white-space         : nowrap;
+    span   {color: var(--air-muted); font-size: 10px; text-transform: uppercase;}
+    strong {font-size: 1.2em; font-weight: 600;}
+}
+
+.air-heading {
+    padding: clamp(20px, 3.1vh, 38px) 0 clamp(16px, 2.8vh, 32px);
+
+    h1 {
+        color         : var(--air-paper);
+        font          : 500 clamp(39px, 4.4vw, 70px)/1 var(--air-serif);
+        letter-spacing: -.052em;
+        margin        : 4px 0 7px;
+    }
+}
+
+.air-kicker,
+.air-feed-label,
+.air-channel,
+.air-tally {
+    font-size     : 11px;
+    font-weight   : 650;
+    letter-spacing: .1em;
+    line-height   : 1.35;
+    text-transform: uppercase;
+}
+
+.air-kicker              {color: var(--air-gold);}
+.air-brief, .air-helper  {color: var(--air-muted); margin: 0;}
+.air-brief               {font-size: clamp(15px, 1.2vw, 19px); line-height: 1.38;}
+.air-helper              {font-size: 14px; line-height: 1.36;}
+
+.air-desk .air-layout {
+    align-items          : start;
+    display              : grid;
+    gap                  : clamp(20px, 2.7vw, 46px);
+    grid-template-columns: minmax(0, 1.48fr) minmax(350px, 1fr);
+}
+
+.air-vision,
+.air-rundown {
+    display: grid;
+    gap    : 14px;
+}
+
+.air-monitor {
+    background   : #090e15;
+    border       : 1px solid #43505a;
+    border-radius: 8px;
+    box-shadow   : 0 10px 30px #03070b33;
+    overflow     : hidden;
+}
+
+.air-monitor-head {
+    align-items    : center;
+    background     : #192330;
+    display        : flex;
+    gap            : 12px;
+    justify-content: space-between;
+    min-height     : 33px;
+    padding        : 0 13px;
+}
+
+.air-channel {color: #c0cbd0;}
+.air-tally {
+    align-items: center;
+    color      : var(--air-red);
+    display    : inline-flex;
+    gap        : 7px;
+    &::before {background: currentColor; border-radius: 50%; content: ""; height: 7px; width: 7px;}
+}
+
+.air-screen {
+    align-content      : end;
+    aspect-ratio       : 16 / 9;
+    background-color   : #263c4f;
+    background-position: 50% 52%;
+    background-size    : cover;
+    box-sizing         : border-box;
+    color              : #fff7e3;
+    display            : grid;
+    isolation          : isolate;
+    overflow           : hidden;
+    padding            : clamp(17px, 2.6vw, 45px);
+    position           : relative;
+
+    .air-screen-art,
+    &::before {
+        inset         : 0;
+        pointer-events: none;
+        position      : absolute;
+    }
+    .air-screen-art {
+        background-position: inherit;
+        background-size    : cover;
+        z-index            : -2;
+    }
+    &::before {
+        background: linear-gradient(90deg, #06101ed1, #08142038 58%, transparent),
+                    linear-gradient(0deg, #080d17b3 0%, transparent 65%);
+        content   : "";
+        z-index   : -1;
+    }
+}
+
+.air-feed-label {
+    align-self : end;
+    color      : #ffe299;
+    margin     : 0 0 6px;
+}
+
+.air-feed-title {
+    font          : 550 clamp(30px, 4vw, 70px)/.99 var(--air-serif);
+    letter-spacing: -.045em;
+    margin        : 0;
+    max-width     : 90%;
+    text-wrap     : balance;
+}
+
+.air-feed-sub {
+    color         : #f7ebd6;
+    font-size     : clamp(10px, .84vw, 14px);
+    letter-spacing: .04em;
+    line-height   : 1.4;
+    margin        : 8px 0 0;
+    max-width     : 85%;
+}
+
+.air-titles {
+    &::before {
+        background: linear-gradient(90deg, #0b192be0 0%, #0a172a95 37%, transparent 73%),
+                    linear-gradient(0deg, #0b111ec7, transparent 70%);
+    }
+    .air-feed-title {
+        border-left : 4px solid var(--air-gold);
+        font-size   : clamp(36px, 4.8vw, 80px);
+        padding-left: 12px;
+    }
+    .air-screen-art {
+        background : repeating-radial-gradient(ellipse at 100% -40%, transparent 0 23px, #efdfb048 24px, transparent 25px 53px);
+        mask-image : linear-gradient(235deg, black 2%, transparent 48%);
+        z-index    : 0;
+    }
+}
+
+.air-film {
+    &::before {background: linear-gradient(0deg, #07101ee6, #07101e30 39%, transparent 68%);}
+    .air-feed-title {font-size: clamp(27px, 3vw, 50px);}
+}
+
+.air-guest {
+    background-image: linear-gradient(120deg, #143d46, #172c43 58%, #19202e);
+
+    .air-screen-art::after {
+        background: repeating-linear-gradient(90deg, #80c8be 0 3px, transparent 3px 8px);
+        clip-path : polygon(0 45%, 5% 44%, 8% 32%, 12% 42%, 18% 21%, 20% 35%, 24% 30%, 30% 5%,
+                            35% 27%, 39% 16%, 41% 1%, 47% 34%, 53% 17%, 60% 41%, 65% 24%, 74% 35%,
+                            83% 23%, 88% 39%, 95% 42%, 100% 46%, 100% 55%, 92% 58%, 84% 74%, 79% 65%,
+                            72% 77%, 66% 62%, 58% 83%, 52% 68%, 47% 92%, 41% 65%, 34% 99%, 30% 75%,
+                            24% 85%, 18% 64%, 12% 72%, 7% 55%, 0 53%);
+        content   : "";
+        inset     : 8% 9% 42% 18%;
+        opacity   : .7;
+        position  : absolute;
+    }
+}
+.air-end {
+    background-image: linear-gradient(to right, #c8b58f 0 20%, #95a696 20% 40%, #a996bb 40% 60%, #729ba5 60% 80%, #bd8e74 80%),
+                      linear-gradient(145deg, #17283a, #131925);
+    background-repeat: no-repeat;
+    background-size: 100% 5px, cover;
+    background-position: top, center;
+}
+.air-black {
+    background-color: #07090c;
+    background-image: none !important;
+    &::before {background: none;}
+    .air-feed-title {color: #ddd6ca;}
+    .air-feed-label {color: var(--air-red);}
+}
+
+.air-presenter {
+    background      : var(--air-panel);
+    border          : 1px solid var(--air-rule);
+    border-inline-start: 3px solid var(--air-gold);
+    border-radius   : 3px;
+    box-sizing      : border-box;
+    color           : var(--air-paper);
+    padding         : 12px 17px 13px;
+
+    .air-presenter-label {
+        color         : var(--air-gold);
+        font          : 650 11px/1.4 var(--air-mono);
+        letter-spacing: .09em;
+        margin        : 0;
+        text-transform: uppercase;
+    }
+}
+
+.air-cue    {font: 500 clamp(20px, 1.65vw, 29px)/1.2 var(--air-serif); margin: 4px 0;}
+.air-detail {color: var(--air-muted); font-size: 14px; line-height: 1.4; margin: 0;}
+
+.air-monitor-actions,
+.air-transport {align-items: center; display: flex; flex-wrap: wrap; gap: 8px;}
+
+.air-rundown .air-transport {
+    display              : grid;
+    gap                  : 5px 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.air-section {
+    border-top: 2px solid var(--air-gold);
+    padding   : 13px 0 0;
+
+    h2 {
+        font          : 500 clamp(26px, 2.25vw, 38px)/1.08 var(--air-serif);
+        letter-spacing: -.035em;
+        margin        : 5px 0 6px;
+    }
+}
+
+/* The drag proxy sits outside .air-desk. Its cloned list keeps these rules and its own palette. */
+.air-list.neo-list {
+    background  : transparent;
+    border-top  : 1px solid var(--air-rule);
+    color       : var(--air-paper);
+    font-family : var(--air-sans);
+    list-style  : none;
+    margin      : 0;
+    min-width   : 0;
+    padding     : 0;
+
+    .neo-list-item {
+        align-items          : center;
+        background-color     : var(--air-panel);
+        border               : 0;
+        border-bottom        : 1px solid var(--air-rule);
+        box-sizing           : border-box;
+        color                : var(--air-paper);
+        cursor               : grab;
+        display              : grid;
+        gap                  : clamp(8px, 1vw, 16px);
+        grid-template-columns: 10px 20px minmax(0, 1fr) auto;
+        min-height           : 65px;
+        padding              : 8px 14px;
+        user-select          : none;
+        white-space          : normal;
+
+        &:hover {background-color: var(--air-hover); color: var(--air-paper);}
+        &:active {cursor: grabbing;}
+        &[aria-selected="true"], &.neo-selected {
+            background-color: var(--air-selected);
+            box-shadow      : inset 3px 0 var(--air-gold);
+            color           : var(--air-paper);
+        }
+        &:focus-visible, &.neo-navigator-active-item {
+            outline       : 2px solid var(--air-gold);
+            outline-offset: -3px;
+        }
+    }
+
+    .neo-list-item:first-child {
+        box-shadow: inset 3px 0 var(--air-gold);
+        .air-order {color: var(--air-gold);}
+    }
+}
+
+.air-grip {
+    color : var(--air-grip);
+    cursor: grab;
+}
+
+.air-order,
+.air-duration {
+    color               : var(--air-duration);
+    font                : 500 12px/1.3 var(--air-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.air-duration {justify-self: end; white-space: nowrap;}
+.air-order    {color: var(--air-order);}
+.air-row-label {
+    display  : grid;
+    gap      : 3px;
+    min-width: 0;
+    strong   {font-size: 16px; font-weight: 650; line-height: 1.15;}
+    small    {color: var(--air-muted); font-size: 13px; line-height: 1.25;}
+}
+
+.air-desk .neo-button:is(.air-primary, .air-secondary, .air-quiet) {
+    background   : transparent;
+    border       : 1px solid var(--air-btn-border);
+    border-radius: 4px;
+    box-shadow   : none;
+    box-sizing   : border-box;
+    color        : var(--air-paper);
+    height       : auto;
+    margin       : 0;
+    min-height   : 39px;
+    min-width    : 0;
+    padding      : 7px 13px;
+
+    .neo-button-glyph, .neo-button-text {color: inherit;}
+    .neo-button-text {font: 650 14px/1.2 var(--air-sans); text-transform: none;}
+    &:hover {background: var(--air-btn-hover-bg); border-color: var(--air-btn-hover-border);}
+    &:focus-visible {outline: 2px solid var(--air-btn-focus); outline-offset: 3px;}
+    &.air-primary {background: var(--air-gold); border-color: var(--air-gold); color: var(--air-primary-ink);}
+    &.air-primary:hover {background: var(--air-primary-hover); border-color: var(--air-primary-hover);}
+    &.air-quiet {border-color: transparent; color: var(--air-btn-quiet);}
+    &.neo-disabled, &:disabled {cursor: default; opacity: .48;}
+}
+
+.air-result {
+    border-top : 1px solid var(--air-rule);
+    color      : var(--air-paper);
+    font-size  : 15px;
+    line-height: 1.4;
+    margin     : 0;
+    padding-top: 12px;
+    &:empty    {display: none;}
+}
+
+.air-plan {
+    --air-marker : var(--air-gold);
+    --air-line-at: 38.1%;
+    background  : var(--air-panel);
+    border      : 1px solid var(--air-rule);
+    border-radius: 4px;
+    box-sizing  : border-box;
+    min-width   : 0;
+    padding     : 13px 15px;
+
+    &.air-risk {--air-marker: var(--air-risk);}
+    &.air-safe {--air-marker: var(--air-safe);}
+}
+
+.air-plan-heading {
+    color         : var(--air-paper);
+    font          : 650 11px/1.3 var(--air-mono);
+    letter-spacing: .08em;
+    margin        : 0 0 10px;
+    text-transform: uppercase;
+}
+
+.air-track {
+    display   : flex;
+    height    : 30px;
+    isolation : isolate;
+    position  : relative;
+}
+
+.air-slot {
+    align-content: center;
+    box-sizing   : border-box;
+    flex-basis   : 0;
+    font         : 650 13px/1 var(--air-sans);
+    min-width    : 0;
+    overflow     : hidden;
+    text-indent  : 9px;
+    white-space  : nowrap;
+}
+
+.air-slot-guest {background: #4a4462; color: #f4eafe;}
+.air-slot-film  {background: #305768; color: #e4f5f6;}
+.air-line-marker {
+    background    : var(--air-marker);
+    bottom        : -3px;
+    box-shadow    : 0 0 0 1px var(--air-marker-ring);
+    left          : var(--air-line-at);
+    position      : absolute;
+    top           : -2px;
+    width         : 2px;
+    z-index       : 1;
+    &::before {
+        background: var(--air-marker);
+        clip-path : polygon(0 0, 100% 0, 50% 100%);
+        content   : "";
+        height    : 5px;
+        left      : -3px;
+        position  : absolute;
+        top       : -2px;
+        width     : 8px;
+    }
+}
+
+.air-axis {
+    color               : var(--air-muted);
+    display             : flex;
+    font                : 500 10px/1.3 var(--air-mono);
+    font-variant-numeric: tabular-nums;
+    justify-content     : space-between;
+    margin-top          : 6px;
+    position            : relative;
+    white-space         : nowrap;
+
+    span:nth-child(2) {
+        color    : var(--air-marker);
+        left     : var(--air-line-at);
+        position : absolute;
+        transform: translateX(-50%);
+    }
+}
+
+.air-margin {
+    color      : var(--air-marker);
+    font-size  : 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin     : 10px 0 0;
+}
+
+.neo-viewport.air-presenter-window {
+    align-content: center;
+    display      : grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding      : clamp(20px, 6vw, 80px);
+
+    .air-presenter {padding: clamp(18px, 4vw, 54px);}
+    .air-cue       {font-size: clamp(28px, 5.4vw, 78px);}
+    .air-detail    {font-size: clamp(16px, 2vw, 26px);}
+}
+
+@media (max-width: 840px) {
+    .air-desk .air-layout {grid-template-columns: minmax(0, 1fr) minmax(294px, .9fr); gap: 16px;}
+    .air-list.neo-list .neo-list-item {gap: 8px; padding-inline: 11px;}
+}
+
+@media (max-width: 680px) {
+    .air-desk {padding: 0 15px 25px;}
+    .air-mast {min-height: 44px; gap: 8px;}
+    .air-station {font-size: 10px; letter-spacing: .045em; gap: 6px;}
+    .air-station::before {flex-basis: 21px; height: 19px;}
+    .air-clock {align-content: center; display: grid; gap: 0; justify-items: end; line-height: 1.15;}
+    .air-clock span {font-size: 9px;}
+    .air-desk .air-layout {grid-template-columns: minmax(0, 1fr); gap: 16px;}
+    .air-heading {padding: 14px 0 12px;}
+    .air-heading h1 {font-size: clamp(36px, 10vw, 50px);}
+    .air-brief {font-size: 15px;}
+    .air-vision, .air-rundown {gap: 10px;}
+    .air-screen {padding: 14px 16px;}
+    .air-monitor-head {min-height: 29px;}
+    .air-feed-title, .air-titles .air-feed-title {font-size: clamp(29px, 8.2vw, 43px);}
+    .air-feed-sub {margin-top: 5px;}
+    .air-presenter {padding: 9px 12px 10px;}
+    .air-section {padding-top: 10px;}
+    .air-list.neo-list .neo-list-item {min-height: 54px;}
+    .air-desk .neo-button:is(.air-primary, .air-secondary, .air-quiet) {min-height: 44px;}
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .air-desk *, .air-presenter-window *, .air-list.neo-list .neo-list-item {
+        animation-duration : 0s !important;
+        transition-duration: 0s !important;
+    }
+}

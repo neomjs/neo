@@ -70,6 +70,7 @@ class Chip extends ComponentList {
 
     /**
      * Override this method for custom renderers
+     * @summary Creates or refreshes one record's chip. A new chip joins the list's window, which loads its theme files.
      * @param {Object} record
      * @param {Number} index
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
@@ -90,9 +91,10 @@ class Chip extends ComponentList {
             listItem.setSilent(config)
         } else {
             items[index] = listItem = Neo.create({
-                appName  : me.appName,
-                parentId : me.id,
-                tabIndex : -1,
+                appName : me.appName,
+                parentId: me.id,
+                tabIndex: -1,
+                windowId: me.windowId,
                 ...me.itemDefaults,
                 ...config
             })

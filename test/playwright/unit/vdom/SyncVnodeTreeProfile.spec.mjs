@@ -96,6 +96,13 @@ class LegacyHost extends Host {
         ntype    : 'test-profile-legacy-host'
     }
 
+    /**
+     * @summary Preserves the two-argument `syncVnodeTree` baseline without `previousVnode`.
+     */
+    syncVnodeTree(vnode, deltas) {
+        super.syncVnodeTree(vnode, deltas)
+    }
+
     unmountRemovedChildren(vnodeMap, presentSet) {
         let children = ComponentManager.getDirectChildren(this.id),
             i        = 0,
@@ -143,18 +150,19 @@ const median = samples => {
 };
 
 /**
- * One timed `syncVnodeTree` on a freshly expanded vnode — the expansion stays outside the timed region.
+ * One timed `syncVnodeTree` matching `executeVdomUpdate`'s `(vnode, deltas, previousVnode)` call shape — the expansion stays outside the timed region.
  * @param {Neo.container.Base} host
  * @param {Number[]} samples
  */
 const sample = (host, samples) => {
-    const vnode = expand(host);
+    const previousVnode = host._vnode,
+          vnode         = expand(host);
 
     host._vnode = vnode;
 
     const start = performance.now();
 
-    host.syncVnodeTree(vnode);
+    host.syncVnodeTree(vnode, [], previousVnode);
     samples.push(performance.now() - start)
 };
 

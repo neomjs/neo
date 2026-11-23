@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-light) { /* .neo-searchfield */
+    --searchfield-glyph-color: #3E63DD;
+}

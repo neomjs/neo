@@ -1,0 +1,11 @@
+:where(.neo-theme-neo-light) {
+    --project-header-bg: #ffffff;
+    --project-border: #d8dee8;
+    --project-title: #17243a;
+    --project-muted: #56657a;
+    --project-control: #f6f8fb;
+    --project-hover: #e7edf6;
+    --project-selected: #243e70;
+    --project-selected-text: #ffffff;
+    --project-focus: #285bd4;
+}

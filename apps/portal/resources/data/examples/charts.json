@@ -1,0 +1,102 @@
+[
+    {
+        "id": "open-street-maps",
+        "family": "charts",
+        "order": 460,
+        "component": "OpenStreetMaps",
+        "feature": "An OpenLayers map plots 51 earthquake records with camera, zoom and marker controls",
+        "lookFor": "Fly between San Francisco and Iceland, change the zoom, then hide and restore one marker.",
+        "scope": "Loads OpenLayers assets from jsDelivr and OpenStreetMap map tiles over the network.",
+        "image": "devmode/open-street-maps-14.jpg",
+        "hasLightCover": true,
+        "name": "OpenStreetMaps / OpenLayers",
+        "sourceUrl": "examples/component/wrapper/openStreetMaps",
+        "urls": {
+            "devmode": "examples/component/wrapper/openStreetMaps/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/openStreetMaps/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/openStreetMaps/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/openStreetMaps/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "graph-scene",
+        "family": "charts",
+        "order": 470,
+        "component": "GraphScene",
+        "feature": "A worker-rendered WebGL graph supports orbiting, zooming, large node sets and level-of-detail passes.",
+        "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
+        "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
+        "image": "devmode/graph-scene-14.jpg",
+        "hasLightCover": true,
+        "name": "GraphScene",
+        "sourceUrl": "examples/component/graphScene",
+        "urls": {
+            "devmode": "examples/component/graphScene/index.html",
+            "dist_dev": "dist/development/examples/component/graphScene/index.html",
+            "dist_esm": "dist/esm/examples/component/graphScene/index.html",
+            "dist_prod": "dist/production/examples/component/graphScene/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "am-charts",
+        "family": "charts",
+        "order": 480,
+        "component": "AmChart",
+        "feature": "An amCharts pie chart wrapper renders a labelled dataset and interactive legend.",
+        "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
+        "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
+        "image": "devmode/am-charts-14.jpg",
+        "hasLightCover": true,
+        "name": "amCharts Pie",
+        "sourceUrl": "examples/charts",
+        "urls": {
+            "devmode": "examples/charts/index.html",
+            "dist_dev": "dist/development/examples/charts/index.html",
+            "dist_esm": "dist/esm/examples/charts/index.html",
+            "dist_prod": "dist/production/examples/charts/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "sparklines",
+        "family": "charts",
+        "order": 490,
+        "component": "Sparkline",
+        "feature": "Six metric cards each draw a 30-second sparkline in the canvas worker.",
+        "lookFor": "Watch the lines move, then turn the pulse and the smooth updates off, stop the feed and press Restart.",
+        "scope": "The readings are simulated in the browser from fixed seeds.",
+        "image": "devmode/sparklines-14.jpg",
+        "hasLightCover": true,
+        "name": "Sparklines",
+        "sourceUrl": "examples/component/sparkline",
+        "urls": {
+            "devmode": "examples/component/sparkline/index.html",
+            "dist_dev": "dist/development/examples/component/sparkline/index.html",
+            "dist_esm": "dist/esm/examples/component/sparkline/index.html",
+            "dist_prod": "dist/production/examples/component/sparkline/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "mermaid",
+        "family": "charts",
+        "order": 500,
+        "component": "Mermaid",
+        "feature": "Mermaid draws flowchart, sequence, class or Gantt diagrams on each edit or theme swap.",
+        "lookFor": "Edit the source on the left, load each preset, and turn the dark theme on.",
+        "scope": "Mermaid ships with the engine and loads on first use.",
+        "image": "devmode/mermaid-14.jpg",
+        "hasLightCover": true,
+        "name": "Mermaid Diagrams",
+        "sourceUrl": "examples/component/wrapper/mermaid",
+        "urls": {
+            "devmode": "examples/component/wrapper/mermaid/index.html",
+            "dist_dev": "dist/development/examples/component/wrapper/mermaid/index.html",
+            "dist_esm": "dist/esm/examples/component/wrapper/mermaid/index.html",
+            "dist_prod": "dist/production/examples/component/wrapper/mermaid/index.html"
+        },
+        "hiddenIn": []
+    }
+]

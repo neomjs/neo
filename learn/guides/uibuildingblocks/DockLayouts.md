@@ -1,3 +1,7 @@
+---
+seoTitle: "Multi-Window JavaScript Dock Layouts & SharedWorker Workspaces | Neo.mjs"
+seoDescription: "Build desktop-class multi-window JavaScript workspaces with Neo.mjs Dock Layouts: tear-out OS windows, SharedWorker state, split panes, and perspectives."
+---
 # Dock Layouts: One Application, Many Windows
 
 Every team that has shipped a serious desktop cockpit — a trading floor, an ops console, a monitoring wall — knows
@@ -237,7 +241,7 @@ of the guide series this page fronts. Once you extend the class, the adoption su
    below; a workspace whose provider is set to `null` reads through the nearest ancestor but publishes nothing.
 
 Styling arrives through the engine's token layer. The dock's visual language lives in
-`resources/scss/src/dashboard/Container.scss` as neutral `--dock-*` tokens, so a consumer skins the affordances by
+`resources/css/src/dashboard/Container.css` as neutral `--dock-*` tokens, so a consumer skins the affordances by
 overriding tokens rather than re-painting internals — the same discipline as every other engine surface.
 
 ## The wire vocabulary — one greenfield family

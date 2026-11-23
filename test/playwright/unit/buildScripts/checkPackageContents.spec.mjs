@@ -23,10 +23,10 @@ import {parsePackOutput} from '../../../../buildScripts/util/check-package-conte
 test.describe('check-package-contents — fires on private state; a carve-out passes only its own subtree', () => {
     const CARVED = [{prefix: '.neo-ai-data/', allow: ['.neo-ai-data/keep/'], why: 'fixture: a deliberate export inside private state'}];
 
-    let findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput;
+    let findForbiddenEntries, FORBIDDEN_PREFIXES, FORBIDDEN_SUFFIXES, parsePackOutput;
 
     test.beforeAll(async () => {
-        ({findForbiddenEntries, FORBIDDEN_PREFIXES, parsePackOutput} =
+        ({findForbiddenEntries, FORBIDDEN_PREFIXES, FORBIDDEN_SUFFIXES, parsePackOutput} =
             await import('../../../../buildScripts/util/check-package-contents.mjs'));
     });
 
@@ -85,6 +85,26 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
         expect(findForbiddenEntries(['src/Neo.mjs', 'src/util/Array.mjs', 'package.json'])).toEqual([]);
     });
 
+    test('FIRES: an engine spec, in the test tree and in an app', () => {
+        // The class is the contract. `.gitignore` re-includes every `.mjs` file of a shipped app, so the
+        // second path passes the ignore rule; a rule pinned to `test/playwright/` would pass it here too.
+        const findings = findForbiddenEntries([
+            'test/playwright/unit/core/Base.spec.mjs',
+            'apps/portal/view/Viewport.spec.mjs'
+        ]);
+
+        expect(findings.map(finding => finding.suffix)).toEqual(['.spec.mjs', '.spec.mjs']);
+    });
+
+    test('PASSES: what a workspace imports from the test tree', () => {
+        expect(findForbiddenEntries([
+            'test/playwright/setup.mjs',
+            'test/playwright/fixtures.mjs',
+            'test/playwright/playwright.config.unit.mjs',
+            'test/playwright/e2e/utils/pngPixels.mjs'
+        ])).toEqual([]);
+    });
+
     test('every rule carries a reason, because the failure message is the whole product', () => {
         // A violation report that names a path without saying why it must not ship sends the reader
         // to `.npmignore` to reason about patterns — which is the activity that produced the defect.
@@ -92,6 +112,11 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
             expect(rule.prefix.endsWith('/')).toBe(true);
             expect(rule.why.length).toBeGreaterThan(40);
             expect(Array.isArray(rule.allow)).toBe(true);
+        }
+
+        for (const rule of FORBIDDEN_SUFFIXES) {
+            expect(rule.suffix.startsWith('.')).toBe(true);
+            expect(rule.why.length).toBeGreaterThan(40);
         }
     });
 
@@ -142,11 +167,11 @@ test.describe('check-package-contents — fires on private state; a carve-out pa
         expect(findForbiddenEntries(['.neo-ai-data/keep/nested/deep.jsonl'], CARVED)).toEqual([]);
     });
 
-    test('the rule set names DIRECTORIES only — the two generated portal FILES are a boundary, not a gap', () => {
-        // `.npmignore` also excludes `/apps/portal/sitemap.xml` and `/apps/portal/llms.txt` (3.22 MiB),
-        // and they are deliberately not gated here. Prefixes cover whole private or generated trees;
-        // individual public SEO artifacts remain ordinary ignore rules.
+    test('the rule set names DIRECTORIES and one file CLASS — individual generated files live in .gitignore', () => {
+        // Prefixes cover whole private or generated trees, the one suffix a class no folder separates;
+        // individual untracked outputs (`apps/portal/sitemap*.xml`, `apps/portal/llms*.txt`) stay in `.gitignore`.
         expect(FORBIDDEN_PREFIXES.every(rule => rule.prefix.endsWith('/'))).toBe(true);
+        expect(FORBIDDEN_SUFFIXES.map(rule => rule.suffix)).toEqual(['.spec.mjs']);
     });
 });
 
@@ -174,7 +199,8 @@ test.describe('check-package-contents — source-only release', () => {
             fs.writeFileSync(path.join(dir, '.gitignore'), fs.readFileSync(path.join(root, '.gitignore')));
 
             for (const file of [...sourcePaths.filter(file => file !== 'package.json'), ...generated,
-                '.neo-ai-data/sqlite/synthetic.sqlite', '.neo-ai-data/concepts/synthetic.json']) {
+                '.neo-ai-data/sqlite/synthetic.sqlite', '.neo-ai-data/concepts/synthetic.json',
+                'test/playwright/setup.mjs', 'test/playwright/unit/synthetic.spec.mjs']) {
                 const target = path.join(dir, file);
 
                 fs.mkdirSync(path.dirname(target), {recursive: true});
@@ -187,7 +213,8 @@ test.describe('check-package-contents — source-only release', () => {
             ))[0].files.map(file => file.path));
 
             expect(files.filter(file => file.startsWith('dist/'))).toEqual([]);
-            expect(files).toEqual(expect.arrayContaining(sourcePaths));
+            expect(files.filter(file => file.endsWith('.spec.mjs'))).toEqual([]);
+            expect(files).toEqual(expect.arrayContaining([...sourcePaths, 'test/playwright/setup.mjs']));
             expect(files).not.toContain('.neo-ai-data/sqlite/synthetic.sqlite');
             expect(files).not.toContain('.neo-ai-data/concepts/synthetic.json')
         } finally {
@@ -343,4 +370,160 @@ test.describe('.npmignore is composed at pack time', () => {
 
         expect(tracked, 'a git-pinned install ships these and a publish does not: re-include them in .gitignore, or untrack them').toBe('')
     })
+});
+
+/**
+ * @summary A frame is named when a packed text file carries its folder AND its name.
+ *
+ * A bare-name match is the avoided trap, not the rule: `dark.png` occurs in several folders, so a
+ * bare-name search passes a frame that shipped from another folder. The baseline is the escape hatch
+ * for the folders whose frame names are data, and every entry has to state why it cannot be a literal.
+ */
+test.describe('check-package-contents — a packed image needs a reference that names its folder', () => {
+    let collectUnnamedImages, diffImageBaseline, IMAGE_BASELINE, FRAME_RULE, imageReferenceKey;
+
+    const reader = files => packedPath => files[packedPath];
+
+    test.beforeAll(async () => {
+        ({collectUnnamedImages, diffImageBaseline, IMAGE_BASELINE, FRAME_RULE, imageReferenceKey} =
+            await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('PASSES: a text file that names the image by folder and file name', () => {
+        expect(collectUnnamedImages(
+            ['src/overlay/dark.png', 'src/overlay/Container.mjs'],
+            reader({'src/overlay/Container.mjs': "src: 'overlay/dark.png'"})
+        )).toEqual([])
+    });
+
+    test('FIRES: an image that no packed text file names', () => {
+        expect(collectUnnamedImages(
+            ['src/overlay/dark.png', 'src/overlay/Container.mjs'],
+            reader({'src/overlay/Container.mjs': 'nothing here'})
+        )).toEqual(['src/overlay/dark.png'])
+    });
+
+    test('FIRES: preview/dark.png although dark.png occurs in another folder', () => {
+        // The measured false pass this rule exists to end.
+        expect(collectUnnamedImages(
+            ['examples/scheduler/basic/preview/dark.png', 'resources/images/other/dark.png', 'README.md'],
+            reader({'README.md': '![frame](other/dark.png)'})
+        )).toEqual(['examples/scheduler/basic/preview/dark.png'])
+    });
+
+    test('PASSES: the unnamed images a baselined folder prefix covers', () => {
+        const prefix = {prefix: 'fixtures/roster/', why: 'the folder base is a constant and each file name is member data'};
+
+        expect(diffImageBaseline(
+            ['fixtures/roster/Max-fixture.jpeg', 'fixtures/roster/Tobiu-fixture.png'],
+            [prefix]
+        )).toEqual({added: [], stale: []})
+    });
+
+    test('PASSES: a baselined single file, and FIRES for its sibling', () => {
+        const baseline = [{path: 'examples/x/RangeHeader.jpg', why: 'referenced as ./RangeHeader.jpg, relative to its own folder'}];
+
+        expect(diffImageBaseline(['examples/x/RangeHeader.jpg'], baseline)).toEqual({added: [], stale: []});
+
+        // The sibling is a new offender, and the baselined file it replaced is now a stale row: one run says both.
+        expect(diffImageBaseline(['examples/x/Other.png'], baseline)).toEqual({
+            added: ['examples/x/Other.png'],
+            stale: baseline
+        })
+    });
+
+    test('an unreadable text file leaves its images unnamed instead of throwing', () => {
+        // Safe direction: a file the guard could not open reds the check, it never silently passes.
+        expect(collectUnnamedImages(['src/x.png', 'src/a.mjs'], () => undefined)).toEqual(['src/x.png'])
+    });
+
+    test('the baseline file is not evidence: it names the images it exempts', () => {
+        // The list is packed, and every row spells its image. Counting it would retire every row.
+        const baselineFile = 'buildScripts/util/check-package-contents-baseline.json';
+
+        expect(collectUnnamedImages(
+            ['examples/x/RangeHeader.jpg', baselineFile],
+            reader({[baselineFile]: '{"path": "examples/x/RangeHeader.jpg"}'})
+        )).toEqual(['examples/x/RangeHeader.jpg'])
+    });
+
+    test('other packed files stay evidence, so a real reference still names its image', () => {
+        expect(collectUnnamedImages(
+            ['examples/x/RangeHeader.jpg', 'examples/x/Container.mjs'],
+            reader({'examples/x/Container.mjs': "src: './x/RangeHeader.jpg'"})
+        )).toEqual([])
+    });
+
+    test('a root-level image is keyed by its own name, which is all it has', () => {
+        expect(imageReferenceKey('preview/dark.png')).toBe('preview/dark.png');
+        expect(imageReferenceKey('dark.png')).toBe('dark.png')
+    });
+
+    test('FIRES DOWN: a path entry whose frame is gone, and one that is now named', () => {
+        const gone    = {path: 'examples/x/removed.jpg', why: 'the example that shipped it was deleted'},
+              renamed = {path: 'fixtures/roster/Max-fixture.jpeg', why: 'folder base plus a member name from the data file'};
+
+        // Unpacked or deleted: no unnamed image carries its path.
+        expect(diffImageBaseline([], [gone]).stale).toEqual([gone]);
+
+        // Now named by folder and file name: the image is still packed, so it is no longer unnamed.
+        const unnamed = collectUnnamedImages(
+            ['fixtures/roster/Max-fixture.jpeg', 'fixtures/roster/Container.mjs'],
+            reader({'fixtures/roster/Container.mjs': "picture: 'roster/Max-fixture.jpeg'"})
+        );
+
+        expect(unnamed).toEqual([]);
+        expect(diffImageBaseline(unnamed, [renamed]).stale).toEqual([renamed])
+    });
+
+    test('FIRES DOWN: a prefix entry that covers no unnamed image', () => {
+        const prefix = {prefix: 'fixtures/roster/', why: 'the folder base is a constant and each file name is member data'};
+
+        expect(diffImageBaseline(['examples/x/other.png'], [prefix]).stale).toEqual([prefix])
+    });
+
+    test('every baseline entry names a path or a prefix, and states why', () => {
+        expect(IMAGE_BASELINE.length).toBeGreaterThan(0);
+
+        for (const entry of IMAGE_BASELINE) {
+            expect(Boolean(entry.path) || Boolean(entry.prefix), 'an entry names what it covers').toBe(true);
+            expect(entry.why.length, 'the reason is the whole product, as with FORBIDDEN_PREFIXES').toBeGreaterThan(40)
+        }
+    });
+
+    test('the failure text carries the pinned-link rule, so nobody has to find it in a review', () => {
+        expect(FRAME_RULE).toContain('https://github.com/neomjs/neo/blob/');
+        expect(FRAME_RULE).toContain('?raw=true');
+        expect(FRAME_RULE).toMatch(/pinned/)
+    });
+});
+
+test.describe('check-package-contents — the pack report is read from either npm shape', () => {
+    let parsePackOutput;
+
+    test.beforeAll(async () => {
+        ({parsePackOutput} = await import('../../../../buildScripts/util/check-package-contents.mjs'));
+    });
+
+    test('the array shape of npm 11 and earlier', () => {
+        expect(parsePackOutput('\n[\n  {"entryCount": 2, "files": []}\n]\n')[0].entryCount).toBe(2)
+    });
+
+    test('the object shape npm 12 reports, keyed by package name', () => {
+        expect(parsePackOutput('prepare output\n{\n  "neo.mjs": {"entryCount": 3, "files": []}\n}\n')[0].entryCount).toBe(3)
+    });
+
+    test('a one-line lifecycle object ahead of the payload does not take its place', () => {
+        // The anchor is a line of its own, so this object never opens one: the array is still first.
+        const raw = '{"status":"completed"}\n[\n  {"entryCount": 4, "files": []}\n]\n';
+
+        expect(parsePackOutput(raw)[0].entryCount).toBe(4)
+    });
+
+    test('a pretty-printed lifecycle object ahead of the payload reds the gate instead of guessing', () => {
+        // It opens a line, so it IS the payload by position; JSON.parse then rejects the array after it.
+        const raw = '{\n  "status": "completed"\n}\n[\n  {"entryCount": 4, "files": []}\n]\n';
+
+        expect(() => parsePackOutput(raw)).toThrow(/Unexpected non-whitespace character/)
+    });
 });

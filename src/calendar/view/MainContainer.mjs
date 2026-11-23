@@ -1,4 +1,5 @@
 import CalendarsContainer         from './calendars/Container.mjs';
+import Component                  from '../../component/Base.mjs';
 import Container                  from '../../container/Base.mjs';
 import DateSelector               from '../../component/DateSelector.mjs';
 import DateUtil                   from '../../util/Date.mjs';
@@ -180,15 +181,37 @@ class MainContainer extends Container {
     }
 
     /**
+     * The latest side panel transition. A fold or an expand finishes only while it is still the latest: a fold's
+     * delayed removal must not undo an expand that started before it ran.
+     * @member {Number} #sideBarTransition=0
+     */
+    #sideBarTransition = 0
+
+    /**
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
+        this.createItemsContent()
+    }
+
+    /**
+     * @summary A calendar created folded starts where a fold ends: its side panel out of the DOM, shifted left by its
+     * width, so expanding it animates in like after a fold.
+     */
+    onConstructed() {
+        super.onConstructed();
 
         let me = this;
 
-        me.createItemsContent();
-        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true)
+        if (!me.sideBarExpanded) {
+            let sideBar = me.items[1].items[0],
+                style   = {...sideBar.style, marginLeft: `-${me.sideBarWidth}px`};
+
+            sideBar._style          = style; // silent update
+            sideBar._vdom.style     = style; // silent update
+            sideBar._vdom.removeDom = true
+        }
     }
 
     /**
@@ -201,6 +224,7 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             let me = this;
 
+            me.setState('activeView', value);
             me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
 
             me.items[0].items[1].items.forEach(item => {
@@ -274,9 +298,11 @@ class MainContainer extends Container {
      */
     afterSetSideBarExpanded(value, oldValue) {
         if (oldValue !== undefined) {
-            let me      = this,
-                sideBar = me.items[1].items[0],
-                style   = sideBar.style || {};
+            let me         = this,
+                sideBar    = me.items[1].items[0],
+                style      = sideBar.style || {},
+                transition = ++me.#sideBarTransition,
+                isLatest   = () => transition === me.#sideBarTransition;
 
             if (value) {
                 me.updateDepth = -1;
@@ -285,11 +311,15 @@ class MainContainer extends Container {
                 delete sideBar.vdom.removeDom;
 
                 me.promiseUpdate().then(() => {
+                    if (!isLatest()) return;
+
                     sideBar.mounted = true;
 
                     me.timeout(50).then(() => {
-                        style.marginLeft = '0px';
-                        sideBar.style = style
+                        if (isLatest()) {
+                            style.marginLeft = '0px';
+                            sideBar.style = style
+                        }
                     })
                 })
             } else {
@@ -299,6 +329,8 @@ class MainContainer extends Container {
 
                 sideBar.promiseUpdate().then(() => {
                     me.timeout(400).then(() => {
+                        if (!isLatest()) return;
+
                         sideBar.vdom.removeDom = true;
                         sideBar.update();
 
@@ -343,11 +375,14 @@ class MainContainer extends Container {
 
             // we need a short delay to ensure the items already got created
             me.timeout(10).then(() => {
-                me.items[0].items[1].add({
-                    handler: me.toggleSettings.bind(me),
-                    iconCls: 'fa fa-cog',
-                    style  : {marginLeft: '10px'}
-                })
+                if (!me.isDestroyed && me.items?.[0]?.items?.[1]) {
+                    me.items[0].items[1].add({
+                        cls    : ['neo-calendar-settings-button'],
+                        handler: me.toggleSettings.bind(me),
+                        iconCls: 'fa fa-cog',
+                        size   : 'small'
+                    })
+                }
             })
         } else if (!value && oldValue) {
             // we only need this logic in case we dynamically change the config from true to false
@@ -453,22 +488,52 @@ class MainContainer extends Container {
             width : me.sideBarWidth,
             items : [{
                 handler: me.toggleSidebar.bind(me),
-                iconCls: 'fa fa-bars'
-            }, '->', {
+                iconCls: 'fa fa-bars',
+                size   : 'small'
+            }, {
+                module: Component,
+                cls   : ['neo-calendar-nav-spacer'],
+                flex  : 1
+            }, {
                 handler: me.onPreviousIntervalButtonClick.bind(me),
                 iconCls: 'fa fa-chevron-left',
+                size   : 'small'
             }, {
                 handler: me.onTodayButtonClick.bind(me),
-                height : 24,
+                size   : 'small',
                 text   : 'Today'
             }, {
                 handler: me.onNextIntervalButtonClick.bind(me),
-                iconCls: 'fa fa-chevron-right'
+                iconCls: 'fa fa-chevron-right',
+                size   : 'small'
             }]
         }, {
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
-            items : ['->', ...me.createViewHeaderButtons()]
+            items : [{
+                module   : Container,
+                cls      : ['neo-calendar-header-period'],
+                layout   : null,
+                reference: 'header-period',
+                bind     : {
+                    hidden: data => data.activeView === 'year'
+                },
+                items: [{
+                    module: Component,
+                    cls   : ['neo-calendar-period-full'],
+                    tag   : 'span',
+                    bind  : {
+                        text: data => data.headerPeriod.full
+                    }
+                }, {
+                    module: Component,
+                    cls   : ['neo-calendar-period-short'],
+                    tag   : 'span',
+                    bind  : {
+                        text: data => data.headerPeriod.short
+                    }
+                }]
+            }, '->', ...me.createViewHeaderButtons()]
         }]
     }
 
@@ -507,6 +572,7 @@ class MainContainer extends Container {
 
         me.items = [{
             module: Container,
+            cls   : ['neo-calendar-header', 'neo-container'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch'},
             items : me.createHeaderItems()
@@ -566,8 +632,8 @@ class MainContainer extends Container {
         me.views.forEach((view, index) => {
             buttons.push({
                 handler    : me.changeActiveView.bind(me, view),
-                height     : 24,
                 pressed    : activeIndex === index,
+                size       : 'small',
                 text       : Neo.capitalize(view),
                 toggleGroup: 'mainViews',
                 value      : view
@@ -664,7 +730,7 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.stateProvider.setData({
-            currentDate: todayDate
+            currentDate: DateUtil.clone(todayDate)
         })
     }
 
@@ -686,8 +752,8 @@ class MainContainer extends Container {
      * @param {Number} multiplier
      */
     switchInterval(multiplier) {
-        let me            = this,
-            {currentDate} = me.data,
+        let me          = this,
+            currentDate = DateUtil.clone(me.data.currentDate),
 
         map = {
             day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},

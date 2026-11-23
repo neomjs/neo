@@ -556,8 +556,6 @@ class Text extends Field {
 
         me.getInputEl().value = me.getInputElValue(value);
 
-        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
-
         NeoArray.toggle(cls, 'neo-has-content', me.hasContent());
         me.cls = cls;
 
@@ -963,7 +961,7 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the value config got changed
+     * @summary Syncs the input, the validation and the value-derived classes (`neo-is-dirty`, `neo-empty-required`).
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -984,6 +982,7 @@ class Text extends Field {
 
         cls = me.cls;
         NeoArray.toggle(cls, 'neo-is-dirty', me.isDirty);
+        me.useAlertState && NeoArray.toggle(cls, 'neo-empty-required', me.isEmpty() && me.required);
         me.cls = cls;
 
         me.silentVdomUpdate = false;
@@ -1222,10 +1221,11 @@ class Text extends Field {
     /**
      * Calls focus() on the inputEl node instead
      * @param {String} id
+     * @param {...*} args The remaining {@link Neo.component.Base#focus} arguments
      * @override
      */
-    focus(id) {
-        super.focus(this.getInputElId())
+    focus(id, ...args) {
+        super.focus(this.getInputElId(), ...args)
     }
 
     /**
@@ -1268,7 +1268,8 @@ class Text extends Field {
      * What the input's vdom says for an input value. `value` is trimmed, the DOM is not: a space typed at either end
      * is in the input and in the vnode, and a vdom holding the trimmed spelling would make every render write it back
      * over the input, with whatever was typed while that render was on its way. So while the DOM's last report is such
-     * a spelling, the vdom keeps the report. An adjustor's correction or a value set in code is written as before.
+     * a spelling, the vdom keeps the report. A native empty string likewise stays in the vnode when the model uses
+     * null for empty. Explicit value writes and renderer corrections still reach the input.
      * @param {*} value
      * @returns {*}
      * @protected
@@ -1281,7 +1282,9 @@ class Text extends Field {
             return reportedInputValue
         }
 
-        return me.containsFocus ? value : me.inputValueRenderer(value)
+        const renderedValue = me.containsFocus ? value : me.inputValueRenderer(value);
+
+        return value === null && renderedValue === null && reportedInputValue === '' ? '' : renderedValue
     }
 
     /**

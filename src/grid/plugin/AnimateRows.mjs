@@ -11,6 +11,10 @@ import Base from '../../plugin/Base.mjs';
  * the only class under which a row transitions. Scrolling (`neo-is-scrolling`) and the next store change end
  * the transition, so pooled rows never animate while they recycle.
  *
+ * A record whose own change re-sorts the store (`reapplyOnRecordChange`) moves the same way: the store sorts
+ * before it reports the change, so the body repaints that record's row for its new values after the first step,
+ * and the plugin holds the row at its previous offset again.
+ *
  * The positions are fixed-height ones (`rowIndex × rowHeight`). With `contentSizedRows` the plugin stands aside:
  * the body handles the store events itself and renders its rows at their geometry offsets, without transitions.
  * The plugin follows the mode through the body's `rowGeometryChange` event, which fires before the rows re-render.
@@ -70,7 +74,8 @@ class AnimateRows extends Base {
      */
     #change = 0
     /**
-     * The rows the first step placed at their records' previous offsets, each mapped to the record it showed then.
+     * The rows the first step placed at their records' previous offsets, each mapped to the record it showed then
+     * and that record's previous row index (`from`, `undefined` for a record that was not displayed).
      * Cleared once the second step moves them, or once `settle()` puts them back.
      * @member {Map|null} #pending=null
      */
@@ -93,10 +98,17 @@ class AnimateRows extends Base {
         // Remove the previous view listeners
         owner.store = null;
 
-        me.#bodyHandlers = {filter: owner.onStoreFilter, load: owner.onStoreLoad};
+        me.#bodyHandlers = {
+            filter      : owner.onStoreFilter,
+            load        : owner.onStoreLoad,
+            recordChange: owner.onStoreRecordChange,
+            rowsChange  : owner.onStoreRowsChange
+        };
 
-        owner.onStoreFilter = me.onStoreFilter.bind(me);
-        owner.onStoreLoad   = me.onStoreLoad  .bind(me);
+        owner.onStoreFilter       = me.onStoreFilter      .bind(me);
+        owner.onStoreLoad         = me.onStoreLoad        .bind(me);
+        owner.onStoreRecordChange = me.onStoreRecordChange.bind(me);
+        owner.onStoreRowsChange   = me.onStoreRowsChange  .bind(me);
 
         // Add the re-bound listeners
         owner.store = store;
@@ -152,8 +164,10 @@ class AnimateRows extends Base {
 
         if (me.#bodyHandlers) {
             store && (owner.store = null);
-            owner.onStoreFilter = me.#bodyHandlers.filter;
-            owner.onStoreLoad   = me.#bodyHandlers.load;
+            owner.onStoreFilter       = me.#bodyHandlers.filter;
+            owner.onStoreLoad         = me.#bodyHandlers.load;
+            owner.onStoreRecordChange = me.#bodyHandlers.recordChange;
+            owner.onStoreRowsChange   = me.#bodyHandlers.rowsChange;
             store && (owner.store = store);
             me.#bodyHandlers    = null
         }
@@ -172,6 +186,37 @@ class AnimateRows extends Base {
         });
 
         super.destroy(...args)
+    }
+
+    /**
+     * @summary Shows a row where the first step needs it: at its record's previous offset, or transparent at its new
+     * offset when the record was not displayed.
+     * @param {Neo.grid.Row} row
+     * @param {Number|undefined} from The record's previous row index
+     * @protected
+     */
+    hold(row, from) {
+        let {owner} = this,
+            {style} = row.vdom;
+
+        if (from === undefined) {
+            style.opacity = 0
+        } else {
+            style.transform = row.getRowTransform(from * owner.rowHeight - owner.pageOffset)
+        }
+    }
+
+    /**
+     * @summary Holds every row of a move that has not started yet at its first-step offset, after the body
+     * repainted some of them for new values.
+     * @protected
+     */
+    holdPending() {
+        let me = this;
+
+        me.#pending?.forEach(({from, record}, row) => {
+            !row.isDestroyed && row.record === record && me.hold(row, from)
+        })
     }
 
     /**
@@ -222,16 +267,37 @@ class AnimateRows extends Base {
     }
 
     /**
+     * @summary A change that re-sorted the store has already started its move, so the body's repaint of the changed
+     * row keeps the row where the move starts.
+     * @param {Object} data
+     * @protected
+     */
+    onStoreRecordChange(data) {
+        this.#bodyHandlers.recordChange.call(this.owner, data);
+        this.holdPending()
+    }
+
+    /**
+     * @summary A batch that re-sorted the store has already started its move, so the body's repaint of the batch's
+     * rows keeps them where the move starts.
+     * @param {Object} data
+     * @protected
+     */
+    onStoreRowsChange(data) {
+        this.#bodyHandlers.rowsChange.call(this.owner, data);
+        this.holdPending()
+    }
+
+    /**
      * @summary Gives a row the opacity and offset that `Row#createVdom` gives it, in either row mode.
      * @param {Neo.grid.Row} row
      * @protected
      */
     place(row) {
-        let {rowGeometry, rowHeight} = this.owner,
-            {rowIndex, vdom}         = row;
+        let {rowIndex, vdom} = row;
 
         vdom.style.opacity   = null;
-        vdom.style.transform = row.getRowTransform(rowGeometry ? rowGeometry.offsetAt(rowIndex) : rowIndex * rowHeight)
+        vdom.style.transform = row.getRowTransform(this.owner.getRowOffset(rowIndex))
     }
 
     /**
@@ -258,7 +324,7 @@ class AnimateRows extends Base {
         }
 
         if (pending) {
-            pending.forEach((record, row) => {
+            pending.forEach(({record}, row) => {
                 !row.isDestroyed && row.record === record && me.place(row)
             });
 
@@ -310,12 +376,11 @@ class AnimateRows extends Base {
      * @protected
      */
     updateView() {
-        let me          = this,
-            {owner}     = me,
-            {rowHeight} = owner,
-            change      = me.#change,
-            moved       = new Map(),
-            previous    = new Map();
+        let me       = this,
+            {owner}  = me,
+            change   = me.#change,
+            moved    = new Map(),
+            previous = new Map();
 
         // The body defers a re-bind while its own update is in flight: this change renders without a transition
         if (owner.isVdomUpdating) {
@@ -332,15 +397,11 @@ class AnimateRows extends Base {
 
         owner.items.forEach(row => {
             if (row.record) {
-                let from    = previous.get(owner.getRecordId(row.record)),
-                    {style} = row.vdom;
+                let from = previous.get(owner.getRecordId(row.record));
 
-                if (from === undefined) {
-                    style.opacity = 0;
-                    moved.set(row, row.record)
-                } else if (from !== row.rowIndex) {
-                    style.transform = row.getRowTransform(from * rowHeight);
-                    moved.set(row, row.record)
+                if (from !== row.rowIndex) {
+                    me.hold(row, from);
+                    moved.set(row, {from, record: row.record})
                 }
             }
         });
@@ -362,7 +423,7 @@ class AnimateRows extends Base {
 
             me.#pending = null;
 
-            moved.forEach((record, row) => {
+            moved.forEach(({record}, row) => {
                 row.record === record && me.place(row)
             });
 

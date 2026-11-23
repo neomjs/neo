@@ -1,0 +1,82 @@
+[
+    {
+        "id": "calendar",
+        "featured": true,
+        "image": "devmode/calendar-14.jpg",
+        "hasLightCover": true,
+        "name": "Calendar",
+        "sourceUrl": "src/calendar",
+        "urls": {
+            "devmode": "examples/calendar/basic/index.html",
+            "dist_dev": "dist/development/examples/calendar/basic/index.html",
+            "dist_esm": "dist/esm/examples/calendar/basic/index.html",
+            "dist_prod": "dist/production/examples/calendar/basic/index.html"
+        },
+        "hiddenIn": [],
+        "family": "calendar",
+        "order": 100,
+        "component": "Calendar",
+        "feature": "A full calendar with day, week, month and year views, a month navigator and color-coded calendars.",
+        "lookFor": "Switch between Day, Week, Month and Year views, then toggle a calendar in the left panel to filter its events.",
+        "keywords": [
+            "date",
+            "schedule",
+            "events",
+            "appointment",
+            "month",
+            "week",
+            "day"
+        ]
+    },
+    {
+        "id": "calendar-year",
+        "family": "calendar",
+        "order": 125,
+        "component": "Calendar",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "feature": "A team's whole year in the year view: today marked, and every day with an event shaded, darker the busier.",
+        "lookFor": "Click a shaded day to open it in the day view. On a phone the year opens on the month of today.",
+        "image": "devmode/calendar-year-14.jpg",
+        "hasLightCover": true,
+        "keywords": [
+            "date",
+            "year",
+            "events",
+            "vacation",
+            "schedule"
+        ],
+        "name": "A Team's Year",
+        "sourceUrl": "examples/calendar/year",
+        "urls": {
+            "devmode": "examples/calendar/year/index.html",
+            "dist_dev": "dist/development/examples/calendar/year/index.html",
+            "dist_esm": "dist/esm/examples/calendar/year/index.html",
+            "dist_prod": "dist/production/examples/calendar/year/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "team-birthdays",
+        "family": "calendar",
+        "order": 130,
+        "component": "DateSelector",
+        "environments": ["Desktop", "Mobile"],
+        "feature": "A recurring calendar of birthdays and the days Neo’s AI teammates accepted their names.",
+        "lookFor": "Choose Grace to meet all four peers who share June 11, then open a naming record.",
+        "image": "devmode/team-birthdays-14.jpg",
+        "hasLightCover": true,
+        "keywords": ["birthday", "team", "name", "anniversary", "date selector", "calendar"],
+        "name": "The birthday book",
+        "sourceUrl": "examples/calendar/birthdays",
+        "urls": {
+            "devmode": "examples/calendar/birthdays/index.html",
+            "dist_dev": "dist/development/examples/calendar/birthdays/index.html",
+            "dist_esm": "dist/esm/examples/calendar/birthdays/index.html",
+            "dist_prod": "dist/production/examples/calendar/birthdays/index.html"
+        },
+        "hiddenIn": []
+    }
+]

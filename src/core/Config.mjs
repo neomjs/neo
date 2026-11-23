@@ -7,7 +7,7 @@ import {isDescriptor} from './ConfigSymbols.mjs';
  * like merge strategies and equality checks defined via a descriptor object.
  *
  * The primary purpose of this class is to enable fine-grained reactivity and
- * decoupled cross-instance state sharing within the Neo.mjs framework.
+ * decoupled cross-instance state sharing within the Neo.mjs runtime engine.
  * @class Neo.core.Config
  * @private
  * @internal
@@ -87,14 +87,14 @@ class Config {
 
     /**
      * Initializes the `Config` instance using a descriptor object.
-     * Extracts `clone`, `mergeStrategy` and `isEqual` from the descriptor.
+     * Extracts `clone`, `cloneOnGet`, `isEqual` and `merge` from the descriptor, storing `merge` as `mergeStrategy`.
      * The internal `#value` is NOT set by this method.
-     * @param {Object}    descriptor                      - The descriptor object for the config.
-     * @param {string}   [descriptor.clone='deep']        - The clone strategy for set.
-     * @param {string}   [descriptor.cloneOnGet]          - The clone strategy for get. Defaults to 'shallow' if clone is 'deep' or 'shallow', and 'none' if clone is 'none'.
-     * @param {Function} [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
-     * @param {string}   [descriptor.merge='deep']        - The merge strategy.
-     * @param {any}       descriptor.value                - The default value for the config (not set by this method).
+     * @param {Object}           descriptor                      - The descriptor object for the config.
+     * @param {String}          [descriptor.clone='deep']        - The clone strategy for set. Supported values: 'deep', 'shallow', 'none'.
+     * @param {String}          [descriptor.cloneOnGet=null]     - The clone strategy for get. Supported values: 'deep', 'shallow', 'none'. When null (unset), Date values are cloned and Array values are shallow-sliced on read, while plain objects are returned as-is.
+     * @param {Function}        [descriptor.isEqual=Neo.isEqual] - The equality comparison function.
+     * @param {Function|String} [descriptor.merge='replace']     - The merge strategy: 'replace', 'shallow', 'deep', 'deepArrays', or a function `(defaultValue, instanceValue) => merged`.
+     * @param {any}              descriptor.value                - The default value for the config (not set by this method).
      */
     initDescriptor({clone, cloneOnGet, isEqual, merge}) {
         let me = this;

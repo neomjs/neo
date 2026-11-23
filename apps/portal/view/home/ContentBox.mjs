@@ -12,10 +12,11 @@ class ContentBox extends Base {
          */
         className: 'Portal.view.home.ContentBox',
         /**
-         * @member {String[]} baseCls=['portal-content-box']
+         * The shared glass card chrome: a hover or keyboard focus lights the card and never moves it.
+         * @member {String[]} baseCls=['portal-content-box', 'portal-glass-card']
          * @protected
          */
-        baseCls: ['portal-content-box'],
+        baseCls: ['portal-content-box', 'portal-glass-card'],
         /**
          * @member {String[]|null} content_=null
          * @reactive

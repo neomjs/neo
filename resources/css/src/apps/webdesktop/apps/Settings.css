@@ -1,0 +1,18 @@
+.webdesktop-settings {
+    gap       : 8px;
+    overflow-y: auto;
+    padding   : 16px 20px;
+
+    .webdesktop-settings-heading {
+        color         : var(--webdesktop-ink-dim);
+        font-size     : 12px;
+        font-weight   : 700;
+        letter-spacing: .06em;
+        margin-top    : 8px;
+        text-transform: uppercase;
+    }
+
+    .webdesktop-settings-themes {
+        gap: 8px;
+    }
+}

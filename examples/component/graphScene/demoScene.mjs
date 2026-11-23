@@ -1,3 +1,5 @@
+import {createSeededRandom} from '../../../src/util/Random.mjs';
+
 /**
  * @summary A deterministic demo graph for `Neo.canvas.GraphScene`: nodes on a Fibonacci sphere, coloured from
  * pole to pole and sized by a slow wave; edges along the spiral plus a chord to the node `chord` steps
@@ -66,18 +68,7 @@ export function createDemoScene(count = 240, chord = 21) {
  * @returns {{clusters: Uint32Array, colors: Float32Array, edges: Uint32Array, paths: Uint32Array[], positions: Float32Array, sizes: Float32Array}}
  */
 export function createClusteredScene({clusters = 64, edgesPerNode = 10, nodes = 100000, seed = 1} = {}) {
-    let state = seed >>> 0;
-
-    // mulberry32
-    const random = () => {
-        state = (state + 0x6D2B79F5) >>> 0;
-
-        let t = Math.imul(state ^ (state >>> 15), state | 1);
-
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-
-        return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-    };
+    const random = createSeededRandom(seed);
 
     const
         golden     = Math.PI * (3 - Math.sqrt(5)),

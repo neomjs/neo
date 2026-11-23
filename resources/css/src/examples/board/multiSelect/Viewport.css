@@ -1,0 +1,139 @@
+/* The bug triage example's chrome: a toolbar, the selection line and the board. It reads the board's own tokens,
+   so each theme that styles the board styles the example too. The four columns share a desktop's width, and the
+   first one fits a phone whole. */
+.triage-example {
+    --neo-board-column-width: clamp(280px, calc((100vw - 5 * var(--neo-board-gap, 12px)) / 4), 400px);
+
+    background: var(--neo-board-background);
+
+    /* An empty column says what it is for; the drag's slot fills it, so the hint leaves while a card is over it */
+    .triage-board .neo-board-column-cards:empty::before {
+        border       : 1px dashed var(--neo-board-column-border-color);
+        border-radius: var(--neo-board-radius, 8px);
+        color        : var(--neo-board-card-muted-color);
+        content      : 'Drop reports here';
+        display      : block;
+        font-size    : 13px;
+        padding      : 28px 12px;
+        text-align   : center;
+    }
+
+    .triage-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-board-column-background);
+        border-bottom: 1px solid var(--neo-board-column-border-color);
+        flex-wrap    : wrap;
+        gap          : 4px 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+    }
+
+    .triage-title {
+        color         : var(--neo-board-card-color);
+        font-size     : 19px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .triage-subtitle {
+        color    : var(--neo-board-card-muted-color);
+        font-size: 13px;
+    }
+
+    .triage-selection-bar {
+        border-bottom: 1px solid var(--neo-board-column-border-color);
+        gap          : 12px;
+        min-height   : 52px;
+        padding      : 8px 24px;
+    }
+
+    /* The count reads as a pill: muted while nothing is selected, the selection's own color once something is */
+    .triage-selection-count {
+        background          : var(--neo-board-badge-background);
+        border              : 1px solid var(--neo-board-column-border-color);
+        border-radius       : 999px;
+        color               : var(--neo-board-badge-color);
+        font-size           : 13px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 700;
+        padding             : 4px 12px;
+
+        &.triage-has-selection {
+            background  : var(--neo-board-card-selected-background);
+            border-color: var(--neo-board-card-selected-border-color);
+            color       : var(--neo-board-card-color);
+        }
+    }
+
+    .triage-clear.neo-button {
+        --button-background-color      : transparent;
+        --button-background-color-hover: var(--neo-board-badge-background);
+        --button-border-color          : var(--neo-board-column-border-color);
+        --button-text-color            : var(--neo-board-card-color);
+        --button-text-color-hover      : var(--neo-board-card-color);
+
+        border-radius: 999px;
+        font-size    : 13px;
+        font-weight  : 600;
+        min-height   : 30px;
+        padding      : 0 14px;
+
+        &:focus-visible {
+            outline       : 2px solid var(--neo-board-focus-color);
+            outline-offset: 2px;
+        }
+
+        &.neo-disabled {
+            opacity: .45;
+        }
+    }
+
+    /* The keys sit beside the count they change, set off by a rule */
+    .triage-keys {
+        border-left : 1px solid var(--neo-board-column-border-color);
+        color       : var(--neo-board-card-muted-color);
+        display     : flex;
+        flex-wrap   : wrap;
+        font-size   : 12px;
+        gap         : 6px 16px;
+        margin-left : 4px;
+        padding-left: 16px;
+    }
+
+    .triage-key-hint {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 4px;
+        white-space: nowrap;
+
+        kbd {
+            background   : var(--neo-board-card-background);
+            border       : 1px solid var(--neo-board-card-border-color);
+            border-bottom-width: 2px;
+            border-radius: 5px;
+            color        : var(--neo-board-card-color);
+            font-family  : inherit;
+            font-size    : 11px;
+            font-weight  : 600;
+            line-height  : 1;
+            padding      : 3px 6px;
+        }
+    }
+
+    .triage-key-effect {
+        margin-left: 2px;
+    }
+
+    /* A phone has no Shift or command key to name */
+    @media (max-width: 720px) {
+        .triage-keys {
+            display: none;
+        }
+
+        .triage-toolbar.neo-toolbar,
+        .triage-selection-bar {
+            padding-left : 16px;
+            padding-right: 16px;
+        }
+    }
+}

@@ -1,0 +1,86 @@
+.neo-button.neo-theme-switcher {
+    .neo-button-glyph {
+        align-items    : center;
+        display        : inline-flex;
+        flex           : none;
+        height         : 16px;
+        justify-content: center;
+        position       : relative;
+        width          : 16px;
+    }
+
+    .neo-theme-switcher-icon-sun::before {
+        border       : 1.5px solid currentColor;
+        border-radius: 50%;
+        box-sizing   : border-box;
+        content      : '';
+        height       : 8px;
+        width        : 8px;
+    }
+
+    .neo-theme-switcher-icon-sun::after {
+        background-color: currentColor;
+        border-radius   : 50%;
+        box-shadow      : 0 14px, -7px 7px, 7px 7px, -5px 2px, 5px 2px, -5px 12px, 5px 12px;
+        content         : '';
+        height          : 2px;
+        inset           : 0 auto auto 7px;
+        position        : absolute;
+        width           : 2px;
+    }
+
+    .neo-theme-switcher-icon-moon::before {
+        background-color: currentColor;
+        border-radius   : 50%;
+        content         : '';
+        height          : 14px;
+        mask-image      : radial-gradient(circle at 75% 25%, transparent 52%, black 56%);
+        width           : 14px;
+    }
+
+    .neo-theme-switcher-icon-palette {
+        gap  : 4px;
+        width: 25px;
+
+        &::before {
+            background   : radial-gradient(circle, currentColor 1px, transparent 1.25px) 1px 3px / 3px 3px no-repeat,
+                           radial-gradient(circle, currentColor 1px, transparent 1.25px) 4px 1px / 3px 3px no-repeat,
+                           radial-gradient(circle, currentColor 1px, transparent 1.25px) 7px 3px / 3px 3px no-repeat;
+            border       : 1.5px solid currentColor;
+            border-radius: 55% 55% 50% 45%;
+            box-sizing   : border-box;
+            content      : '';
+            height       : 13px;
+            transform    : rotate(-20deg);
+            width        : 14px;
+        }
+
+        &::after {
+            border      : solid currentColor;
+            border-width: 0 1.5px 1.5px 0;
+            box-sizing  : border-box;
+            content     : '';
+            height      : 5px;
+            transform   : translateY(-1px) rotate(45deg);
+            width       : 5px;
+        }
+    }
+
+    @media (forced-colors: active) {
+        .neo-button-glyph::before,
+        .neo-button-glyph::after {
+            color              : ButtonText;
+            forced-color-adjust: none;
+        }
+    }
+
+    @media (width < 768px) {
+        .neo-button-glyph {
+            margin: 0;
+        }
+
+        .neo-button-text {
+            display: none;
+        }
+    }
+}

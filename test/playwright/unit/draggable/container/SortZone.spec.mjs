@@ -8,15 +8,170 @@ setup({
     }
 });
 
-import {test, expect}    from '@playwright/test';
-import Neo               from '../../../../../src/Neo.mjs';
-import * as core         from '../../../../../src/core/_export.mjs';
-import InstanceManager   from '../../../../../src/manager/Instance.mjs';
-import VdomHelper        from '../../../../../src/vdom/Helper.mjs';
-import Container         from '../../../../../src/container/Base.mjs';
-import SortZone          from '../../../../../src/draggable/container/SortZone.mjs';
-import TabHeaderSortZone from '../../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
-import Rectangle         from '../../../../../src/util/Rectangle.mjs';
+import {test, expect}     from '@playwright/test';
+import Neo                from '../../../../../src/Neo.mjs';
+import * as core          from '../../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../../src/manager/Instance.mjs';
+import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
+import Component          from '../../../../../src/component/Base.mjs';
+import Container          from '../../../../../src/container/Base.mjs';
+import DragProxyContainer from '../../../../../src/draggable/DragProxyContainer.mjs';
+import DashboardSortZone  from '../../../../../src/draggable/dashboard/SortZone.mjs';
+import SortZone           from '../../../../../src/draggable/container/SortZone.mjs';
+import TabHeaderSortZone  from '../../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
+import Rectangle          from '../../../../../src/util/Rectangle.mjs';
+
+/**
+ * @summary A live proxy restores in owner order, including rendered siblings excluded from sorting.
+ * The actual proxy constructor and start/end queue run; only native geometry, mount admission and delta transport are stubbed.
+ */
+test.describe('SortZone live proxy owner slots (#20861)', () => {
+    const realApplyDeltas = Neo.applyDeltas, realGetDomRect = Container.prototype.getDomRect;
+    let owner, zone, detached, deltas, commits, events, realAddon;
+
+    const createOwner = async (excludeFirst=false) => {
+        owner = Neo.create(Container, {
+            appName, layout: {ntype: 'hbox'}, dragResortable: true,
+            items: ['live-slot-A', 'live-slot-B', 'live-slot-C'].map((id, index) => ({
+                ntype: 'component', id, cls: excludeFirst && index === 0 ? [] : ['sortable']
+            })),
+            sortZoneConfig: {
+                module         : SortZone, dragHandleSelector: '.sortable',
+                getPinnedItems : ownerItems => ownerItems,
+                dragProxyConfig: {module: DragProxyContainer, mounted: true},
+                timeout        : () => Promise.resolve()
+            }
+        });
+        await expect.poll(() => owner.sortZone).toBeTruthy();
+        zone = owner.sortZone;
+        const moveTo = owner.moveTo.bind(owner);
+        owner.moveTo = (from, to) => {commits.push({from, to}); return moveTo(from, to)};
+        zone.on('dragStart', () => events.push('start'));
+        zone.on('dragEnd', () => events.push('end'))
+    };
+
+    const start = async (excludeFirst=false) => {
+        await createOwner(excludeFirst);
+        const items = [...owner.items], dragged = items[2];
+
+        await zone.startDrag({clientX: 250, clientY: 50, targetPath: [], path: [
+            {id: dragged.id, cls: ['sortable'], rect: new Rectangle(200, 0, 100, 100)},
+            {id: owner.id, cls: [], rect: new Rectangle(0, 0, 300, 100)}
+        ]});
+
+        const placeholderId = zone.dragPlaceholder.id;
+        expect(zone.dragProxy).toBeInstanceOf(DragProxyContainer);
+        expect(zone.dragComponent).toBe(dragged);
+        expect(zone.sortableItems[zone.startIndex]).toBe(zone.dragPlaceholder);
+        expect(zone.pinnedItems[2]).toBe(zone.dragPlaceholder);
+        expect(deltas).toContainEqual({action: 'insertNode', id: placeholderId, index: 2, parentId: owner.id});
+        expect(deltas).toContainEqual({action: 'moveNode', id: dragged.id, index: 0, parentId: zone.dragProxy.id});
+        deltas.length = 0;
+
+        return {dragged, items, placeholderId}
+    };
+
+    const expectCleanup = placeholderId => {
+        expect(zone.currentIndex).toBe(-1);
+        expect(zone.itemRects).toBeNull();
+        expect(zone.dragProxy).toBeNull();
+        expect(zone.dragPlaceholder).toBeNull();
+        expect(deltas.filter(delta => delta.action === 'removeNode' && delta.id === placeholderId)).toHaveLength(1)
+    };
+
+    test.beforeEach(() => {
+        deltas = []; commits = []; events = [];
+        realAddon = Neo.main.addon.DragDrop;
+        Neo.applyDeltas = async (windowId, batch) => {
+            deltas.push(...batch.map(({action, id, index, parentId, vnode}) => ({action, id: id || vnode?.id, index, parentId})))
+        };
+        Neo.main.addon.DragDrop = {
+            registerZone       : async () => {}, unregisterZone: async () => {},
+            setConfigs         : async () => ({boundaryContainerRect: {left: 0, top: 0, right: 300, bottom: 100}}),
+            setDragProxyElement: async () => {}
+        };
+        Container.prototype.getDomRect = ids => Promise.resolve(ids.map(id => id === owner.id
+            ? new Rectangle(0, 0, 300, 100)
+            : new Rectangle(owner.items.findIndex(item => item.id === id) * 100, 0, 100, 100)))
+    });
+
+    test.afterEach(() => {
+        owner?.destroy();
+        detached?.destroy();
+        owner = zone = detached = null;
+        Neo.applyDeltas = realApplyDeltas;
+        Container.prototype.getDomRect = realGetDomRect;
+        Neo.main.addon.DragDrop = realAddon
+    });
+
+    for (const excluded of [false, true]) for (const cancelled of [false, true]) {
+        test(`${excluded ? 'excluded predecessor' : 'all sortable control'}: ${cancelled ? 'Escape' : 'same-slot release'} restores the owner slot`, async () => {
+            const {dragged, items, placeholderId} = await start(excluded);
+
+            if (cancelled) await zone.onDragCancel({key: 'Escape'});
+            else await zone.onDragEnd({});
+
+            expectCleanup(placeholderId);
+            expect(commits).toEqual([]);
+            expect(events).toEqual(['start', 'end']);
+            items.forEach((item, index) => expect(owner.items[index]).toBe(item));
+            expect(deltas.filter(delta => delta.action === 'moveNode')).toEqual([
+                {action: 'moveNode', id: dragged.id, index: 2, parentId: owner.id}
+            ])
+        })
+    }
+
+    test('a committed live reorder restores the old owner slot before committing once', async () => {
+        const {dragged, items, placeholderId} = await start(true);
+        await zone.onDragMove({clientX: 100, clientY: 50});
+        expect(zone.currentIndex).toBe(0);
+        await zone.onDragEnd({});
+
+        expectCleanup(placeholderId);
+        expect(commits).toEqual([{from: 2, to: 1}]);
+        expect(owner.items).toEqual([items[0], items[2], items[1]]);
+        expect(deltas.filter(delta => delta.action === 'moveNode')).toEqual([
+            {action: 'moveNode', id: dragged.id, index: 2, parentId: owner.id}
+        ])
+    });
+
+    test('cancellation removes its placeholder without restoring a component that left the owner', async () => {
+        const {dragged, items, placeholderId} = await start(true);
+        detached = owner.remove(dragged, false);
+        await zone.onDragCancel({key: 'Escape'});
+
+        expectCleanup(placeholderId);
+        expect(commits).toEqual([]);
+        expect(events).toEqual(['start', 'end']);
+        expect(owner.items).toEqual(items.slice(0, 2));
+        expect(deltas.some(delta => delta.action === 'moveNode' && delta.id === dragged.id)).toBe(false)
+    });
+
+    test('the remote-owned placeholder keeps its owner slot and is still cleaned up', async () => {
+        await createOwner();
+        const items = [...owner.items], placeholder = Neo.create(Component, {appName});
+        owner.add(placeholder);
+        const placeholderId = placeholder.id;
+
+        zone.dragPlaceholder = placeholder;
+        zone.dragProxy = Neo.create(DragProxyContainer, {appName, mounted: true});
+        zone.isRemoteDragging = true;
+        // The dashboard's real remote setup sorts the owner-held placeholder, not the visiting proxy child.
+        await DashboardSortZone.prototype.setupDragState.call(zone, placeholder);
+        expect(zone.dragComponent).toBe(placeholder);
+        expect(owner.items[3]).toBe(placeholder);
+        await zone.onDragEnd({});
+
+        expectCleanup(placeholderId);
+        expect(commits).toEqual([]);
+        expect(events).toEqual(['end']);
+        expect(placeholder.isDestroyed).toBe(true);
+        expect(owner.items.filter(item => !item.isDestroyed)).toEqual(items);
+        expect(deltas.filter(delta => delta.action === 'moveNode')).toEqual([
+            {action: 'moveNode', id: placeholderId, index: 3, parentId: owner.id}
+        ])
+    })
+});
 
 /**
  * @summary Handle membership keeps the owning item sortable without making its body a native
@@ -353,6 +508,159 @@ test.describe('Neo.draggable.container.SortZone', () => {
         expect(calls).toBe(1);
         expect(sortZone.isOverDragging).toBe(false)
     });
+
+    /** @summary Holds only the chosen move continuation; ordinary drag starts and ends still run their production queue. */
+    const prepareContinuation = async boundary => {
+        await expect.poll(() => container.sortZone).toBeTruthy();
+        sortZone = container.sortZone;
+        container.layout.direction = 'column';
+        const items = sortZone.getSortableItems(), pending = [], scrolls = [],
+              defer = () => {
+                  if (pending.length > 4) throw new Error('unexpected unbounded overdrag polling');
+                  const flight = Promise.withResolvers();
+                  pending.push(flight);
+                  return flight.promise
+              };
+        Container.prototype.getDomRect = ids => Promise.resolve(ids.map(id => id === container.id
+            ? new Rectangle(0, 0, 100, 300)
+            : new Rectangle(0, items.findIndex(item => item.id === id) * 100, 100, 100)));
+        Neo.main.addon.DragDrop.setConfigs = async () => ({boundaryContainerRect: {left: 0, top: 0, right: 100, bottom: 300}});
+        container.scrollToIndex = index => {
+            scrolls.push({index, dragged: sortZone.dragComponent.id, y: sortZone.lastInBoundY});
+            return boundary === 'scroll' ? defer() : Promise.resolve()
+        };
+        sortZone.timeout = milliseconds => boundary === 'poll' && milliseconds === 30 && sortZone.isOverDragging
+            ? defer() : Promise.resolve();
+        return {
+            items, pending, scrolls,
+            start: index => sortZone.startDrag({clientX: 50, clientY: index * 100 + 50,
+                path: [{id: items[index].id, cls: ['neo-draggable'], rect: new Rectangle(0, index * 100, 100, 100)}]}),
+            snapshot: () => ({currentIndex: sortZone.currentIndex, dragged: sortZone.dragComponent.id,
+                currentItem: container.items[sortZone.indexMap[sortZone.currentIndex]]?.id,
+                indexMap   : {...sortZone.indexMap},
+                rects      : sortZone.itemRects.map(({x, y, width, height}) => ({x, y, width, height})),
+                styles     : items.map(item => ({id: item.id, style: {...item.wrapperStyle}}))})
+        }
+    };
+
+    for (const boundary of ['scroll', 'poll']) for (const direction of ['start', 'end']) {
+        test(`an old ${direction}-edge ${boundary} continuation cannot affect a later drag (#20849)`, async () => {
+            const probe    = await prepareContinuation(boundary), moves = [],
+                  oldIndex = direction === 'end' ? 0 : 2, newIndex = 2 - oldIndex,
+                  oldData  = {clientX: 50, clientY: direction === 'end' ? 310 : -10},
+                  newData  = {clientX: 50, clientY: direction === 'end' ? -10 : 310};
+            try {
+                await probe.start(oldIndex);
+                const oldMove = sortZone.onDragMove(oldData);
+                moves.push(oldMove);
+                await expect.poll(() => probe.pending.length).toBe(1);
+                expect(sortZone.isScrolling).toBe(boundary === 'scroll');
+
+                await sortZone.onDragCancel({key: 'Escape'});
+                expect(sortZone.itemRects).toBeNull();
+                await probe.start(newIndex);
+                expect(sortZone.dragComponent).toBe(probe.items[newIndex]);
+                expect(sortZone.currentIndex).toBe(newIndex);
+
+                // A new overdrag arms its own poll. The old poll must not borrow that gesture's flag or pointer.
+                if (boundary === 'poll') {
+                    moves.push(sortZone.onDragMove(newData));
+                    await expect.poll(() => probe.pending.length).toBe(2)
+                }
+                const before = probe.snapshot(), scrollCount = probe.scrolls.length;
+                probe.pending[0].resolve();
+                await oldMove;
+
+                expect.soft(probe.snapshot(), 'the old continuation must not switch or style the new gesture').toEqual(before);
+                expect.soft(probe.scrolls, 'an old polling delay must not issue a scroll for the newer gesture').toHaveLength(scrollCount)
+            } finally {
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'});
+                probe.pending.forEach(flight => flight.resolve());
+                await Promise.allSettled(moves)
+            }
+        });
+
+        test(`the same drag continues its ${direction}-edge ${boundary} steps to the edge (#20849)`, async () => {
+            const probe = await prepareContinuation(boundary), oldIndex = direction === 'end' ? 0 : 2;
+            let moving;
+            try {
+                await probe.start(oldIndex);
+                moving = sortZone.onDragMove({clientX: 50, clientY: direction === 'end' ? 310 : -10});
+                for (let index = 0; index < (boundary === 'scroll' ? 2 : 1); index++) {
+                    await expect.poll(() => probe.pending.length).toBe(index + 1);
+                    probe.pending[index].resolve()
+                }
+                await moving;
+
+                expect(probe.scrolls.map(({index}) => index)).toEqual(direction === 'end' ? [1, 2] : [1, 0]);
+                expect(sortZone.currentIndex).toBe(2 - oldIndex);
+                expect(probe.snapshot().currentItem).toBe(probe.items[oldIndex].id);
+                expect(sortZone.isOverDragging).toBe(false)
+            } finally {
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'});
+                probe.pending.forEach(flight => flight.resolve());
+                if (moving) await Promise.allSettled([moving])
+            }
+        })
+    }
+
+    for (const pollTiming of ['inside the end wait', 'after the end']) {
+        test(`a normal release keeps its landing when an armed poll fires ${pollTiming} (#20856)`, async () => {
+            const probe   = await prepareContinuation('poll'), commits = [],
+                  endWait = Promise.withResolvers(), endWaitEntered = Promise.withResolvers();
+            let moving, ending;
+
+            try {
+                await probe.start(0);
+                moving = sortZone.onDragMove({clientX: 50, clientY: 310});
+                await expect.poll(() => probe.pending.length).toBe(1);
+                expect(sortZone.currentIndex).toBe(1);
+                expect(sortZone.isOverDragging, 'release while another poll is armed, before the edge').toBe(true);
+
+                const release = probe.snapshot(), timeout = sortZone.timeout,
+                      moveTo  = sortZone.moveTo.bind(sortZone);
+                sortZone.moveTo = (from, to) => {commits.push({from, to}); moveTo(from, to)};
+                sortZone.timeout = milliseconds => {
+                    if (milliseconds === 10) {
+                        endWaitEntered.resolve();
+                        return endWait.promise
+                    }
+                    // The end pipeline's final wait is not the move's already-held poll.
+                    return milliseconds === 30 && sortZone.dragEndActive ? Promise.resolve() : timeout(milliseconds)
+                };
+
+                ending = sortZone.onDragEnd({});
+                const armedAtRelease = sortZone.isOverDragging;
+                await endWaitEntered.promise;
+                expect(sortZone.itemRects, 'the end has not reset the snapshot yet').not.toBeNull();
+                expect(commits).toEqual([]);
+
+                if (pollTiming === 'inside the end wait') {
+                    probe.pending[0].resolve();
+                    await moving;
+                    expect.soft(probe.snapshot(), 'the released poll cannot step, switch or style the release snapshot').toEqual(release);
+                    expect.soft(probe.scrolls.map(({index}) => index), 'no owner scroll follows release').toEqual([1]);
+                    expect.soft(armedAtRelease, 'normal release disarms polling synchronously').toBe(false)
+                }
+
+                endWait.resolve();
+                await ending;
+                expect.soft(commits, 'the actual owner reorder commits the release slot').toEqual([{from: 0, to: 1}]);
+                expect.soft(container.items.map(item => item.id)).toEqual(['btnB', 'btnA', 'sep1', 'btnC', 'btnD']);
+
+                probe.pending[0].resolve();
+                await moving;
+                expect(sortZone.itemRects).toBeNull();
+                expect(probe.scrolls.map(({index}) => index)).toEqual([1]);
+                expect(commits).toEqual([{from: 0, to: 1}])
+            } finally {
+                endWait.resolve();
+                probe.pending.forEach(flight => flight.resolve());
+                await Promise.allSettled([moving, ending].filter(Boolean));
+                if (sortZone.itemRects) await sortZone.onDragCancel({key: 'Escape'})
+            }
+        })
+    }
 
     test('a drag whose item owned focus hands it back at the terminal as a pointer focus, committed or cancelled; an item without focus gets none (#19281)', async () => {
         await new Promise(resolve => setTimeout(resolve, 10));
@@ -995,6 +1303,7 @@ test.describe('SortZone drag end after the drop destroyed the owner', () => {
             dragComponent : items[0],
             dragEnd       : () => {},
             dragFocusOwner: null,
+            isResortable  : SortZone.prototype.isResortable,
             itemStyles    : [{}, {}],
             owner         : spyComponent('toolbar', writes, destroyed),
             ownerStyle    : {height: null, minWidth: null, position: null, width: null},

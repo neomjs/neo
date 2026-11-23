@@ -226,9 +226,13 @@ class PreviewProducer extends Base {
      * (`preview:<item>:<node>:<kind>`) so repeat frames over the same candidate are stable for
      * renderer diffing — no time/random source. Returns null (not a `rejected` payload) when there
      * is no zone under the pointer or the item id is missing: no candidate, no affordance.
+     *
+     * A `center-well` zone is one drop target, the whole free center: it yields `zone-center` wherever the
+     * pointer is inside it, and nothing for a whole-stack gesture, which no operation places there.
      * @param {Object} params
      * @param {Object} params.pointer {x, y} window-local pointer
-     * @param {Object[]} params.zones [{nodeId, rect, orientation?}] rendered dock-zone rects, outer → inner
+     * @param {Object[]} params.zones [{nodeId, rect, orientation?, type?, tabsNodeId?}] rendered dock-zone
+     * rects, outer → inner; a `type: 'center-well'` entry names its edge-zone and the free tabs id a drop builds
      * @param {String} params.itemId the representative dragged dock item id
      * @param {String} [params.groupNodeId] runtime-only whole-stack source node id
      * @param {String} [params.containerId] the hovered workspace/container id
@@ -256,6 +260,10 @@ class PreviewProducer extends Base {
 
         if (!zone) return null;
 
+        if (zone.type === 'center-well') {
+            return groupNodeId ? null : this.buildPreview(params, zone.nodeId, 'zone-center', null, zone.tabsNodeId)
+        }
+
         let kind = this.resolvePlacementKind(zone.rect, pointer, zone.orientation);
 
         if (kind === 'rejected') return null;
@@ -275,15 +283,18 @@ class PreviewProducer extends Base {
      * @param {String} nodeId the target dock node
      * @param {String} kind a non-`rejected` placement kind
      * @param {String} [orientation] the target's parent-split orientation (required for `split-*` kinds)
+     * @param {String} [tabsNodeId] the free tabs id a `zone-center` drop builds (required for that kind)
      * @returns {Object} a `neo.dock.preview.v1` payload
      * @protected
      */
-    buildPreview({containerId=null, groupNodeId=null, itemId, source=null, sourceNodeId=null}, nodeId, kind, orientation) {
+    buildPreview({containerId=null, groupNodeId=null, itemId, source=null, sourceNodeId=null}, nodeId, kind, orientation, tabsNodeId) {
         let placement = {kind},
             subjectId = groupNodeId ? `group:${groupNodeId}` : itemId;
 
         if (kind === 'split-before' || kind === 'split-after') {
             placement.orientation = orientation
+        } else if (kind === 'zone-center') {
+            placement.tabsNodeId = tabsNodeId
         }
 
         return {
@@ -364,7 +375,8 @@ class PreviewProducer extends Base {
         let me   = this,
             zone = me.hitTestZone(zones, pointer);
 
-        if (!zone) return null;
+        // A well holds no node to split or merge into: pointer inference alone answers over it
+        if (!zone || zone.type === 'center-well') return null;
 
         let params = {containerId, groupNodeId, itemId, source, sourceNodeId},
             cross  = ['center', 'top', 'right', 'bottom', 'left'].map(position => ({

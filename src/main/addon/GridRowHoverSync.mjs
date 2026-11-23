@@ -3,7 +3,7 @@ import DomAccess from '../DomAccess.mjs';
 
 /**
  * Synchronizes row hover states across multiple grid bodies using a passive, performance-optimized
- * native HTML event bridge. Eliminates the need for continuous mousemove tracking or heavy SCSS generation.
+ * native HTML event bridge. Eliminates the need for continuous mousemove tracking or heavy CSS generation.
  * Coordinates hover suspension and resumption during scroll virtualization to prevent layout thrashing
  * and ensure cross-body row consistency.
  * @class Neo.main.addon.GridRowHoverSync

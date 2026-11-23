@@ -1,15 +1,22 @@
 name: Engine Tests
 
+# Every engine test tier in one workflow behind one classifier run: unit, components and the e2e engine
+# tier. A workflow cannot read another workflow's job outputs, so this is the only shape in which one
+# classification serves them all. Each tier keeps its own checks, so an e2e red reads as `e2e-engine`,
+# never as `unit` or `components`.
+
 on:
   pull_request:
     branches: [dev]
   push:
     branches: [dev]
 
-  # The denominator these three tiers had no way to produce. `test-e2e.yml` has carried this since
-  # #18505; unit, unit-tz and components did not, so a day's worth of intermittent sightings across
-  # them yielded four failures and no rate. A rerun is the opposite of a sample: it marks the run
-  # green and erases the observation that provoked it.
+  # Dispatch turns the tiers into a measuring instrument (#18505). Until it existed, a hosted sample cost
+  # a pull request and arrived only when someone tripped over a red — so an intermittent had failures but
+  # no DENOMINATOR, and the rerun that unblocks a PR marks the run green and erases the sample it produced.
+  #
+  # Dispatch-only rather than scheduled, deliberately: #14685's nightly runner is this repository's own
+  # evidence that unowned scheduled execution decays until nobody notices it stopped.
   #
   # No classifier bypass, and that was measured rather than assumed: `classify-test-scope.yml`
   # fails OPEN. On a dispatch `getChangedFiles()` matches neither the pull_request nor the push
@@ -26,29 +33,25 @@ on:
         type: string
         default: '1'
       suite:
-        description: 'Restrict the probe to one tier. Empty runs all three.'
+        description: 'Restrict the probe to one tier. Empty runs unit, unit-tz and components; e2e runs only when named.'
         type: choice
-        options: ['', unit, unit-tz, components]
+        options: ['', unit, unit-tz, components, e2e]
         default: ''
 
 concurrency:
   # Initial attempts share the ref stream so new heads still supersede old work.
   # Reruns retain their original run_id and cannot cancel a newer head (#15593).
   #
-  # A DISPATCH gets its own key, per `test-e2e.yml`'s measured finding: two probes on one ref shared
-  # the ref-keyed group and the second cancelled the first mid-measurement. Superseding is right for
-  # a gate and wrong for an instrument, where every sample is the point.
+  # A DISPATCH gets its own key, and this was measured: two probes dispatched on one ref shared the
+  # ref-keyed group and the second cancelled the first mid-measurement. Superseding is right for a
+  # gate and wrong for an instrument, where every sample is the point.
   group: tests-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || (github.run_attempt == '1' && github.ref || github.run_id) }}
   cancel-in-progress: true
 
 
 jobs:
-  # The classifier moved out of this file in #17853 so the separately-piped e2e tier
-  # (`test-e2e.yml`, #18408) can consume the SAME decision rather than run on every push.
-  # Its predicates, and the reasoning behind each path atom, live with the job.
-  #
-  # Calling it changes nothing here: `needs.changes.outputs.*` resolves through the reusable
-  # workflow's declared outputs exactly as it resolved through the inline job's.
+  # The one classifier run every tier below consumes. Its predicates, and the reasoning behind each
+  # path atom, live with the reusable workflow.
   changes:
     name: Classify test scope
     # It lists the pull request's files, reads its live head, and on a push finds this workflow's
@@ -58,12 +61,15 @@ jobs:
       contents: read
       pull-requests: read
     uses: ./.github/workflows/classify-test-scope.yml
+    # On a pull request it selects the engine-tier files the change can reach, and sizes the matrix to them
+    with:
+      select_e2e: true
 
   unit:
     name: unit
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.run_unit == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite != 'components') }}
+    if: ${{ needs.changes.outputs.run_unit == 'true' && (github.event_name != 'workflow_dispatch' || (inputs.suite != 'components' && inputs.suite != 'e2e')) }}
     steps:
       - &current-pr-head
         name: Verify current pull-request head
@@ -200,6 +206,47 @@ jobs:
         with:
           name: test-results-unit-family-${{ github.run_id }}
           path: test/playwright/test-results/unit-family/
+          retention-days: 14
+
+  # Advisory falsifier: head specs meet the merge parent's source with head dependencies kept.
+  # Warnings are not failures. Missing reports fail this optional job; it is never a merge gate.
+  # Its runner starts only when the classifier reports a changed unit spec and a path outside test/.
+  red-on-base:
+    name: red-on-base (advisory)
+    needs: changes
+    if: ${{ github.event_name == 'pull_request' && needs.changes.outputs.run_red_on_base == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout merge commit and its first parent
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install head dependencies
+        run: npm ci
+
+      - name: Bundle browser dependencies
+        run: npm run bundle-browser-deps
+
+      - name: Compare changed specs with and without the source change
+        run: node test/playwright/runRedOnBase.mjs
+
+      - name: Retain both reports and the comparison
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: red-on-base-${{ github.run_id }}
+          path: test/playwright/test-results/red-on-base/
           retention-days: 14
 
   components:
@@ -406,6 +453,347 @@ jobs:
               ;;
             *)
               echo "the classifier's run_components verdict is neither true nor false: '${RUN_COMPONENTS}'"
+              exit 1
+              ;;
+          esac
+
+  # The e2e engine tier cannot run whole in CI, and the reasons are structural:
+  #
+  #   GPU  — specs booting the workstation app inherit animated OffscreenCanvas work no
+  #          hosted runner can composite. The dashboard app carries none, which is why
+  #          the dock and cross-window specs are the tier that fits.
+  #   Time — the ceiling is six minutes of test time per shard, enforced on the step below
+  #          rather than on the job, so a slow suite is distinguishable from a slow `npm ci`.
+  #          A shard nearing it gets its slow spec fixed first, and a sibling only when the
+  #          runner budget has room: the org's CI draws on one shared pool of hosted runners,
+  #          so another shard consumes capacity the next run needs and can lengthen queueing
+  #          under load, while a stop at the ceiling costs a re-run and a review cycle.
+  #
+  # A third constraint bounds the REPORTING, and is the one a reader is most likely to be
+  # misled by: `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent
+  # specs, and `testIgnore` removes files from SELECTION rather than skipping them. No
+  # reporter can name them, and a run missing part of the tier still prints
+  # `Skipped: 0`. A green check here certifies a genuine but PARTIAL tier.
+  #
+  # Which specs run, why the rest do not, and the coverage this job reports all live in
+  # `buildScripts/util/e2eCiSelection.mjs` — one source for the invocation and the
+  # summary, so the two cannot drift into describing different populations.
+  e2e-engine:
+    name: e2e-engine (${{ matrix.shard }}/${{ matrix.shards }})
+    runs-on: ubuntu-latest
+    needs: changes
+    # A ruled-out tier starts no runner, and neither does a dispatch probe of another suite: its
+    # shards report SKIPPED, and `e2e-engine-gate` turns that into the context's green, with the
+    # classifier's reason.
+    if: ${{ needs.changes.outputs.run_e2e == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == 'e2e') }}
+    # The gate runs as shards on separate runners, each serial and each under the step's ceiling,
+    # each handed its files by measured time. A dispatch is one shard, so a probe's tally keeps its
+    # whole denominator.
+    strategy:
+      fail-fast: false
+      # A selection brings a matrix sized to it. The full matrix is `FULL_SHARDS.engine` in
+      # `e2eCiSelection.mjs`, which a unit arm holds to these lines
+      matrix:
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_matrix || '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]') }}
+        shards: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1]' || needs.changes.outputs.e2e_engine_shards || '[18]') }}
+    # The gate keeps its twelve minutes: provisioning plus a six-minute test step, so a hung
+    # install cannot occupy a runner indefinitely.
+    #
+    # A dispatch needs its own, and the reason is that a job bound SILENTLY CAPS a step bound. The
+    # dispatch test step below asks for thirty minutes; under a twelve-minute job it would have got
+    # twelve, and a probe killed at the job bound reports a rate that is an artifact of a limit
+    # nothing in the log names. Forty-five leaves the thirty-minute step its full allowance plus
+    # provisioning and reporting, so the step's own bound is the one that actually binds.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 45 || 12 }}
+
+    steps:
+      # Re-run failed jobs does not re-run successful prerequisite jobs: a head classified relevant,
+      # whose shard then failed, could rerun against a PR that has since advanced. The classifier's own
+      # stale-head guard protects the first attempt; this one protects every rerun after it.
+      - *current-pr-head
+
+      # The classifier's verdict gates the job; this step covers the one case it cannot see: a
+      # rerun of an attempt whose PR head has since moved. It reports that reason, and every
+      # later step is gated on the head check.
+      - name: Skip e2e (engine tier)
+        if: ${{ steps.head.outputs.current != 'true' }}
+        run: |
+          echo "e2e (engine tier) skipped: ${{ steps.head.outputs.skip_reason }}"
+
+      - name: Checkout repository
+        if: ${{ steps.head.outputs.current == 'true' }}
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        if: ${{ steps.head.outputs.current == 'true' }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: ${{ steps.head.outputs.current == 'true' }}
+        run: npm ci
+
+      - name: Bundle browser dependencies
+        if: ${{ steps.head.outputs.current == 'true' }}
+        run: npm run bundle-browser-deps
+
+      # Browser provisioning as in the components job, and for its reasons.
+      - name: Resolve Playwright version
+        id: playwright
+        if: ${{ steps.head.outputs.current == 'true' }}
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright Chromium
+        id: playwright-cache
+        if: ${{ steps.head.outputs.current == 'true' }}
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Playwright Chromium
+        if: ${{ steps.head.outputs.current == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: npx playwright install chromium
+
+      - name: Save Playwright Chromium
+        if: ${{ steps.head.outputs.current == 'true' && steps.playwright-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
+
+      - name: Verify Chromium launches
+        id: chromium-probe
+        if: ${{ steps.head.outputs.current == 'true' }}
+        continue-on-error: true
+        run: node -e "require('@playwright/test').chromium.launch().then(browser => browser.close())"
+
+      - name: Install Playwright system dependencies
+        if: ${{ steps.head.outputs.current == 'true' && steps.chromium-probe.outcome == 'failure' }}
+        run: npx playwright install-deps chromium
+
+      # Its own step, because a command substitution cannot gate the command it feeds.
+      # `npx playwright test … $(node … --paths)` runs the suite with NO paths when the
+      # helper exits non-zero — the runner still starts, selects the whole config, and
+      # the step exits 0. The floor was therefore unable to stop the thing it exists to
+      # stop. Assigning first makes the failure the step's own exit status, and a named
+      # step makes it legible in the job UI rather than buried in a test log.
+      - name: Verify e2e selection floor
+        id: selection
+        if: ${{ steps.head.outputs.current == 'true' }}
+        run: |
+          # The accurate figure, in the LOG. The step summary is the complete account and a reader
+          # has to go looking for it; the number met first was the runtime notice's, which counted
+          # only one exclusion class and therefore over-stated coverage. Both this line and the
+          # summary come from `populations`, so they cannot disagree.
+          node buildScripts/util/e2eCiSelection.mjs --coverage-line
+
+          # The floor holds for every run, and a pull request's selection then replaces the tier's paths
+          paths=$(node buildScripts/util/e2eCiSelection.mjs --paths)
+          echo "paths=${SELECTED:-$paths}" >> "$GITHUB_OUTPUT"
+        env:
+          SELECTED: ${{ needs.changes.outputs.e2e_engine_paths }}
+
+      # The Docs specs read `docs/output`, which is not tracked. Generated in their `beforeAll`, that parse of every class
+      # landed in the run step's ceiling and in the planner's per-file costs (#21501). A shard whose specs call
+      # `ensureDocsOutput()` generates it here instead, and the helper then skips it. The selection repeats the run
+      # step's; should the two drift, a spec generates the index itself, as before.
+      - name: Generate the Docs class index
+        if: ${{ steps.head.outputs.current == 'true' }}
+        timeout-minutes: 3
+        env:
+          PROBE_SPECS: ${{ inputs.specs }}
+          SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          TIER_PATHS: ${{ steps.selection.outputs.paths }}
+        run: |
+          if [ -n "${PROBE_SPECS}" ]; then
+            paths="${PROBE_SPECS}"
+          else
+            paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)
+          fi
+
+          # Deliberately unquoted, as in the run step: the selection is a space-separated list of paths
+          if [ -n "${paths}" ] && grep -rqs 'ensureDocsOutput' ${paths}; then
+            node buildScripts/docs/generateDocsJson.mjs
+            echo 'NEO_DOCS_OUTPUT_READY=true' >> "$GITHUB_ENV"
+          fi
+
+      # Serial by measurement, not caution: this tier drives real windows, drag
+      # thresholds and geometry, which parallel workers on one runner perturb.
+      #
+      # NEO_TEST_SKIP_CI activates the in-spec quarantine guards, the lever the unit
+      # suite already uses; each guard states the condition it stands in for.
+      # The six-minute ceiling is the GATE's budget, per shard, and stays exactly that for
+      # `pull_request` and `push`. A dispatch is a measurement rather than a gate — N repeats of a spec are meant to
+      # take N times as long — so it gets its own budget. Sharing the gate's ceiling would silently
+      # truncate a probe and report a rate that is an artifact of the timeout.
+      - name: Run e2e (engine tier)
+        if: ${{ steps.head.outputs.current == 'true' }}
+        timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 30 || 6 }}
+        env:
+          NEO_TEST_SKIP_CI: 'true'
+          # Dispatch inputs reach the shell as ENVIRONMENT, never interpolated into this script.
+          # `${{ inputs.specs }}` spliced into a `run:` is a command-injection surface, and
+          # "only maintainers can dispatch" is a mitigation rather than a fix. Read as `$PROBE_SPECS`
+          # the value is only ever word-split into arguments: shell metacharacters inside it are
+          # data, because they are not literal text in this script.
+          PROBE_SPECS: ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+          SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+          TIER_PATHS: ${{ steps.selection.outputs.paths }}
+        run: |
+          # `pipefail`, because a pipeline reports its LAST command's status: without it `tee`
+          # would return 0 over a red suite and the gate would pass on a failing run.
+          set -o pipefail
+
+          # A probe runs the specs it names. A tier run takes its shard's files, balanced by measured
+          # time: Playwright's own `--shard` gives every shard the same number of tests, and a test
+          # costs anything from milliseconds to a minute.
+          if [ -n "${PROBE_SPECS}" ]; then
+            paths="${PROBE_SPECS}"
+          else
+            paths=$(node buildScripts/util/e2eCiSelection.mjs --engine-paths)
+          fi
+
+          # An empty list would run the whole config and pass
+          if [ -z "${paths}" ]; then
+            echo "::error::shard ${SHARD} has no spec files"
+            exit 1
+          fi
+
+          echo "selection: ${paths}"
+          echo "repeat-each: ${PROBE_REPEAT}"
+
+          # A probe must never measure LESS than it was asked to.
+          #
+          # `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent specs, and naming
+          # one on the command line does NOT override it. A selector mixing a gated spec with a
+          # reachable one therefore runs only the reachable half and exits 0 — measured: two files
+          # requested, one file selected, "3 passed", exit 0. That is a rate whose denominator was
+          # silently reduced, reported as a clean pass, which is precisely the false green this tier
+          # exists to remove. A gated spec named ALONE already fails with "No tests found"; it is the
+          # mixed selector that lies.
+          #
+          # Checked only when the caller named files: a directory's file count is not an assertion
+          # about what should run, so comparing against it would fail every ordinary tier run.
+          # Compared by NAME, not by count. A cardinality check is defeated by mixing a file with a
+          # directory: naming one gated spec plus `e2e/colors` requests one `.spec.mjs` token and
+          # selects one file — `colors/tearOutMatrix.spec.mjs`, with zero of the spec actually named.
+          # One equals one, the guard passes, and the probe measured something nobody asked for.
+          # Every named file must therefore appear in the listing on its own account.
+          if [ -n "${PROBE_SPECS}" ]; then
+            requested=$(printf '%s\n' ${PROBE_SPECS} | grep '\.spec\.mjs$' || true)
+
+            if [ -n "${requested}" ]; then
+              listing=$(npx playwright test -c test/playwright/playwright.config.e2e.mjs --list ${paths} 2>&1)
+              missing=''
+
+              while read -r want; do
+                [ -z "${want}" ] && continue
+                printf '%s\n' "${listing}" | grep -qF "${want#test/playwright/e2e/}" || missing="${missing} ${want}"
+              done <<< "${requested}"
+
+              if [ -n "${missing}" ]; then
+                echo "::error::probe selection mismatch — these named specs were not selected:${missing}"
+                echo "Specs removed by testIgnore are dropped without warning; with NEO_AGENTOS_RUNTIME_ROOT unset that is the whole Brain-gated set."
+                exit 1
+              fi
+            fi
+          fi
+
+          # Deliberately unquoted: the selection is a space-separated list that must word-split
+          # into separate arguments.
+          npx playwright test -c test/playwright/playwright.config.e2e.mjs --workers=1 \
+            --repeat-each="${PROBE_REPEAT}" ${paths} 2>&1 | tee /tmp/e2e-run.log
+
+      # The measurement's whole point: a rate with its DENOMINATOR, on the run page rather than
+      # reconstructed from a log by whoever reads it next. `always()`, because a probe that ends
+      # red is the one whose numbers are wanted most.
+      - name: Report probe rate
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && steps.head.outputs.current == 'true' }}
+        env:
+          PROBE_SPECS: ${{ inputs.specs }}
+          PROBE_REPEAT: ${{ inputs.repeatEach || '1' }}
+        run: |
+          {
+            echo "### Probe result"
+            echo
+            if [ -n "${PROBE_SPECS}" ]; then
+              echo "**This run covers the selection below and nothing else** — it is a measurement,"
+              echo "not a tier run, and its green says nothing about the tier's coverage."
+            else
+              echo "Ordinary tier selection; see the coverage section for the population it certifies."
+            fi
+            echo
+            echo "- selection: \`${PROBE_SPECS:-<tier selection>}\`"
+            echo "- repeat-each: \`${PROBE_REPEAT}\`"
+            echo
+            # Playwright's own tally is the denominator. Absent means the run died before
+            # reporting, which is itself the answer and must not read as a clean zero.
+            grep -aE '^ *[0-9]+ (passed|failed|flaky|skipped|did not run)' /tmp/e2e-run.log \
+              || echo 'no Playwright summary line — the run did not reach its reporter'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # NOT emitted for a probe that named its own specs. `e2eCiSelection --summary` describes the
+      # TIER's population — "selected 14 of 105" — which is a true statement about the tier and a
+      # false one about a run that executed a single spec. `always()`, because a failed run needs its
+      # coverage stated more than a green one does; conjoined with the head gate, because on a
+      # skipped run there is no run to describe. The shards split one population, so the first one
+      # states it.
+      - name: Report tier coverage
+        if: ${{ always() && matrix.shard == 1 && steps.head.outputs.current == 'true' && (github.event_name != 'workflow_dispatch' || inputs.specs == '') }}
+        env:
+          REPORT: ${{ needs.changes.outputs.e2e_selection_report }}
+        run: |
+          node buildScripts/util/e2eCiSelection.mjs --summary >> "$GITHUB_STEP_SUMMARY"
+          # A pull request's selection runs part of that population; the report names which part and why
+          if [ -n "$REPORT" ]; then printf '\n%s\n' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload test artifacts on failure
+        if: ${{ failure() && steps.head.outputs.current == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-e2e-engine-${{ github.run_id }}-shard-${{ matrix.shard }}
+          path: test/playwright/test-results/
+
+  # The tier's one context. A shard's name carries the shard count, which the header's rule changes
+  # whenever the tier grows, so requiring the shards by name blocks every pull request the moment a
+  # sibling is added. One shard that did not succeed fails this.
+  #
+  # A tier the classifier ruled out starts no shard, so the shards report SKIPPED, and this gate
+  # passes with the classifier's reason. It passes only when the classifier itself succeeded:
+  # a failed classifier also skips the shards, and that must never read as an irrelevant diff.
+  e2e-engine-gate:
+    name: e2e-engine
+    if: ${{ always() && github.event_name != 'workflow_dispatch' }}
+    needs: [changes, e2e-engine]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every shard succeeded, or the classifier ruled the tier out
+        env:
+          CLASSIFIER: ${{ needs.changes.result }}
+          RUN_E2E: ${{ needs.changes.outputs.run_e2e }}
+          SHARDS: ${{ needs.e2e-engine.result }}
+          REASON: ${{ needs.changes.outputs.e2e_skip_reason }}
+        run: |
+          echo "classifier: ${CLASSIFIER} · run_e2e: ${RUN_E2E} · e2e-engine shards: ${SHARDS}"
+          test "${CLASSIFIER}" = success
+
+          # Only an explicit verdict counts. An empty or unknown value is a missing answer, and a
+          # missing answer must never certify a tier that ran nothing.
+          case "${RUN_E2E}" in
+            true)
+              test "${SHARDS}" = success
+              ;;
+            false)
+              echo "e2e (engine tier) skipped: ${REASON}" | tee -a "$GITHUB_STEP_SUMMARY"
+              test "${SHARDS}" = skipped
+              ;;
+            *)
+              echo "the classifier's run_e2e verdict is neither true nor false: '${RUN_E2E}'"
               exit 1
               ;;
           esac

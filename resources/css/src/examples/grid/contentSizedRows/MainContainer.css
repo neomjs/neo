@@ -1,0 +1,27 @@
+.neo-examples-grid-content-sized-rows {
+    > .neo-toolbar {
+        gap: 6px 12px;
+    }
+
+    .content-sized-rows-caption {
+        font-size  : 13px;
+        line-height: 1.4;
+        opacity    : 0.75;
+        padding    : 2px 10px 6px;
+        user-select: none;
+    }
+
+    /* Fixed rows: wrapped text would centre in the flex cell and lose both edges, so each shows one cut line */
+    .content-sized-rows-fixed .neo-grid-row .neo-grid-cell:not(:has(.neo-grid-editor)) {
+        &[data-field="title"],
+        &[data-field="summary"],
+        &[data-field="details"],
+        &[data-field="notes"] {
+            display      : block;
+            line-height  : 27px;
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+        }
+    }
+}

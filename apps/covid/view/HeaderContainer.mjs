@@ -145,13 +145,14 @@ class HeaderContainer extends Container {
                         }]
                     }
                 }, {
-                    ntype  : 'button',
-                    flex   : 'none',
-                    handler: 'onSwitchThemeButtonClick',
-                    height : 25,
-                    iconCls: 'fa fa-sun',
-                    style  : {marginLeft: '10px', marginTop: '15px'},
-                    text   : 'Theme Light'
+                    ntype    : 'button',
+                    flex     : 'none',
+                    handler  : 'onSwitchThemeButtonClick',
+                    height   : 25,
+                    iconCls  : 'fa fa-sun',
+                    reference: 'theme-button',
+                    style    : {marginLeft: '10px', marginTop: '15px'},
+                    text     : 'Theme Light'
                 }, {
                     ntype  : 'button',
                     flex   : 'none',

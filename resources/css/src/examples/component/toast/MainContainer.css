@@ -1,0 +1,36 @@
+.neo-examples-toast {
+    .neo-examples-toast-toolbar {
+        border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+        padding      : 8px 20px;
+    }
+
+    .neo-examples-toast-body {
+        overflow: auto;
+    }
+
+    .output {
+        flex     : 1 1 280px;
+        max-width: 100%;
+        overflow : auto;
+        padding  : 20px;
+    }
+
+    .hljs {
+        border-radius: 6px;
+        padding      : 0.5em;
+    }
+
+    @media (max-width: 700px) {
+        .neo-examples-toast-body.neo-flex-direction-row {
+            flex-direction: column;
+            flex-wrap     : nowrap;
+        }
+
+        .output {
+            flex      : none;
+            min-height: 200px;
+            padding   : 0 20px 20px;
+            width     : 100%;
+        }
+    }
+}

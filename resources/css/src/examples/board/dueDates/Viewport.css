@@ -1,0 +1,383 @@
+.due-viewport.neo-viewport {
+    background: var(--due-canvas-bg);
+    color     : var(--due-text);
+
+    .due-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--due-header-bg);
+        border-bottom: 1px solid var(--due-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 10px;
+        min-height   : 52px;
+        padding      : 8px 16px;
+
+        .due-title {
+            color         : var(--due-title);
+            font-size     : 17px;
+            font-weight   : 700;
+            letter-spacing: -0.02em;
+        }
+
+        .due-summary-pill {
+            background          : var(--due-pill-bg);
+            border              : 1px solid var(--due-pill-border);
+            border-radius       : 999px;
+            color               : var(--due-pill-text);
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            padding             : 3px 10px;
+        }
+
+        .due-spacer {
+            min-width: 0;
+        }
+
+        .due-late-toggle.neo-button {
+            --button-background-color        : var(--due-late-bg);
+            --button-background-color-hover  : var(--due-late-active-bg);
+            --button-background-color-pressed: var(--due-late-active-bg);
+            --button-border-color            : var(--due-late-border);
+            --button-border-hover            : 1px solid var(--due-late-active-border);
+            --button-border-pressed          : 1px solid var(--due-late-active-border);
+            --button-ripple-background-color : transparent;
+            --button-text-color              : var(--due-late-text);
+            --button-text-color-active       : var(--due-late-active-text);
+            --button-text-color-hover        : var(--due-late-text);
+            --button-text-color-pressed      : var(--due-late-active-text);
+            background          : var(--due-late-bg);
+            border              : 1px solid var(--due-late-border);
+            border-left-width   : 3px;
+            border-radius       : 999px;
+            color               : var(--due-late-text);
+            cursor              : pointer;
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 700;
+            min-height          : 30px;
+            padding             : 0 13px;
+
+            &.pressed {
+                --button-background-color      : var(--due-late-active-bg);
+                --button-background-color-hover: var(--due-late-active-bg);
+                --button-border-color          : var(--due-late-active-border);
+                --button-text-color            : var(--due-late-active-text);
+                --button-text-color-hover      : var(--due-late-active-text);
+                background       : var(--due-late-active-bg);
+                border-color     : var(--due-late-active-border);
+                border-left-width: 3px;
+                color            : var(--due-late-active-text);
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--due-focus);
+                outline-offset: 2px;
+            }
+
+            .neo-button-glyph,
+            .neo-button-ripple-wrapper {
+                display: none;
+            }
+        }
+
+        .due-reset-button.neo-button,
+        .neo-theme-switcher.neo-button {
+            --button-background-color         : var(--due-btn-bg);
+            --button-background-color-disabled: var(--due-btn-bg);
+            --button-background-color-hover   : var(--due-btn-hover-bg);
+            --button-border-color             : var(--due-btn-border);
+            --button-border-disabled          : 1px solid var(--due-border);
+            --button-border-hover             : 1px solid var(--due-card-hover-border);
+            --button-text-color               : var(--due-btn-text);
+            --button-text-color-active        : var(--due-title);
+            --button-text-color-disabled      : var(--due-muted);
+            --button-text-color-hover         : var(--due-title);
+            background   : var(--due-btn-bg);
+            border       : 1px solid var(--due-btn-border);
+            border-radius: 999px;
+            color        : var(--due-btn-text);
+            font-size    : 12px;
+            font-weight  : 600;
+            min-height   : 30px;
+            padding      : 0 12px;
+
+            &.neo-disabled {
+                color  : var(--due-muted);
+                opacity: 0.72;
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--due-focus);
+                outline-offset: 2px;
+            }
+        }
+
+        .due-reset-button.neo-button .neo-button-glyph,
+        .due-reset-button.neo-button .neo-button-ripple-wrapper {
+            display: none;
+        }
+    }
+
+    .due-subbar.neo-container {
+        align-items  : center;
+        background   : var(--due-subbar-bg);
+        border-bottom: 1px solid var(--due-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 6px 14px;
+        min-height   : 36px;
+        padding      : 6px 16px;
+
+        .due-prompt {
+            color      : var(--due-text);
+            font-size  : 12.5px;
+            font-weight: 500;
+            line-height: 1.35;
+        }
+
+        .due-sub-spacer {
+            min-width: 0;
+        }
+
+        .due-legend {
+            align-items: center;
+            color      : var(--due-muted);
+            display    : inline-flex;
+            flex-wrap  : wrap;
+            font-size  : 11px;
+            font-weight: 600;
+            gap        : 10px;
+        }
+
+        .due-legend-chip {
+            align-items: center;
+            display    : inline-flex;
+            gap        : 5px;
+            line-height: 1;
+
+            &::before {
+                border-radius: 50%;
+                content      : '';
+                display      : inline-block;
+                height       : 7px;
+                width        : 7px;
+            }
+
+            &.is-overdue {
+                color      : var(--due-late-text);
+                font-weight: 700;
+
+                &::before {
+                    background: var(--due-late-border);
+                }
+            }
+
+            &.is-today {
+                color: var(--due-today-text);
+
+                &::before {
+                    background: var(--due-today-border);
+                }
+            }
+
+            &.is-upcoming {
+                color: var(--due-muted);
+
+                &::before {
+                    background: var(--due-muted);
+                }
+            }
+        }
+    }
+
+    .due-board.neo-board {
+        --neo-board-avatar-background      : var(--due-avatar-bg);
+        --neo-board-avatar-color           : var(--due-avatar-text);
+        --neo-board-background             : var(--due-canvas-bg);
+        --neo-board-badge-background       : var(--due-tag-bg);
+        --neo-board-badge-color            : var(--due-tag-text);
+        --neo-board-card-background        : var(--due-card-bg);
+        --neo-board-card-border-color      : var(--due-card-border);
+        --neo-board-card-color             : var(--due-title);
+        --neo-board-card-gap               : 8px;
+        --neo-board-card-hover-border-color: var(--due-card-hover-border);
+        --neo-board-card-muted-color       : var(--due-muted);
+        --neo-board-card-shadow            : var(--due-card-shadow);
+        --neo-board-column-background      : var(--due-col-bg);
+        --neo-board-column-border-color    : var(--due-border);
+        --neo-board-column-color           : var(--due-title);
+        --neo-board-column-width           : 280px;
+        --neo-board-editor-width           : min(440px, calc(100vw - 24px));
+        --neo-board-focus-color            : var(--due-focus);
+        --neo-board-gap                    : 10px;
+        --neo-board-overdue-background     : var(--due-late-bg);
+        --neo-board-overdue-border-color   : var(--due-late-border);
+        --neo-board-overdue-color          : var(--due-late-text);
+        --neo-board-padding                : 12px;
+        --neo-board-track-color            : var(--due-progress-track);
+
+        .neo-board-column-header {
+            border-bottom: 1px solid var(--due-border);
+            padding      : 9px 12px;
+
+            .neo-board-column-title {
+                font-size     : 13px;
+                font-weight   : 700;
+                letter-spacing: 0.01em;
+            }
+
+            .neo-board-column-count {
+                font-variant-numeric: tabular-nums;
+                font-weight         : 700;
+            }
+        }
+
+        &.is-late-only .neo-board-column-body:empty::after {
+            color     : var(--due-muted);
+            content   : 'No overdue items';
+            display   : block;
+            font-size : 12px;
+            padding   : 18px 8px;
+            text-align: center;
+        }
+
+        .neo-board-card {
+            gap    : 6px;
+            padding: 9px 11px;
+
+            .neo-board-card-menu-button {
+                color: var(--due-text);
+            }
+
+            .neo-board-card-due-date:not(.neo-board-card-due-date-overdue):not(.neo-board-card-due-date-today) {
+                background  : var(--due-tag-bg);
+                border-color: var(--due-tag-border);
+                color       : var(--due-text);
+            }
+
+            .neo-board-card-title {
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                display           : -webkit-box;
+                font-size         : 13px;
+                font-weight       : 650;
+                line-height       : 1.3;
+                overflow          : hidden;
+                padding-right     : 22px;
+                text-overflow     : ellipsis;
+            }
+
+            .neo-board-card-tag {
+                border     : 1px solid var(--due-tag-border);
+                font-size  : 10.5px;
+                font-weight: 600;
+                padding    : 2px 7px;
+            }
+
+            .neo-board-card-progress {
+                height: 4px;
+            }
+
+            .neo-board-card-avatar {
+                border     : 1px solid var(--due-avatar-border);
+                font-size  : 10px;
+                font-weight: 700;
+                height     : 22px;
+                width      : 22px;
+            }
+        }
+    }
+}
+
+.neo-board-card-editor.neo-dialog {
+    max-width: calc(100vw - 24px);
+}
+
+@media (min-width: 900px) {
+    .due-viewport.neo-viewport .due-board.neo-board {
+        --neo-board-column-width: calc((100% - 3 * var(--neo-board-gap)) / 4);
+    }
+}
+
+@media (min-width: 900px) and (max-width: 1120px) {
+    .due-viewport.neo-viewport .due-board.neo-board {
+        .neo-board-column-body {
+            padding: 6px;
+        }
+
+        .neo-board-card {
+            gap    : 4px;
+            padding: 7px 8px;
+
+            .neo-board-card-due-date {
+                font-size: 0.69em;
+                gap      : 3px;
+                padding  : 2px 4px;
+            }
+
+            .neo-board-card-avatar {
+                font-size: 9px;
+                height   : 18px;
+                width    : 18px;
+            }
+        }
+    }
+}
+
+@media (min-width: 768px) and (max-width: 980px) {
+    .due-viewport.neo-viewport .due-subbar.neo-container .due-legend {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
+    .due-viewport.neo-viewport {
+        .due-toolbar.neo-toolbar {
+            gap    : 6px 8px;
+            padding: 8px 12px;
+
+            .due-title {
+                font-size: 15px;
+            }
+
+            .due-summary-pill {
+                font-size  : 10.5px;
+                margin-left: auto;
+                padding    : 2px 8px;
+            }
+
+            .due-spacer {
+                display: none;
+            }
+
+            .due-late-toggle.neo-button,
+            .due-reset-button.neo-button,
+            .neo-theme-switcher.neo-button {
+                font-size : 11.5px;
+                min-height: 28px;
+                padding   : 0 10px;
+            }
+        }
+
+        .due-subbar.neo-container {
+            padding: 6px 12px;
+
+            .due-prompt {
+                font-size  : 11.5px;
+                white-space: normal;
+                width      : 100%;
+            }
+
+            .due-sub-spacer {
+                display: none;
+            }
+        }
+
+        .due-board.neo-board {
+            --neo-board-column-width: 296px;
+            --neo-board-gap         : 10px;
+            --neo-board-padding     : 10px;
+        }
+    }
+}

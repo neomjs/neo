@@ -14,6 +14,7 @@ import Component       from '../../../../src/component/Base.mjs';
 import Model           from '../../../../src/data/Model.mjs';
 import RecordFactory   from '../../../../src/data/RecordFactory.mjs';
 import StateProvider   from '../../../../src/state/Provider.mjs';
+import Store           from '../../../../src/data/Store.mjs';
 
 class MockComponent extends Component {
     static config = {
@@ -344,6 +345,51 @@ test.describe('State Provider Nested Data Configs', () => {
         expect(effectRunCount).toBe(2);
 
         component.destroy();
+    });
+
+    test('publishes prepared Store records together to the same scalar bindings as ordinary edits', () => {
+        const model     = Neo.create(Model, {fields: [{name: 'id'}, {name: 'name'}]});
+        const store     = Neo.create(Store, {model, data: [{id: 'a', name: 'A'}, {id: 'b', name: 'B'}]});
+        const a         = store.get('a'), b = store.get('b');
+        const component = Neo.create(MockComponent, {stateProvider: {data: {first: a, last: b}}});
+        const provider  = component.getStateProvider(), seen = [];
+        provider.createBinding(component.id, 'userName', data => {
+            const pair = data['first.name'] + data['last.name'];
+            seen.push(pair);
+            return pair
+        });
+        a.set({name: 'a'});
+        expect(component.userName).toBe('aB');
+        const updates = [{record: a, fields: {name: 'X'}}, {record: b, fields: {name: 'Y'}}];
+        expect(() => RecordFactory.applyPreparedFields(store.model, updates, () => { throw Error('refused') }))
+            .toThrow('refused');
+        expect(seen).toEqual(['AB', 'aB']);
+        expect(RecordFactory.applyPreparedFields(store.model, updates, () =>
+            expect(component.userName).toBe('aB'))).toEqual([]);
+        expect(component.userName).toBe('XY');
+        expect(seen).toEqual(['AB', 'aB', 'XY']);
+        component.destroy();
+        store.destroy()
+    });
+
+    test('publishes store-less records to each bound provider and detaches them independently', () => {
+        const model  = Neo.create(Model, {fields: [{name: 'id'}, {name: 'name'}]});
+        const record = RecordFactory.createRecord(model, {id: 'a', name: 'A'});
+        const bind   = () => {
+            const component = Neo.create(MockComponent, {stateProvider: {data: {user: record}}});
+            component.getStateProvider().createBinding(component.id, 'userName', data => data['user.name']);
+            return component
+        };
+        const first  = bind(), second = bind();
+        const update = name => RecordFactory.applyPreparedFields(model, [{record, fields: {name}}]);
+        update('B');
+        expect([first.userName, second.userName]).toEqual(['B', 'B']);
+        first.getStateProvider().destroy();
+        update('C');
+        expect([first.userName, second.userName]).toEqual(['B', 'C']);
+        first.destroy();
+        second.destroy();
+        model.destroy()
     });
 
     test('Record field bindings should detach on record replacement', () => {

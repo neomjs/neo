@@ -71,9 +71,9 @@ class Column extends Base {
          */
         editor: null,
         /**
-         * Returns the value `Neo.grid.Container#toCsv()` writes for this column's cell, in place of
-         * `record.get(dataField)`. Receives `{record, value}`. A renderer's output is markup for display, so it is
-         * never exported; this is the place for a column whose exported value needs formatting.
+         * Returns the value `Neo.grid.Container#getCellValues()` yields for this column's cell in `export` mode, in
+         * place of `record.get(dataField)`. Receives `{record, value}`. A renderer's output is markup for display, so
+         * it is never exported; this is the place for a column whose exported value needs formatting.
          * @member {Function|null} exportRenderer=null
          */
         exportRenderer: null,
@@ -153,6 +153,7 @@ class Column extends Base {
                 gridContainer = me.parent,
                 body          = gridContainer?.body,
                 colPositions  = body?.columnPositions,
+                columns       = gridContainer?.columns,
                 button        = gridContainer?.getButton(oldValue),
                 pos           = colPositions?.get(oldValue);
 
@@ -164,6 +165,14 @@ class Column extends Base {
                 colPositions.map.delete(oldValue);
                 pos.dataField = value;
                 colPositions.map.set(value, pos)
+            }
+
+            // The grid's columns collection is keyed by 'dataField' too. Its item already carries the
+            // new value, so the Map index is re-keyed here directly; the items array keeps the
+            // column's position, and grid.columns.get(newDataField) resolves again.
+            if (columns?.get(oldValue) === me) {
+                columns.map.delete(oldValue);
+                columns.map.set(value, me)
             }
 
             if (button) {
@@ -239,8 +248,8 @@ class Column extends Base {
      * they hook into the theme engine exactly like components do.
      *
      * This is a powerful architectural pattern. It allows specific column implementations
-     * (like `Neo.grid.column.Icon` or `Neo.grid.column.Component`) to inject their own SCSS
-     * theme files (e.g., `resources/scss/theme-neo-dark/grid/column/IconLink.scss`).
+     * (like `Neo.grid.column.Icon` or `Neo.grid.column.Component`) to inject their own
+     * theme files (e.g., `resources/css/theme-neo-dark/grid/column/IconLink.css`).
      *
      * **Best Practice:**
      * Because columns do not render their own outer DOM nodes with unique CSS classes,

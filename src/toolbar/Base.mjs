@@ -21,10 +21,17 @@ class Toolbar extends Container {
     static config = {
         /**
          * Named action config factories. Subclasses can provide reusable action vocabularies while
-         * instance-level action objects remain fully customisable.
-         * @member {Object|null} actionMap=null
+         * instance-level action objects remain fully customisable. A subclass's or an instance's map
+         * merges into the inherited one entry by entry: it replaces the factories it names, keeps the
+         * others, and `null` removes one.
+         * @member {Object|null} actionMap_={[isDescriptor]: true, merge: 'shallow', value: null}
+         * @reactive
          */
-        actionMap: null,
+        actionMap_: {
+            [isDescriptor]: true,
+            merge         : 'shallow',
+            value         : null
+        },
         /**
          * Defaults applied to every materialised action before its own config. A caller-provided
          * handler deliberately wins over the toolbar's generic intent emitter.
@@ -161,6 +168,12 @@ class Toolbar extends Container {
      * @protected
      */
     measuringContextualActions = false
+    /**
+     * Counts measurement reveals, so a restore that resumes after a newer reveal began leaves that reveal on.
+     * @member {Number} measureRevealGeneration=0
+     * @protected
+     */
+    measureRevealGeneration = 0
     /**
      * Reasons a focus-gated reveal is held back — a press on the tab overflow control, an open overflow
      * menu. While any holds, {@link #applyContextualActionState} keeps a withdrawn action withdrawn and
@@ -504,6 +517,7 @@ class Toolbar extends Container {
                 touched = true
             });
 
+            me.measureRevealGeneration++;
             me.measuringContextualActions = true;
             me.applyContextualActionState(true);
 
@@ -512,6 +526,8 @@ class Toolbar extends Container {
                 return me.promiseUpdate ? me.promiseUpdate() : me.update?.()
             }
         } else {
+            let generation = me.measureRevealGeneration;
+
             me.getActionItems().forEach(item => {
                 if (!Object.hasOwn(item, '_toolbarActionMeasureVisibility')) {
                     return
@@ -537,6 +553,9 @@ class Toolbar extends Container {
                 me.updateDepth = -1;
                 await me.promiseUpdate()
             }
+
+            // A reveal that began while this restore waited owns the state now; its own restore ends it
+            if (generation !== me.measureRevealGeneration) return;
 
             me.measuringContextualActions = false;
             me.applyContextualActionState(true);

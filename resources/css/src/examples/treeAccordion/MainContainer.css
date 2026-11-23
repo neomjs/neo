@@ -1,0 +1,71 @@
+.examples-container-accordion {
+    /* The selected setting heads the accordion: above it on the stage, and on a phone pinned to the stage's top
+       while the accordion scrolls under it */
+    &.neo-examples-configuration-viewport .neo-stage-compact > .neo-example-container {
+        gap            : 16px;
+        justify-content: safe center;
+
+        /* Neither gives way to the other on a short stage, which scrolls instead */
+        > * {
+            flex-shrink: 0;
+            margin     : 0 auto;
+        }
+
+        /* The accordion's sticky section headers stay inside it, under the pinned selection */
+        > .neo-tree-list {
+            isolation: isolate;
+        }
+    }
+
+    .tree-settings-selection {
+        border       : 1px solid var(--panel-border-color);
+        border-radius: 8px;
+        order        : -1;
+        overflow     : hidden;
+
+        .neo-container > .neo-label {
+            padding: 0 12px;
+        }
+
+        .tree-settings-selection-name {
+            font-size  : 16px;
+            font-weight: 600;
+            padding-top: 12px;
+        }
+
+        .tree-settings-selection-content {
+            opacity       : .75;
+            padding-bottom: 12px;
+        }
+    }
+
+    .neo-accordion-item-icon {
+        &.color-blue {
+            background-color: lightskyblue;
+            color           : var(--list-item-background-color);
+        }
+
+        &.color-red {
+            background-color: palevioletred;
+            color           : var(--list-item-background-color);
+        }
+
+        &.color-yellow {
+            background-color: goldenrod;
+            color           : var(--list-item-background-color);
+        }
+
+        &.color-green {
+            background-color: lightseagreen;
+            color           : var(--list-item-background-color);
+        }
+    }
+
+    @media (max-width: 600px) {
+        .tree-settings-selection {
+            position: sticky;
+            top     : -20px;
+            z-index : 2;
+        }
+    }
+}

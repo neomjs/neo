@@ -112,6 +112,15 @@ class Component extends BaseComponent {
             url : 'mapbox://mapbox.terrain-rgb'
         }]
     }
+
+    /**
+     * @summary Aligns the initial Mapbox style URL with the active viewport theme before first mount.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        this.mapboxStyle = this.getTheme() === 'neo-theme-light' ? this.mapboxStyleLight : this.mapboxStyleDark
+    }
 }
 
 export default Neo.setupClass(Component);

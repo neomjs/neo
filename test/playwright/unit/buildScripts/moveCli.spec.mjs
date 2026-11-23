@@ -166,7 +166,7 @@ export const result = {className: Value.config.className, value: new Value().rea
 
     test('loads custom theme-folder ownership from options without allowing apply through that file', () => {
         write('components/old/Value.mjs', 'class Value { static config = {className: "Library.old.Value"} }');
-        write('resources/scss/src/apps/library-ui/old/Value.scss', '.library-value { padding: 1px; }');
+        write('resources/css/src/apps/library-ui/old/Value.css', '.library-value { padding: 1px; }');
         write('options.json', JSON.stringify({namespaceRoots: [
             {path: 'components', namespace: 'Library', appThemeFolder: 'library-ui'}
         ]}));
@@ -175,7 +175,7 @@ export const result = {className: Value.config.className, value: new Value().rea
 
         expect(result.status, result.stderr).toBe(0);
         expect(JSON.parse(result.stdout).moves).toContainEqual({
-            from: 'resources/scss/src/apps/library-ui/old/Value.scss', to: 'resources/scss/src/apps/library-ui/new/Value.scss'
+            from: 'resources/css/src/apps/library-ui/old/Value.css', to: 'resources/css/src/apps/library-ui/new/Value.css'
         });
         expect(snapshot(root)).toEqual(before);
         write('options.json', '{"apply":true}');

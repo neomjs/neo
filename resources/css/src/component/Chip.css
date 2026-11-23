@@ -1,0 +1,60 @@
+.neo-chip {
+    align-items     : var(--chip-align-items);
+    background-color: var(--chip-background-color);
+    border          : var(--chip-border);
+    border-radius   : var(--chip-border-radius);
+    /* display will get handled on component level => either flex or inline-flex */
+    flex-direction  : row;
+    height          : var(--chip-height);
+    justify-content : var(--chip-justify-content);
+    transition      : border-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    &:focus {
+        border-color: var(--chip-border-color-focus);
+        outline     : 0;
+    }
+
+    .neo-chip-close-button {
+        background: none;
+        border    : 0;
+        color     : var(--chip-close-button-color);
+        cursor    : pointer;
+        font-size : inherit;
+        line-height: 1;
+        margin    : 0 calc(15px / 2);
+        padding   : 0;
+        transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+
+        &:hover {
+            color: var(--chip-close-button-color-hover);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--chip-border-color-focus);
+            outline-offset: 1px;
+        }
+    }
+
+    .neo-chip-glyph {
+        color         : var(--chip-glyph-color);
+        margin        : 0 calc(15px / 2);
+        pointer-events: none;
+    }
+
+    .neo-chip-text {
+        color         : var(--chip-text-color);
+        flex          : 1;
+        font-size     : var(--chip-text-font-size);
+        pointer-events: none;
+        text-align    : var(--chip-text-align);
+
+        /* Without a glyph or a close button beside it, the text keeps their distance from the border */
+        &:first-child {
+            margin-inline-start: calc(15px / 2);
+        }
+
+        &:last-child {
+            margin-inline-end: calc(15px / 2);
+        }
+    }
+}

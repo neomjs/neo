@@ -1,0 +1,46 @@
+[
+    {
+        "prefix": "resources/examples/ai_images/",
+        "why": "The frame names are record data, not literals: resources/examples/data/ai_contacts.json names 590 of these 989 files as `ai_images/<id>.jpg`, and an example reads the record to pick one. Which of the remaining 399 a record set ends up using is not derivable from the tree, so the folder is matched as a prefix."
+    },
+    {
+        "prefix": "apps/portal/resources/images/team/",
+        "why": "The folder is a constant and each file name is a member's data in the same file: apps/portal/view/about/Container.mjs carries `picture: 'Max.jpeg'` beside the folder it is joined with. The two segments never appear together in a text file."
+    },
+    {
+        "prefix": "resources/images/circle/",
+        "why": "src/component/Circle.mjs holds the folder base and the three names in an array (`itemFile = ['flip.png', 'pencil.png', 'trash.png']`) and joins them at runtime, as its `itemCls` counterpart shows."
+    },
+    {
+        "path": "examples/component/process/realWorldExample/RangeHeader.jpg",
+        "why": "Referenced from the sibling main container as `src: './RangeHeader.jpg'` — relative to its own folder, so the reference carries no parent directory for the folder-and-name match to compare."
+    },
+    {
+        "path": "docs/resources/images/tutorials/create-app-choose-name.png",
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
+    },
+    {
+        "path": "docs/resources/images/tutorials/create-app-choose-theme.png",
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
+    },
+    {
+        "path": "docs/resources/images/tutorials/create-app-files.png",
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
+    },
+    {
+        "path": "docs/resources/images/tutorials/todolist-v1-files.png",
+        "why": "Orphaned since the Docs app's tutorials section was removed (`6006fb2dc3`, 2024-04-08, #5383). Kept because deleting a doc image is a content decision, not this guard's."
+    },
+    {
+        "path": "apps/portal/resources/images/examples/devmode/dockDemo.png",
+        "why": "Superseded frame: the examples catalog (apps/portal/resources/data/examples/) names the devmode images it uses (`devmode/workstation-13-2.jpg`, `devmode/DevIndex.png`, …) and not this one. Kept because removing an app's stale frame is a content decision, not this guard's."
+    },
+    {
+        "path": "apps/portal/resources/images/examples/devmode/workstation.png",
+        "why": "Superseded frame: the same data file names `devmode/workstation-13-2.jpg` for that example, so this earlier capture is no longer referenced."
+    },
+    {
+        "path": "resources/images/readme/neo-agent-fleet-manager-poster.jpg",
+        "why": "Orphaned: no packed markdown or source file names it. It is a poster kept for an announcement that no longer lives in this repository."
+    }
+]

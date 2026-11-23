@@ -1,5 +1,6 @@
-import BaseViewport   from '../../../src/container/Viewport.mjs';
-import DemoBWorkspace from './DemoBWorkspace.mjs';
+import BaseViewport     from '../../../src/container/Viewport.mjs';
+import ComponentManager from '../../../src/manager/Component.mjs';
+import DemoBWorkspace   from './DemoBWorkspace.mjs';
 
 /**
  * @summary Viewport of the cross-window dashboard example.
@@ -46,17 +47,40 @@ class Viewport extends BaseViewport {
     }
 
     /**
+     * @summary Propagates theme updates across all open render-target windows of this app.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.isConstructed && value) {
+            ComponentManager.find({appName: this.appName, ntype: 'viewport'}).forEach(viewport => {
+                if (viewport !== this && !viewport.isDestroyed && viewport.theme !== value) {
+                    viewport.theme = value
+                }
+            })
+        }
+    }
+
+    /**
      * Resolves the boot mode from the window URL and mounts the workspace.
      * A pop-out window mounts NOTHING — it is a render target waiting for its pane.
      */
     async onConstructed() {
         super.onConstructed();
 
-        let me     = this,
-            url    = await Neo.Main.getByPath({path: 'document.URL', windowId: me.windowId}),
-            params = new URL(url).searchParams;
+        let me      = this,
+            sibling = ComponentManager.find({appName: me.appName, ntype: 'viewport'}).find(vp => vp !== me && !vp.isDestroyed),
+            url     = await Neo.Main.getByPath({path: 'document.URL', windowId: me.windowId}),
+            params  = new URL(url).searchParams;
 
         if (me.isDestroyed) return;
+
+        if (sibling) {
+            me.theme = sibling.getTheme()
+        }
 
         if (params.get('popout') || params.get('workspaceId')) {
             me.addCls('agentos-dockdemo-popout-host');

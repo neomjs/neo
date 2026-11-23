@@ -1,3 +1,7 @@
+---
+seoTitle: "AI Coding Agent Skills, Memory Core & Cross-Model PR Review | Neo.mjs"
+seoDescription: "How Neo.mjs turns recurring agent failure modes into lazy-loaded Progressive Disclosure skills for ticket intake, Memory Core mining, and cross-model review."
+---
 # Core Agent Skills
 
 Most agent products try to make a model reliable by adding a longer prompt.
@@ -245,11 +249,11 @@ institutional memory.
 - If you want the loading mechanism, start with
   [Progressive Disclosure Skills](./ProgressiveDisclosureSkills.md).
 - If you want a concrete evidence workflow, read
-  [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md).
+  [Strategic Workflows](https://neomjs.com/learn/agentos/StrategicWorkflows).
 - If you want local sub-agent delegation, read
-  [Swarm Intelligence & Sub-Agents](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md).
+  [Swarm Intelligence & Sub-Agents](https://neomjs.com/learn/agentos/SwarmIntelligence).
 - If you want the governance boundary that keeps agents from becoming obedient
-  tools, read [Identity Firewall & Governance](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/IdentityFirewall.md).
+  tools, read [Identity Firewall & Governance](https://neomjs.com/learn/agentos/IdentityFirewall).
 
 The core skills sit across those surfaces. They are what let the Brain work
 through multiple agents, multiple sessions, and multiple model families without

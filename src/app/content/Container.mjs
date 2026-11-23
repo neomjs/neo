@@ -2,10 +2,12 @@ import {isDescriptor, mergeFrom} from '../../core/ConfigSymbols.mjs';
 import Container                 from '../../container/Base.mjs';
 import PageContainer             from './PageContainer.mjs';
 import SectionsContainer         from './SectionsContainer.mjs';
-import Splitter                  from '../../component/Splitter.mjs';
+import Splitter                  from './Splitter.mjs';
 import TreeList                  from './TreeList.mjs';
 
 /**
+ * @summary Renders the article before navigation while CSS preserves the visual column order.
+ *
  * @class Neo.app.content.Container
  * @extends Neo.container.Base
  */
@@ -36,7 +38,7 @@ class MainContainer extends Container {
                     layout   : 'fit',
                     reference: 'sidenav-container',
                     tag      : 'aside',
-                    weight   : 10,
+                    weight   : 40,
                     items    : {
                         tree: {
                             module     : TreeList,
@@ -44,12 +46,13 @@ class MainContainer extends Container {
                             reference  : 'tree'
                         },
                         toggleBtn: {
-                            ntype  : 'button',
-                            bind   : {hidden: data => data.size !== 'x-small'},
-                            cls    : ['sidenav-button'],
-                            handler: 'onSideNavToggleButtonClick',
-                            iconCls: 'fas fa-bars',
-                            ui     : 'secondary'
+                            ntype    : 'button',
+                            ariaLabel: 'Browse topics',
+                            bind     : {hidden: data => data.size !== 'x-small'},
+                            cls      : ['sidenav-button'],
+                            handler  : 'onSideNavToggleButtonClick',
+                            iconCls  : 'fas fa-bars',
+                            ui       : 'secondary'
                         }
                     }
                 },
@@ -57,18 +60,18 @@ class MainContainer extends Container {
                     module      : Splitter,
                     bind        : {hidden: data => data.size === 'x-small'},
                     cls         : ['main-content-splitter'],
-                    resizeTarget: 'previous',
+                    resizeTarget: 'next',
                     size        : 3,
-                    weight      : 20
+                    weight      : 30
                 },
                 pageContainer: {
                     [mergeFrom]: 'pageContainerConfig',
-                    weight     : 30
+                    weight     : 10
                 },
                 'page-sections-container': {
                     module   : SectionsContainer,
                     reference: 'page-sections-container',
-                    weight   : 40
+                    weight   : 20
                 }
             }
         },
@@ -102,6 +105,29 @@ class MainContainer extends Container {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : null
+        }
+    }
+
+    /**
+     * @summary Announces the shared panels' CSS disclosure state on their buttons.
+     * Article navigation and section selection can close a panel without pressing its button.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        for (const [panelRef, buttonRef] of [
+            ['sidenav-container', 'toggleBtn'],
+            ['page-sections-container', 'sections-disclosure']
+        ]) {
+            const panel  = this.getReference(panelRef),
+                  button = panel?.getReference(buttonRef);
+
+            if (button) {
+                const sync = () => button.changeVdomRootKey('aria-expanded', String(panel.cls.includes('neo-expanded')));
+
+                this.observeConfig(panel, 'cls', sync);
+                sync()
+            }
         }
     }
 }

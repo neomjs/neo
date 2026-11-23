@@ -537,4 +537,120 @@ test.describe('Neo.manager.Focus', () => {
 
         expect(components.map(menu => [menu.id, menu.menuFocus])).toEqual(cases.map(({id}) => [id, false]))
     });
+
+    test('skips focusLeave from an old window while another window actively focuses the moved path', async () => {
+        const log         = [];
+        const rootOld     = createFocusComponent('focus-move-root-old', 'document.body', log);
+        const rootNew     = createFocusComponent('focus-move-root-new', 'document.body', log);
+        const movedGrid   = createFocusComponent('focus-move-grid',     'focus-move-root-old', log);
+        const movedEditor = createFocusComponent('focus-move-editor',   'focus-move-grid', log);
+
+        components = [rootOld, rootNew, movedGrid, movedEditor];
+
+        FocusManager.onFocusin({
+            windowId     : 'win-1',
+            componentPath: [movedEditor.id, movedGrid.id, rootOld.id],
+            data         : {path: []}
+        });
+
+        FocusManager.onFocusout({
+            windowId     : 'win-1',
+            componentPath: [movedEditor.id, movedGrid.id, rootOld.id],
+            data         : {path: [], relatedTarget: null}
+        });
+
+        // Target window receives focus for the moved grid + editor before win-1 gap expires
+        FocusManager.onFocusin({
+            windowId     : 'win-2',
+            componentPath: [movedEditor.id, movedGrid.id, rootNew.id],
+            data         : {path: []}
+        });
+
+        await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2);
+
+        expect(movedEditor.containsFocus).toBe(true);
+        expect(movedGrid.containsFocus).toBe(true);
+        expect(rootNew.containsFocus).toBe(true);
+        expect(rootOld.containsFocus).toBe(false);
+        expect(log.filter(([type]) => type === 'leave')).toEqual([
+            ['leave', rootOld.id, rootOld.id]
+        ])
+    });
+
+    test('delivers focusLeave when another window focuses something else or nothing', async () => {
+        const log         = [];
+        const rootOld     = createFocusComponent('focus-blur-root-old', 'document.body', log);
+        const rootNew     = createFocusComponent('focus-blur-root-new', 'document.body', log);
+        const movedGrid   = createFocusComponent('focus-blur-grid',     'focus-blur-root-old', log);
+        const movedEditor = createFocusComponent('focus-blur-editor',   'focus-blur-grid', log);
+        const otherField  = createFocusComponent('focus-blur-other',    'focus-blur-root-new', log);
+
+        components = [rootOld, rootNew, movedGrid, movedEditor, otherField];
+
+        FocusManager.onFocusin({
+            windowId     : 'win-1',
+            componentPath: [movedEditor.id, movedGrid.id, rootOld.id],
+            data         : {path: []}
+        });
+
+        FocusManager.onFocusout({
+            windowId     : 'win-1',
+            componentPath: [movedEditor.id, movedGrid.id, rootOld.id],
+            data         : {path: [], relatedTarget: null}
+        });
+
+        FocusManager.onFocusin({
+            windowId     : 'win-2',
+            componentPath: [otherField.id, rootNew.id],
+            data         : {path: []}
+        });
+
+        await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2);
+
+        expect(movedEditor.containsFocus).toBe(false);
+        expect(movedGrid.containsFocus).toBe(false);
+        expect(rootOld.containsFocus).toBe(false);
+        expect(otherField.containsFocus).toBe(true);
+        expect(log.filter(([type]) => type === 'leave').map(([, id]) => id)).toEqual([
+            movedEditor.id, movedGrid.id, rootOld.id
+        ])
+    });
+
+    test('does not let a window whose focus already left shield a later focusLeave', async () => {
+        const log    = [];
+        const editor = createFocusComponent('focus-reblur-editor', 'document.body', log);
+
+        components = [editor];
+
+        FocusManager.onFocusin({
+            windowId     : 'win-2',
+            componentPath: [editor.id],
+            data         : {path: []}
+        });
+
+        FocusManager.onFocusout({
+            windowId     : 'win-2',
+            componentPath: [editor.id],
+            data         : {path: [], relatedTarget: null}
+        });
+
+        await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2);
+        expect(editor.containsFocus).toBe(false);
+
+        FocusManager.onFocusin({
+            windowId     : 'win-1',
+            componentPath: [editor.id],
+            data         : {path: []}
+        });
+
+        FocusManager.onFocusout({
+            windowId     : 'win-1',
+            componentPath: [editor.id],
+            data         : {path: [], relatedTarget: null}
+        });
+
+        await FocusManager.timeout(FocusManager.maxFocusInOutGap * 2);
+
+        expect(editor.containsFocus).toBe(false)
+    })
 });

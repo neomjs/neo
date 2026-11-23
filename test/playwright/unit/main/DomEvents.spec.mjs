@@ -394,6 +394,26 @@ test.describe('Neo.main.DomEvents', () => {
         }
     });
 
+    // An app that answers a tap differently from a click needs the pointer of each event, not the device's
+    test('a click reaches the app with the pointer type that produced it; a mouse event without one sends undefined', () => {
+        const
+            sent  = [],
+            mouse = (type, extra) => ({
+                altKey : false, button: 0, buttons: 0, clientX: 10, clientY: 20, composedPath: () => [node, documentRef.body],
+                ctrlKey: false, metaKey: false, preventDefault: () => {}, shiftKey: false, stopPropagation: () => {}, type, ...extra
+            });
+
+        DomEvents.getEventData     = ({type}) => ({type});
+        DomEvents.sendMessageToApp = data => sent.push(data);
+
+        DomEvents.onClick(mouse('click', {pointerType: 'touch'}));
+        DomEvents.onClick(mouse('click', {pointerType: 'mouse'}));
+        DomEvents.onDoubleClick(mouse('dblclick'));
+
+        expect(sent.map(({pointerType, type}) => [type, pointerType])).toEqual([['click', 'touch'], ['click', 'mouse'], ['dblclick', undefined]]);
+        expect(sent[0]).toMatchObject({button: 0, clientX: 10, clientY: 20, type: 'click'})
+    });
+
     // A wheel the main thread keeps never reaches the app, so there is no order to restore: the waiting move keeps
     // its frame, and the next move in that frame replaces it.
     test('a wheel the main thread keeps leaves a waiting move to its frame', () => {
@@ -472,6 +492,7 @@ test.describe('Neo.main.DomEvents', () => {
 
         // App worker: the host forwards the payload the wire delivered (own data properties shadow the config accessors)
         for (const [key, value] of Object.entries({
+            canvasId     : 'canvas-1',
             canvasRect   : {left: 100, top: 50},
             isCanvasReady: true,
             renderer     : {updateMouseState: report => reports.push(report)},
@@ -544,5 +565,266 @@ test.describe('Neo.main.DomEvents', () => {
 
     test('a page entering the back/forward cache stays connected', () => {
         expect(departure([pagehide(true)])).toEqual([])
+    });
+
+    test('domEventListener forwards plain copy, cut, and paste unless Neo.main.addon.Clipboard claims the event', () => {
+        const
+            manager     = Neo.worker.Manager,
+            oldSend     = manager.sendMessage,
+            oldAddon    = Neo.main.addon,
+            sent        = [],
+            target      = {attributes: [], classList: ['plain-node'], dataset: {}, getAttribute: () => null, id: 'plain-1', tagName: 'DIV'},
+            makeEvent   = type => ({
+                cancelable      : true,
+                composedPath    : () => [target],
+                defaultPrevented: false,
+                preventDefault() { this.defaultPrevented = true },
+                target,
+                timeStamp       : 10,
+                type
+            });
+
+        manager.sendMessage = (dest, msg) => sent.push({dest, msg});
+
+        try {
+            delete Neo.main.addon;
+
+            for (const type of ['copy', 'cut', 'paste']) {
+                const evt = makeEvent(type);
+                DomEvents.domEventListener(evt);
+                expect(evt.defaultPrevented).toBe(true)
+            }
+
+            expect(sent.map(entry => entry.msg.eventName)).toEqual(['copy', 'cut', 'paste']);
+
+            Neo.main.addon = {
+                Clipboard: {
+                    claimsEvent: evt => evt.target === target
+                }
+            };
+
+            const claimedCopy = makeEvent('copy');
+            DomEvents.domEventListener(claimedCopy);
+            expect(claimedCopy.defaultPrevented).toBe(false);
+            expect(sent.length).toBe(3);
+
+            const otherTarget = {...target, id: 'plain-2'};
+            const unclaimedPaste = {...makeEvent('paste'), composedPath: () => [otherTarget], target: otherTarget};
+            DomEvents.domEventListener(unclaimedPaste);
+            expect(unclaimedPaste.defaultPrevented).toBe(true);
+            expect(sent.length).toBe(4);
+            expect(sent[3].msg.eventName).toBe('paste')
+        } finally {
+            manager.sendMessage = oldSend;
+            oldAddon === undefined ? delete Neo.main.addon : (Neo.main.addon = oldAddon)
+        }
+    });
+
+    /**
+     * @summary Runs `fn` with a fresh owner over a stub location, History API and window, in one router mode.
+     * The stub history moves the stub location the way a browser does.
+     * @param {Object} options
+     * @param {String} [options.base='']
+     * @param {String} options.mode
+     * @param {String} options.url
+     * @param {Function} fn
+     */
+    function withRouter({base='', mode, url}, fn) {
+        const manager  = Neo.worker.Manager,
+              config   = {routerBasePath: Neo.config.routerBasePath, routerMode: Neo.config.routerMode},
+              globals  = {history: globalThis.history, location: globalThis.location},
+              send     = manager.sendMessage,
+              location = {pathname: '/', search: ''},
+              calls    = [],
+              sent     = [],
+              go       = href => {
+                  const next = new URL(href, `https://neomjs.com${location.pathname}${location.search}`);
+                  Object.assign(location, {hash: next.hash, pathname: next.pathname, search: next.search})
+              };
+
+        let owner;
+
+        go(url);
+        Object.assign(Neo.config, {routerBasePath: base, routerMode: mode});
+        globalThis.location = location;
+        globalThis.history  = {
+            state       : null,
+            pushState   : (state, title, href) => {calls.push(['push', href]); go(href)},
+            replaceState: (state, title, href) => {calls.push(['replace', href]); go(href)}
+        };
+        globalThis.window   = new EventTarget();
+        manager.sendMessage = (dest, msg) => sent.push(msg.data.hashString);
+
+        try {
+            owner = Neo.create(WindowDomEvents);
+            fn({calls, go, location, owner, sent, window: globalThis.window})
+        } finally {
+            owner?.destroy();
+            Object.assign(Neo.config, config);
+            Object.entries(globals).forEach(([key, value]) => {
+                value === undefined ? delete globalThis[key] : globalThis[key] = value
+            });
+            manager.sendMessage = send
+        }
+    }
+
+    test('the router defaults to hash mode without a base path', () => {
+        expect(Neo.config.routerMode).toBe('hash');
+        expect(Neo.config.routerBasePath).toBe('')
+    });
+
+    test('hash mode keeps the route in location.hash and forwards every hash change, as before', () => {
+        withRouter({mode: 'hash', url: '/#/learn/Intro'}, ({calls, location, owner, sent, window}) => {
+            expect(owner.getRouteConfig(7)).toMatchObject({hashString: '/learn/Intro', windowId: 7});
+
+            owner.onHashChange();
+            owner.onHashChange();
+            expect(sent).toEqual(['/learn/Intro', '/learn/Intro']);
+
+            owner.setRoute('/news/blog');
+            expect(location.hash).toBe('/news/blog');
+
+            window.dispatchEvent(new Event('popstate'));
+            expect(sent).toHaveLength(2);
+            expect(calls).toEqual([])
+        })
+    });
+
+    test('pathname mode reads the path after routerBasePath, never its search; the base path alone is no route', () => {
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro?deck=training'}, ({go, owner}) => {
+            expect(owner.getRoute(), 'the page search stays out of the route, as in hash mode').toBe('/learn/Intro');
+            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro', windowId: 1});
+
+            for (const href of ['/docs', '/docs/', '/docs?theme=dark']) {
+                go(href);
+                expect(owner.getRoute(), href).toBe('')
+            }
+
+            expect(owner.getRouteConfig(1)).toBeNull();
+
+            go('/docsearch/Intro');
+            expect(owner.getRoute(), 'a sibling of the base path is not under it').toBe('/docsearch/Intro')
+        })
+    });
+
+    test('pathname mode pushes a changed route under the base path once, whether it is written bare or canonical', () => {
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
+            owner.setRoute('/news/blog');
+            owner.setRoute('news/blog');
+            owner.setRoute('home');
+            owner.setRoute('/home');
+            owner.setRoute('');
+            owner.setRoute('/');
+
+            expect(calls).toEqual([['push', '/docs/news/blog'], ['push', '/docs/home'], ['push', '/docs/']]);
+            expect(sent).toEqual(['/news/blog', '/home', ''])
+        })
+    });
+
+    test('pathname mode moves a #/… link into the path as a whole route, and an in-page anchor changes nothing', () => {
+        withRouter({mode: 'pathname', url: '/learn/Intro?deck=training'}, ({calls, go, location, owner, sent}) => {
+            go('#section');
+            owner.onHashChange();
+            expect(calls).toEqual([]);
+            expect(sent).toEqual([]);
+
+            go('#/news/blog');
+            owner.onHashChange();
+            expect(calls).toEqual([['replace', '/news/blog']]);
+            expect(location.hash).toBe('');
+            expect(sent).toEqual(['/news/blog'])
+        })
+    });
+
+    test('pathname mode boots a #/… bookmark into its path, the page search kept in the URL and out of the route; Back or Forward sends only a changed route', () => {
+        withRouter({mode: 'pathname', url: '/?utm_source=news#/learn/Intro'}, ({calls, go, owner, sent, window}) => {
+            expect(calls).toEqual([['replace', '/learn/Intro?utm_source=news']]);
+            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro', windowId: 1});
+
+            window.dispatchEvent(new Event('popstate'));
+            expect(sent, 'the boot route is not new').toEqual([]);
+
+            go('/news/blog');
+            window.dispatchEvent(new Event('popstate'));
+            expect(sent).toEqual(['/news/blog'])
+        })
+    });
+
+    test('pathname mode composes a #/… bookmark with its own query and anchor as path, query, then fragment', () => {
+        withRouter({mode: 'pathname', url: '/?utm_source=news#/learn/benefits/Introduction#the-problem'}, ({calls, go, location, owner}) => {
+            expect(calls).toEqual([['replace', '/learn/benefits/Introduction?utm_source=news#the-problem']]);
+            expect(location.search).toBe('?utm_source=news');
+            expect(location.hash).toBe('#the-problem');
+            expect(owner.getRoute()).toBe('/learn/benefits/Introduction');
+
+            // a link names a whole route: its own query and anchor, not the page's search
+            go('#/news/blog?page=2#top');
+            owner.onHashChange();
+            expect(calls[1]).toEqual(['replace', '/news/blog?page=2#top']);
+            expect(owner.getRoute()).toBe('/news/blog')
+        })
+    });
+
+    test('setRoute with replace=true updates hash or pathname in place, preserves search, and strips an empty hash', () => {
+        withRouter({mode: 'hash', url: '/examples/button/base/index.html?theme=neo-theme-neo-dark'}, ({calls, location, owner, sent}) => {
+            owner.setRoute('badgePosition=bottom-left&width=220', true);
+            owner.setRoute('badgePosition=bottom-left&width=220', true);
+            owner.setRoute('', true);
+
+            expect(calls).toEqual([
+                ['replace', '/examples/button/base/index.html?theme=neo-theme-neo-dark#badgePosition=bottom-left&width=220'],
+                ['replace', '/examples/button/base/index.html?theme=neo-theme-neo-dark']
+            ]);
+            expect(location.search).toBe('?theme=neo-theme-neo-dark');
+            expect(location.hash).toBe('');
+            expect(sent).toEqual(['badgePosition=bottom-left&width=220', ''])
+        });
+
+        withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
+            const states      = [];
+            const origPush    = globalThis.history.pushState;
+            const origReplace = globalThis.history.replaceState;
+            globalThis.history.state        = {scrollY: 120};
+            globalThis.history.pushState    = (state, title, href) => {states.push(['push', state]); origPush(state, title, href)};
+            globalThis.history.replaceState = (state, title, href) => {states.push(['replace', state]); origReplace(state, title, href)};
+
+            owner.setRoute('/news/blog', true);
+            owner.setRoute('/examples', false);
+            owner.setRoute('/home');
+
+            expect(calls).toEqual([['replace', '/docs/news/blog'], ['push', '/docs/examples'], ['push', '/docs/home']]);
+            expect(states).toEqual([['replace', {scrollY: 120}], ['push', null], ['push', null]]);
+            expect(sent).toEqual(['/news/blog', '/examples', '/home'])
+        })
+    });
+
+    test('parseHash preserves anchors, arrays, and typed values while skipping neighboring malformed URI entries across boot and live routes', () => {
+        expect(DomEvents.parseHash('section&categories[]=test1&categories[]=test2&width=180&active=true&disabled=false')).toEqual({
+            active    : true,
+            categories: ['test1', 'test2'],
+            disabled  : false,
+            section   : '',
+            width     : 180
+        });
+
+        withRouter({mode: 'hash', url: '/examples/list/base/index.html#bad=%E0%A4%A&width=180'}, ({go, owner}) => {
+            const payloads = [];
+            Neo.worker.Manager.sendMessage = (dest, msg) => payloads.push(msg.data);
+
+            expect(owner.getRouteConfig(9)).toEqual({
+                hash      : {width: 180},
+                hashString: 'bad=%E0%A4%A&width=180',
+                windowId  : 9
+            });
+
+            go('#%E0%A4%A=broken&categories[]=alpha&categories[]=beta&width=205&draggable=false');
+            owner.onHashChange();
+
+            expect(payloads).toHaveLength(1);
+            expect(payloads[0]).toMatchObject({
+                hash      : {categories: ['alpha', 'beta'], draggable: false, width: 205},
+                hashString: '%E0%A4%A=broken&categories[]=alpha&categories[]=beta&width=205&draggable=false'
+            })
+        })
     });
 });

@@ -6,11 +6,14 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import Neo                from '../../../../../../src/Neo.mjs';
-import * as core          from '../../../../../../src/core/_export.mjs';
-import Component          from '../../../../../../src/component/Base.mjs';
-import ViewportController from '../../../../../../apps/portal/view/ViewportController.mjs';
+import {test, expect}        from '@playwright/test';
+import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import Component             from '../../../../../../src/component/Base.mjs';
+import Container             from '../../../../../../src/container/Base.mjs';
+import HeaderToolbar         from '../../../../../../apps/portal/view/HeaderToolbar.mjs';
+import ViewportController    from '../../../../../../apps/portal/view/ViewportController.mjs';
+import ViewportStateProvider from '../../../../../../apps/portal/view/ViewportStateProvider.mjs';
 
 /**
  * `onSwitchTheme` awaits a REMOTE method before applying the theme. The engine itself resolves
@@ -139,40 +142,109 @@ test.describe('Portal.view.ViewportController — the theme switch survives its 
     })
 });
 
-test.describe('Portal.view.ViewportController — the theme button icon matches the theme on screen', () => {
+test.describe('Portal.view.ViewportController — the theme button icon and the state provider follow the theme on screen', () => {
     /**
-     * Runs a controller method against a stub button and reports the icon it ends up with.
+     * Runs a controller method against a stub button and state provider, and reports what each ends up with.
      * @param {String} method
      * @param {String} theme
-     * @returns {String}
+     * @returns {{icon: String, state: Object}}
      */
-    function iconAfter(method, theme) {
-        const btn = {iconCls: 'fa-solid fa-moon'};
+    function runOnStubs(method, theme) {
+        const btn   = {iconCls: 'fa-solid fa-moon'},
+              state = {};
 
         const context = {
             component            : {},
             getReference         : ref => ref === 'theme-switch-button' ? btn : null,
+            setState             : data => Object.assign(state, data),
+            syncTheme            : ViewportController.prototype.syncTheme,
             updateThemeSwitchIcon: ViewportController.prototype.updateThemeSwitchIcon,
             windowId             : 1
         };
 
         ViewportController.prototype[method].call(context, theme, false);
 
-        return btn.iconCls
+        return {icon: btn.iconCls, state}
     }
 
     test('a dark theme on screen shows the sun', () => {
         // The Portal's button starts as a moon, but it boots dark. This sync is what the
         // no-stored-theme path in `onConstructed` runs, so the first icon is right as well.
-        expect(iconAfter('updateThemeSwitchIcon', 'neo-theme-neo-dark')).toBe('fa-solid fa-sun')
+        expect(runOnStubs('syncTheme', 'neo-theme-neo-dark').icon).toBe('fa-solid fa-sun')
     });
 
     test('a light theme on screen shows the moon', () => {
-        expect(iconAfter('updateThemeSwitchIcon', 'neo-theme-neo-light')).toBe('fa-solid fa-moon')
+        expect(runOnStubs('syncTheme', 'neo-theme-neo-light').icon).toBe('fa-solid fa-moon')
     });
 
     test('setTheme keeps the icon in step with every switch', () => {
-        expect(iconAfter('setTheme', 'neo-theme-neo-dark')).toBe('fa-solid fa-sun');
-        expect(iconAfter('setTheme', 'neo-theme-neo-light')).toBe('fa-solid fa-moon')
+        expect(runOnStubs('setTheme', 'neo-theme-neo-dark').icon).toBe('fa-solid fa-sun');
+        expect(runOnStubs('setTheme', 'neo-theme-neo-light').icon).toBe('fa-solid fa-moon')
+    });
+
+    test('the boot sync and every switch give the state provider the theme the examples\' launch links pass on', () => {
+        ['syncTheme', 'setTheme'].forEach(method => {
+            expect(runOnStubs(method, 'neo-theme-neo-light').state, method).toEqual({theme: 'neo-theme-neo-light'});
+            expect(runOnStubs(method, 'neo-theme-neo-dark').state,  method).toEqual({theme: 'neo-theme-neo-dark'})
+        })
+    })
+});
+
+test.describe('Portal.view.HeaderToolbar & ViewportController — single-row phone header', () => {
+    test('home-button drops its wordmark at x-small, icon buttons carry aria-labels, and social actions stay inline on every route', async () => {
+        const host = Neo.create(Container, {
+            appName      : 'PortalViewportControllerTest',
+            stateProvider: ViewportStateProvider,
+            items        : [{
+                module   : HeaderToolbar,
+                reference: 'header-toolbar'
+            }]
+        });
+
+        const toolbar     = host.items[0],
+              homeBtn     = toolbar.getReference('home-button'),
+              socialIcons = toolbar.getReference('header-social-icons'),
+              themeBtn    = toolbar.getReference('theme-switch-button'),
+              githubBtn   = toolbar.getReference('github-header-button'),
+              discordBtn  = toolbar.getReference('discord-header-button'),
+              examplesBtn = toolbar.getReference('examples-button');
+
+        expect(homeBtn.ariaLabel).toBe('Neo.mjs Home');
+        expect(homeBtn.getVdomRoot()['aria-label']).toBe('Neo.mjs Home');
+        expect(themeBtn.ariaLabel).toBe('Switch Theme');
+        expect(themeBtn.getVdomRoot()['aria-label']).toBe('Switch Theme');
+        expect(githubBtn.ariaLabel).toBe('GitHub');
+        expect(githubBtn.getVdomRoot()['aria-label']).toBe('GitHub');
+        expect(discordBtn.ariaLabel).toBe('Join Discord');
+        expect(discordBtn.getVdomRoot()['aria-label']).toBe('Join Discord');
+
+        host.stateProvider.setData({size: 'x-small'});
+        expect(homeBtn.text).toBeNull();
+        expect(homeBtn.cls).toContain('no-text');
+
+        for (const activeIndex of [0, 1, 2, 3, 4, 5, 6]) {
+            ViewportController.prototype.updateHeaderToolbar.call({
+                activeIndex,
+                getReference: ref => toolbar.getReference(ref) || (ref === 'header-toolbar' ? toolbar : null),
+                size        : 'x-small'
+            });
+
+            expect(socialIcons.hidden).toBe(false);
+            expect(socialIcons.cls).not.toContain('separate-bar');
+            expect(socialIcons.cls).not.toContain('hide-sidebar')
+        }
+
+        ViewportController.prototype.updateHeaderToolbar.call({
+            activeIndex : 4,
+            getReference: ref => toolbar.getReference(ref) || (ref === 'header-toolbar' ? toolbar : null),
+            size        : 'x-small'
+        });
+        expect(toolbar.activeId).toBe(examplesBtn.id);
+
+        host.stateProvider.setData({size: 'large'});
+        expect(homeBtn.text).toBe('Neo.mjs');
+
+        await host.timeout(20);
+        host.destroy()
     })
 });

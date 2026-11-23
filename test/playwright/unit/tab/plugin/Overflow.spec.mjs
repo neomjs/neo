@@ -103,6 +103,42 @@ class MountableMenuList extends Neo.core.Base {
 MountableMenuList = Neo.setupClass(MountableMenuList);
 
 /**
+ * @summary A toolbar-owner stub whose `mounted` is a reactive config, as on a real toolbar, so the plugin
+ * observes it. Like `component.Base`, a later transition to mounted fires `mounted`. Tests replace `getLayoutRect`.
+ */
+class MountableToolbarOwner extends Neo.core.Base {
+    static config = {
+        className: 'Test.Unit.Tab.Plugin.Overflow.MountableToolbarOwner',
+        mounted_ : true,
+        theme_   : 'neo-theme-neo-dark'
+    }
+
+    appName          = 'test-app'
+    dock             = 'top'
+    items            = [{id: 'b1'}, {id: 'b2'}]
+    mountedListeners = []
+    parent           = {activeIndex: 0, on() {}, un() {}}
+    windowId         = 1
+
+    add() {return {}}
+    addDomListeners() {}
+    afterSetMounted(value, oldValue) {
+        oldValue !== undefined && value && this.mountedListeners.forEach(({fn, scope}) => fn.call(scope))
+    }
+    getActionItems() {return []}
+    async getLayoutRect() {return []}
+    getParents() {return []}
+    getTabButtons() {return this.items}
+    getTheme() {return this.theme}
+    on(name, fn, scope) {name === 'mounted' && this.mountedListeners.push({fn, scope})}
+    remove() {}
+    removeDomListeners() {}
+    un() {}
+    up() {return {activeIndex: 0}}
+}
+MountableToolbarOwner = Neo.setupClass(MountableToolbarOwner);
+
+/**
  * @summary Focused tests for the Neo.tab.plugin.Overflow re-entrancy contract — the part of
  * the runtime overflow plugin that must survive a resize / activation storm without stranding state.
  *
@@ -185,6 +221,74 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         // owner.mounted stays true → the throw is a real defect: surfaced, not hidden behind a teardown-race assumption
         expect(errors.length, 'a throw against a mounted owner is surfaced via console.error').toBeGreaterThan(0);
         expect(plugin.measuring, 'the latch must reset in finally so the header keeps responding').toBe(false)
+    });
+
+    test('a measure without layout (getLayoutRect answers one object, not a list) skips the pass quietly', async () => {
+        // A server-side render has no layout: its DomAccess stand-in answers every call with an empty object,
+        // which Neo.component.Base#getLayoutRect hands back as a single Rectangle. The plugin projects while it
+        // is constructed, so console.error is captured before createPlugin.
+        const errors  = [],
+              idle    = [],
+              orig    = console.error,
+              measure = [],
+              syncs   = [];
+
+        console.error = (...args) => { errors.push(args) };
+
+        let plugin;
+
+        try {
+            plugin = createPlugin(async ids => { measure.push(ids); return {} }, name => { idle.push(name) });
+            plugin.syncControl = () => { syncs.push(true) }; // no live overflow menu: its store would outlive this test
+            await plugin.whenProjectionIdle();
+            await plugin.project(true);
+            await plugin.project(false);
+            await plugin.whenProjectionIdle()
+        } finally {
+            console.error = orig
+        }
+
+        expect(errors, 'a measure without layout is not a defect').toEqual([]);
+        expect(measure.every(ids => ids[0] === 'b1'), 'every pass leaves at the natural-width measure').toBe(true);
+        expect(plugin.measuring, 'the finally still releases the latch').toBe(false);
+        expect(idle.at(-1), 'the pass settles: the idle event still fires').toBe('overflowProjectionIdle');
+        expect(plugin.owner.items.map(button => button.hidden), 'no tab button is withheld').toEqual([undefined, undefined]);
+        expect(syncs, 'no split is applied (applySplit always ends in syncControl)').toEqual([]);
+        plugin.destroy()
+    });
+
+    test('a measure without layout still switches the withheld-action measure reveal off before it skips', async () => {
+        const reveals = [],
+              errors  = [],
+              orig    = console.error;
+
+        console.error = (...args) => { errors.push(args) };
+
+        let plugin;
+
+        try {
+            // The natural-width measure answers a list, so the pass reaches the strip measure, which has no layout.
+            plugin = createPlugin(async ids => ids[0] === 'b1' ? ids.map(() => ({height: 20, width: 50, x: 0, y: 0})) : {});
+            plugin.syncControl = () => {};
+            await plugin.whenProjectionIdle();
+
+            Object.assign(plugin.owner, {
+                showOnHover                     : true,
+                getActionItems                  : () => [{id: 'a1', cls: ['neo-toolbar-action-context-inactive']}],
+                setContextualActionMeasureReveal: async value => { reveals.push(value) }
+            });
+
+            await plugin.project(true);
+            await plugin.whenProjectionIdle()
+        } finally {
+            console.error = orig
+        }
+
+        expect(errors).toEqual([]);
+        expect(reveals, 'the reveal is switched on for the measure and off again').toEqual([true, false]);
+        expect(plugin.measuringWithheldActions).toBe(false);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
     });
 
     test('a getLayoutRect throw during a mid-measure TEARDOWN (owner unmounts) is swallowed — the expected race, no defect noise', async () => {
@@ -276,6 +380,161 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
 
         expect(plugin.projectQueued, 'the queued flag is consumed by the drain').toBe(false);
         expect(plugin.measuring, 'no pass is left latched').toBe(false)
+    });
+
+    /**
+     * @summary A pass held on a read that never answers, over a strip whose last split withheld `b2` and
+     * capped `b1` at 72 below its caller's 192.
+     * @returns {Promise<Object>} {buttons, controller, pass, plugin}
+     */
+    const holdCappedPass = async () => {
+        const
+            makeButton = (id, hidden) => ({
+                hidden,
+                id,
+                setSilent(values) { Object.assign(this, values) },
+                show() {
+                    this.hidden = false;
+                    delete this.vdom.removeDom
+                },
+                vdom: hidden ? {removeDom: true} : {}
+            }),
+            buttons    = [makeButton('b1', false), makeButton('b2', true)],
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        plugin.owner.items         = buttons;
+        plugin.owner.promiseUpdate = async () => {};
+        plugin.owner.update        = () => {};
+        plugin.owner.getLayoutRect = () => new Promise(() => {}); // a read that never answers
+        plugin.appliedHiddenIds    = ['b2'];                      // the last committed split withheld b2
+        plugin.naturalWidths       = null;                        // uncached, so the measure restores it
+        buttons[0].maxWidth        = 72;                          // the split capped b1 below its caller's 192
+        plugin.appliedCaps         = new Map([['b1', {maxSize: 'maxWidth', value: 192}]]);
+        plugin.appliedCapButtons   = new Map([['b1', new WeakRef(buttons[0])]]);
+        Overflow.buttonCaps.set(buttons[0], {cap: plugin.appliedCaps.get('b1'), plugin});
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        return {buttons, controller, pass, plugin}
+    };
+
+    test('a superseded caller releases a pass whose read never answers: the latch clears and the strip is handed back', async () => {
+        const {buttons, controller, pass, plugin} = await holdCappedPass();
+
+        expect(plugin.measuring, 'the pass waits on the read').toBe(true);
+        expect(buttons[1].hidden, 'the measure restored the withheld header').toBe(false);
+        expect(buttons[0].maxWidth, 'the measure lifted the cap to the caller\'s width').toBe(192);
+
+        controller.abort();
+        await pass;
+
+        expect(plugin.measuring, 'the latch clears although the read never answered').toBe(false);
+        expect(buttons[1].hidden, 'the strip is handed back as the last split left it').toBe(true);
+        expect(buttons[1].vdom.removeDom).toBe(true);
+        expect(buttons[0].maxWidth, 'and so is the cap').toBe(72);
+        plugin.destroy()
+    });
+
+    test('an aborted pass hands back no cap that another strip\'s plugin owns by then', async () => {
+        const {buttons, controller, pass, plugin} = await holdCappedPass(),
+              successor                           = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+
+        expect(buttons[0].maxWidth, 'the measure lifted the cap').toBe(192);
+
+        // The header moved to another strip mid-pass, whose split capped it at 54 and took the ledger entry
+        Overflow.buttonCaps.set(buttons[0], {cap: {maxSize: 'maxWidth', value: 192}, plugin: successor});
+        buttons[0].maxWidth = 54;
+
+        controller.abort();
+        await pass;
+
+        expect(buttons[0].maxWidth, 'the successor\'s cap stands').toBe(54);
+        expect(buttons[1].hidden, 'the strip is still handed back').toBe(true);
+        successor.destroy();
+        plugin.destroy()
+    });
+
+    test('a read that answers after its caller was superseded writes no cache and no split', async () => {
+        let answer;
+
+        const
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController(),
+            splits     = [];
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        const cache = plugin.naturalWidths;
+
+        plugin.applySplit          = (...args) => {splits.push(args)};
+        plugin.owner.getLayoutRect = ids => new Promise(resolve => {
+            // A narrow strip and wide headers: applied, this answer would withhold a header
+            answer = () => resolve(ids[0] === 'tab-overflow-test-owner' ? [{width: 5}] : [{width: 100}, {width: 100}])
+        });
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        controller.abort();
+        await pass;
+
+        answer();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(splits, 'the late answer applies no split').toEqual([]);
+        expect(plugin.naturalWidths, 'the late answer writes no cache').toBe(cache);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
+    test('a superseded pass hands its queued re-run to its successor instead of starting it', async () => {
+        let reads = 0;
+
+        const
+            plugin     = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        plugin.owner.getLayoutRect = () => {reads++; return new Promise(() => {})}; // no read answers
+
+        const pass = plugin.project(true, {signal: controller.signal});
+
+        await new Promise(resolve => setTimeout(resolve, 0));
+        plugin.project(false); // a resize while the read is held
+
+        expect(plugin.projectQueued, 'the resize queues behind the held read').toBe(true);
+
+        controller.abort();
+        await pass;
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(reads, 'no detached re-run starts a read of its own').toBe(1);
+        expect(plugin.projectQueued).toBe(false);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
+    });
+
+    test('a caller superseded before its recapture starts measures nothing', async () => {
+        const
+            reads      = [],
+            plugin     = createPlugin(async ids => {reads.push(ids); return ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]}),
+            controller = new AbortController();
+
+        await new Promise(resolve => setTimeout(resolve, 0)); // the constructor's own pass
+
+        reads.length = 0;
+        controller.abort();
+        await plugin.project(true, {signal: controller.signal});
+
+        expect(reads, 'no read starts for a superseded caller').toEqual([]);
+        expect(plugin.measuring).toBe(false);
+        plugin.destroy()
     });
 
     test('the repartition lifecycle is published on the owner as one start/idle pair per transaction — a coalesced rerun keeps it open, a thrown measure still closes it', async () => {
@@ -1422,6 +1681,214 @@ test.describe('Neo.tab.plugin.Overflow (re-entrancy contract)', () => {
         expect(plugin.remountArming, 'the latch stays untouched').toBe(false)
     });
 
+    test('initial floating mount remains single while themes are loading and a retired control cannot displace its replacement', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        const worker   = Neo.currentWorker, callbacks = [], controls = [], originalCreate = Neo.create,
+            originalOn = worker.on, originalCount = worker.countLoadingThemeFiles, originalMode = Neo.config.unitTestMode,
+            hidden     = [{text: 'Agents', index: 0}], tab = {activeIndex: 0};
+        worker.countLoadingThemeFiles = 1;
+        worker.on = (event, callback) => {
+            if (event === 'themeFilesLoaded') callbacks.push(callback)
+        };
+        Neo.create = (config, ...args) => {
+            if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
+            const control = originalCreate(Component, {appName: 'test-app', parentId: 'document.body', windowId: 1,
+                autoMount: true});
+            controls.push(control);
+            if (config.autoInitVnode) control.initVnode();
+            return control
+        };
+
+        try {
+            Neo.config.unitTestMode = false;
+            plugin.syncControl(hidden, tab);
+            plugin.syncControl(hidden, tab);
+            expect(callbacks, 'initial creation and repeated projection share one mount attempt').toHaveLength(1);
+
+            const retired = plugin.control;
+            plugin.syncControl([], tab);
+            plugin.syncControl(hidden, tab);
+            const replacement = plugin.control;
+            expect(replacement).not.toBe(retired);
+            expect(callbacks, 'replacement has its own one attempt').toHaveLength(2);
+            Neo.config.unitTestMode = originalMode;
+            worker.countLoadingThemeFiles = 0;
+            callbacks[0]();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(plugin.control, 'settling the retired mount keeps the replacement').toBe(replacement);
+            expect(retired.isDestroyed, 'the retired control is released after its mount settles').toBe(true)
+        } finally {
+            Neo.config.unitTestMode = originalMode;
+            Neo.create = originalCreate;
+            worker.on = originalOn;
+            worker.countLoadingThemeFiles = originalCount;
+            plugin.destroy();
+            controls.forEach(control => !control.isDestroyed && control.destroy())
+        }
+    });
+
+    test('retiring a floating control during insertion removes its late node without affecting its replacement', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const originalCreate = Neo.create, controls = [], live = new Set(), hidden = [{text: 'Agents', index: 0}],
+            tab              = {activeIndex: 0};
+        Neo.create = (config, ...args) => {
+            if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
+            const control = {
+                id: `control-${controls.length}`, mounted: false, isVnodeInitializing: false, isDestroyed: false,
+                addDomListeners() {}, alignTo() {},
+                initVnode() {
+                    this.attempts = (this.attempts || 0) + 1;
+                    return new Promise(resolve => { this.land = () => { live.add(this.id); this.mounted = true; resolve() } })
+                },
+                destroy() { this.isDestroyed = true; live.delete(this.id) }
+            };
+            controls.push(control);
+            if (config.autoInitVnode) control.initVnode();
+            return control
+        };
+
+        try {
+            plugin.syncControl(hidden, tab);
+            const retired = plugin.control;
+            plugin.syncControl(hidden, tab);
+            expect(retired.attempts, 'a held initial insertion is not repeated').toBe(1);
+            plugin.syncControl([], tab);
+            plugin.syncControl(hidden, tab);
+            const replacement = plugin.control;
+            expect(replacement).not.toBe(retired);
+            expect(replacement.attempts).toBe(1);
+            retired.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(retired.isDestroyed).toBe(true);
+            expect(live.has(retired.id), 'a retired insert leaves no orphan').toBe(false);
+            expect(plugin.control).toBe(replacement);
+            replacement.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect([...live]).toEqual([replacement.id])
+        } finally {
+            Neo.create = originalCreate;
+            plugin.destroy()
+        }
+    });
+
+    /**
+     * @summary Replaces the floating control with a probe whose insert lands on demand, and records the
+     * inserts that are live in the page.
+     * @returns {{live: Set<String>, restore: Function}}
+     */
+    const mockFloatingControls = () => {
+        const originalCreate = Neo.create, live = new Set();
+
+        Neo.create = (config, ...args) => {
+            if (!config?.cls?.includes('neo-tab-overflow-control')) return originalCreate(config, ...args);
+            return {
+                id: `control-${live.size}-${Math.random()}`, menu: config.menu, mounted: false, isVnodeInitializing: false, isDestroyed: false,
+                addDomListeners() {}, alignTo() {},
+                initVnode() {
+                    return new Promise(resolve => {this.land = () => {live.add(this.id); this.mounted = true; resolve()}})
+                },
+                destroy() {this.isDestroyed = true; live.delete(this.id)}
+            }
+        };
+
+        return {live, restore: () => {Neo.create = originalCreate}}
+    };
+
+    test('a toolbar that unmounts retires its floating control, landed or with its insert in flight', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const {live, restore} = mockFloatingControls(), hidden = [{text: 'Agents', index: 0}], tab = {activeIndex: 0};
+
+        try {
+            plugin.syncControl(hidden, tab);
+            const landed = plugin.control;
+            landed.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            plugin.owner.mounted = false;
+            plugin.onOwnerUnmounted();
+            expect(plugin.control).toBe(null);
+            expect(landed.isDestroyed, 'a landed control goes with its toolbar').toBe(true);
+
+            plugin.owner.mounted = true;
+            plugin.syncControl(hidden, tab);
+            const pending = plugin.control;
+            plugin.owner.mounted = false;
+            plugin.onOwnerUnmounted();
+            expect(plugin.control).toBe(null);
+            expect(pending.isDestroyed, 'an insert in flight is held until it settles').toBe(false);
+            pending.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(pending.isDestroyed).toBe(true);
+            expect([...live], 'no button outlives its toolbar').toEqual([])
+        } finally {
+            restore();
+            plugin.destroy()
+        }
+    });
+
+    test('a measurement that returns after its toolbar unmounted creates no control', async () => {
+        const plugin = createPlugin(async ids => ids[0] === 'tab-overflow-test-owner' ? [{width: 1000}] : [{width: 10}, {width: 10}]);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        const {live, restore} = mockFloatingControls();
+
+        // Buttons a split can be applied to, so only the toolbar's unmount can keep the control from being created
+        plugin.owner.items = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
+
+        // The bar overflows now, and the toolbar unmounts while the DOM round-trip is in flight
+        plugin.owner.getLayoutRect = async ids => {
+            plugin.owner.mounted = false;
+            return ids[0] === 'tab-overflow-test-owner' ? [{width: 15}] : [{width: 10}, {width: 10}]
+        };
+
+        try {
+            await plugin.project(true);
+            expect(plugin.control, 'no split is applied for a toolbar that is gone').toBe(null);
+            expect([...live]).toEqual([])
+        } finally {
+            restore();
+            plugin.destroy()
+        }
+    });
+
+    test('a toolbar whose mounted config turns false retires the floating control through the plugin', async () => {
+        const {live, restore} = mockFloatingControls(),
+              owner           = Neo.create(MountableToolbarOwner);
+
+        owner.getLayoutRect = async ids => ids[0] === owner.id ? [{width: 1000}] : [{width: 10}, {width: 10}];
+
+        const plugin = Neo.create(Overflow, {owner});
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            plugin.syncControl([{text: 'Agents', index: 0}], {activeIndex: 0});
+            const control = plugin.control;
+            control.land();
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect([...live]).toEqual([control.id]);
+
+            owner.mounted = false;
+            expect(plugin.control).toBe(null);
+            expect([...live], 'unmounting the toolbar takes its button along').toEqual([]);
+
+            // Mounted again on an overflowing bar, it projects afresh through plugin.Base's `mounted` subscription,
+            // which also holds for this owner, mounted before the plugin attached
+            owner.items         = ['b1', 'b2'].map(id => ({id, text: id, hidden: false, vdom: {}, addCls() {}, removeCls() {}, show() {}}));
+            owner.getLayoutRect = async ids => ids[0] === owner.id ? [{width: 15}] : [{width: 10}, {width: 10}];
+            owner.mounted       = true;
+            await new Promise(resolve => setTimeout(resolve, 0));
+            expect(plugin.control, 'a fresh control, never the retired one').toBeTruthy();
+            expect(plugin.control).not.toBe(control);
+            expect(plugin.control.menu.items.map(item => item.text), 'its menu lists this bar\'s hidden tab').toEqual(['b2'])
+        } finally {
+            restore();
+            plugin.destroy();
+            owner.destroy()
+        }
+    });
+
     test('re-arm vs the REAL producer: a theme-file deferral holds the latch across syncs — no listener stacking (#16434)', async () => {
         // The deferred initVnode branch settles only when the re-entered attempt settles
         // (VdomLifecycle chains through the once-listener). The latch therefore spans the
@@ -2351,7 +2818,7 @@ test.describe('Neo.tab.plugin.Overflow — releaseOwnerSubscriptions covers ever
         plugin.onOwnerMounted();
 
         const domEvents = entry => Object.keys(entry).filter(key => key !== 'delegate' && key !== 'scope'),
-              expected  = ['resize', 'click', 'drag:end', 'drag:start', 'mousedown', 'mouseleave'];
+              expected  = ['resize', 'click', 'drag:cancel', 'drag:end', 'drag:start', 'mousedown', 'mouseleave'];
 
         expect(added.flatMap(domEvents), 'a remount registers each DOM event once').toEqual(expected);
         expect(released.flatMap(domEvents),
@@ -2612,6 +3079,85 @@ test.describe('Neo.tab.plugin.Overflow — the control press hold', () => {
         plugin.destroy();
         expect(held(), 'a destroyed plugin leaves no hold behind').toBe(false);
 
+        toolbar.destroy()
+    });
+
+    test('drag:cancel on a tab header releases overflow-tab-press and applies the owed contextual reveal (#21765)', async () => {
+        await import('../../../../../src/manager/Instance.mjs');
+        const Base                         = (await import('../../../../../src/core/Base.mjs')).default,
+              DomEvent                     = (await import('../../../../../src/manager/DomEvent.mjs')).default,
+              Observable                   = (await import('../../../../../src/core/Observable.mjs')).default,
+              {plugin, toolbar, withdrawn} = createRail(),
+              held                         = () => toolbar.contextualRevealHolds?.has('overflow-tab-press') === true,
+              tabPath                      = [
+                  {id: 'tab-metrics', cls: ['neo-tab-header-button']},
+                  {id: toolbar.id,    cls: ['neo-toolbar']}
+              ];
+
+        class MockCancelSortZone extends Base {
+            static config = {
+                className: 'Test.Unit.Tab.Plugin.Overflow.MockCancelSortZone',
+                mixins   : [Observable]
+            }
+        }
+        MockCancelSortZone = Neo.setupClass(MockCancelSortZone);
+
+        const sortZone = Neo.create(MockCancelSortZone);
+
+        toolbar.sortZone = sortZone;
+        plugin.onOwnerMounted();
+
+        // 1. Platform-cancelled drag (`drag:cancel` DOM event on `.neo-tab-header-button`, zoned or zoneless)
+        DomEvent.fire({
+            data     : {button: 0, path: tabPath, targetPath: tabPath},
+            eventName: 'mousedown',
+            windowId : toolbar.windowId
+        });
+        toolbar.contextualActionsVisible = true;
+        expect(held(), 'mousedown holds overflow-tab-press').toBe(true);
+
+        DomEvent.fire({
+            data     : {dragZoneId: null, path: tabPath, targetPath: tabPath},
+            eventName: 'drag:start',
+            windowId : toolbar.windowId
+        });
+        DomEvent.fire({
+            data     : {path: tabPath, targetPath: tabPath},
+            eventName: 'mouseleave',
+            windowId : toolbar.windowId
+        });
+        expect(held(), 'active drag retains the hold past mouseleave').toBe(true);
+        expect(withdrawn()).toBe(true);
+
+        DomEvent.fire({
+            data     : {dragZoneId: null, path: tabPath, targetPath: tabPath},
+            eventName: 'drag:cancel',
+            windowId : toolbar.windowId
+        });
+        expect(held(), 'drag:cancel releases overflow-tab-press').toBe(false);
+        expect(withdrawn(), 'drag:cancel applies the owed contextual reveal').toBe(false);
+
+        // 2. Escape cancel routed directly to `sortZone` when keyboard focus lies outside `.neo-tab-header-button`
+        toolbar.contextualActionsVisible = false;
+        DomEvent.fire({
+            data     : {button: 0, path: tabPath, targetPath: tabPath},
+            eventName: 'mousedown',
+            windowId : toolbar.windowId
+        });
+        toolbar.contextualActionsVisible = true;
+        DomEvent.fire({
+            data     : {dragZoneId: sortZone.id, path: tabPath, targetPath: tabPath},
+            eventName: 'drag:start',
+            windowId : toolbar.windowId
+        });
+        expect(held()).toBe(true);
+
+        sortZone.fire('dragCancel', {key: 'Escape'});
+        expect(held(), 'sortZone dragCancel releases overflow-tab-press').toBe(false);
+        expect(withdrawn(), 'sortZone dragCancel applies the owed contextual reveal').toBe(false);
+
+        plugin.destroy();
+        sortZone.destroy();
         toolbar.destroy()
     });
 

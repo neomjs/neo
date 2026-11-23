@@ -1,0 +1,204 @@
+[
+    {
+        "id": "gantt-basic",
+        "featured": true,
+        "image": "devmode/gantt-basic-14.jpg",
+        "hasLightCover": true,
+        "name": "Community Garden Plan",
+        "sourceUrl": "examples/gantt/basic",
+        "urls": {
+            "devmode": "examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/basic/index.html?theme=neo-theme-neo-dark"
+        },
+        "hiddenIn": [],
+        "family": "gantt",
+        "order": 80,
+        "component": "Gantt",
+        "feature": "A project plan with linked, editable tasks",
+        "lookFor": "Move a task and follow its dependencies. Create a link, then reload to see the saved plan.",
+        "keywords": [
+            "date",
+            "drag",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "milestone"
+        ]
+    },
+    {
+        "id": "gantt-big-data",
+        "image": "devmode/gantt-big-data-14.jpg",
+        "hasLightCover": true,
+        "name": "A project of 2,000 tasks",
+        "sourceUrl": "examples/gantt/bigData",
+        "urls": {
+            "devmode": "examples/gantt/bigData/index.html",
+            "dist_dev": "dist/development/examples/gantt/bigData/index.html",
+            "dist_esm": "dist/esm/examples/gantt/bigData/index.html",
+            "dist_prod": "dist/production/examples/gantt/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "gantt",
+        "order": 1050,
+        "component": "Gantt",
+        "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
+        "lookFor": "Expand a phase and scroll: the tree, the bars and the links keep up. Move a task and its successors follow.",
+        "keywords": [
+            "date",
+            "timeline",
+            "schedule",
+            "dependencies",
+            "programme",
+            "scale"
+        ]
+    },
+    {
+        "id": "gantt-zoom",
+        "image": "devmode/gantt-zoom-14.jpg",
+        "hasLightCover": true,
+        "name": "Zoom a plan in and out",
+        "sourceUrl": "examples/gantt/zoom",
+        "urls": {
+            "devmode": "examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "order": 1140,
+        "component": "Gantt",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "lookFor": "Switch to the wider scale: the bars shrink and every link still meets its tasks."
+    },
+    {
+        "id": "gantt-working-time",
+        "image": "devmode/gantt-working-time-14.jpg",
+        "hasLightCover": true,
+        "name": "Durations in working days",
+        "sourceUrl": "examples/gantt/workingTime",
+        "urls": {
+            "devmode": "examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "order": 1150,
+        "component": "Gantt",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "lookFor": "Switch working days off: every task that crosses a weekend ends earlier, and its successors move up."
+    },
+    {
+        "id": "gantt-dependencies",
+        "image": "devmode/gantt-dependencies-14.jpg",
+        "hasLightCover": true,
+        "name": "Link tasks by drag",
+        "sourceUrl": "examples/gantt/dependencies",
+        "urls": {
+            "devmode": "examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "order": 1160,
+        "alsoIn": ["drag-drop"],
+        "component": "Gantt",
+        "feature": "Dependencies drawn from one task's handle to another, in four link types",
+        "lookFor": "Hover a task and drag from its finish handle onto another task. Then move the first task: the linked one follows."
+    },
+    {
+        "id": "gantt-task-editor",
+        "image": "devmode/gantt-task-editor-14.jpg",
+        "hasLightCover": true,
+        "name": "Edit a task in a form",
+        "sourceUrl": "examples/gantt/taskEditor",
+        "urls": {
+            "devmode": "examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "order": 1170,
+        "component": "Gantt",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "lookFor": "The editor opens on Design the inner pages. Move its end a week later and save to see Review the designs follow."
+    },
+    {
+        "id": "gantt-task-columns",
+        "image": "devmode/gantt-task-columns-14.jpg",
+        "hasLightCover": true,
+        "name": "Your columns beside the plan",
+        "sourceUrl": "examples/gantt/taskColumns",
+        "urls": {
+            "devmode": "examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "order": 1180,
+        "component": "Gantt",
+        "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
+        "lookFor": "Collapse a phase: its rows fold in the table and in the chart together. Scroll the chart: the columns stay."
+    },
+    {
+        "id": "gantt-cascade",
+        "image": "devmode/gantt-cascade-14.jpg",
+        "hasLightCover": true,
+        "name": "A late task moves the plan",
+        "sourceUrl": "examples/gantt/cascade",
+        "urls": {
+            "devmode": "examples/gantt/cascade/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/cascade/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/cascade/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/cascade/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "order": 1185,
+        "alsoIn": ["drag-drop"],
+        "component": "Gantt",
+        "feature": "One task slips, and every task that depends on it follows to its new date",
+        "lookFor": "Press 'Delay the cabling by a week', or drag its bar: the tasks behind it glide to their new dates, the two beside the chain stay, and the line above the plan says how far the move day slipped."
+    },
+    {
+        "id": "gantt-milestones",
+        "image": "devmode/gantt-milestones-14.jpg",
+        "hasLightCover": true,
+        "name": "A plan's release gates",
+        "sourceUrl": "examples/gantt/milestones",
+        "urls": {
+            "devmode": "examples/gantt/milestones/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
+        "lookFor": "Press 'Slip DSP firmware +3 days', or drag its bar: Gates 3–6 shift together while Gates 1–2 stay put. Drag any diamond gate directly, or press Reset.",
+        "order": 1186
+    },
+    {
+        "id": "gantt-task-tree",
+        "image": "devmode/gantt-task-tree-14.jpg",
+        "hasLightCover": true,
+        "name": "An exhibition takes shape",
+        "sourceUrl": "examples/gantt/taskTree",
+        "urls": {
+            "devmode": "examples/gantt/taskTree/index.html",
+            "dist_dev": "dist/development/examples/gantt/taskTree/index.html",
+            "dist_esm": "dist/esm/examples/gantt/taskTree/index.html",
+            "dist_prod": "dist/production/examples/gantt/taskTree/index.html"
+        },
+        "family": "gantt",
+        "component": "Gantt",
+        "feature": "Each phase takes its dates and progress from its tasks.",
+        "lookFor": "Delay the lighting and watch the gallery phase grow. Fold it to keep its span and completion in view.",
+        "order": 1187,
+        "hiddenIn": []
+    }
+]

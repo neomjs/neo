@@ -3,12 +3,33 @@
  */
 class Util {
     /**
+     * A regex to convert kebab case syntax into camel case
+     * @member {RegExp} camelRegEx=/-([a-z])/g
+     * @protected
+     * @static
+     */
+    static camelRegEx = /-([a-z])/g
+    /**
      * A regex to remove camel case syntax
      * @member {RegExp} decamelRegEx=/([a-z])([A-Z])/g
      * @protected
      * @static
      */
     static decamelRegEx = /([a-z])([A-Z])/g
+    /**
+     * A regex to match the semicolons between style declarations, skipping the ones inside parentheses
+     * @member {RegExp} styleDeclarationRegEx=/;(?=[^\)]*(?:\(|$))/g
+     * @protected
+     * @static
+     */
+    static styleDeclarationRegEx = /;(?=[^\)]*(?:\(|$))/g
+    /**
+     * A regex to split a style declaration at its first colon
+     * @member {RegExp} stylePropertyRegEx=/:(.+)/
+     * @protected
+     * @static
+     */
+    static stylePropertyRegEx = /:(.+)/
 
     /**
      * @param {Object} scope
@@ -30,19 +51,17 @@ class Util {
 
         // split(';') does fetch semicolons inside brackets
         // -> background-image: "url('data:image/png;base64,...
-
-        // TODO: Cache all regex
-        return string.split(/;(?=[^\)]*(?:\(|$))/g).reduce((obj, el) => {
+        return string.split(Util.styleDeclarationRegEx).reduce((obj, el) => {
             // we have to split by the first colon only
             // -> background-image: url('http://example.com/image.png')
-            parts = el.split((/:(.+)/)).map(function (x) {
+            parts = el.split(Util.stylePropertyRegEx).map(function (x) {
                 let num = parseFloat(x);
 
                 return x == num ? num : x.trim()
             });
 
             if (parts[0] !== '') {
-                parts[0] = parts[0].replace(/-([a-z])/g, (str, letter) => {
+                parts[0] = parts[0].replace(Util.camelRegEx, (str, letter) => {
                     return letter.toUpperCase()
                 });
 

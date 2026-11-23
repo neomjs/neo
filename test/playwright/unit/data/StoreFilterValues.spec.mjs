@@ -430,6 +430,19 @@ test.describe('Store column filter contract', () => {
         expect(tree.getFilterValues('name')).toEqual({refused: true, reason: 'tree-population'})
     });
 
+    test('a raw null in a Date field counts as its own value, a raw date string still refuses (#20660)', async () => {
+        const date  = new Date('2026-01-01T00:00:00Z'),
+              store = await makeStore({autoInitRecords: false,
+                  model: {module: Model, fields: [{name: 'id', type: 'Int'}, {name: 'due', type: 'Date'}]},
+                  data : [{id: 1, due: null}, {id: 2, due: date}, {id: 3, due: null}]});
+
+        expect(store.items.some(item => item.isRecord)).toBe(false);
+        expect(store.getFilterValues('due')).toMatchObject([{value: null, count: 2}, {value: date, count: 1}]);
+
+        store.items[0].due = '2026-01-01';
+        expect(store.getFilterValues('due')).toEqual({refused: true, reason: 'noncanonical-field'})
+    });
+
     test('retained old records cannot refilter a replacement population', async () => {
         const store = await makeStore();
         store.filters = [{property: 'category', value: 'a', ownerRole: 'header-picker', reapplyOnRecordChange: true}];

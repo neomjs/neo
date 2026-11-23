@@ -1,0 +1,62 @@
+.neo-desktop-task-list {
+    --list-container-list-color        : var(--desktop-task-list-color);
+    --list-item-background-color       : transparent;
+    --list-item-background-color-active: var(--desktop-task-list-item-background-color-active);
+    --list-item-background-color-hover : var(--desktop-task-list-item-background-color-hover);
+    --list-item-focus-outline          : 2px solid var(--desktop-task-list-accent-color);
+    --list-item-focus-outline-offset   : -2px;
+    --list-item-padding                : 0 12px 0 8px;
+
+    align-items: center;
+    display    : flex;
+    gap        : 4px;
+    margin-left: 6px;
+    overflow   : visible;
+
+    .neo-list-item {
+        align-items  : center;
+        border-radius: 12px;
+        display      : flex;
+        gap          : 8px;
+        height       : 40px;
+        position     : relative;
+
+        /* Only this absolute, 3px-high marker changes size. Moving its edges preserves the 2px
+           rounded ends as any label width shrinks to the same centered 6px mark. */
+        &::after {
+            background-color: var(--desktop-task-list-accent-color);
+            border-radius   : 2px;
+            bottom          : 3px;
+            content         : '';
+            height          : 3px;
+            inset-inline    : 8px;
+            position        : absolute;
+            transition      : inset-inline var(--motion-base) var(--ease-out-soft);
+        }
+
+        &.neo-desktop-task-minimized {
+            opacity: .65;
+
+            &::after {
+                inset-inline: calc(50% - 3px);
+            }
+        }
+    }
+
+    .neo-desktop-task-icon {
+        align-items     : center;
+        background-color: var(--desktop-app-color);
+        border-radius   : 8px;
+        color           : #fff;
+        display         : flex;
+        font-size       : 13px;
+        height          : 26px;
+        justify-content : center;
+        width           : 26px;
+    }
+
+    .neo-desktop-task-text {
+        font-size  : 13px;
+        font-weight: 600;
+    }
+}

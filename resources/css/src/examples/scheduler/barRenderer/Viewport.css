@@ -1,0 +1,365 @@
+.print-viewport.neo-viewport {
+    .print-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--print-header-bg);
+        border-bottom: 1px solid var(--print-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 12px;
+        min-height   : 54px;
+        padding      : 9px 20px;
+
+        .print-title {
+            color         : var(--print-title);
+            font-size     : 18px;
+            font-weight   : 700;
+            letter-spacing: -.02em;
+        }
+
+        .print-badge {
+            background          : var(--print-badge-bg);
+            border              : 1px solid var(--print-badge-border);
+            border-radius       : 999px;
+            color               : var(--print-badge-text);
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            padding             : 3px 10px;
+        }
+
+        .print-spacer {
+            min-width: 0;
+        }
+
+        .print-plain-switch.neo-button {
+            --button-background-color-hover: var(--print-switch-hover-bg);
+            --button-border-hover          : 1px solid var(--print-switch-border);
+            --button-text-color            : var(--print-title);
+            --button-text-color-active     : var(--print-title);
+            --button-text-color-hover      : var(--print-title);
+            align-items   : center;
+            background    : var(--print-switch-surface);
+            border        : 1px solid var(--print-switch-border);
+            border-radius : 999px;
+            color         : var(--print-title);
+            cursor        : pointer;
+            display       : inline-flex;
+            font-size     : 12px;
+            font-weight   : 600;
+            gap           : 8px;
+            min-height    : 32px;
+            padding       : 0 12px 0 40px;
+            position      : relative;
+            transition    : background-color var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft);
+
+            &::before {
+                background   : var(--print-switch-track-off);
+                border       : 1px solid var(--print-switch-track-border);
+                border-radius: 999px;
+                box-sizing   : border-box;
+                content      : '';
+                height       : 16px;
+                left         : 10px;
+                position     : absolute;
+                top          : 50%;
+                transform    : translateY(-50%);
+                transition   : background-color var(--motion-fast) var(--ease-out-soft), border-color var(--motion-fast) var(--ease-out-soft);
+                width        : 24px;
+            }
+
+            &::after {
+                background   : var(--print-switch-thumb);
+                border-radius: 50%;
+                content      : '';
+                height       : 10px;
+                left         : 13px;
+                position     : absolute;
+                top          : 50%;
+                transform    : translate(0, -50%);
+                transition   : transform var(--motion-fast) var(--ease-out-soft), background-color var(--motion-fast) var(--ease-out-soft);
+                width        : 10px;
+            }
+
+            &.pressed {
+                background  : var(--print-switch-active-surface);
+                border-color: var(--print-switch-track-on);
+
+                &::before {
+                    background  : var(--print-switch-track-on);
+                    border-color: var(--print-switch-track-on);
+                }
+
+                &::after {
+                    background: var(--print-switch-thumb-on);
+                    transform : translate(8px, -50%);
+                }
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--print-focus);
+                outline-offset: 2px;
+            }
+
+            .neo-button-text {
+                line-height: 1;
+            }
+        }
+    }
+
+    .print-legend-bar.neo-container {
+        align-items  : center;
+        background   : var(--print-subbar-bg);
+        border-bottom: 1px solid var(--print-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 6px 14px;
+        min-height   : 40px;
+        padding      : 6px 20px;
+
+        .print-legend {
+            align-items: center;
+            display    : inline-flex;
+            flex-wrap  : wrap;
+            gap        : 8px;
+            transition : opacity var(--motion-fast) var(--ease-out-soft);
+        }
+
+        &.is-plain .print-legend {
+            opacity: .38;
+        }
+
+        .print-legend-pill {
+            align-items   : center;
+            border-radius : 4px;
+            cursor        : default;
+            display       : inline-flex;
+            font-size     : 11px;
+            font-weight   : 700;
+            gap           : 5px;
+            letter-spacing: .01em;
+            line-height   : 1.2;
+            padding       : 3px 8px;
+            user-select   : none;
+
+            &.is-on-time {
+                background: var(--print-on-time-fill);
+                border    : 1px solid var(--print-on-time-border);
+                box-shadow: inset 3px 0 0 var(--print-on-time-border);
+                color     : var(--print-bar-text);
+            }
+
+            &.is-at-risk {
+                background: var(--print-at-risk-fill);
+                border    : 1px dashed var(--print-at-risk-border);
+                box-shadow: inset 3px 0 0 var(--print-at-risk-border);
+                color     : var(--print-bar-text);
+            }
+
+            &.is-late {
+                background: var(--print-late-fill);
+                border    : 1px solid var(--print-late-border);
+                box-shadow: inset 3px 0 0 var(--print-late-border);
+                color     : var(--print-bar-text);
+            }
+        }
+
+        .print-summary-text {
+            border-left         : 1px solid var(--print-border);
+            color               : var(--print-muted);
+            font-size           : 12.5px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 500;
+            padding-left        : 14px;
+        }
+    }
+
+    .print-scheduler.neo-scheduler {
+        background: var(--print-header-bg);
+
+        .neo-grid-header-toolbar .neo-grid-header-button {
+            --button-background-color      : var(--print-subbar-bg);
+            --button-background-color-hover: var(--print-subbar-bg);
+            --button-text-color            : var(--print-title);
+            --button-text-color-hover      : var(--print-title);
+            background   : var(--print-subbar-bg);
+            border-bottom: 1px solid var(--print-border);
+            border-right : 1px solid var(--print-border);
+            color        : var(--print-title);
+
+            .neo-button-text {
+                color: var(--print-title);
+            }
+        }
+
+        .neo-grid-cell.neo-locked-start {
+            color      : var(--print-title);
+            font-size  : 12.5px;
+            font-weight: 600;
+        }
+
+        .neo-timeline-bar {
+            color : var(--print-bar-text);
+            cursor: default;
+
+            &:active {
+                cursor: default;
+            }
+        }
+
+        .neo-timeline-bar.print-bar-rich {
+            align-items  : center;
+            border-radius: 6px;
+            border-width : 1px;
+            padding      : 4px 10px 6px 11px;
+
+            .neo-timeline-bar-progress {
+                z-index: 0;
+            }
+
+            &.print-bar-on-time {
+                background  : var(--print-on-time-bg);
+                border-color: var(--print-on-time-border);
+                border-style: solid;
+                box-shadow  : inset 3px 0 0 var(--print-on-time-border);
+                color       : var(--print-bar-text);
+
+                .neo-timeline-bar-progress {
+                    background: var(--print-on-time-fill);
+                    box-shadow: inset 0 -2.5px 0 var(--print-on-time-border);
+                }
+            }
+
+            &.print-bar-at-risk {
+                background  : var(--print-at-risk-bg);
+                border-color: var(--print-at-risk-border);
+                border-style: dashed;
+                box-shadow  : inset 3px 0 0 var(--print-at-risk-border);
+                color       : var(--print-bar-text);
+
+                .neo-timeline-bar-progress {
+                    background: var(--print-at-risk-fill);
+                    box-shadow: inset 0 -2.5px 0 var(--print-at-risk-border);
+                }
+            }
+
+            &.print-bar-late {
+                background  : var(--print-late-bg);
+                border-color: var(--print-late-border);
+                border-style: solid;
+                box-shadow  : inset 3px 0 0 var(--print-late-border);
+                color       : var(--print-bar-text);
+
+                .neo-timeline-bar-progress {
+                    background: var(--print-late-fill);
+                    box-shadow: inset 0 -2.5px 0 var(--print-late-border);
+                }
+            }
+
+            .print-bar-body.neo-timeline-bar-label {
+                display        : flex;
+                flex-direction : column;
+                gap            : 2px;
+                justify-content: center;
+                line-height    : 1.22;
+                width          : 100%;
+            }
+
+            .print-bar-top {
+                align-items  : center;
+                display      : flex;
+                gap          : 5px;
+                min-width    : 0;
+                overflow     : hidden;
+                text-overflow: ellipsis;
+                white-space  : nowrap;
+            }
+
+            .print-bar-ok-mark {
+                color      : var(--print-on-time-border);
+                flex       : none;
+                font-size  : 11px;
+                font-weight: 800;
+                line-height: 1;
+            }
+
+            .print-bar-risk-flag {
+                background    : var(--print-risk-flag-bg);
+                border        : 1px solid var(--print-risk-flag-border);
+                border-radius : 4px;
+                color         : var(--print-risk-flag-text);
+                flex          : none;
+                font-size     : 10px;
+                font-weight   : 800;
+                letter-spacing: .01em;
+                line-height   : 1.2;
+                padding       : 1px 5px;
+            }
+
+            .print-bar-late-flag {
+                background    : var(--print-late-flag-bg);
+                border        : 1px solid var(--print-late-flag-border);
+                border-radius : 4px;
+                color         : var(--print-late-flag-text);
+                flex          : none;
+                font-size     : 10px;
+                font-weight   : 800;
+                letter-spacing: .02em;
+                line-height   : 1.2;
+                padding       : 1px 5px;
+            }
+
+            .print-bar-title {
+                color        : var(--print-bar-text);
+                font-size    : 12px;
+                font-weight  : 700;
+                min-width    : 0;
+                overflow     : hidden;
+                text-overflow: ellipsis;
+            }
+
+            .print-bar-meta {
+                color               : var(--print-bar-meta);
+                font-size           : 11px;
+                font-variant-numeric: tabular-nums;
+                font-weight         : 500;
+                min-width           : 0;
+                overflow            : hidden;
+                text-overflow       : ellipsis;
+                white-space         : nowrap;
+            }
+        }
+    }
+
+    @media (max-width: 767px) {
+        .print-toolbar.neo-toolbar {
+            padding: 8px 12px;
+
+            .print-title {
+                font-size: 15px;
+            }
+
+            .print-badge {
+                display: none;
+            }
+        }
+
+        .print-legend-bar.neo-container {
+            gap    : 6px 10px;
+            padding: 6px 12px;
+
+            .print-summary-text {
+                border-left : 0;
+                font-size   : 11.5px;
+                padding-left: 0;
+                width       : 100%;
+            }
+        }
+
+        .print-scheduler.neo-scheduler {
+            .neo-grid-cell.neo-locked-start {
+                font-size: 11.5px;
+                padding  : 0 8px;
+            }
+        }
+    }
+}

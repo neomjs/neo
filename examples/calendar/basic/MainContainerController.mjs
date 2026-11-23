@@ -14,37 +14,65 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * @param {Object} data
+     * True while the viewport is at most a phone's width
+     * @member {Boolean|null} phone=null
+     * @protected
      */
-    onSwitchThemeButtonClick(data) {
-        let me            = this,
-            button        = data.component,
-            component     = me.component,
-            headerToolbar = me.getReference('headerToolbar'),
-            buttonText, headerColor, iconCls, style, theme;
+    phone = null
 
-        if (button.text === 'Theme Light') {
-            buttonText  = 'Theme Dark';
-            headerColor = '#f2f2f2';
-            iconCls     = 'fa fa-moon';
-            theme       = 'neo-theme-light'
-        } else {
-            buttonText  = 'Theme Light';
-            headerColor = '#33343d';
-            iconCls     = 'fa fa-sun';
-            theme       = 'neo-theme-dark'
+    /**
+     * @summary Observes the viewport theme so the toggle button and header bar match the active scheme from boot onward.
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        let me = this;
+
+        me.observeConfig(me.component, 'theme', () => me.syncThemeChrome());
+        me.syncThemeChrome()
+    }
+
+    /**
+     * @summary At a phone's width the day view leads and the side panel folds away; wider, the week and the panel return.
+     * @param {Object} data The viewport's resize event
+     */
+    onResize(data) {
+        let me    = this,
+            phone = data.borderBoxSize.inlineSize <= 640;
+
+        if (data.id === me.component.id && phone !== me.phone) {
+            me.phone = phone;
+            me.getReference('calendar').set({activeView: phone ? 'day' : 'week', sideBarExpanded: !phone})
         }
+    }
 
-        component.theme = theme;
+    /**
+     * @summary Switches the root viewport between `neo-theme-light` and `neo-theme-dark`.
+     */
+    onSwitchThemeButtonClick() {
+        let {component} = this;
 
-        button.set({
-            iconCls,
-            text: buttonText
+        component.theme = component.getTheme()?.includes('dark') ? 'neo-theme-light' : 'neo-theme-dark'
+    }
+
+    /**
+     * @summary Aligns the header toolbar background and toggle button label/icon with the viewport's current theme.
+     */
+    syncThemeChrome() {
+        let me            = this,
+            button        = me.getReference('theme-button'),
+            headerToolbar = me.getReference('headerToolbar'),
+            isDark        = Boolean(me.component.getTheme()?.includes('dark')),
+            style         = {...headerToolbar?.style, backgroundColor: isDark ? '#33343d' : '#f2f2f2'};
+
+        button?.set({
+            iconCls: isDark ? 'fa fa-sun' : 'fa fa-moon',
+            text   : isDark ? 'Theme Light' : 'Theme Dark'
         });
 
-        style = headerToolbar.style || {};
-        style.backgroundColor = headerColor;
-        headerToolbar.style = style
+        if (headerToolbar) {
+            headerToolbar.style = style
+        }
     }
 }
 

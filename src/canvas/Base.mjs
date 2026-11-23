@@ -66,13 +66,22 @@ class Base extends NeoBase {
     }
 
     /**
+     * Maps a DOM `MouseEvent.button` index to its `MouseEvent.buttons` bitmask (`0` for out-of-range values).
+     * @param {Number} button
+     * @returns {Number}
+     */
+    static buttonBit(button) {
+        return button === 1 ? 4 : button === 2 ? 2 : button >= 0 && button < 31 ? 1 << button : 0
+    }
+
+    /**
      * The pointer state of a renderer nobody is pointing at: off-canvas, no button held, no movement, no modifier.
      * The position starts off-screen so a first frame never reacts to a cursor at (0, 0). A subclass that tracks
      * more per pointer extends the shape here.
      * @returns {Object}
      */
     static idleMouseState() {
-        return {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false}
+        return {x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, pressedButtons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false}
     }
 
     /**
@@ -105,9 +114,10 @@ class Base extends NeoBase {
     isPaused = false
     /**
      * The pointer as the host last reported it: the canvas-relative position, the movement since the previous
-     * report (`dx`, `dy`, both 0 on the first report after a leave), the held buttons (`MouseEvent.buttons`) and the
+     * report (`dx`, `dy`, both 0 on the first report after a leave), the held buttons (`MouseEvent.buttons`),
+     * the subset pressed on this canvas (`pressedButtons`), and the
      * four modifier keys. Off-screen with nothing held until the first report, and again after a leave.
-     * @member {Object} mouse={x: -1000, y: -1000, dx: 0, dy: 0, buttons: 0, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false}
+     * @member {Object} mouse={x:-1000,y:-1000,dx:0,dy:0,buttons:0,pressedButtons:0,altKey:false,ctrlKey:false,metaKey:false,shiftKey:false}
      */
     mouse = this.constructor.idleMouseState()
     /**
@@ -184,16 +194,17 @@ class Base extends NeoBase {
     onMouseClick(data) {}
 
     /**
-     * Hook for subclasses: a button went down on the canvas. `mouse.buttons` already holds the new state, so a
-     * drag gesture starts here and reads `mouse.dx` / `mouse.dy` on the moves that follow.
+     * Hook for subclasses: a button went down on the canvas. `mouse.buttons` and `mouse.pressedButtons` already
+     * hold the new state, so a drag gesture starts here and reads `mouse.dx` / `mouse.dy` on the moves that follow
+     * (checking `mouse.pressedButtons` for presses that originated on this canvas).
      * @param {Object} data The forwarded payload (`x`, `y`, `button`, `buttons`, the modifiers)
      */
     onMouseDown(data) {}
 
     /**
-     * Hook for subclasses: a button was released on the canvas. A pointer that leaves the canvas with a button held
-     * reaches no hook — the leave resets `mouse` to idle, so a drag ends when `mouse.buttons` reads 0 on the next
-     * frame, not through this hook.
+     * Hook for subclasses: a button was released on the canvas. `mouse.pressedButtons` already clears the released
+     * button, and also clears on `leave` or on any report whose `buttons` omits it, so a drag ends when
+     * `mouse.pressedButtons` drops that button, not only through this hook.
      * @param {Object} data The forwarded payload (`x`, `y`, `button`, `buttons`, the modifiers)
      */
     onMouseUp(data) {}
@@ -246,8 +257,9 @@ class Base extends NeoBase {
 
     /**
      * The one remote entry for pointer input. Every report updates `mouse` first (position, movement, held buttons,
-     * modifiers), then reaches the matching hook: `click` → `onMouseClick`, `down` → `onMouseDown`, `up` → `onMouseUp`,
-     * `wheel` → `onWheel`. A leave resets `mouse` to idle and reaches no hook.
+     * canvas-pressed buttons, modifiers), then reaches the matching hook: `click` → `onMouseClick`,
+     * `down` → `onMouseDown`, `up` → `onMouseUp`, `wheel` → `onWheel`. A leave resets `mouse` to idle and reaches
+     * no hook.
      * @param {Object} data
      * @param {Boolean} [data.altKey]
      * @param {Number} [data.button]
@@ -264,8 +276,9 @@ class Base extends NeoBase {
      * @param {Number} [data.y]
      */
     updateMouseState(data) {
-        let me      = this,
-            {mouse} = me;
+        let me          = this,
+            {mouse}     = me,
+            prevButtons = mouse.buttons;
 
         if (data.leave) {
             me.mouse = me.constructor.idleMouseState();
@@ -292,6 +305,26 @@ class Base extends NeoBase {
             if (data[key] !== undefined) {
                 mouse[key] = data[key]
             }
+        }
+
+        if (data.down) {
+            let bit = typeof data.button === 'number'
+                ? me.constructor.buttonBit(data.button)
+                : ((mouse.buttons & ~prevButtons) || mouse.buttons);
+
+            mouse.pressedButtons |= bit
+        }
+
+        if (data.up) {
+            if (typeof data.button === 'number') {
+                mouse.pressedButtons &= ~me.constructor.buttonBit(data.button)
+            } else if (data.buttons === undefined) {
+                mouse.pressedButtons = 0
+            }
+        }
+
+        if (data.buttons !== undefined) {
+            mouse.pressedButtons &= mouse.buttons
         }
 
         data.down  && me.onMouseDown(data);

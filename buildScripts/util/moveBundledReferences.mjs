@@ -12,7 +12,7 @@ import {keyName, visitNodes}      from './moveSourceTransforms.mjs';
 const contracts = {
     app   : nativeReaderContracts.find(reader => reader.carrier === 'neo-config.json:appPath'),
     canvas: {file: 'src/worker/Canvas.mjs', owner: 'Canvas', method: 'loadModule',
-        hash: 'e7727840a81cffbecbf6145e4f34fdc27aa81b00c758713c74e685927d702d4a'}
+        hash: '21d221499cb66a86731d8d57f551ccffbd33a5b06fe5681a1b1b86094cdf83e3'}
 };
 
 /**

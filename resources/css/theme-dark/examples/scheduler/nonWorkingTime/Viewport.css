@@ -1,0 +1,28 @@
+:where(.neo-theme-dark) {
+    --site-header-bg            : var(--grid-container-border-color, #2b2b2b);
+    --site-status-bg            : #232629;
+    --site-border               : #4b5052;
+    --site-title                : #e8eaed;
+    --site-muted                : var(--neo-color, #b8bfc6);
+    --site-badge-bg             : #2f3842;
+    --site-badge-border         : #546e8a;
+    --site-badge-text           : #cfe8ff;
+    --site-control-bg           : var(--grid-container-cell-background-color, #3c3f41);
+    --site-hover-bg             : var(--grid-cell-background-color-hover, #54595c);
+    --site-switch-off-bg        : #2a2d2f;
+    --site-switch-active-surface: #334352;
+    --site-selected-bg          : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --site-selected-text        : #1e242b;
+    --site-focus                : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --site-nw-bg                : rgba(0, 0, 0, 0.2);
+    --site-nw-stripe            : rgba(255, 255, 255, 0.06);
+    --site-nw-swatch-bg         : rgba(255, 255, 255, 0.12);
+    --site-nw-border            : rgba(255, 255, 255, 0.18);
+    --site-holiday-bg           : rgba(239, 83, 80, 0.12);
+    --site-holiday-stripe       : rgba(239, 83, 80, 0.15);
+    --site-holiday-swatch-bg    : rgba(239, 83, 80, 0.22);
+    --site-holiday-border       : rgba(239, 83, 80, 0.5);
+    --site-holiday-pill-bg      : rgba(239, 83, 80, 0.16);
+    --site-holiday-pill-text    : #ffcdd2;
+    --site-bar-shadow           : 0 2px 6px rgba(0, 0, 0, 0.45);
+}

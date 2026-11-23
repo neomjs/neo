@@ -64,7 +64,7 @@ test.describe('Neo.grid.column.Base renderer scope', () => {
 
         return {
             applyRendererOutput: Row.prototype.applyRendererOutput,
-            cache              : {colspanField: null, gridBody, gridContainer, highlightModifiedCells: false, selectedCells: [], selectionModel: null, store: {}},
+            cache              : {colspanField: null, gridBody, gridContainer, highlightModifiedCells: false, selectionModel: null, store: {}},
             id                 : 'body-center__row-0',
             record
         }

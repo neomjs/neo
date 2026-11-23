@@ -228,7 +228,8 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     * Triggered after the sortable config got changed
+     * @summary Propagates `sortable` silently to every header button and ships the full direct-child subtree densely
+     * (`denseUpdate = true`) so a single header's merged update cannot skip sibling `neo-sort-hidden` updates.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -244,6 +245,7 @@ class Toolbar extends BaseToolbar {
             });
 
             me.updateDepth = 2;
+            me.denseUpdate = true;
             me.update()
         }
     }
@@ -293,9 +295,9 @@ class Toolbar extends BaseToolbar {
         let { items } = me,
             style;
 
-        items.forEach((item, index) => {
-            item.vdom['aria-colindex'] = index + 1 + me.ariaColumnOffset; // 1 based, grid-wide
+        me.syncAriaColumnIndexes();
 
+        items.forEach(item => {
             style = item.wrapperStyle;
 
             // todo: only add px if number
@@ -403,6 +405,11 @@ class Toolbar extends BaseToolbar {
 
         // `body` resolves nothing once the grid is gone, as a late resize delivery can find it
         if (!body) {
+            return
+        }
+
+        // Mid-rebuild an item can still be its config, with nothing to measure: the post-update pass measures it
+        if (items.some(item => Neo.typeOf(item) !== 'NeoInstance')) {
             return
         }
 
@@ -558,6 +565,35 @@ class Toolbar extends BaseToolbar {
                 windowId : me.windowId
             })
         }
+    }
+
+    /**
+     * @summary Numbers every header grid-wide: its `aria-colindex` is its index in this toolbar plus
+     * {@link #ariaColumnOffset}, 1 based.
+     *
+     * The index is written into each header's vdom without an update of its own, so a changed index marks the next
+     * cycle dense at depth 2: a header whose own update merges into that cycle would make it sparse, and every other
+     * header would keep its old index in the DOM. The caller sends the update.
+     * @returns {Boolean} true when a header's index changed
+     */
+    syncAriaColumnIndexes() {
+        let me     = this,
+            offset = me.ariaColumnOffset + 1,
+            dirty  = false;
+
+        me.items.forEach((item, index) => {
+            if (item.vdom['aria-colindex'] !== index + offset) {
+                item.vdom['aria-colindex'] = index + offset;
+                dirty = true
+            }
+        });
+
+        if (dirty) {
+            me.updateDepth = 2;
+            me.denseUpdate = true
+        }
+
+        return dirty
     }
 
     /**

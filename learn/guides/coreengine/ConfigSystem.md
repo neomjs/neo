@@ -25,7 +25,7 @@ class MyComponent extends Base {
 
 Sometimes, a simple default value isn't enough. You might need to instruct the engine on *how* to handle a specific config when it is merged, cloned, or compared for equality. For advanced use cases, Neo.mjs allows you to define a reactive config using a **Descriptor Object** instead of a primitive value.
 
-You create a descriptor using the `[Neo.core.ConfigSymbols.isDescriptor]` symbol:
+You create a descriptor with the `isDescriptor` symbol, a named export of `src/core/ConfigSymbols.mjs`:
 
 ```javascript readonly
 import {isDescriptor} from '../core/ConfigSymbols.mjs';
@@ -131,6 +131,6 @@ Without the `configSymbol` buffering these values, when `afterSetA` runs, `this.
 ### Preventing Infinite Write Loops
 While the `configSymbol` solves circular *reads* safely, what happens if `afterSetA` *writes* to `b`, and `afterSetB` *writes* to `a`? Could they bounce back and forth infinitely?
 
-This is where the low-level `Neo.core.Compare` utility acts as the ultimate safety net. Before an `afterSet` hook is fired, the generated setter passes the new value through the deep comparison engine. **An `afterSet` hook is ONLY executed if the value has *actually* changed.** If your mathematical calculations stabilize and produce the same result, the loop is broken immediately.
+This is where the low-level `Neo.core.Compare` utility acts as the ultimate safety net. Before an `afterSet` hook is fired, the generated setter passes the new value through the deep comparison engine. **An `afterSet` hook is ONLY executed if the value has *actually* changed.** If your mathematical calculations stabilize and produce the same result, the loop is broken immediately. The reference walks through one such `set()` call step by step in [Config System Deep Dive → Solving the "Circular Reference" Problem](../fundamentals/ConfigSystemDeepDive.md#3-solving-the-circular-reference-problem).
 
 The `configSymbol` elegantly solves local component state mutations. But this push-based model requires writing explicit `afterSet` hooks. As an application scales, manually wiring hooks to synchronize global state leads to unmaintainable "spaghetti code." The core engine needs a brain to track dependencies automatically.

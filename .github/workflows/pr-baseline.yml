@@ -7,7 +7,8 @@ name: PR Baseline
 # THREE CONTEXTS: `baseline / PR baseline` (every check that runs no pull-request code), `baseline / Skills
 # materialized` and `baseline / guards`. The `dev` ruleset is the authority on which of them gate a merge;
 # this comment only names them. `guards` runs the list below as one context, so a guard added to the list
-# needs no ruleset edit, and all of them hold one of the organization's 20 concurrent job slots.
+# needs no ruleset edit, and all of them hold one shared slot from the pool of hosted runners the
+# account's plan and live load make available.
 #
 # THE TRIGGER IS THE CALLER'S OBLIGATION, and `edited` is the load-bearing entry: the body checks read the
 # live body, so a corrected body goes green with no push only if this workflow fires on the edit.
@@ -53,7 +54,7 @@ permissions:
 # theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v1.2.0
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v2.4.0
     with:
       required_base: dev
       guides: true
@@ -71,6 +72,7 @@ jobs:
           {"name": "relative links",            "run": "npm run check-relative-links"},
           {"name": "theme coverage",            "run": "node ./buildScripts/util/check-theme-coverage.mjs"},
           {"name": "theme value files",         "run": "node ./buildScripts/util/check-theme-value-files.mjs"},
+          {"name": "theme var references",      "run": "node ./buildScripts/util/check-theme-var-references.mjs"},
           {"name": "examples body only",        "run": "npm run check-examples-body-only"},
           {"name": "theme surfaces",            "run": "npm run check-theme-surfaces"},
           {"name": "front door fingerprint",    "run": "node ./buildScripts/util/check-front-door-fingerprint.mjs"},

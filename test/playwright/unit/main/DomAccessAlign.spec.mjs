@@ -43,7 +43,11 @@ function createElement(id, {height, width, x, y}, offsetParent=null, computedSty
         offsetParent,
         ownerDocument: {defaultView, documentElement: {id: 'document-element'}},
         parentElement: offsetParent,
-        style        : {},
+        // Custom properties take the declaration's methods: a plain assignment does not reach them in a browser
+        style        : Object.defineProperties({}, {
+            removeProperty: {value(name) {delete this[name]}},
+            setProperty   : {value(name, value) {this[name] = value}}
+        }),
         // Backed by one Set, so the three methods agree with each other. `contains` is not decoration:
         // `align()` reads it to decide whether the resolved zone class is already on the subject, and a
         // double that answered only `add`/`remove` made a real production read look like a missing API.
@@ -197,6 +201,61 @@ test.describe('Neo.main.DomAccess alignment targets', () => {
         expect(subject.style.transform).toBe('translate(200px,150px)');
         expect(new Set(observed)).toEqual(new Set(['subject', 'target', 'body']));
         expect(DomAccess._aligns.get('subject').targetElement).toBe(target)
+    });
+
+    test('an alignment that exposes its gap rewrites it at every resync, and drops it on release', async () => {
+        const gap = () => Object.fromEntries(['height', 'left', 'top', 'width'].map(key => [key, subject.style[`--neo-align-gap-${key}`]])),
+              {getBoundingClientRect} = target;
+
+        try {
+            await alignSubject({constrainTo: 'body', exposeGap: true, target: 'target', targetMargin: 10});
+
+            expect(classSet.has('neo-aligned-bottom'), 'control: below its target').toBe(true);
+            expect(gap(), 'the 10px gap above the subject, across both boxes').toEqual({height: '10px', left: '0px', top: '-10px', width: '100px'});
+
+            // The target moves where the subject no longer fits below it: Main's own resync realigns it, beside it
+            target.getBoundingClientRect = () => new DOMRect(200, 300, 50, 50);
+            DomAccess.syncAligns();
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            expect(classSet.has('neo-aligned-left'), 'control: the resync moved it beside its target').toBe(true);
+            expect(subject.style.transform, 'control: left of the target, which starts at x 200').toBe('translate(90px,285px)');
+            expect(gap(), 'the gap moved to the subject\'s right side, along both boxes').toEqual({height: '80px', left: '100px', top: '0px', width: '10px'});
+
+            target.connected = false;
+            DomAccess.syncAligns();
+
+            expect(gap(), 'a released alignment leaves no gap behind').toEqual({height: undefined, left: undefined, top: undefined, width: undefined})
+        } finally {
+            target.getBoundingClientRect = getBoundingClientRect
+        }
+    });
+
+    test('the gap is written against the subject\'s padding box, so a bordered subject\'s bridge reaches its target', async () => {
+        const gap = () => Object.fromEntries(['height', 'left', 'top', 'width'].map(key => [key, subject.style[`--neo-align-gap-${key}`]]));
+
+        // The containing block of an absolutely positioned bridge starts inside the border
+        subject.computedStyle = {'border-left-width': '1px', 'border-top-width': '3px'};
+
+        try {
+            await alignSubject({constrainTo: 'body', exposeGap: true, target: 'target', targetMargin: 10});
+
+            expect(classSet.has('neo-aligned-bottom'), 'control: below its target').toBe(true);
+            expect(gap(), 'the border-box offsets, less the left and top border').toEqual({height: '10px', left: '-1px', top: '-13px', width: '100px'})
+        } finally {
+            subject.computedStyle = null
+        }
+    });
+
+    test('an alignment whose subject left the DOM before it landed aligns nothing and throws nothing', async () => {
+        elements.delete('subject');
+
+        try {
+            await expect(alignSubject({exposeGap: true, target: 'target'})).resolves.toBeUndefined();
+            expect(DomAccess._aligns?.has('subject') ?? false, 'nothing registered for a resync').toBe(false)
+        } finally {
+            elements.set('subject', subject)
+        }
     });
 
     test('keeps point-target subjects inside every viewport edge', async () => {

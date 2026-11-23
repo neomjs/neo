@@ -12,6 +12,7 @@
  * after it: a scrollbar clamped by its new extent would otherwise pull the view ahead of the correction.
  *
  * @see Neo.grid.View#setRowHeights
+ * @see Neo.grid.View#setRowExtraHeights
  * @see Neo.main.addon.GridRowScrollPinning
  */
 
@@ -230,6 +231,69 @@ test.describe('Grid content-sized rows: anchor correction', () => {
         expect(metas.filter(meta => meta.scrollCorrection).map(meta => meta.scrollCorrection)).toEqual([60])
     });
 
+    test('an extra height above the anchor row moves the scroll offset along, and so does its removal', async () => {
+        let {view}   = grid,
+            geometry = view.rowGeometry,
+            before   = view.scrollTop - geometry.offsetAt(50);
+
+        // Row 10 grows by a 300px panel
+        expect(view.setRowExtraHeights(heightsOf(grid, {10: 300}))).toBe(true);
+        await view.promiseUpdate();
+
+        expect(geometry.heightAt(10)).toBe(rowHeight + 300);
+        expect(geometry.measuredMean).toBe(null);
+        expect(view.scrollTop - geometry.offsetAt(50)).toBe(before);
+        expect(grid.body.startIndex).toBe(50);
+
+        // A wrapText change resets the measured heights, not the extra
+        view.resetRowHeights();
+        await view.promiseUpdate();
+        expect(geometry.heightAt(10)).toBe(rowHeight + 300);
+
+        expect(view.setRowExtraHeights(heightsOf(grid, {10: 0}))).toBe(true);
+        await view.promiseUpdate();
+
+        expect(geometry.heightAt(10)).toBe(rowHeight);
+        expect(view.scrollTop - geometry.offsetAt(50)).toBe(before);
+        expect(metas.filter(meta => meta.scrollCorrection).map(meta => meta.scrollCorrection)).toEqual([300, -300]);
+
+        expect(view.setRowExtraHeights(heightsOf(grid, {10: 0}))).toBe(false)
+    });
+
+    test('an extra height below the anchor row moves nothing', async () => {
+        let {view}    = grid,
+            scrollTop = view.scrollTop;
+
+        view.setRowExtraHeights(heightsOf(grid, {60: 300}));
+        await view.promiseUpdate();
+
+        expect(view.rowGeometry.heightAt(60)).toBe(rowHeight + 300);
+        expect(view.scrollTop).toBe(scrollTop);
+        expect(metas.some(meta => meta.scrollCorrection)).toBe(false)
+    });
+
+    test('during a thumb drag the extra heights wait, and its end applies them', async () => {
+        let {body, view} = grid,
+            extent       = body.vdom.height,
+            scrollTop    = view.scrollTop;
+
+        view.isThumbDragging = true;
+
+        expect(view.setRowExtraHeights(heightsOf(grid, {10: 300}))).toBe(false);
+        await view.promiseUpdate();
+
+        expect(view.rowGeometry.heightAt(10)).toBe(rowHeight);
+        expect(body.vdom.height).toBe(extent);
+        expect(view.scrollTop).toBe(scrollTop);
+
+        view.isThumbDragging = false;
+        await view.promiseUpdate();
+
+        expect(view.rowGeometry.heightAt(10)).toBe(rowHeight + 300);
+        expect(view.scrollTop).toBe(scrollTop + 300);
+        expect(metas.filter(meta => meta.scrollCorrection).map(meta => meta.scrollCorrection)).toEqual([300])
+    });
+
     test('a smaller row grows the row pool inside the update that carries the correction', async () => {
         let {body, view} = grid,
             poolSize     = body.items.length,
@@ -350,6 +414,35 @@ test.describe('Grid content-sized rows: anchor correction', () => {
 
         expect(view.rowGeometry.heightAt(10)).toBe(rowHeight);
         expect(view.rowGeometry.heightAt(20)).toBe(90);
+
+        await natural.timeout(20);
+        natural.destroy();
+        first.destroy();
+        other.destroy()
+    });
+
+    test('extra heights held during a thumb drag do not outlive a store replacement', async () => {
+        let first   = createStore(200),
+            other   = createStore(200),
+            natural = await createGrid(first, {useInternalId: false}),
+            {view}  = natural;
+
+        view.syncBodies(0);
+        await view.promiseUpdate();
+
+        view.isThumbDragging = true;
+        view.setRowExtraHeights(new Map([[view.getRecordId(first.get(10)), 160]]));
+
+        // The same ids name other records now
+        natural.store = other;
+        other.fire('load', {items: other.items});
+        view.setRowExtraHeights(new Map([[view.getRecordId(other.get(20)), 90]]));
+
+        view.isThumbDragging = false;
+        await view.promiseUpdate();
+
+        expect(view.rowGeometry.heightAt(10)).toBe(rowHeight);
+        expect(view.rowGeometry.heightAt(20)).toBe(rowHeight + 90);
 
         await natural.timeout(20);
         natural.destroy();

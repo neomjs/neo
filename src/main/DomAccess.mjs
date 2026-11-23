@@ -80,6 +80,7 @@ class DomAccess extends Base {
                 'getChildNodeIds',
                 'getComputedStyle',
                 'getLayoutRect',
+                'getMaxScrollHeight',
                 'getNaturalRect',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
@@ -108,6 +109,17 @@ class DomAccess extends Base {
          */
         singleton: true
     }
+
+    /**
+     * The scroll extent cap {@link #getMaxScrollHeight} measured, 0 until its first call
+     * @member {Number} #maxScrollHeight=0
+     */
+    #maxScrollHeight = 0
+    /**
+     * Monotonic counter invalidating deferred visibility focus when a newer focus request runs
+     * @member {Number} #focusGeneration=0
+     */
+    #focusGeneration = 0
 
     /**
      * @returns {HTMLElement}
@@ -235,9 +247,16 @@ class DomAccess extends Base {
      * @param {String} data.id
      * @param {String|HTMLElement|{x:Number,y:Number,width:Number,height:Number}} [data.target]
      * @param {String|HTMLElement} [data.constrainTo]
+     * @param {Boolean} [data.exposeGap] Writes the gap to the target on the subject, see {@link #writeGap}
      * @returns {Promise<void>}
      */
     async align(data) {
+        // A subject that left the DOM before the call landed, like a tooltip hidden before its first paint, has
+        // nothing to align
+        if (!this.getElement(data.id)) {
+            return
+        }
+
         const
             me             = this,
             {constrainTo}  = data,
@@ -283,8 +302,9 @@ class DomAccess extends Base {
 
         // Get an aligned clone of myRect aligned according to the align object
         const
-            myRect = me.getBoundingClientRect(data),
-            result = data.result = myRect.alignTo(align);
+            myRect           = me.getBoundingClientRect(data),
+            previousPosition = lastAlign?.result?.position, // syncAligns can pass the saved record itself
+            result           = data.result = myRect.alignTo(align);
 
         Object.assign(style, {
             top      : 0,
@@ -303,19 +323,15 @@ class DomAccess extends Base {
         // Place box shadow at correct edge. Swapped only on a real zone change, so an ordinary
         // resync leaves the class — and anything keyed on it, including a CSS entrance animation and
         // the shadow repaint — completely untouched.
-        const
-            previousPosition = lastAlign?.result?.position,
-            positionCls      = `neo-aligned-${result.position}`;
+        const positionCls = `neo-aligned-${result.position}`;
 
-        // Guarded on the SUBJECT, not on the cached align record. Keying off `lastAlign` looks
-        // equivalent and is not: a subject can lose the class without the record changing — a hidden
-        // menu is removed from the DOM and remounts as a fresh element, so it comes back classless
-        // while `_aligns` still reports the same zone. That guard silently never re-added the class,
-        // and a reused menu stayed unaligned for the rest of its life.
+        // A remounted subject needs the class even if its recorded alignment side is unchanged.
         if (!subject.classList.contains(positionCls)) {
             previousPosition && subject.classList.remove(`neo-aligned-${previousPosition}`);
             subject.classList.add(positionCls)
         }
+
+        data.exposeGap && me.writeGap(subject, Rectangle.gapBetween(align.target, result));
 
         // Register an alignment to be kept in sync
         me.addAligned(data)
@@ -351,7 +367,11 @@ class DomAccess extends Base {
     }
 
     /**
-     * Calls focus() on a node for a given dom node id
+     * @summary Calls `focus()` on a node for a given DOM node id, deferring while a connected target is staged `visibility: hidden`.
+     *
+     * A target that is connected but `visibility: hidden` (a shell a dock move stages before revealing it) is not
+     * focused at once: the call waits up to 500 ms for the reveal ({@link #settleFocusVisibility}), then focuses it
+     * only if no newer `focus()` call ran and focus has not moved elsewhere; past the wait it leaves focus where it is.
      * @param {Object}  data
      * @param {Boolean} data.children
      * @param {String}  data.id
@@ -359,16 +379,32 @@ class DomAccess extends Base {
      * cannot tie an async worker→main programmatic focus back to the originating pointer gesture, so the caller
      * states it. Undefined preserves user-agent behavior.
      * @param {Boolean} [data.preventScroll=false]
+     * @param {String}  [data.restoreFrom] The id of a departing element this call hands focus back from. The call
+     * waits for the departure to settle ({@link #settleFocusDeparture}) and focuses only a lost focus, read as the
+     * hand-back applies, so a focus the user moved on meanwhile stays where it is.
      * @param {String}  [data.unlessFocusWithin] The id of a container whose current focus wins: while focus sits
      * inside it, the call leaves focus where it is. A worker decides focus one round trip late, so a choice the user
      * made in between, such as a picked list item, would otherwise be taken back.
-     * @returns {Object} obj.id => the passed id
+     * @returns {Object|Promise<Object>} obj.id => the passed id
      */
-    focus({children, id, modality, preventScroll, unlessFocusWithin}) {
-        let node = this.getElement(id);
+    focus({children, id, modality, preventScroll, restoreFrom, unlessFocusWithin}) {
+        if (restoreFrom) {
+            return this.settleFocusDeparture(restoreFrom).then(lost =>
+                lost() ? this.focus({children, id, modality, preventScroll, unlessFocusWithin}) : {id})
+        }
 
-        if (unlessFocusWithin && this.getElement(unlessFocusWithin)?.contains(document.activeElement)) {
+        let me   = this,
+            node = me.getElement(id);
+
+        if (unlessFocusWithin && me.getElement(unlessFocusWithin)?.contains(document.activeElement)) {
             return {id}
+        }
+
+        const generation = ++me.#focusGeneration;
+
+        if (node?.isConnected && getComputedStyle(node).visibility === 'hidden') {
+            return me.settleFocusVisibility(node, generation).then(ready =>
+                ready() ? me.focus({children, id, modality, preventScroll, unlessFocusWithin}) : {id})
         }
 
         if (node) {
@@ -382,7 +418,7 @@ class DomAccess extends Base {
                 // Modality is an explicit contract: :focus-visible cannot survive the async worker→main
                 // programmatic focus (and a tabindex=-1 node has no reliable user-agent ring to fall back on).
                 // The class is applied immediately before focus() so class + focus land atomically (no flash).
-                // 'pointer' suppresses the accidental ring (resources/scss/src/Global.scss); the first keydown
+                // 'pointer' suppresses the accidental ring (resources/css/src/Global.css); the first keydown
                 // without an intervening blur swaps it to the intentional keyboard ring; both self-clear on blur.
                 if (modality === 'pointer') {
                     node.classList.add('neo-focus-pointer');
@@ -576,6 +612,44 @@ class DomAccess extends Base {
         }
 
         return returnData
+    }
+
+    /**
+     * @summary The largest scroll extent in px this browser lays out, measured on the first call.
+     *
+     * A browser caps the extent of a scroll container however its content is split. Past the cap, Blink and WebKit
+     * clamp the extent to about 33.5M px, while Gecko drops it to nothing past 17.9M px. A binary search between a
+     * million px, which every engine lays out, and a billion, which none does, finds the cap with one hidden probe.
+     * Past 2^24 px layout values are float-rounded, so a height counts as laid out within a few px.
+     * @returns {Number}
+     */
+    getMaxScrollHeight() {
+        let me = this;
+
+        if (!me.#maxScrollHeight) {
+            let probe   = document.createElement('div'),
+                content = document.createElement('div'),
+                high    = 1e9,
+                low     = 1e6,
+                height;
+
+            probe.style.cssText = 'height:1px;overflow:hidden;position:absolute;visibility:hidden;width:1px';
+            probe.appendChild(content);
+            document.body.appendChild(probe);
+
+            while (high - low > 1) {
+                height               = Math.floor((low + high) / 2);
+                content.style.height = height + 'px';
+                probe.scrollHeight >= height - 16 ? (low = height) : (high = height)
+            }
+
+            // A clamping engine reports its cap a few px below the last height the search accepted
+            content.style.height = low + 'px';
+            me.#maxScrollHeight  = Math.min(low, probe.scrollHeight);
+            probe.remove()
+        }
+
+        return me.#maxScrollHeight
     }
 
     /**
@@ -786,6 +860,16 @@ class DomAccess extends Base {
                 document.querySelector(`[data-neo-id='${nodeId}']`);
 
         return node || null
+    }
+
+    /**
+     * @summary The Neo id a DOM node carries, the inverse of {@link #getElement}: its `id` while
+     * `Neo.config.useDomIds`, its `data-neo-id` otherwise.
+     * @param {HTMLElement|Window|Document|null} node
+     * @returns {String|null} Null for a node without one, like the document or the window
+     */
+    getNodeId(node) {
+        return (Neo.config.useDomIds ? node?.id : node?.dataset?.neoId) || null
     }
 
     /**
@@ -1194,6 +1278,7 @@ class DomAccess extends Base {
         constrainToElement && _alignResizeObserver.unobserve(constrainToElement);
 
         subject.classList.remove(`neo-aligned-${align.result?.position}`);
+        align.exposeGap && me.writeGap(subject, null);
 
         me._aligns.delete(align.id)
     }
@@ -1316,7 +1401,7 @@ class DomAccess extends Base {
             opts = {behavior, block, inline};
 
         if (behavior !== 'smooth') {
-            node.scrollIntoView(opts)
+            node?.scrollIntoView(opts)
         } else {
             // scrollIntoView() does not provide a callback yet.
             // See: https://github.com/w3c/csswg-drafts/issues/3744
@@ -1436,6 +1521,96 @@ class DomAccess extends Base {
     }
 
     /**
+     * @summary Settles where focus went after an element departs, and resolves the read of whether it is lost.
+     * @description A worker component that departs while holding focus hands it back before its own DOM removal
+     * arrives here. DOM containment cannot decide while the departure plays out: a dock refresh moves the element the
+     * user just focused out of the subtree it removes, and a floating descendant that holds the focus, such as a
+     * picker on the body or a submenu beside its menu, leaves before its owner or after it. The read therefore settles
+     * once the departing element has left the document with focus on the body, or when `timeout` passes. Focus is
+     * lost when it fell to the body, or when the element still holds it at the timeout; a focus that still lives on
+     * elsewhere then is the user's. The promise resolves the read itself, not its answer: a caller applies it in the
+     * same step as its focus, since a later mutation observer or microtask can move focus after the settle.
+     * @param {String} id The departing element
+     * @param {Number} [timeout=200]
+     * @returns {Promise<Function>} Resolves `() => Boolean`, true while focus is lost
+     * @protected
+     */
+    settleFocusDeparture(id, timeout=200) {
+        const
+            node   = this.getElement(id),
+            onBody = () => !document.activeElement || document.activeElement === document.body,
+            lost   = () => Boolean(node?.isConnected && node.contains(document.activeElement)) || onBody();
+
+        if (!node?.isConnected && onBody()) {
+            return Promise.resolve(lost)
+        }
+
+        return new Promise(resolve => {
+            const
+                observer = new MutationObserver(() => node?.isConnected || !onBody() || settle()),
+                timer    = setTimeout(() => settle(), timeout),
+                settle   = () => {
+                    observer.disconnect();
+                    clearTimeout(timer);
+                    resolve(lost)
+                };
+
+            observer.observe(document, {childList: true, subtree: true})
+        })
+    }
+
+    /**
+     * @summary Settles when a connected `visibility: hidden` focus target reveals, and resolves the read of whether it may still take focus.
+     * @description Waits up to the `timeout` reveal budget for a staged shell (such as one a dock move holds
+     * `visibility: hidden` before revealing it) to become visible, settling early if a newer {@link #focus} call runs,
+     * the node disconnects, or focus moves elsewhere; past the 500 ms budget it leaves focus where it is.
+     * @param {HTMLElement} node The connected `visibility: hidden` target
+     * @param {Number} generation `#focusGeneration` snapshot of the requesting {@link #focus} call
+     * @param {Number} [timeout=500] Maximum wait in ms for the target to reveal before leaving focus where it is
+     * @returns {Promise<Function>} Resolves `() => Boolean`, true while the revealed target may still take focus
+     * @protected
+     */
+    settleFocusVisibility(node, generation, timeout=500) {
+        const
+            me            = this,
+            activeAtStart = document.activeElement,
+            isVisible     = () => node.isConnected && getComputedStyle(node).visibility !== 'hidden',
+            ready         = () => me.#focusGeneration === generation
+                && isVisible()
+                && (document.activeElement === activeAtStart || !document.activeElement || document.activeElement === document.body);
+
+        if (isVisible()) {
+            return Promise.resolve(ready)
+        }
+
+        return new Promise(resolve => {
+            let observer, timer;
+
+            const
+                settle = () => {
+                    observer.disconnect();
+                    document.removeEventListener('focusin', check, true);
+                    clearTimeout(timer);
+                    resolve(ready)
+                },
+                check  = () => {
+                    if (me.#focusGeneration !== generation || !node.isConnected || isVisible() ||
+                        (document.activeElement !== activeAtStart && document.activeElement && document.activeElement !== document.body)) {
+                        settle()
+                    }
+                };
+
+            observer = new MutationObserver(check);
+            timer    = setTimeout(settle, timeout);
+            document.addEventListener('focusin', check, true);
+
+            for (let el = node; el; el = el.parentElement) {
+                observer.observe(el, {attributes: true, attributeFilter: ['style', 'class'], childList: true})
+            }
+        })
+    }
+
+    /**
      * @param {Event|ResizeObserverEntry[]} [arg1]
      */
     syncAligns(arg1) {
@@ -1482,29 +1657,27 @@ class DomAccess extends Base {
     }
 
     /**
-     * @param {Object} data
-     * @param {String} data.id
+     * @summary Keeps the one modal mask just below the topmost modal element on the page.
+     * @description `id` holds the mask while it is in the document, displayed and `modal`. Otherwise the mask goes
+     * below the topmost other displayed `.neo-modal`, or leaves the document. `id` is never that other: a dialog that
+     * stops being modal, or departs, can still be in the document, since its removal and this call land in no fixed
+     * order.
+     * @param {Object}  data
+     * @param {String}  data.id
      * @param {Boolean} data.modal
      */
-    syncModalMask({ id, modal }) {
-        const el = id && this.getElement(id);
+    syncModalMask({id, modal}) {
+        const
+            el        = id && this.getElement(id),
+            displayed = node => node.ownerDocument.contains(node) &&
+                node.ownerDocument.defaultView.getComputedStyle(node).getPropertyValue('display') !== 'none',
+            holder    = el && modal && displayed(el) ? el :
+                [...document.querySelectorAll('.neo-modal')].findLast(node => node.id !== id && displayed(node));
 
-        // If we are visible and modal, the mask needs to be just below this element.
-        if (el && modal && el.ownerDocument.contains(el) && el.ownerDocument.defaultView.getComputedStyle(el).getPropertyValue('display') !== 'none') {
-            document.body.insertBefore(this.modalMask, el)
-        }
-        // Otherwise, the mask needs to be below the next topmost modal dialog if possible, or hidden
-        else {
-            const
-                modals       = document.querySelectorAll('.neo-modal'),
-                topmostModal = modals[modals.length - 1];
-
-            // Move the mask under the next topmost modal now modal "id" is gone.
-            if (topmostModal) {
-                this.syncModalMask({ id: topmostModal.id, modal: true })
-            } else {
-                this._modalMask?.remove()
-            }
+        if (holder) {
+            document.body.insertBefore(this.modalMask, holder)
+        } else {
+            this._modalMask?.remove()
         }
     }
 
@@ -1630,6 +1803,29 @@ class DomAccess extends Base {
             behavior: data.behavior || 'smooth',
             left    : data.left     || 0,
             top     : data.top      || 0
+        })
+    }
+
+    /**
+     * @summary Writes the gap between an aligned subject and its target ({@link Neo.util.Rectangle.gapBetween}) as
+     * the custom properties `--neo-align-gap-{height|left|top|width}` on the subject, or removes them once the boxes
+     * touch. The offsets are in px relative to the subject's padding box, the containing block of what bridges the
+     * gap in CSS, like a hoverable tooltip's hit area: measured from the border box, a border would leave its width of
+     * the gap uncovered. Every alignment writes them, a resync of a resize or scroll included, so the bridge follows
+     * each realign Main makes alone.
+     * @param {HTMLElement} subject
+     * @param {{height: Number, left: Number, top: Number, width: Number}|null} gap In px, relative to the border box
+     * @protected
+     */
+    writeGap(subject, gap) {
+        let style  = gap && subject.ownerDocument.defaultView.getComputedStyle(subject),
+            border = side => parseFloat(style.getPropertyValue(`border-${side}-width`)) || 0,
+            values = gap && {...gap, left: gap.left - border('left'), top: gap.top - border('top')};
+
+        ['height', 'left', 'top', 'width'].forEach(key => {
+            let name = `--neo-align-gap-${key}`;
+
+            values ? subject.style.setProperty(name, `${values[key]}px`) : subject.style.removeProperty(name)
         })
     }
 }

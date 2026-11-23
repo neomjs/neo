@@ -42,7 +42,8 @@ test.describe('Neo.container.Base (insert while creating items)', () => {
         expect(items.length).toBe(3);
         expect(items[1]).toBeInstanceOf(Button);
         expect(popover).toBeInstanceOf(Container);
-        expect(popover.vdom.anchor).toBe(items[1].id);
+        // the button names the anchor, the popover is positioned against it
+        expect([items[1].style.anchorName, popover.style.positionAnchor]).toEqual(['--' + popover.id, '--' + popover.id]);
 
         // the vnodes follow the items: the button before the popover it created
         expect(container.getVdomItemsRoot().cn.map(vdom => vdom.componentId)).toEqual(items.map(item => item.id));
@@ -78,8 +79,8 @@ test.describe('Neo.container.Base (insert while creating items)', () => {
         expect(items[0]).toBeInstanceOf(Button);
         expect(items[1]).toBeInstanceOf(Button);
         expect(items[2]).toBeInstanceOf(Component);
-        expect(items[3].vdom.anchor).toBe(items[0].id);
-        expect(items[4].vdom.anchor).toBe(items[1].id);
+        expect([items[0].style.anchorName, items[3].style.positionAnchor]).toEqual(['--' + items[3].id, '--' + items[3].id]);
+        expect([items[1].style.anchorName, items[4].style.positionAnchor]).toEqual(['--' + items[4].id, '--' + items[4].id]);
 
         expect(container.getVdomItemsRoot().cn.map(vdom => vdom.componentId)).toEqual(items.map(item => item.id));
 

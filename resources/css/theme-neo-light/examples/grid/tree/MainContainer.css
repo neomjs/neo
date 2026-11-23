@@ -1,0 +1,18 @@
+:where(.neo-theme-neo-light) {
+    --tree-grid-accent          : #176b72;
+    --tree-grid-alternate       : #f8fafc;
+    --tree-grid-background      : #f1f5f8;
+    --tree-grid-border          : #dce5eb;
+    --tree-grid-committed-bg    : #e8f0fe;
+    --tree-grid-committed-text  : #1e4ea8;
+    --tree-grid-header          : #eaf1f5;
+    --tree-grid-hover           : #dcefed;
+    --tree-grid-muted           : #5e7282;
+    --tree-grid-ontrack-bg      : #e3f5ec;
+    --tree-grid-ontrack-text    : #156943;
+    --tree-grid-surface         : #ffffff;
+    --tree-grid-text            : #334856;
+    --tree-grid-title           : #162b38;
+    --tree-grid-watch-bg        : #fef3dc;
+    --tree-grid-watch-text      : #945600;
+}

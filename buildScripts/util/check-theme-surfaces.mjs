@@ -7,7 +7,7 @@
  * Institution product. This Engine guard now owns only the surviving Workstation surface:
  *
  * 1. Dark/light parity for every Workstation and dock-affordance token.
- * 2. Token-only color consumption throughout the Workstation SCSS tree.
+ * 2. Token-only color consumption throughout the Workstation stylesheet tree.
  * 3. Completeness for every consumed, non-local token in both skins.
  */
 import fs              from 'node:fs';
@@ -25,14 +25,14 @@ const
     TOKEN_DEFINITION_RE  = /(--(?:workstation|agent-dock)-[a-z0-9-]+)\s*:/g,
     TOKEN_REFERENCE_RE   = /var\(\s*(--(?:workstation|agent-dock)-[a-z0-9-]+)/g,
     WORKSTATION_SURFACE  = Object.freeze({
-        darkPath     : path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/workstation/Viewport.scss'),
-        lightPath    : path.join(repoRoot, 'resources/scss/theme-neo-light/apps/workstation/Viewport.scss'),
+        darkPath : path.join(repoRoot, 'resources/css/theme-neo-dark/apps/workstation/Viewport.css'),
+        lightPath: path.join(repoRoot, 'resources/css/theme-neo-light/apps/workstation/Viewport.css'),
         // The recording pointer keeps its annotation color when the application's skin changes.
         modeInvariant: new Set([
             '--workstation-film-cursor-background', '--workstation-film-cursor-shadow',
             '--workstation-font-mono', '--workstation-font-sans'
         ]),
-        viewDir      : path.join(repoRoot, 'resources/scss/src/apps/workstation')
+        viewDir      : path.join(repoRoot, 'resources/css/src/apps/workstation')
     });
 
 /**
@@ -126,17 +126,17 @@ function stripVarCalls(value) {
 }
 
 /**
- * @summary Yields every SCSS file below a surface root.
+ * @summary Yields every stylesheet below a surface root.
  * @param {String} dir
  * @returns {Generator<String>}
  */
-function* walkScss(dir) {
+function* walkCss(dir) {
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
         const file = path.join(dir, entry.name);
 
         if (entry.isDirectory()) {
-            yield* walkScss(file)
-        } else if (entry.name.endsWith('.scss')) {
+            yield* walkCss(file)
+        } else if (entry.name.endsWith('.css')) {
             yield file
         }
     }
@@ -175,12 +175,10 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
         if (!dark.has(name)) failures.push('[parity] ' + name + ' present in light skin, missing in dark skin')
     }
 
-    for (const file of walkScss(surface.viewDir)) {
+    for (const file of walkCss(surface.viewDir)) {
         const lines = stripBlockComments(fs.readFileSync(file, 'utf8')).split('\n');
 
-        lines.forEach((rawLine, index) => {
-            const line = rawLine.replace(/\/\/.*$/, '');
-
+        lines.forEach((line, index) => {
             for (const match of line.matchAll(TOKEN_DEFINITION_RE)) locallyDefined.add(match[1]);
 
             for (const [, property, value] of line.matchAll(DECLARATION_RE)) {
@@ -193,7 +191,7 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
                 if (COLOR_LITERAL_RE.test(bareValue) || NAMED_COLOR_RE.test(bareValue)) {
                     failures.push(
                         '[token-only] ' + path.relative(repoRoot, file) + ':' + (index + 1) +
-                        ' bare color literal — consume a semantic token instead: ' + rawLine.trim()
+                        ' bare color literal — consume a semantic token instead: ' + line.trim()
                     )
                 }
             }

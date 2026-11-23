@@ -1,8 +1,15 @@
 import BreadcrumbToolbar       from '../../../../src/toolbar/Breadcrumb.mjs';
+import Container               from '../../../../src/container/Base.mjs';
+import Label                   from '../../../../src/component/Label.mjs';
 import MainContainerController from './MainContainerController.mjs';
+import ThemeSwitcher           from '../../../../src/button/ThemeSwitcher.mjs';
 import Viewport                from '../../../../src/container/Viewport.mjs';
+import folders                 from './folders.mjs';
 
 /**
+ * @summary A breadcrumb over a real hierarchy, the engine repository's folders. The page shows the current folder's
+ * description and its subfolders: a subfolder goes one level down, a crumb goes back up, and the hash route holds
+ * the place across a reload.
  * @class Neo.examples.toolbar.breadcrumb.view.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -14,6 +21,10 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.toolbar.breadcrumb.view.MainContainer',
         /**
+         * @member {String[]} cls=['neo-breadcrumb-folders']
+         */
+        cls: ['neo-breadcrumb-folders'],
+        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
@@ -22,94 +33,44 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module   : BreadcrumbToolbar,
-            activeKey: 2,
-            flex     : 'none',
-            reference: 'breadcrumb-toolbar',
-
-            store: {
-                data: [
-                    {id: 1,  name: 'Home',          parentId: null, route: '/home/'},
-                    {id: 2,  name: 'Accessibility', parentId: 1,    route: '/home/accessibility/'},
-                    {id: 3,  name: 'Imprint',       parentId: 1,    route: '/home/imprint/'},
-                    {id: 4,  name: 'News',          parentId: 1,    route: '/home/news/'},
-                    {id: 5,  name: 'Forms',         parentId: null, route: '/forms/'},
-                    {id: 6,  name: 'Form 1',        parentId: 5,    route: '/forms/form1/'},
-                    {id: 7,  name: 'Page 1',        parentId: 6,    route: '/forms/form1/page1/'},
-                    {id: 8,  name: 'Page 2',        parentId: 6,    route: '/forms/form1/page2/'},
-                    {id: 9,  name: 'Form 2',        parentId: 5,    route: '/forms/form2/'},
-                    {id: 10, name: 'Page 1',        parentId: 9,    route: '/forms/form2/page1/'},
-                    {id: 11, name: 'Page 2',        parentId: 9,    route: '/forms/form2/page2/'}
-                ]
-            }
-        }, {
-            ntype: 'label',
-            style: {marginTop: '40px'},
-            text : 'Navigate to'
-        }, {
-            ntype : 'toolbar',
+            module: Container,
+            cls   : ['neo-breadcrumb-folders-header'],
             flex  : 'none',
-            layout: {ntype: 'vbox', align: 'start'},
-
-            itemDefaults: {
-                ntype  : 'button',
-                handler: 'onActiveKeyButtonClick',
-                style  : {marginTop: '10px'}
-            },
-
-            items: [{
-                activeKey: 1,
-                text     : 'Home'
-            }, {
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
+                module   : BreadcrumbToolbar,
                 activeKey: 2,
-                style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'Accessibility'
+                flex     : 1,
+                reference: 'breadcrumb-toolbar',
+                store    : {data: folders.map(({id, name, parentId, route}) => ({id, name, parentId, route}))}
             }, {
-                activeKey: 3,
-                style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'Imprint'
-            }, {
-                activeKey: 4,
-                style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'News'
-            }, {
-                activeKey: 5,
-                text     : 'Forms'
-            }, {
-                activeKey: 6,
-                style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'Form 1'
-            }, {
-                activeKey: 7,
-                style    : {marginLeft: '40px', marginTop: '10px'},
-                text     : 'Page 1'
-            }, {
-                activeKey: 8,
-                style    : {marginLeft: '40px', marginTop: '10px'},
-                text     : 'Page 2'
-            }, {
-                activeKey: 9,
-                style    : {marginLeft: '20px', marginTop: '10px'},
-                text     : 'Form 2'
-            }, {
-                activeKey: 10,
-                style    : {marginLeft: '40px', marginTop: '10px'},
-                text     : 'Page 1'
-            }, {
-                activeKey: 11,
-                style    : {marginLeft: '40px', marginTop: '10px'},
-                text     : 'Page 2'
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
+        }, {
+            module   : Label,
+            cls      : ['neo-breadcrumb-folders-name'],
+            flex     : 'none',
+            reference: 'folder-name',
+            text     : ''
+        }, {
+            module   : Label,
+            cls      : ['neo-breadcrumb-folders-description'],
+            flex     : 'none',
+            reference: 'folder-description',
+            text     : ''
+        }, {
+            module   : Container,
+            cls      : ['neo-breadcrumb-folders-children'],
+            flex     : 'none',
+            layout   : {ntype: 'hbox', align: 'start', wrap: 'wrap'},
+            reference: 'subfolders'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'vbox', align: 'start'},
-        /**
-         * @member {Object} style={padding:'20px'}
-         */
-        style: {padding: '20px'}
+        layout: {ntype: 'vbox', align: 'stretch'}
     }
 }
 

@@ -71,13 +71,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
-        return Neo.create({
+        return {
             module      : List,
             displayField: 'firstname',
             draggable   : true,
             store       : MainStore,
             width       : 100
-        })
+        }
     }
 }
 

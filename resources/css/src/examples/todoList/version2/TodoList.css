@@ -1,0 +1,26 @@
+.neo-todo-list {
+    .neo-list-item {
+        padding: 0;
+    }
+
+    .neo-todo-item {
+        align-items: center;
+        cursor     : pointer;
+        display    : flex;
+        gap        : 12px;
+        padding    : 10px 12px;
+    }
+
+    .neo-todo-check {
+        cursor: pointer;
+        flex  : none;
+        height: 18px;
+        margin: 0;
+        width : 18px;
+    }
+
+    .neo-todo-done .neo-todo-text {
+        opacity        : .6;
+        text-decoration: line-through;
+    }
+}

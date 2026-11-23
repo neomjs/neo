@@ -35,6 +35,12 @@ At its heart, the push system is built on a few key principles:
     *   `beforeGetMyValue(value)`: Called before the getter returns the value.
     *   `beforeSetMyValue(value, oldValue)`: Called before the setter applies the new value.
     *   `afterSetMyValue(value, oldValue)`: Called after the setter has applied the new value.
+
+    Three rules follow from how the generated setter calls these hooks. On the first run, while the instance is
+    constructed and the default values are applied, `oldValue` is `undefined`; a hook that tests
+    `oldValue !== undefined` runs on later changes only. A `beforeSet` hook that returns `undefined` cancels the
+    update: the backing value is restored and no `afterSet` hook runs. Because `undefined` carries that meaning, a
+    config is reset with `null`, never with `undefined`.
 *   **Reactivity:** The `afterSet` hooks are the heart of the reactive system. They allow you to define logic that
     automatically runs whenever a specific config property changes, ensuring your UI and application state are always
     in sync.
@@ -187,6 +193,52 @@ Here's the sequence:
 operation. This guarantees that all `afterSet` handlers, regardless of their execution order, operate on the most
 current and consistent state of all config properties involved in that operation.
 
+The snapshot settles circular *reads*. Circular *writes*, where `afterSetA` assigns `b` and `afterSetB` assigns
+`a`, are stopped by the change check in the setter: the new value is handed to the backing `Neo.core.Config`, whose
+`set()` compares it with the current one through the config's `isEqual` function (`Neo.isEqual` unless a descriptor
+says otherwise) and reports a change only when they differ. The `afterSet` hook runs only on a reported change, so
+as soon as the two hooks produce the values already stored, the chain ends.
+
+### 4. Config Descriptors
+
+A config's default is usually a plain value. When the engine also needs to know *how* to treat the value, the
+default is written as a **descriptor**: an object carrying `[isDescriptor]: true` (the symbol is exported by
+`src/core/ConfigSymbols.mjs`). `Neo.setupClass` stores the descriptor's rules for the class, takes its `value` as
+the actual default, and the `Neo.core.Config` instance behind the property applies the rules at runtime.
+
+```javascript readonly
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
+
+class MyList extends Component {
+    static config = {
+        items_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            cloneOnGet    : 'none',
+            isEqual       : () => false,
+            merge         : 'deepArrays',
+            value         : []
+        }
+    }
+}
+```
+
+*   **`value`**: The default value of the config. It is the only key that is required.
+*   **`clone`**: How a value is copied when it is assigned. `'deep'` (the default), `'shallow'` or `'none'`.
+*   **`cloneOnGet`**: How a value is copied when it is read: `'deep'`, `'shallow'` or `'none'`. Unset (`null`) by
+    default, and independent of `clone`. The generated getter always copies a `Date`. While `cloneOnGet` is unset it
+    also returns arrays as a copy (`value.slice()`) and plain objects as they are. `'deep'` deep-clones the value,
+    `'shallow'` copies arrays and plain objects one level deep, and `'none'` skips the default array copy.
+*   **`isEqual`**: The function the setter uses to decide whether a value has changed. Defaults to `Neo.isEqual`,
+    a deep comparison. `() => false` makes every assignment count as a change.
+*   **`merge`**: The strategy for merging the default with a subclass's or an instance's value. `'replace'` (the
+    default), `'deep'`, `'shallow'`, `'deepArrays'`, or a function `(defaultValue, instanceValue)`. A subclass's
+    `static config` is merged while the class is set up (`Neo.setupClass`); an instance's config object is merged
+    while the instance is constructed (`Base#mergeConfig`).
+
+A subclass can replace a descriptor it inherits with a descriptor of its own; see
+[Declarative Config Merging → Advanced: Overriding Config Descriptors](./DeclarativeConfigMerging.md#advanced-overriding-config-descriptors).
+
 ## Tier 2: The Declarative "Pull" System (v10+)
 
 With the introduction of functional components, Neo.mjs now includes a "pull" reactivity system. This system is
@@ -207,6 +259,11 @@ A `Neo.core.Config` instance is a lightweight wrapper around a single, reactive 
     itself as a dependency of that effect.
 *   **Notification:** When its `set()` method is called and the value changes, it notifies all its subscribers,
     triggering them to re-run.
+
+The registration happens inside `Config#get()`, whichever instance owns the config: an effect therefore tracks every
+config it reads, including one on another component or on a state provider. That is what lets a binding follow a
+data property it never declared a dependency on; see
+[State Providers → How Reactivity Works](../datahandling/StateProviders.md#how-reactivity-works-the-effects-based-system).
 
 ### 2. `Neo.core.Effect`: The Reactive Computation
 

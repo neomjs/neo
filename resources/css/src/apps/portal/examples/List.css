@@ -1,0 +1,705 @@
+/* Typed, so a card's two lights, its selection ring and its launch pill can animate */
+@property --portal-examples-list-light-hover {
+    inherits     : true;
+    initial-value: rgba(0, 0, 0, 0);
+    syntax       : '<color>';
+}
+
+@property --portal-examples-list-light-select {
+    inherits     : true;
+    initial-value: rgba(0, 0, 0, 0);
+    syntax       : '<color>';
+}
+
+@property --portal-examples-list-ring-progress {
+    inherits     : false;
+    initial-value: 0%;
+    syntax       : '<percentage>';
+}
+
+@property --portal-examples-list-ring-lead {
+    inherits     : false;
+    initial-value: rgba(0, 0, 0, 0);
+    syntax       : '<color>';
+}
+
+@property --portal-examples-list-cue-from {
+    inherits     : false;
+    initial-value: rgba(0, 0, 0, 0);
+    syntax       : '<color>';
+}
+
+@property --portal-examples-list-cue-to {
+    inherits     : false;
+    initial-value: rgba(0, 0, 0, 0);
+    syntax       : '<color>';
+}
+
+/* The glint enters and leaves outside the cover, so nothing of it rests on the image */
+@keyframes portal-examples-list-glint {
+    from {background-position: 120% 0}
+    to   {background-position: -20% 0}
+}
+
+.portal-examples-list.neo-list {
+    /* Muted text derives from the opaque footer surface so glyph color never carries alpha. */
+    --portal-examples-list-text-muted: color-mix(in srgb, var(--portal-examples-list-text) 78%, var(--portal-examples-list-surface));
+
+    align-content        : start;
+    display              : grid;
+    gap                  : 13.5px 24px;
+    grid-auto-rows       : max-content;
+    /* 340 px minimum fits two columns from 704 px of list content width and three once the stage crosses 1100 px. */
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+    padding              : 16px 16px 0;
+    transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
+
+    &:not(.portal-examples-tiles) {
+        container: examples-list / inline-size;
+    }
+
+    @container (min-width: 1100px) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+
+        &.portal-examples-list-lead > .neo-list-item:first-child {
+            grid-column: span 2;
+            grid-row   : span 2;
+
+            /* The cover keeps the 16:9 it was captured at: stretched into the two rows, it lost its right edge beside two
+               cards and shrank to a strip beside one. The caption below it takes the rest of the height. */
+            .neo-title {
+                font-size: 20px;
+            }
+
+            .portal-example-feature {
+                -webkit-line-clamp: 2;
+                font-size         : 14.5px;
+            }
+        }
+    }
+
+    @container examples-group-page (min-width: 1100px) {
+        /* A 3n + 1 card count leaves one final card with or without the two-by-two lead. */
+        .portal-examples-group-page &.portal-examples-list-lead > .neo-list-item:nth-last-child(1 of .neo-list-item):nth-child(3n + 4 of .neo-list-item) {
+            grid-column: 1 / -1;
+
+            .content {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+                grid-template-rows   : auto;
+            }
+
+            .preview-image-wrap {
+                border-bottom    : 0;
+                border-inline-end: 1px solid var(--portal-examples-list-edge);
+            }
+
+            .portal-example-footer {
+                grid-column    : 2;
+                grid-row       : 1;
+                justify-content: center;
+                padding-inline : 20px;
+            }
+
+            .portal-example-more {
+                /* The existing 22.5cqi cap follows the cover's one-third width. */
+                max-height: 7.5cqi;
+            }
+        }
+    }
+
+    /* Two cursors share this grid, and each has its own kind of answer. The pointer is light from outside: a glint
+       crosses the cover and the card rests lit from its upper right. The selection, which the arrow keys move, is light
+       the card emits: a ring draws itself around the card and stays, over the open details. Nothing moves a hit target. */
+    .neo-list-item {
+        --portal-examples-list-glow        : 0 0 0 0 transparent;
+        --portal-examples-list-light-hover : rgba(0, 0, 0, 0);
+        --portal-examples-list-light-select: rgba(0, 0, 0, 0);
+
+        background    : var(--portal-examples-list-surface);
+        border-radius : 16px;
+        box-shadow    : 0 0 0 1px var(--portal-examples-list-edge), var(--portal-examples-list-shadow), var(--portal-examples-list-glow);
+        cursor        : pointer;
+        display       : block;
+        margin        : 0;
+        outline       : 0; /* the base list's navigator outline would show as slivers under the cover; the ring below is this card's focus */
+        overflow      : hidden;
+        padding       : 0;
+        position      : relative;
+        transition    : --portal-examples-list-light-hover var(--motion-base) var(--ease-out-soft),
+                        --portal-examples-list-light-select var(--motion-base) var(--ease-out-soft),
+                        box-shadow var(--motion-base) var(--ease-out-soft);
+        white-space   : normal;
+        width         : 100%;
+
+        /* Both edges lie over the card's content: an outline would be painted under the cover and the footer */
+        &::before,
+        &::after {
+            border-radius : inherit;
+            content       : '';
+            inset         : 0;
+            pointer-events: none;
+            position      : absolute;
+        }
+
+        /* The pointer's edge fades in and out */
+        &::after {
+            border    : 1.5px solid var(--portal-examples-list-hover);
+            opacity   : 0;
+            transition: opacity var(--motion-fast) var(--ease-out-soft);
+            z-index   : 3;
+        }
+
+        &.neo-selected {
+            --portal-examples-list-glow        : var(--portal-examples-list-selected-glow);
+            --portal-examples-list-light-select: var(--portal-examples-list-selected-light);
+        }
+
+        @media (hover: hover) {
+            &:hover {
+                --portal-examples-list-light-hover: var(--portal-examples-list-hover-light);
+
+                box-shadow: 0 0 0 1px var(--portal-examples-list-edge), var(--portal-examples-list-hover-shadow), var(--portal-examples-list-glow);
+
+                &::after {
+                    opacity: 1;
+                }
+            }
+        }
+
+        /* Keyboard focus is a neutral ring, selected or not: blue belongs to the pointer, green to the selection */
+        &:focus-visible,
+        &.neo-navigator-active-item:has(:focus-visible) {
+            box-shadow: 0 0 0 2px var(--portal-examples-bg, var(--portal-examples-list-surface)),
+                        0 0 0 4px var(--portal-examples-list-focus),
+                        var(--portal-examples-list-shadow),
+                        var(--portal-examples-list-glow);
+        }
+    }
+
+    .preview-image {
+        background-image: var(--portal-example-cover, none);
+    }
+
+    :where(.neo-theme-neo-light, .neo-theme-light) & .neo-list-item.portal-example-paired-cover {
+        --portal-examples-list-pill-bg    : var(--sem-color-surface-neutral-highlighted);
+        --portal-examples-list-pill-border: var(--sem-color-border-default);
+        --portal-examples-list-pill-text  : var(--sem-color-text-neutral-default);
+
+        .preview-image {
+            background-image: var(--portal-example-cover-light, var(--portal-example-cover, none));
+        }
+    }
+
+    /* The selection's ring. Where masks cannot be composited it is a plain border that fades in. */
+    .neo-list-item::before {
+        border    : 2px solid var(--portal-examples-list-selected);
+        opacity   : 0;
+        transition: opacity var(--motion-fast) var(--ease-out-soft);
+        z-index   : 4;
+    }
+
+    .neo-list-item.neo-selected::before {
+        opacity: 1;
+    }
+
+    /* Where they can, the ring draws itself: from the upper right corner, where the pointer's light falls, down both
+       sides, closing at the lower left. Deselecting opens it again. */
+    @supports (mask-composite: intersect) {
+        .neo-list-item::before {
+            --portal-examples-list-ring-lead    : var(--portal-examples-list-selected);
+            --portal-examples-list-ring-progress: 0%;
+
+            background: linear-gradient(225deg, var(--portal-examples-list-ring-lead), var(--portal-examples-list-selected) 55%);
+            border    : 0;
+            mask      : linear-gradient(225deg, #000 calc(var(--portal-examples-list-ring-progress) - 8%), transparent var(--portal-examples-list-ring-progress)) intersect,
+                        linear-gradient(#000 0 0) content-box exclude,
+                        linear-gradient(#000 0 0);
+            opacity   : 1;
+            padding   : 2px;
+            transition: --portal-examples-list-ring-progress var(--motion-base) var(--ease-in-soft),
+                        --portal-examples-list-ring-lead var(--motion-base) var(--ease-out-soft);
+        }
+
+        /* Recorded exception, as for the glass card's lap: a ring is drawn at constant speed (linear). An ease-out
+           would draw three quarters of it in the first 70 ms and then crawl. Reduced motion collapses the tier to 0.
+           108 % carries the soft tip past the last corner. */
+        .neo-list-item.neo-selected::before {
+            --portal-examples-list-ring-progress: 108%;
+
+            transition-duration       : var(--motion-stage), var(--motion-base);
+            transition-timing-function: linear, var(--ease-out-soft);
+        }
+
+        /* Both cursors on one card: the ring leads in the pointer's blue and closes in the selection's green */
+        @media (hover: hover) {
+            .neo-list-item.neo-selected:hover::before {
+                --portal-examples-list-ring-lead: var(--portal-examples-list-hover);
+            }
+        }
+    }
+
+    &:not(.portal-examples-tiles) {
+        .content {
+            container-type       : inline-size;
+            display              : grid;
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows   : auto 1fr;
+            height               : 100%;
+            position             : relative;
+            width                : 100%;
+        }
+
+        .preview-image-wrap {
+            aspect-ratio : var(--portal-example-cover-aspect, 16 / 9);
+            border-bottom: 1px solid var(--portal-examples-list-edge);
+            grid-column  : 1;
+            grid-row     : 1;
+            height       : var(--portal-example-cover-height, auto);
+            isolation    : isolate;
+            overflow     : hidden;
+            position     : relative;
+            width        : 100%;
+
+            &::before,
+            &::after {
+                content       : '';
+                inset         : 0;
+                pointer-events: none;
+                position      : absolute;
+            }
+
+            /* The two lights mix into the cover: the pointer's falls from the upper right, the selection's rises from
+               the details. Where neither reaches, the cover shows as captured. */
+            &::before {
+                background    : radial-gradient(84% 124% at 100% 0%, var(--portal-examples-list-light-hover), color-mix(in srgb, var(--portal-examples-list-light-hover) 42%, transparent) 36%, transparent 72%),
+                                linear-gradient(0deg, var(--portal-examples-list-light-select), transparent var(--portal-examples-list-light-select-reach, 52%));
+                mix-blend-mode: hard-light;
+                z-index       : 1;
+            }
+
+            /* The glint: one pass across the glass on entry, as on the Portal's glass cards */
+            &::after {
+                background: linear-gradient(115deg, transparent 38%, var(--portal-examples-list-glint-edge) 45%, var(--portal-examples-list-glint-core) 50%, var(--portal-examples-list-glint-edge) 55%, transparent 62%) 120% 0 / 250% 100% no-repeat;
+                opacity   : 0;
+                transition: opacity var(--motion-fast) var(--ease-out-soft);
+                z-index   : 2;
+            }
+        }
+
+        @media (hover: hover) {
+            .neo-list-item:hover .preview-image-wrap::after {
+                animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
+                opacity  : 1;
+            }
+        }
+
+        .preview-image {
+            background-position: left top;
+            background-size    : cover;
+            height             : 100%;
+            inset              : 0;
+            position           : absolute;
+            width              : 100%;
+        }
+
+        .portal-example-footer {
+            background     : var(--portal-examples-list-surface);
+            box-sizing     : border-box;
+            color          : var(--portal-examples-list-text);
+            display        : flex;
+            flex-direction : column;
+            grid-column    : 1;
+            grid-row       : 2;
+            justify-content: flex-start;
+            min-width      : 0;
+            overflow-wrap  : anywhere;
+            padding        : 10px 14px 12px;
+            position       : relative;
+        }
+
+        .portal-example-more {
+            box-sizing        : border-box;
+            display           : grid;
+            grid-template-rows: 0fr;
+            overflow          : hidden;
+        }
+
+        .portal-example-more-inner {
+            min-height: 0;
+            overflow  : hidden;
+        }
+
+        /* Multi-column (>= 704 px of list content width): progressive details share grid cell (1 / 2, 1 / 2) with
+           .preview-image-wrap via align-self: end, capped at 22.5cqi (40 % of the 16:9 56.25cqi cover height) so
+           track heights, footer actions, and neighboring rows move 0.0 px and the footer stays 100 % unoccluded. */
+        @container examples-list (min-width: 704px) {
+            .portal-example-more-inner {
+                align-content        : start;
+                align-items          : center;
+                column-gap           : 6px;
+                display              : grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+            }
+
+            .portal-example-more {
+                align-self     : end;
+                backdrop-filter: blur(24px) saturate(1.4);
+                background     : var(--portal-examples-list-band-bg);
+                border-top     : 0 solid transparent;
+                color          : var(--portal-examples-list-band-text);
+                grid-column    : 1 / 2;
+                grid-row       : 1 / 2;
+                max-height     : 22.5cqi;
+                opacity        : 0;
+                padding        : 0 14px;
+                pointer-events : none;
+                position       : relative;
+                transition     : grid-template-rows var(--motion-base) var(--ease-out-soft),
+                                 opacity var(--motion-base) var(--ease-out-soft),
+                                 padding var(--motion-base) var(--ease-out-soft),
+                                 border-color var(--motion-base) var(--ease-out-soft);
+                z-index        : 2;
+
+                .portal-example-look-for,
+                .portal-example-scope {
+                    color: var(--portal-examples-list-band-text-muted);
+                }
+
+                .portal-example-look-for {
+                    -webkit-line-clamp: 2;
+                    color             : var(--portal-examples-list-band-text);
+                    font-size         : 12.5px;
+                    grid-column       : 1 / -1;
+                    line-height       : 1.34;
+                    margin            : 0;
+                }
+
+                .portal-example-scope {
+                    -webkit-line-clamp: 1;
+                    font-size         : 11.5px;
+                    grid-column       : 1;
+                    grid-row          : 2;
+                    line-height       : 1.3;
+                    margin            : 3px 0 0;
+                }
+
+                .portal-example-meta {
+                    grid-column: 1;
+                    grid-row   : 2;
+                    margin-top : 3px;
+                }
+
+                .portal-example-scope + .portal-example-meta {
+                    grid-column: 2;
+                }
+            }
+
+            .neo-list-item.neo-selected .portal-example-more {
+                border-top        : 1px solid var(--portal-examples-list-band-border);
+                grid-template-rows: 1fr;
+                opacity           : 1;
+                padding           : 8px 14px 9px;
+                pointer-events    : auto;
+            }
+        }
+
+        /* Single-column (< 704 px of list content width, including 900 px / 641 px sidebar layouts and phones):
+           details expand in-flow below the footer, leaving 100 % of every cover unobstructed. */
+        @container examples-list (max-width: 703.98px) {
+            .content {
+                grid-template-rows: auto auto auto;
+                height            : auto;
+            }
+
+            /* No details lie over this cover, so the selection's light only touches its lower edge */
+            .preview-image-wrap {
+                --portal-examples-list-light-select-reach: 26%;
+            }
+
+            .portal-example-more {
+                background : var(--portal-examples-list-surface);
+                border-top : 0 solid transparent;
+                color      : var(--portal-examples-list-text);
+                grid-column: 1;
+                grid-row   : 3;
+                padding    : 0 14px;
+                transition : grid-template-rows var(--motion-base) var(--ease-out-soft),
+                             padding var(--motion-base) var(--ease-out-soft),
+                             border-color var(--motion-base) var(--ease-out-soft);
+
+                .portal-example-look-for {
+                    -webkit-line-clamp: unset;
+                    color             : var(--portal-examples-list-text-muted);
+                    font-size         : 13px;
+                    line-height       : 1.45;
+                    margin            : 0;
+                }
+
+                .portal-example-scope {
+                    -webkit-line-clamp: unset;
+                    color             : var(--portal-examples-list-text-muted);
+                    font-size         : 12px;
+                    line-height       : 1.4;
+                    margin            : 6px 0 0;
+                }
+
+                .portal-example-meta {
+                    margin-top: 8px;
+                }
+            }
+
+            .neo-list-item.neo-selected .portal-example-more {
+                border-top        : 1px solid var(--portal-examples-list-edge);
+                grid-template-rows: 1fr;
+                padding           : 10px 14px 12px;
+            }
+        }
+    }
+
+    .portal-example-title-row {
+        align-items    : center;
+        display        : flex;
+        flex           : none;
+        gap            : 10px;
+        justify-content: space-between;
+        min-width      : 0;
+    }
+
+    .portal-example-actions {
+        align-items: center;
+        display    : inline-flex;
+        flex       : none;
+        gap        : 10px;
+    }
+
+    .neo-title {
+        color          : inherit;
+        display        : flex;
+        flex           : 0 1 auto;
+        font-size      : 16px;
+        font-weight    : 600;
+        line-height    : 1.25;
+        min-width      : 0;
+        text-decoration: none;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
+    }
+
+    /* The launch pill keeps its box in every state, so lighting it moves nothing. Its negative margins keep the title
+       row at the title's own height and let the lit pill reach into the footer's padding. */
+    .portal-example-open-cue {
+        background-image: linear-gradient(225deg, var(--portal-examples-list-cue-from), var(--portal-examples-list-cue-to));
+        border          : 1px solid transparent;
+        border-radius   : 999px;
+        color           : var(--portal-examples-list-text-muted);
+        cursor          : pointer;
+        flex            : none;
+        font-size       : 12px;
+        font-weight     : 600;
+        line-height     : 1.2;
+        margin          : -2px -6px -2px 0;
+        padding         : 3px 9px;
+        text-decoration : none;
+        transition      : --portal-examples-list-cue-from var(--motion-fast) var(--ease-out-soft),
+                          --portal-examples-list-cue-to var(--motion-fast) var(--ease-out-soft),
+                          border-color var(--motion-fast) var(--ease-out-soft),
+                          color var(--motion-fast) var(--ease-out-soft);
+        white-space     : nowrap;
+
+        span + .fa {
+            margin-left: 0.3em;
+        }
+    }
+
+    .neo-list-item.neo-selected .portal-example-open-cue {
+        border-color: var(--portal-examples-list-selected);
+        color       : var(--portal-examples-list-selected-text);
+    }
+
+    .portal-example-feature,
+    .portal-example-look-for,
+    .portal-example-scope {
+        -webkit-box-orient: vertical;
+        display           : -webkit-box;
+        overflow          : hidden;
+    }
+
+    .portal-example-feature {
+        -webkit-line-clamp: 2;
+        color             : var(--portal-examples-list-text-muted);
+        flex              : none;
+        font-size         : 13.5px;
+        line-height       : 1.38;
+        margin-top        : 4px;
+    }
+
+    .portal-example-meta {
+        align-items: center;
+        display    : flex;
+        gap        : 6px;
+    }
+
+    .portal-example-mobile {
+        border        : 1px solid currentColor;
+        border-radius : 999px;
+        display       : inline-flex;
+        font-size     : 10.5px;
+        font-weight   : 600;
+        letter-spacing: 0.04em;
+        line-height   : 1.2;
+        opacity       : 0.9;
+        padding       : 2px 8px;
+        text-transform: uppercase;
+    }
+
+    @media (hover: hover) {
+        .neo-list-item:hover .portal-example-open-cue {
+            --portal-examples-list-cue-from: var(--portal-examples-list-hover);
+            --portal-examples-list-cue-to  : var(--portal-examples-list-hover);
+
+            color: var(--portal-examples-list-cue-text);
+        }
+
+        .neo-list-item.neo-selected:hover .portal-example-open-cue {
+            --portal-examples-list-cue-to: var(--portal-examples-list-selected-deep);
+
+            border-color: transparent;
+        }
+
+        .portal-example-open-cue:hover {
+            filter: brightness(1.14);
+        }
+    }
+
+    .neo-github-image {
+        align-items    : center;
+        color          : var(--portal-examples-list-text-muted);
+        display        : inline-flex;
+        font-size      : 16px;
+        height         : 18px;
+        justify-content: center;
+        text-decoration: none;
+        transition     : color var(--motion-fast) var(--ease-out-soft);
+        width          : 18px;
+    }
+
+    .neo-title,
+    .neo-github-image {
+        &:hover,
+        &:focus-visible {
+            color: var(--portal-examples-list-link-hover);
+        }
+    }
+
+    .portal-example-group-badge {
+        color         : var(--portal-examples-list-text-muted);
+        flex          : none;
+        font-size     : 11px;
+        font-weight   : 600;
+        letter-spacing: 0.06em;
+        line-height   : 1.2;
+        margin-bottom : 3px;
+        text-transform: uppercase;
+    }
+
+    .neo-multi-window {
+        align-items  : center;
+        background   : var(--portal-examples-list-pill-bg);
+        border       : 1px solid var(--portal-examples-list-pill-border);
+        border-radius: 999px;
+        box-shadow   : 0 5px 10px rgba(0, 0, 0, 0.3);
+        color        : var(--portal-examples-list-pill-text);
+        display      : inline-flex;
+        font-size    : 11.5px;
+        font-weight  : 600;
+        gap          : 6px;
+        line-height  : 1.2;
+        padding      : 4px 10px;
+        position     : absolute;
+        right        : 12px;
+        top          : 12px;
+        z-index      : 3;
+    }
+
+    @container (max-width: 520px) {
+        .neo-title {
+            font-size  : 15.5px;
+            line-height: 1.22;
+        }
+
+        .portal-example-feature {
+            font-size  : 13px;
+            line-height: 1.35;
+        }
+    }
+
+    @media (max-width: 600px) {
+        gap    : 12px;
+        padding: 8px 8px 0;
+
+        .neo-list-item {
+            border-radius: 12px;
+        }
+
+        .portal-example-footer {
+            padding: 9px 13px 11px;
+        }
+
+        .neo-title {
+            font-size: 16px;
+        }
+
+        .portal-example-feature {
+            -webkit-line-clamp: 1;
+            font-size         : 13.5px;
+        }
+
+        .neo-list-item.neo-selected .portal-example-feature {
+            -webkit-line-clamp: unset;
+        }
+    }
+
+    /* A tile is one workbench component: its 4:3 crop, taken on the dark theme's stage, over its name. */
+    &.portal-examples-tiles {
+        gap                  : 16px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+
+        @container (min-width: 1100px) {
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+        }
+
+        /* The item carries the caption's surface, so a row stretched by a two-line name shows no seam */
+        .neo-list-item {
+            background   : var(--portal-examples-list-surface);
+            border-radius: 12px;
+            cursor       : default;
+
+            .content {
+                aspect-ratio: auto;
+            }
+
+            .preview-image {
+                aspect-ratio       : 4 / 3;
+                background-position: center;
+                background-size    : cover;
+                height             : auto;
+                inset              : auto;
+                position           : relative;
+                width              : 100%;
+            }
+        }
+
+        .portal-example-title-row {
+            padding: 9px 12px 11px;
+        }
+
+        .neo-title {
+            color      : var(--portal-examples-list-text);
+            font-size  : 14px;
+            line-height: 1.3;
+        }
+
+        .portal-example-open-cue {
+            font-size: 14px;
+        }
+    }
+}

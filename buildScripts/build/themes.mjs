@@ -1,50 +1,32 @@
-import autoprefixer    from 'autoprefixer';
-import chalk           from 'chalk';
-import cssnano         from 'cssnano';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import path            from 'path';
-import postcss         from 'postcss';
-import * as sass       from 'sass';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import autoprefixer              from 'autoprefixer';
+import chalk                     from 'chalk';
+import cssnano                   from 'cssnano';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import path                      from 'path';
+import postcss                   from 'postcss';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
+import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
-    __dirname         = path.resolve(),
-    cwd               = process.cwd(),
-    requireJson       = path => JSON.parse(fs.readFileSync(path)),
-    packageJson       = requireJson(path.resolve(cwd, 'package.json')),
-    insideNeo         = packageJson.name.includes('neo.mjs'),
-    neoPath           = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
-    programName       = `${packageJson.name} buildThemes`,
-    program           = new Command(),
-    scssPath          = 'resources/scss/',
-    frameworkScssPath = path.resolve(neoPath, scssPath),
-    workspaceScssPath = path.resolve(cwd, scssPath),
-    packageScssPaths  = insideNeo ? [] : [
-        ...new Set([
-            ...Object.keys(packageJson.dependencies    || {}),
-            ...Object.keys(packageJson.devDependencies || {})
-        ])
-    ].flatMap(depName => {
-        const depPackagePath = path.resolve(cwd, 'node_modules', depName, 'package.json');
-
-        if (!fs.existsSync(depPackagePath)) {
-            return [];
-        }
-
-        const depScss = requireJson(depPackagePath).neo?.scss;
-
-        return depScss ? [path.resolve(cwd, 'node_modules', depName, depScss)] : [];
-    }),
-    scssRoots         = insideNeo
-        ? [frameworkScssPath]
-        : [...new Set([frameworkScssPath, ...packageScssPaths, workspaceScssPath])],
-    scssFolders       = scssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
-    themeMapFile      = 'resources/theme-map.json',
-    themeFolders      = [...new Set(scssFolders.filter(folder => folder.includes('theme')))],
-    questions         = [];
+    __dirname        = path.resolve(),
+    cwd              = process.cwd(),
+    requireJson      = path => JSON.parse(fs.readFileSync(path)),
+    packageJson      = requireJson(path.resolve(cwd, 'package.json')),
+    insideNeo        = packageJson.name.includes('neo.mjs'),
+    neoPath          = path.resolve(insideNeo ? './' : './node_modules/neo.mjs/'),
+    programName      = `${packageJson.name} buildThemes`,
+    program          = new Command(),
+    cssPath          = 'resources/css/',
+    frameworkCssPath = path.resolve(neoPath, cssPath),
+    cssRoots         = themeCssRoots(cwd, {insideNeo}),
+    cssFolders       = cssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
+    themeMapFile     = 'resources/theme-map.json',
+    themeFolders     = [...new Set(cssFolders.filter(folder => folder.includes('theme')))],
+    questions        = [];
 
 program
     .name(programName)
@@ -105,10 +87,15 @@ if (programOpts.info) {
         }
     }
 
-    inquirer.prompt(questions).then(async answers => {
+    assertInteractivePrompt({
+        command: `npm run build-themes -- -n -e dev -t all`,
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(async answers => {
         const env         = answers.env      || programOpts.env    || 'all',
               themes      = answers.themes   || programOpts.themes || 'all',
-              activeRoots = programOpts.framework ? [frameworkScssPath] : scssRoots,
+              activeRoots = programOpts.framework ? [frameworkCssPath] : cssRoots,
               startDate   = new Date(),
               fileCount   = {development: 0, esm: 0, production: 0},
               totalFiles  = {development: 0, esm: 0, production: 0};
@@ -140,11 +127,11 @@ if (programOpts.info) {
          * @param {String} mode development or production
          */
         async function buildEnv(mode) {
-            await parseScssFiles(getAllScssFiles('src'), mode, 'src');
+            await buildFiles(getAllCssFiles('src'), mode, 'src');
 
             for (const themeFolder of themeFolders) {
                 if (themes === 'all' || themes === themeFolder) {
-                    await parseScssFiles(getAllScssFiles(themeFolder), mode, themeFolder);
+                    await buildFiles(getAllCssFiles(themeFolder), mode, themeFolder);
                 }
             }
         }
@@ -153,10 +140,10 @@ if (programOpts.info) {
          * @param {String} target
          * @returns {Object[]}
          */
-        function getAllScssFiles(target) {
+        function getAllCssFiles(target) {
             return activeRoots.flatMap(root => {
                 const targetPath = path.resolve(root, target);
-                return fs.existsSync(targetPath) ? getScssFiles(targetPath) : [];
+                return fs.existsSync(targetPath) ? getCssFiles(targetPath) : [];
             });
         }
 
@@ -166,7 +153,7 @@ if (programOpts.info) {
          * @param [relativePath='']
          * @returns {Object[]}
          */
-        function getScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
+        function getCssFiles(dirPath, arrayOfFiles=[], relativePath='') {
             let files = fs.readdirSync(dirPath),
                 className, fileInfo, filePath;
 
@@ -174,11 +161,11 @@ if (programOpts.info) {
                 filePath = path.join(dirPath + '/' + file);
 
                 if (fs.statSync(filePath).isDirectory()) {
-                    arrayOfFiles = getScssFiles(filePath, arrayOfFiles, relativePath + '/' + file);
+                    arrayOfFiles = getCssFiles(filePath, arrayOfFiles, relativePath + '/' + file);
                 } else {
                     fileInfo = path.parse(file);
 
-                    if (!fileInfo.name.startsWith('_') && fileInfo.ext === '.scss') {
+                    if (fileInfo.ext === '.css') {
                         className = relativePath === '' ? fileInfo.name : `${relativePath.substring(1)}/${fileInfo.name}`;
                         className = className.split('/').join('.');
 
@@ -223,11 +210,13 @@ if (programOpts.info) {
         }
 
         /**
+         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer, plus cssnano
+         * for esm and production; development output carries a source map back to the source.
          * @param {Object[]} files
          * @param {String} mode development or production
          * @param {String} target src or a theme
          */
-        async function parseScssFiles(files, mode, target) {
+        async function buildFiles(files, mode, target) {
             let devMode = mode === 'development';
 
             totalFiles[mode] += files.length;
@@ -236,14 +225,7 @@ if (programOpts.info) {
                 addItemToThemeMap(file, target);
 
                 let folderPath = path.resolve(cwd, `dist/${mode}/css/${target}/${file.relativePath}`),
-                    destPath   = path.resolve(folderPath, `${file.name}.css`),
-                    map;
-
-                let result = sass.compile(file.path, {
-                    outFile                : destPath,
-                    sourceMap              : devMode,
-                    sourceMapIncludeSources: true
-                });
+                    destPath   = path.resolve(folderPath, `${file.name}.css`);
 
                 const plugins = [autoprefixer];
 
@@ -251,15 +233,10 @@ if (programOpts.info) {
                     plugins.push(cssnano) // CSSNano works async only
                 }
 
-                map = result.sourceMap;
-
-                const postcssResult = await postcss(plugins).process(result.css, {
+                const postcssResult = await postcss(plugins).process(fs.readFileSync(file.path, 'utf8'), {
                     from: file.path,
                     to  : destPath,
-                    map : !devMode ? null : {
-                        inline: false,
-                        prev  : map && JSON.stringify(map)
-                    }
+                    map : devMode && {inline: false}
                 });
 
                 fs.mkdirpSync(folderPath);
@@ -268,34 +245,12 @@ if (programOpts.info) {
                 let currentFileNumber = fileCount.development + fileCount.esm + fileCount.production,
                     processTime       = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 
-                map = postcssResult.map;
-
                 console.log('Writing file:', currentFileNumber, chalk.blue(`${processTime}s`), destPath);
 
-                fs.writeFileSync(
-                    destPath,
-                    map ?
-                        `${postcssResult.css}\n\n/*# sourceMappingURL=${path.relative(path.dirname(destPath), postcssResult.opts.to + '.map')} */` :
-                        postcssResult.css,
-                    () => true
-                );
+                fs.writeFileSync(destPath, postcssResult.css);
 
-                if (map) {
-                    let mapString = map.toString(),
-                        jsonMap   = JSON.parse(mapString),
-                        sources   = jsonMap.sources;
-
-                    // Somehow files contain both: a relative & an absolute file url
-                    // We only want to keep the relative ones.
-                    [...sources].forEach((item, index) => {
-                        if (!item.startsWith('../')) {
-                            sources.splice(index, 1);
-                        }
-                    });
-
-                    map = JSON.stringify(jsonMap);
-
-                    fs.writeFileSync(postcssResult.opts.to + '.map', map);
+                if (postcssResult.map) {
+                    fs.writeFileSync(`${destPath}.map`, postcssResult.map.toString())
                 }
 
                 if (fileCount[mode] === totalFiles[mode]) {
@@ -314,7 +269,7 @@ if (programOpts.info) {
             }
         }
 
-        // Full builds REGENERATE the map from the effective SCSS tree: seeding from the previous
+        // Full builds REGENERATE the map from the effective source tree: seeding from the previous
         // artifact made deletions/renames permanent (insertion is create-only, so no key ever left).
         // The only legitimate seed is the ENGINE's map in a workspace build (cwd !== neoPath), which
         // keeps engine components resolvable (guide §8); a workspace's own previous output fossilizes

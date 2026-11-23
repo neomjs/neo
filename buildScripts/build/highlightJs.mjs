@@ -1,74 +1,71 @@
-import {execFileSync}  from 'child_process';
-import {fileURLToPath} from 'url';
+import esbuild         from 'esbuild';
 import fs              from 'fs/promises';
-import os              from 'os';
+import {createRequire} from 'module';
 import path            from 'path';
+import {fileURLToPath} from 'url';
 import {Command}       from 'commander';
-import * as terser     from 'terser';
 import isEntryModule   from '../util/isEntryModule.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const neoPath   = path.resolve(__dirname, '../../');
 
-const languages     = ['bash', 'css', 'javascript', 'json', 'markdown', 'plaintext', 'scss', 'xml', 'yaml'];
 // Runtime URLs are workspace-relative, including when this script comes from an installed Engine.
 const outputDir     = path.resolve('dist/highlight');
-const outputFile    = path.join(outputDir,  'highlight.custom.js');
-const minOutputFile = path.join(outputDir,  'highlight.custom.min.js');
-const tempDir       = path.resolve(neoPath, 'tmp/highlightjs');
-
-const gitCmd  = os.platform().startsWith('win') ? 'git.exe'  : 'git';
-const nodeCmd = os.platform().startsWith('win') ? 'node.exe' : 'node';
-const npmCmd  = os.platform().startsWith('win') ? 'npm.cmd'  : 'npm';
+const outputFile    = path.join(outputDir, 'highlight.custom.js');
+const minOutputFile = path.join(outputDir, 'highlight.custom.min.js');
 
 const program = new Command();
 
-/** The upstream repository this bundle is built from. */
-export const HIGHLIGHT_JS_REPOSITORY = 'https://github.com/highlightjs/highlight.js.git';
+/**
+ * The languages the bundle registers. `ruby` keeps the set upstream's build produced: that build pulled it in
+ * for `yaml`, so code-fenced guides have highlighted it ever since.
+ * @type {String[]}
+ */
+export const LANGUAGES = ['bash', 'css', 'javascript', 'json', 'markdown', 'plaintext', 'ruby', 'scss', 'xml', 'yaml'];
 
 /**
- * Windows shim extensions. A `.cmd` / `.bat` file is a script interpreted by the command processor,
- * not an executable image, so it has no entry point for `execFile` to launch.
- * @type {Set<String>}
+ * @summary The comment both bundles open with: the installed package's version and its `LICENSE` file verbatim.
+ * Its BSD 3-Clause terms require the copyright notice, the conditions and the disclaimer to travel with every
+ * redistributed copy, and a bundle is one. The package resolves like the bundle's imports, from this folder upwards.
+ * @returns {Promise<String>}
  */
-const SHIM_EXTENSIONS = new Set(['.cmd', '.bat']);
+export async function licenseBanner() {
+    const
+        manifest  = createRequire(import.meta.url).resolve('highlight.js/package.json'),
+        {version} = JSON.parse(await fs.readFile(manifest, 'utf8')),
+        license   = await fs.readFile(path.join(path.dirname(manifest), 'LICENSE'), 'utf8');
 
-/**
- * @summary Whether a command must be dispatched through a shell to be launchable at all.
- *
- * Node cannot start a `.cmd` or `.bat` with `execFile`/`spawn` unless a shell is requested — they are
- * scripts for the command processor rather than executable images. On this build only `npm` selects a
- * shim (`npm.cmd`); `git.exe` and `node.exe` are real executables and stay shell-free.
- *
- * Encoded as a rule over the command's extension rather than as a check for "npm", so a future
- * Windows shim gets the right dispatch without anyone remembering this constraint.
- *
- * A shell here is safe because the arguments are literals — the rule this module enforces is that no
- * INTERPOLATED value reaches a shell, not that no shell exists.
- * @param {String} command Executable name as selected for the current platform.
- * @returns {Boolean}
- */
-export function requiresShell(command) {
-    const extension = command.slice(command.lastIndexOf('.')).toLowerCase();
-
-    return SHIM_EXTENSIONS.has(extension)
+    return `/*!\n  Highlight.js v${version}\n\n${license.trim()}\n */`
 }
 
 /**
- * @summary Builds the git-clone argument vector, so the target path is one argument by construction.
+ * @summary Bundles the installed highlight.js core with {@link LANGUAGES} registered, as an ES module whose
+ * default export is `hljs`: `highlight.custom.js` and its minified twin `highlight.custom.min.js`, each opening
+ * with {@link licenseBanner}.
  *
- * Exported for coverage: the property that matters is that `targetDir` arrives as a SINGLE argv
- * entry, and that is only assertable on the vector. Asserting a quoted command string instead would
- * pass for any consistent-but-wrong quoting, which is why the remedy here is argv, not escaping.
- *
- * The previous form interpolated `targetDir` into a shell string. A checkout path containing a space
- * — an ordinary macOS directory name — was split by the shell into three arguments, so this is a
- * build-breaking defect before it is a security one.
- * @param {String} targetDir Absolute clone destination.
- * @returns {String[]} Arguments for `git`, excluding the executable itself.
+ * Like the other browser bundles (`parse5.mjs`, `marked.mjs`), it reads the lockfile-pinned package, so the build
+ * needs no network, no git and no second install. The entry resolves from this file's folder upwards, which
+ * reaches a workspace's own `node_modules` when the script runs from an installed Engine.
+ * @param {String} targetDir Folder that receives both files.
+ * @returns {Promise<void>}
  */
-export function buildCloneArgs(targetDir) {
-    return ['clone', '--depth', '1', HIGHLIGHT_JS_REPOSITORY, targetDir]
+export async function buildBundle(targetDir) {
+    const banner = {js: await licenseBanner()};
+
+    const stdin = {
+        contents: [
+            "import hljs from 'highlight.js/lib/core';",
+            ...LANGUAGES.map((name, i) => `import language${i} from 'highlight.js/lib/languages/${name}';`),
+            ...LANGUAGES.map((name, i) => `hljs.registerLanguage('${name}', language${i});`),
+            'export default hljs;'
+        ].join('\n'),
+        resolveDir: __dirname,
+        sourcefile: 'highlight.custom.entry.js'
+    };
+
+    await Promise.all([
+        esbuild.build({stdin, banner, bundle: true, format: 'esm', outfile: path.join(targetDir, 'highlight.custom.js')}),
+        esbuild.build({stdin, banner, bundle: true, format: 'esm', minify: true, outfile: path.join(targetDir, 'highlight.custom.min.js')})
+    ])
 }
 
 async function main() {
@@ -92,57 +89,18 @@ async function main() {
     console.log('Building custom highlight.js bundle...');
 
     try {
-        // 1. Clean up the temporary directory
-        console.log(`Cleaning up ${tempDir}`);
-        await fs.rm(tempDir, { recursive: true, force: true });
-        await fs.mkdir(tempDir, { recursive: true });
-
-        // 2. Clone the highlight.js repository
-        console.log(`Cloning highlight.js into ${tempDir}`);
-        // argv, not a shell string: no quoting question, no metacharacter question. The command needs
-        // no shell feature — no pipe, redirection or glob — so reaching for one only added a parser.
-        execFileSync(gitCmd, buildCloneArgs(tempDir), { shell: requiresShell(gitCmd), stdio: 'inherit' });
-
-        // 3. Install dependencies
-        console.log(`Installing dependencies in ${tempDir}`);
-        execFileSync(npmCmd, ['install'], { cwd: tempDir, shell: requiresShell(npmCmd), stdio: 'inherit' });
-
-        // 4. Run the build script
-        console.log('Running build script...');
-        execFileSync(nodeCmd, ['tools/build.js', '-n', ...languages], { cwd: tempDir, shell: requiresShell(nodeCmd), stdio: 'inherit' });
-
-        // 5. Copy and minify the generated bundle
-        const generatedFile = path.join(tempDir, 'build/highlight.js');
-        console.log(`Copying ${generatedFile} to ${outputFile}`);
-        let bundleContent = await fs.readFile(generatedFile, 'utf-8');
-
-        // Convert to ESM
-        bundleContent += '\nexport default hljs;';
-
-        await fs.mkdir(outputDir, { recursive: true });
-        await fs.writeFile(outputFile, bundleContent);
-
-        console.log(`Minifying ${outputFile}`);
-        const minifiedContent = await terser.minify(bundleContent);
-        await fs.writeFile(minOutputFile, minifiedContent.code);
-
-
-        // 6. Clean up the temporary directory
-        console.log(`Cleaning up ${tempDir}`);
-        await fs.rm(tempDir, { recursive: true, force: true });
+        await buildBundle(outputDir);
 
         console.log(`Custom highlight.js bundle created at: ${outputFile}`);
         console.log(`Minified highlight.js bundle created at: ${minOutputFile}`);
     } catch (error) {
-        // The temporary directory stays for inspection; the exit code is what `build-all` and `bundle-browser-deps` gate on.
+        // The exit code is what `build-all` and `bundle-browser-deps` gate on.
         console.error(`Error building highlight.js bundle: ${error}`);
         process.exit(1)
     }
 }
 
-// Run only when executed directly, matching the guard `check-derived-domain.mjs` and
-// `check-fixed-sleeps.mjs` already use. Without it, importing this module to test the argv builder
-// would clone a repository and run a build as a side effect of the import.
+// Run only when executed directly: the spec imports this module to build into a temporary folder.
 if (isEntryModule(import.meta.url)) {
     main()
 }

@@ -1,3 +1,7 @@
+---
+seoTitle: "Multi-Window JavaScript Apps with SharedWorker State | Neo.mjs"
+seoDescription: "Build multi-window JavaScript apps where one SharedWorker holds live components, stores, and Dock Layouts across browser windows and monitors."
+---
 # Multi-Window Applications
 
 ## One Application, Many Windows

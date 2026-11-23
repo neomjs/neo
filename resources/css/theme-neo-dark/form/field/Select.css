@@ -1,0 +1,34 @@
+:where(.neo-theme-neo-dark) { /* .neo-selectfield */
+    --selectfield-background                    : var(--purple-950);
+    --selectfield-background-disabled           : var(--purple-900);
+    --selectfield-border-color                  : var(--purple-700);
+    --selectfield-border-color-disabled         : var(--purple-800);
+    --selectfield-border-color-hovered          : var(--purple-600);
+    --selectfield-border-radius                 : 3px;
+    --selectfield-border-width                  : 1px;
+    --selectfield-checkmark-color               : var(--purple-200);
+    --selectfield-color                         : var(--white);
+    --selectfield-color-disabled                : var(--gray-500);
+    --selectfield-error-color                   : var(--red-500);
+    --selectfield-focus-color                   : var(--purple-400);
+    --selectfield-input-font                    : 400 13px/17px Arial;
+    --selectfield-input-height                  : 25px;
+    --selectfield-input-padding                 : 3px 6px 2px;
+    --selectfield-label-color                   : var(--gray-200);
+    --selectfield-label-color-disabled          : var(--gray-600);
+    --selectfield-label-top-margin              : 0 0 3px;
+    --selectfield-opacity-disabled              : var(--neo-disabled-opacity);
+    --selectfield-option-background-color-hover : var(--gray-800);
+    --selectfield-option-background-color-selected: var(--purple-900);
+    --selectfield-option-color                  : var(--gray-100);
+    --selectfield-option-color-disabled         : var(--gray-600);
+    --selectfield-option-color-selected         : var(--white);
+    --selectfield-picker-background-color       : var(--purple-950);
+    --selectfield-picker-border-color           : var(--purple-700);
+    --selectfield-picker-box-shadow             : 0 6px 18px rgba(0, 0, 0, .65);
+    --selectfield-placeholder-color             : var(--gray-400);
+    --selectfield-trigger-background-color-hover: var(--sem-color-surface-neutral-highlighted);
+    --selectfield-trigger-border-width          : 1px;
+    --selectfield-trigger-color                 : var(--sem-color-icon-neutral-subdued);
+    --selectfield-trigger-color-hover           : var(--sem-color-icon-primary-default);
+}

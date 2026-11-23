@@ -1,0 +1,13 @@
+:where(.neo-theme-neo-light) {
+    --tc-header-bg    : #ffffff;
+    --tc-border       : #d8dee8;
+    --tc-title        : #17243a;
+    --tc-muted        : #56657a;
+    --tc-badge-l      : 0.91;
+    --tc-badge-c      : 0.06;
+    --tc-badge-ink-l  : 0.38;
+    --tc-badge-ink-c  : 0.11;
+    --tc-done-track   : #e3e9f2;
+    --tc-done-fill    : #285bd4;
+    --tc-done-complete: #1f8a5b;
+}

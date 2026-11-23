@@ -1,0 +1,21 @@
+.neo-dialog-contact-scene {
+    gap    : 0.75rem;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+
+    h1 {
+        margin: 0;
+    }
+
+    p {
+        margin: 0.35rem 0 0;
+    }
+
+    .neo-dialog-contact-list {
+        align-self: flex-start;
+        width     : min(100%, 26rem);
+
+        .neo-list-item {
+            min-height: 2.5rem;
+        }
+    }
+}

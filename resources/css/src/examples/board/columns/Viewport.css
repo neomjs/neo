@@ -1,0 +1,292 @@
+.studio-viewport.neo-viewport {
+    background: var(--neo-board-background);
+    color     : var(--studio-title);
+
+    .studio-toolbar.neo-toolbar {
+        align-items    : center;
+        background     : var(--studio-header-bg);
+        border-bottom  : 1px solid var(--studio-border);
+        display        : flex;
+        gap            : 12px;
+        justify-content: space-between;
+        min-height     : 56px;
+        padding        : 10px 20px;
+    }
+
+    .studio-brand {
+        align-items: baseline;
+        display    : flex;
+        flex-wrap  : wrap;
+        gap        : 10px;
+        min-width  : 0;
+    }
+
+    .studio-title {
+        color         : var(--studio-title);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -0.02em;
+        line-height   : 1.2;
+    }
+
+    .studio-subtitle {
+        color      : var(--studio-muted);
+        font-size  : 13px;
+        font-weight: 500;
+    }
+
+    .studio-state-pill {
+        align-items  : center;
+        background   : var(--studio-pill-bg);
+        border       : 1px solid var(--studio-pill-border);
+        border-radius: 999px;
+        color        : var(--studio-pill-text);
+        display      : inline-flex;
+        flex         : none;
+        font-size    : 12px;
+        font-weight  : 600;
+        gap          : 7px;
+        line-height  : 1.2;
+        padding      : 6px 12px;
+    }
+
+    .studio-state-sep {
+        color: var(--studio-muted);
+    }
+
+    .studio-state-locked {
+        color: var(--studio-lock-accent);
+    }
+
+    .studio-reset-btn.neo-button {
+        --button-background-color : var(--studio-btn-bg);
+        --button-background-image : none;
+        --button-border           : 1px solid var(--studio-btn-border);
+        --button-border-radius    : 999px;
+        --button-height           : 32px;
+        --button-min-width        : 0;
+        --button-padding          : 0 14px;
+        --button-text-color       : var(--studio-btn-text);
+        --button-text-font-size   : 12.5px;
+        --button-text-font-weight : 600;
+        background-color          : var(--studio-btn-bg);
+        background-image          : none;
+        border                    : 1px solid var(--studio-btn-border);
+        border-radius             : 999px;
+        box-shadow                : 0 1px 2px rgba(0, 0, 0, 0.14);
+        color                     : var(--studio-btn-text);
+        flex                      : none;
+        transition                : background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 100ms ease;
+
+        .neo-button-text {
+            color         : inherit;
+            font-size     : 12.5px;
+            font-weight   : 600;
+            letter-spacing: -0.01em;
+        }
+
+        &:hover {
+            background-color: var(--studio-btn-hover-bg);
+            border-color    : var(--studio-btn-hover-border);
+            color           : var(--studio-title);
+        }
+
+        &:active {
+            transform: translateY(1px);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--studio-focus);
+            outline-offset: 2px;
+        }
+
+        &.is-customized {
+            background-color: var(--studio-btn-active-bg);
+            border-color    : var(--studio-focus);
+            color           : var(--studio-btn-active-text);
+        }
+    }
+
+    .studio-order-bar.neo-toolbar {
+        align-items    : center;
+        background     : var(--studio-subbar-bg);
+        border-bottom  : 1px solid var(--studio-border);
+        display        : flex;
+        flex-wrap      : wrap;
+        gap            : 8px 16px;
+        justify-content: space-between;
+        min-height     : 42px;
+        padding        : 8px 20px;
+    }
+
+    .studio-order-readout {
+        align-items: baseline;
+        display    : flex;
+        flex-wrap  : wrap;
+        font-size  : 12.5px;
+        gap        : 8px;
+        min-width  : 0;
+    }
+
+    .studio-order-label {
+        color         : var(--studio-muted);
+        font-size     : 11.5px;
+        font-weight   : 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+
+    .studio-order-value {
+        color               : var(--studio-title);
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+    }
+
+    .studio-hint {
+        color    : var(--studio-muted);
+        font-size: 12px;
+    }
+
+    .studio-board.neo-board {
+        --neo-board-column-collapsed-width: 44px;
+        --neo-board-column-width          : clamp(232px, calc((100% - var(--neo-board-column-collapsed-width) - 5 * var(--neo-board-gap)) / 5), 288px);
+
+        .neo-board-column {
+            transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+
+            &:not(.neo-board-column-collapsed) > .neo-board-column-header {
+                border-bottom: 1px solid transparent;
+                border-radius: calc(var(--neo-board-radius) - 1px) calc(var(--neo-board-radius) - 1px) 0 0;
+                padding      : 10px 12px;
+                transition   : background-color 140ms ease, border-color 140ms ease;
+
+                &.neo-draggable::before {
+                    color         : var(--studio-grip-rest);
+                    content       : '⋮⋮';
+                    flex          : none;
+                    font-size     : 12px;
+                    font-weight   : 700;
+                    letter-spacing: -2px;
+                    line-height   : 1;
+                    margin-right  : 2px;
+                    transition    : color 140ms ease;
+                }
+
+                &.neo-draggable:hover {
+                    background         : var(--studio-header-hover-bg);
+                    border-bottom-color: var(--studio-border);
+
+                    &::before {
+                        color: var(--studio-focus);
+                    }
+                }
+            }
+
+            &.neo-board-column-locked > .neo-board-column-header {
+                background         : var(--studio-locked-header-bg);
+                border-bottom-color: var(--studio-border);
+            }
+
+            &.neo-board-column-collapsed {
+                background: var(--studio-folded-bg);
+
+                > .neo-board-column-header {
+                    gap    : 10px;
+                    padding: 12px 0;
+
+                    &:hover {
+                        background: var(--studio-header-hover-bg);
+                    }
+                }
+
+                .neo-board-column-title {
+                    font-size     : 13px;
+                    font-weight   : 600;
+                    letter-spacing: 0.02em;
+                }
+            }
+        }
+
+        .neo-board-column-lock {
+            align-items    : center;
+            background     : var(--studio-lock-bg);
+            border         : 1px solid var(--studio-lock-border);
+            border-radius  : 6px;
+            display        : inline-flex;
+            font-size      : 11.5px;
+            height         : 22px;
+            justify-content: center;
+            line-height    : 1;
+            padding        : 0 5px;
+        }
+
+        .neo-board-card-text {
+            color      : var(--neo-board-card-muted-color);
+            font-size  : 12px;
+            line-height: 1.35;
+        }
+    }
+}
+
+body:has(.studio-viewport) .neo-dragproxy > .neo-board-column {
+    border-color    : var(--studio-focus);
+    border-top-color: var(--neo-board-column-accent, var(--studio-focus));
+    box-shadow      : var(--studio-drag-shadow);
+
+    > .neo-board-column-header {
+        background   : var(--studio-header-drag-bg);
+        border-bottom: 1px solid var(--studio-focus);
+
+        &::before {
+            color         : var(--studio-focus);
+            content       : '⋮⋮';
+            font-size     : 12px;
+            font-weight   : 700;
+            letter-spacing: -2px;
+            line-height   : 1;
+            margin-right  : 2px;
+        }
+    }
+}
+
+@media (max-width: 720px) {
+    .studio-viewport.neo-viewport {
+        .studio-toolbar.neo-toolbar {
+            padding: 10px 14px;
+        }
+
+        .studio-title {
+            font-size  : 16px;
+            white-space: nowrap;
+        }
+
+        .studio-subtitle,
+        .studio-state-pill,
+        .studio-hint {
+            display: none;
+        }
+
+        .studio-reset-btn.neo-button {
+            --button-height        : 30px;
+            --button-padding       : 0 11px;
+            --button-text-font-size: 11.5px;
+
+            .neo-button-text {
+                font-size: 11.5px;
+            }
+        }
+
+        .studio-order-bar.neo-toolbar {
+            padding: 6px 14px;
+        }
+
+        .studio-order-readout {
+            font-size: 11.5px;
+            gap      : 6px;
+        }
+
+        .studio-board.neo-board {
+            --neo-board-column-width: 268px;
+        }
+    }
+}

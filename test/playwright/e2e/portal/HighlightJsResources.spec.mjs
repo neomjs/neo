@@ -9,7 +9,7 @@ const prefix = process.env.NEO_HIGHLIGHT_DIST_PREFIX || '';
 test.beforeEach(async ({page}) => {
     // Keep source fixtures on the test's network routes rather than shared/service-worker caches.
     await page.route('**/neo-config.json*', async route => {
-        const response = await route.fetch();
+        const response = await route.fetch({maxRetries: 2});
         await route.fulfill({response, json: {
             ...await response.json(), useAiClient: false, useSharedWorkers: false,
             useCanvasWorkerStartingPoint: false, useServiceWorker: false
@@ -71,7 +71,7 @@ test('Toast: generated code remains highlighted and padded', async ({page}, info
     await page.goto(prefix + '/examples/component/toast/index.html');
     await page.locator('input[name="msg"]').fill('Shared highlighter');
     const output = page.locator('.neo-examples-toast .output');
-    await expect(output.locator('.hljs-keyword').first()).toBeVisible();
+    await expect(output.locator('.hljs-title').first()).toBeVisible();
     await expect(output.locator('.hljs-ln-numbers').first()).toBeVisible();
     await expect(output.locator('.hljs').first()).toHaveCSS('padding', '6px');
     await page.locator('input[name="msg"]').fill('Updated highlighter');

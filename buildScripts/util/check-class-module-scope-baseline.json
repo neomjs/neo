@@ -121,6 +121,11 @@
     },
     {
         "file": "src/main/addon/EventSimulator.mjs",
+        "name": "class:DriveAbort",
+        "count": 1
+    },
+    {
+        "file": "src/main/addon/EventSimulator.mjs",
         "name": "interpolatePoint",
         "count": 1
     },
@@ -175,11 +180,6 @@
         "count": 1
     },
     {
-        "file": "src/state/Provider.mjs",
-        "name": "getRecordChangeBinding",
-        "count": 1
-    },
-    {
         "file": "src/util/Rectangle.mjs",
         "name": "createReversedEdgeAlign",
         "count": 1
@@ -207,6 +207,386 @@
     {
         "file": "src/vdom/VNode.mjs",
         "name": "normalizeClassName",
+        "count": 1
+    },
+    {
+        "file": "apps/portal/model/Discussion.mjs",
+        "name": "getDiscussionStateBadgeHtml",
+        "count": 1
+    },
+    {
+        "file": "apps/webdesktop/view/apps/Calendar.mjs",
+        "name": "createEvents",
+        "count": 1
+    },
+    {
+        "file": "apps/webdesktop/view/apps/Music.mjs",
+        "name": "formatTime",
+        "count": 1
+    },
+    {
+        "file": "apps/workstation/view/CrossWindowGestureSnapshot.mjs",
+        "name": "describeClaimSurfaces",
+        "count": 1
+    },
+    {
+        "file": "examples/board/cardDesigns/ArticleStore.mjs",
+        "name": "buildSeedArticles",
+        "count": 1
+    },
+    {
+        "file": "examples/board/columns/Viewport.mjs",
+        "name": "cloneInitialColumns",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/crossWindow/DemoBCrossWindowGesture.mjs",
+        "name": "describeCrossWindowChromeMismatch",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/desk/DeskStateProvider.mjs",
+        "name": "createAgents",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/desk/DeskStateProvider.mjs",
+        "name": "createAlerts",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/desk/DeskStateProvider.mjs",
+        "name": "createEvents",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/desk/DeskStateProvider.mjs",
+        "name": "createRuns",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/desk/MainContainer.mjs",
+        "name": "pane",
+        "count": 1
+    },
+    {
+        "file": "examples/dashboard/desk/MainContainer.mjs",
+        "name": "stateCell",
+        "count": 1
+    },
+    {
+        "file": "examples/form/validation/MainContainer.mjs",
+        "name": "escapeHtml",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/bigData/Viewport.mjs",
+        "name": "buildProgramme",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/bigData/Viewport.mjs",
+        "name": "createSeededRandom",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/bigData/Viewport.mjs",
+        "name": "format",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/bigData/Viewport.mjs",
+        "name": "iso",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/workingTime/TaskStore.mjs",
+        "name": "buildSeedTasks",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/workingTime/Viewport.mjs",
+        "name": "formatInclusiveFinish",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/zoom/Viewport.mjs",
+        "name": "buildPlan",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/zoom/Viewport.mjs",
+        "name": "format",
+        "count": 1
+    },
+    {
+        "file": "examples/gantt/zoom/Viewport.mjs",
+        "name": "iso",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/cellTypes/MainStore.mjs",
+        "name": "buildDirectoryRows",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/cellTypes/MainStore.mjs",
+        "name": "createSeededRandom",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/countries/MainContainer.mjs",
+        "name": "growth",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/countries/MainContainer.mjs",
+        "name": "missing",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/countries/MainContainer.mjs",
+        "name": "show",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/headerGroups/MainContainer.mjs",
+        "name": "quarter",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/issues/MainContainer.mjs",
+        "name": "chipRenderer",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/issues/MainContainer.mjs",
+        "name": "slug",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/issues/MainContainer.mjs",
+        "name": "textRenderer",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/pinnedColumns/MainContainer.mjs",
+        "name": "renderer",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/serverSide/MainContainer.mjs",
+        "name": "count",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/streaming/StreamConnection.mjs",
+        "name": "buildSettlementLine",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/streaming/StreamConnection.mjs",
+        "name": "pad2",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/streaming/StreamConnection.mjs",
+        "name": "pad3",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/tree/MainStore.mjs",
+        "name": "buildRollupData",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/treeBigData/GridContainer.mjs",
+        "name": "hours",
+        "count": 1
+    },
+    {
+        "file": "examples/grid/treeBigData/MainStore.mjs",
+        "name": "nth",
+        "count": 1
+    },
+    {
+        "file": "examples/list/onAir/Viewport.mjs",
+        "name": "studioTime",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/barRenderer/Viewport.mjs",
+        "name": "class:PressModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/barRenderer/Viewport.mjs",
+        "name": "class:PrintJobModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/barRenderer/Viewport.mjs",
+        "name": "deriveJobStatus",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/barRenderer/Viewport.mjs",
+        "name": "renderJobBar",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/bigData/Viewport.mjs",
+        "name": "buildAnnualPlanData",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/bigData/Viewport.mjs",
+        "name": "createSeededRandom",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/dragAndResize/Viewport.mjs",
+        "name": "class:StopModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/dragAndResize/Viewport.mjs",
+        "name": "class:VanModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/liveUpdates/FlightStore.mjs",
+        "name": "buildInitialFlights",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/liveUpdates/FlightStore.mjs",
+        "name": "pad2",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/liveUpdates/Viewport.mjs",
+        "name": "formatUtcRange",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/liveUpdates/Viewport.mjs",
+        "name": "mulberry32",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/liveUpdates/Viewport.mjs",
+        "name": "renderFlightBar",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/meridian/ObservationScheduler.mjs",
+        "name": "utcTime",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/meridian/Signal.mjs",
+        "name": "modelFlux",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/meridian/Signal.mjs",
+        "name": "samplePath",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/meridian/Viewport.mjs",
+        "name": "button",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/meridian/Viewport.mjs",
+        "name": "heading",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/nonWorkingTime/Viewport.mjs",
+        "name": "class:CrewModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/nonWorkingTime/Viewport.mjs",
+        "name": "class:WorkPackageModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/resourceColumns/Viewport.mjs",
+        "name": "class:JobModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/resourceColumns/Viewport.mjs",
+        "name": "class:TechnicianModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "cityOf",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "class:AgentModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "class:ShiftModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "clockOf",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "format",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "formatDay",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "formatHour",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "offsetOf",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/timeZones/Viewport.mjs",
+        "name": "spanOf",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/zoom/Viewport.mjs",
+        "name": "buildSessions",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/zoom/Viewport.mjs",
+        "name": "class:RoomModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/zoom/Viewport.mjs",
+        "name": "class:SessionModel",
+        "count": 1
+    },
+    {
+        "file": "examples/scheduler/zoom/Viewport.mjs",
+        "name": "formatMinor",
         "count": 1
     }
 ]

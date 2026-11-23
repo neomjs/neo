@@ -27,5 +27,27 @@ test.describe('examples/table/cellEditing', () => {
         await page.keyboard.press('Enter');
 
         await expect(row.getByRole('cell', {name: 'Richard', exact: true}), 'the record took the value').toBeVisible()
+    });
+
+    test('a cleared date commits no date, and the cell renders empty (#20660)', async ({page}) => {
+        await page.goto('/examples/table/cellEditing/index.html');
+        // allTextContents() does not wait, so the header list is read once the table has rendered
+        await expect(page.getByRole('columnheader', {name: 'Random Date'})).toBeVisible();
+
+        const row      = page.getByRole('row').filter({has: page.getByRole('cell', {name: 'rwaters', exact: true})}),
+              headers  = await page.getByRole('columnheader').allTextContents(),
+              dateCell = row.getByRole('cell').nth(headers.findIndex(text => text.trim() === 'Random Date')),
+              input    = page.locator('.neo-table-editor input');
+
+        await expect(dateCell, 'the record starts with a date').not.toHaveText('');
+        await dateCell.dblclick();
+        await expect(input, 'the date editor mounts').toBeVisible();
+
+        await input.fill('');
+        await page.keyboard.press('Enter');
+        // An open editor leaves the cell without text, so only a closed one shows what the record holds
+        await expect(page.locator('.neo-table-editor'), 'Enter committed').toHaveCount(0);
+
+        await expect(dateCell, 'no date, not 1970-01-01').toHaveText('')
     })
 });

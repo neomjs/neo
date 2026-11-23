@@ -1,29 +1,15 @@
-import DisplayField            from '../../../src/form/field/Display.mjs';
-import MainContainerController from './MainContainerController.mjs'
-import Panel                   from '../../../src/container/Panel.mjs';
-import StateProvider           from '../../../src/state/Provider.mjs';
-import TextField               from '../../../src/form/field/Text.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
+import Button                    from '../../../src/button/Base.mjs';
+import Container                 from '../../../src/container/Base.mjs';
+import MainContainerController   from './MainContainerController.mjs';
+import MemberList                from './MemberList.mjs';
+import ProfileFields             from './ProfileFields.mjs';
+import StateProvider             from '../../../src/state/Provider.mjs';
+import ThemeSwitcher             from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport                  from '../../../src/container/Viewport.mjs';
+import {initialsOf, seedMembers} from './memberDefaults.mjs';
 
 /**
- * @summary Demonstrates hierarchical state management in a Neo.mjs application.
- *
- * This example demonstrates the hierarchical nature of the Neo.mjs StateProvider and is a key example
- * of the framework's **reactivity** and **data binding** system for **state management**.
- *
- * A StateProvider can be defined at any level of the component tree. When a component's `bind` config
- * requests a piece of data (e.g., `data.button1Text`), the framework will walk up the component tree
- * from that component, looking for a StateProvider that has the requested key in its `data` object.
- *
- * In this example:
- * 1. The top-level Viewport (`MainContainer`) has a stateProvider with `button1Text`.
- * 2. The nested Panel has its own stateProvider with `button2Text`.
- *
- * Components inside the Panel will find `button2Text` on their direct parent's provider, but will
- * have to traverse up to the MainContainer to find `button1Text`. This demonstrates how state can be
- * scoped locally or shared globally.
- *
- * The controller (`MainContainerController`) shows various methods for updating this hierarchical state.
+ * @summary Demonstrates one hierarchical `Neo.state.Provider` driving a header, form, nested override panel, dialog, and second browser window.
  * @class Neo.examples.stateProvider.advanced.MainContainer
  * @extends Neo.container.Viewport
  * @see Neo.state.Provider
@@ -36,163 +22,297 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.stateProvider.advanced.MainContainer',
         /**
+         * @member {String[]} cls=['sp-advanced-viewport']
+         */
+        cls: ['sp-advanced-viewport'],
+        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
         controller: MainContainerController,
         /**
-         * The top-level StateProvider for this example.
-         * It holds data properties that are available to all child components
-         * unless overridden by a more deeply nested StateProvider.
+         * @member {String} layout='base'
+         * @reactive
+         */
+        layout: 'base',
+        /**
+         * Root StateProvider owning the `members` store, active `member` record, and workspace `density`.
          * @member {Object|Neo.state.Provider} stateProvider
          */
         stateProvider: {
-            data: {
-                button1Text: 'Button 1',
-                button3Text: 'Button 3'
+            module: StateProvider,
+            data  : {
+                canOpenPopup : false,
+                companionOpen: false,
+                density      : 'Comfortable',
+                dialogOpen   : false,
+                member       : null,
+                surfaceNotice: 'Every surface reads and edits the same Neo.data.Record.'
+            },
+            stores: {
+                members: {
+                    model: {
+                        keyProperty: 'id',
+                        fields     : [
+                            {name: 'id',         type: 'String'},
+                            {name: 'name',       type: 'String'},
+                            {name: 'role',       type: 'String'},
+                            {name: 'location',   type: 'String'},
+                            {name: 'statusNote', type: 'String'}
+                        ]
+                    },
+                    data: seedMembers()
+                }
             }
-        },
-        /**
-         * @member {Object} style
-         */
-        style: {
-            padding: '20px'
-        },
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module   : Panel,
-            reference: 'panel',
+        }
+    }
 
-            /**
-             * A nested StateProvider scoped to this Panel and its children.
-             * It holds the `button2Text` property. Components within this panel will find
-             * `button2Text` here before traversing up to the MainContainer's provider.
-             * @member {Object|Neo.state.Provider} stateProvider
-             */
-            stateProvider: {
-                data: {
-                    button2Text: 'Button 2'
-                }
+    /**
+     * @summary Builds the shell, live bound header, member roster/form card, and nested StateProvider preview panel.
+     */
+    createItems() {
+        const me = this;
+
+        me.items = [{
+            module: Container,
+            cls   : ['sp-shell'],
+            layout: 'base',
+            bind  : {
+                cls: data => ['sp-shell', data.density === 'Compact' ? 'sp-density-compact' : 'sp-density-comfortable']
             },
-
-            containerConfig: {
-                reference: 'content-container',
-                style    : {padding: '20px'},
-
-                layout: {
-                    ntype: 'vbox',
-                    align: 'start'
-                }
-            },
-
-            headers: [{
-                dock     : 'top',
-                reference: 'header-toolbar',
-
-                items: [{
-                    ntype: 'label',
-                    text : 'state.Provider: advanced'
+            items : [{
+                module: Container,
+                cls   : ['sp-hero'],
+                layout: 'base',
+                items : [{
+                    module: Container,
+                    cls   : ['sp-hero-top'],
+                    layout: 'base',
+                    items : [{
+                        module: Container,
+                        cls   : ['sp-hero-identity'],
+                        layout: 'base',
+                        items : [{
+                            cls      : ['sp-avatar', 'sp-avatar-lg'],
+                            reference: 'header-avatar',
+                            bind     : {text: data => initialsOf(data['member.name'])}
+                        }, {
+                            module: Container,
+                            cls   : ['sp-hero-copy'],
+                            layout: 'base',
+                            items : [{
+                                tag : 'span',
+                                cls : ['sp-eyebrow'],
+                                text: 'One state, every surface · Neo.state.Provider'
+                            }, {
+                                tag      : 'h1',
+                                cls      : ['sp-hero-name'],
+                                reference: 'header-name',
+                                bind     : {text: data => data['member.name'] || ''}
+                            }, {
+                                tag      : 'p',
+                                cls      : ['sp-hero-meta'],
+                                reference: 'header-meta',
+                                bind     : {text: data => `${data['member.role'] || ''} · ${data['member.location'] || ''}`}
+                            }, {
+                                module: Container,
+                                cls   : ['sp-hero-pills'],
+                                layout: 'base',
+                                items : [{
+                                    tag      : 'span',
+                                    cls      : ['sp-pill', 'sp-pill-accent'],
+                                    reference: 'header-status',
+                                    bind     : {text: data => data['member.statusNote'] || ''}
+                                }, {
+                                    tag      : 'span',
+                                    cls      : ['sp-pill'],
+                                    reference: 'header-density',
+                                    bind     : {text: data => `Workspace density: ${data.density}`}
+                                }]
+                            }]
+                        }]
+                    }, {
+                        module: Container,
+                        cls   : ['sp-hero-actions'],
+                        layout: 'base',
+                        items : [{
+                            module   : Button,
+                            cls      : ['sp-btn-primary'],
+                            handler  : 'onOpenDialogClick',
+                            iconCls  : 'fa fa-window-maximize',
+                            reference: 'open-dialog-button',
+                            bind     : {text: data => data.dialogOpen ? 'Close dialog' : 'Edit in dialog'}
+                        }, {
+                            module   : Button,
+                            cls      : ['sp-btn-secondary'],
+                            handler  : 'onOpenSecondWindowClick',
+                            iconCls  : 'fa fa-up-right-from-square',
+                            reference: 'open-window-button',
+                            bind     : {
+                                hidden: data => !data.canOpenPopup,
+                                text  : data => data.companionOpen ? 'Focus second window' : 'Open second window'
+                            }
+                        }, {
+                            module: ThemeSwitcher
+                        }]
+                    }]
                 }, {
-                    ntype: 'component',
-                    flex : 1
+                    tag      : 'p',
+                    cls      : ['sp-try-line'],
+                    reference: 'try-line',
+                    bind     : {
+                        text: data => data.canOpenPopup
+                            ? 'Type in the form, open the dialog, or launch a second window — every surface edits one shared record, while the preview panel overrides density locally.'
+                            : 'Type in the form or open the dialog — every surface edits one shared record, while the preview panel overrides density locally.'
+                    }
+                }]
+            }, {
+                module: Container,
+                cls   : ['sp-grid'],
+                layout: 'base',
+                items : [{
+                    module: Container,
+                    cls   : ['sp-card', 'sp-editor-card'],
+                    layout: 'base',
+                    items : [{
+                        cls : ['sp-card-head'],
+                        vdom: {cn: [
+                            {tag: 'span', cls: ['sp-eyebrow'], text: 'Root StateProvider · stores.members'},
+                            {tag: 'h2',   cls: ['sp-card-title'], text: 'Team profile & workspace form'}
+                        ]}
+                    }, {
+                        module   : MemberList,
+                        reference: 'member-list',
+                        bind     : {store: 'stores.members'},
+                        listeners: {
+                            itemClick: 'onMemberItemClick',
+                            select   : 'onMemberSelect'
+                        }
+                    }, {
+                        module       : ProfileFields,
+                        reference    : 'main-fields',
+                        surfacePrefix: 'form'
+                    }, {
+                        module: Container,
+                        cls   : ['sp-card-actions'],
+                        layout: 'base',
+                        items : [{
+                            module   : Button,
+                            cls      : ['sp-btn-secondary'],
+                            handler  : 'onToggleRootDensityClick',
+                            reference: 'toggle-root-density-button',
+                            bind     : {text: data => data.density === 'Comfortable' ? 'Use Compact workspace' : 'Use Comfortable workspace'}
+                        }, {
+                            module   : Button,
+                            cls      : ['sp-btn-secondary'],
+                            handler  : 'onResetMemberClick',
+                            reference: 'reset-member-button',
+                            text     : 'Reset member'
+                        }]
+                    }]
                 }, {
-                    handler: 'onButton1Click',
-                    iconCls: 'fa fa-home',
-
+                    module   : Container,
+                    cls      : ['sp-card', 'sp-nested-card'],
+                    layout   : 'base',
+                    reference: 'nested-preview-panel',
                     /**
-                     * This binding demonstrates accessing data from multiple state providers.
-                     * `button1Text` is resolved from the top-level (MainContainer) provider.
-                     * `button2Text` is resolved from the panel's provider.
-                     * The framework handles the hierarchical lookup automatically.
-                     * @member {Object} bind
+                     * Nested StateProvider overriding `density` locally while inheriting `member` from MainContainer.
                      */
-                    bind: {
-                        text: data => `Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}`
-                    }
-                }, {
-                    handler: 'onButton2Click',
-                    iconCls: 'fa fa-user',
-                    style  : {marginLeft: '10px'},
-
-                    /**
-                     * This binding demonstrates a simple transformation on the state data.
-                     * `button2Text` is found in the panel's state provider.
-                     * @member {Object} bind
-                     */
-                    bind: {
-                        text: data => data.button2Text.toLowerCase()
-                    }
-                }]
-            }],
-
-            itemDefaults: {
-                ntype : 'container',
-                layout: {ntype: 'hbox', align: 'stretch'}
-            },
-
-            items: [{
-                items: [{
-                    module    : TextField,
-                    flex      : 'none',
-                    labelText : 'data.button1Text:',
-                    labelWidth: 150,
-                    width     : 300,
-
-                    bind: {
-                        value: data => data.button1Text
+                    stateProvider: {
+                        module: StateProvider,
+                        data  : {
+                            density: 'Compact'
+                        }
                     },
-
-                    listeners: {
-                        change: 'onTextField1Change'
-                    }
-                }, {
-                    module   : DisplayField,
-                    labelText: 'Button1 formatter:',
-                    style    : {marginLeft: '2em'},
-                    value    : 'Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}',
-                    width    : 600
+                    items: [{
+                        cls : ['sp-card-head'],
+                        vdom: {cn: [
+                            {tag: 'span', cls: ['sp-eyebrow'], text: 'Nested StateProvider override'},
+                            {tag: 'h2',   cls: ['sp-card-title'], text: 'Directory card preview'},
+                            {tag: 'p',    cls: ['sp-card-desc'], text: 'Declares its own nested stateProvider (density: "Compact") while inheriting the active member record from the parent.'}
+                        ]}
+                    }, {
+                        module: Container,
+                        cls   : ['sp-scope-ledger'],
+                        layout: 'base',
+                        items : [{
+                            module: Container,
+                            cls   : ['sp-scope-row'],
+                            layout: 'base',
+                            items : [
+                                {tag: 'span',   cls: ['sp-scope-label'], text: 'Inherited from root (member.name)'},
+                                {tag: 'strong', cls: ['sp-scope-value'], reference: 'nested-inherited-name', bind: {text: data => data['member.name'] || ''}}
+                            ]
+                        }, {
+                            module: Container,
+                            cls   : ['sp-scope-row', 'sp-scope-row-override'],
+                            layout: 'base',
+                            items : [
+                                {tag: 'span',   cls: ['sp-scope-label'], text: 'Nested override (data.density)'},
+                                {tag: 'strong', cls: ['sp-scope-value'], reference: 'nested-override-density', bind: {text: data => data.density}}
+                            ]
+                        }]
+                    }, {
+                        module   : Container,
+                        reference: 'nested-preview-badge',
+                        layout   : 'base',
+                        bind     : {
+                            cls: data => ['sp-preview-badge', data.density === 'Compact' ? 'sp-preview-compact' : 'sp-preview-comfortable']
+                        },
+                        items: [{
+                            cls : ['sp-avatar', 'sp-avatar-sm'],
+                            bind: {text: data => initialsOf(data['member.name'])}
+                        }, {
+                            module: Container,
+                            cls   : ['sp-preview-meta'],
+                            layout: 'base',
+                            items : [
+                                {tag: 'strong', cls: ['sp-preview-name'],   bind: {text: data => data['member.name'] || ''}},
+                                {tag: 'span',   cls: ['sp-preview-role'],   bind: {text: data => `${data['member.role'] || ''} · ${data['member.location'] || ''}`}},
+                                {tag: 'span',   cls: ['sp-preview-status'], bind: {text: data => data['member.statusNote'] || ''}}
+                            ]
+                        }, {
+                            tag : 'span',
+                            cls : ['sp-pill'],
+                            bind: {text: data => data.density}
+                        }]
+                    }, {
+                        module: Container,
+                        cls   : ['sp-card-actions'],
+                        layout: 'base',
+                        items : [{
+                            module   : Button,
+                            cls      : ['sp-btn-secondary'],
+                            handler  : 'onFlipNestedDensityClick',
+                            reference: 'flip-nested-density-button',
+                            bind     : {text: data => data.density === 'Compact' ? 'Override panel to Comfortable' : 'Override panel to Compact'}
+                        }]
+                    }]
                 }]
             }, {
-                items: [{
-                    module    : TextField,
-                    flex      : 'none',
-                    labelText : 'data.button2Text:',
-                    labelWidth: 150,
-                    width     : 300,
-
-                    bind: {
-                        value: data => data.button2Text
-                    },
-
-                    listeners: {
-                        change: 'onTextField2Change'
-                    }
-                }, {
-                    module   : DisplayField,
-                    labelText: 'Button2 formatter:',
-                    style    : {marginLeft: '2em'},
-                    value    : '${data.button2Text.toLowerCase()}',
-                    width    : 600
-                }]
-            }, {
-                ntype  : 'button',
-                handler: 'onAddButtonTextfieldButtonClick',
-                style  : {marginTop: '2em'},
-                text   : 'Add a third button & textfield'
-            }, {
-                ntype  : 'button',
-                handler: 'onLogMainStateProviderIntoConsoleButtonClick',
-                style  : {marginTop: '1em'},
-                text   : 'Log main stateProvider into console'
-            }, {
-                ntype  : 'button',
-                handler: 'onLogChildStateProviderIntoConsoleButtonClick',
-                style  : {marginTop: '1em'},
-                text   : 'Log child stateProvider into console'
+                tag      : 'p',
+                cls      : ['sp-status-bar'],
+                reference: 'surface-notice',
+                role     : 'status',
+                bind     : {text: data => data.surfaceNotice}
             }]
-        }]
+        }];
+
+        super.createItems()
+    }
+
+    /**
+     * @summary Forwards viewport theme changes to any open ProfileDialog in this window.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.controller?.dialog && !this.controller.dialog.isDestroyed) {
+            this.controller.dialog.theme = value
+        }
     }
 }
 

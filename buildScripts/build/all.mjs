@@ -1,12 +1,16 @@
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import os              from 'os';
-import path            from 'path';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {spawnSync}               from 'child_process';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import os                        from 'os';
+import path                      from 'path';
+import * as BuildId              from '../util/buildId.mjs';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {esmOutputRoot}           from '../util/esmDistTransforms.mjs';
+import {runSteps}                from '../util/runSteps.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 
 const __dirname   = path.resolve(),
@@ -82,7 +86,7 @@ if (programOpts.info) {
             });
         }
 
-        if (!programOpts.npminstall) {
+        if (!programOpts.themes) {
             questions.push({
                 type   : 'select',
                 name   : 'themes',
@@ -113,7 +117,12 @@ if (programOpts.info) {
         }
     }
 
-    inquirer.prompt(questions).then(answers => {
+    assertInteractivePrompt({
+        command: 'npm run build-all -- -e dev -l no -t yes -w yes -p no',
+        questions
+    });
+
+    (questions.length ? inquirer.prompt(questions) : Promise.resolve({})).then(async answers => {
         const env        = answers.env        || programOpts.env        || 'all',
               npminstall = answers.npminstall || programOpts.npminstall || 'yes',
               parsedocs  = answers.parsedocs  || programOpts.parsedocs  || 'yes',
@@ -126,6 +135,9 @@ if (programOpts.info) {
 
         programOpts.noquestions && cpArgs.push('-n');
         insideNeo               && cpArgs.push('-f');
+
+        // One id for the whole run: every build step below inherits it through process.env
+        console.log(chalk.green(`Build id: ${BuildId.getBuildId()}`));
 
         if (npminstall === 'yes') {
             childProcess = spawnSync(npmCmd, ['i'], cpOpts);
@@ -157,29 +169,39 @@ if (programOpts.info) {
             childProcess.status && process.exit(childProcess.status);
         }
 
+        // Each of these writes its own tree (a dist folder, `dist/esm`, `docs/output`) and reads only the sources, so
+        // they run together; the steps after them read their output and wait
+        const hasDocs = fs.existsSync(path.join(cwd, 'docs/app')),
+              steps   = [];
+
         if (threads === 'yes') {
-            if (env !== 'esm') {
-                childProcess = spawnSync(nodeCmd, [`${webpackPath}/buildThreads.mjs`].concat(cpArgs), cpOpts);
-                childProcess.status && process.exit(childProcess.status);
+            // One run for both environments: its own pool spreads their fourteen webpack builds over the cores.
+            // build-all builds every thread, so the run asks no thread question; `build-threads` keeps that choice
+            env !== 'esm' && steps.push(['threads', nodeCmd, [`${webpackPath}/buildThreads.mjs`, '-e', env, '-t', 'all', ...cpArgs.slice(2), '--no-stamp']]);
 
-                if (env === 'all' || env === 'prod') {
-                    childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/check-dist-paths.mjs`, path.resolve(cwd, 'dist/production')], cpOpts);
-                    childProcess.status && process.exit(childProcess.status);
-                }
-            }
-
-            if (env === 'all' || env === 'esm') {
-                childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
+            (env === 'all' || env === 'esm') && steps.push(['esmodules', nodeCmd, [`${neoPath}/buildScripts/build/esmodules.mjs`, '--no-stamp', '--no-docs-output']])
         }
 
-        if (fs.existsSync(path.join(cwd, 'docs/app'))) {
-            if (parsedocs === 'yes') {
-                childProcess = spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
-                childProcess.status && process.exit(childProcess.status);
-            }
+        hasDocs && parsedocs === 'yes' && steps.push(['docs json', npmCmd, ['run', 'generate-docs-json']]);
 
+        const failed = (await runSteps(steps, cpOpts)).find(result => result.status);
+
+        if (failed) {
+            console.error(chalk.red(`${failed.label} failed`));
+            process.exit(failed.status)
+        }
+
+        // `dist/esm` takes its copy of the docs JSON only now, once `generate-docs-json` has stopped writing it
+        if (threads === 'yes' && (env === 'all' || env === 'esm') && fs.existsSync(path.join(cwd, 'docs/output'))) {
+            fs.copySync(path.join(cwd, 'docs/output'), path.join(cwd, esmOutputRoot, 'docs/output'))
+        }
+
+        if (threads === 'yes' && (env === 'all' || env === 'prod')) {
+            childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/check-dist-paths.mjs`, path.resolve(cwd, 'dist/production')], cpOpts);
+            childProcess.status && process.exit(childProcess.status);
+        }
+
+        if (hasDocs) {
             if (parsedocs === 'yes' && (env === 'all' || env === 'dev')) {
                 childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${path.resolve(cwd, 'docs/output')   } -t ${path.resolve(cwd, 'dist/development/docs/output')}`],    cpOpts);
                 childProcess.status && process.exit(childProcess.status);
@@ -198,6 +220,15 @@ if (programOpts.info) {
         // Call the new script to copy SEO files
         childProcess = spawnSync(nodeCmd, [`${neoPath}/buildScripts/docs/seo/copy.mjs`, '-e', env], cpOpts);
         childProcess.status && process.exit(childProcess.status);
+
+        // Only a run whose every step succeeded publishes its id: its build steps ran with `--no-stamp`
+        if (threads === 'yes') {
+            const stamp = dist => BuildId.stampBuildId({buildId: BuildId.getBuildId(), distPath: path.resolve(cwd, dist)});
+
+            (env === 'all' || env === 'dev')  && stamp('dist/development');
+            (env === 'all' || env === 'prod') && stamp('dist/production');
+            (env === 'all' || env === 'esm')  && stamp(esmOutputRoot)
+        }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);

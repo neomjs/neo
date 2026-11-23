@@ -59,6 +59,21 @@ test.describe('Neo.form.field.Chip multi-value contract (#17312)', () => {
         })
     });
 
+    test('a value in chips counts as content while the input stays empty, so an inline label floats (#21324)', () => {
+        field = createField();
+
+        expect(field.cls).not.toContain('neo-has-content');
+
+        field.value = ['alpha', 'beta'];
+
+        expect(field.inputValue ?? '').toBe('');
+        expect(field.cls).toContain('neo-has-content');
+
+        field.value = [];
+
+        expect(field.cls).not.toContain('neo-has-content')
+    });
+
     test('normalizes scalar ids and object values into a unique record array', () => {
         field = createField();
 

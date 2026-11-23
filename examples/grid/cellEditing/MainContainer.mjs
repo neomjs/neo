@@ -119,39 +119,65 @@ class MainContainer extends ConfigurationViewport {
             },
 
             columnDefaults: {
-                editable: true,
-                width   : 200
+                editable: true
             },
 
+            // An order sheet: the order number, price and line total are read-only, the rest is a typed editor
             columns: [{
-                dataField: 'firstname',
-                text     : 'Firstname'
+                dataField: 'orderId',
+                editable : false,
+                text     : 'Order',
+                width    : 100
             }, {
-                dataField: 'randomNumber',
-                text     : 'Number (step 5)',
+                dataField: 'item',
+                text     : 'Item',
+                // Order, Item and Quantity fit a phone's 390px together
+                width    : 150
+            }, {
+                cellAlign: 'right',
+                dataField: 'quantity',
+                text     : 'Quantity',
+                width    : 100,
 
+                // A quantity above 50 is refused: the editor shows its error and stays open
                 editor: {
-                    module   : NumberField,
-                    clearable: false,
-                    maxValue : 100,
-                    minValue : 0,
-                    stepSize : 5
+                    module           : NumberField,
+                    clearable        : false,
+                    errorTextMaxValue: ({maxValue}) => `At most ${maxValue}`,
+                    maxValue         : 50,
+                    minValue         : 1
                 }
             }, {
-                dataField: 'randomDate',
-                renderer : ({value}) => new Intl.DateTimeFormat('default').format(value),
-                text     : 'Random Date',
+                cellAlign: 'right',
+                dataField: 'unitPrice',
+                editable : false,
+                text     : 'Unit price',
+                type     : 'currency',
+                width    : 110
+            }, {
+                cellAlign: 'right',
+                dataField: 'total',
+                editable : false,
+                text     : 'Line total',
+                type     : 'currency',
+                width    : 120
+            }, {
+                dataField: 'delivery',
+                renderer : ({value}) => value ? new Intl.DateTimeFormat('default').format(value) : '',
+                text     : 'Delivery',
+                width    : 130,
 
                 editor: {
                     module   : DateField,
                     clearable: false,
-                    maxValue : '2024-12-20',
-                    minValue : '2024-12-10'
+                    maxValue : '2027-01-31',
+                    minValue : '2026-12-01'
                 }
             }, {
                 dataField: 'country',
                 renderer : 'up.countryRenderer',
-                text     : 'Country',
+                text     : 'Ships to',
+                width    : 170,
 
                 editor: {
                     module        : CountryField,
@@ -160,10 +186,6 @@ class MainContainer extends ConfigurationViewport {
                     forceSelection: true,
                     valueField    : 'code'
                 }
-            }, {
-                dataField: 'githubId',
-                editable : false,
-                text     : 'Github Id (Non-editable)'
             }]
         }
     }

@@ -1,0 +1,278 @@
+/* Typed, so the glass card's border light can animate its angle */
+@property --portal-glass-card-sweep-angle {
+    syntax       : "<angle>";
+    initial-value: 0deg;
+    inherits     : false;
+}
+
+@keyframes portal-glass-card-sweep {
+    0%   {--portal-glass-card-sweep-angle: 0deg;   opacity: 1}
+    80%  {opacity: 1}
+    100% {--portal-glass-card-sweep-angle: 360deg; opacity: 0}
+}
+
+/* The glint layer crosses the glass; the light layer under it stays put */
+@keyframes portal-glass-card-glint {
+    from {background-position: 100% 0, 0 0}
+    to   {background-position: 0% 0,   0 0}
+}
+
+body {
+    > .neo-viewport {
+        /* without the snap scrolling it is possible to scroll the viewport
+           by the height of the header toolbar outside the visible area
+           see: https://github.com/neomjs/neo/issues/5715 */
+        position: fixed;
+    }
+}
+
+/* The Portal's buttons stand alone on wide sections, and its header canvas draws its waves around each nav item: both
+   take the large size. Any other toolbar keeps the neo themes' medium one. */
+.neo-viewport, .portal-header-toolbar {
+    --button-height        : var(--button-size-large-height);
+    --button-min-width     : var(--button-size-large-height);
+    --button-padding       : var(--button-size-large-padding);
+    --button-text-font-size: var(--button-size-large-font-size);
+}
+
+.neo-viewport {
+    /* sometimes when transitioning between card & cube layouts, the flex value does get lost
+       see: https://github.com/neomjs/neo/issues/5637 */
+    .portal-main-content {
+        flex: 1 1 auto;
+
+        > * {
+            flex: 1 0 100%;
+        }
+    }
+
+    .neo-layout-cube {
+        &.neo-animate {
+            .neo-box {
+                transition: transform var(--motion-stage) var(--ease-out-soft);
+            }
+        }
+
+        .neo-face {
+            opacity: 0.8;
+            transition: opacity var(--motion-fast) var(--ease-out-soft);
+        }
+
+        .neo-plane {
+            transform: translateZ(0px);
+        }
+    }
+
+    /* the style will get used inside home & learn */
+    .neo-worker-setup {
+        align-items     : center;
+        background-color: #17141c;
+        display         : flex;
+        height          : 100%;
+        justify-content : center;
+        padding         : 20px;
+        width           : 100%;
+
+        --fill-opacity  : 0.05;
+        --stroke-opacity: 0.05;
+
+        &:hover {
+            --fill-opacity  : 1;
+            --stroke-opacity: 1;
+        }
+    }
+
+    .portal-shared-background {
+        background-attachment: fixed;
+        background-color: var(--portal-bg-main);
+        background-image:
+            radial-gradient(at 0% 0%, rgba(62, 99, 221, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 100%, rgba(138, 43, 226, 0.05) 0px, transparent 50%);
+    }
+
+    /* Grid-card layout + link reset only: the surface chrome lives in .portal-glass-card below, so a card
+       lights in place instead of lifting (a lift clipped the top border and moved every target inside the card). */
+    .portal-content-box {
+        box-sizing     : border-box;
+        color          : var(--sem-color-text-neutral-default);
+        display        : flex;
+        flex-direction : column;
+        margin         : 0;
+        max-width      : none;
+        min-height     : 300px;
+        min-width      : 0;
+        padding        : 2rem;
+        text-align     : left;
+        text-decoration: none;
+
+        .portal-content-box-headline {
+            color         : var(--sem-color-text-primary-default);
+            margin        : 0 0 1rem 0;
+            padding-bottom: 0.5rem;
+            text-align    : left;
+            transition    : color var(--motion-fast) var(--ease-out-soft);
+        }
+
+        h4.portal-content-box-headline {
+            font-family: "GT-Planar", sans-serif;
+            font-size  : 1.25rem;
+            font-weight: 600;
+        }
+
+        .portal-content-box-content {
+            flex: 1;
+
+            ul {
+                margin    : 0;
+                padding   : 0 0 0 1.2em;
+                list-style: disc;
+            }
+
+            li {
+                color        : var(--sem-color-text-neutral-subdued);
+                font-size    : 1rem;
+                line-height  : 1.6;
+                margin-bottom: 0.5rem;
+
+                &::marker {
+                    color: var(--sem-color-text-primary-default);
+                }
+            }
+        }
+    }
+
+    /* Only a real link keeps the pointer: an About member card is not one */
+    a.portal-content-box {
+        cursor: pointer;
+    }
+
+    .portal-glass-card {
+        backdrop-filter        : blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        background             : var(--portal-glass-card-background);
+        border                 : var(--portal-glass-card-border);
+        border-radius          : 16px;
+        box-shadow             : var(--portal-glass-card-shadow);
+        box-sizing             : border-box;
+        flex-shrink            : 0;
+        isolation              : isolate;
+        margin-left            : auto;
+        margin-right           : auto;
+        max-width              : 800px;
+        min-height             : fit-content;
+        opacity                : 1;
+        padding                : 2.5em;
+        position               : relative;
+        transition             : box-shadow var(--motion-base) var(--ease-out-soft), border-color var(--motion-base) var(--ease-out-soft);
+        width                  : 100%;
+
+        /* A hover lights the card and never moves it: a lift clipped the top border and moved every target inside the card. */
+        &::before,
+        &::after {
+            border-radius : inherit;
+            content       : '';
+            inset         : -1px;
+            opacity       : 0;
+            pointer-events: none;
+            position      : absolute;
+            z-index       : -1;
+        }
+
+        /* The glass: one glint crosses it on entry, over the light falling from its top edge */
+        &::after {
+            background:
+                linear-gradient(115deg, transparent 36%, var(--portal-glass-card-glint-edge) 44%, var(--portal-glass-card-glint-core) 50%, var(--portal-glass-card-glint-edge) 56%, transparent 64%) 100% 0 / 250% 100% no-repeat,
+                radial-gradient(120% 70% at 50% 0%, var(--portal-glass-card-hover-light), transparent 70%);
+            transition: opacity var(--motion-base) var(--ease-out-soft);
+        }
+
+        /* The border: one lap of light on entry, a conic ring masked down to the border, its head leading */
+        &::before {
+            background            : conic-gradient(from var(--portal-glass-card-sweep-angle), transparent 0turn 0.72turn, var(--portal-glass-card-sweep-color) 0.96turn, var(--portal-glass-card-sweep-head) 1turn);
+            mask                  : linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+            padding               : var(--portal-glass-card-sweep-width);
+            -webkit-mask          : linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+        }
+
+        &:hover,
+        &:focus-visible,
+        &:has(:focus-visible) {
+            border-color: var(--portal-glass-card-hover-border);
+            box-shadow  : var(--portal-glass-card-hover-shadow);
+
+            &::after {
+                animation: portal-glass-card-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
+                opacity  : 1;
+            }
+
+            /* Recorded exception: a lap runs at constant speed (linear) for twice the stage tier; an ease-out would spend
+               three quarters of it in the first 150 ms. Reduced motion collapses the tier to 0, so the lap is skipped. */
+            &::before {
+                animation: portal-glass-card-sweep calc(var(--motion-stage) * 2) linear forwards;
+            }
+        }
+
+        /* A card root can take keyboard focus itself (the Home cards are anchors): give it a clean ring */
+        &:focus-visible {
+            outline       : 2px solid var(--portal-glass-card-hover-border);
+            outline-offset: 2px;
+        }
+
+        .portal-content-box-headline {
+            font-size    : 1.5em;
+            font-weight  : 600;
+            margin-bottom: 1em;
+            margin-top   : 0;
+            opacity      : 0.9;
+        }
+
+        .portal-content-box-content {
+            font-size  : 1.1em;
+            line-height: 1.7;
+            opacity    : var(--portal-glass-card-text-opacity);
+
+            a {
+                color          : var(--portal-glass-card-link-color);
+                font-weight    : 600;
+                text-decoration: none;
+                transition     : color var(--motion-fast) var(--ease-out-soft);
+
+                &:hover {
+                    color          : var(--portal-glass-card-link-hover-color);
+                    text-decoration: underline;
+                }
+
+                &:focus-visible {
+                    outline       : 2px solid var(--portal-glass-card-link-color);
+                    outline-offset: 4px;
+                }
+            }
+
+            ul {
+                margin-top  : 1em;
+                padding-left: 1.5em;
+
+                li {
+                    list-style-type: disc;
+                    margin-bottom  : 0.5em;
+                }
+            }
+        }
+
+        .portal-connect-links {
+            display  : flex;
+            flex-wrap: wrap;
+            gap      : 0.75em 1.5em;
+        }
+    }
+}
+
+@media (max-width: 600px) {
+    .neo-viewport {
+        .portal-glass-card {
+            border-radius: 12px;
+            padding      : 1.5em;
+        }
+    }
+}

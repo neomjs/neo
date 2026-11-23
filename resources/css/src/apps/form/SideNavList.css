@@ -1,0 +1,44 @@
+.form-side-nav-list.neo-list {
+    .neo-list-item {
+        align-items  : center;
+        border-radius: 6px;
+        display      : flex;
+        gap          : 12px;
+        padding      : 10px 12px;
+    }
+
+    .form-side-nav-name {
+        flex: 1;
+    }
+
+    .form-side-nav-number {
+        align-items    : center;
+        border         : 1px solid var(--sem-color-border-default);
+        border-radius  : 50%;
+        display        : inline-flex;
+        flex           : none;
+        font-size      : 13px;
+        height         : 26px;
+        justify-content: center;
+        width          : 26px;
+    }
+
+    .form-side-nav-state-invalid {
+        color: var(--status-badge-state-error-text-color, #e5484d);
+    }
+
+    .form-side-nav-state-valid {
+        color: var(--status-badge-state-success-text-color, #3fb950);
+    }
+
+    @media (max-height: 479px) {
+        .neo-list-item {
+            padding: 6px 10px;
+        }
+
+        .form-side-nav-number {
+            height: 22px;
+            width : 22px;
+        }
+    }
+}

@@ -37,7 +37,7 @@ class AiToolchain extends BaseContainer {
                 flex : 'none',
                 vdom : {
                     cn: [{
-                        tag : 'h1',
+                        tag : 'h2',
                         cls : ['neo-h1'],
                         text: 'The Agent OS Brain'
                     }, {

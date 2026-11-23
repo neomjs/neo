@@ -1,0 +1,81 @@
+.webdesktop-permission-list {
+    --list-container-list-color        : var(--webdesktop-ink);
+    --list-item-background-color      : transparent;
+    --list-item-background-color-active: var(--webdesktop-glass-active);
+    --list-item-background-color-hover : var(--webdesktop-glass-hover);
+    --list-item-focus-outline          : 2px solid var(--webdesktop-accent);
+    --list-item-focus-outline-offset   : -2px;
+    --list-item-padding                : 10px 20px;
+
+    .neo-list-item {
+        align-items: center;
+        display    : flex;
+        gap        : 12px;
+
+        &:not(.webdesktop-granted) .webdesktop-permission-icon {
+            filter : grayscale(1);
+            opacity: .5;
+        }
+    }
+
+    .webdesktop-permission-icon {
+        align-items     : center;
+        background-color: var(--webdesktop-app-color);
+        border-radius   : 9px;
+        color           : #fff;
+        display         : flex;
+        flex            : none;
+        font-size       : 14px;
+        height          : 30px;
+        justify-content : center;
+        transition      : filter var(--motion-base) var(--ease-out-soft), opacity var(--motion-base) var(--ease-out-soft);
+        width           : 30px;
+    }
+
+    .webdesktop-permission-text {
+        flex     : 1;
+        min-width: 0;
+    }
+
+    .webdesktop-permission-name {
+        font-size  : 13.5px;
+        font-weight: 600;
+    }
+
+    .webdesktop-permission-key {
+        color      : var(--webdesktop-ink-faint);
+        font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        font-size  : 11.5px;
+    }
+
+    .webdesktop-switch {
+        background-color: var(--webdesktop-switch-off);
+        border-radius   : 999px;
+        flex            : none;
+        height          : 22px;
+        position        : relative;
+        transition      : background-color var(--motion-base) var(--ease-out-soft);
+        width           : 38px;
+
+        &::after {
+            background-color: #fff;
+            border-radius   : 50%;
+            box-shadow      : 0 1px 3px rgba(0, 0, 0, .3);
+            content         : '';
+            height          : 18px;
+            left            : 2px;
+            position        : absolute;
+            top             : 2px;
+            transition      : transform var(--motion-base) var(--ease-out-soft);
+            width           : 18px;
+        }
+    }
+
+    .webdesktop-granted .webdesktop-switch {
+        background-color: var(--webdesktop-switch-on);
+
+        &::after {
+            transform: translateX(16px);
+        }
+    }
+}

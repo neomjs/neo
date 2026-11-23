@@ -162,6 +162,24 @@ test.describe('Grid Dynamic Column Updates', () => {
         expect(index3).toBe('zEnd');
     });
 
+    test('Changing dataField should re-key the grid columns collection in place', () => {
+        const columns      = grid.columns,
+              column       = columns.items[2],
+              initialCount = columns.count,
+              oldDataField = column.dataField,
+              newDataField = 'c2020';
+
+        expect(columns.get(oldDataField)).toBe(column);
+
+        column.dataField = newDataField;
+
+        expect(columns.get(newDataField)).toBe(column);
+        expect(columns.get(oldDataField)).toBeNull();
+        expect(columns.count).toBe(initialCount);
+        expect(columns.items[2]).toBe(column);
+        expect(columns.items.map(col => col.dataField)).toEqual(['id', 'name', newDataField, 'zEnd']);
+    });
+
     test('Replacing grid.columns at runtime destroys old Column & Button instances and skips intermediate onColumnsMutate', async () => {
         const oldColumnIds = grid.columns.items.map(col => col.id);
         const oldButtonIds = grid.headerToolbar.items.map(btn => btn.id);

@@ -42,17 +42,29 @@ import isEntryModule                                               from './isEnt
  * @member {String[]} RUN_PATHS
  */
 export const RUN_PATHS = [
+    'test/playwright/e2e/board',
+    'test/playwright/e2e/code',
     'test/playwright/e2e/colors',
+    'test/playwright/e2e/component',
     'test/playwright/e2e/core',
     'test/playwright/e2e/dashboard',
+    'test/playwright/e2e/desktop',
+    'test/playwright/e2e/dialog',
+    'test/playwright/e2e/form',
+    'test/playwright/e2e/gantt',
     'test/playwright/e2e/grid',
     'test/playwright/e2e/list',
     'test/playwright/e2e/neural-link',
+    'test/playwright/e2e/popover',
     'test/playwright/e2e/portal',
     'test/playwright/e2e/realworld',
     'test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarBasicExample.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthEventDrag.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarPhoneAndFold.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarWeekViewSwitch.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarYearExample.spec.mjs',
     'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
@@ -64,15 +76,25 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/MountHookIsolation.spec.mjs',
     'test/playwright/e2e/rendering/NativeSelectNL.spec.mjs',
     'test/playwright/e2e/rendering/NestedComponentsNL.spec.mjs',
+    'test/playwright/e2e/rendering/ShallowUpdateFlags.spec.mjs',
     'test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs',
     'test/playwright/e2e/rendering/StoreLoadingNL.spec.mjs',
+    'test/playwright/e2e/rendering/TooltipExampleMultiWindow.spec.mjs',
+    'test/playwright/e2e/rendering/TooltipMountFlightNL.spec.mjs',
+    'test/playwright/e2e/rendering/TooltipWindowSequenceNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
+    'test/playwright/e2e/rendering/WorkerCanvas.spec.mjs',
+    'test/playwright/e2e/rendering/YieldedMoveCoalescingNL.spec.mjs',
+    'test/playwright/e2e/scheduler',
     'test/playwright/e2e/tab',
     'test/playwright/e2e/table',
+    'test/playwright/e2e/timeline',
+    'test/playwright/e2e/webdesktop',
     'test/playwright/e2e/workstation/DockSplitterZoneIdNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselClosesMidFirstRenderNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselNativeRouteNL.spec.mjs',
     'test/playwright/e2e/workstation/WindowGeometryRealChromeNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationCellEditingWindowMoveNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationCrossZoneCueNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDockFlipResizeNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationDockPreviewSymmetryNL.spec.mjs',
@@ -98,6 +120,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationNestedColumnResizeNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationOffSocketContractNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationOwnPaneEdgeDropNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationPlanningDeskNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopOutHoverSyncNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopOutPaneIdentityNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationPopOutSparklinesNL.spec.mjs',
@@ -118,6 +141,8 @@ export const RUN_PATHS = [
     'test/playwright/e2e/workstation/WorkstationTabDragLabelOverlapNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabDragSiblingHoldsNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabOverflowCapNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabPressFocusNL.spec.mjs',
+    'test/playwright/e2e/workstation/WorkstationTabPressInPlaceNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabReorderNoFlashNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTabRestoreNL.spec.mjs',
     'test/playwright/e2e/workstation/WorkstationTearOutLateReleaseNL.spec.mjs',
@@ -188,15 +213,17 @@ export const QUARANTINES = [];
 
 /**
  * The shard count the engine tier's full population runs on. A selection gets proportionally fewer shards, so each
- * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones.
+ * shard keeps the test time a full run gives it: a smaller selection costs fewer jobs, not shorter ones. A shard
+ * planned at the run step's six-minute ceiling times out on ordinary runner variance, so the count keeps the plan
+ * near five minutes: recount once {@link ENGINE_DURATIONS} totals more than 300 s per shard.
  * @member {{engine: Number}} FULL_SHARDS
  */
-export const FULL_SHARDS = {engine: 14};
+export const FULL_SHARDS = {engine: 18};
 
 /**
  * Measured seconds per engine-tier spec file, which {@link balancedShard} balances the tier's shards by.
- * `--engine-durations` rebuilds it from a full `dev` run's log (`gh run view <id> --log`); a file the table does not
- * list yet counts as its median.
+ * `--engine-durations` rebuilds it from several full runs' logs, one file per run (`gh run view <id> --log`); a file
+ * the table does not list yet plans at its 90th percentile.
  * @member {Object<String, Number>} ENGINE_DURATIONS
  */
 export const ENGINE_DURATIONS = JSON.parse(readFileSync(new URL('./e2eEngineDurations.json', import.meta.url), 'utf8'));
@@ -380,24 +407,31 @@ function parseShard(shard) {
 }
 
 /**
- * @summary Seconds per spec file, a file the table does not list yet counting as the table's median.
+ * @summary Seconds per spec file, a file the table does not list yet planning at the table's 90th percentile.
+ * @description A new spec costs more than the median often enough to matter. Planned too high, it leaves its own shard
+ * light and spreads the excess thinly over the other shards; planned too low, the whole error lands on the one shard
+ * that holds it, which then runs into the ceiling.
  * @param {Object<String, Number>} durations
  * @returns {Function} `path => seconds`
  */
 function durationOf(durations) {
-    const known  = Object.values(durations).toSorted((a, b) => a - b),
-          median = known.length ? known[Math.floor(known.length / 2)] : 0;
+    const known    = Object.values(durations).toSorted((a, b) => a - b),
+          fallback = known.length ? known[Math.floor(known.length * .9)] : 0;
 
-    return path => durations[path] ?? median
+    return path => durations[path] ?? fallback
 }
 
 /**
  * @summary One shard of a tier's selection, balanced by measured time rather than by test count.
  * @description Playwright's own `--shard` gives each shard the same number of tests, and a test costs anything from
- * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file,
- * longest first, joins the shard with
- * the least time so far: equal times fall to the lower shard and equal files to path order, so every shard of a run
- * computes the same split and every selected file runs in exactly one of them.
+ * a few milliseconds to over a minute, so one shard can run past the ceiling while another idles. Here each file joins
+ * the shard with the least time so far: equal times fall to the lower shard and equal files to path order, so every
+ * shard of a run computes the same split and every selected file runs in exactly one of them.
+ *
+ * Files the table does not list yet are dealt first, then the measured files longest-first on top. The unlisted ones
+ * all plan at the same fallback ({@link durationOf}'s 90th percentile), so sorted among the measured files they would
+ * land ahead of every file below it and leave the shard holding the longest measured spec the least fallback headroom;
+ * dealt first, K of them split `floor(K/M)..ceil(K/M)` per shard, and the measured load stays spread.
  * @param {Object}   options
  * @param {String[]} options.paths The selection to split, relative to the repository root.
  * @param {String}   options.shard `N/M`, the shard to return.
@@ -410,7 +444,8 @@ export function balancedShard({paths, shard, durations}) {
           seconds        = durationOf(durations),
           shards         = Array.from({length: total}, () => ({paths: [], seconds: 0}));
 
-    for (const path of paths.toSorted((a, b) => seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
+    // Unmeasured files (`!(path in durations)`) sort ahead of measured ones, so the pass deals them first
+    for (const path of paths.toSorted((a, b) => (a in durations) - (b in durations) || seconds(b) - seconds(a) || (a < b ? -1 : 1))) {
         const lightest = shards.reduce((min, candidate) => candidate.seconds < min.seconds ? candidate : min);
 
         lightest.paths.push(path);
@@ -421,19 +456,15 @@ export function balancedShard({paths, shard, durations}) {
 }
 
 /**
- * @summary {@link ENGINE_DURATIONS} rebuilt from engine-tier logs: what each file cost the shard that ran it, every
- * attempt included, because the shard paid for those too.
- * @description Playwright's list reporter prints a line as each test ends. In GitHub's run log every line carries its
- * job and a timestamp, so a test costs the time since the job's previous test ended, or since its run started: hooks
- * and fixtures included, which a test's own duration leaves out (a 3 ms test can end 15 s into its shard). A log
- * without timestamps falls back to the durations the lines print.
- * @param {String} text Any number of shards' logs; skipped tests, whose lines carry no duration, are ignored.
- * @returns {Object<String, Number>} Seconds per file to a tenth, keyed by its repository path, in path order.
+ * @summary What each file cost one run's shards: per test, the time since its job's previous test ended, or since its
+ * run started, else the duration its line prints.
+ * @param {String} text One run's logs, any number of shards.
+ * @returns {Object<String, Number>} Unrounded seconds per file, keyed by its repository path.
  */
-export function engineDurations(text) {
+function runCosts(text) {
     const unit  = {ms: 0.001, s: 1, m: 60, h: 3600},
           ended = new Map(),
-          table = {};
+          costs = {};
 
     for (const line of text.split('\n')) {
         const [, job, stamp] = /^([^\t]+)\t[^\t]*\t(\d{4}-\d\d-\d\dT[\d:.]+Z) /.exec(line) ?? [],
@@ -444,11 +475,36 @@ export function engineDurations(text) {
             const [, file, value, scale] = test,
                   path                   = file.startsWith('test/playwright/e2e/') ? file : `test/playwright/e2e/${file}`;
 
-            table[path] = (table[path] ?? 0) + (ended.has(job) ? at - ended.get(job) : Number(value) * unit[scale])
+            costs[path] = (costs[path] ?? 0) + (ended.has(job) ? at - ended.get(job) : Number(value) * unit[scale])
         }
 
         if (at && (test || /Running \d+ tests? using/.test(line))) {
             ended.set(job, at)
+        }
+    }
+
+    return costs
+}
+
+/**
+ * @summary {@link ENGINE_DURATIONS} rebuilt from engine-tier logs: what each file cost the shard that ran it, every
+ * attempt included, because the shard paid for those too.
+ * @description Playwright's list reporter prints a line as each test ends. In GitHub's run log every line carries its
+ * job and a timestamp, so a test costs the time since the job's previous test ended, or since its run started: hooks
+ * and fixtures included, which a test's own duration leaves out (a 3 ms test can end 15 s into its shard). A log
+ * without timestamps falls back to the durations the lines print.
+ *
+ * Given several runs, a file keeps its costliest one: its time varies from runner to runner, and the shard that holds
+ * it pays its slow runs, not its average.
+ * @param {...String} runs One run's logs each; skipped tests, whose lines carry no duration, are ignored.
+ * @returns {Object<String, Number>} Seconds per file to a tenth, keyed by its repository path, in path order.
+ */
+export function engineDurations(...runs) {
+    const table = {};
+
+    for (const costs of runs.map(runCosts)) {
+        for (const [path, seconds] of Object.entries(costs)) {
+            table[path] = Math.max(table[path] ?? 0, seconds)
         }
     }
 
@@ -470,33 +526,41 @@ export function engineDurations(text) {
  *
  * Otherwise the selection is:
  * - each spec whose reach holds a changed file, or whose app fetches it (its data, its `index.html`);
+ * - the executed specs of a stylesheet's verified standalone example;
  * - each changed spec;
  * - the specs the map cannot place, which run with every selection.
  *
  * Only a pull request selects: a `dev` push runs every tier it admits in full.
  * @param {Object}   options
  * @param {String[]} options.changed The changed files the E2E impact boundary admits, relative to the repository root.
+ * @param {String[]} [options.exampleCss=[]] Stylesheets with a verified added or modified PR file record.
  * @param {String}   [options.root=process.cwd()]
  * @param {Object}   [options.map] `specReach()`'s result for `root`, computed when omitted.
  * @returns {{full: Boolean, reasons: String[], specs: Map<String, String>}} Whether the whole population runs and why,
  *          or else each selected spec with its reason.
  */
-export function selectSpecs({changed, root = process.cwd(), map = specReach({root})}) {
-    const reasons = [],
-          specs   = new Map(),
-          isSpec  = file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'),
-          select  = (spec, why) => specs.has(spec) || specs.set(spec, why);
+export function selectSpecs({changed, exampleCss = [], root = process.cwd(), map = specReach({root})}) {
+    const reasons       = [],
+          specs         = new Map(),
+          cssCandidates = new Set(Array.isArray(exampleCss) ? exampleCss : []),
+          executed      = cssCandidates.size ? new Set(enginePaths(root)) : null,
+          isSpec        = file => file.startsWith(SPEC_DIR) && file.endsWith('.spec.mjs'),
+          select        = (spec, why) => specs.has(spec) || specs.set(spec, why);
 
     if (changed.length && changed.every(isSpec)) {
         return {full: true, reasons: ['every changed file is an e2e spec'], specs}
     }
 
     for (const file of changed) {
-        const reached = [...map.specs].filter(([, {reach}]) => reach.has(file)).map(([spec]) => spec),
+        const owner      = cssCandidates.has(file) ? map.exampleCssOwner?.(file) : null,
+              ownerSpecs = owner ? [...map.specs].filter(([spec, {entries}]) => executed.has(spec) && entries.includes(owner)) : [],
+              reached    = [...map.specs].filter(([, {reach}]) => reach.has(file)).map(([spec]) => spec),
               // The app that fetches a non-module file of its own, such as its data or its index.html
-              app     = /^(apps|examples)\//.test(file) && !file.endsWith('.mjs') ? entryOf(file.replace(/\.[^/.]+$/, ''), map.tracked) : null;
+              app        = /^(apps|examples)\//.test(file) && !file.endsWith('.mjs') ? entryOf(file.replace(/\.[^/.]+$/, ''), map.tracked) : null;
 
-        if (FOUNDATION.some(rule => rule.test(file))) {
+        if (ownerSpecs.some(([spec]) => map.witnessesExample?.(spec, owner))) {
+            ownerSpecs.forEach(([spec]) => select(spec, `owns example stylesheet ${file}`))
+        } else if (FOUNDATION.some(rule => rule.test(file))) {
             reasons.push(`${file}: foundation`)
         } else if (!map.tracked.has(file)) {
             reasons.push(`${file}: not in the tree`)
@@ -559,11 +623,12 @@ export function tierSelection({specs, root = process.cwd(), durations = {engine:
  * (`run_e2e=false`).
  * @param {Object}   options
  * @param {String[]} options.changed The changed files the E2E impact boundary admits.
+ * @param {String[]} [options.exampleCss] Stylesheets with a verified added or modified PR file record.
  * @param {String}   [options.root=process.cwd()]
  * @returns {String}
  */
-export function selectionOutput({changed, root = process.cwd()}) {
-    const {full, reasons, specs} = selectSpecs({changed, root}),
+export function selectionOutput({changed, exampleCss, root = process.cwd()}) {
+    const {full, reasons, specs} = selectSpecs({changed, exampleCss, root}),
           short                  = path => `\`${path.replace(SPEC_DIR, '')}\``,
           lines                  = [`e2e_selection=${full ? 'full' : 'selected'}`];
 
@@ -617,12 +682,18 @@ if (isEntryModule(import.meta.url)) {
 
         process.stdout.write((SHARD ? balancedShard({paths, shard: SHARD, durations: ENGINE_DURATIONS}).paths : paths).join(' '))
     } else if (mode === '--engine-durations') {
-        process.stdout.write(JSON.stringify(engineDurations(readFileSync(0, 'utf8')), null, 4) + '\n')
+        // One run's log per file argument, or one run's on stdin
+        const logs = process.argv.slice(3);
+
+        process.stdout.write(JSON.stringify(engineDurations(...(logs.length ? logs : [0]).map(log => readFileSync(log, 'utf8'))), null, 4) + '\n')
     } else if (mode === '--select') {
         // The changed files the E2E impact boundary admits, as JSON, because a path list is not shell-safe
-        process.stdout.write(selectionOutput({changed: JSON.parse(process.env.E2E_FILES || '[]')}))
+        process.stdout.write(selectionOutput({
+            changed   : JSON.parse(process.env.E2E_FILES || '[]'),
+            exampleCss: JSON.parse(process.env.E2E_EXAMPLE_CSS || '[]')
+        }))
     } else {
-        console.error('usage: e2eCiSelection.mjs --coverage-line | --paths | --summary | --engine-paths | --engine-durations | --select');
+        console.error('usage: e2eCiSelection.mjs --coverage-line | --paths | --summary | --engine-paths | --engine-durations [run.log ...] | --select');
         process.exit(2)
     }
 }

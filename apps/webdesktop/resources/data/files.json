@@ -1,0 +1,19 @@
+{
+    "documents": [
+        {"id": "launch-checklist",   "name": "Launch checklist.md",          "folder": "Projects", "kind": "text",   "size": 4210,    "modified": "2026-11-18T09:30:00Z"},
+        {"id": "release-notes",      "name": "Release notes, Engine 14.md",  "folder": "Projects", "kind": "text",   "size": 18942,   "modified": "2026-11-17T16:05:00Z"},
+        {"id": "desktop-plan",       "name": "Desktop demo plan.docx",       "folder": "Projects", "kind": "doc",    "size": 52310,   "modified": "2026-11-16T11:20:00Z"},
+        {"id": "window-glyphs",      "name": "Window glyphs.png",            "folder": "Design",   "kind": "image",  "size": 284120,  "modified": "2026-11-17T15:40:00Z"},
+        {"id": "brand-colours",      "name": "Brand colours.pdf",            "folder": "Design",   "kind": "pdf",    "size": 1204510, "modified": "2026-11-10T09:15:00Z"},
+        {"id": "review-deck",        "name": "Design review.pptx",           "folder": "Design",   "kind": "slides", "size": 3402200, "modified": "2026-11-18T08:50:00Z"},
+        {"id": "budget-2027",        "name": "Budget 2027.xlsx",             "folder": "Finance",  "kind": "sheet",  "size": 88430,   "modified": "2026-11-14T17:10:00Z"},
+        {"id": "pricing-sheet",      "name": "Pricing sheet.xlsx",           "folder": "Finance",  "kind": "sheet",  "size": 41020,   "modified": "2026-11-15T11:48:00Z"},
+        {"id": "team-handbook",      "name": "Team handbook.pdf",            "folder": "Shared",   "kind": "pdf",    "size": 2310400, "modified": "2026-11-02T10:00:00Z"},
+        {"id": "support-answers",    "name": "Support answers.md",           "folder": "Shared",   "kind": "text",   "size": 12870,   "modified": "2026-11-16T07:30:00Z"}
+    ],
+    "recycleBin": [
+        {"id": "old-logo",           "name": "Old logo.png",                 "folder": "Design",   "kind": "image",  "size": 96200,   "modified": "2026-10-28T14:00:00Z"},
+        {"id": "draft-budget",       "name": "Budget 2027, draft 1.xlsx",    "folder": "Finance",  "kind": "sheet",  "size": 79100,   "modified": "2026-11-03T09:45:00Z"},
+        {"id": "october-notes",      "name": "Meeting notes, October.md",    "folder": "Shared",   "kind": "text",   "size": 6400,    "modified": "2026-10-31T16:20:00Z"}
+    ]
+}

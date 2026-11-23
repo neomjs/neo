@@ -281,7 +281,7 @@
   ],
   "admitted": [
    "examples/grid/issues/MainContainer.mjs",
-   "resources/scss/src/grid/SearchToolbar.scss",
+   "resources/css/src/grid/SearchToolbar.css",
    "src/grid/Container.mjs",
    "src/grid/SearchToolbar.mjs",
    "src/grid/_export.mjs",
@@ -298,7 +298,7 @@
   ],
   "admitted": [
    "examples/grid/issues/MainContainer.mjs",
-   "resources/scss/src/grid/SearchToolbar.scss",
+   "resources/css/src/grid/SearchToolbar.css",
    "src/grid/Container.mjs",
    "src/grid/SearchToolbar.mjs",
    "src/grid/_export.mjs",
@@ -480,9 +480,9 @@
    "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
   ],
   "admitted": [
-   "resources/scss/src/grid/header/plugin/Menu.scss",
-   "resources/scss/theme-neo-dark/list/Base.scss",
-   "resources/scss/theme-neo-light/list/Base.scss",
+   "resources/css/src/grid/header/plugin/Menu.css",
+   "resources/css/theme-neo-dark/list/Base.css",
+   "resources/css/theme-neo-light/list/Base.css",
    "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
   ]
  },
@@ -555,7 +555,7 @@
    "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs"
   ],
   "admitted": [
-   "resources/scss/src/grid/SearchToolbar.scss",
+   "resources/css/src/grid/SearchToolbar.css",
    "src/grid/SearchToolbar.mjs",
    "test/playwright/e2e/grid/IssuesShowcase.spec.mjs"
   ]
@@ -568,7 +568,7 @@
    "test/playwright/e2e/neural-link/WindowOps.spec.mjs"
   ],
   "admitted": [
-   "resources/scss/src/grid/header/plugin/Menu.scss",
+   "resources/css/src/grid/header/plugin/Menu.css",
    "src/grid/Container.mjs",
    "src/grid/header/Button.mjs",
    "src/grid/header/Wrapper.mjs",
@@ -1095,7 +1095,7 @@
    "test/playwright/e2e/dashboard/DockMotionNL.spec.mjs"
   ],
   "admitted": [
-   "resources/scss/src/component/DateSelector.scss",
+   "resources/css/src/component/DateSelector.css",
    "src/component/DateSelector.mjs",
    "src/form/field/Date.mjs",
    "src/selection/DateSelectorModel.mjs"
@@ -1119,7 +1119,7 @@
    "examples/component/toast/resources/lib/highlight/highlight.pack.js",
    "examples/component/toast/resources/lib/highlightjs-custom-dark-theme.css",
    "examples/component/toast/resources/lib/highlightjs-custom-github-theme.css",
-   "resources/scss/src/examples/component/toast/MainContainer.scss",
+   "resources/css/src/examples/component/toast/MainContainer.css",
    "src/main/addon/HighlightJS.mjs",
    "src/util/HighlightJs.mjs",
    "test/playwright/e2e/portal/HighlightJsResources.spec.mjs"
@@ -1160,7 +1160,7 @@
    "examples/component/toast/resources/lib/highlight/highlight.pack.js",
    "examples/component/toast/resources/lib/highlightjs-custom-dark-theme.css",
    "examples/component/toast/resources/lib/highlightjs-custom-github-theme.css",
-   "resources/scss/src/examples/component/toast/MainContainer.scss",
+   "resources/css/src/examples/component/toast/MainContainer.css",
    "src/main/addon/HighlightJS.mjs",
    "src/util/HighlightJs.mjs",
    "test/playwright/e2e/portal/HighlightJsResources.spec.mjs"
@@ -1188,7 +1188,7 @@
    "test/playwright/e2e/grid/BigDataNL.spec.mjs"
   ],
   "admitted": [
-   "resources/scss/src/component/DateSelector.scss",
+   "resources/css/src/component/DateSelector.css",
    "src/component/DateSelector.mjs",
    "src/form/field/Date.mjs",
    "src/selection/DateSelectorModel.mjs",

@@ -1,0 +1,24 @@
+.task-tree-viewport.neo-viewport {
+    .task-tree-toolbar.neo-toolbar {
+        align-items: center;
+        flex-wrap  : wrap;
+        gap        : 8px 12px;
+        padding    : 12px 18px;
+    }
+
+    .task-tree-title {
+        font-size  : 20px;
+        font-weight: 700;
+    }
+
+    .task-tree-hint {
+        line-height: 1.4;
+        padding    : 4px 18px 12px;
+        white-space: normal;
+    }
+
+    @media (max-width: 600px) {
+        .task-tree-toolbar.neo-toolbar { padding: 8px 12px; }
+        .task-tree-hint { padding: 4px 12px 8px; }
+    }
+}

@@ -1,19 +1,37 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.number.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.number.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.number.MainContainer',
+        autoMount    : true,
+        componentName: 'Number field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module              : NumberField,
+            clearToOriginalValue: true,
+            labelText           : 'Quantity',
+            placeholderText     : 'How many?',
+            labelWidth          : 80,
+            maxValue            : 100,
+            minValue            : 1,
+            width               : 220
+        },
+        states: {
+            filled  : {value: 20},
+            empty   : {},
+            invalid : {value: 150},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -110,16 +128,6 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(NumberField, {
-            clearToOriginalValue: true,
-            labelText           : 'Label',
-            labelWidth          : 70,
-            value               : 20,
-            width               : 200
-        })
     }
 }
 

@@ -250,7 +250,8 @@ class DemoBCrossWindowHost extends Base {
             renderer.dockPreview = preview;
 
             if (preview) {
-                let targetRect = preview.target.nodeId === geometry.root.nodeId
+                // A zone placement paints its well, which shares a free-centered root edge-zone's id
+                let targetRect = preview.target.nodeId === geometry.root.nodeId && !PreviewContract.ZONE_KINDS.has(preview.placement.kind)
                     ? geometry.root.rect
                     : geometry.zones.find(entry => entry.nodeId === preview.target.nodeId)?.rect;
 

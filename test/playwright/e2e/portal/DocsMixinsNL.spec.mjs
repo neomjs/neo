@@ -1,6 +1,5 @@
-import {execFileSync}  from 'node:child_process';
-import {fileURLToPath} from 'node:url';
-import {expect, test}  from '../../fixtures.mjs';
+import {ensureDocsOutput} from '../../util/docsOutput.mjs';
+import {expect, test}     from '../../fixtures.mjs';
 
 /**
  * @summary Exercises mixin selection against the actual generated Docs data and the live App worker.
@@ -8,12 +7,7 @@ import {expect, test}  from '../../fixtures.mjs';
 test.describe('Docs mixin members', () => {
     test.use({viewport: {width: 1400, height: 950}});
 
-    test.beforeAll(() => {
-        execFileSync(process.execPath, ['buildScripts/docs/generateDocsJson.mjs'], {
-            cwd    : fileURLToPath(new URL('../../../../', import.meta.url)),
-            timeout: 60000
-        })
-    });
+    test.beforeAll(ensureDocsOutput);
 
     test('keeps app source routes independent of the active navigation tab and search', async ({page, neuralLink}) => {
         let structureRequests = 0;
@@ -63,6 +57,147 @@ test.describe('Docs mixin members', () => {
         await page.locator(`[id="${leafId}"]`).click();
         await expect.poll(async () => (await app.queryComponent({id: className}, ['structureData.className'])).length).toBe(1);
         await page.screenshot({path: test.info().outputPath('docs-apps-navigation.png')})
+    });
+
+
+    test('source arriving during first mount highlights after its text-bearing render (#20908)', async ({page, neuralLink}) => {
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+        await page.goto('/docs/index.html');
+        const app      = await neuralLink.connectToApp('Docs'), className = 'Docs.app.view.MainContainer',
+              sourceId = `${className}__source`, source = page.locator(`[id="${sourceId}"]`);
+        let controllerId;
+        await expect.poll(async () => {
+            const [view] = await app.queryComponent({className: 'Docs.view.MainContainer'}, ['controller.id']);
+            controllerId = view?.properties['controller.id'];
+            return Boolean(controllerId)
+        }).toBe(true);
+        await expect.poll(() => page.evaluate(() => typeof globalThis.hljs?.lineNumbersBlock)).toBe('function');
+
+        await page.evaluate(id => {
+            const main  = Neo.Main, queueWrite = main.queueWrite,
+                  addon = Neo.main.addon.HighlightJS, markLine = addon.syntaxHighlightLine,
+                  gate  = window.__docsPublication = {mountHeld: false, sourceHeld: false, emptyLineRequests: 0};
+            main.queueWrite = function(data) {
+                const deltas  = Array.isArray(data.deltas) ? data.deltas : [data.deltas],
+                      payload = JSON.stringify(deltas);
+                if (!gate.mountHeld && deltas.some(delta => delta.action === 'insertNode' && delta.vnode?.id === id)) {
+                    gate.mountHeld = true;
+                    gate.releaseMount = () => {gate.releaseMount = null; queueWrite.call(this, data)};
+                    return
+                }
+                if (!gate.sourceHeld && payload.includes('class MainContainer extends Viewport')) {
+                    gate.sourceHeld = true;
+                    gate.releaseSource = () => {gate.releaseSource = null; queueWrite.call(this, data)};
+                    return
+                }
+                return queueWrite.apply(this, arguments)
+            };
+            addon.syntaxHighlightLine = function(data) {
+                const code = document.getElementById(id)?.querySelector('pre code');
+                if (data.addLine === 1 && code?.id === data.vnodeId && !code.textContent) {
+                    gate.emptyLineRequests++
+                }
+                return markLine.apply(this, arguments)
+            };
+            gate.restore = () => {
+                gate.releaseMount?.();
+                gate.releaseSource?.();
+                main.queueWrite = queueWrite;
+                addon.syntaxHighlightLine = markLine
+            }
+        }, sourceId);
+        await page.route('**/docs/app/view/MainContainer.mjs', async route => {
+            const response = await route.fetch({maxRetries: 2});
+            await page.waitForFunction(() => !window.__docsPublication || window.__docsPublication.mountHeld);
+            await route.fulfill({response})
+        });
+
+        try {
+            await app.callMethod(controllerId, 'onViewSourceRoute', [{className, lineNumber: '1'}]);
+            await expect.poll(async () => (await app.getComponent(sourceId, ['vdom.cn.0.cn.0.html']))
+                ['vdom.cn.0.cn.0.html']?.includes('class MainContainer extends Viewport')).toBe(true);
+            await expect(source).toHaveCount(0);
+            await page.evaluate(() => window.__docsPublication.releaseMount());
+            await expect.poll(() => page.evaluate(() => window.__docsPublication.sourceHeld)).toBe(true);
+            await expect.poll(() => page.evaluate(() => window.__docsPublication.emptyLineRequests)).toBeGreaterThan(0);
+            await expect(source.locator('pre code')).toBeEmpty();
+
+            await page.evaluate(() => window.__docsPublication.releaseSource());
+            await expect(source.locator('[data-line-number="1"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+            expect((await app.getComponent(sourceId, ['isHighlighted'])).isHighlighted).toBe(true)
+        } finally {
+            await page.evaluate(() => {window.__docsPublication.restore(); delete window.__docsPublication});
+            await page.unrouteAll({behavior: 'wait'})
+        }
+    });
+
+    test('a line request delivered after its source tab leaves ignores the removed leaf (#20869)', async ({page, neuralLink}, testInfo) => {
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+        await page.goto('/docs/index.html');
+        const app      = await neuralLink.connectToApp('Docs'), className = 'Docs.app.view.MainContainer',
+              sourceId = `${className}__source`, source = page.locator(`[id="${sourceId}"]`);
+        let controllerId, receipt;
+
+        await expect.poll(async () => {
+            const [view] = await app.queryComponent({className: 'Docs.view.MainContainer'}, ['controller.id']);
+            controllerId = view?.properties['controller.id'];
+            return Boolean(controllerId)
+        }).toBe(true);
+        const openSource = lineNumber => app.callMethod(controllerId, 'onViewSourceRoute', [{className, lineNumber}]);
+
+        await openSource('1');
+        await expect(source.locator('[data-line-number="1"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+        const codeId = await source.locator('pre code').getAttribute('id');
+        expect(codeId).toBeTruthy();
+
+        await page.evaluate(vnodeId => {
+            const addon   = Neo.main.addon.HighlightJS, original = addon.syntaxHighlightLine,
+                  witness = window.__docsLateLine = {captured: [], executed: [], releases: [], holding: true};
+            addon.syntaxHighlightLine = function(data) {
+                if (!witness.holding || data.vnodeId !== vnodeId || data.addLine !== 20) {
+                    return original.apply(this, arguments)
+                }
+                witness.captured.push({vnodeId: data.vnodeId, present: Boolean(document.getElementById(data.vnodeId))});
+                return new Promise(resolve => witness.releases.push(resolve)).then(() => {
+                    witness.executed.push({vnodeId: data.vnodeId, present: Boolean(document.getElementById(data.vnodeId))});
+                    return original.call(this, data)
+                })
+            };
+            witness.release = () => {witness.holding = false; witness.releases.splice(0).forEach(resolve => resolve())};
+            witness.restore = () => {witness.release(); addon.syntaxHighlightLine = original};
+            witness.read = () => ({captured: witness.captured, executed: witness.executed, pending: witness.releases.length})
+        }, codeId);
+
+        try {
+            await openSource('20');
+            await expect.poll(() => page.evaluate(() => window.__docsLateLine.captured.length)).toBeGreaterThan(0);
+            expect(await page.evaluate(() => window.__docsLateLine.captured.every(call => call.present))).toBe(true);
+
+            // The real class route activates another card; the normal layout removes inactive source DOM.
+            await app.callMethod(controllerId, 'onViewClassRoute', [{className}]);
+            await expect(source).toHaveCount(0);
+            expect(await page.evaluate(id => document.getElementById(id) === null, codeId)).toBe(true);
+            await page.evaluate(() => window.__docsLateLine.release());
+            await expect.poll(() => page.evaluate(() => {
+                const witness = window.__docsLateLine;
+                return witness.executed.length === witness.captured.length
+            })).toBe(true);
+            receipt = await page.evaluate(() => window.__docsLateLine.read());
+            expect(receipt.executed.every(call => !call.present)).toBe(true);
+            expect(receipt.pending).toBe(0);
+
+            // Reactivating the same retained view must still highlight a current line normally.
+            await openSource('2');
+            await expect(source.locator('[data-line-number="2"]').first().locator('..')).toHaveClass(/neo-highlighted-line/);
+            expect(await page.evaluate(() => window.__docsLateLine.read())).toEqual(receipt)
+        } finally {
+            receipt ||= await page.evaluate(() => window.__docsLateLine.read());
+            await page.evaluate(() => {
+                window.__docsLateLine.restore();
+                delete window.__docsLateLine
+            });
+            await testInfo.attach('late-source-line.json', {body: JSON.stringify(receipt), contentType: 'application/json'})
+        }
     });
 
     test('Store exposes Observable through one toggle, filters its members, and opens their source', async ({page, neuralLink}) => {

@@ -1,0 +1,54 @@
+.neo-context-files.neo-viewport {
+    background-color: var(--context-files-background);
+    color           : var(--context-files-text);
+    font-family     : var(--neo-font-family);
+    gap             : 8px;
+    padding         : 24px;
+
+    .neo-context-files-header {
+        gap: 8px 12px;
+    }
+
+    .neo-context-files-title {
+        font-size  : 22px;
+        font-weight: 600;
+    }
+
+    .neo-context-files-hint,
+    .neo-context-files-status {
+        color    : var(--context-files-muted);
+        font-size: 14px;
+    }
+
+    .neo-context-files-list {
+        background-color: transparent;
+        margin-top      : 8px;
+
+        .neo-list-item {
+            align-items          : center;
+            border-bottom        : 1px solid var(--context-files-rule);
+            display              : grid;
+            gap                  : 12px;
+            grid-template-columns: 1.5em minmax(0, 1fr) auto 1.25em;
+            padding              : 10px 8px;
+        }
+
+        .neo-context-files-name {
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+        }
+
+        .neo-context-files-folder {
+            background-color: var(--context-files-chip);
+            border-radius   : 10px;
+            font-size       : 12px;
+            padding         : 2px 8px;
+        }
+
+        .neo-context-files-icon,
+        .neo-context-files-star {
+            color: var(--context-files-accent);
+        }
+    }
+}

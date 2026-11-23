@@ -1,137 +1,87 @@
 import {test, expect}                                                from '@playwright/test';
 import {execFileSync}                                                from 'node:child_process';
 import {mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
+import {createRequire}                                               from 'node:module';
 import os                                                            from 'node:os';
 import path                                                          from 'node:path';
-import {fileURLToPath}                                               from 'node:url';
+import {fileURLToPath, pathToFileURL}                                from 'node:url';
 
-/**
- * The property under test is that the clone destination reaches git as ONE argument.
- *
- * Asserting a quoted command string instead would pass for any consistent-but-wrong quoting, so
- * every assertion here is on the argument vector. Argv, not escaping.
- *
- * @see https://github.com/neomjs/neo/issues/17492
- */
-test.describe('highlightJs — the clone target is one argument, not a shell string', () => {
-    let buildCloneArgs, HIGHLIGHT_JS_REPOSITORY, requiresShell;
+const SAMPLES = {
+    bash      : 'echo "$HOME"',
+    css       : 'a { color: red; }',
+    javascript: 'const answer = 42;',
+    json      : '{"answer": 42}',
+    markdown  : '# Title',
+    plaintext : 'plain text',
+    ruby      : 'def answer; 42; end',
+    scss      : '$gap: 8px;',
+    xml       : '<a href="#">link</a>',
+    yaml      : 'answer: 42'
+};
+
+test.describe('highlightJs — the bundle comes from the installed package', () => {
+    let LANGUAGES, license, root, version;
 
     test.beforeAll(async () => {
-        // Importing this module used to run a build. The direct-run guard is what makes the argv
-        // builder reachable from a test at all, so a regression there fails these arms loudly
-        // rather than by cloning a repository during the suite.
-        ({buildCloneArgs, HIGHLIGHT_JS_REPOSITORY, requiresShell} =
-            await import('../../../../buildScripts/build/highlightJs.mjs'));
+        let buildBundle;
+
+        ({buildBundle, LANGUAGES} = await import('../../../../buildScripts/build/highlightJs.mjs'));
+
+        const manifest = createRequire(import.meta.url).resolve('highlight.js/package.json');
+
+        ({version} = JSON.parse(readFileSync(manifest, 'utf8')));
+        license = readFileSync(path.join(path.dirname(manifest), 'LICENSE'), 'utf8').trim();
+
+        root = mkdtempSync(path.join(os.tmpdir(), 'neo-highlight-bundle-'));
+        await buildBundle(root)
     });
 
-    test('a checkout path containing a SPACE stays a single argument', () => {
-        // The measured defect: as a shell string this split into three arguments
-        // (`…/my`, `repos/neo/tmp/highlightjs`), so an ordinary macOS directory name broke the build.
-        const
-            target = '/Users/Shared/my repos/neo/tmp/highlightjs',
-            args   = buildCloneArgs(target);
-
-        expect(args.filter(arg => arg === target),
-            'the target appears exactly once, whole').toHaveLength(1);
-        expect(args.at(-1), 'and it is the final argument, unsplit').toBe(target);
+    test.afterAll(() => {
+        rmSync(root, {recursive: true, force: true})
     });
 
-    test('shell metacharacters are carried as data, not as syntax', () => {
-        // An argv invocation has no parser to reach, so these are inert rather than escaped. The
-        // assertion is that the value survives INTACT — an implementation that sanitised the path
-        // would mangle it here and fail, which is the outcome this arm wants.
-        const
-            target = '/tmp/neo; touch pwned && echo $HOME/`id`',
-            args   = buildCloneArgs(target);
+    for (const file of ['highlight.custom.js', 'highlight.custom.min.js']) {
+        test(`${file} registers exactly the bundled languages and highlights each`, () => {
+            // Both variants are load-bearing: `Neo.util.HighlightJs` loads the unminified one while `debug` is on.
+            // The bundle is imported in a plain Node process, as an ES module with no test-runner loader in between.
+            const {languages, results} = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
+                const hljs = (await import(${JSON.stringify(pathToFileURL(path.join(root, file)).href)})).default;
 
-        expect(args.at(-1), 'passed through verbatim, unescaped and unmangled').toBe(target);
-        expect(args).toHaveLength(5)
-    });
+                console.log(JSON.stringify({
+                    languages: hljs.listLanguages(),
+                    results  : Object.fromEntries(Object.entries(${JSON.stringify(SAMPLES)}).map(([language, code]) => {
+                        const {value} = hljs.highlight(code, {language});
+                        return [language, value]
+                    }))
+                }))
+            `], {encoding: 'utf8'}));
 
-    test('the vector is well-formed: depth-1 clone of the upstream repository', () => {
-        // Non-vacuity in the other direction. Without this, an implementation returning
-        // `[targetDir]` would satisfy both arms above while cloning nothing.
-        const args = buildCloneArgs('/tmp/x');
+            expect(languages.sort()).toEqual([...LANGUAGES].sort());
+            expect(Object.keys(SAMPLES).sort(), 'one sample per bundled language').toEqual([...LANGUAGES].sort());
 
-        expect(args[0]).toBe('clone');
-        expect(args.slice(1, 3)).toEqual(['--depth', '1']);
-        expect(args[3]).toBe(HIGHLIGHT_JS_REPOSITORY);
-        expect(HIGHLIGHT_JS_REPOSITORY).toMatch(/^https:\/\/github\.com\/highlightjs\/highlight\.js\.git$/)
-    });
-
-    test('a Windows .cmd shim is dispatched through a shell; real executables are not', () => {
-        // Regression from widening this PR's scope to all three subprocess sites. `npm.cmd` is a
-        // script for the command processor, not an executable image, so `execFile` cannot launch it
-        // at all on Windows — the argv conversion that fixed the clone site broke npm there.
-        //
-        // Asserted as a RULE over the extension rather than a check for "npm", and evaluated on this
-        // platform, so the Windows behaviour is provable without a Windows runner.
-        expect(requiresShell('npm.cmd'), '.cmd is a shim').toBe(true);
-        expect(requiresShell('npm.CMD'), 'and the check is case-insensitive').toBe(true);
-        expect(requiresShell('setup.bat'), '.bat likewise').toBe(true);
-
-        expect(requiresShell('git.exe'), 'a real executable needs no shell').toBe(false);
-        expect(requiresShell('node.exe'), 'likewise').toBe(false);
-        expect(requiresShell('npm'), 'and the POSIX selector stays shell-free').toBe(false);
-    });
-
-    test('every subprocess site derives its shell flag from the rule, never hardcodes it', () => {
-        // Without this, a future site could pass `shell: true` unconditionally — which would put a
-        // shell back on the POSIX path where the whole fix was to remove one.
-        const
-            source = readFileSync('buildScripts/build/highlightJs.mjs', 'utf8'),
-            calls  = [...source.matchAll(/execFileSync\([^;]*?\)\s*;/gs)].map(m => m[0]);
-
-        expect(calls.length, 'all three sites are present').toBe(3);
-
-        for (const call of calls) {
-            expect(call, `shell flag must come from requiresShell(): ${call.slice(0, 60)}`)
-                .toMatch(/shell:\s*requiresShell\(/)
-        }
-
-        expect(source, 'no unconditional shell anywhere in the module').not.toMatch(/shell:\s*true/)
-    });
-
-    test('no interpolated string reaches execSync — including via an intermediate variable', () => {
-        // The original defect was TWO-STEP:
-        //
-        //     const cloneCommand = `${gitCmd} clone … ${tempDir}`;
-        //     execSync(cloneCommand, {stdio: 'inherit'});
-        //
-        // An earlier version of this arm only matched interpolation appearing DIRECTLY inside
-        // `execSync(`, so restoring the real shape above left it green. The mutation that "validated"
-        // it used the inline form — i.e. the shape the detector could already see. Binding the
-        // identifier-mediated path is the whole point, because that is the path the defect took.
-        //
-        // All three sites are argv now, so `execSync` should not appear at all — but the guard is
-        // written against `execSync` usage rather than its absence, because the way this returns is
-        // someone adding a new path-bearing command, not someone editing the three that exist.
-        const
-            source = readFileSync('buildScripts/build/highlightJs.mjs', 'utf8'),
-            // Identifiers bound to a template literal that interpolates something.
-            interpolatedBindings = new Set(
-                [...source.matchAll(/(?:const|let|var)\s+(\w+)\s*=\s*`[^`]*\$\{/g)].map(m => m[1])
-            ),
-            offenders = [];
-
-        for (const call of source.matchAll(/execSync\(\s*([^,)]+)/g)) {
-            const argument = call[1].trim();
-
-            // Step 1: interpolation inline in the call.
-            if (argument.startsWith('`') && argument.includes('${')) {
-                offenders.push(`inline: ${argument.slice(0, 40)}`)
+            for (const language of LANGUAGES) {
+                if (language === 'plaintext') {
+                    expect(results.plaintext).toBe(SAMPLES.plaintext)
+                } else {
+                    expect(results[language], `${language} produces highlight markup`).toContain('<span class="hljs-')
+                }
             }
+        });
 
-            // Step 2: the call takes an identifier that was bound to an interpolated template.
-            if (interpolatedBindings.has(argument)) {
-                offenders.push(`via binding: ${argument}`)
-            }
-        }
+        test(`${file} opens with the installed package's license, verbatim`, () => {
+            // BSD 3-Clause: the copyright notice, the conditions and the disclaimer travel with every redistributed
+            // copy, and minifying must not strip them.
+            const content = readFileSync(path.join(root, file), 'utf8');
 
-        expect(offenders,
-            'an interpolated string reaching execSync is the defect this file exists to prevent'
-        ).toEqual([])
-    });
+            expect(content.startsWith('/*!')).toBe(true);
+            expect(content).toContain(`Highlight.js v${version}`);
+            expect(content).toContain(license)
+        })
+    }
+});
+
+test('the script runs no git clone and no second install: it imports no child_process', () => {
+    expect(readFileSync('buildScripts/build/highlightJs.mjs', 'utf8')).not.toMatch(/child_process/)
 });
 
 test.describe('highlightJs — a failed build ends the process non-zero', () => {

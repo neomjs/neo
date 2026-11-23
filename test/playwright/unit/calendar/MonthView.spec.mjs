@@ -474,7 +474,15 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
             )).toBe(true);
 
             // End drag -> commits new date (2026-05-15) while preserving 09:30 -> 11:00 local time and resorts store
+            const recordChanges = [];
+            eventStore.on('recordChange', data => recordChanges.push(data));
+
             plugin.onEventDragEnd({});
+
+            // The commit fires recordChange with the dragged fields, for subscribers and state bindings alike
+            expect(recordChanges).toHaveLength(1);
+            expect(recordChanges[0].fields.map(field => field.name)).toEqual(['endDate', 'startDate']);
+            expect(recordChanges[0].record).toBe(eventStore.get(101));
 
             const movedRecord = eventStore.get(101);
             expect(plugin.isDragging).toBe(false);
@@ -500,6 +508,68 @@ test.describe('Neo.calendar.view.month.Component headerHeight lifecycle', () => 
 
             expect(refreshedSourceDay.cn.some(node => node.id === eventNodeId)).toBe(false);
             expect(refreshedTargetDay.cn.some(node => node.id === eventNodeId)).toBe(true);
+
+            // Dropping back onto the starting day changes no field and fires no recordChange,
+            // yet the view still restores itself after the proxy teardown
+            recordChanges.length = 0;
+
+            const createContentCalls = {count: 0},
+                  origCreateContent  = component.createContent.bind(component);
+
+            component.createContent = (...args) => {createContentCalls.count++; return origCreateContent(...args)};
+
+            await plugin.onEventDragStart({
+                clientX: 25,
+                clientY: 30,
+                path   : [
+                    {id: eventNodeId, cls: ['neo-event', 'neo-draggable', 'neo-blue'], rect: {width: 120, height: 22, left: 10, top: 20, x: 10, y: 20}},
+                    {id: targetDayId, cls: ['neo-day'],                                rect: {width: 120, height: 100, left: 10, top: 0, x: 10, y: 0}}
+                ],
+                targetPath: [
+                    {id: eventNodeId, cls: ['neo-event', 'neo-draggable', 'neo-blue']},
+                    {id: targetDayId, cls: ['neo-day']}
+                ]
+            });
+            plugin.onEventDragEnd({});
+
+            expect(recordChanges).toEqual([]);
+            expect(createContentCalls.count).toBe(1);
+
+            // A platform-cancelled (`drag:cancel`) or Escape-cancelled month drag resets `plugin.isDragging`,
+            // tears down the proxy, and leaves `eventRecord` untouched
+            const DomEvent          = (await import('../../../../src/manager/DomEvent.mjs')).default,
+                  beforeCancelStart = +eventStore.get(101).startDate,
+                  monthEventPath    = [
+                      {id: eventNodeId, cls: ['neo-event', 'neo-draggable', 'neo-blue'], rect: {width: 120, height: 22, left: 10, top: 20, x: 10, y: 20}},
+                      {id: targetDayId, cls: ['neo-day'],                                rect: {width: 120, height: 100, left: 10, top: 0, x: 10, y: 0}},
+                      {id: component.id, cls: ['neo-calendar-monthcomponent']}
+                  ];
+
+            DomEvent.fire({
+                data     : {clientX: 25, clientY: 30, path: monthEventPath, targetPath: monthEventPath},
+                eventName: 'drag:start',
+                windowId : component.windowId
+            });
+            await expect.poll(() => Boolean(eventDragZone.dragProxy), {interval: 5, timeout: 500}).toBe(true);
+
+            expect(plugin.isDragging).toBe(true);
+            plugin.onEventDragMove({
+                clientX   : 25,
+                clientY   : 30,
+                targetPath: [{id: sourceDayId, cls: ['neo-day']}]
+            });
+            expect(eventDragZone.proxyParentId).toBe(sourceDayId);
+
+            DomEvent.fire({
+                data     : {dragZoneId: eventDragZone.id, path: monthEventPath, targetPath: monthEventPath},
+                eventName: 'drag:cancel',
+                windowId : component.windowId
+            });
+
+            expect(plugin.isDragging, 'month drag:cancel resets plugin.isDragging').toBe(false);
+            expect(eventDragZone.dragProxy).toBeNull();
+            expect(recordChanges).toEqual([]);
+            expect(+eventStore.get(101).startDate).toBe(beforeCancelStart);
 
             // When enableDrag is false, drag handlers do not start a drag or mutate records
             component.enableDrag = false;

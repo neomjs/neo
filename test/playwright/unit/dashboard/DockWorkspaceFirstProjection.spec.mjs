@@ -19,6 +19,7 @@ import Container          from '../../../../src/container/Base.mjs';
 import DockReconciler     from '../../../../src/dashboard/dock/projection/Reconciler.mjs';
 import DockWorkspace      from '../../../../src/dashboard/dock/Workspace.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VDomUpdate         from '../../../../src/manager/VDomUpdate.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import MainContainer      from '../../../../examples/dashboard/dock/MainContainer.mjs';
 import '../../../../src/manager/Instance.mjs';
@@ -189,7 +190,10 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
 
         const {timing} = cycle;
 
-        expect(Object.keys(timing)).toEqual(expect.arrayContaining(['queuedAt', 'startedAt', 'reconciled', 'settledAt', 'landedInPlace', 'waitedForTail']));
+        expect(Object.keys(timing)).toEqual(expect.arrayContaining(['queuedAt', 'startedAt', 'captured', 'released', 'reconciled', 'settledAt', 'landedInPlace', 'waitedForTail']));
+        expect(timing.hostMounted, 'a host that is already mounted skips its mount wait').toBeUndefined();
+        expect([timing.startedAt, timing.captured, timing.released, timing.reconciled], 'each step before the reconcile stamps in order')
+            .toEqual([...[timing.startedAt, timing.captured, timing.released, timing.reconciled]].sort((a, b) => a - b));
         expect(timing.reconciled, 'the receipt orders the reconcile before the settle').toBeLessThanOrEqual(timing.settledAt);
         expect(timing.settledAt - timing.reconciled).toBeGreaterThanOrEqual(100);
 
@@ -307,5 +311,101 @@ test.describe('Neo.dashboard.dock.Workspace first projection', () => {
         expect(refreshes, 'the initial attempt plus exactly one repair').toBe(2);
         expect(workspace.items, 'the repair lands one visible shell').toHaveLength(1);
         expect(workspace.items[0].hidden).not.toBe(true)
+    });
+
+    test('headless commits park in departedProjection, settle refreshPromise and adoption without VDomUpdate callbacks, and coalesce on mount', async () => {
+        workspace = Neo.create(DockWorkspace, {dockModel: createDocument()});
+
+        const
+            doc1 = structuredClone(createDocument()),
+            doc2 = structuredClone(createDocument());
+
+        doc1.items.console = {reference: 'Console', title: 'Console'};
+        doc1.nodes['side-tabs'].items.push('console');
+
+        doc2.items.console   = {reference: 'Console',   title: 'Console'};
+        doc2.items.inspector = {reference: 'Inspector', title: 'Inspector'};
+        doc2.nodes['side-tabs'].items.push('console', 'inspector');
+        doc2.nodes['side-tabs'].activeItemId = 'inspector';
+
+        workspace.setSilent({dockModel: doc1});
+        const
+            first         = workspace.projectDockZoneDocument(doc1),
+            firstAdoption = workspace.projectionCycle.adoption;
+
+        workspace.setSilent({dockModel: doc2});
+        const
+            second         = workspace.projectDockZoneDocument(doc2),
+            secondAdoption = workspace.projectionCycle.adoption,
+            settled        = await Promise.race([
+                Promise.all([first, second]).then(() => 'settled'),
+                workspace.timeout(100).then(() => 'hung')
+            ]);
+
+        expect(settled, 'headless commits settle without hanging in promiseUpdate').toBe('settled');
+        expect(await firstAdoption).toBeNull();
+        expect(await secondAdoption).toBeNull();
+        expect(VDomUpdate.promiseCallbackMap.has(workspace.id), 'no callback leaks into VDomUpdate while headless').toBe(false);
+        expect(workspace.items, 'no premature shell constructs before binding').toHaveLength(0);
+        expect(workspace.departedProjection?.document).toEqual(doc2);
+
+        const originalRefresh  = workspace.refreshDockWorkspace.bind(workspace);
+        let   mountedRefreshes = 0;
+
+        workspace.refreshDockWorkspace = (...args) => {
+            mountedRefreshes++;
+            return originalRefresh(...args)
+        };
+
+        parent = await bindAndMount(workspace, 'coalesced-popup');
+        await settleRefreshTail(workspace);
+
+        expect(mountedRefreshes, 'coalesced headless commits replay as one projection on mount').toBe(1);
+        expect(workspace.departedProjection).toBeNull();
+
+        const sideTabs = DockReconciler.collectProjectedTabs(workspace.items[0]).get('side-tabs');
+
+        expect(sideTabs.getTabBar().sortZoneConfig.dockItemIds).toEqual(['preview', 'terminal', 'console', 'inspector'])
+    });
+
+    test('detaching a mounted Workspace to windowId null parks detached commits until a successor container mounts it', async () => {
+        workspace = Neo.create(DockWorkspace, {dockModel: createDocument()});
+        parent    = await bindAndMount(workspace, 'initial-popup');
+
+        await settleRefreshTail(workspace);
+
+        parent.remove(workspace, false, true);
+        workspace.windowId = null;
+
+        expect(workspace.mounted).toBe(false);
+        expect(workspace.parentId).toBeNull();
+        expect(workspace.windowId).toBeNull();
+
+        const detachedDoc = structuredClone(createDocument());
+
+        detachedDoc.items.logs = {reference: 'Logs', title: 'Logs'};
+        detachedDoc.nodes['editor-tabs'].items.push('logs');
+        workspace.setSilent({dockModel: detachedDoc});
+
+        const
+            detachedCommit   = workspace.projectDockZoneDocument(detachedDoc),
+            detachedAdoption = workspace.projectionCycle.adoption,
+            settled          = await Promise.race([
+                detachedCommit.then(() => 'settled'),
+                workspace.timeout(100).then(() => 'hung')
+            ]);
+
+        expect(settled, 'commits while detached at windowId null settle immediately').toBe('settled');
+        expect(await detachedAdoption).toBeNull();
+        expect(VDomUpdate.promiseCallbackMap.has(workspace.id)).toBe(false);
+
+        parent.destroy();
+        parent = await bindAndMount(workspace, 'successor-popup');
+
+        await settleRefreshTail(workspace);
+
+        const editorTabs = DockReconciler.collectProjectedTabs(workspace.items[0]).get('editor-tabs');
+
+        expect(editorTabs.getTabBar().sortZoneConfig.dockItemIds).toEqual(['editor', 'logs'])
     })
 });

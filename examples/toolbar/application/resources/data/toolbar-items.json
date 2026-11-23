@@ -1,0 +1,38 @@
+{
+    "items": [
+        {
+            "ntype": "split-button",
+            "text": "Insert",
+            "iconCls": "fa fa-plus",
+            "ui": "primary",
+            "handler": "onInsertHeading",
+            "tooltip": {"html": "Insert a heading"},
+            "triggerButtonConfig": {"vdom": {"aria-label": "Insert options"}},
+            "menu": [
+                {"text": "Heading", "handler": "onInsertHeading"},
+                {"text": "Checklist item", "handler": "onInsertChecklistItem"}
+            ]
+        },
+        {
+            "ntype": "component",
+            "cls": ["neo-toolbar-application-divider"],
+            "vdom": {"role": "separator", "aria-orientation": "vertical"}
+        },
+        {
+            "ntype": "button",
+            "text": "Monospace",
+            "iconCls": "fa fa-font",
+            "pressed": false,
+            "handler": "onToggleMonospace",
+            "tooltip": {"html": "Toggle the draft’s monospace font"}
+        },
+        "->",
+        {
+            "ntype": "button",
+            "text": "Clear",
+            "iconCls": "fa fa-eraser",
+            "handler": "onClearDraft",
+            "tooltip": {"html": "Clear the draft"}
+        }
+    ]
+}

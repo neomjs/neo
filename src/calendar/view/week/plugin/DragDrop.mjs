@@ -43,12 +43,14 @@ class DragDrop extends Base {
             eventOpts  = {scope: me, delegate: '.neo-event'};
 
         me.owner.addDomListeners([
-            {'drag:end'  : me.onColumnDragEnd,   ...columnOpts},
-            {'drag:end'  : me.onEventDragEnd,    ...eventOpts},
-            {'drag:move' : me.onColumnDragMove,  ...columnOpts},
-            {'drag:move' : me.onEventDragMove,   ...eventOpts},
-            {'drag:start': me.onColumnDragStart, ...columnOpts},
-            {'drag:start': me.onEventDragStart,  ...eventOpts}
+            {'drag:cancel': me.onColumnDragCancel, ...columnOpts},
+            {'drag:cancel': me.onEventDragCancel,  ...eventOpts},
+            {'drag:end'   : me.onColumnDragEnd,    ...columnOpts},
+            {'drag:end'   : me.onEventDragEnd,     ...eventOpts},
+            {'drag:move'  : me.onColumnDragMove,   ...columnOpts},
+            {'drag:move'  : me.onEventDragMove,    ...eventOpts},
+            {'drag:start' : me.onColumnDragStart,  ...columnOpts},
+            {'drag:start' : me.onEventDragStart,   ...eventOpts}
         ]);
     }
 
@@ -57,8 +59,10 @@ class DragDrop extends Base {
      * @param {...*} args
      */
     destroy(...args) {
-        let {owner} = this;
+        let me      = this,
+            {owner} = me;
 
+        owner?.eventDragZone?.un('dragCancel', me.onZoneDragCancel, me);
         owner?.eventDragZone?.destroy();
 
         if (owner) {
@@ -120,7 +124,8 @@ class DragDrop extends Base {
                         willChange: 'height'
                     }
                 }
-            })
+            });
+            eventDragZone.on('dragCancel', me.onZoneDragCancel, me)
         } else {
             eventDragZone.set(config)
         }
@@ -154,6 +159,30 @@ class DragDrop extends Base {
      */
     isTopLevelEvent(eventData) {
         return eventData.path[0].cls.includes('neo-event')
+    }
+
+    /**
+     * @summary Aborts a column drag-to-create gesture, removing the provisional record and resetting resize/drag state.
+     * @param {Object} [data]
+     */
+    onColumnDragCancel(data) {
+        let me      = this,
+            {owner} = me,
+            record  = me[newRecordSymbol];
+
+        if (record) {
+            me.isDragging = false;
+
+            delete me[newRecordSymbol];
+
+            owner.getPlugin(me.resizablePluginType)?.onDragEnd(data);
+
+            if (owner.eventDragZone && (!data?.dragZoneId || Neo.get(data.dragZoneId) !== owner.eventDragZone)) {
+                owner.eventDragZone.dragEnd({...data, cancelled: true})
+            }
+
+            owner.eventStore.remove(record)
+        }
     }
 
     /**
@@ -206,7 +235,8 @@ class DragDrop extends Base {
                 intervalHeight  = columnRect.height / intervals,
                 position        = Math.min(columnRect.height, data.clientY - columnRect.top),
                 currentInterval = Math.floor(position / intervalHeight),
-                startDate       = new Date(VDomUtil.find(owner.vdom, data.path[0].id).vdom.flag + 'T12:00:00.000Z'),
+                [year, month, day] = VDomUtil.find(owner.vdom, data.path[0].id).vdom.flag.split('-').map(Number),
+                startDate = new Date(year, month - 1, day),
                 dragElement, endDate, eventDragZone, eventId, record;
 
             me.isDragging = true;
@@ -234,6 +264,10 @@ class DragDrop extends Base {
             // wait until the new event got mounted
             await me.timeout(50);
 
+            if (!me.isDragging || me[newRecordSymbol] !== record) {
+                return
+            }
+
             eventId     = owner.getEventId(record.id);
             dragElement = VDomUtil.find(owner.vdom, eventId).vdom;
 
@@ -257,6 +291,30 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Cancels an active week event move or resize without mutating `eventRecord`, restoring resize handles, cursor classes, and `isDragging`.
+     * @param {Object} [data]
+     */
+    onEventDragCancel(data) {
+        let me              = this,
+            {owner}         = me,
+            {eventDragZone} = owner;
+
+        if (me.isDragging && !me[newRecordSymbol]) {
+            me.isDragging = false;
+
+            if (me.isEventResizing) {
+                me.isEventResizing = false;
+                data?.path && !me.isTopLevelEvent(data) && (data = me.adjustResizeEvent(data));
+                owner.getPlugin(me.resizablePluginType)?.onDragEnd(data)
+            }
+
+            if (eventDragZone && (!data?.dragZoneId || Neo.get(data.dragZoneId) !== eventDragZone)) {
+                eventDragZone.dragEnd({...data, cancelled: true})
+            }
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     onEventDragEnd(data) {
@@ -274,7 +332,8 @@ class DragDrop extends Base {
                 eventDragZone.removeBodyCursorCls()
             }
 
-            me.isDragging = false
+            me.isEventResizing = false;
+            me.isDragging      = false
         }
     }
 
@@ -310,7 +369,8 @@ class DragDrop extends Base {
                 data = me.adjustResizeEvent(data)
             }
 
-            me.isDragging = true;
+            me.isDragging      = true;
+            me.isEventResizing = !isTopLevelEvent;
 
             dragElement = VDomUtil.find(owner.vdom, data.path[0].id).vdom;
 
@@ -329,6 +389,14 @@ class DragDrop extends Base {
 
             eventDragZone.dragStart(data)
         }
+    }
+
+    /**
+     * @summary Routes `EventDragZone#onDragCancel` (such as Escape outside `.neo-event`/`.neo-c-w-column`) into the active cancel handler.
+     * @param {Object} [data]
+     */
+    onZoneDragCancel(data) {
+        this[this[newRecordSymbol] ? 'onColumnDragCancel' : 'onEventDragCancel'](data)
     }
 }
 

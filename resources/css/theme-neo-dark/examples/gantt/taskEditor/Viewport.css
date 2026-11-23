@@ -1,0 +1,6 @@
+:where(.neo-theme-neo-dark) {
+    --te-header-bg: #171e2c;
+    --te-border   : #38465b;
+    --te-title    : #f1f5fb;
+    --te-muted    : #b0bed0;
+}

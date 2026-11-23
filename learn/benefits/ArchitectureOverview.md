@@ -435,7 +435,9 @@ complete organism where the codebase and the agent co-evolve.
 | `src/container/` | Layout containers | `Base`, `Viewport` | — |
 | `src/list/` | Store-bound semantic lists, including fixed-height buffered component pools | `Base`, `Component`, `Buffered` | — |
 | `src/grid/` | Buffered data grids | `Container`, `View` | — |
+| `src/board/`, `src/timeline/`, `src/scheduler/`, `src/gantt/` | Planning families over records a store already holds: a kanban board of columns and swimlanes, and a timeline, scheduler and Gantt chart on one shared time axis | `board.Container`, `timeline.TimeAxis`, `scheduler.Container`, `gantt.Container` | — |
 | `src/dashboard/` | Generic dashboard roots plus the DockLayouts domain package: committed dock documents, semantic operations, projection, interaction affordances, perspectives, cross-window choreography and observed relative placement, and declinable owner plugins the Workspace installs under `dock/{model,projection,interaction,persistence,window,plugin}` | `Container`, `Panel`, `dock.Workspace`, `dock.model.WorkspaceDocument`, `dock.model.Operations`, `dock.persistence.PerspectiveLibrary`, `dock.window.Placement`, `dock.plugin.Maximize` | [0029](../agentos/decisions/0029-docking-design.md) |
+| `src/desktop/` | A web desktop shell: a container with a workspace, a launcher of app icons over an apps tree, reordered by drag or key, with an arrangement saved per key, and a taskbar with a start menu and the open apps, plus a window manager that opens one app window per app, keeps them in step with a tasks store and orders them per desktop. An app window is addressed by `appId`; `windowId` stays a browser window | `Container`, `WindowManager`, `AppWindow`, `Launcher`, `Taskbar`, `TaskList`, `model.App`, `model.Task`, `store.Apps`, `store.Tasks` | — |
 | `src/data/` | Data layer, Pipeline transport/parse/shape stages, and realm-owned interceptor policies under `interceptor/` | `Store`, `Model`, `RecordFactory`, `Pipeline`, `interceptor.Base`, `interceptor.Chain` | — |
 | `src/state/` | State management | `Provider` | — |
 | `src/worker/` | Thread management | `App`, `VDom`, `Data`, `Manager` | — |
@@ -517,16 +519,16 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 
 ## Next Steps
 
-- [Deploying the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/DeployingTheAgentOS.md) — Benefit-altitude path into
+- [Deploying the Agent OS](https://neomjs.com/learn/benefits/brain/DeployingTheAgentOS) — Benefit-altitude path into
   the cloud-deployment guide set
-- [Why Deploy the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/WhyDeploy.md) — The
+- [Why Deploy the Agent OS](https://neomjs.com/learn/agentos/cloud-deployment/WhyDeploy) — The
   cloud-deployment hub and ordered learning path
-- [Strategic Workflows](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
-- [Swarm Intelligence & Sub-Agents](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) — Delegation, profiles, and capability gating
-- [The Dream Pipeline & Golden Path](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md) — Forecasting engine and scoring algorithm
+- [Strategic Workflows](https://neomjs.com/learn/agentos/StrategicWorkflows) — Advanced agent workflow patterns
+- [Swarm Intelligence & Sub-Agents](https://neomjs.com/learn/agentos/SwarmIntelligence) — Delegation, profiles, and capability gating
+- [The Dream Pipeline & Golden Path](https://neomjs.com/learn/agentos/DreamPipeline) — Forecasting engine and scoring algorithm
 - [Neural Link: Live Application Mutability](../agentos/NeuralLink.md) — Deep dive into the Neural Link bridge
-- [The Knowledge Base Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/KnowledgeBase.md) — Semantic RAG architecture
-- [The Memory Core Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md) — Episodic memory and graph storage
-- [Self-Healing Immune System](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SelfHealing.md) — Detect, diagnose, and bounded autonomous recovery
-- [The GitHub Workflow Server](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/GitHubWorkflow.md) — Offline-first issue management
-- [Code Execution (AI SDK)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/CodeExecution.md) — The SDK Bouncer pattern in detail
+- [The Knowledge Base Server](https://neomjs.com/learn/agentos/KnowledgeBase) — Semantic RAG architecture
+- [The Memory Core Server](https://neomjs.com/learn/agentos/MemoryCore) — Episodic memory and graph storage
+- [Self-Healing Immune System](https://neomjs.com/learn/agentos/SelfHealing) — Detect, diagnose, and bounded autonomous recovery
+- [The GitHub Workflow Server](https://neomjs.com/learn/agentos/GitHubWorkflow) — Offline-first issue management
+- [Code Execution (AI SDK)](https://neomjs.com/learn/agentos/CodeExecution) — The SDK Bouncer pattern in detail

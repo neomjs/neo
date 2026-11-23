@@ -434,6 +434,28 @@ class Animate extends Base {
     }
 
     /**
+     * @summary Migrates owner-scoped transition CSS rules when the owner moves across windows.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let me = this;
+
+        if (oldValue !== undefined && me.isConstructed && me.owner) {
+            if (oldValue) {
+                CssUtil.deleteRules(oldValue, [me.ownerSelector, `${me.ownerSelector} .neo-list-item`])
+            }
+
+            if (value) {
+                me.updateTransitionDetails()
+            }
+        }
+    }
+
+    /**
      * Triggered before the transitionEasing config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -1047,7 +1069,7 @@ class Animate extends Base {
      * The per-owner dynamic rules: the containing-block guarantee on the root and the item
      * transition — pure, so specs can witness the exact inserted payload. The reduced-motion
      * override is intentionally NOT here: it lives as ONE static rule in the list stylesheet
-     * (`resources/scss/src/list/Base.scss`), because `@media` rules cannot be deleted by
+     * (`resources/css/src/list/Base.css`), because `@media` rules cannot be deleted by
      * selectorText and a per-owner copy would leak on every destroy.
      * @returns {String[]}
      */

@@ -1,0 +1,587 @@
+.sp-advanced-viewport,
+.sp-companion-viewport,
+.sp-profile-dialog {
+    --sp-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --sp-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.sp-advanced-viewport,
+.sp-companion-viewport {
+    background  : var(--sp-bg);
+    box-sizing  : border-box;
+    color       : var(--sp-ink);
+    color-scheme: var(--sp-scheme, dark);
+    font-family : var(--sp-sans);
+    min-height  : 100dvh;
+    overflow-x  : hidden;
+    overflow-y  : auto;
+}
+
+.sp-advanced-viewport *,
+.sp-companion-viewport *,
+.sp-profile-dialog * {
+    box-sizing: border-box;
+}
+
+.sp-shell {
+    display       : grid;
+    gap           : 10px;
+    margin-inline : auto;
+    max-width     : 1240px;
+    padding       : clamp(10px, 1.5vw, 22px);
+    width         : 100%;
+
+    &.sp-density-compact {
+        gap    : 9px;
+        padding: clamp(10px, 1.2vw, 16px);
+
+        .sp-card {
+            gap    : 9px;
+            padding: 11px 14px;
+        }
+    }
+}
+
+.sp-shell :is(
+    .sp-hero,
+    .sp-hero-top,
+    .sp-hero-identity,
+    .sp-hero-copy,
+    .sp-hero-pills,
+    .sp-hero-actions,
+    .sp-grid,
+    .sp-card-actions,
+    .sp-scope-ledger,
+    .sp-scope-row,
+    .sp-preview-meta
+),
+.sp-companion-actions,
+.sp-dialog-footer {
+    background-color: transparent;
+    min-width       : 0;
+}
+
+.sp-hero {
+    background   : var(--sp-surface);
+    border       : 1px solid var(--sp-border);
+    border-radius: 12px;
+    box-shadow   : var(--sp-shadow);
+    display      : grid;
+    gap          : 8px;
+    padding      : 12px 16px;
+}
+
+.sp-hero-top {
+    align-items    : flex-start;
+    display        : flex;
+    flex-wrap      : wrap;
+    gap            : 10px;
+    justify-content: space-between;
+}
+
+.sp-hero-identity {
+    align-items: center;
+    display    : flex;
+    flex       : 1 1 430px;
+    gap        : 12px;
+    min-width  : 0;
+}
+
+.sp-hero-copy {
+    display  : grid;
+    gap      : 3px;
+    min-width: 0;
+}
+
+.sp-eyebrow {
+    color         : var(--sp-accent);
+    font-family   : var(--sp-mono);
+    font-size     : 11px;
+    font-weight   : 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.sp-hero-name {
+    color         : var(--sp-ink);
+    font-size     : clamp(20px, 2.2vw, 26px);
+    font-weight   : 700;
+    letter-spacing: -0.02em;
+    line-height   : 1.15;
+    margin        : 0;
+    overflow-wrap : anywhere;
+}
+
+.sp-hero-meta {
+    color        : var(--sp-muted);
+    font-size    : 13px;
+    line-height  : 1.35;
+    margin       : 0;
+    overflow-wrap: anywhere;
+}
+
+.sp-hero-pills {
+    align-items: center;
+    display    : flex;
+    flex-wrap  : wrap;
+    gap        : 6px;
+    margin-top : 4px;
+}
+
+.sp-pill {
+    background   : var(--sp-surface-raised);
+    border       : 1px solid var(--sp-border);
+    border-radius: 999px;
+    color        : var(--sp-ink);
+    font-size    : 11px;
+    font-weight  : 600;
+    line-height  : 1.2;
+    padding      : 3px 9px;
+}
+
+.sp-pill-accent {
+    background  : var(--sp-accent-soft);
+    border-color: var(--sp-accent);
+    color       : var(--sp-accent-ink);
+}
+
+.sp-hero-actions {
+    align-items: center;
+    display    : flex;
+    flex-wrap  : wrap;
+    gap        : 8px;
+}
+
+.sp-try-line {
+    border-top : 1px solid var(--sp-border);
+    color      : var(--sp-muted);
+    font-size  : 13px;
+    line-height: 1.4;
+    margin     : 0;
+    padding-top: 9px;
+}
+
+.sp-avatar {
+    align-items    : center;
+    background     : var(--sp-avatar-bg);
+    border         : 1px solid var(--sp-border-strong);
+    border-radius  : 50%;
+    color          : var(--sp-avatar-ink);
+    display        : inline-flex;
+    flex           : none;
+    font-family    : var(--sp-mono);
+    font-weight    : 700;
+    justify-content: center;
+    letter-spacing : 0.03em;
+}
+
+.sp-avatar-lg {
+    font-size: 16px;
+    height   : 46px;
+    width    : 46px;
+}
+
+.sp-avatar-sm {
+    font-size: 12px;
+    height   : 34px;
+    width    : 34px;
+}
+
+.sp-grid {
+    align-items          : start;
+    display              : grid;
+    gap                  : 14px;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+}
+
+.sp-card {
+    background   : var(--sp-surface);
+    border       : 1px solid var(--sp-border);
+    border-radius: 12px;
+    box-shadow   : var(--sp-shadow);
+    display      : grid;
+    gap          : 10px;
+    min-width    : 0;
+    padding      : 14px 16px;
+}
+
+.sp-nested-card {
+    background  : var(--sp-surface-override);
+    border-color: var(--sp-border-strong);
+
+    .sp-eyebrow {
+        color: var(--sp-override);
+    }
+}
+
+.sp-card-head {
+    display: grid;
+    gap    : 3px;
+}
+
+.sp-card-title {
+    color      : var(--sp-ink);
+    font-size  : 16px;
+    font-weight: 650;
+    line-height: 1.25;
+    margin     : 0;
+}
+
+.sp-card-desc {
+    color      : var(--sp-muted);
+    font-size  : 12.5px;
+    line-height: 1.42;
+    margin     : 2px 0 0;
+}
+
+.sp-member-list.neo-list {
+    background           : transparent;
+    border               : 0;
+    display              : grid;
+    gap                  : 8px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    list-style           : none;
+    margin               : 0;
+    padding              : 0;
+
+    .neo-list-item {
+        align-items  : center;
+        background   : var(--sp-surface-raised);
+        border       : 1px solid var(--sp-border);
+        border-radius: 9px;
+        color        : var(--sp-ink);
+        cursor       : pointer;
+        display      : flex;
+        gap          : 9px;
+        height       : auto;
+        margin       : 0;
+        min-width    : 0;
+        padding      : 8px 10px;
+        transition   : border-color 120ms ease, background-color 120ms ease;
+
+        &:hover {
+            background  : var(--sp-hover-bg);
+            border-color: var(--sp-border-strong);
+        }
+
+        &.neo-selected {
+            background  : var(--sp-selected-bg);
+            border-color: var(--sp-accent);
+        }
+    }
+}
+
+.sp-member-meta {
+    display  : grid;
+    gap      : 1px;
+    min-width: 0;
+}
+
+.sp-member-name {
+    color        : var(--sp-ink);
+    font-size    : 13px;
+    font-weight  : 650;
+    overflow     : hidden;
+    text-overflow: ellipsis;
+    white-space  : nowrap;
+}
+
+.sp-member-role {
+    color        : var(--sp-muted);
+    font-size    : 11px;
+    overflow     : hidden;
+    text-overflow: ellipsis;
+    white-space  : nowrap;
+}
+
+.sp-profile-fields {
+    background-color     : transparent;
+    display              : grid;
+    gap                  : 10px 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width            : 0;
+    width                : 100%;
+
+    .sp-field.neo-textfield {
+        --textfield-border-color          : var(--sp-border-strong);
+        --textfield-border-color-active   : var(--sp-accent);
+        --textfield-border-color-hovered  : var(--sp-accent);
+        --textfield-border-radius         : 8px;
+        --textfield-input-background-color: var(--sp-surface-raised);
+        --textfield-input-color           : var(--sp-ink);
+        --textfield-input-font            : 500 13px/18px var(--sp-sans);
+        --textfield-input-height          : 32px;
+        --textfield-input-padding         : 5px 10px;
+        --textfield-label-color           : var(--sp-muted);
+        gap                               : 4px;
+        height                            : auto;
+        margin                            : 0;
+        max-width                         : 100%;
+        min-width                         : 0;
+        width                             : 100%;
+
+        .neo-textfield-label {
+            font-family: var(--sp-sans);
+            font-size  : 11.5px;
+            font-weight: 600;
+            line-height: 1.2;
+            margin     : 0;
+        }
+    }
+}
+
+.sp-card-actions,
+.sp-companion-actions,
+.sp-dialog-footer {
+    align-items: center;
+    display    : flex;
+    flex-wrap  : wrap;
+    gap        : 8px;
+}
+
+.sp-btn-primary.neo-button {
+    background  : var(--sp-btn-primary-bg);
+    border-color: var(--sp-btn-primary-bg);
+    color       : var(--sp-btn-primary-ink);
+
+    .neo-button-glyph {
+        color: var(--sp-btn-primary-ink);
+    }
+}
+
+.sp-btn-secondary.neo-button {
+    background  : var(--sp-surface-raised);
+    border-color: var(--sp-border-strong);
+    color       : var(--sp-ink);
+
+    .neo-button-glyph {
+        color: var(--sp-muted);
+    }
+}
+
+.sp-scope-ledger {
+    display: grid;
+    gap    : 7px;
+}
+
+.sp-scope-row {
+    align-items    : center;
+    background     : var(--sp-surface-raised);
+    border         : 1px solid var(--sp-border);
+    border-radius  : 8px;
+    display        : flex;
+    flex-wrap      : wrap;
+    gap            : 6px 10px;
+    justify-content: space-between;
+    padding        : 7px 10px;
+}
+
+.sp-scope-row-override {
+    background  : var(--sp-override-soft);
+    border-color: var(--sp-override);
+
+    .sp-scope-value {
+        color: var(--sp-override);
+    }
+}
+
+.sp-scope-label {
+    color      : var(--sp-muted);
+    font-family: var(--sp-mono);
+    font-size  : 11px;
+}
+
+.sp-scope-value {
+    color      : var(--sp-ink);
+    font-size  : 12.5px;
+    font-weight: 700;
+}
+
+.sp-preview-badge {
+    align-items  : center;
+    background   : var(--sp-surface);
+    border       : 1px solid var(--sp-border-strong);
+    border-radius: 10px;
+    display      : flex;
+    gap          : 12px;
+    min-width    : 0;
+    transition   : padding 140ms ease, gap 140ms ease;
+
+    &.sp-preview-compact {
+        gap    : 9px;
+        padding: 9px 11px;
+
+        .sp-preview-status {
+            display: none;
+        }
+    }
+
+    &.sp-preview-comfortable {
+        gap    : 14px;
+        padding: 15px 16px;
+    }
+}
+
+.sp-preview-meta {
+    display  : grid;
+    flex     : 1 1 auto;
+    gap      : 2px;
+    min-width: 0;
+}
+
+.sp-preview-name {
+    color        : var(--sp-ink);
+    font-size    : 14px;
+    font-weight  : 650;
+    overflow-wrap: anywhere;
+}
+
+.sp-preview-role {
+    color        : var(--sp-muted);
+    font-size    : 12px;
+    overflow-wrap: anywhere;
+}
+
+.sp-preview-status {
+    color      : var(--sp-accent);
+    font-size  : 12px;
+    font-weight: 500;
+    margin-top : 2px;
+}
+
+.sp-status-bar {
+    color      : var(--sp-muted);
+    font-family: var(--sp-mono);
+    font-size  : 11.5px;
+    line-height: 1.4;
+    margin     : 0;
+    padding    : 0 4px;
+}
+
+/* Dialog & Companion Window surfaces */
+.sp-profile-dialog.neo-dialog.neo-floating {
+    --dialog-border-color: var(--sp-border-strong);
+    --dialog-header-color: var(--sp-ink);
+    --dialog-icon-color  : var(--sp-muted);
+    background           : var(--sp-surface);
+    border-radius        : 12px;
+    bottom               : 16px;
+    box-shadow           : 0 18px 42px rgba(2, 6, 14, 0.55);
+    left                 : auto;
+    max-width            : calc(100vw - 24px);
+    overflow             : hidden;
+    right                : 16px;
+    top                  : auto;
+    width                : 380px;
+
+    .neo-header-toolbar {
+        background   : var(--sp-surface-raised);
+        border-bottom: 1px solid var(--sp-border);
+    }
+}
+
+.sp-dialog-body {
+    background: var(--sp-surface);
+    color     : var(--sp-ink);
+    display   : grid;
+    gap       : 10px;
+    padding   : 12px 14px;
+}
+
+.sp-dialog-summary,
+.sp-live-banner {
+    align-items  : center;
+    background   : var(--sp-surface-raised);
+    border       : 1px solid var(--sp-border);
+    border-radius: 9px;
+    display      : flex;
+    gap          : 10px;
+    padding      : 9px 12px;
+}
+
+.sp-dialog-summary-meta,
+.sp-banner-meta {
+    background-color: transparent;
+    display         : grid;
+    gap             : 2px;
+    min-width       : 0;
+}
+
+.sp-dialog-name,
+.sp-companion-member-name {
+    color        : var(--sp-ink);
+    font-size    : 14px;
+    font-weight  : 650;
+    overflow-wrap: anywhere;
+}
+
+.sp-dialog-role,
+.sp-companion-member-sub {
+    color        : var(--sp-muted);
+    font-size    : 12px;
+    overflow-wrap: anywhere;
+}
+
+.sp-companion-member-status {
+    color      : var(--sp-accent);
+    font-size  : 12px;
+    font-weight: 500;
+}
+
+.sp-profile-dialog .sp-profile-fields,
+.sp-companion-surface .sp-profile-fields {
+    grid-template-columns: 1fr;
+}
+
+.sp-companion-surface {
+    background: var(--sp-bg);
+    color     : var(--sp-ink);
+    display   : grid;
+    gap       : 14px;
+    margin    : 0 auto;
+    max-width : 560px;
+    padding   : 18px;
+    width     : 100%;
+}
+
+.sp-companion-head-bar {
+    align-items    : center;
+    background     : transparent;
+    display        : flex;
+    gap            : 10px;
+    justify-content: space-between;
+}
+
+.sp-companion-title {
+    color      : var(--sp-ink);
+    font-size  : 20px;
+    font-weight: 700;
+    margin     : 2px 0 4px;
+}
+
+.sp-companion-copy {
+    color      : var(--sp-muted);
+    font-size  : 13px;
+    line-height: 1.4;
+    margin     : 0;
+}
+
+@media (max-width: 860px) {
+    .sp-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sp-member-list.neo-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .sp-profile-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .sp-hero-identity {
+        align-items: flex-start;
+    }
+}

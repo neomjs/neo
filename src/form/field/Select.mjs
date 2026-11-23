@@ -13,6 +13,14 @@ import VNodeUtil       from '../../util/VNode.mjs';
  * @extends Neo.form.field.Base
  */
 class Select extends Field {
+    /**
+     * Valid values for labelPosition
+     * @member {String[]} labelPositions=['left','top']
+     * @protected
+     * @static
+     */
+    static labelPositions = ['left', 'top']
+
     static config = {
         /**
          * @member {String} className='Neo.form.field.Select'
@@ -55,10 +63,22 @@ class Select extends Field {
          */
         hideLabel_: false,
         /**
+         * `'left'` puts the label beside the select, `labelWidth` wide, as a TextField does by default
+         * @member {'left'|'top'} labelPosition_='top'
+         * @reactive
+         */
+        labelPosition_: 'top',
+        /**
          * @member {String} labelText_=''
          * @reactive
          */
         labelText_: '',
+        /**
+         * The label's width while `labelPosition` is `'left'`
+         * @member {Number|String} labelWidth_=150
+         * @reactive
+         */
+        labelWidth_: 150,
         /**
          * An array of scalars or records to normalize into an owned Store. An explicit or bound Store wins
          * during construction; assigning options later replaces it. Null clears the options Store.
@@ -166,7 +186,18 @@ class Select extends Field {
      */
     afterSetHideLabel(value) {
         this.vdom.cn[0].removeDom = value;
-        this.syncLabel()
+        this.syncLabel();
+        this.syncLabelWidth()
+    }
+
+    /**
+     * @summary Lays the label out beside the select or above it.
+     * @param {String} value
+     * @protected
+     */
+    afterSetLabelPosition(value) {
+        this[value === 'left' ? 'addCls' : 'removeCls']('label-left');
+        this.syncLabelWidth()
     }
 
     /**
@@ -175,6 +206,14 @@ class Select extends Field {
      */
     afterSetLabelText() {
         this.syncLabel()
+    }
+
+    /**
+     * @summary Resizes a label that sits beside the select.
+     * @protected
+     */
+    afterSetLabelWidth() {
+        this.syncLabelWidth()
     }
 
     /**
@@ -233,6 +272,17 @@ class Select extends Field {
     afterSetValue(value, oldValue) {
         if (oldValue !== undefined) this.#externalError = null;
         this.configsApplied && this.refreshOptions()
+    }
+
+    /**
+     * @summary Keeps the current position when the new one is not in `labelPositions`.
+     * @param {String} value
+     * @param {String} oldValue
+     * @returns {String}
+     * @protected
+     */
+    beforeSetLabelPosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'labelPosition')
     }
 
     /**
@@ -315,9 +365,11 @@ class Select extends Field {
 
     /**
      * @summary Focuses the native control.
+     * @param {String} [id]
+     * @param {...*} args The remaining {@link Neo.component.Base#focus} arguments
      */
-    focus() {
-        super.focus(this.getInputElId())
+    focus(id, ...args) {
+        super.focus(this.getInputElId(), ...args)
     }
 
     /**
@@ -457,6 +509,22 @@ class Select extends Field {
         this.vdom.cn[0].text = this.labelText;
         this.getInputEl()['aria-label'] = this.hideLabel ? this.labelText : null;
         this.update()
+    }
+
+    /**
+     * @summary Sizes the column of a label beside the select from `labelWidth`, so a percentage resolves against the
+     * field as in a TextField. A hidden label or one above the select leaves no column.
+     * @protected
+     */
+    syncLabelWidth() {
+        const me = this, {labelWidth} = me;
+
+        me.style = {
+            ...me.style,
+            gridTemplateColumns: me.labelPosition === 'left' && !me.hideLabel
+                ? `${Neo.isNumber(labelWidth) ? `${labelWidth}px` : labelWidth} minmax(0, 1fr)`
+                : null
+        }
     }
 
     /**

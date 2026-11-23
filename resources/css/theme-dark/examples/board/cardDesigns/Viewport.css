@@ -1,0 +1,32 @@
+:where(.neo-theme-dark) {
+    --editorial-avatar-bg        : #223542;
+    --editorial-avatar-border    : #36566b;
+    --editorial-avatar-text      : #bae6fd;
+    --editorial-border           : #2c3542;
+    --editorial-canvas-bg        : #12161d;
+    --editorial-card-bg          : #1e2530;
+    --editorial-card-border      : #313c4d;
+    --editorial-card-hover-border: #4b5c75;
+    --editorial-card-shadow      : 0 2px 6px rgba(0, 0, 0, 0.35);
+    --editorial-col-bg           : #171d26;
+    --editorial-focus            : #38bdf8;
+    --editorial-header-bg        : #161b23;
+    --editorial-muted            : #9ca3af;
+    --editorial-pill-bg          : #202836;
+    --editorial-pill-border      : #344156;
+    --editorial-pill-text        : #d1d5db;
+    --editorial-progress-track   : #2d3748;
+    --editorial-seg-active-bg    : #1d4ed8;
+    --editorial-seg-active-border: #60a5fa;
+    --editorial-seg-active-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --editorial-seg-active-text  : #f8fafc;
+    --editorial-seg-border       : #334155;
+    --editorial-seg-hover-bg     : #242f3f;
+    --editorial-seg-track-bg     : #10141b;
+    --editorial-subbar-bg        : #141921;
+    --editorial-tag-bg           : #263040;
+    --editorial-tag-border       : #37465c;
+    --editorial-tag-text         : #e2e8f0;
+    --editorial-text             : #e5e7eb;
+    --editorial-title            : #f9fafb;
+}

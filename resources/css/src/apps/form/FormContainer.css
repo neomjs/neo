@@ -1,0 +1,119 @@
+.form-form-container.neo-container {
+    background   : var(--neo-background-color);
+    border       : 1px solid var(--sem-color-border-default);
+    border-radius: 8px;
+    margin       : 24px 24px 24px 0;
+    min-width    : 0;
+
+    .form-header {
+        align-items  : baseline;
+        border-bottom: 1px solid var(--sem-color-border-default);
+        gap          : 12px;
+        padding      : 16px 24px;
+    }
+
+    .form-header-step {
+        color         : var(--sem-color-text-neutral-subdued);
+        font-size     : 12px;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .form-header-label {
+        font-size  : 22px;
+        font-weight: 600;
+    }
+
+    .form-pages {
+        min-height: 0;
+    }
+
+    .form-page {
+        gap      : 12px;
+        max-width: 720px;
+        overflow : auto;
+        padding  : 24px;
+    }
+
+    .form-row {
+        gap: 16px;
+
+        > * {
+            min-width: 0;
+        }
+    }
+
+    .form-choices {
+        gap: 12px;
+    }
+
+    .form-footer {
+        border-top: 1px solid var(--sem-color-border-default);
+        gap       : 12px;
+        padding   : 12px 24px;
+    }
+
+    /* the step list stands beside the form, until a phone folds it away */
+    .form-steps-button {
+        display: none;
+    }
+
+    @media (max-width: 599px) {
+        .form-steps-button {
+            display: inline-flex;
+        }
+    }
+
+    @media (max-height: 479px) {
+        margin: 12px 12px 12px 0;
+
+        .form-footer {
+            padding: 8px 16px;
+        }
+
+        .form-header {
+            padding: 8px 16px;
+        }
+
+        .form-header-label {
+            font-size: 18px;
+        }
+
+        .form-page {
+            gap    : 8px;
+            padding: 12px 16px;
+        }
+    }
+
+    .form-step-message {
+        color      : var(--status-badge-state-error-text-color, #e5484d);
+        flex       : 1 1 auto;
+        font-size  : 14px;
+        min-width  : 0;
+        white-space: normal;
+    }
+
+    .form-review {
+        .form-review-done {
+            align-items: center;
+            color      : var(--status-badge-state-success-text-color, #3fb950);
+            display    : flex;
+            font-weight: 600;
+            gap        : 8px;
+            margin     : 0 0 12px;
+        }
+
+        .form-review-lead {
+            margin: 0 0 12px;
+        }
+
+        .form-review-values {
+            border       : 1px solid var(--sem-color-border-default);
+            border-radius: 6px;
+            font-size    : 13px;
+            margin       : 0;
+            overflow     : auto;
+            padding      : 16px;
+        }
+    }
+}

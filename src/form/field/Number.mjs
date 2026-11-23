@@ -53,7 +53,7 @@ class Number extends Text {
          */
         errorTextStepSize: data => `step-size violation: ${data.value} / ${data.stepSize}`,
         /**
-         * @member {Number[]|null} excluded=null
+         * @member {Number[]|null} excludedValues=null
          */
         excludedValues: null,
         /**

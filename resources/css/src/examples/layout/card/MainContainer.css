@@ -1,0 +1,40 @@
+/* The wizard: a framed card per step above its Back and Next buttons */
+.examples-card-wizard .card-wizard {
+    border       : 1px solid var(--panel-border-color);
+    border-radius: 8px;
+    overflow     : hidden;
+
+    .card-wizard-step {
+        gap    : 8px;
+        padding: 20px 20px 8px;
+    }
+
+    .card-wizard-count {
+        font-size     : 12px;
+        letter-spacing: .06em;
+        opacity       : .7;
+        text-transform: uppercase;
+    }
+
+    .card-wizard-title {
+        font-size  : 20px;
+        font-weight: 600;
+    }
+
+    .card-wizard-summary {
+        line-height: 1.5;
+    }
+
+    .card-wizard-buttons {
+        border-top: 1px solid var(--panel-border-color);
+        padding   : 10px 12px;
+    }
+
+    /* A phone's stage holds the wizard at about 180 px high: the steps tighten, so no field is cut */
+    @media (max-width: 600px) {
+        .card-wizard-step {
+            gap        : 4px;
+            padding-top: 12px;
+        }
+    }
+}

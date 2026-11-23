@@ -1,0 +1,32 @@
+:where(.neo-theme-cyberpunk) {
+    --editorial-avatar-bg        : #1f1638;
+    --editorial-avatar-border    : #00f0ff;
+    --editorial-avatar-text      : #7df9ff;
+    --editorial-border           : #2d1f4e;
+    --editorial-canvas-bg        : #090614;
+    --editorial-card-bg          : #150e29;
+    --editorial-card-border      : #34235c;
+    --editorial-card-hover-border: #00f0ff;
+    --editorial-card-shadow      : 0 2px 10px rgba(0, 0, 0, 0.5);
+    --editorial-col-bg           : #0f0a1f;
+    --editorial-focus            : #00f0ff;
+    --editorial-header-bg        : #0d081b;
+    --editorial-muted            : #b4a5d9;
+    --editorial-pill-bg          : #1c1236;
+    --editorial-pill-border      : #492f7d;
+    --editorial-pill-text        : #e9d5ff;
+    --editorial-progress-track   : #2a1c4a;
+    --editorial-seg-active-bg    : #2b1454;
+    --editorial-seg-active-border: #00f0ff;
+    --editorial-seg-active-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+    --editorial-seg-active-text  : #ecfeff;
+    --editorial-seg-border       : #3b2769;
+    --editorial-seg-hover-bg     : #21153d;
+    --editorial-seg-track-bg     : #080511;
+    --editorial-subbar-bg        : #0b0718;
+    --editorial-tag-bg           : #221640;
+    --editorial-tag-border       : #462e7a;
+    --editorial-tag-text         : #f3e8ff;
+    --editorial-text             : #ede9fe;
+    --editorial-title            : #faf5ff;
+}

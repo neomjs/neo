@@ -1,0 +1,47 @@
+.portal-shared-tab-container.neo-tab-container {
+    flex-shrink: 1 !important;
+    min-width  : 0;
+
+    .neo-tab-body-container {
+        background-color: transparent;
+    }
+
+    .neo-tab-strip {
+        .neo-active-tab-indicator {
+            background-color: var(--portal-tab-indicator-bg);
+        }
+    }
+}
+
+/* must not be inside the root class to honor the styling for tab button drag&drop */
+.portal-shared-tab-header-toolbar.neo-tab-header-toolbar {
+    background-color: var(--portal-tab-toolbar-bg);
+
+    .neo-tab-header-button.neo-button {
+        .neo-button-glyph {
+            color: var(--portal-tab-text-color);
+        }
+
+        .neo-button-ripple {
+            background-color: var(--portal-tab-indicator-bg);
+        }
+
+        &.neo-button.pressed .neo-tab-button-indicator {
+            background-color: var(--portal-tab-indicator-bg);
+        }
+
+        .neo-button-text {
+            color: var(--portal-tab-text-color);
+        }
+
+        &.pressed {
+            .neo-button-glyph {
+                color: var(--portal-tab-text-color-pressed);
+            }
+        }
+    }
+
+    .neo-tab-strip .neo-active-tab-indicator {
+        background-color: var(--portal-tab-indicator-bg);
+    }
+}

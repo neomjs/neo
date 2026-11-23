@@ -4,6 +4,8 @@ import Container                 from '../../container/Base.mjs';
 import Toolbar                   from '../../toolbar/Base.mjs';
 
 /**
+ * @summary Main landmark containing an article and its page navigation.
+ *
  * @class Neo.app.content.PageContainer
  * @extends Neo.container.Base
  */
@@ -92,7 +94,12 @@ class PageContainer extends Container {
          * @member {Object} previousPageRecord_=null
          * @reactive
          */
-        previousPageRecord_: null
+        previousPageRecord_: null,
+        /**
+         * The primary content landmark shared by Learn and News pages.
+         * @member {String} tag='main'
+         */
+        tag: 'main'
     }
 
     /**

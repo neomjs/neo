@@ -41,6 +41,15 @@ class Viewport extends Container {
     }
 
     /**
+     * @summary True when this viewport mounts directly on `document.body` and owns body-level classes.
+     * @returns {Boolean}
+     * @protected
+     */
+    get ownsBodySurface() {
+        return Boolean(this.applyBodyCls && this.parentId === 'document.body')
+    }
+
+    /**
      * Triggered after the monitorSize config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -85,7 +94,7 @@ class Viewport extends Container {
     }
 
     /**
-     *
+     * @summary Applies `neo-body-viewport` and any explicit initial `theme` when mounted on `document.body`.
      */
     onConstructed() {
         super.onConstructed();
@@ -93,23 +102,25 @@ class Viewport extends Container {
         let me         = this,
             {windowId} = me;
 
-        me.applyBodyCls && Neo.main.DomAccess.applyBodyCls({
-            cls: ['neo-body-viewport'],
-            windowId
-        });
+        if (me.ownsBodySurface) {
+            Neo.main.DomAccess.applyBodyCls({
+                cls: ['neo-body-viewport'],
+                windowId
+            });
 
-        // Only when this viewport carries an explicit theme. An untouched default already agrees with the
-        // body, and publishing it here would make that path depend on this method.
-        me.theme && me.syncBodyTheme()
+            // Only when this viewport carries an explicit theme. An untouched default already agrees with the
+            // body, and publishing it here would make that path depend on this method.
+            me.theme && me.syncBodyTheme()
+        }
     }
 
     /**
      * @summary Mirrors this viewport's theme onto `document.body`, so both surfaces name one theme.
      *
      * `main.addon.Stylesheet#addGlobalCss` stamps `Neo.config.themes[0]` onto the body once, on the main
-     * thread, before any worker runs — and nothing in the theme path rewrites it afterwards. A viewport
-     * that already owns `neo-body-viewport` owns this class too; the alternative is a second publisher
-     * per app, which is what `apps/shareddialog` had to become as the only `setBodyCls` caller in `src/`.
+     * thread, before any worker runs — and nothing in the theme path rewrites it afterwards. A root viewport
+     * (`parentId === 'document.body'`) that owns `neo-body-viewport` owns this class too; the alternative is
+     * a second publisher per app, which is what `apps/shareddialog` had to become as the only `setBodyCls` caller in `src/`.
      *
      * The disagreement this prevents is not cosmetic. `background-color` resolves from the theme class on
      * the viewport while `color` INHERITS from the body's, so a stored light preference against a
@@ -131,7 +142,7 @@ class Viewport extends Container {
         let me         = this,
             {windowId} = me;
 
-        if (!me.applyBodyCls) {
+        if (!me.ownsBodySurface) {
             return
         }
 

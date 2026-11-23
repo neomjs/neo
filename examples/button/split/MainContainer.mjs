@@ -116,21 +116,32 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /** @summary Returns the `Neo.button.Split` config with action menu items. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module : SplitButton,
-            iconCls: 'fa fa-home',
-            text   : 'Hello World',
-            ui     : 'ghost',
+            iconCls: 'fa fa-floppy-disk',
+            text   : 'Save',
+            ui     : 'secondary',
 
             handler: data => {
                 console.log('button click =>', data.component.id)
             },
 
-            splitButtonHandler: data => {
-                console.log('split button click =>', data.component.id)
-            }
-        })
+            menu: [{
+                handler: record => console.log('menu item click =>', record.text),
+                iconCls: 'fa fa-copy',
+                text   : 'Save as…'
+            }, {
+                handler: record => console.log('menu item click =>', record.text),
+                iconCls: 'fa fa-file-export',
+                text   : 'Export'
+            }, {
+                handler: record => console.log('menu item click =>', record.text),
+                iconCls: 'fa fa-print',
+                text   : 'Print'
+            }]
+        }
     }
 }
 

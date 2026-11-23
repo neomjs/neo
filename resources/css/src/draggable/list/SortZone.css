@@ -1,0 +1,10 @@
+/* The dragged item keeps its slot as a placeholder while its proxy follows the pointer */
+.neo-list .neo-sort-source {
+    opacity: .35;
+}
+
+/* A drag makes the page inert (`draggable/DragProxyComponent.css`). The sorting list's items stay visible to the
+   pointer sensor's hit test, as the scheduler's tracks do, while the proxy stays inert. */
+.neo-list:has(.neo-sort-source) .neo-list-item {
+    pointer-events: auto !important;
+}

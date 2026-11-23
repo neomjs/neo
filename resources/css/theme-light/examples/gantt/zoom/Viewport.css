@@ -1,0 +1,11 @@
+:where(.neo-theme-light) {
+    --zoom-header-bg    : var(--neo-background-color);
+    --zoom-border       : var(--grid-container-border-color, #ddd);
+    --zoom-title        : #163a5f;
+    --zoom-muted        : #4d4d4d;
+    --zoom-track        : #f4f7fa;
+    --zoom-hover        : #e6eef7;
+    --zoom-selected     : var(--button-text-color, #1c60a0);
+    --zoom-selected-text: var(--button-background-color, #ffffff);
+    --zoom-focus        : var(--button-text-color, #1c60a0);
+}

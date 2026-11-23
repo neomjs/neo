@@ -1,6 +1,5 @@
 import Controller        from '../../../src/controller/Component.mjs';
 import CubeLayout        from '../../../src/layout/Cube.mjs';
-import NeoArray          from '../../../src/util/Array.mjs';
 import SeoService        from '../service/Seo.mjs';
 
 /**
@@ -9,7 +8,7 @@ import SeoService        from '../service/Seo.mjs';
  * This controller is the central hub for the portal application. It is responsible for:
  * - **Top-Level Routing:** It uses the `routes` config to map the main URL hash changes (e.g., /home, /learn, /blog) to specific methods, which in turn control which main view is active. It's important to note that while this controller handles the top-level navigation, child views can implement their own nested routing logic (see `Portal.view.learn.MainContainerController` for an example).
  * - **Layout Management:** It manages the main content area's layout, including the "mixed" mode which uses a CubeLayout for slick transitions between views.
- * - **SEO:** It coordinates with the `DocumentHead` main thread addon to update the document's title and meta tags on each route change, ensuring the application is SEO-friendly.
+ * - **SEO:** It coordinates with `Portal.service.Seo` and the `DocumentHead` main-thread addon to update each browser window's document title on route changes.
  * - **Multi-Window Coordination:** It handles the disconnection of child windows, such as the live code example previews.
  *
  * @class Portal.view.ViewportController
@@ -53,6 +52,7 @@ class ViewportController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/'                 : 'onHomeRoute',
             '/about-us'         : 'onAboutUsRoute',
             '/docs'             : 'onDocsRoute',
             '/examples'         : 'onExamplesRoute',
@@ -200,9 +200,9 @@ class ViewportController extends Controller {
                 me.setTheme('neo-theme-neo-dark', false)
             } else {
                 // Nothing stored and no dark preference: the Portal keeps the theme it booted with
-                // (`themes[0]` in neo-config.json). The button's static icon does not know that
-                // theme, so sync it here without setting a theme or writing to storage.
-                me.updateThemeSwitchIcon(me.component.getTheme())
+                // (`themes[0]` in neo-config.json). The button's static icon and the state provider
+                // do not know that theme, so sync them here without setting a theme or writing to storage.
+                me.syncTheme(me.component.getTheme())
             }
         })
     }
@@ -226,8 +226,8 @@ class ViewportController extends Controller {
     }
 
     /**
-     * This is the central handler for all route changes. It is now responsible for delegating
-     * the document's head metadata (title and description) updates to the `Portal.service.Seo` service.
+     * @summary Registers the active route navigation with `Portal.service.Seo` before running async layout
+     * transitions so warm leaf controllers and fallback window titles stay ordered per `windowId`.
      * @param {Object} value               The new route object.
      * @param {String} value.hashString    The new hash string.
      * @param {Object} oldValue            The previous route object.
@@ -235,8 +235,11 @@ class ViewportController extends Controller {
      * @returns {Promise<void>}
      */
     async onHashChange(value, oldValue) {
-        await super.onHashChange(value, oldValue);
-        SeoService.onRouteChanged(value)
+        if (value?.windowId === this.windowId) {
+            SeoService.onRouteChanged(value)
+        }
+
+        await super.onHashChange(value, oldValue)
     }
 
     /**
@@ -370,7 +373,7 @@ class ViewportController extends Controller {
 
         me.component.theme = theme;
 
-        me.updateThemeSwitchIcon(theme);
+        me.syncTheme(theme);
 
         if (updateStorage) {
             Neo.main.addon.LocalStorage.updateLocalStorageItem({
@@ -382,41 +385,29 @@ class ViewportController extends Controller {
     }
 
     /**
-     *
+     * @summary Passes the theme on screen to what follows it: the switch button's icon, and the state provider's
+     * `theme`, which the examples' launch links hand to the example they open.
+     * @param {String} theme The theme currently on screen
      */
-    async updateHeaderToolbar() {
-        let me                  = this,
-            {activeIndex, size} = me;
+    syncTheme(theme) {
+        this.updateThemeSwitchIcon(theme);
+        this.setState({theme})
+    }
 
-        if (Neo.isNumber(activeIndex) && size) {
-            let headerSocialIcons = me.getReference('header-social-icons'),
-                {cls}             = headerSocialIcons,
-                vertical          = size === 'x-small',
-                hidden            = activeIndex !== 0 && vertical;
-
-            NeoArray.toggle(cls, 'hide-sidebar', hidden);
-
-            if (!hidden) {
-                NeoArray.toggle(cls, 'separate-bar', vertical)
-            }
-
-            headerSocialIcons.cls = cls;
-
-
-            if (hidden && vertical) {
-                await me.timeout(200)
-            }
-
-            headerSocialIcons.hidden = hidden
-        }
+    /**
+     * @summary Syncs the header toolbar's active section button with `activeIndex`.
+     */
+    updateHeaderToolbar() {
+        let me            = this,
+            {activeIndex} = me;
 
         if (Neo.isNumber(activeIndex)) {
-            let headerCanvas = me.getReference('header-canvas'),
-                refs         = ['home-button', 'learn-button', 'news-header-button', 'services-button', 'examples-button'],
-                activeBtn    = me.getReference(refs[activeIndex]);
+            let headerToolbar = me.getReference('header-toolbar'),
+                refs          = ['home-button', 'learn-button', 'news-header-button', 'services-button', 'examples-button'],
+                activeBtn     = me.getReference(refs[activeIndex]);
 
-            if (headerCanvas) {
-                headerCanvas.activeId = activeBtn?.id || null
+            if (headerToolbar) {
+                headerToolbar.activeId = activeBtn?.id || null
             }
         }
     }

@@ -1,0 +1,81 @@
+/* Neo.timeline.EventEditor: modal editor for timeline records. */
+.neo-timeline-event-editor {
+    background   : var(--neo-timeline-editor-background, #161c26);
+    border       : 1px solid var(--neo-timeline-editor-border-color, #2b3545);
+    border-radius: var(--neo-timeline-editor-radius, 8px);
+    box-shadow   : var(--neo-timeline-editor-shadow, 0 12px 32px rgba(0, 0, 0, 0.55));
+    color        : var(--neo-timeline-editor-color, #e3e8f0);
+    font-family  : var(--neo-timeline-editor-font-family, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+    font-size    : var(--neo-timeline-editor-font-size, 14px);
+    max-height   : 92vh;
+    max-width    : 92vw;
+    width        : var(--neo-timeline-editor-width, 440px);
+
+    .neo-timeline-event-editor-form {
+        box-sizing    : border-box;
+        container     : neo-timeline-editor-form / inline-size;
+        display       : flex;
+        flex-direction: column;
+        gap           : 10px;
+        overflow-y    : auto;
+        padding       : 14px 16px;
+    }
+
+    /* Its fields carry the margins, as a single field does: the form's gap spaces every row alike */
+    .neo-timeline-event-editor-datetime {
+        gap          : 8px;
+        margin-bottom: 0;
+        overflow     : visible;
+        position     : relative;
+
+        /* A bound's message spans the row, in the space below it: one line, and Save stays where it was */
+        .neo-textfield-error-wrapper {position: static;}
+
+        /* Up into the fields' 5px bottom margin: nearer its own row than the next */
+        .neo-textfield-error.neo-absolute {
+            left      : 0;
+            margin-top: -3px;
+            right     : 0;
+            top       : 100%;
+        }
+    }
+
+    /* Narrower than the editor's own width, as on a phone: the time moves below its date */
+    @container neo-timeline-editor-form (width < 400px) {
+        .neo-timeline-event-editor-datetime {
+            flex-wrap: wrap;
+
+            > .neo-datefield {min-width: 100%;}
+            > .neo-timefield {margin-left: auto;}
+        }
+    }
+
+    .neo-timeline-event-editor-footer {
+        border-top     : 1px solid var(--neo-timeline-editor-border-color, #2b3545);
+        display        : flex;
+        gap            : 8px;
+        justify-content: flex-end;
+        padding        : 10px 16px;
+    }
+
+    .neo-timeline-event-editor-save {
+        --button-text-color       : var(--neo-timeline-editor-accent-contrast-color, #0f141b);
+        --button-text-color-active: var(--neo-timeline-editor-accent-contrast-color, #0f141b);
+        --button-text-color-hover : var(--neo-timeline-editor-accent-contrast-color, #0f141b);
+        background                : var(--neo-timeline-editor-accent-color, #5eead4);
+        border-color              : var(--neo-timeline-editor-accent-color, #5eead4);
+        border-radius             : 6px;
+        color                     : var(--neo-timeline-editor-accent-contrast-color, #0f141b);
+        font-weight               : 600;
+    }
+
+    .neo-timeline-event-editor-cancel {
+        --button-text-color       : var(--neo-timeline-editor-color, #e3e8f0);
+        --button-text-color-active: var(--neo-timeline-editor-color, #e3e8f0);
+        --button-text-color-hover : var(--neo-timeline-editor-color, #e3e8f0);
+        background                : var(--neo-timeline-editor-cancel-background, #232c3a);
+        border-color              : var(--neo-timeline-editor-border-color, #2b3545);
+        border-radius             : 6px;
+        color                     : var(--neo-timeline-editor-color, #e3e8f0);
+    }
+}

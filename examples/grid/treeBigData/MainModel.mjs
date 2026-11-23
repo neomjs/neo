@@ -1,6 +1,8 @@
 import TreeModel from '../../../src/data/TreeModel.mjs';
 
 /**
+ * @summary A unit or a person of the organization. People carry a first and last name; a unit's `progress` and
+ * `number<n>` values are its people's average and sums.
  * @class Neo.examples.grid.treeBigData.MainModel
  * @extends Neo.data.TreeModel
  */
@@ -33,7 +35,9 @@ class MainModel extends TreeModel {
                 {name: 'counter',   type: 'Int'},
                 {name: 'firstname', type: 'String'},
                 {name: 'lastname',  type: 'String'},
-                {name: 'progress',  type: 'Int'}
+                {name: 'location',  type: 'String'},
+                {name: 'progress',  type: 'Int'},
+                {name: 'role',      type: 'String'}
             ];
 
         for (; i <= value; i++) {

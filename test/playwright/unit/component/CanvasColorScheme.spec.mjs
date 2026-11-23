@@ -32,7 +32,7 @@ class ThemedScope extends Container {
 ThemedScope = Neo.setupClass(ThemedScope);
 
 /**
- * The scheme each shipped theme declares as `--neo-color-scheme` in its own `Global.scss`.
+ * The scheme each shipped theme declares as `--neo-color-scheme` in its own `Global.css`.
  * `neo-theme-cyberpunk` is the row that matters: it is dark, its name says nothing, and a substring
  * test on the name answers `light` for it.
  */

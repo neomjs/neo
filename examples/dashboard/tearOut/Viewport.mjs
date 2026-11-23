@@ -1,5 +1,9 @@
-import BaseViewport from '../../../src/container/Viewport.mjs';
-import Workspace    from './Workspace.mjs';
+import BaseViewport     from '../../../src/container/Viewport.mjs';
+import Component        from '../../../src/component/Base.mjs';
+import ComponentManager from '../../../src/manager/Component.mjs';
+import Container        from '../../../src/container/Base.mjs';
+import ThemeSwitcher    from '../../../src/button/ThemeSwitcher.mjs';
+import Workspace        from './Workspace.mjs';
 
 /**
  * @summary Viewport of the minimal tear-out example: the engine's default window route, end to end.
@@ -18,29 +22,80 @@ class Viewport extends BaseViewport {
          */
         className: 'Neo.examples.dashboard.tearOut.Viewport',
         /**
+         * The dashboard examples' shared palette, which this example's stylesheet reads
+         * @member {String[]} additionalThemeFiles=['Neo.examples.dashboard.Palette']
+         */
+        additionalThemeFiles: ['Neo.examples.dashboard.Palette'],
+        /**
+         * @member {String[]} cls=['neo-example-tearout']
+         * @reactive
+         */
+        cls: ['neo-example-tearout'],
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }
 
     /**
-     * Reads this window's URL and mounts the workspace, unless the window is a tear-out target:
-     * that one is marked `tear-out-target` and stays empty.
+     * @summary Propagates theme updates across all open tear-out windows of this app.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.isConstructed && value) {
+            ComponentManager.find({appName: this.appName, ntype: 'viewport'}).forEach(viewport => {
+                if (viewport !== this && !viewport.isDestroyed && viewport.theme !== value) {
+                    viewport.theme = value
+                }
+            })
+        }
+    }
+
+    /**
+     * Reads this window's URL and mounts the claim line and the workspace, unless the window is a tear-out
+     * target: that one is marked `tear-out-target` and stays empty.
      */
     async onConstructed() {
         super.onConstructed();
 
-        let me  = this,
-            url = await Neo.Main.getByPath({path: 'document.URL', windowId: me.windowId});
+        let me      = this,
+            sibling = ComponentManager.find({appName: me.appName, ntype: 'viewport'}).find(vp => vp !== me && !vp.isDestroyed),
+            url     = await Neo.Main.getByPath({path: 'document.URL', windowId: me.windowId});
 
         if (me.isDestroyed) return;
+
+        if (sibling) {
+            me.theme = sibling.getTheme()
+        }
 
         if (new URL(url).searchParams.has('tearout')) {
             me.addCls('tear-out-target');
             return
         }
 
-        me.add({module: Workspace, flex: 1})
+        me.add([{
+            module: Container,
+            cls   : ['neo-example-tearout-claim'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+            items : [{
+                module: Component,
+                flex  : 1,
+                html  : '<b>A pane keeps its live state in its own window.</b> ' +
+                        'Type a draft in Notes, pop the pane out with its header\'s window action, then close that window: ' +
+                        'the pane comes home with your draft.'
+            }, {
+                module: ThemeSwitcher,
+                flex  : 'none'
+            }]
+        }, {
+            module: Workspace,
+            flex  : 1
+        }])
     }
 }
 

@@ -128,6 +128,107 @@ function runDomUpdateProbe(messages) {
 }
 
 /**
+ * @summary Routes a real worker envelope, holds Main completion, then exercises its existing once-only settlement.
+ * @param {Object} config Direct/forwarded envelope, optional metadata/deltas, and success/error completion.
+ * @returns {Promise<Object>}
+ */
+function runDomSettlementProbe(config) {
+    return runManagerProbe(`
+        const config = ${JSON.stringify(config)},
+              payload = {deltas: config.deltas || [], ...(Object.hasOwn(config, 'meta') ? {meta: config.meta} : {})},
+              message = config.forwarded
+                  ? {action: 'reply', destination: 'app', replyId: 'update', windowId: 'window-1',
+                      data: {...payload, updateVdom: true, vnodes: {component: {id: 'component', childNodes: []}}}}
+                  : {action: 'updateVdom', destination: 'window-1', origin: 'app', id: 'update', ...payload},
+              events = [], sent = [], order = [],
+              onUpdate = event => {
+                  order.push('update');
+                  events.push({payloadPreserved: event.data === (config.forwarded ? message.data : message),
+                      metadataPreserved: event.data.meta === payload.meta, replyId: event.replyId})
+              };
+        WorkerManager.sendMessage = (dest, value) => {order.push('reply'); sent.push({dest, value})};
+        WorkerManager.on('updateVdom', onUpdate);
+        WorkerManager.onWorkerMessage({data: message});
+        const before = {events: [...events], replyCount: sent.length, promiseHeld: Object.hasOwn(WorkerManager.promises, 'update')};
+
+        order.push('complete');
+        if (config.reject) {
+            WorkerManager.rejectDomOperationPromise('update', new Error('consumer failed'));
+            WorkerManager.rejectDomOperationPromise('update', new Error('duplicate failure'));
+            WorkerManager.resolveDomOperationPromise('update')
+        } else {
+            WorkerManager.resolveDomOperationPromise('update');
+            WorkerManager.resolveDomOperationPromise('update');
+            WorkerManager.rejectDomOperationPromise('update', new Error('late failure'))
+        }
+        await new Promise(resolve => setImmediate(resolve));
+        WorkerManager.un('updateVdom', onUpdate);
+        console.log(JSON.stringify({before, order, sent,
+            forwardedReplyPreserved: config.forwarded && sent[0]?.value === message,
+            promiseHeld: Object.hasOwn(WorkerManager.promises, 'update')}))
+    `)
+}
+
+/** @summary Metadata is Main-thread work even when the component's DOM diff is empty. */
+test.describe('Neo.worker.Manager metadata-only DOM updates', () => {
+    for (const forwarded of [false, true]) {
+        const route  = forwarded ? 'forwarded VDom reply' : 'direct App update',
+              meta   = {component: {logicalOffset: 42}},
+              queued = {events: [{payloadPreserved: true, metadataPreserved: true, replyId: 'update'}],
+                  replyCount: 0, promiseHeld: true};
+
+        test(`${route}: metadata-only completion follows Main and replies once`, async () => {
+            const report = await runDomSettlementProbe({forwarded, meta});
+            expect(report.before).toEqual(queued);
+            expect(report.order).toEqual(['update', 'complete', 'reply']);
+            expect(report.sent).toHaveLength(1);
+            expect(report.sent[0].dest).toBe('app');
+            expect(report.promiseHeld).toBe(false);
+            if (forwarded) {
+                expect(report.forwardedReplyPreserved).toBe(true);
+                expect(report.sent[0].value.data).toEqual({deltas: [], meta, updateVdom: true,
+                    vnodes: {component: {id: 'component', childNodes: []}}})
+            } else {
+                expect(report.sent[0].value).toEqual({action: 'reply', replyId: 'update', success: true})
+            }
+        });
+
+        test(`${route}: a metadata consumer failure rejects once without adopting computed vnodes`, async () => {
+            const report = await runDomSettlementProbe({forwarded, meta, reject: true});
+            expect(report.before).toEqual(queued);
+            expect(report.order).toEqual(['update', 'complete', 'reply']);
+            expect(report.sent).toHaveLength(1);
+            expect(report.sent[0]).toMatchObject({dest: 'app', value: {
+                action: 'reply', replyId: 'update', reject: true, data: {error: 'consumer failed'}
+            }});
+            expect(report.sent[0].value.data).not.toHaveProperty('vnodes');
+            expect(report.promiseHeld).toBe(false)
+        });
+
+        for (const [name, metadata] of [['absent', {}], ['null', {meta: null}], ['empty', {meta: {}}]]) {
+            test(`${route}: zero deltas with ${name} metadata remains an immediate no-op`, async () => {
+                const report = await runDomSettlementProbe({forwarded, ...metadata});
+                expect(report.before).toEqual({events: [], replyCount: 1, promiseHeld: false});
+                expect(report.order).toEqual(['reply', 'complete']);
+                expect(report.sent).toHaveLength(1);
+                expect(report.sent[0]).toMatchObject({dest: 'app', value: {action: 'reply', replyId: 'update'}});
+                expect(report.sent[0].value.reject).not.toBe(true);
+                expect(report.promiseHeld).toBe(false)
+            })
+        }
+
+        test(`${route}: ordinary deltas still await Main completion`, async () => {
+            const report = await runDomSettlementProbe({forwarded, deltas: [{action: 'removeNode', id: 'component'}]});
+            expect(report.before).toEqual(queued);
+            expect(report.order).toEqual(['update', 'complete', 'reply']);
+            expect(report.sent).toHaveLength(1);
+            expect(report.sent[0].value.reject).not.toBe(true);
+            expect(report.promiseHeld).toBe(false)
+        })
+    }
+});
+
+/**
  * @summary Pins how the main thread settles the promises of its worker replies.
  *
  * A promise main holds for itself settles the way `worker.Base` settles its own: `reject` comes from the reply

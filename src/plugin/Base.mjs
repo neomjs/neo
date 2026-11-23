@@ -33,6 +33,7 @@ class Plugin extends Base {
     }
 
     /**
+     * @summary Seeds `windowId` from `owner` and subscribes to future `owner.windowId` changes.
      * @param {Object} config
      */
     construct(config) {
@@ -40,6 +41,16 @@ class Plugin extends Base {
 
         let me      = this,
             {owner} = me;
+
+        if (owner?.windowId && me.windowId === null) {
+            me.windowId = owner.windowId
+        }
+
+        if (owner?.isConfig?.('windowId')) {
+            me.observeConfig(owner, 'windowId', value => {
+                me.windowId = value
+            })
+        }
 
         if (owner.isConstructed) {
             me.onOwnerConstructed()
@@ -54,11 +65,10 @@ class Plugin extends Base {
         // with `compareAttributes` reading `aria-colcount` off undefined, so a plugin re-applying on
         // remount is load-bearing for vdom structure. A duplicate-registration problem in an
         // override is the override's to make idempotent, not this subscription's to bound.
-        if (owner.mounted) {
-            me.onOwnerMounted();
-        } else {
-            owner.on('mounted', me.onOwnerMounted, me);
-        }
+        // An owner mounted already runs the callback now, and subscribes too: `mounted` fires on a
+        // later transition only, so its remounts re-apply like those of an owner that mounts later.
+        owner.mounted && me.onOwnerMounted();
+        owner.on('mounted', me.onOwnerMounted, me)
     }
 
     /**

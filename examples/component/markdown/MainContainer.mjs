@@ -1,7 +1,8 @@
-import Button         from '../../../src/button/Base.mjs';
-import MarkdownVdom   from '../../../src/component/markdown/Component.mjs';
-import Toolbar        from '../../../src/toolbar/Base.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import MarkdownVdom  from '../../../src/component/markdown/Component.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../../src/toolbar/Base.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * The canonical markdown source the streaming demo replays chunk-wise — deliberately covering
@@ -76,7 +77,10 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: Toolbar,
+            cls   : ['neo-examples-markdown-toolbar'],
             flex  : 'none',
+            // The row wraps, so every button stays on a phone's screen
+            layout: {ntype: 'flexbox', align: 'center', direction: 'row', pack: 'start', wrap: 'wrap'},
             items : [{
                 module : Button,
                 handler: 'up.onStreamButtonClick',
@@ -97,12 +101,14 @@ class MainContainer extends Viewport {
                 handler: 'up.onResetButtonClick',
                 iconCls: 'fa fa-rotate-left',
                 text   : 'Reset'
+            }, '->', {
+                module: ThemeSwitcher
             }]
         }, {
             module   : MarkdownVdom,
+            cls      : ['neo-examples-markdown-output'],
             flex     : 1,
-            reference: 'markdown-output',
-            style    : {overflow: 'auto', padding: '1em'}
+            reference: 'markdown-output'
         }]
     }
 
@@ -113,6 +119,18 @@ class MainContainer extends Viewport {
      * @protected
      */
     streamRun = 0
+
+    /**
+     * The page opens streaming: the first mount starts the stream demo, so the proof needs no click.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        value && !this.streamRun && this.onStreamButtonClick()
+    }
 
     /**
      * Streams the canonical source into the component in fixed-size chunks, simulating an

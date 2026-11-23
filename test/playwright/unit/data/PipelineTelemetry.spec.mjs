@@ -6,13 +6,14 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Connection     from '../../../../src/data/connection/Base.mjs';
+import Interceptor    from '../../../../src/data/interceptor/Base.mjs';
 import Normalizer     from '../../../../src/data/normalizer/Base.mjs';
 import Parser         from '../../../../src/data/parser/Base.mjs';
 import StreamParser   from '../../../../src/data/parser/Stream.mjs';
 import Pipeline       from '../../../../src/data/Pipeline.mjs';
 import Logger         from '../../../../src/util/Logger.mjs';
 
-const stages = ['connection', 'parser', 'normalizer'];
+const stages = ['connection', 'parser', 'normalizer'], hooks = ['request', 'response', 'postParse'];
 
 /** @summary Settles overlapping operations in a chosen order without a network or a timer. */
 function deferred() {
@@ -38,7 +39,8 @@ async function withClock(action) {
 function expectRecord(record, pipeline, operation, status = 'fulfilled') {
     expect(Object.keys(metricData(record)).sort()).toEqual([
         'connectionEnd', 'connectionStart', 'id', 'normalizerEnd', 'normalizerStart', 'operation',
-        'parsedSize', 'parserEnd', 'parserStart', 'pipelineId', 'rawSize', 'status'
+        'parsedSize', 'parserEnd', 'parserStart', 'pipelineId', 'postParseEnd', 'postParseStart', 'rawSize',
+        'requestEnd', 'requestStart', 'responseEnd', 'responseStart', 'status', 'worker'
     ].sort());
     expect(typeof record.id).toBe('string');
     expect(record.id.length).toBeGreaterThan(0);
@@ -145,10 +147,58 @@ test.describe('Pipeline telemetry preserves its business carriers', () => {
 
         expect(result).toBe(input);
         expectRecord(telemetry, pipeline, 'push');
-        for (const stage of stages) {
+        for (const stage of [...stages, ...hooks]) {
             expect([telemetry[`${stage}Start`], telemetry[`${stage}End`]]).toEqual([null, null])
         }
         expect(telemetry.rawSize).toEqual({bytes: null, records: 1})
+    });
+
+    test('interceptor hooks report their own time in flow order, and the sample names its realm', async () => {
+        const calls = [], realm = Neo.workerId;
+
+        /** @summary Records each hook, so the flow order is read from the calls and not assumed. */
+        class Recording extends Interceptor {
+            static config = {className: 'Test.Unit.Data.PipelineTelemetry.Recording'}
+
+            /** @summary Records the hook. @param {*} value @returns {*} */
+            request(value) {calls.push('request'); return value}
+            /** @summary Records the hook. @param {*} value @returns {*} */
+            response(value) {calls.push('response'); return value}
+            /** @summary Records the hook. @param {*} value @returns {*} */
+            postParse(value) {calls.push('postParse'); return value}
+        }
+
+        const pipeline = await makePipeline({interceptors: [{module: Neo.setupClass(Recording)}]}, {
+            connection: {read: async () => {calls.push('connection'); return 'raw'}},
+            parser    : {read: async () => {calls.push('parser'); return [{id: 1}]}},
+            normalizer: {normalize: async value => {calls.push('normalizer'); return value}}
+        });
+
+        Neo.workerId = 'data';
+
+        try {
+            const
+                {value: {telemetry}} = await withClock(() => pipeline.profile({operation: 'read', params: {}})),
+                flow                 = ['request', 'connection', 'response', 'parser', 'postParse', 'normalizer'],
+                times                = flow.flatMap(stage => [telemetry[`${stage}Start`], telemetry[`${stage}End`]]);
+
+            expect(calls).toEqual(flow);
+            expectRecord(telemetry, pipeline, 'read');
+            expect(times.every(Number.isFinite)).toBe(true);
+            expect(new Set(times).size, 'every stage has its own start and end').toBe(times.length);
+            expect(times).toEqual([...times].sort((a, b) => a - b));
+            expect(telemetry.worker).toBe('data')
+        } finally {
+            Neo.workerId = realm
+        }
+
+        const plain       = await makePipeline({}, {connection: {read: async () => 'raw'}});
+        const {telemetry} = await plain.profile({operation: 'read', params: {}});
+
+        for (const stage of hooks) {
+            expect([telemetry[`${stage}Start`], telemetry[`${stage}End`]], `${stage} is skipped without a handler`).toEqual([null, null])
+        }
+        expect(telemetry.worker).toBe(realm ?? null)
     });
 
     test('execute uses its generic method and original params, with method-specific shaping', async () => {
@@ -252,13 +302,13 @@ test.describe('Pipeline telemetry preserves its business carriers', () => {
         expect(JSON.stringify(metricData(metrics[0]))).toBe(firstReceipt)
     });
 
-    test('enabled observations get distinct UUIDs while disabled profiling never calls randomUUID', async () => {
+    test('enabled observations get distinct UUIDs while disabled profiling never requests random values', async () => {
         const disabled = await makePipeline({}, {connection: {read: async () => 'plain'}});
         const enabled  = await makePipeline({telemetry: true}, {connection: {read: async () => 'profiled'}});
-        const metrics  = [], original = crypto.randomUUID;
+        const metrics  = [], original = crypto.getRandomValues;
         let   calls    = 0, disabledCalls;
         enabled.on('telemetry', metric => metrics.push(metric));
-        crypto.randomUUID = function(...args) {
+        crypto.getRandomValues = function(...args) {
             calls++;
             return original.apply(this, args)
         };
@@ -270,7 +320,7 @@ test.describe('Pipeline telemetry preserves its business carriers', () => {
             await enabled.read();
             await enabled.read()
         } finally {
-            crypto.randomUUID = original
+            crypto.getRandomValues = original
         }
 
         expect(disabledCalls).toBe(0);

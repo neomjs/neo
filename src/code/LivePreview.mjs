@@ -412,7 +412,7 @@ class LivePreview extends Container {
                 me.neoExecutor = Neo.create(module.default);
             }
 
-            await me.neoExecutor.execute({code: source, container})
+            await me.neoExecutor.execute({code: source, container, current})
         }
     }
 

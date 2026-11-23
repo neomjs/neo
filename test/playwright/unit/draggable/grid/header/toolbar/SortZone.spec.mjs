@@ -316,23 +316,23 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
             column        = {dataField: 'alpha', locked: null},
             dragComponent = {vdom: {}, wrapperStyle: {}},
             owner         = {
-                addDomListeners : () => {},
-                ariaColumnOffset: 0,
-                cls             : [],
-                dragResortable  : true,
-                gridContainer   : {
+                addDomListeners: () => {},
+                cls            : [],
+                dragResortable : true,
+                gridContainer  : {
                     body   : {createViewData: () => calls.push('createViewData')},
                     columns: {count: 1, getAt: () => column}
                 },
-                items             : [dragComponent],
+                items                : [dragComponent],
                 // A layout read before the headers render measures the drag's layout, so the measurement waits for it
-                measureAfterUpdate: async () => {calls.push('measureAfterUpdate'); await Promise.resolve(); calls.push('measured')},
-                on                : () => {},
-                passSizeToBody    : async () => calls.push('passSizeToBody'),
-                scrollLeft        : 0,
-                style             : {},
-                update            : () => calls.push('update'),
-                vdom              : {cn: []}
+                measureAfterUpdate   : async () => {calls.push('measureAfterUpdate'); await Promise.resolve(); calls.push('measured')},
+                on                   : () => {},
+                passSizeToBody       : async () => calls.push('passSizeToBody'),
+                scrollLeft           : 0,
+                style                : {},
+                syncAriaColumnIndexes: () => calls.push('syncAriaColumnIndexes'),
+                update               : () => calls.push('update'),
+                vdom                 : {cn: []}
             },
             zone = Neo.create(SortZone, {owner});
 
@@ -354,7 +354,8 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         await zone.processDragEnd({cancelled: true});
 
         expect(column.locked).toBeNull();
-        expect(calls).toEqual(['measureAfterUpdate', 'measured', 'createViewData']);
+        // The toolbar renumbers its headers, and ships the new indexes whole even when a header's own update merges in
+        expect(calls).toEqual(['syncAriaColumnIndexes', 'measureAfterUpdate', 'measured', 'createViewData']);
 
         zone.destroy()
     })

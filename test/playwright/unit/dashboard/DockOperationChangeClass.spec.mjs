@@ -93,6 +93,21 @@ test.describe('Neo.dashboard.dock.model.Operations — the change-class beside t
         }
     });
 
+    test('an activation is its own class: it writes one node field, so it is no item flag (#20958)', () => {
+        const document = {
+                  schema: 'neo.dock.zone.v1', root: 'root', items: {alpha: {}, beta: {}},
+                  nodes : {root: {type: 'tabs', items: ['alpha', 'beta'], activeItemId: 'alpha'}}
+              },
+              {document: next, errors} = Operations.setActiveItem(document, {tabsNodeId: 'root', itemId: 'beta'});
+
+        expect(errors).toEqual([]);
+        expect(next.nodes.root.activeItemId).toBe('beta');
+        // the reducer's whole write: the node keeps its type, items and order, and `items` is untouched
+        expect({...next.nodes.root, activeItemId: 'alpha'}).toEqual(document.nodes.root);
+        expect(next.items).toEqual(document.items);
+        expect(Operations.changeClassFor('setActiveItem')).toBe('activation')
+    });
+
     test('an operation with no declared class is treated as topology, never as a fast path', () => {
         // The fallback is the whole safety property: a vocabulary that grows without updating the
         // map degrades to today's full transaction — slow — rather than to a wrong fast path.
@@ -123,6 +138,9 @@ test.describe('Neo.dashboard.dock.Workspace — getRefreshOptions derives from t
             expect(workspace.getRefreshOptions({operation: 'resizeEdgeZone'}),
                 'and so does an edge-zone extent — the class decides, not the operation name')
                 .toEqual({geometryOnly: true});
+
+            expect(workspace.getRefreshOptions({operation: 'setActiveItem', tabsNodeId: 'root', itemId: 'panel'}),
+                'an activation reconciles the active tab in place').toEqual({retainTopology: true});
 
             expect(workspace.getRefreshOptions({operation: 'moveItem', itemId: 'panel'}),
                 'a restructuring operation still takes the full transaction').toEqual({});

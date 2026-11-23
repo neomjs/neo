@@ -12,6 +12,10 @@ import HeaderFilter   from '../../../../src/plugin/HeaderFilter.mjs';
 import Store          from '../../../../src/data/Store.mjs';
 import TextField      from '../../../../src/form/field/Text.mjs';
 import NumberFilter   from '../../../../src/filter/NumberContainer.mjs';
+import BooleanFilter  from '../../../../src/filter/BooleanContainer.mjs';
+import DateFilter     from '../../../../src/filter/DateContainer.mjs';
+import GridHeader     from '../../../../src/grid/header/Button.mjs';
+import TableHeader    from '../../../../src/table/header/Button.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 class StoreHost extends Container {
@@ -53,6 +57,78 @@ test.describe('Neo.plugin.HeaderFilter', () => {
 
     test.beforeEach(() => {owned = []; echoes = 0});
     test.afterEach(() => owned.reverse().forEach(instance => instance.destroy()));
+
+    for (const [kind, Header] of [['grid', GridHeader], ['table', TableHeader]]) {
+        test(`${kind}: Date inline input survives source echo without changing the predicate or writing back`, async () => {
+            const days = ['2026-03-01', '2026-01-01', '2024-02-29', '2026-03-08', '2026-11-01'],
+                source = create(Store, {
+                    model: {fields: [{name: 'id', type: 'Int'}, {name: 'date', type: 'Date'}]},
+                    data : days.map((day, index) => ({id: index + 1, date: `${day}T00:00:00.000Z`}))
+                }),
+                container = host(source, `${kind}-container`),
+                owner = create(Header, {
+                    parentId    : container.id, dataField: 'date',
+                    editorConfig: {module: DateFilter, operator: '==='}, filterConfig: {operator: '==='}
+                }),
+                writer = owner.changeFilterValue, operatorWriter = owner.changeFilterOperator;
+            let writes = 0, operatorWrites = 0;
+            owner.changeFilterValue = function(data) {++writes; return writer.call(this, data)};
+            owner.changeFilterOperator = function(data) {++operatorWrites; return operatorWriter.call(this, data)};
+            owner.showHeaderFilter = true;
+            await owner.ensureHeaderFilterProjection();
+            const field = owner.filterField, input = field.items[1], plugin = owner.getPlugin('plugin-header-filter');
+
+            for (const [index, day] of days.entries()) {
+                input.value = day;
+                const contribution = source.getFilter('date', 'header-inline'), value = contribution.value,
+                    snapshot       = {epoch: value.getTime(), operator: contribution.operator, ownerRole: contribution.ownerRole};
+                expect(value).toBeInstanceOf(Date);
+                expect(value.toISOString()).toBe(`${day}T00:00:00.000Z`);
+                expect(source.count).toBe(1);
+                expect(source.first().id).toBe(index + 1);
+                expect(writes).toBe(index + 1);
+                expect(operatorWrites).toBe(0);
+                expect.soft(field.value).toBe(day);
+                expect.soft(input.value).toBe(day);
+
+                plugin.syncField();
+                source.fire('load');
+                expect.soft(field.value).toBe(day);
+                expect.soft(input.value).toBe(day);
+                expect(source.getFilter('date', 'header-inline')).toBe(contribution);
+                expect(contribution.value).toBeInstanceOf(Date);
+                expect({epoch: contribution.value.getTime(), operator: contribution.operator, ownerRole: contribution.ownerRole}).toEqual(snapshot);
+                expect(source.count).toBe(1);
+                expect(writes).toBe(index + 1);
+                expect(operatorWrites).toBe(0)
+            }
+
+            source.filters = [];
+            expect(field.value).toBeNull();
+            expect(input.value).toBeNull();
+            expect(field.operator).toBe('===');
+            expect(source.count).toBe(days.length);
+            expect(writes).toBe(days.length);
+            expect(operatorWrites).toBe(0)
+        })
+    }
+
+    test('Boolean source projection preserves false, true and clearing without echoing', () => {
+        const source = create(Store, {
+            model: {fields: [{name: 'id', type: 'Int'}, {name: 'active', type: 'Boolean'}]},
+            data : [{id: 1, active: false}, {id: 2, active: true}], filters: [inline(false, 'active', '===')]
+        }), {field} = header(host(source), {dataField: 'active', fieldModule: BooleanFilter});
+        expect(field.value).toBe(false);
+        expect(field.items.map(item => item.checked)).toEqual([false, true, false]);
+        source.getFilter('active', 'header-inline').value = true;
+        expect(field.value).toBe(true);
+        expect(field.items.map(item => item.checked)).toEqual([true, false, false]);
+        source.filters = [];
+        expect(field.value).toBeNull();
+        expect(field.items.map(item => item.checked)).toEqual([false, false, true]);
+        expect(source.count).toBe(2);
+        expect(echoes).toBe(0)
+    });
 
     test('shared Store and recreated headers project one exact contribution without echoing', () => {
         const source     = store([inline('a'), {property: 'category', operator: 'included', value: ['a', 'b'], ownerRole: 'header-picker'}]),

@@ -80,9 +80,9 @@ void main() {
  *
  * A frame is owed only to a change — a scene, the surface, the theme, the camera — never to a clock: idle,
  * the worker draws nothing. The orbit camera frames the scene's bounding sphere until the pointer takes it:
- * a primary-button drag orbits, the wheel zooms, and `pick` answers which node lies under a position. The
- * drawing buffer follows the size message's `devicePixelRatio`. A lost context keeps the scene and draws it
- * again once the context is restored.
+ * a primary-button drag orbits, the wheel zooms toward the pointer, and `pick` answers which node lies under a
+ * position. The drawing buffer follows the size message's `devicePixelRatio`. A lost context keeps the scene and
+ * draws it again once the context is restored.
  *
  * A scene that carries `clusters` draws through a foveated level of detail (`lod`): far away, one centroid per
  * cluster and one bundle line per connected cluster pair; closer, every node with the bundles; near, also the
@@ -201,7 +201,8 @@ class GraphScene extends Base {
                 'setScene',
                 'setTheme',
                 'updateMouseState',
-                'updateSize'
+                'updateSize',
+                'whenDrawn'
             ]
         },
         /**
@@ -215,7 +216,14 @@ class GraphScene extends Base {
          * The wheel's range as multiples of the fitted distance, and the zoom per wheel delta unit.
          * @member {Object} zoom={max: 3.75, min: 0.5, speed: 0.0015}
          */
-        zoom: {max: 3.75, min: 0.5, speed: 0.0015}
+        zoom: {max: 3.75, min: 0.5, speed: 0.0015},
+        /**
+         * The wheel zooms toward the pointer: the point of the target's depth plane under it keeps its place on
+         * the surface ({@link Neo.canvas.GraphScene.zoomTarget}). `false` zooms toward the target, wherever the
+         * pointer is.
+         * @member {Boolean} zoomToPointer=true
+         */
+        zoomToPointer: true
     }
 
     /**
@@ -477,6 +485,43 @@ class GraphScene extends Base {
             dist  : from.dist * (to.dist / from.dist) ** eased,
             target: from.target.map((value, axis) => value + (to.target[axis] - value) * eased)
         }
+    }
+
+    /**
+     * @summary The orbit target after a wheel step toward a surface position. While the distance moves from
+     * `camera.dist` to `dist`, the point of the target's depth plane under the position keeps its place on the
+     * surface: closing in, the target moves toward that point; backing off, away from it. At the surface's centre,
+     * or with the distance unchanged, the target stays. Yaw and pitch do not change.
+     * @param {Object}   options
+     * @param {Number}   options.aspect The surface's width over its height, as `orbitMatrix` takes it
+     * @param {Object}   options.camera `{dist, pitch, target, yaw}` before the step
+     * @param {Number}   options.dist The distance after the step
+     * @param {Number}   options.fov The vertical field of view in radians
+     * @param {Number}   options.height The surface height, in the unit of `x` and `y`
+     * @param {Number}   options.width
+     * @param {Number}   options.x From the surface's left
+     * @param {Number}   options.y From the surface's top
+     * @returns {Number[]} `[x, y, z]`
+     */
+    static zoomTarget({aspect, camera, dist, fov, height, width, x, y}) {
+        const
+            {pitch, target, yaw} = camera,
+            // on the target's depth plane, half the surface's height spans `distance * tan(fov / 2)`; the target
+            // moves by the change of that span times the position's offset from the centre
+            span = (camera.dist - dist) * Math.tan(fov / 2),
+            u    = (2 * x / width - 1) * aspect * span,
+            v    = (1 - 2 * y / height) * span,
+            cy   = Math.cos(yaw),
+            sy   = Math.sin(yaw),
+            cp   = Math.cos(pitch),
+            sp   = Math.sin(pitch);
+
+        // the view's right axis is `[cy, 0, sy]` and its up axis `[sy * sp, cp, -cy * sp]`, as `orbitMatrix` turns them
+        return [
+            target[0] + u * cy + v * sy * sp,
+            target[1] + v * cp,
+            target[2] + u * sy - v * cy * sp
+        ]
     }
 
     /**
@@ -772,6 +817,12 @@ class GraphScene extends Base {
      */
     drawnLabels = []
     /**
+     * The resolvers of {@link #whenDrawn} calls waiting for an owed frame or a flight to finish.
+     * @member {Function[]} drawnWaiters=[]
+     * @protected
+     */
+    drawnWaiters = []
+    /**
      * The distance the camera fitted at, the wheel's reference.
      * @member {Number} fittedDistance=3
      */
@@ -881,6 +932,9 @@ class GraphScene extends Base {
 
         me.dispose();
         super.clearGraph();
+
+        // nothing this graph owed will draw now
+        me.drawnWaiters.splice(0).forEach(resolve => resolve(false));
 
         me.contextLost  = false;
         me.drawnLabels  = [];
@@ -1215,15 +1269,35 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary The wheel zooms: the distance scales with the vertical delta, within the zoom range around
-     * the fitted distance.
+     * @summary The wheel zooms toward the pointer: the distance scales with the vertical delta, within the zoom
+     * range around the fitted distance, and the target moves with it so the point of its depth plane under the
+     * pointer stays under the pointer ({@link Neo.canvas.GraphScene.zoomTarget}). Held at a bound of the range,
+     * the target stays too. Without a pointer position on this canvas, or with `zoomToPointer` off, the wheel
+     * zooms toward the target. It ends a flight and takes the camera.
      * @param {Object} data
      */
     onWheel(data) {
-        const me = this, {camera, fittedDistance, zoom} = me, delta = data.wheel?.deltaY || 0;
+        const me = this, {camera, canvasSize, fittedDistance, gl, mouse, zoom} = me, delta = data.wheel?.deltaY || 0;
+
+        // the step's distance, held within the zoom range
+        const dist = Math.min(fittedDistance * zoom.max, Math.max(fittedDistance * zoom.min, camera.dist * Math.exp(delta * zoom.speed)));
+
+        // `mouse` holds this report's position, or the last one when the report carries none
+        if (me.zoomToPointer && canvasSize && mouse.x !== -1000 && mouse.y !== -1000) {
+            camera.target = me.constructor.zoomTarget({
+                aspect: gl ? gl.canvas.width / gl.canvas.height : canvasSize.width / canvasSize.height,
+                camera,
+                dist,
+                fov   : me.fov,
+                height: canvasSize.height,
+                width : canvasSize.width,
+                x     : mouse.x,
+                y     : mouse.y
+            })
+        }
 
         me.flightPlan  = null;
-        camera.dist    = Math.min(fittedDistance * zoom.max, Math.max(fittedDistance * zoom.min, camera.dist * Math.exp(delta * zoom.speed)));
+        camera.dist    = dist;
         camera.touched = true;
         me.requestFrame()
     }
@@ -1332,7 +1406,7 @@ class GraphScene extends Base {
 
         me.drawLabels();
         me.frames++;
-        me.flightPlan && me.requestFrame()
+        me.flightPlan ? me.requestFrame() : me.drawnWaiters.splice(0).forEach(resolve => resolve(true))
     }
 
     /**
@@ -1366,7 +1440,7 @@ class GraphScene extends Base {
     }
 
     /**
-     * @summary Pointer reports orbit the camera while the primary button is held; the base keeps the state.
+     * @summary Pointer reports orbit the camera while a primary press from this canvas is held; the base keeps the state.
      * @param {Object} data
      */
     updateMouseState(data) {
@@ -1374,7 +1448,7 @@ class GraphScene extends Base {
 
         super.updateMouseState(data);
 
-        if (!data.leave && (mouse.buttons & 1) && (mouse.dx || mouse.dy)) {
+        if (!data.leave && (mouse.pressedButtons & 1) && (mouse.dx || mouse.dy)) {
             me.flightPlan  = null;
             camera.yaw    += mouse.dx * orbitSpeed;
             camera.pitch   = Math.min(1.45, Math.max(-1.45, camera.pitch + mouse.dy * orbitSpeed));
@@ -1422,6 +1496,19 @@ class GraphScene extends Base {
             me.fit();
             me.requestFrame()
         }
+    }
+
+    /**
+     * @summary Remote entry: answers once the canvas shows the current state, which a host needs to say its pixels
+     * are drawn ({@link Neo.component.Canvas#drawn}). A change only owes a frame, and `setScene` answers before that
+     * frame draws, so the answer waits until no frame is owed and no flight moves the camera: `true` then, at once
+     * when that already holds after a drawn frame, and `false` when `clearGraph` drops the graph first.
+     * @returns {Promise<Boolean>}
+     */
+    whenDrawn() {
+        const me = this;
+
+        return me.frames > 0 && !me.animationId && !me.flightPlan ? Promise.resolve(true) : new Promise(resolve => me.drawnWaiters.push(resolve))
     }
 
     /**

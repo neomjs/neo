@@ -1638,4 +1638,88 @@ test.describe('Neo.dashboard.dock.projection.LayoutAdapter', () => {
             expect(enabledSide.items[0].headerToolbar.showOnHover).toBe(true)
         })
     });
+
+    test.describe('the center well (#21375)', () => {
+        /**
+         * The fixture after its center pane left: the right band alone, the center slot free, and the
+         * center's items still in the catalog.
+         * @returns {Object}
+         */
+        const createCenterlessModel = () => {
+            const model = createEdgeZoneModel();
+
+            delete model.nodes.root.zones.center;
+            delete model.nodes['main-tabs'];
+
+            return model
+        };
+
+        const findWell = config => {
+            let found;
+
+            (function walk(node) {
+                if (!node || typeof node !== 'object' || found) return;
+                node.dockNodeType === 'center-well' ? found = node : (node.items || []).forEach(walk)
+            })(config);
+
+            return found
+        };
+
+        const swarmAway = {swarm: {tabsNodeId: 'main-tabs', index: 1, home: {parentId: 'root', slot: 'center'}}};
+
+        test('without the option a centerless edge-zone projects no well, the unchanged default', () => {
+            expect(findWell(DockLayoutAdapter.project(createCenterlessModel()))).toBeUndefined()
+        });
+
+        test('the well takes the center flex, so the band keeps its edge', () => {
+            const result = DockLayoutAdapter.project(createCenterlessModel(), {enableDockCenterWell: true}),
+                  row    = result.items.find(item => item.dockNodeType === 'edge-zone-row');
+
+            expect(row.items.map(item => item.dockNodeType)).toEqual(['center-well', 'splitter', 'split']);
+            expect(row.items[0]).toMatchObject({cls: ['neo-dashboard-dock-center-well'], dockEdgeZoneId: 'root', flex: 1, vdom: {cn: []}});
+            expect(row.items[0].dockNodeId, 'not a dock node: the document has no center').toBeUndefined()
+        });
+
+        test('names the pane whose recorded home is this center while that pane is away', () => {
+            const well = findWell(DockLayoutAdapter.project(createCenterlessModel(), {
+                dockAwayPlacements  : swarmAway,
+                enableDockCenterWell: true
+            }));
+
+            expect(well.vdom.cn).toEqual([{cls: ['neo-dashboard-dock-center-well-text'], text: 'Swarm is in its own window'}])
+        });
+
+        test('keeps a title with replacement patterns literal', () => {
+            const model = createCenterlessModel();
+
+            model.items.swarm.title = 'Sales $& Costs';
+
+            const well = findWell(DockLayoutAdapter.project(model, {
+                dockAwayPlacements  : swarmAway,
+                enableDockCenterWell: true
+            }));
+
+            expect(well.vdom.cn[0].text).toBe('Sales $& Costs is in its own window')
+        });
+
+        test('stays a plain well for a pane closed for good, and for a home elsewhere', () => {
+            const model = createCenterlessModel();
+
+            delete model.items.swarm;
+
+            const well = findWell(DockLayoutAdapter.project(model, {
+                dockAwayPlacements  : {...swarmAway, terminal: {home: {parentId: 'root', slot: 'right'}}},
+                enableDockCenterWell: true
+            }));
+
+            expect(well.vdom.cn).toEqual([])
+        });
+
+        test('a center that holds a node projects it, never a well', () => {
+            expect(findWell(DockLayoutAdapter.project(createEdgeZoneModel(), {
+                dockAwayPlacements  : swarmAway,
+                enableDockCenterWell: true
+            }))).toBeUndefined()
+        })
+    });
 });

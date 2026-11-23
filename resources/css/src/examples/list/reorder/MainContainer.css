@@ -1,0 +1,126 @@
+.neo-reorder {
+    background-color: var(--sem-color-bg-neutral-default);
+    box-sizing      : border-box;
+    color           : var(--sem-color-text-neutral-default);
+    overflow-y      : auto;
+    padding         : 24px;
+
+    .neo-reorder-intro {
+        gap: 12px;
+
+        > .neo-component {
+            min-width: 220px;
+        }
+
+        h1 {
+            font-size: 1.5em;
+            margin   : 0 0 .25em;
+        }
+
+        p {
+            color : var(--sem-color-text-neutral-subdued);
+            margin: 0 0 1.5em;
+        }
+    }
+
+    .neo-reorder-panels {
+        background-color     : transparent;
+        display              : grid;
+        gap                  : 32px;
+        grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
+    }
+
+    .neo-reorder-panel h2 {
+        font-size: 1.1em;
+        margin   : 0 0 .75em;
+    }
+}
+
+/* One column on a phone: the checklist above the wall */
+@media (max-width: 720px) {
+    .neo-reorder {
+        padding: 16px;
+
+        .neo-reorder-panels {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+}
+
+/* The proxy renders outside the viewport, so the list and item rules are not nested under .neo-reorder. Both
+   classes sit on the list beside .neo-list, which outranks the theme's `.neo-list .neo-list-item` rules. */
+.neo-list.neo-reorder-steps,
+.neo-list.neo-reorder-wall {
+    background-color: transparent;
+    list-style      : none;
+    margin          : 0;
+    padding         : 0;
+
+    .neo-list-item {
+        background-color: var(--sem-color-surface-neutral-default);
+        border          : 1px solid var(--sem-color-border-default);
+        border-radius   : 8px;
+        color           : var(--sem-color-text-neutral-default);
+        cursor          : grab;
+        user-select     : none;
+    }
+
+    /* The page's text colour as the fill and its background as the digit keep the contrast in both themes */
+    .neo-reorder-place {
+        align-items     : center;
+        background-color: var(--sem-color-text-neutral-default);
+        border-radius   : 50%;
+        color           : var(--sem-color-bg-neutral-default);
+        display         : inline-flex;
+        flex            : none;
+        font-size       : .8em;
+        font-weight     : 600;
+        height          : 1.9em;
+        justify-content : center;
+        width           : 1.9em;
+    }
+}
+
+.neo-list.neo-reorder-steps .neo-list-item {
+    align-items  : center;
+    display      : flex;
+    gap          : 12px;
+    margin-bottom: 8px;
+    padding      : 10px 12px;
+}
+
+.neo-list.neo-reorder-wall {
+    display              : grid;
+    gap                  : 12px;
+    grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+
+    .neo-list-item {
+        overflow: hidden;
+        padding : 0;
+        position: relative;
+    }
+
+    /* The pointer lands on the card, never on a natively draggable image */
+    img {
+        aspect-ratio     : 1;
+        display          : block;
+        object-fit       : cover;
+        pointer-events   : none;
+        -webkit-user-drag: none;
+        width            : 100%;
+    }
+
+    .neo-reorder-name {
+        font-size    : .85em;
+        overflow     : hidden;
+        padding      : 6px 8px;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+
+    .neo-reorder-place {
+        left    : 6px;
+        position: absolute;
+        top     : 6px;
+    }
+}

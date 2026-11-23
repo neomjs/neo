@@ -1,5 +1,6 @@
 import Neo                   from './Neo.mjs';
 import * as core             from './core/_export.mjs';
+import {generateUUID}       from './util/UUID.mjs';
 import ClassHierarchyManager from './manager/ClassHierarchy.mjs';
 import DomAccess             from './main/DomAccess.mjs'; // has to get imported before DeltaUpdates
 import DeltaUpdates          from './main/DeltaUpdates.mjs';
@@ -14,10 +15,10 @@ let nativeWindowRoute;
  * @description The token is useful only while the opener still owns a matching pending `WindowProxy`. It is
  * removed on the first attempt, then the admitted route is cached inside this exact target realm so geometry
  * observation and the shared-worker connect handshake can read the same authority in either order. A reload
- * creates a new realm and loses the cache; URL/name inference and same-name reuse still cannot reconstruct it.
- * Cross-origin or independently opened windows deliberately remain unaddressable.
+ * creates a new realm and loses the cache. An opener that opted into renewal can stage a fresh token for
+ * the same physical window and original URL. Cross-origin or independently opened windows remain unaddressable.
  * @param {Window} win
- * @returns {{capabilities: {close: Boolean, focus: Boolean, position: Boolean, resize: Boolean}, nativeHandleKey: String, ownerWindowId: String, targetWindowId: String}|null}
+ * @returns {Object|null} The worker-private native route, including its opener name for a renewable admission.
  */
 const resolveNativeWindowRoute = win => {
     if (nativeWindowRoute !== undefined) {
@@ -164,6 +165,7 @@ class Main extends core.Base {
                 'windowNativeGetGeometry',
                 'windowNativeIsClosed',
                 'windowNativeMoveTo',
+                'windowNativeReleaseClosed',
                 'windowNativeResizeTo',
                 'windowOpen',
                 'windowResizeTo'
@@ -261,12 +263,11 @@ class Main extends core.Base {
     }
 
     /**
-     * Edit the location.hash value
-     * A value of null will remove the given key.
-     * @param {Object} data
+     * @summary Edits the key-value pairs of the route; a value of null removes its key.
+     * @param {Object|String} data
      */
     editRoute(data) {
-        let hashObj = DomEvents.parseHash(window.location.hash.substr(1)),
+        let hashObj = DomEvents.parseHash(DomEvents.getRoute()),
             hashArr = [];
 
         if (typeof data === 'string') {
@@ -282,7 +283,7 @@ class Main extends core.Base {
             }
         });
 
-        window.location.hash = hashArr.join('&')
+        DomEvents.setRoute(hashArr.join('&'))
     }
 
     /**
@@ -480,10 +481,27 @@ class Main extends core.Base {
      * Only an emitted `dist/esm` engine shares a tree with them, in its own `main/addon/`. `environment` alone
      * cannot tell the two apart: a `dist/esm` config still runs from the package when its page loads the
      * MicroLoader there. Both specifiers stay literal, so webpack still resolves each as a context of its own.
+     * An extension-free `node_modules/<package>/<path>/<Addon>` name addresses an installed package. Main's
+     * logical installed URL supplies the dependency root; source and emitted trees keep their own node_modules
+     * root. Package contexts are admitted by the declaring dependency's `neo.mainAddons` roots at build time.
      * @param {String} name
      * @returns {Promise<Object>}
      */
     importAddonModule(name) {
+        if (name.startsWith('node_modules/')) {
+            const modulePath = name.substring(13), parts = modulePath.split('/');
+
+            if (parts.length < (modulePath.startsWith('@') ? 3 : 2) ||
+                parts.some(part => !part || part === '.' || part === '..' || /[\\?#%]/.test(part)) ||
+                modulePath.endsWith('.mjs')) {
+                throw new Error('Package Main addons require an extension-free node_modules/<package>/<path> name')
+            }
+
+            return import.meta.url.includes('/node_modules/neo.mjs/')
+                ? import(`../../${modulePath}.mjs`)
+                : import(`../node_modules/${modulePath}.mjs`)
+        }
+
         let isWorkspaceAddon = name.startsWith('WS/');
 
         if (isWorkspaceAddon && (Neo.config.environment !== 'dist/esm' || import.meta.url.includes('/node_modules/neo.mjs/'))) {
@@ -777,12 +795,13 @@ class Main extends core.Base {
     }
 
     /**
-     * Change the location.hash value
+     * @summary Moves the route, kept where `Neo.config.routerMode` names.
      * @param {Object} data
+     * @param {Boolean} [data.replace=false]
      * @param {String} data.value
      */
     setRoute(data) {
-        window.location.hash = data.value
+        DomEvents.setRoute(data.value, data.replace)
     }
 
     /**
@@ -808,7 +827,16 @@ class Main extends core.Base {
         }
 
         const
-            {entry}      = pending,
+            {entry}         = pending,
+            {renewal}       = entry,
+            currentDocument = renewal && this.#getNativeWindowRouteDocument(entry);
+
+        if (renewal && (typeof targetWindowId !== 'string' || renewal.targetIds.has(targetWindowId) ||
+            !currentDocument || pending.previousDocument === currentDocument)) {
+            return null
+        }
+
+        const
             capabilities = {
                 close   : entry.nativeCapabilities.close    && typeof win.close  === 'function',
                 focus   : entry.nativeCapabilities.focus    && typeof win.focus  === 'function',
@@ -822,13 +850,18 @@ class Main extends core.Base {
                 targetWindowId
             };
 
-        this.#nativeWindowRoutes.set(entry.nativeHandleKey, {entry, targetWindowId});
+        if (renewal) {
+            renewal.targetIds.add(targetWindowId);
+            route.windowName = entry.windowName
+        }
+
+        this.#nativeWindowRoutes.set(entry.nativeHandleKey, {entry, currentDocument, targetWindowId});
 
         return route
     }
 
     /**
-     * Releases an active private generation when its exact target document unloads or reloads.
+     * @summary Releases one document's route and stages a new grant only for an opted-in popup.
      * Like consumption, this is a direct same-origin main-thread handshake and is not App-Worker remote API.
      * @param {Object} data
      * @param {String} data.nativeHandleKey
@@ -843,7 +876,14 @@ class Main extends core.Base {
             return false
         }
 
-        this.#invalidateNativeWindowEntry(route.entry);
+        const {entry} = route;
+
+        this.#invalidateNativeWindowEntry(entry);
+
+        if (entry.renewal && this.openWindows[entry.windowName] === entry &&
+            this.#getNativeWindowRouteDocument(entry) === route.currentDocument) {
+            this.#stageNativeWindowRoute(entry, route.currentDocument)
+        }
 
         return true
     }
@@ -862,6 +902,45 @@ class Main extends core.Base {
             if (pending.entry === entry) {
                 this.#pendingWindowRoutes.delete(token)
             }
+        }
+    }
+
+    /**
+     * @summary Resolves the current document of an opted-in popup at the opener's approved origin, path and query.
+     * @param {Object} entry
+     * @returns {Document|null}
+     */
+    #getNativeWindowRouteDocument(entry) {
+        try {
+            const {win}   = entry,
+                  current = new URL(win.location.href);
+
+            current.hash = '';
+            return !win.closed && current.href === entry.renewal.url ? win.document : null
+        } catch {
+            return null
+        }
+    }
+
+    /**
+     * @summary Transfers one expiring, single-use route grant to the opened WindowProxy.
+     * @param {Object} entry
+     * @param {Document|null} [previousDocument=null] The document that released its grant before renewal.
+     */
+    #stageNativeWindowRoute(entry, previousDocument=null) {
+        const token   = generateUUID(),
+              pending = {entry, expiresAt: Date.now() + this.nativeRouteTtl, previousDocument};
+
+        this.#pendingWindowRoutes.set(token, pending);
+
+        setTimeout(() => {
+            this.#pendingWindowRoutes.get(token) === pending && this.#pendingWindowRoutes.delete(token)
+        }, this.nativeRouteTtl);
+
+        try {
+            entry.win.sessionStorage.setItem(this.nativeRouteStorageKey, token)
+        } catch {
+            this.#pendingWindowRoutes.delete(token)
         }
     }
 
@@ -885,6 +964,7 @@ class Main extends core.Base {
             !route || route.targetWindowId !== targetWindowId ||
             this.openWindows[entry.windowName] !== entry ||
             entry.win.closed || entry.nativeCapabilities[capability] !== true ||
+            (entry.renewal && this.#getNativeWindowRouteDocument(entry) !== route.currentDocument) ||
             typeof entry.win[methods[capability]] !== 'function'
         ) {
             entry?.win?.closed && this.#invalidateNativeWindowEntry(entry);
@@ -1045,10 +1125,10 @@ class Main extends core.Base {
     }
 
     /**
-     * Closes popup windows
+     * @summary Closes named popups and acknowledges an already-closed renewable entry.
      * @param {Object} data
      * @param {String|String[]} data.names
-     * @returns {Boolean} True when every named live handle accepted the close request.
+     * @returns {Boolean} True when every named popup accepted close or was a registered, already-closed renewable popup.
      */
     windowClose(data) {
         const names = Array.isArray(data.names) ? data.names : [data.names];
@@ -1060,10 +1140,12 @@ class Main extends core.Base {
                 entry = this.openWindows[name],
                 win   = entry?.win;
 
-            if (!win || win.closed || typeof win.close !== 'function') {
-                closed = false
-            } else {
+            if (win?.closed) {
+                closed &&= Boolean(entry.renewal)
+            } else if (typeof win?.close === 'function') {
                 win.close()
+            } else {
+                closed = false
             }
 
             this.#invalidateNativeWindowEntry(entry);
@@ -1239,6 +1321,30 @@ class Main extends core.Base {
     }
 
     /**
+     * @summary Retires an exact closed popup from the opener's registry after its owner settles the vessel.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey The observed generation.
+     * @param {String} data.windowName The generation's semantic name in the opener.
+     * @returns {Boolean} True when the closed entry was still registered and was removed.
+     */
+    windowNativeReleaseClosed({nativeHandleKey, windowName}) {
+        if (typeof nativeHandleKey !== 'string' || !nativeHandleKey || typeof windowName !== 'string' || !windowName) return false;
+
+        const entry = this.openWindows[windowName];
+        if (entry?.nativeHandleKey !== nativeHandleKey) return false;
+
+        try {
+            if (entry.win.closed !== true) return false
+        } catch {
+            return false
+        }
+
+        this.#invalidateNativeWindowEntry(entry);
+        delete this.openWindows[windowName];
+        return true
+    }
+
+    /**
      * Moves an exact owner-granted native handle generation.
      * @param {Object} data
      * @param {String} data.nativeHandleKey
@@ -1295,7 +1401,7 @@ class Main extends core.Base {
     /**
      * @summary Reads the light/dark hint the active theme declares, or `undefined` when none does.
      *
-     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.scss`, because the
+     * Every theme states its own scheme as `--neo-color-scheme` in its `Global.css`, because the
      * name cannot be trusted to carry it: `theme-cyberpunk` is dark and is named neither. The token
      * is declared on the element holding the `neo-theme-*` class rather than on the document root,
      * so the read has to find that element; custom properties inherit downward only.
@@ -1317,6 +1423,7 @@ class Main extends core.Base {
      * @summary Opens a popup and stages any same-origin canvas before its route-bearing navigation.
      * @param {Object}  data
      * @param {Object}  [data.nativeCapabilities] Owner-granted generic physical capabilities.
+     * @param {Boolean} [data.renewNativeRouteOnReload=false] Renew the exact same-origin popup's route after reload.
      * @param {'dark'|'light'} [data.stagedColorScheme] Admitted scheme for the temporary same-origin document.
      * Omitted callers inherit the opener's own theme through {@link Neo.Main#resolveThemeColorScheme}.
      * @param {String}  data.url
@@ -1325,7 +1432,7 @@ class Main extends core.Base {
      * @param {String}  data.windowName
      * @return {Boolean}
      */
-    windowOpen({nativeCapabilities, stagedColorScheme, topologyIdentity=null, url, useTotalHeight=true, windowFeatures, windowName}) {
+    windowOpen({nativeCapabilities, renewNativeRouteOnReload=false, stagedColorScheme, topologyIdentity=null, url, useTotalHeight=true, windowFeatures, windowName}) {
         let existingWin = this.openWindows[windowName],
             stagedUrl   = null,
             targetName;
@@ -1348,7 +1455,7 @@ class Main extends core.Base {
         if (existingWin && !existingWin.win.closed) {
             targetName = existingWin.targetName
         } else {
-            targetName = crypto.randomUUID()
+            targetName = generateUUID()
         }
 
         // Same-origin children can connect to the shared worker immediately when the opener is
@@ -1371,33 +1478,20 @@ class Main extends core.Base {
                 } catch {/* Presentation must not revoke an otherwise valid physical handle. */}
             }
 
-            const
-                entry = {
-                    nativeCapabilities: {...this.nativeWindowCapabilities, ...nativeCapabilities},
-                    nativeHandleKey   : crypto.randomUUID(),
-                    ownerWindowId     : WorkerManager.windowId,
-                    targetName,
-                    win               : openedWindow,
-                    windowName
-                },
-                token   = crypto.randomUUID(),
-                pending = {
-                    entry,
-                    expiresAt: Date.now() + this.nativeRouteTtl
-                };
+            const entry = {
+                nativeCapabilities: {...this.nativeWindowCapabilities, ...nativeCapabilities},
+                nativeHandleKey   : generateUUID(),
+                ownerWindowId     : WorkerManager.windowId,
+                renewal           : renewNativeRouteOnReload === true && stagedUrl
+                    ? {url: stagedUrl.split('#', 1)[0], targetIds: new Set()}
+                    : null,
+                targetName,
+                win               : openedWindow,
+                windowName
+            };
 
             this.openWindows[windowName] = entry;
-            this.#pendingWindowRoutes.set(token, pending);
-
-            setTimeout(() => {
-                this.#pendingWindowRoutes.get(token) === pending && this.#pendingWindowRoutes.delete(token)
-            }, this.nativeRouteTtl);
-
-            try {
-                openedWindow.sessionStorage.setItem(this.nativeRouteStorageKey, token)
-            } catch {
-                this.#pendingWindowRoutes.delete(token)
-            }
+            this.#stageNativeWindowRoute(entry);
             // A same-origin child inherits a copy of this window's identity at creation. The opener's
             // reservation replaces it; without one the copy is cleared, so the popup boots as a root of
             // its own instead of forking the opener's Group on connect.

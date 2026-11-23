@@ -1,0 +1,351 @@
+.depot-viewport.neo-viewport {
+    .depot-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--depot-header-bg);
+        border-bottom: 1px solid var(--depot-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 12px;
+        max-width    : 100%;
+        min-height   : 56px;
+        padding      : 10px 20px;
+
+        .depot-spacer {
+            min-width: 0;
+        }
+
+        .depot-title {
+            color         : var(--depot-title);
+            font-size     : 18px;
+            font-weight   : 700;
+            letter-spacing: -.02em;
+        }
+
+        .depot-badge {
+            background          : var(--depot-badge-bg);
+            border              : 1px solid var(--depot-badge-border);
+            border-radius       : 999px;
+            color               : var(--depot-badge-text);
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            padding             : 3px 10px;
+        }
+
+        .depot-legend {
+            align-items: center;
+            color      : var(--depot-muted);
+            display    : inline-flex;
+            font-size  : 12px;
+            gap        : 10px;
+            margin-left: 2px;
+        }
+
+        .depot-legend-item {
+            align-items: center;
+            display    : inline-flex;
+            gap        : 5px;
+        }
+
+        .depot-legend-item::before {
+            border-radius: 3px;
+            content      : '';
+            display      : inline-block;
+            height       : 9px;
+            width        : 9px;
+        }
+
+        .depot-legend-parcel::before {
+            background: var(--neo-scheduler-bar-emerald-border);
+        }
+
+        .depot-legend-cold::before {
+            background: var(--neo-scheduler-bar-amber-border);
+        }
+
+        .depot-legend-freight::before {
+            background: var(--neo-scheduler-bar-violet-border);
+        }
+
+        .depot-snap-group.neo-container {
+            align-items: center;
+            display    : inline-flex;
+        }
+
+        .depot-snap-caption {
+            color         : var(--depot-muted);
+            font-size     : 12px;
+            font-weight   : 600;
+            letter-spacing: .01em;
+            margin-right  : 10px;
+        }
+
+        .depot-snap-btn {
+            --button-background-color-hover: var(--depot-hover-bg);
+            --button-border-hover          : 1px solid var(--depot-border);
+            --button-text-color            : var(--depot-muted);
+            --button-text-color-active     : var(--depot-title);
+            --button-text-color-hover      : var(--depot-title);
+            background          : var(--depot-control-bg);
+            border              : 1px solid var(--depot-border);
+            border-radius       : 0;
+            color               : var(--depot-muted);
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            margin-right        : -1px;
+            min-height          : 32px;
+            min-width           : 48px;
+            padding             : 0 11px;
+
+            &.pressed {
+                --button-background-color-hover: var(--depot-selected-bg);
+                --button-text-color            : var(--depot-selected-text);
+                --button-text-color-active     : var(--depot-selected-text);
+                --button-text-color-hover      : var(--depot-selected-text);
+                background  : var(--depot-selected-bg);
+                border-color: var(--depot-selected-bg);
+                position    : relative;
+                z-index     : 1;
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--depot-focus);
+                outline-offset: 2px;
+                z-index       : 2;
+            }
+        }
+
+        .depot-snap-first {
+            border-radius: 6px 0 0 6px;
+        }
+
+        .depot-snap-last {
+            border-radius: 0 6px 6px 0;
+            margin-right : 0;
+        }
+    }
+
+    .depot-status-bar.neo-container {
+        align-items  : center;
+        background   : var(--depot-status-bg);
+        border-bottom: 1px solid var(--depot-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 6px 10px;
+        min-height   : 40px;
+        padding      : 7px 20px;
+
+        .depot-status-pill {
+            border              : 1px solid var(--depot-badge-border);
+            border-radius       : 999px;
+            font-size           : 11px;
+            font-weight         : 700;
+            letter-spacing      : .03em;
+            padding             : 2px 9px;
+            text-transform      : uppercase;
+
+            &.is-idle {
+                background: var(--depot-badge-bg);
+                color     : var(--depot-badge-text);
+            }
+
+            &.is-preview {
+                background  : var(--depot-preview-pill-bg);
+                border-color: var(--depot-focus);
+                color       : var(--depot-preview-pill-text);
+            }
+
+            &.is-moved {
+                background  : var(--depot-moved-pill-bg);
+                border-color: var(--neo-scheduler-bar-emerald-border);
+                color       : var(--depot-moved-pill-text);
+            }
+
+            &.is-resized {
+                background  : var(--depot-resized-pill-bg);
+                border-color: var(--neo-scheduler-bar-amber-border);
+                color       : var(--depot-resized-pill-text);
+            }
+        }
+
+        .depot-status-text {
+            color               : var(--depot-title);
+            font-size           : 13px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 500;
+        }
+
+        .depot-status-spacer {
+            min-width: 0;
+        }
+
+        .depot-status-meta {
+            color               : var(--depot-muted);
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+        }
+    }
+
+    .neo-scheduler {
+        .neo-timeline-bar {
+            box-shadow          : 0 1px 2px rgba(0, 0, 0, .14);
+            cursor              : grab;
+            font-size           : 11.5px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            padding             : 0 6px;
+            transition          : box-shadow var(--motion-fast) var(--ease-out-soft), filter var(--motion-fast) var(--ease-out-soft), opacity var(--motion-fast) var(--ease-out-soft), transform var(--motion-fast) var(--ease-out-soft);
+
+            .neo-timeline-bar-handle {
+                cursor    : ew-resize;
+                transition: background-color var(--motion-fast) var(--ease-out-soft);
+                width     : 8px;
+            }
+
+            &:hover {
+                box-shadow: 0 0 0 1px var(--depot-focus), 0 4px 12px rgba(0, 0, 0, .24);
+                filter    : brightness(1.07);
+                z-index   : 3;
+
+                .neo-timeline-bar-handle::after {
+                    height : 16px;
+                    opacity: .92;
+                    top    : calc(50% - 8px);
+                }
+            }
+
+            .neo-timeline-bar-handle:hover {
+                background: color-mix(in srgb, currentColor 20%, transparent);
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--depot-focus);
+                outline-offset: 1px;
+                z-index       : 4;
+            }
+        }
+
+        &.neo-is-dragging {
+            cursor: grabbing;
+
+            .neo-timeline-bar:focus {
+                border-style: dashed;
+                opacity     : .38;
+            }
+        }
+    }
+}
+
+.neo-scheduler-drag-preview {
+    box-shadow          : 0 0 0 2px var(--depot-focus), 0 10px 24px rgba(0, 0, 0, .44);
+    cursor              : grabbing;
+    filter              : brightness(1.1);
+    font-size           : 11.5px;
+    font-variant-numeric: tabular-nums;
+    font-weight         : 700;
+    padding             : 0 6px;
+    transform           : translateY(-1px);
+}
+
+body:has(.depot-viewport.depot-is-resizing) .neo-scheduler-drag-preview {
+    border-style: dashed;
+    box-shadow  : 0 0 0 2px var(--depot-focus), 0 10px 24px rgba(0, 0, 0, .44);
+    cursor      : ew-resize;
+}
+
+@media (min-width: 768px) and (max-width: 1080px) {
+    .depot-viewport.neo-viewport .depot-toolbar.neo-toolbar {
+        gap    : 4px 12px;
+        padding: 8px 20px;
+
+        .depot-legend {
+            flex       : 0 0 100% !important;
+            margin-left: 0;
+            order      : 2;
+        }
+    }
+}
+
+@media (max-width: 767px) {
+    .depot-viewport.neo-viewport {
+        .depot-toolbar.neo-toolbar {
+            gap       : 6px 8px;
+            min-height: auto;
+            padding   : 8px 12px;
+
+            .depot-title {
+                font-size: 15px;
+                order    : 1;
+            }
+
+            .depot-badge {
+                font-size: 11px;
+                order    : 2;
+                padding  : 2px 8px;
+            }
+
+            .depot-spacer {
+                display: none;
+            }
+
+            .neo-theme-switcher {
+                margin-left: auto;
+                order      : 2;
+            }
+
+            .depot-legend {
+                font-size  : 11px;
+                gap        : 8px;
+                margin-left: 0;
+                order      : 3;
+                width      : 100%;
+            }
+
+            .depot-snap-group.neo-container {
+                margin-left: 0;
+                order      : 4;
+            }
+
+            .depot-snap-caption {
+                display: none;
+            }
+
+            .depot-snap-btn {
+                margin-right: -1px;
+                min-height  : 26px;
+                min-width   : 38px;
+                padding     : 0 7px;
+            }
+
+            .depot-snap-last {
+                margin-right: 0;
+            }
+        }
+
+        .depot-status-bar.neo-container {
+            align-items: center;
+            flex-wrap  : nowrap;
+            gap        : 8px;
+            min-height : auto;
+            padding    : 6px 12px;
+
+            .depot-status-pill {
+                flex-shrink: 0;
+            }
+
+            .depot-status-text {
+                flex       : 1 1 0;
+                font-size  : 12px;
+                line-height: 1.35;
+                min-width  : 0;
+                white-space: normal;
+            }
+
+            .depot-status-spacer,
+            .depot-status-meta {
+                display: none;
+            }
+        }
+    }
+}

@@ -3,8 +3,8 @@
     "configurations": [
         {
             "name": "neo-dev-server",
-            "runtimeExecutable": "npx",
-            "runtimeArgs": ["webpack", "serve", "-c", "./buildScripts/webpack/webpack.server.config.mjs"],
+            "runtimeExecutable": "node",
+            "runtimeArgs": ["./buildScripts/util/fileServer.mjs"],
             "port": 8080,
             "autoPort": true
         },

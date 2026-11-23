@@ -1,20 +1,36 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import EmailField            from '../../../../src/form/field/Email.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import EmailField     from '../../../../src/form/field/Email.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.email.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.email.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.email.MainContainer',
+        autoMount    : true,
+        componentName: 'Email field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module         : EmailField,
+            clearable      : true,
+            labelText      : 'Email',
+            labelWidth     : 70,
+            placeholderText: 'name@example.com',
+            width          : 300
+        },
+        states: {
+            filled  : {value: 'jane.doe@example.com'},
+            empty   : {},
+            invalid : {value: 'jane.doe@'},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -114,16 +130,6 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(EmailField, {
-            clearable : true,
-            labelText : 'Label',
-            labelWidth: 70,
-            value     : 'foo@test.com',
-            width     : 200
-        })
     }
 }
 

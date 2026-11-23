@@ -19,12 +19,41 @@ class WorkspaceController extends Controller {
      * @summary Captures stable references before hosts leave the source component tree.
      */
     onComponentConstructed() {
-        const me = this;
+        const me    = this,
+              inbox = me.getReference('inbox');
 
         ['detail', 'detailPopout', 'reader', 'inbox', 'composeButton'].forEach(name => me.getReference(name));
         me.getReference('composeButton').handler = () => me.onCompose();
         me.getReference('detailPopout').handler = () => me.openInWindow('detail');
-        me.getReference('inbox').view.selectionModel.on({selectionChange: me.onSelectionChange, scope: me})
+        inbox.view.selectionModel.on({selectionChange: me.onSelectionChange, scope: me});
+
+        if (!inbox.store.getCount()) {
+            inbox.store.on({load: me.selectInitialEmail, scope: me})
+        }
+
+        me.selectInitialEmail()
+    }
+
+    /**
+     * @summary Populates the retained detail reader with the first inbox message when no message is selected yet.
+     */
+    selectInitialEmail() {
+        const me     = this,
+              detail = me.getReference('detail');
+
+        if (me.isDestroyed || detail?.stateProvider.getData('email')) {
+            return
+        }
+
+        const inbox    = me.getReference('inbox'),
+              view     = inbox?.view,
+              first    = inbox?.store?.getAt(0),
+              recordId = first && view?.getRecordId(first);
+
+        if (recordId != null) {
+            view.selectionModel.selectRow(recordId);
+            view.selectionModel.fireRowSelectionChange()
+        }
     }
 
     /**

@@ -642,7 +642,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
           bindings    = new Map();
 
     const routeConfig = (target, mutate = config => config, url = '**/neo-config.json*') => target.route(url, async route => {
-        const response = await route.fetch();
+        const response = await route.fetch({maxRetries: 2});
 
         if (!response.ok()) {
             return route.fulfill({response})

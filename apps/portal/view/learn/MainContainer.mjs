@@ -28,7 +28,9 @@ class MainContainer extends SharedContainer {
          */
         pageContainerConfig: {
             contentConfig: {
-                module: ContentComponent
+                module       : ContentComponent,
+                listeners    : {routeSection: 'onRouteSection'},
+                routeSections: true
             }
         },
         /**

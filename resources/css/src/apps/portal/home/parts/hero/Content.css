@@ -1,0 +1,163 @@
+@font-face {
+    font-family: "GT-Planar";
+    src        : url("../../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
+}
+
+.portal-home-hero-content.neo-container {
+    /* Background moved to MainContainer for global engine effect */
+    background-color: transparent;
+    gap             : 2.5rem;
+    padding         : 6em 2em;
+
+    .button-group {
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row;
+        gap             : 1rem;
+        margin-top      : 1rem;
+        width           : auto;
+
+        .neo-button {
+            min-width: 160px;
+        }
+    }
+
+    .logo-container {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : row;
+        flex-wrap       : wrap;
+        gap             : 1.5rem;
+        justify-content : center;
+        min-height      : 100px;
+    }
+
+    .neo-magic-move-text {
+        background-color: transparent;
+        color           : var(--sem-color-text-neutral-default);
+        font-size       : 2.5rem;
+        height          : 2em;
+        letter-spacing  : -0.02em;
+        line-height     : 1.2em;
+        margin          : 0;
+        width           : 90%;
+
+        .neo-content {
+            font-size: 2.5rem;
+        }
+
+        .neo-measure-element-wrapper {
+            letter-spacing: -0.02em;
+        }
+    }
+
+    .hero-audience-cue {
+        --button-secondary-background-color: var(--sem-color-bg-neutral-highlighted);
+        --button-secondary-text-color      : var(--sem-color-text-neutral-default);
+    }
+
+    .neo-h1 {
+        color      : var(--sem-color-text-neutral-contrast);
+        font-family: "GT-Planar", sans-serif;
+        font-size  : 5rem;
+        line-height: 1.1;
+        margin     : 0;
+    }
+
+    .neo-h2 {
+        color      : var(--sem-color-text-neutral-default);
+        font-size  : 2.5rem;
+        font-weight: 800;
+        margin     : 0;
+    }
+
+    .neo-h3 {
+        margin    : 0 auto;
+        max-width : 860px;
+        text-align: center;
+
+        .hero-lead,
+        .hero-projects {
+            display: block;
+        }
+
+        .hero-lead {
+            color      : var(--sem-color-text-neutral-default);
+            font-size  : 1.35rem;
+            line-height: 1.42;
+        }
+
+        .hero-projects {
+            color      : var(--sem-color-text-neutral-subdued);
+            font-size  : 1.05rem;
+            line-height: 1.5;
+            margin-top : 0.5rem;
+        }
+    }
+
+    .vector {
+        background-color   : transparent;
+        background-image   : url("../../../../../../../../../resources/images/logo/neo_logo_primary.svg");
+        background-position: center center;
+        background-repeat  : no-repeat;
+        background-size    : contain;
+        height             : 80px;
+        width              : 80px;
+    }
+
+    @media (max-width : 1000px) {
+        .neo-h1 {
+            font-size: 4rem;
+        }
+    }
+
+    /* A short snapping screen still holds the whole statement, the buttons and the replay strip below them */
+    @media (min-width: 841px) and (max-height: 820px) {
+        gap    : 1.75rem;
+        padding: 3em 2em;
+    }
+
+    @media (max-width : 645px) {
+        padding: 4em 1.5em;
+        gap    : 2rem;
+
+        .logo-container {
+            gap: 1rem;
+        }
+
+        .neo-h1 {
+            font-size: 3rem;
+        }
+
+        .neo-magic-move-text {
+            height: 3.5em;
+        }
+
+        .neo-h3 {
+            max-width: 100%;
+
+            .hero-lead {
+                font-size: 1.1rem;
+            }
+
+            .hero-projects {
+                font-size: 0.95rem;
+            }
+        }
+
+        .vector {
+            height: 60px;
+            width : 60px;
+        }
+
+        .button-group {
+            flex-direction: column;
+            width: 100%;
+
+            .neo-button {
+                width: 100%;
+            }
+        }
+    }
+}

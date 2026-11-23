@@ -54,3 +54,34 @@ export function stampReleaseNote(content, {publishedAt, version}) {
         isDraft     : false
     })
 }
+
+/**
+ * @summary Records the source paths that share this note's published date in the generated SEO catalog.
+ * @param {String} content The stamped release note
+ * @param {String[]} paths Repository-relative source paths included in the cut
+ * @returns {String}
+ */
+export function stampReleaseSeoSources(content, paths) {
+    const note = matter(content);
+
+    return matter.stringify(note.content, {...note.data, seoSourcePaths: [...new Set(paths)].sort()})
+}
+
+/**
+ * @summary Reads the cut date and its source paths from a release note's SEO stamp.
+ * @param {String} content
+ * @returns {{date: String, paths: String[]}|null}
+ */
+export function readReleaseSeoStamp(content) {
+    try {
+        const {publishedAt, seoSourcePaths} = matter(content).data,
+              date                          = Date.parse(publishedAt);
+
+        if (Number.isNaN(date) || !Array.isArray(seoSourcePaths) || !seoSourcePaths.length ||
+            seoSourcePaths.some(file => typeof file !== 'string' || !file)) return null;
+
+        return {date: new Date(date).toISOString().slice(0, 10), paths: [...new Set(seoSourcePaths)].sort()}
+    } catch {
+        return null
+    }
+}

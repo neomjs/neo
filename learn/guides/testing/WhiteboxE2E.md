@@ -1,3 +1,6 @@
+---
+seoDescription: "Whitebox E2E testing for Neo.mjs: Playwright tests reach component and store state in the App Worker through the Neural Link instead of chasing DOM nodes."
+---
 # Whitebox E2E Testing with Neural Link
 
 Traditional end-to-end (E2E) testing treats the application as a "black box," interacting purely through DOM element locators (e.g. `page.locator('button')`) and asserting visual outputs. In heavily virtualized environments like Neo.mjs, these tests can become flaky as DOM nodes are frequently recycled and state often resides in remote workers asynchronously decoupled from the main thread.
@@ -39,12 +42,12 @@ The `neuralLink` fixture supports two dispatch paths, selected by `NEO_AGENTOS_R
 
 ## Hosted CI
 
-The engine tier (`.github/workflows/test-e2e.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included.
+The engine tier (the `e2e-engine` jobs of `.github/workflows/test.yml`) runs without a Brain, so its population is the Brain-free specs, the adapter-eligible ones included. To measure specs on demand, dispatch Engine Tests with `suite: e2e`, `specs` and `repeatEach`.
 
 No CI test job provisions a Brain. The specs that need one run only locally, with `NEO_AGENTOS_RUNTIME_ROOT` set: the Bridge's own sessions, imports of Brain services, and the window specs the off-socket adapter cannot run yet. Run the ones your change reaches before you hand it off. `LOCAL_ONLY` in `e2eCiSelection.mjs` names each one with its reason, and the tier refuses to start while a Neural Link spec is in neither `ADAPTER_ELIGIBLE_SPECS` nor `LOCAL_ONLY`, so a new spec is never silently left out of CI.
 
 The shared scope classifier picks the tier's population:
-- A **`dev` push** runs the tier in **full**, on fourteen shards.
+- A **`dev` push** runs the tier in **full**, on eighteen shards.
 - A **pull request** whose change reaches the E2E impact boundary runs only the specs it can reach. `buildScripts/util/e2eSpecReach.mjs` maps each spec to the app it navigates and that app's static import closure, plus the helpers the spec imports. `selectSpecs` in `e2eCiSelection.mjs` then picks:
   - every spec that reaches a changed file, or whose app fetches it;
   - every changed spec;
@@ -61,13 +64,16 @@ The shared scope classifier picks the tier's population:
 
 The tier's job summary names what the selection ran and why, spec by spec. A `dev` red after a selective green belongs to the merged pull request's author: their change is the one the selection judged unable to reach the spec. They triage it first, rerunning a chronic flaker on record and noting it on that flaker's ticket, and otherwise fixing forward or reverting.
 
-Each shard's test step stops at five minutes.
+Each shard's test step stops at six minutes.
 
-The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` gives each file, longest first, to the shard with the least time so far. A file the table does not list yet counts as its median, so a new spec needs no table edit. When the shards' times drift from the table, rebuild it from a full `dev` run's log:
+The shards split the tier by measured time, not by test count. `buildScripts/util/e2eEngineDurations.json` holds each file's seconds, and `e2eCiSelection.mjs` deals the files the table does not list yet first, then gives each measured file, longest first, to the shard with the least time so far. An unlisted file counts as the table's 90th percentile, so a new spec needs no table edit, and a batch of new specs spreads evenly across the shards. A file's time varies from runner to runner, so the table holds each file's costliest of several runs. When the shards' times drift from the table, rebuild it from the logs of at least five green full-matrix runs, `dev` pushes first, one log file per run:
 
 ```bash
-gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --engine-durations > buildScripts/util/e2eEngineDurations.json
+for id in <run-id> <run-id> <run-id> <run-id> <run-id>; do gh run view "$id" --log > "e2e-$id.log"; done
+node buildScripts/util/e2eCiSelection.mjs --engine-durations e2e-*.log > buildScripts/util/e2eEngineDurations.json
 ```
+
+Before committing the table, drop any file the `dev` tree does not hold, such as a spec from an unmerged pull request's run. To read a single run's costs while diagnosing, pipe its log instead: `gh run view <run-id> --log | node buildScripts/util/e2eCiSelection.mjs --engine-durations`. Concatenated logs read as one run, so they sum rather than keep the costliest.
 
 The coverage summary names every class of spec the tier leaves out, with its owner: the local-only specs, the Workstation specs a hosted runner cannot composite, and each exclusion `e2eCiSelection.mjs` declares.
 

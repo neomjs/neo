@@ -6,7 +6,7 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  * @summary The default button component for the Neo.mjs framework.
  *
  * This class extends `Neo.component.Base` and offers comprehensive configurations for
- * text, icons, badges, and event handling. It supports advanced features like
+ * text, icons, badges, sizes, and event handling. It supports advanced features like
  * internal routing, external URL redirection, and optional ripple effects on click.
  * This class serves as the foundation for other specialized button types like
  * SplitButton, TabHeaderButton, and GridHeaderButton.
@@ -16,6 +16,13 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
  * @see Neo.examples.button.base.MainContainer
  */
 class Button extends Component {
+    /**
+     * Valid WAI-ARIA `aria-current` token values (plus `null` to omit the attribute).
+     * @member {Array} ariaCurrentValues=['date','location','page','step','time','true',null]
+     * @protected
+     * @static
+     */
+    static ariaCurrentValues = ['date', 'location', 'page', 'step', 'time', 'true', null]
     /**
      * Valid values for badgePosition
      * @member {String[]} badgePositions=['bottom-left','bottom-right','top-left','top-right']
@@ -30,6 +37,13 @@ class Button extends Component {
      * @static
      */
     static iconPositions = ['top', 'right', 'bottom', 'left']
+    /**
+     * Valid values for size
+     * @member {Array} sizes=[null,'small','medium','large']
+     * @protected
+     * @static
+     */
+    static sizes = [null, 'small', 'medium', 'large']
 
     static config = {
         /**
@@ -42,6 +56,19 @@ class Button extends Component {
          * @protected
          */
         ntype: 'button',
+        /**
+         * WAI-ARIA `aria-current` token for the button or route link (`'page'`, `'step'`, `'location'`,
+         * `'date'`, `'time'`, `'true'`), `Boolean` shorthand (`true -> 'true'`, `false -> null`), or `null` to omit.
+         * @member {Boolean|String|null} ariaCurrent_=null
+         * @reactive
+         */
+        ariaCurrent_: null,
+        /**
+         * Accessible name projected onto the button's VDOM root (`aria-label`), or `null` to omit.
+         * @member {String|null} ariaLabel_=null
+         * @reactive
+         */
+        ariaLabel_: null,
         /**
          * @member {String} badgePosition_='top-right'
          * @reactive
@@ -121,11 +148,12 @@ class Button extends Component {
          */
         menu_: null,
         /**
-         * The pressed state of the Button
-         * @member {Boolean} pressed_=false
+         * The pressed state of the Button. `null` marks a plain button (no toggle semantics),
+         * a Boolean value renders the `aria-pressed` attribute for assistive technology.
+         * @member {Boolean|null} pressed_=null
          * @reactive
          */
-        pressed_: false,
+        pressed_: null,
         /**
          * Change the browser hash value on click.
          * Use route for internal navigation and url for external links. Do not use both on the same instance.
@@ -135,6 +163,14 @@ class Button extends Component {
          */
         route_: null,
         /**
+         * The button's size: `'small'`, `'medium'` or `'large'`, in every theme and over the size of its context.
+         * `null` takes the context's size: compact in a toolbar, and the theme's default elsewhere.
+         * The size is independent of `ui`, which carries a state such as `'primary'`.
+         * @member {'small'|'medium'|'large'|null} size_=null
+         * @reactive
+         */
+        size_: null,
+        /**
          * The text displayed on the button [optional]
          * You can either pass a string, or a vdom cn array.
          * @example
@@ -143,6 +179,15 @@ class Button extends Component {
          * @reactive
          */
         text: null,
+        /**
+         * The button's surface role: `null` is the neutral bordered control for toolbars, headers and layouts;
+         * `'primary'` is the filled call to action for free-floating placements such as the Portal hero (while the
+         * classic themes declare it equal to their neutral default); `'secondary'`, `'ghost'` and `'tertiary'`
+         * select their respective variants.
+         * @member {String|null} ui=null
+         * @reactive
+         */
+        ui: null,
         /**
          * Transforms the button tag into an a tag [optional]
          * @member {String|null} url_=null
@@ -189,6 +234,7 @@ class Button extends Component {
     }
     /**
      * Settles once the `menu` config's list exists: its module loads on demand, so a click can arrive first.
+     * Every `menu` change replaces it, and only the latest one builds a list; a cleared menu sets it to `null`.
      * @member {Promise|null} menuListReady=null
      * @protected
      */
@@ -235,6 +281,30 @@ class Button extends Component {
 
 
     /**
+     * @summary Projects `aria-current` onto the button's VDOM root, omitting the attribute when `null`.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAriaCurrent(value, oldValue) {
+        if (oldValue !== undefined || value) {
+            this.changeVdomRootKey('aria-current', value)
+        }
+    }
+
+    /**
+     * @summary Projects `aria-label` onto the button's VDOM root, omitting the attribute when `null` or empty.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAriaLabel(value, oldValue) {
+        if (oldValue !== undefined || value) {
+            this.changeVdomRootKey('aria-label', value || null)
+        }
+    }
+
+    /**
      * Triggered after the badgePosition config got changed
      * @param {String} value    The new value of the badgePosition config.
      * @param {String} oldValue The old value of the badgePosition config.
@@ -272,7 +342,7 @@ class Button extends Component {
      * Mirrors the framework-generic disabled state onto an effective native button root.
      * The parent hook keeps toggling the `neo-disabled` class, which remains the sole styling
      * authority: projecting the attribute activates the UA `button:disabled` cascade, so
-     * `button/Base.scss` pins the one axis the class does not declare (`color`), and the
+     * `button/Base.css` pins the one axis the class does not declare (`color`), and the
      * render-equivalence component spec witnesses that the attribute contributes no paint.
      * The DOM-event manager remains defense in depth. URL and non-editing route configs turn the
      * root into an anchor, where the native `disabled` attribute has no semantics and must not
@@ -335,19 +405,32 @@ class Button extends Component {
     }
 
     /**
-     * Triggered after the menu config got changed
+     * Triggered after the menu config got changed. A button holds one menu list, built from its latest menu; a cleared
+     * menu is the latest too, so it takes the list with it and no build still in flight lands.
      * @param {Object|Object[]|null} value    The new value of the menu config.
      * @param {Object|Object[]|null} oldValue The old value of the menu config.
      * @protected
      */
     afterSetMenu(value, oldValue) {
-        if (value) {
-            this.menuListReady = import('../menu/List.mjs').then(module => {
-                let me            = this,
-                    isArray       = Array.isArray(value),
-                    items         = isArray ? value : value.items,
-                    menuConfig    = isArray ? {} : value,
-                    stateProvider = me.getStateProvider(),
+        if (!value) {
+            if (oldValue) {
+                this.menuListReady = null;
+                this.menuList?.destroy(true, false);
+                this.menuList = null
+            }
+        } else {
+            let ready = this.menuListReady = import('../menu/List.mjs').then(module => {
+                let me = this;
+
+                // Two imports of one module can settle in either order: a menu that changed meanwhile builds instead
+                if (ready !== me.menuListReady || me.isDestroyed) {
+                    return
+                }
+
+                let isArray                    = Array.isArray(value),
+                    items                      = isArray ? value : value.items,
+                    menuConfig                 = isArray ? {} : value,
+                    stateProvider              = me.getStateProvider(),
                     {appName, theme, windowId} = me,
 
                     config = Neo.merge({
@@ -370,22 +453,63 @@ class Button extends Component {
                     config.stateProvider = {parent: stateProvider}
                 }
 
-                me.menuList = Neo.create(config)
+                let list    = Neo.create(config),
+                    retired = me.menuList;
+
+                if (retired) {
+                    // A store the replacement shares stays alive: only the retired list goes
+                    retired.store === list.store && (retired.autoDestroyStore = false);
+                    retired.destroy(true, false)
+                }
+
+                me.menuList = list
             })
         }
     }
 
     /**
      * Triggered after the pressed config got changed
-     * @param {Boolean} value    The new value of the pressed config.
-     * @param {Boolean} oldValue The old value of the pressed config.
+     * @param {Boolean|null} value    The new value of the pressed config.
+     * @param {Boolean|null} oldValue The old value of the pressed config.
      * @protected
      */
     afterSetPressed(value, oldValue) {
-        let cls = this.cls;
+        this.syncAriaPressedState();
+        this.updatePressedCls(value === true)
+    }
 
-        NeoArray.toggle(cls, 'pressed', value === true);
-        this.cls = cls
+    /**
+     * @summary Reconciles `aria-pressed` when the explicit ARIA role changes.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetRole(value, oldValue) {
+        this.syncAriaPressedState();
+        super.afterSetRole(value, oldValue)
+    }
+
+    /**
+     * Toggles the pressed CSS class and publishes it together with the `aria-pressed` state
+     * written by `afterSetPressed`, so one transition sends one update. Subclasses with a role
+     * other than `button` (e.g. tab headers, which state their selection through `aria-selected`)
+     * skip the `aria-pressed` projection while reusing this.
+     * @param {Boolean} pressed
+     * @protected
+     */
+    updatePressedCls(pressed) {
+        let cls    = this.cls,
+            hadCls = NeoArray.hasItem(cls, 'pressed');
+
+        NeoArray.toggle(cls, 'pressed', pressed);
+
+        if (hadCls === pressed) {
+            // a null <-> false transition does not change the class list, so the cls
+            // assignment would not fire afterSetCls — send the update directly
+            this.update()
+        } else {
+            this.cls = cls // afterSetCls publishes the class change and the attribute together
+        }
     }
 
     /**
@@ -396,6 +520,17 @@ class Button extends Component {
      */
     afterSetRoute(value, oldValue) {
         !this.editRoute && this.updateTag()
+    }
+
+    /**
+     * Triggered after the size config got changed
+     * @param {String|null} value    The new value of the size config.
+     * @param {String|null} oldValue The old value of the size config.
+     * @protected
+     */
+    afterSetSize(value, oldValue) {
+        // Outside `ui`'s `neo-button-<ui>` namespace, so neither config can remove the other's class
+        this.removeAddCls(oldValue ? `neo-size-${oldValue}` : [], value ? `neo-size-${value}` : [])
     }
 
     /**
@@ -507,6 +642,25 @@ class Button extends Component {
     }
 
     /**
+     * @summary Normalizes boolean shorthand (`false -> null`, `true -> 'true'`) and validates `ariaCurrentValues`.
+     * @param {Boolean|String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetAriaCurrent(value, oldValue) {
+        if (value === false) {
+            return null
+        }
+
+        if (value === true) {
+            value = 'true'
+        }
+
+        return this.beforeSetEnumValue(value, oldValue, 'ariaCurrent', 'ariaCurrentValues')
+    }
+
+    /**
      * Triggered before the badgePosition config gets changed
      * @param {String} value    The new value of the badgePosition config.
      * @param {String} oldValue The old value of the badgePosition config.
@@ -543,6 +697,17 @@ class Button extends Component {
     }
 
     /**
+     * Triggered before the size config gets changed
+     * @param {String|null} value    The new value of the size config.
+     * @param {String|null} oldValue The old value of the size config.
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetSize(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'size')
+    }
+
+    /**
      * Changes the application's route based on the button's route config.
      * @protected
      */
@@ -561,7 +726,8 @@ class Button extends Component {
 
     /**
      * Handles the click event on the button.
-     * Triggers the configured handler, toggles the menu, updates the route, and shows the ripple effect if applicable.
+     * Triggers the configured handler, toggles the menu this button built, updates the route, and shows the ripple
+     * effect if applicable.
      * @param {Object} data The click event data object.
      */
     onClick(data) {
@@ -570,7 +736,7 @@ class Button extends Component {
         me.bindCallback(me.handler, 'handler', me.handlerScope || me);
         me.handler?.(data);
 
-        me.menu            && me.toggleMenu();
+        me.menu            && me.menuListReady && me.toggleMenu();
         me.route           && me.changeRoute(); // only relevant for editRoute=true
         me.useRippleEffect && me.showRipple(data)
     }
@@ -620,10 +786,20 @@ class Button extends Component {
      * Toggles the visibility of the button's menu, if one is configured.
      */
     async toggleMenu() {
-        let me = this;
+        let me = this,
+            ready;
 
-        // A click can land before the lazily loaded menu exists: it toggles once the menu does
-        await me.trap(me.menuListReady);
+        // A click can land before the lazily loaded menu exists: it toggles once the latest menu's list does,
+        // and does nothing once the menu was cleared
+        while (ready !== me.menuListReady) {
+            ready = me.menuListReady;
+
+            if (!ready) {
+                return
+            }
+
+            await me.trap(ready)
+        }
 
         let {menuList} = me,
             hidden     = !menuList.hidden;
@@ -645,6 +821,8 @@ class Button extends Component {
 
         return {
             ...super.toJSON(),
+            ariaCurrent  : me.ariaCurrent,
+            ariaLabel    : me.ariaLabel,
             badgePosition: me.badgePosition,
             badgeText    : me.badgeText,
             handler      : Neo.isString(handler) ? handler : (Neo.isFunction(handler) ? 'function' : null),
@@ -656,6 +834,21 @@ class Button extends Component {
             text         : me.text,
             url          : me.url,
             urlTarget    : me.urlTarget
+        }
+    }
+
+    /**
+     * @summary Reconciles `aria-pressed` with the Button's effective root tag and role.
+     * @protected
+     */
+    syncAriaPressedState() {
+        let vdomRoot = this.getVdomRoot(),
+            {role}   = this;
+
+        if (vdomRoot.tag === 'button' && (!role || role === 'button') && this.pressed !== null) {
+            vdomRoot['aria-pressed'] = String(this.pressed === true)
+        } else {
+            delete vdomRoot['aria-pressed']
         }
     }
 
@@ -709,6 +902,7 @@ class Button extends Component {
             delete vdomRoot.target
         }
 
+        me.syncAriaPressedState();
         me.syncNativeDisabledState();
         me.update()
     }

@@ -11,6 +11,8 @@ import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
 import Pipeline           from '../../../../src/data/Pipeline.mjs';
 import Rpc                from '../../../../src/data/connection/Rpc.mjs';
+import Connection         from '../../../../src/data/connection/Base.mjs';
+import StreamParser       from '../../../../src/data/parser/Stream.mjs';
 import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import RemoteMethodAccess from '../../../../src/worker/mixin/RemoteMethodAccess.mjs';
 import {execFileSync}     from 'node:child_process';
@@ -132,6 +134,105 @@ test('remote progressive loads retain streaming state and continuation through t
     ]);
     expect(loads).toContainEqual({count: 2, isMutation: true, postChunkLoad: true, streaming: true});
     expect(loads.at(-1).streaming).toBe(false);
+});
+
+test.describe('built-in Pipeline cold-start recovery through instance RMA', () => {
+    for (const operation of ['read', 'execute']) {
+        for (const startupFailure of ['rejected call', 'refused result', 'rejected loader call']) {
+            for (const maxRemoteRetries of [0, 1]) {
+                test(`${operation}: ${startupFailure} before the first counterpart, retry budget ${maxRemoteRetries}`, async () => {
+                    const previousWorker = Neo.currentWorker, previousData = Neo.worker.Data,
+                          previousMode   = Neo.config.unitTestMode, previousWorkerId = Neo.workerId,
+                          previousError  = console.error, previousWarn = console.warn,
+                          wire           = [], rows = [], requests = [], params = {page: 2};
+                    let source, target, receiver, creations = 0, streamLoads = 0;
+
+                    try {
+                        console.error = console.warn = () => {};
+                        receiver = Neo.create(RmaReceiver);
+                        receiver.resolve = (message, data) => receiver.pendingResolve(structuredClone(data));
+                        receiver.reject = (message, error) => receiver.pendingReject(error);
+                        Neo.config.unitTestMode = false;
+                        Neo.workerId = 'app';
+                        Neo.currentWorker = {
+                            isSharedWorker: false,
+                            promiseMessage(destination, message) {
+                                wire.push(structuredClone(message));
+                                return new Promise((resolve, reject) => {
+                                    receiver.pendingResolve = resolve;
+                                    receiver.pendingReject = reject;
+                                    receiver.onRemoteMethod({...message, id: `cold-start-${wire.length}`, origin: 'app'})
+                                })
+                            },
+                            sendMessage(destination, message) {
+                                if (message.action === 'pipelineEvent' && message.event === 'data') rows.push(...message.data)
+                            }
+                        };
+                        Neo.worker.Data = {
+                            async loadDataModule({className}) {
+                                if (className === StreamParser.prototype.className && ++streamLoads === 1 && startupFailure === 'rejected loader call') {
+                                    throw new Error('transient loader transport failure')
+                                }
+                                return {success: true}
+                            },
+                            async createInstance({config}) {
+                                creations++;
+                                if (creations === 1 && startupFailure !== 'rejected loader call') {
+                                    if (startupFailure === 'rejected call') throw new Error('transient startup failure');
+                                    return {success: false, error: 'transient startup failure'}
+                                }
+                                target = Neo.create(Pipeline, config);
+                                await Promise.all([target.ready(), target.connection.ready(), target.parser.ready()]);
+                                const read = async (method, receivedParams) => {
+                                    requests.push({method, params: receivedParams});
+                                    const stream = new ReadableStream({start(controller) {
+                                        controller.enqueue(new TextEncoder().encode('{"id":7}\n'));
+                                        controller.close()
+                                    }});
+                                    return {stream}
+                                };
+                                target.connection.read = receivedParams => read('read', receivedParams);
+                                target.connection.execute = read;
+                                return {success: true, id: target.id}
+                            }
+                        };
+                        // Await real Base proxies before switching realms: no eager setup, no remoteId and no counterpart.
+                        source = Neo.create(Pipeline, {maxRemoteRetries});
+                        await source.ready();
+                        source.workerExecution = 'data';
+                        source.connection = {className: Connection.prototype.className};
+                        source.parser = {className: StreamParser.prototype.className};
+
+                        const result = operation === 'read' ? source.read(params) : source.execute('search', params);
+                        await expect(result).resolves.toEqual(maxRemoteRetries ? {success: true, count: 1} : null);
+                        expect(streamLoads).toBe(maxRemoteRetries + 1);
+                        expect(creations).toBe(startupFailure === 'rejected loader call' ? maxRemoteRetries : maxRemoteRetries + 1);
+                        expect(wire).toHaveLength(maxRemoteRetries + 1);
+                        expect(wire[0].remoteId, 'the first startup has no Data counterpart').toBeUndefined();
+                        expect(rows).toEqual(maxRemoteRetries ? [{id: 7}] : []);
+                        expect(requests).toEqual(maxRemoteRetries ? [{method: operation === 'read' ? 'read' : 'search', params}] : []);
+                        if (maxRemoteRetries) {
+                            expect(wire[1].remoteId).toBe(target.id);
+                            expect(source.remoteInitializationError).toBeNull()
+                        }
+                    } finally {
+                        if (source) {
+                            source.workerExecution = 'app';
+                            source.destroy()
+                        }
+                        target?.destroy();
+                        receiver?.destroy();
+                        Neo.currentWorker = previousWorker;
+                        Neo.worker.Data = previousData;
+                        Neo.config.unitTestMode = previousMode;
+                        Neo.workerId = previousWorkerId;
+                        console.error = previousError;
+                        console.warn = previousWarn
+                    }
+                })
+            }
+        }
+    }
 });
 
 test('profiling selects a known carrier through real RMA and App receivers without changing data or retries', () => {

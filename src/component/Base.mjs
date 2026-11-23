@@ -134,7 +134,7 @@ class Component extends Abstract {
          */
         floating_: false,
         /**
-         * A floating component that mounts moves focus into its first focusable item: a popup takes the caret
+         * A floating component that mounts takes focus ({@link #focusOnArrival}): a popup takes the caret
          * with it. False mounts it without taking focus, for a surface that only previews content, like a submenu
          * shown because the pointer rests on its parent item.
          * @member {Boolean} focusOnMount=true
@@ -390,6 +390,9 @@ class Component extends Abstract {
      * @protected
      */
     mountFlight = null
+
+    /** @member {Object|null} #tooltipSetupToken=null @private */
+    #tooltipSetupToken = null
 
     /**
      * @param {Object} config
@@ -838,13 +841,15 @@ class Component extends Abstract {
                 if (me.floating && !me.isDestroyed) {
                     me.alignTo();
 
-                    // Focus will be pushed into the first input field or other focusable item
-                    me.focusOnMount && me.focus(me.id, true)
+                    me.focusOnMount && me.focusOnArrival()
                 }
+
+                // Mounted, a shared-tooltip target knows its root, which may lie outside the main view
+                !Neo.config.unitTestMode && me.cls.includes('neo-uses-shared-tooltip') && Neo.tooltip.Base.delegateFromRootOf(me);
 
                 me.fire('mounted', me.id);
             } else { // unmount
-                me.revertFocus()
+                me.revertFocusOnDeparture()
             }
         }
     }
@@ -1001,28 +1006,33 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered after the tooltip config got changed
-     * @param {Object|String} value
-     * @param {Object|String} oldValue
+     * @summary Reconciles shared-tooltip delegation and dedicated `ownInstance` tooltips across async module loads.
+     * @param {Object|String|null} value
+     * @param {Object|String|null} oldValue
      * @protected
      */
     afterSetTooltip(value, oldValue) {
         let me = this;
 
+        me.#tooltipSetupToken = null;
         oldValue?.destroy?.();
+
+        if (oldValue && (!value || value.ownInstance)) {
+            me.removeCls('neo-uses-shared-tooltip')
+        }
 
         if (value) {
             if (Neo.ns('Neo.tooltip.Base')) {
                 me.createTooltip(value)
             } else {
+                const token = me.#tooltipSetupToken = {};
+
                 import('../tooltip/Base.mjs').then(() => {
-                    me.createTooltip(value)
+                    if (!me.isDestroyed && me.#tooltipSetupToken === token && me._tooltip === value) {
+                        me.createTooltip(value)
+                    }
                 })
             }
-        } else if (oldValue) {
-            // Retiring a tooltip: an own instance is destroyed above; a shared-tooltip owner must
-            // also leave the singleton's delegate set, or hovering it would open an empty tooltip.
-            me.removeCls('neo-uses-shared-tooltip')
         }
     }
 
@@ -1415,25 +1425,31 @@ class Component extends Abstract {
         } else {
             me._tooltip = value;
 
-            // The shared instance delegates from the app's main view. The unit harness runs without
-            // one, so the singleton is skipped there and the config stays readable on the owner —
-            // the same deliberate no-op `updateVdom()` takes in unit-test mode.
-            !Neo.config.unitTestMode && Neo.tooltip.Base.createSingleton(me.app);
+            // A target in a window reaches that window's shared tooltip now, before a pointer can reach the target, and
+            // again on every mount, which may find it under another root. The unit harness runs without windows, so
+            // the config stays readable on the owner — the same deliberate no-op `updateVdom()` takes in unit-test mode.
+            !Neo.config.unitTestMode && me.windowId && Neo.tooltip.Base.delegateFromRootOf(me);
+
             me.addCls('neo-uses-shared-tooltip');
             me.update()
         }
     }
 
     /**
-     * Unregister this instance from the ComponentManager
+     * @summary Unregisters this component and tears down its owned controller, plugins, tooltip, and render flight.
      * @param {Boolean} updateParentVdom=false true to remove the component from the parent vdom => real dom
      * @param {Boolean} silent=false true to update the vdom silently (useful for destroying multiple child items in a row)
-     * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
         let me = this;
 
-        me.revertFocus();
+        me.#tooltipSetupToken = null;
+
+        if (!me._tooltip?.isShared) {
+            me._tooltip?.destroy?.()
+        }
+
+        me.revertFocusOnDeparture();
 
         // the main thread holds the registration, so nothing else would retire it with the component
         me.nativeDragZone && me.retireNativeDragZone();
@@ -1476,9 +1492,20 @@ class Component extends Abstract {
      * @param {String} [modality] 'pointer' | 'keyboard' — optional input modality carried across the
      * worker→main focus seam so DomAccess can suppress the accidental ring on a pointer / programmatic
      * focus while a keyboard focus keeps its intentional ring. Undefined preserves user-agent behavior.
+     * @param {String} [restoreFrom] The id of a departing component this focus hands back from: the main thread
+     * applies it only to a lost focus ({@link Neo.main.DomAccess#focus}).
      */
-    focus(id=this.id, children=false, preventScroll, modality) {
-        Neo.main.DomAccess.focus({children, id, modality, preventScroll, windowId: this.windowId})
+    focus(id=this.id, children=false, preventScroll, modality, restoreFrom) {
+        Neo.main.DomAccess.focus({children, id, modality, preventScroll, restoreFrom, windowId: this.windowId})
+    }
+
+    /**
+     * @summary Takes focus into this floating component as it mounts with {@link #focusOnMount}: to its first
+     * focusable item. The counterpart of {@link #revertFocusOnDeparture}.
+     * @protected
+     */
+    focusOnArrival() {
+        this.focus(this.id, true)
     }
 
     /**
@@ -1535,6 +1562,16 @@ class Component extends Abstract {
         }
 
         return Rectangle.clone(result)
+    }
+
+    /**
+     * @summary The component focus goes back to when this one gives it up: the one focus came from.
+     * @returns {Neo.component.Base|null}
+     */
+    getFocusReturnTarget() {
+        let id = this.focusEnterData?.relatedTarget?.id;
+
+        return id ? Neo.getComponent(id) : null
     }
 
     /**
@@ -1939,14 +1976,24 @@ class Component extends Abstract {
     }
 
     /**
-     *
+     * @summary Hands focus back to {@link #getFocusReturnTarget}, while this component holds it.
      */
     revertFocus() {
-        let relatedTarget = this.focusEnterData?.relatedTarget;
+        this.containsFocus && this.getFocusReturnTarget()?.focus()
+    }
 
-        if (this.containsFocus && relatedTarget) {
-            Neo.getComponent(relatedTarget.id)?.focus()
-        }
+    /**
+     * @summary Hands focus back as this component departs (destroy, unmount), unless the user has moved it on.
+     * @description The worker's `containsFocus` runs a round trip behind the DOM, and the departure's removal reaches
+     * the main thread after this call. A dock refresh, for example, moves the tab the user just pressed out of the
+     * shell it destroys, so that shell still reports focus. The focus therefore goes to {@link #getFocusReturnTarget}
+     * through that component's own `focus()` with `restoreFrom`: the main thread settles the departure and applies
+     * only a lost focus, in the same step, so a focus that arrives meanwhile is never taken back.
+     */
+    revertFocusOnDeparture() {
+        let me = this;
+
+        me.containsFocus && me.getFocusReturnTarget()?.focus(undefined, false, undefined, undefined, me.id)
     }
 
     /**

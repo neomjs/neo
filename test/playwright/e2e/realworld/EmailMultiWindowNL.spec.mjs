@@ -78,11 +78,13 @@ async function compose(state, page) {
 test('buffered selection drives the same functional reader through two native popup returns', async ({page, neuralLink}) => {
     const state = await openEmail(page, neuralLink);
     await expect(page.locator('.email-compose-dialog')).toHaveCount(0);
+    const ready = await readyInbox(state, page), {initial, scrollport: body} = ready;
+    await expect(page.locator('.email-detail-view h1')).toHaveText('Project conversation 1');
+    await body.locator('[data-row-id="0"]').click();
     await expect(page.locator('.email-detail-view')).toHaveText('Select an email to read');
     expect(await state.app.callMethod(state.controllerId, 'openInWindow', ['detail'])).toBe(false);
-    const ready = await readyInbox(state, page), {initial, scrollport: body} = ready,
-          row   = await scrollBeyondPool(state, page, ready);
-    let selected = Number(await row.getAttribute('data-row-id')) + 1;
+    const row      = await scrollBeyondPool(state, page, ready);
+    let   selected = Number(await row.getAttribute('data-row-id')) + 1;
     await row.click();
     await expect.poll(async () => (await state.snapshot()).selected).toBe(selected);
     await expect(page.locator('.email-detail-view h1')).toHaveText(`Project conversation ${selected}`);
@@ -114,7 +116,7 @@ test('buffered selection drives the same functional reader through two native po
 
 test('buffered scroll readiness waits while the actual inbox layout is withheld', async ({page, neuralLink}) => {
     await page.route('**/apps/email/index.html', async route => {
-        const response = await route.fetch(), html = await response.text();
+        const response = await route.fetch({maxRetries: 2}), html = await response.text();
         await route.fulfill({response, body: html.replace('</head>',
             '<style id="email-layout-gate">.email-inbox {display:none!important}</style></head>')})
     });
@@ -246,7 +248,7 @@ test('a detached draft remains editable after the source closes, without a retir
 
 test('reader and draft detach together and return independently', async ({page, context, neuralLink}) => {
     const state = await openEmail(page, neuralLink);
-    await page.locator('.neo-grid-body [data-row-id="0"]').click();
+    await expect(page.locator('.email-detail-view h1')).toHaveText('Project conversation 1');
     const fields = await compose(state, page);
     await page.locator(`#${fields.draftBody.id} textarea`).fill('Independent draft');
     const detailOpened = page.waitForEvent('popup');

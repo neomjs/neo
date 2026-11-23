@@ -1,3 +1,7 @@
+---
+seoTitle: "OffscreenCanvas Web Worker Rendering & Zero-Allocation 60fps Canvas | Neo.mjs"
+seoDescription: "Render 60fps interactive graphics off the main thread by combining SharedWorkers, OffscreenCanvas transfer, and zero-allocation physics loops in Neo.mjs."
+---
 # Zero-Allocation Effects with Shared Workers
 
 This guide explores the "Luminous Flux" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture. It demonstrates how to combine **True Multithreading**, **Shared Workers**, and the **OffscreenCanvas API** to achieve high-performance, non-blocking visual effects.
@@ -107,6 +111,44 @@ onMouseMove(data) {
 }
 ```
 
+### Shipping a renderer in a package
+
+A renderer does not have to live in the application that draws it. A chart or a timeline package can ship
+its Canvas worker logic beside its components, and every application that installs the package draws with
+it. The package declares the directories its renderers live in, in its own `package.json`:
+
+```json readonly
+{
+    "name": "@example/charts",
+    "neo": {
+        "canvasModules": ["src/canvas"]
+    }
+}
+```
+
+Its App worker component then names the renderer by its path from `node_modules`:
+
+```javascript readonly
+class SparklineCanvas extends SharedCanvas {
+    static config = {
+        className         : 'Example.view.SparklineCanvas',
+        rendererClassName : 'Example.canvas.Sparkline',
+        rendererImportPath: 'node_modules/@example/charts/src/canvas/Sparkline.mjs'
+    }
+}
+```
+
+The same path loads in raw development, in development and production builds, and in the `dist/esm`
+build. That build copies the declared directories into its emitted `node_modules` and rewrites their Engine
+imports to its one emitted Engine, so the renderer and the worker share one class system; a helper outside
+the declared directories whose imports reach Engine fails the build, as it does for Main-thread addons. A
+build reads the declaration from the workspace's direct dependencies, devDependencies and
+optionalDependencies, and admits exactly the declared directories into the Canvas worker. Every other installed package stays out of it, so
+a package that declares nothing costs the worker nothing. As with Main-thread addons, a declared entry is a
+package-relative directory: absolute paths, upward traversal and directories that resolve outside the
+package are rejected. The key reaches the Canvas worker alone; Main-thread addons have their own,
+`neo.mainAddons`.
+
 ## Zero-Allocation Rendering
 
 Achieving 60fps requires more than just a separate thread; it requires careful memory management to avoid Garbage Collection (GC) stutters. We implemented a **Zero-Allocation** strategy for the render loop.
@@ -203,64 +245,17 @@ if (distX < span) {
 
 ## Semantic State Visualization
 
-A key innovation in the Header Canvas is the use of the canvas itself to provide semantic feedback for UI states (Active and Hover), replacing traditional CSS effects. This creates a deeply integrated "living UI".
+The two navigation states have different jobs. `Neo.app.header.Toolbar` sets `aria-current="page"` on the link for the current route and forwards the same button ID to the canvas. A separate `hoverId` identifies the button under the pointer. Hovering News while reading Learn leaves Learn visibly selected.
 
-### 1. The "Energy Surge" (Active State)
-A semantic highlighting effect that makes the currently active navigation item glow.
+### Current route
 
-**Implementation Challenge:**
-We needed to highlight the active section *without* disrupting the flow or adding clashing geometry (like a bounding box or overlay).
+The main streams continue around every button. Beneath the current link, the lower stream opens into two intertwined filaments with short cross-links. The filaments share the existing stream at either end of the button. Placing their crossings below the label keeps text, badges and keyboard focus readable, even in the compact header.
 
-**Solution: Localized Redraw**
-We use a **Multi-Pass Rendering** technique. After the main stream is drawn, we perform a second pass that draws *only* the segment of the stream corresponding to the active item's position.
-*   **Visuals:** This segment is drawn with `strokeStyle: 'white'` (simulating heat) and a high `shadowBlur` (glow).
-*   **Animation:** We apply a faster alpha oscillation ("nervous pulse") to this segment, making the energy feel "excited" compared to the calm rest of the stream.
-*   **Zero-Cost Physics:** We reuse the *same* geometry buffers (`waveBuffers`) calculated for the main stream. No new physics are run.
+`Neo.canvas.Header#calculateStrandGeometry` writes the opposite phases into reusable foreground buffers. `drawActiveOverlay` paints just the selected span, using the current theme's colors. With reduced motion, a still frame shows the same connected shape; a route, size or theme change repaints it.
 
-```javascript
-// drawActiveOverlay(ctx, width)
-// 1. Find the active rect (Zero-Allocation: use for-loop)
-for (const r of me.navRects) {
-    if (r.id === me.activeId) {
-        rect = r;
-        break;
-    }
-}
+### Hover
 
-// 2. Set "Energy" styles
-ctx.strokeStyle = '#FFFFFF';
-ctx.shadowBlur  = 20;
-ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast pulse
-
-// 3. Draw segment (Inline loop to avoid closures)
-ctx.beginPath();
-ctx.moveTo(startI * step, bufA[startI]);
-for (let i = startI + 1; i <= endI; i++) {
-    ctx.lineTo(i * step, bufA[i]);
-}
-ctx.stroke();
-```
-
-### 2. The "Preview Glow" (Hover State)
-We replaced the standard CSS `background-color` hover effect with a canvas-based glow. This solves contrast issues (ghost buttons on complex backgrounds) and reinforces the visual theme.
-
-*   **Bridge Pattern:** The `HeaderToolbar` (App Worker) captures `mouseenter` events and updates the `hoverId` in the `HeaderCanvas` (Shared Worker).
-*   **Visual Distinction:** Unlike the Active state (White, Pulsing), the Hover state is drawn in **Cyan** (Theme Highlight) with a **Static Alpha** (No Pulse). This clearly distinguishes "current location" from "interaction focus".
-*   **Priority:** The Hover effect is drawn *after* the Active effect, ensuring interaction feedback is always visible.
-
-```javascript
-// drawHoverOverlay(ctx, width)
-// ... find rect ...
-
-// Hover Style: Cyan, Static
-ctx.strokeStyle = themeColors.hover; // e.g. Cyan
-ctx.shadowBlur  = 15;
-ctx.globalAlpha = 1; // No pulse = Stable feedback
-
-// Edge Handling:
-// Special logic clamps the drawing range near the canvas edge to prevent visual artifacts.
-endX = Math.min(width - 3, rect.x + rect.width + pad);
-```
+The controller sends the hovered button ID to the renderer. A lighter stroke follows the waves immediately around that button. The selected helix is painted last, so a neighboring hover keeps its own visual treatment without covering the current route.
 
 ## Shockwaves
 Interactive pulses triggered by clicks. They displace the waves and repel particles.

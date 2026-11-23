@@ -423,6 +423,15 @@ class LayoutAdapter extends Base {
      *     claims the pointer carry the drag as the source's tab-header proxy, retiring the vessel.
      * @param {Boolean} [options.enableStackDrag=false] Decorate the model-resolved stack root
      *     with one runtime-only whole-stack grip and arm its existing dock SortZone.
+     * @param {Boolean} [options.enableDockCenterWell=false] Projects an edge-zone whose center is empty
+     *     as a center well ({@link #createCenterWell}) instead of letting a band take the window's
+     *     corner. Opt-in, together with a return policy that refills the well
+     *     ({@link Neo.dashboard.dock.model.Operations#centerWellReturnDescriptor}).
+     * @param {Object|null} [options.dockAwayPlacements=null] Recorded homes of the panes away in their
+     *     own window, keyed by item id (a `Neo.dashboard.dock.window.TearOut`'s `placements`). A center
+     *     well names the pane whose home it is.
+     * @param {String} [options.dockCenterWellAwayText='{title} is in its own window'] The center
+     *     well's line while its pane is away; `{title}` is the item's title.
      * @param {Boolean} [options.enableDockCloseAction=true] Project the persistent close action.
      * @param {Boolean} [options.enableDockLockAction=false] Projects one engine-owned lock toggle
      *     into every tabs header. The workspace owns committed-state dispatch and presentation sync.
@@ -534,6 +543,9 @@ class LayoutAdapter extends Base {
                 || options.dockWorkspaceBoundaryContainerId
                 || null,
             dockActionTooltips       : options.dockActionTooltips || null,
+            dockAwayPlacements       : options.dockAwayPlacements || null,
+            dockCenterWellAwayText   : options.dockCenterWellAwayText || '{title} is in its own window',
+            enableDockCenterWell     : options.enableDockCenterWell === true,
             dockLockIconCls          : options.dockLockIconCls || 'fa fa-lock',
             dockMaximizeIconCls      : options.dockMaximizeIconCls || 'far fa-window-maximize',
             dockMaximizedNodeId      : options.dockMaximizedNodeId || null,
@@ -867,6 +879,47 @@ class LayoutAdapter extends Base {
     }
 
     /**
+     * @summary Projects the empty center of an edge-zone as a place: a well that keeps the bands at their edges.
+     *
+     * Without it, a band that loses its center becomes the only middle item, a `flex: 'none'` row of
+     * natural height, and the window shows a 280 px strip in its top-left corner. The well takes the
+     * center's `flex: 1`, so the bands keep their edges at full height and nothing the user did not
+     * touch moves. It names the pane whose recorded home it is while that pane is away in its own
+     * window, and stays a plain well once the center was emptied for good.
+     *
+     * It is not a dock node: it carries no `dockNodeId`, so the Reconciler and the topology diff see an
+     * edge-zone without a center, which is the committed truth. `dockEdgeZoneId` names that edge-zone, so
+     * a drop on the well can rebuild its center ({@link Neo.dashboard.dock.interaction.DragAffordances.centerWellZones}).
+     * @param {String} nodeId The edge-zone whose center is empty.
+     * @param {Object} context
+     * @returns {Object}
+     * @protected
+     * @static
+     */
+    static createCenterWell(nodeId, context) {
+        let {dockAwayPlacements, items} = context,
+            // Away means: still in the catalog, homed in this center, and not placed in the tree. A pane
+            // closed in its own window leaves the catalog, so a stale record can never name it here.
+            itemId = Object.keys(dockAwayPlacements || {}).find(id => {
+                let home = dockAwayPlacements[id]?.home;
+
+                return home?.parentId === nodeId && home.slot === 'center' && items[id] &&
+                    !WorkspaceDocument.findContainingTabsId(context.dockZoneDocument, id)
+            }),
+            // A replacer function, so a title's own `$&` or `$'` stays literal text
+            text   = itemId && context.dockCenterWellAwayText.replace('{title}', () => items[itemId].title || itemId);
+
+        return {
+            cls           : ['neo-dashboard-dock-center-well'],
+            dockEdgeZoneId: nodeId,
+            dockNodeType  : 'center-well',
+            flex          : 1,
+            ntype       : 'component',
+            vdom        : {cn: text ? [{cls: ['neo-dashboard-dock-center-well-text'], text}] : []}
+        }
+    }
+
+    /**
      * Projects an edge-zone node into nested ordinary container configs, surfacing auto-hidden items as edge rails.
      *
      * Items committed as `autoHidden` within an edge band (top/right/bottom/left) are dropped from their tab flow
@@ -929,6 +982,8 @@ class LayoutAdapter extends Base {
             centerConfig      = this.projectNode(WorkspaceDocument.getZoneNodeId(zones.center), childContext);
             centerConfig.flex = 1;
             middleItems.push(centerConfig)
+        } else if (context.enableDockCenterWell) {
+            middleItems.push(this.createCenterWell(nodeId, context))
         }
 
         if (zones.right && (band = this.projectEdgeBand(zones.right, 'right', childContext))) {

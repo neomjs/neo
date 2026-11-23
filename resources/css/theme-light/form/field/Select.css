@@ -1,0 +1,34 @@
+:root .neo-theme-light { /* .neo-selectfield */
+    --selectfield-background                    : #fff;
+    --selectfield-background-disabled           : #fff;
+    --selectfield-border-color                  : #ddd;
+    --selectfield-border-color-disabled         : #ddd;
+    --selectfield-border-color-hovered          : #bbb;
+    --selectfield-border-radius                 : 3px;
+    --selectfield-border-width                  : 1px;
+    --selectfield-checkmark-color               : #1c60a0;
+    --selectfield-color                         : #000;
+    --selectfield-color-disabled                : #000;
+    --selectfield-error-color                   : brown;
+    --selectfield-focus-color                   : #1c60a0;
+    --selectfield-input-font                    : 400 13px/17px Arial;
+    --selectfield-input-height                  : 25px;
+    --selectfield-input-padding                 : 3px 6px 2px;
+    --selectfield-label-color                   : #666;
+    --selectfield-label-color-disabled          : #666;
+    --selectfield-label-top-margin              : 0 0 3px;
+    --selectfield-opacity-disabled              : var(--neo-disabled-opacity);
+    --selectfield-option-background-color-hover : #e9eaec;
+    --selectfield-option-background-color-selected: #cee8fc;
+    --selectfield-option-color                  : #333;
+    --selectfield-option-color-disabled         : #999;
+    --selectfield-option-color-selected         : #1c60a0;
+    --selectfield-picker-background-color       : #fff;
+    --selectfield-picker-border-color           : #ddd;
+    --selectfield-picker-box-shadow             : 0 6px 18px rgba(0, 0, 0, .18);
+    --selectfield-placeholder-color             : #666;
+    --selectfield-trigger-background-color-hover: #f5f7fa;
+    --selectfield-trigger-border-width          : 1px;
+    --selectfield-trigger-color                 : #757575;
+    --selectfield-trigger-color-hover           : #1c60a0;
+}

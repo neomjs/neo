@@ -122,10 +122,11 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.component.Base}
+     * @summary Returns the `Neo.container.Base` config demonstrating `layout-cube` face navigation.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Container,
             height: 550,
             layout: {ntype: 'vbox', align: 'center', pack: 'center'},
@@ -171,7 +172,7 @@ class MainContainer extends ConfigurationViewport {
                     {text: 'Bottom'}
                 ]
             }]
-        })
+        }
     }
 
     /**

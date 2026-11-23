@@ -113,6 +113,8 @@ In Neo.mjs, `siblingCount` and `siblingIndex` are maintained directly on the rec
 
 Since virtual scrolling occurs at 60-120fps and mutations are comparatively rare, this explicit architectural trade-off ensures the UI never stutters while calculating accessibility attributes. Every row in the Neo.mjs TreeGrid is fully accessible without sacrificing a single frame of performance.
 
+The keyboard follows the [WAI-ARIA treegrid pattern](https://www.w3.org/WAI/ARIA/apg/patterns/treegrid/) as well: under the row selection model, `ArrowRight` expands the selected parent row and `ArrowLeft` collapses it, through the same `gridContainer.toggleTreeNode()` the toggle icon uses.
+
 ## Working with the TreeStore
 
 ### Reading one level

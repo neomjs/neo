@@ -1,0 +1,9 @@
+{
+    "appPath"         : "examples/worker/canvas/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "MainThreadBlocker", "Navigator", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+    "useCanvasWorker" : true
+}

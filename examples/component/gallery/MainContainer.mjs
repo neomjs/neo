@@ -1,13 +1,15 @@
-import Gallery     from '../../../src/component/Gallery.mjs';
-import ImageStore  from './ImageStore.mjs';
-import NumberField from '../../../src/form/field/Number.mjs';
-import Panel       from '../../../src/container/Panel.mjs';
-import RangeField  from '../../../src/form/field/Range.mjs';
-import Viewport    from '../../../src/container/Viewport.mjs';
+import Gallery       from '../../../src/component/Gallery.mjs';
+import ImageStore    from './ImageStore.mjs';
+import NumberField   from '../../../src/form/field/Number.mjs';
+import Panel         from '../../../src/container/Panel.mjs';
+import RangeField    from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.gallery.MainContainer
  * @extends Neo.container.Viewport
+ * @summary 3D image gallery demonstration with live theme-able controls panel.
  */
 class MainContainer extends Viewport {
     static config = {
@@ -25,10 +27,6 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton=true
-         */
-        showGitHubStarButton: true,
-        /**
          * @member {Object[]} items
          */
         items: [{
@@ -41,32 +39,29 @@ class MainContainer extends Viewport {
                 ntype: 'component',
                 html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
                 style: {
-                    position: 'absolute',
-                    right   : '150px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                style: {
+                    color   : '#f8fafc',
                     position: 'absolute',
                     right   : '20px',
-                    top     : '20px',
+                    top     : '25px',
+                    width   : '200px',
                     zIndex  : 1
                 }
             }]
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
+            style : {maxWidth: '50%'},
             width : 260,
+
+            containerConfig: {
+                flex : null,
+                style: {overflowY: 'auto'}
+            },
 
             itemDefaults: {
                 ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '110px',
+                flex         : 'none',
+                labelPosition: 'top',
                 style        : {padding: '10px'},
                 useInputEvent: true,
 
@@ -81,8 +76,16 @@ class MainContainer extends Viewport {
             },
 
             headers: [{
-                dock: 'top',
-                text: 'Gallery Controls'
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype: 'label',
+                    cls  : ['neo-panel-header-text', 'neo-label'],
+                    text : 'Gallery Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
+                }]
             }],
 
             items: [{
@@ -197,18 +200,18 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype: 'label',
-                text : [
+                html : [
                     '<b>Navigation Concept</b>',
                     '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>'
                 ].join(''),
 
                 style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
+                    border      : '1px solid var(--panel-border-color, rgba(128, 128, 128, 0.3))',
+                    borderRadius: '6px',
+                    fontSize    : '13px',
+                    margin      : '10px',
+                    padding     : '10px',
+                    whiteSpace  : 'normal'
                 }
             }]
         }]
@@ -229,18 +232,7 @@ class MainContainer extends Viewport {
             ...me.galleryConfig
         });
 
-        me.items[0].items.unshift(me.gallery);
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async   : true,
-                    defer   : true,
-                    src     : 'https://buttons.github.io/buttons.js',
-                    windowId: me.windowId
-                })
-            })
-        }
+        me.items[0].items.unshift(me.gallery)
     }
 
     /**

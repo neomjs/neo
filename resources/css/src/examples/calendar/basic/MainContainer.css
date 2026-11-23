@@ -1,0 +1,28 @@
+.neo-examples-calendar-maincontainer {
+    .neo-header {
+        align-items     : center;
+        background-color: var(--examples-calendar-basic-header-background-color);
+        color           : var(--examples-calendar-basic-header-color);
+        display         : flex;
+        padding         : 0 10px;
+
+        .fa {
+            font-size   : 18px;
+            margin-right: 5px;
+        }
+    }
+
+    .neo-examples-calendar-hint {
+        color      : var(--examples-calendar-basic-header-color);
+        font-size  : 13px;
+        margin-left: 16px;
+        opacity    : .75;
+    }
+
+    /* A phone's header has no room for the hint */
+    @media (max-width: 640px) {
+        .neo-examples-calendar-hint {
+            display: none;
+        }
+    }
+}

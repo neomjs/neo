@@ -4,7 +4,6 @@ import os                             from 'node:os';
 import path                           from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {test, expect}                 from '@playwright/test';
-import {compile}                      from 'sass';
 import {planMove, applyMove}          from '../../../../buildScripts/util/movePlan.mjs';
 
 /** @summary Writes a fixture file, creating its parent directories. */
@@ -12,6 +11,12 @@ function write(root, name, contents) {
     const file = path.join(root, name);
     fs.mkdirSync(path.dirname(file), {recursive: true});
     fs.writeFileSync(file, contents)
+}
+
+/** @summary The CSS a browser assembles from a stylesheet: its relative `@import`s inlined, recursively. */
+function bundle(file) {
+    return fs.readFileSync(file, 'utf8').replace(/@import\s+(?:url\()?["']?([^"')]+)["']?\)?\s*;/g,
+        (match, url) => bundle(path.resolve(path.dirname(file), url)))
 }
 
 /** @summary Records bytes, modes, directories and symlinks without following external targets. */
@@ -39,7 +44,7 @@ function execute(root) {
     ], {encoding: 'utf8'}))
 }
 
-/** @summary Creates executable Engine modules and structural/theme companions with local Sass partials. */
+/** @summary Creates executable Engine modules and structural/theme companions importing a shared sibling sheet. */
 function engineFixture(root) {
     write(root, 'package.json', JSON.stringify({name: 'neo-move-fixture', type: 'module'}));
     write(root, 'src/shared/Base.mjs', 'export default class Base { get value() { return 7 } }');
@@ -67,13 +72,13 @@ export async function inspect() {
     for (const [surface, property, value] of [
         ['src', 'padding', '3px'], ['theme-light', 'color', '#123456'], ['theme-dark', 'color', '#abcdef']
     ]) {
-        write(root, `resources/scss/${surface}/old/_tokens.scss`, `$value: ${value};`);
-        write(root, `resources/scss/${surface}/old/Widget.scss`,
-            `@use './tokens';\n.neo-old-widget { ${property}: tokens.$value; }\n`)
+        write(root, `resources/css/${surface}/old/tokens.css`, `.neo-old-widget { --value: ${value}; }`);
+        write(root, `resources/css/${surface}/old/Widget.css`,
+            `@import './tokens.css';\n.neo-old-widget { ${property}: var(--value); }\n`)
     }
-    write(root, 'resources/scss/bundle.scss', `@use 'src/old/Widget' as structural;
-@use 'theme-light/old/Widget' as light;
-@use 'theme-dark/old/Widget' as dark;
+    write(root, 'resources/css/bundle.css', `@import 'src/old/Widget.css';
+@import 'theme-light/old/Widget.css';
+@import 'theme-dark/old/Widget.css';
 `)
 }
 
@@ -90,10 +95,10 @@ test.describe('movePlan (#5086)', () => {
         external = null
     });
 
-    test('plans without writes, then preserves executable Engine edges and compiled companion CSS', () => {
+    test('plans without writes, then preserves executable Engine edges and the companion CSS a bundle assembles', () => {
         engineFixture(root);
         const before = snapshot(root),
-            css      = compile(path.join(root, 'resources/scss/bundle.scss')).css,
+            css      = bundle(path.join(root, 'resources/css/bundle.css')),
             original = execute(root),
             plan     = planMove({root, source: 'src/old', destination: 'src/new/deep'});
 
@@ -107,13 +112,13 @@ test.describe('movePlan (#5086)', () => {
         expect(fs.existsSync(path.join(root, 'src/old'))).toBe(false);
         expect(execute(root)).toEqual({...original,
             className: 'Neo.new.deep.Widget', sibling: 'Neo.new.deep.Sibling'});
-        expect(compile(path.join(root, 'resources/scss/bundle.scss')).css).toBe(css);
+        expect(bundle(path.join(root, 'resources/css/bundle.css'))).toBe(css);
 
         for (const surface of ['src', 'theme-light', 'theme-dark']) {
-            expect(fs.existsSync(path.join(root, `resources/scss/${surface}/old/Widget.scss`))).toBe(false);
-            expect(fs.readFileSync(path.join(root, `resources/scss/${surface}/new/deep/Widget.scss`), 'utf8'))
+            expect(fs.existsSync(path.join(root, `resources/css/${surface}/old/Widget.css`))).toBe(false);
+            expect(fs.readFileSync(path.join(root, `resources/css/${surface}/new/deep/Widget.css`), 'utf8'))
                 .toContain('.neo-old-widget');
-            expect(fs.existsSync(path.join(root, `resources/scss/${surface}/old/_tokens.scss`))).toBe(true)
+            expect(fs.existsSync(path.join(root, `resources/css/${surface}/old/tokens.css`))).toBe(true)
         }
     });
 
@@ -127,15 +132,15 @@ export default class Widget extends Base { static config = {className: 'Shop.vie
         write(root, 'entry.mjs', `import Widget from './apps/shop/view/Widget.mjs';
 export function inspect() { return {className: Widget.config.className, ntype: Widget.config.ntype, value: new Widget().value()} }`);
         for (const surface of ['src', 'theme-light']) {
-            write(root, `resources/scss/${surface}/apps/storefront/_tokens.scss`, '$spacing: 4px;');
-            write(root, `resources/scss/${surface}/apps/storefront/Widget.scss`,
-                '@use "./tokens";\n.shop-widget { margin: tokens.$spacing; }');
+            write(root, `resources/css/${surface}/apps/storefront/tokens.css`, '.shop-widget { --spacing: 4px; }');
+            write(root, `resources/css/${surface}/apps/storefront/Widget.css`,
+                '@import "./tokens.css";\n.shop-widget { margin: var(--spacing); }');
         }
-        write(root, 'resources/scss/bundle.scss', `@use 'src/apps/storefront/Widget' as structural;
-@use 'theme-light/apps/storefront/Widget' as themed;`);
+        write(root, 'resources/css/bundle.css', `@import 'src/apps/storefront/Widget.css';
+@import 'theme-light/apps/storefront/Widget.css';`);
 
         const engine = snapshot(path.join(root, 'node_modules')),
-            css      = compile(path.join(root, 'resources/scss/bundle.scss')).css,
+            css      = bundle(path.join(root, 'resources/css/bundle.css')),
             original = execute(root),
             plan     = planMove({root, source: 'apps/shop/view/Widget.mjs', destination: 'apps/admin/view/inventory/Card.mjs',
                 namespaceRoots: [
@@ -148,9 +153,9 @@ export function inspect() { return {className: Widget.config.className, ntype: W
         applyMove(plan);
         expect(execute(root)).toEqual({...original, className: 'Admin.view.inventory.Card'});
         expect(snapshot(path.join(root, 'node_modules'))).toEqual(engine);
-        expect(compile(path.join(root, 'resources/scss/bundle.scss')).css).toBe(css);
+        expect(bundle(path.join(root, 'resources/css/bundle.css'))).toBe(css);
         for (const surface of ['src', 'theme-light']) {
-            expect(fs.existsSync(path.join(root, `resources/scss/${surface}/apps/admin-ui/inventory/Card.scss`))).toBe(true)
+            expect(fs.existsSync(path.join(root, `resources/css/${surface}/apps/admin-ui/inventory/Card.css`))).toBe(true)
         }
     });
 
@@ -194,13 +199,13 @@ export function inspect() { return {className: Widget.config.className, answer: 
                 ]))
             }
             for (const surface of ['src', 'theme-light']) {
-                write(root, `resources/scss/${surface}/${source}/Widget.scss`, '.probe-widget { padding: 3px; }')
+                write(root, `resources/css/${surface}/${source}/Widget.css`, '.probe-widget { padding: 3px; }')
             }
-            write(root, 'resources/scss/bundle.scss',
-                `@use 'src/${source}/Widget' as structural;\n@use 'theme-light/${source}/Widget' as theme;`);
+            write(root, 'resources/css/bundle.css',
+                `@import 'src/${source}/Widget.css';\n@import 'theme-light/${source}/Widget.css';`);
 
             const before = snapshot(root), original = execute(root),
-                css      = compile(path.join(root, 'resources/scss/bundle.scss')).css,
+                css      = bundle(path.join(root, 'resources/css/bundle.css')),
                 plan     = planMove({root, source, destination});
 
             expect(snapshot(root)).toEqual(before);
@@ -209,7 +214,7 @@ export function inspect() { return {className: Widget.config.className, answer: 
             applyMove(plan);
             expect(execute(root)).toEqual({className: newClass, answer: 42});
             expect(fs.existsSync(path.join(root, source))).toBe(false);
-            expect(compile(path.join(root, 'resources/scss/bundle.scss')).css).toBe(css);
+            expect(bundle(path.join(root, 'resources/css/bundle.css'))).toBe(css);
 
             // These are unit-level URL and module-resolution witnesses, not a browser boot.
             const document = pathToFileURL(path.join(root, destination, 'index.html')),
@@ -279,11 +284,11 @@ export function inspect() { return {sourceUrl, className: Widget.config.classNam
         write(root, 'entry.mjs', `import Widget from './apps/demo/view/Widget.mjs';
 export function inspect() { return {className: Widget.config.className} }`);
         for (const surface of ['src', 'theme-light']) {
-            write(root, `resources/scss/${surface}/apps/demo-theme/Widget.scss`, '.demo-widget { padding: 2px; }')
+            write(root, `resources/css/${surface}/apps/demo-theme/Widget.css`, '.demo-widget { padding: 2px; }')
         }
-        write(root, 'resources/scss/bundle.scss', `@use 'src/apps/demo-theme/Widget' as structural;
-@use 'theme-light/apps/demo-theme/Widget' as themed;`);
-        const css = compile(path.join(root, 'resources/scss/bundle.scss')).css,
+        write(root, 'resources/css/bundle.css', `@import 'src/apps/demo-theme/Widget.css';
+@import 'theme-light/apps/demo-theme/Widget.css';`);
+        const css = bundle(path.join(root, 'resources/css/bundle.css')),
             plan  = planMove({root, source: 'apps/demo/view', destination: 'apps/demo/panels'});
 
         expect(plan.blockers).toEqual([]);
@@ -291,16 +296,16 @@ export function inspect() { return {className: Widget.config.className} }`);
         applyMove(plan);
         expect(execute(root)).toEqual({className: 'Demo.panels.Widget'});
         expect(fs.readFileSync(path.join(root, 'apps/demo/app.mjs'), 'utf8')).toBe(application);
-        expect(compile(path.join(root, 'resources/scss/bundle.scss')).css).toBe(css);
+        expect(bundle(path.join(root, 'resources/css/bundle.css'))).toBe(css);
         for (const surface of ['src', 'theme-light']) {
-            expect(fs.existsSync(path.join(root, `resources/scss/${surface}/apps/demo-theme/panels/Widget.scss`))).toBe(true)
+            expect(fs.existsSync(path.join(root, `resources/css/${surface}/apps/demo-theme/panels/Widget.css`))).toBe(true)
         }
     });
 
     test('blocks moving a projected theme sheet still used by an unmoved class', () => {
         write(root, 'apps/demo/view/Widget.mjs', 'class Widget { static config = {className: "Demo.view.Widget"} }');
         write(root, 'apps/demo/Widget.mjs', 'class Widget { static config = {className: "Demo.Widget"} }');
-        write(root, 'resources/scss/src/apps/demo/Widget.scss', '.demo-widget { padding: 2px; }');
+        write(root, 'resources/css/src/apps/demo/Widget.css', '.demo-widget { padding: 2px; }');
         const before = snapshot(root),
             plan     = planMove({root, source: 'apps/demo/view/Widget.mjs', destination: 'apps/demo/view/Card.mjs'});
 
@@ -320,20 +325,19 @@ export function inspect() { return {className: Widget.config.className} }`);
         expect(snapshot(root)).toEqual(before)
     });
 
-    test('preserves an implicit Sass module namespace when its companion filename changes', () => {
+    test('rewrites an import of a companion sheet whose filename changes', () => {
         write(root, 'src/old/Widget.mjs', 'class Widget { static config = {className: "Neo.old.Widget"} }');
-        write(root, 'resources/scss/src/old/Widget.scss',
-            '$spacing: 4px !default;\n.neo-old-widget { padding: $spacing; }');
-        write(root, 'resources/scss/bundle.scss', `@use './src/old/Widget' with ($spacing: 9px);
-.consumer { margin: Widget.$spacing; }`);
-        const css = compile(path.join(root, 'resources/scss/bundle.scss')).css,
+        write(root, 'resources/css/src/old/Widget.css', '.neo-old-widget { padding: 4px; }');
+        write(root, 'resources/css/bundle.css', `@import url("./src/old/Widget.css");
+.consumer { margin: 9px; }`);
+        const css = bundle(path.join(root, 'resources/css/bundle.css')),
             plan  = planMove({root, source: 'src/old/Widget.mjs', destination: 'src/new/Card.mjs'});
 
         expect(plan.blockers).toEqual([]);
         applyMove(plan);
-        expect(compile(path.join(root, 'resources/scss/bundle.scss')).css).toBe(css);
-        expect(fs.readFileSync(path.join(root, 'resources/scss/bundle.scss'), 'utf8')).toContain('as Widget');
-        expect(fs.existsSync(path.join(root, 'resources/scss/src/new/Card.scss'))).toBe(true)
+        expect(bundle(path.join(root, 'resources/css/bundle.css'))).toBe(css);
+        expect(fs.readFileSync(path.join(root, 'resources/css/bundle.css'), 'utf8')).toContain('@import url("./src/new/Card.css")');
+        expect(fs.existsSync(path.join(root, 'resources/css/src/new/Card.css'))).toBe(true)
     });
 
     test('refuses a Git-ignored file inside the moved folder before changing the tree', () => {
@@ -347,7 +351,7 @@ export function inspect() { return {className: Widget.config.className} }`);
         expect(snapshot(root)).toEqual(before)
     });
 
-    for (const collision of ['src/new/deep/existing.mjs', 'resources/scss/src/new/deep/Widget.scss']) {
+    for (const collision of ['src/new/deep/existing.mjs', 'resources/css/src/new/deep/Widget.css']) {
         test(`refuses a destination collision before writes: ${collision}`, () => {
             engineFixture(root);
             write(root, collision, 'existing');

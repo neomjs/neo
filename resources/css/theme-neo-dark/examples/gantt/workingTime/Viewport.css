@@ -1,0 +1,44 @@
+:where(.neo-theme-neo-dark) {
+    --kitchen-header-bg            : #121924;
+    --kitchen-status-bg            : #151f2d;
+    --kitchen-border               : #293649;
+    --kitchen-title                : #f1f5f9;
+    --kitchen-muted                : #94a3b8;
+    --kitchen-control-bg           : #1c2738;
+    --kitchen-hover-bg             : #27364c;
+    --kitchen-switch-off-bg        : #0f1620;
+    --kitchen-switch-active-surface: #12313b;
+    --kitchen-selected-bg          : #38bdf8;
+    --kitchen-selected-text        : #082032;
+    --kitchen-badge-text           : #5eead4;
+    --kitchen-focus                : #5eead4;
+
+    --kitchen-nw-bg                : rgba(15, 23, 42, 0.56);
+    --kitchen-nw-stripe            : rgba(148, 163, 184, 0.14);
+    --kitchen-nw-border            : rgba(148, 163, 184, 0.28);
+    --kitchen-nw-pill-bg           : #1b2638;
+    --kitchen-nw-swatch-bg         : #111827;
+
+    --kitchen-holiday-bg           : rgba(120, 53, 15, 0.30);
+    --kitchen-holiday-stripe       : rgba(251, 191, 36, 0.20);
+    --kitchen-holiday-border       : rgba(251, 191, 36, 0.55);
+    --kitchen-holiday-pill-bg      : #38210a;
+    --kitchen-holiday-pill-text    : #fde68a;
+    --kitchen-holiday-swatch-bg    : #291706;
+
+    --kitchen-bar-text             : #f8fafc;
+    --kitchen-bar-shadow           : 0 2px 6px rgba(2, 6, 23, 0.48);
+    --kitchen-hero-shadow          : 0 0 0 1px rgba(56, 189, 248, 0.45), 0 3px 10px rgba(2, 6, 23, 0.55);
+
+    --kitchen-prep-bg              : #1e2d44;
+    --kitchen-prep-border          : #476288;
+    --kitchen-prep-accent          : #60a5fa;
+
+    --kitchen-mep-bg               : #103747;
+    --kitchen-mep-border           : #267896;
+    --kitchen-mep-accent           : #38bdf8;
+
+    --kitchen-finish-bg            : #18362c;
+    --kitchen-finish-border        : #2b7a5f;
+    --kitchen-finish-accent        : #34d399;
+}

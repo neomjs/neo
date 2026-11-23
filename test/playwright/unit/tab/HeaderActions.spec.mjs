@@ -22,14 +22,19 @@ import '../../../../src/manager/Focus.mjs';
 import '../../../../src/manager/Instance.mjs';
 
 /**
- * Drives the real focus manager rather than a component's focus hooks. The gate is wired through
+ * @summary Drives the real focus manager with history owned by this fixture. The gate is wired through
  * `manager.Focus` firing `focusEnter` / `focusLeave` on each component in the path, so calling a
  * container's hook directly would assert against a mechanism the product no longer uses.
  */
-const focusOpts  = ids => ({componentPath: ids, data: {path: ids.map(id => ({id})), relatedTarget: null}}),
-      focusEnter = ids => Neo.manager.Focus.focusEnter(focusOpts(ids)),
-      focusLeave = ids => Neo.manager.Focus.focusLeave(focusOpts(ids)),
-      focusMove  = ids => Neo.manager.Focus.focusMove(focusOpts(ids));
+const focusWindowId = 'tab-header-actions-focus',
+      focusOpts     = ids => ({
+          windowId     : focusWindowId,
+          componentPath: ids,
+          data         : {path: ids.map(id => ({id})), relatedTarget: null}
+      }),
+      focusEnter    = ids => Neo.manager.Focus.focusEnter(focusOpts(ids)),
+      focusLeave    = ids => Neo.manager.Focus.focusLeave(focusOpts(ids)),
+      focusMove     = ids => Neo.manager.Focus.focusMove(focusOpts(ids));
 
 /**
  * @summary Pins flat toolbar action materialisation and mixed TabContainer semantics.
@@ -44,6 +49,7 @@ test.describe('Neo tab header actions', () => {
     };
 
     test.afterEach(() => {
+        Neo.manager.Focus.removeWindow(focusWindowId);
         instances.reverse().forEach(instance => !instance.isDestroyed && instance.destroy());
         instances = [];
 
@@ -402,10 +408,11 @@ test.describe('Neo tab header actions', () => {
             ]
         }));
 
-        await new Promise(resolve => setTimeout(resolve, 10));
+        const bar = tabs.getTabBar();
 
-        const bar      = tabs.getTabBar(),
-              sortZone = bar.sortZone;
+        await expect.poll(() => bar.sortZone).toBeTruthy();
+
+        const {sortZone} = bar;
 
         expect(sortZone.dragHandleSelector).toBe('.neo-tab-header-button');
         expect(sortZone.getDraggableItems(bar.items)).toEqual(tabs.getTabButtons());

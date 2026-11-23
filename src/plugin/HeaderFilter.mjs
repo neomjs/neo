@@ -34,10 +34,11 @@ class HeaderFilter extends Plugin {
     }
 
     /**
-     * @summary Follows the header's current Grid/Table container without adding a source ownership API.
+     * @summary Follows the header's current Grid/Table container without adding a source ownership API. A grid
+     * header names its grid, a subclass with its own ntype included; any other owner is found by ntype.
      * @param {Neo.component.Base|null} [container]
      */
-    bindContainer(container=this.owner.up('grid-container') || this.owner.up('table-container')) {
+    bindContainer(container=this.owner.getGridContainer?.() || this.owner.up('grid-container') || this.owner.up('table-container')) {
         if (this.isDestroyed) return;
         if (container !== this.#container) {
             this.#containerCleanup?.();
@@ -104,6 +105,7 @@ class HeaderFilter extends Plugin {
      * @summary Echoes only the exact inline contribution, suppressing field events that could write it back.
      * Call after creating or showing a previously absent inline field. Text fields have no operator config;
      * operator-capable fields reset to their creation default when the contribution is absent.
+     * Typed Date contributions echo their UTC calendar day, matching the header writer's date-only input.
      */
     syncField() {
         if (this.isDestroyed) return;
@@ -111,6 +113,9 @@ class HeaderFilter extends Plugin {
         if (!field || field.isDestroyed || owner.isDestroyed) return;
         const filter = this.#store?.getFilter(owner.dataField, 'header-inline'),
             values   = {value: filter?.value ?? null}, suspended = field.suspendEvents;
+        if (values.value instanceof Date && this.#store.model.getField(owner.dataField)?.type?.toLowerCase() === 'date') {
+            values.value = values.value.toISOString().split('T')[0]
+        }
         if (field.isConfig('operator')) {
             values.operator = filter ? filter.operator : (field.originalConfig.operator ?? field.constructor.config.operator)
         }

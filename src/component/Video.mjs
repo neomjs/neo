@@ -6,8 +6,9 @@ import VDomUtil      from '../util/VDom.mjs';
  * @extends Neo.component.Base
  *
  * @example
+ *     // Big Buck Bunny Trailer — (c) 2008 Blender Foundation / www.bigbuckbunny.org (CC BY 3.0)
  *     ntype   : 'video',
- *     url     : 'https://video-ssl.itunes.apple.com/itunes-assets/Video125/v4/a0/57/54/a0575426-dd8e-2d25-bdf3-139702870b50/mzvf_786190431362224858.640x464.h264lc.U.p.m4v'
+ *     url     : 'https://cdn.jsdelivr.net/gh/neomjs/pages@main/resources_pub/video/big-buck-bunny-trailer.mp4',
  *     autoPlay: true
  *
  * @methods

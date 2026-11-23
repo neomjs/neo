@@ -1,19 +1,38 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.field.text.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.text.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.text.MainContainer',
+        autoMount    : true,
+        componentName: 'Text field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module            : TextField,
+            clearable         : true,
+            labelPosition     : 'inline',
+            labelText         : 'Project name',
+            placeholderText   : 'Name your project',
+            maxLength         : 40,
+            minLength         : 3,
+            showCharacterCount: true,
+            width             : 300
+        },
+        states: {
+            filled  : {value: 'Neo Workspace'},
+            empty   : {},
+            invalid : {value: 'Ne'},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     /**
@@ -195,27 +214,20 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @summary Creates an inline text field with a visible character budget.
+     * @summary The live field clears the inspector's `error` control whenever its value changes.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create(TextField, {
-            clearable         : true,
-            labelPosition     : 'inline',
-            labelText         : 'Label',
-            labelWidth        : 70,
-            maxLength         : 200,
-            minLength         : 3,
-            showCharacterCount: true,
-            value             : 'Hello World',
-            width             : 200,
+        return {
+            ...super.createExampleComponent(),
 
             listeners: {
-                change(value) {
-                    this.down({reference: 'error-field'}).clear();
+                change() {
+                    this.down({reference: 'error-field'}).clear()
                 },
                 scope: this
             }
-        })
+        }
     }
 }
 

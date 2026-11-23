@@ -1,4 +1,5 @@
 import Controller from '../../../../../src/controller/Component.mjs';
+import SeoService from '../../../service/Seo.mjs';
 
 /**
  * @summary Routes `/news/blog/<slug>` URLs to the Portal blog store's `blog/<slug>` leaf records.
@@ -100,7 +101,10 @@ class MainContainerController extends Controller {
         let me            = this,
             stateProvider = me.getStateProvider(),
             store         = stateProvider.getStore('tree'),
-            tree          = me.getReference('tree');
+            tree          = me.getReference('tree'),
+            slug          = itemId.split('#')[0].replace(/^blog\//, ''),
+            route         = value?.hashString || `/news/blog/${slug}`,
+            navigationId  = SeoService.registerNavigation({route, windowId: me.windowId});
 
         // Leaf records in blog.json carry `id: "blog/<slug>"` so relative links resolve one folder deep
         // inside `learn/`; prefixing with `/news` makes `${routePrefix}/${record.id}` emit `/news/blog/<slug>`.
@@ -109,10 +113,19 @@ class MainContainerController extends Controller {
         }
 
         const select = async () => {
-            const slug     = itemId.split('#')[0].replace(/^blog\//, ''),
-                  recordId = store.get(`blog/${slug}`) ? `blog/${slug}` : slug;
+            const recordId = store.get(`blog/${slug}`) ? `blog/${slug}` : slug,
+                  record   = store.get(recordId);
 
-            stateProvider.data.currentPageRecord = store.get(recordId);
+            stateProvider.data.currentPageRecord = record;
+
+            if (record?.name) {
+                SeoService.setRouteTitle({
+                    navigationId,
+                    route,
+                    title   : /neo\.mjs/i.test(record.name) ? record.name : `${record.name} - Neo.mjs`,
+                    windowId: me.windowId
+                })
+            }
 
             if (!oldValue?.hashString?.startsWith('/news/blog')) {
                 await tree.expandAndScrollToItem(recordId)

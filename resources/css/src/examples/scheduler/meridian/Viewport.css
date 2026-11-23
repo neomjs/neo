@@ -1,0 +1,680 @@
+/* Observatory instrument surfaces. The board and both timelines keep their native scroll, pointer,
+   focus and pooling geometry; the desk sets their outer dimensions and surface colours. */
+.meridian-desk,
+.meridian-request-proxy {
+    --mer-ground        : #10161b;
+    --mer-panel         : #182126;
+    --mer-inset         : #111a1f;
+    --mer-line          : #37464b;
+    --mer-grid          : #2c393e;
+    --mer-ink           : #edf0de;
+    --mer-muted         : #a3b5b5;
+    --mer-mint          : #8ae3cd;
+    --mer-lime          : #d6ed9b;
+    --mer-amber         : #f5bf75;
+    --mer-error         : #ffab91;
+    --mer-col-ink       : #d3ddd6;
+    --mer-col-line      : #324046;
+    --mer-col-bg        : #1a252a;
+    --mer-badge-bg      : #2b393c;
+    --mer-badge-ink     : #c1cfc8;
+    --mer-card-bg       : #253137;
+    --mer-card-line     : #415055;
+    --mer-cell-even     : #172125;
+    --mer-hdr-bg        : #202c31;
+    --mer-hdr-hover     : #2c3c42;
+    --mer-hdr-ink       : #e2e8dc;
+    --mer-gridline      : #334348;
+    --mer-bar-bg        : #254d4b;
+    --mer-bar-line      : #73c8b5;
+    --mer-bar-ink       : #eafff3;
+    --mer-mosaic-bg     : #503f2c;
+    --mer-mosaic-line   : #cb9e67;
+    --mer-mosaic-ink    : #ffe6b2;
+    --mer-std-bg        : #3e3d54;
+    --mer-std-line      : #a6a3ce;
+    --mer-std-ink       : #efecff;
+    --mer-arrow         : #8ebeba;
+    --mer-plot-bg       : #10191e;
+    --mer-plot-axis     : #b6c7c7;
+    --mer-plot-band     : #223b3c;
+    --mer-plot-grid     : #37474b;
+    --mer-plot-tick     : #697b7e;
+    --mer-btn-bg        : #263438;
+    --mer-btn-line      : #53656a;
+    --mer-btn-hover     : #35484c;
+    --mer-btn-hover-line: #88aaa5;
+    --mer-primary-ink   : #19241f;
+    --mer-primary-hover : #e3f4b9;
+    --mer-verdict-bg    : #1a2529;
+    --mer-mono          : ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --mer-sans          : "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+
+.meridian-desk:is(.neo-theme-neo-light, .neo-theme-light) {
+    --mer-ground        : #eef3f2;
+    --mer-panel         : #ffffff;
+    --mer-inset         : #f5f8f7;
+    --mer-line          : #c2d2d4;
+    --mer-grid          : #d3e0e2;
+    --mer-ink           : #132328;
+    --mer-muted         : #4a6065;
+    --mer-mint          : #0d6e61;
+    --mer-lime          : #2a681c;
+    --mer-amber         : #9e4f06;
+    --mer-error         : #b42318;
+    --mer-col-ink       : #1e3338;
+    --mer-col-line      : #cad8da;
+    --mer-col-bg        : #eaf0ef;
+    --mer-badge-bg      : #dbe6e5;
+    --mer-badge-ink     : #263d42;
+    --mer-card-bg       : #ffffff;
+    --mer-card-line     : #bccdce;
+    --mer-cell-even     : #eff4f3;
+    --mer-hdr-bg        : #e5eeed;
+    --mer-hdr-hover     : #d9e6e5;
+    --mer-hdr-ink       : #132328;
+    --mer-gridline      : #d6e2e4;
+    --mer-bar-bg        : #d5f2ea;
+    --mer-bar-line      : #148574;
+    --mer-bar-ink       : #0b3d35;
+    --mer-mosaic-bg     : #fce8cf;
+    --mer-mosaic-line   : #b86a19;
+    --mer-mosaic-ink    : #4a2604;
+    --mer-std-bg        : #e7e4fa;
+    --mer-std-line      : #6c63b8;
+    --mer-std-ink       : #26204f;
+    --mer-arrow         : #3b6f6a;
+    --mer-plot-bg       : #f7faf9;
+    --mer-plot-axis     : #3f555a;
+    --mer-plot-band     : #d8eee9;
+    --mer-plot-grid     : #d2dfe1;
+    --mer-plot-tick     : #6d8488;
+    --mer-btn-bg        : #eef4f3;
+    --mer-btn-line      : #9db3b6;
+    --mer-btn-hover     : #e0ecea;
+    --mer-btn-hover-line: #5b7c80;
+    --mer-primary-ink   : #ffffff;
+    --mer-primary-hover : #215416;
+    --mer-verdict-bg    : #ffffff;
+    color-scheme        : light;
+}
+
+.meridian-desk.neo-theme-light {
+    --mer-ground  : #f5f6f8;
+    --mer-inset   : #f8f9fb;
+    --mer-col-bg  : #eef1f4;
+    --mer-hdr-bg  : #ebeff3;
+    --mer-cell-even: #f2f4f7;
+}
+
+.meridian-desk.neo-theme-dark {
+    --mer-ground    : #111317;
+    --mer-panel     : #191c22;
+    --mer-inset     : #14171c;
+    --mer-line      : #343b46;
+    --mer-grid      : #292f38;
+    --mer-ink       : #eef1f6;
+    --mer-muted     : #9aa4b2;
+    --mer-col-bg    : #1b1f26;
+    --mer-card-bg   : #232831;
+    --mer-hdr-bg    : #1f242c;
+    --mer-cell-even : #161a20;
+    --mer-plot-bg   : #12151a;
+    --mer-verdict-bg: #1b1f26;
+}
+
+.meridian-desk.neo-theme-cyberpunk {
+    --mer-ground        : #0a0614;
+    --mer-panel         : #140d26;
+    --mer-inset         : #0e091c;
+    --mer-line          : #3e286b;
+    --mer-grid          : #2d1d4f;
+    --mer-ink           : #f4eeff;
+    --mer-muted         : #b5a3d6;
+    --mer-mint          : #00f0ff;
+    --mer-lime          : #fcee0a;
+    --mer-amber         : #ff8c3b;
+    --mer-error         : #ff4d8d;
+    --mer-col-ink       : #e5dafc;
+    --mer-col-line      : #3b2666;
+    --mer-col-bg        : #170f2c;
+    --mer-badge-bg      : #261947;
+    --mer-badge-ink     : #d8c8f8;
+    --mer-card-bg       : #20153b;
+    --mer-card-line     : #4c3382;
+    --mer-cell-even     : #120b23;
+    --mer-hdr-bg        : #1b1133;
+    --mer-hdr-hover     : #28194a;
+    --mer-hdr-ink       : #f4eeff;
+    --mer-gridline      : #332059;
+    --mer-bar-bg        : #0c3d4d;
+    --mer-bar-line      : #00f0ff;
+    --mer-bar-ink       : #e6fdff;
+    --mer-mosaic-bg     : #4a2338;
+    --mer-mosaic-line   : #ff8c3b;
+    --mer-mosaic-ink    : #ffe8d6;
+    --mer-std-bg        : #311d5c;
+    --mer-std-line      : #c084fc;
+    --mer-std-ink       : #f5ebff;
+    --mer-arrow         : #00f0ff;
+    --mer-plot-bg       : #0c0719;
+    --mer-plot-axis     : #c4b3e3;
+    --mer-plot-band     : #1d2847;
+    --mer-plot-grid     : #311f57;
+    --mer-plot-tick     : #7a62a8;
+    --mer-btn-bg        : #21153d;
+    --mer-btn-line      : #563a91;
+    --mer-btn-hover     : #2f1e57;
+    --mer-btn-hover-line: #00f0ff;
+    --mer-primary-ink   : #120924;
+    --mer-primary-hover : #fff566;
+    --mer-verdict-bg    : #170f2c;
+}
+
+.meridian-desk.neo-viewport {
+    background : var(--mer-ground);
+    box-sizing : border-box;
+    color      : var(--mer-ink);
+    color-scheme: dark;
+    font-family: var(--mer-sans);
+    overflow   : auto;
+    padding    : 0 clamp(15px, 2.8vw, 54px) 20px;
+
+    & > :is(.meridian-mast, .meridian-heading, .meridian-workspace, .meridian-verdict) {
+        box-sizing   : border-box;
+        margin-inline: auto;
+        max-width    : 1640px;
+        width        : 100%;
+    }
+}
+
+.meridian-mast {
+    align-items    : center;
+    background     : transparent;
+    border-bottom  : 1px solid var(--mer-line);
+    color          : var(--mer-ink);
+    display        : flex;
+    flex-wrap      : wrap;
+    font           : 650 11px/1.3 var(--mer-mono);
+    gap            : 6px 12px;
+    justify-content: space-between;
+    letter-spacing : .065em;
+    min-height     : 38px;
+    overflow       : visible;
+    padding        : 4px 0;
+
+    & > :first-child {align-items: center; display: flex; gap: 9px;}
+    & > :first-child::before {
+        background   : radial-gradient(circle, var(--mer-lime) 0 2px, transparent 2.5px),
+                       linear-gradient(146deg, transparent 44%, var(--mer-lime) 46% 51%, transparent 53%);
+        border       : 1px solid var(--mer-lime);
+        border-radius: 50%;
+        box-sizing   : border-box;
+        content      : "";
+        flex         : 0 0 19px;
+        height       : 19px;
+    }
+}
+
+.meridian-desk .meridian-theme-switcher.neo-button {
+    --button-background-color      : var(--mer-panel);
+    --button-background-color-hover: var(--mer-btn-hover);
+    --button-border                : 1px solid var(--mer-line);
+    --button-border-hover          : 1px solid var(--mer-btn-hover-line);
+    --button-text-color            : var(--mer-ink);
+    --button-text-color-hover      : var(--mer-ink);
+    background   : var(--mer-panel);
+    border       : 1px solid var(--mer-line);
+    border-radius: 4px;
+    color        : var(--mer-ink);
+    height       : auto;
+    letter-spacing: .03em;
+    margin       : 0;
+    min-height   : 26px;
+    padding      : 2px 8px;
+
+    .neo-button-text,
+    .neo-button-glyph {
+        color: inherit;
+    }
+
+    .neo-button-text {
+        font          : 600 11px/1.2 var(--mer-mono);
+        text-transform: none;
+    }
+
+    &:hover {
+        background  : var(--mer-btn-hover);
+        border-color: var(--mer-btn-hover-line);
+    }
+
+    &:focus-visible {
+        outline       : 2px solid var(--mer-lime);
+        outline-offset: 2px;
+    }
+}
+
+.meridian-night {color: var(--mer-muted); font-variant-numeric: tabular-nums;}
+
+.meridian-heading {
+    background-color   : #132128;
+    background-position: 50% 53%;
+    background-size    : cover;
+    border             : 1px solid var(--mer-line);
+    border-radius      : 7px;
+    display            : grid;
+    isolation          : isolate;
+    margin-top         : 12px;
+    overflow           : hidden;
+    padding            : 12px clamp(15px, 1.5vw, 27px) 14px;
+    position           : relative;
+
+    &::before {
+        background: linear-gradient(90deg, #111b22fa, #111b22f2 32%, #121d25bc 56%, #101a2208 85%);
+        content   : "";
+        inset     : 0;
+        position  : absolute;
+        z-index   : -1;
+    }
+    h1 {
+        color         : #edf0de;
+        font          : 500 clamp(32px, 3vw, 48px)/1.03 Georgia, "Times New Roman", serif;
+        letter-spacing: -.04em;
+        margin        : 3px 0 5px;
+    }
+}
+
+.meridian-kicker {
+    color         : #d6ed9b;
+    font          : 650 10px/1.35 var(--mer-mono);
+    letter-spacing: .085em;
+    text-transform: uppercase;
+}
+
+.meridian-signal-mode {
+    color         : var(--mer-lime);
+    font          : 650 10px/1.35 var(--mer-mono);
+    letter-spacing: .085em;
+    text-transform: uppercase;
+}
+
+.meridian-brief {
+    color      : #ccd7d0;
+    font-size  : 15px;
+    line-height: 1.3;
+    margin     : 0;
+    max-width  : min(85ch, 68%);
+    text-wrap  : pretty;
+}
+
+.meridian-workspace {
+    align-items          : start;
+    background           : transparent;
+    display              : grid;
+    gap                  : 14px;
+    grid-template-columns: minmax(365px, .88fr) minmax(0, 1.65fr);
+    margin-top           : 14px;
+    overflow             : visible;
+}
+
+.meridian-left,
+.meridian-right {
+    background : transparent;
+    display    : grid;
+    gap        : 13px;
+    min-width  : 0;
+    overflow   : visible;
+}
+
+.meridian-panel {
+    background   : var(--mer-panel);
+    border       : 1px solid var(--mer-line);
+    border-radius: 6px;
+    box-sizing   : border-box;
+    min-width    : 0;
+    overflow     : hidden;
+}
+
+.meridian-section,
+.meridian-signal-head {
+    align-items    : baseline;
+    display        : flex;
+    flex-wrap      : wrap;
+    gap            : 2px 14px;
+    justify-content: space-between;
+    padding        : 11px 14px 9px;
+
+    h2 {
+        color         : var(--mer-ink);
+        font          : 650 18px/1.13 var(--mer-sans);
+        letter-spacing: -.014em;
+        margin        : 0;
+    }
+}
+.meridian-section small {color: var(--mer-muted); font-size: 12px; line-height: 1.25;}
+
+.meridian-desk .meridian-board.neo-board {
+    --neo-board-background           : var(--mer-inset);
+    --neo-board-color                : var(--mer-ink);
+    --neo-board-font-family          : var(--mer-sans);
+    --neo-board-font-size            : 13px;
+    --neo-board-gap                  : 5px;
+    --neo-board-padding              : 6px;
+    --neo-board-radius               : 4px;
+    --neo-board-column-width         : calc((100% - 10px) / 3);
+    --neo-board-column-color         : var(--mer-col-ink);
+    --neo-board-column-border-color  : var(--mer-col-line);
+    --neo-board-column-background    : var(--mer-col-bg);
+    --neo-board-badge-background     : var(--mer-badge-bg);
+    --neo-board-badge-color          : var(--mer-badge-ink);
+    --neo-board-card-background      : var(--mer-card-bg);
+    --neo-board-card-color           : var(--mer-ink);
+    --neo-board-card-border-color    : var(--mer-card-line);
+    --neo-board-card-muted-color     : var(--mer-muted);
+    --neo-board-card-gap             : 5px;
+    --neo-board-accent-color         : var(--mer-mint);
+    --neo-board-focus-color          : var(--mer-lime);
+
+    border-top: 1px solid var(--mer-line);
+    height    : 218px;
+
+    .neo-board-column-header {font-size: 12px; gap: 4px; padding: 6px;}
+    .neo-board-column-count {font: 500 10px/1 var(--mer-mono); padding: 3px 4px;}
+    .neo-board-column-collapse {padding: 2px 3px;}
+    .neo-board-column-body {background-color: var(--neo-board-column-background); padding: 2px 4px 6px;}
+    .neo-board-card {padding: 7px 6px;}
+    .neo-board-card-title {font-size: 13px; padding-right: 13px;}
+    .neo-board-card-tags {gap: 2px;}
+    .neo-board-card-tag {font-size: 10px;}
+}
+
+.meridian-desk :is(.meridian-scheduler.neo-scheduler, .meridian-gantt.neo-gantt),
+.meridian-desk :is(.meridian-scheduler, .meridian-gantt) [class*="neo-theme-"] {
+    --grid-container-border-color              : var(--mer-grid);
+    --grid-container-cell-background-color     : var(--mer-inset);
+    --grid-container-cell-background-color-even: var(--mer-cell-even);
+    --grid-container-color                     : var(--mer-ink);
+    --grid-header-button-background-color      : var(--mer-hdr-bg);
+    --grid-header-button-background-color-hover: var(--mer-hdr-hover);
+    --grid-header-button-color                 : var(--mer-hdr-ink);
+    --grid-header-button-border-right-color    : var(--mer-line);
+    --grid-header-button-glyph-color           : var(--mer-muted);
+    --neo-timeline-header-background           : var(--mer-hdr-bg);
+    --neo-timeline-header-color                : var(--mer-hdr-ink);
+    --neo-timeline-header-muted-color          : var(--mer-muted);
+    --neo-timeline-gridline-color              : var(--mer-gridline);
+    --neo-timeline-tick-border-color           : var(--mer-line);
+    --neo-timeline-border-color                : var(--mer-line);
+    --neo-timeline-bar-background              : var(--mer-bar-bg);
+    --neo-timeline-bar-border-color            : var(--mer-bar-line);
+    --neo-timeline-bar-color                   : var(--mer-bar-ink);
+    --neo-timeline-bar-hover-border-color      : var(--mer-lime);
+    --neo-timeline-bar-radius                  : 3px;
+    --neo-timeline-focus-color                 : var(--mer-lime);
+    --neo-gantt-arrow-color                    : var(--mer-arrow);
+    --neo-scheduler-divider-color              : var(--mer-line);
+    --neo-gantt-divider-color                  : var(--mer-line);
+}
+
+.meridian-desk :is(.meridian-scheduler.neo-scheduler, .meridian-gantt.neo-gantt) {
+    background: var(--mer-inset);
+    border    : 0;
+    border-top: 1px solid var(--mer-line);
+    box-sizing: border-box;
+    min-width : 0;
+
+    .neo-timeline-header {font-family: var(--mer-mono); font-variant-numeric: tabular-nums;}
+    .neo-grid-header-toolbar {min-height: 45px;}
+    .neo-timeline-bar {font: 600 12px/1.12 var(--mer-sans);}
+    .neo-timeline-bar[data-booking="mosaic"],
+    .neo-timeline-bar[data-event-id="mosaic"],
+    .neo-timeline-bar[data-event-id="stack"] {
+        background-color: var(--mer-mosaic-bg);
+        border-color    : var(--mer-mosaic-line);
+        color           : var(--mer-mosaic-ink);
+    }
+    .neo-timeline-bar[data-booking="standard"] {
+        background-color: var(--mer-std-bg);
+        border-color    : var(--mer-std-line);
+        color           : var(--mer-std-ink);
+    }
+}
+.meridian-scheduler.neo-scheduler {height: 182px;}
+.meridian-gantt.neo-gantt {height: 259px;}
+
+/* The source Board keeps the gesture. This Scheduler's real track is the only foreign hit target. */
+body:has(.meridian-board.neo-is-dragging) .meridian-scheduler .neo-grid-row .neo-timeline-track {pointer-events: auto !important;}
+body:has(.meridian-request-proxy:is([data-verdict="accepted"], [data-verdict="denied"])) .meridian-board .neo-board-card-slot {
+    opacity   : .45;
+    visibility: visible !important;
+    &::after {content: none;}
+}
+
+.meridian-slot-preview {
+    align-items    : center;
+    background     : #284e48;
+    border         : 2px dashed #8de9cb;
+    border-radius  : 3px;
+    box-sizing     : border-box;
+    color          : #efffef;
+    display        : flex;
+    font           : 650 12px/1 var(--mer-sans);
+    inset-block    : 3px;
+    overflow       : hidden;
+    padding-inline : 5px;
+    pointer-events : none;
+    position       : absolute;
+    white-space    : nowrap;
+    z-index        : 3;
+    &[data-verdict="denied"] {background: #573d2a; border-color: #f8bd7c;}
+}
+
+.neo-dragproxy.meridian-request-proxy {
+    background    : transparent;
+    border        : 0;
+    min-height    : 0;
+    overflow      : visible !important;
+    padding       : 0;
+    pointer-events: none !important;
+    .meridian-drag-caption {
+        align-content: start;
+        background   : #19282b;
+        border       : 1px solid #699e92;
+        border-radius: 4px;
+        box-shadow   : 0 6px 20px #030a0dcc;
+        color        : var(--mer-ink);
+        display      : grid;
+        font         : 600 12px/1.3 var(--mer-sans);
+        gap          : 2px;
+        height       : auto;
+        left         : 0;
+        max-width    : calc(100vw - 28px);
+        min-height   : 0;
+        padding      : 7px 10px;
+        position     : absolute;
+        top          : calc(100% + 4px);
+        white-space  : normal;
+        width        : 242px;
+        span:empty {display: none;}
+        .meridian-drag-head {color: var(--mer-mint); font-size: 14px;}
+        .meridian-drag-exposure {font: 500 11px var(--mer-mono);}
+        .meridian-drag-outcome {color: #bdcdca;}
+    }
+    &[data-verdict="denied"] .meridian-drag-caption {background: #402f25; border-color: var(--mer-amber);}
+    &[data-verdict="denied"] .meridian-drag-head {color: var(--mer-amber);}
+    &[data-verdict="neutral"] .meridian-drag-caption:empty {display: none;}
+}
+
+.meridian-event-window {
+    background    : repeating-linear-gradient(125deg, transparent 0 5px, #85d8c512 5px 6px), #74cbb810;
+    border-inline : 1px dashed #679d92;
+    box-sizing    : border-box;
+    inset-block   : 0;
+    pointer-events: none;
+    position      : absolute;
+    z-index       : 0;
+}
+.meridian-sequence-caption.meridian-proposed,
+.meridian-proposed .meridian-sequence-caption {color: var(--mer-amber);}
+
+.meridian-baseline-tick {
+    border-left   : 2px dotted var(--mer-amber);
+    inset-block   : 2px;
+    pointer-events: none;
+    position      : absolute;
+    z-index       : 2;
+}
+
+.meridian-signal {box-sizing: border-box; padding: 0 14px 10px;}
+.meridian-signal-head {align-items: center; padding-inline: 0;}
+.meridian-signal-mode {color: var(--mer-mint); font-size: 9px;}
+.meridian-plot {
+    background   : var(--mer-plot-bg);
+    border       : 1px solid var(--mer-grid);
+    border-radius: 3px;
+    box-sizing   : border-box;
+    display      : block;
+    padding      : 6px 3px 3px;
+    width        : 100%;
+
+    text {font: 11px var(--mer-mono);}
+    .meridian-axis-y, .meridian-axis-x, .meridian-plot-units {fill: var(--mer-plot-axis);}
+    .meridian-axis-y {text-anchor: end;}
+    .meridian-axis-x, .meridian-plot-units {text-anchor: middle;}
+    .meridian-contact {stroke: var(--mer-arrow); stroke-dasharray: 2 4; stroke-width: 1;}
+    .meridian-ingress, .meridian-egress {fill: var(--mer-mint);}
+    .meridian-ingress {text-anchor: end;}
+    .meridian-event-band {fill: var(--mer-plot-band);}
+    .meridian-gridline {stroke: var(--mer-plot-grid); stroke-width: .8;}
+    .meridian-tick {stroke: var(--mer-plot-tick); stroke-width: .8;}
+    .meridian-model-line {fill: none; stroke: var(--mer-mint); stroke-dasharray: 4 2; stroke-width: 1.8;}
+    .meridian-recording-line {stroke: var(--mer-amber); stroke-width: 3;}
+    .meridian-samples {
+        animation     : meridian-exposure-read 2.4s linear both;
+        fill          : none;
+        stroke        : var(--mer-lime);
+        stroke-linecap: round;
+        stroke-width  : 1.5;
+        transform-box : fill-box;
+    }
+}
+
+@keyframes meridian-exposure-read {
+    from {clip-path: inset(-3px 100% -3px -2px);}
+    to   {clip-path: inset(-3px -2px -3px -2px);}
+}
+
+.meridian-legend {
+    color    : var(--mer-muted);
+    display  : flex;
+    flex-wrap: wrap;
+    font-size: 12px;
+    gap      : 4px 14px;
+    margin   : 7px 0 4px;
+    span {align-items: center; display: inline-flex; gap: 5px;}
+    span::before {content: ""; width: 14px;}
+    .meridian-key-model::before {border-top: 2px dashed var(--mer-mint);}
+    .meridian-key-recording::before {border-top: 3px solid var(--mer-amber);}
+    .meridian-key-samples::before {border-top: 3px dotted var(--mer-lime);}
+}
+.meridian-signal-summary {color: var(--mer-ink); font-size: 13px; line-height: 1.3; margin: 0;}
+
+.meridian-actions {
+    align-items     : center;
+    background-color: transparent;
+    border-top      : 1px solid var(--mer-grid);
+    display         : flex;
+    flex-wrap       : wrap;
+    gap             : 6px;
+    padding         : 9px 12px;
+}
+
+.meridian-desk .neo-button:is(.meridian-primary, .meridian-secondary) {
+    background     : var(--mer-btn-bg);
+    border         : 1px solid var(--mer-btn-line);
+    border-radius  : 4px;
+    color          : var(--mer-ink);
+    height         : auto;
+    margin         : 0;
+    min-height     : 34px;
+    min-width      : 0;
+    padding        : 5px 10px;
+    .neo-button-text, .neo-button-glyph {color: inherit;}
+    .neo-button-text {font: 650 13px/1.2 var(--mer-sans); text-transform: none;}
+    &:hover {background: var(--mer-btn-hover); border-color: var(--mer-btn-hover-line);}
+    &:focus-visible {outline: 2px solid var(--mer-lime); outline-offset: 2px;}
+    &.meridian-primary {background: var(--mer-lime); border-color: var(--mer-lime); color: var(--mer-primary-ink);}
+    &.meridian-primary:hover {background: var(--mer-primary-hover); border-color: var(--mer-primary-hover);}
+    &:disabled, &.neo-disabled {opacity: .45;}
+}
+
+.meridian-verdict {
+    --mer-state  : var(--mer-muted);
+    align-items  : baseline;
+    background   : var(--mer-verdict-bg);
+    border       : 1px solid var(--mer-line);
+    border-left  : 3px solid var(--mer-state);
+    border-radius: 4px;
+    display      : flex;
+    flex-wrap    : wrap;
+    gap          : 3px 15px;
+    margin-top   : 13px;
+    padding      : 9px 13px;
+    &.meridian-ok, &[data-state="accepted"] {--mer-state: var(--mer-mint);}
+    &.meridian-refused, &[data-state="denied"] {--mer-state: var(--mer-error);}
+}
+.meridian-verdict-title {color: var(--mer-state); font-size: 15px; font-weight: 650;}
+.meridian-verdict-detail {color: var(--mer-ink); font-size: 14px; line-height: 1.35;}
+
+@media (min-width: 921px) {
+    .meridian-workspace {
+        align-items         : stretch;
+        grid-template-areas : "board schedule" "signal gantt" "verdict verdict";
+    }
+    .meridian-left, .meridian-right {display: contents;}
+    .meridian-panel:has(.meridian-board) {grid-area: board;}
+    .meridian-panel:has(.meridian-scheduler) {grid-area: schedule;}
+    .meridian-panel:has(.meridian-signal) {grid-area: signal;}
+    .meridian-panel:has(.meridian-gantt) {grid-area: gantt;}
+    .meridian-panel:has(.meridian-board, .meridian-scheduler, .meridian-gantt) {
+        display           : grid;
+        grid-template-rows: max-content minmax(0, 1fr);
+    }
+    .meridian-panel > .meridian-board.neo-board, .meridian-panel > .meridian-scheduler.neo-scheduler {
+        height    : 100%;
+        min-height: 211px;
+    }
+    .meridian-gantt.neo-gantt {height: 100%; min-height: 225px;}
+    .meridian-verdict {grid-area: verdict; margin-top: 0;}
+}
+
+@media (max-width: 920px) {
+    .meridian-desk.neo-viewport {padding-inline: 12px;}
+    .meridian-workspace {grid-template-columns: minmax(0, 1fr);}
+    .meridian-left, .meridian-right {display: contents;}
+    .meridian-panel:has(.meridian-board) {grid-row: 1;}
+    .meridian-panel:has(.meridian-scheduler) {grid-row: 2;}
+    .meridian-panel:has(.meridian-gantt) {grid-row: 3;}
+    .meridian-panel:has(.meridian-signal) {grid-row: 4;}
+    .meridian-desk .meridian-board.neo-board {height: 192px;}
+}
+
+@media (max-width: 520px) {
+    .meridian-mast {font-size: 9px; gap: 4px 6px; letter-spacing: .025em;}
+    .meridian-night {order: 2; width: 100%;}
+    .meridian-heading {background-position: 62% center; margin-top: 7px; padding: 9px 12px 11px;}
+    .meridian-heading::before {background: linear-gradient(90deg, #121c22f2, #121c22b8 65%, #121c2255);}
+    .meridian-heading h1 {font-size: 32px;}
+    .meridian-brief {font-size: 13px; line-height: 1.3; max-width: 100%;}
+    .meridian-workspace {gap: 10px; margin-top: 8px;}
+    .meridian-section, .meridian-signal-head {padding-block: 8px; row-gap: 3px;}
+    .meridian-section h2, .meridian-signal-head h2 {font-size: 17px;}
+    .meridian-desk .meridian-board.neo-board {--neo-board-column-width: max(100px, calc((100% - 10px) / 3)); height: 190px;}
+    .meridian-board .neo-board-column-header {padding-inline: 4px;}
+    .meridian-desk .neo-button:is(.meridian-primary, .meridian-secondary) {min-height: 42px;}
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .meridian-desk *, .meridian-request-proxy {animation-duration: 0s !important; transition-duration: 0s !important;}
+}

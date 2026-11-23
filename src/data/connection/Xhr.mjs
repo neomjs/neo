@@ -39,43 +39,16 @@ class Xhr extends Base {
     }
 
     /**
-     * @param {Object} [params]
+     * @summary GETs the connection's `url` with the read params composed into its query by `appendParams()`.
+     * Two read params are not query params: `url` replaces the connection's URL for this read, and `headers` are
+     * sent as request headers over `defaultHeaders`.
+     * @param {Object} [params={}]
+     * @param {Object} [params.headers] Request headers for this read
+     * @param {String} [params.url] The URL to read instead of the connection's
      * @returns {Promise<any>}
      */
-    async read(params) {
-        return this.promiseJson({
-            url: this.url,
-            params
-        });
-    }
-
-    /**
-     * @summary Adds query params to a URL that may already carry a query or a fragment.
-     *
-     * The params go before a `#fragment` and join an existing query with `&`. An empty query (`/data?`) or one that
-     * ends in `&` gets no second separator; a `?` inside a query value (`/data?q=why?`) is part of that value, so
-     * the params still join with `&`. Empty params leave the URL as it is. String composition keeps relative URLs
-     * relative, which `new URL()` cannot do without a base.
-     * @param {String} url
-     * @param {Object} params
-     * @returns {String}
-     */
-    appendParams(url, params) {
-        let query      = new URLSearchParams(params).toString(),
-            hashIndex  = url.indexOf('#'),
-            base       = hashIndex > -1 ? url.substring(0, hashIndex) : url,
-            hash       = hashIndex > -1 ? url.substring(hashIndex)    : '',
-            queryIndex = base.indexOf('?'),
-            existing   = queryIndex > -1 ? base.substring(queryIndex + 1) : null,
-            separator;
-
-        if (!query) {
-            return url
-        }
-
-        separator = existing === null ? '?' : existing === '' || existing.endsWith('&') ? '' : '&';
-
-        return base + separator + query + hash
+    async read({headers, url, ...query}={}) {
+        return this.promiseJson({headers, params: query, url: url || this.url})
     }
 
     /**
@@ -114,15 +87,20 @@ class Xhr extends Base {
     }
 
     /**
+     * @summary Calls the request back with its response, as a success only for an answer the server accepted.
+     * A status outside 200–299 is a failure, as the Fetch connection rejects it. A `file://` read reports status 0
+     * on its `load` event, so status 0 with a body is a success; a failed network request fires `error` instead.
      * @param {Object} e
      */
     onLoad(e) {
-        let me      = this,
-            id      = e.currentTarget.neoId,
-            request = me.requests[id],
-            cb      = request.callback;
+        let me                 = this,
+            id                 = e.currentTarget.neoId,
+            request            = me.requests[id],
+            cb                 = request.callback,
+            {response, status} = e.target,
+            success            = (status >= 200 && status < 300) || (status === 0 && Boolean(response));
 
-        cb?.apply(request.scope || me, [me.getResponse(e), true]);
+        cb?.apply(request.scope || me, [me.getResponse(e), success]);
 
         Object.entries(request).forEach(([key, value]) => {
             request[key] = null
@@ -139,8 +117,11 @@ class Xhr extends Base {
     }
 
     /**
-     * @param {Object} opts
-     * @returns {Promise<any>}
+     * @summary Resolves an accepted answer with its parsed body as `json`, and rejects a refused one with its response.
+     * The rejection carries the response's `status` and `statusText`, and `json` when the refused body parses, so a
+     * caller reads a server's error body from it. An accepted body that does not parse rejects with the parse error.
+     * @param {Object} opts The request options of {@link #request}
+     * @returns {Promise<Object>} The response, with its parsed body as `json`
      */
     promiseJson(opts) {
         let me = this;
@@ -160,6 +141,10 @@ class Xhr extends Base {
                         })
                     }
                 } else {
+                    try {
+                        data.json = JSON.parse(data.response)
+                    } catch {}
+
                     reject(data)
                 }
             };
@@ -169,8 +154,9 @@ class Xhr extends Base {
     }
 
     /**
-     * @param {Object} opts
-     * @returns {Promise<any>}
+     * @summary Resolves an accepted answer with its response, and rejects a refused one with its response and `status`.
+     * @param {Object} opts The request options of {@link #request}
+     * @returns {Promise<Object>} The response
      */
     promiseRequest(opts) {
         let me = this;
@@ -193,10 +179,11 @@ class Xhr extends Base {
      * @param {Object} opts
      * @param {Function} opts.callback
      * @param {Object} opts.data
-     * @param {Object} opts.headers
+     * @param {Object} opts.headers Request headers. They replace `defaultHeaders` of the same name in any case, as HTTP
+     * header names are, the way the Fetch connection merges them
      * @param {Boolean} opts.insideNeo true for calls with relative URLs inside the framework scope
      * @param {String} opts.method DELETE, GET, POST, PUT
-     * @param {Object} opts.params
+     * @param {Object|URLSearchParams|Array[]|String} opts.params Composed into the query by `appendParams()`
      * @param {String} opts.responseType
      * @param {Object} opts.scope
      * @param {String} opts.url
@@ -205,10 +192,12 @@ class Xhr extends Base {
      */
     request(opts) {
         let me      = this,
-            headers = {...me.defaultHeaders, ...opts.headers || {}},
+            headers = new Headers(me.defaultHeaders ?? undefined),
             id      = Neo.getId('xhr-request'),
             method  = opts.method || 'GET',
             xhr     = new XMLHttpRequest();
+
+        new Headers(opts.headers ?? undefined).forEach((value, name) => headers.set(name, value));
 
         if (!opts.url) {
             console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts))
@@ -237,8 +226,8 @@ class Xhr extends Base {
 
             xhr.open(method, opts.url, true);
 
-            Object.entries(headers).forEach(([key, value]) => {
-                xhr.setRequestHeader(key, value)
+            headers.forEach((value, name) => {
+                xhr.setRequestHeader(name, value)
             });
 
             xhr.send(opts.data);

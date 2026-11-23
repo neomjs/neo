@@ -1,19 +1,15 @@
-import CountryStore from './CountryStore.mjs';
-import Helix        from '../../../src/component/Helix.mjs';
+import CountryFlags   from '../../../src/util/CountryFlags.mjs';
+import CountryGallery from '../coronaGallery/CountryGallery.mjs';
+import CountryStore   from '../coronaGallery/CountryStore.mjs';
+import Helix          from '../../../src/component/Helix.mjs';
 
 /**
+ * @summary The World Bank's economies on a helix, each item a flag, the country and six indicators. It shares the
+ * country gallery's store and number formats.
  * @class Neo.examples.component.coronaHelix.CountryHelix
  * @extends Neo.component.Helix
  */
 class CountryHelix extends Helix {
-    /**
-     * A regex to replace blank chars
-     * @member {RegExp} flagRegEx=/ /gi
-     * @protected
-     * @static
-     */
-    static flagRegEx = / /gi
-
     static config = {
         /**
          * @member {String} className='Neo.examples.component.coronaHelix.CountryHelix'
@@ -39,30 +35,30 @@ class CountryHelix extends Helix {
             {cls: ['neo-item-wrapper'], style: {}, cn: [
                 {cls: ['neo-country-helix-item'], style: {}, cn: [
                     {cls: ['neo-item-header'], cn: [
-                        {tag: 'img', cls: ['neo-flag']},
+                        {tag: 'img', alt: '', cls: ['neo-flag']},
                         {}
                     ]},
                     {tag: 'table', cls: ['neo-content-table'], cn: [
                         {tag: 'tr', cn: [
-                            {tag: 'td', html: 'Cases'},
+                            {tag: 'td', html: 'People'},
                             {tag: 'td', cls: ['neo-align-right']},
                             {tag: 'td', style: {width: '100%'}},
-                            {tag: 'td', html: 'Cases today'},
+                            {tag: 'td', html: 'Growth'},
                             {tag: 'td', cls: ['neo-align-right']}
                         ]},
                         {tag: 'tr', cn: [
-                            {tag: 'td', html: 'Deaths'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']},
+                            {tag: 'td', html: 'GDP'},
+                            {tag: 'td', cls: ['neo-align-right']},
                             {tag: 'td', style: {width: '100%'}},
-                            {tag: 'td', html: 'Deaths today'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}
+                            {tag: 'td', html: 'Per head'},
+                            {tag: 'td', cls: ['neo-align-right']}
                         ]},
                         {tag: 'tr', cn: [
-                            {tag: 'td', html: 'Recovered'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']},
+                            {tag: 'td', html: 'Life'},
+                            {tag: 'td', cls: ['neo-align-right']},
                             {tag: 'td', style: {width: '100%'}},
-                            {tag: 'td', html: 'Critical'},
-                            {tag: 'td', cls: ['neo-align-right', 'neo-content-critical']}
+                            {tag: 'td', html: 'Online'},
+                            {tag: 'td', cls: ['neo-align-right']}
                         ]}
                     ]}
                 ]}
@@ -70,7 +66,7 @@ class CountryHelix extends Helix {
         ]},
         /**
          * The unique record field containing the id.
-         * @member {String} keyProperty='id'
+         * @member {String} keyProperty='country'
          */
         keyProperty: 'country',
         /**
@@ -116,90 +112,31 @@ class CountryHelix extends Helix {
      * @returns {Object} vdomItem
      */
     createItem(vdomItem, record, index) {
-        let me         = this,
-            firstChild = vdomItem.cn[0].cn[0],
-            table      = firstChild.cn[1];
+        let me                = this,
+            {compact, format} = CountryGallery,
+            firstChild        = vdomItem.cn[0].cn[0],
+            table             = firstChild.cn[1],
+            growth            = record.populationGrowth,
+            growthCell        = table.cn[0].cn[4];
 
         vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
 
-        firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
-        firstChild.cn[0].cn[1].html = record.country;
+        firstChild.cn[0].cn[0].src  = CountryFlags.getFlagUrl(record.flag);
+        firstChild.cn[0].cn[1].text = record.country;
 
-        table.cn[0].cn[1].html = record.cases;
-        table.cn[1].cn[1].html = record.deaths;
-        table.cn[2].cn[1].html = record.recovered;
+        table.cn[0].cn[1].text = format(record.population, compact);
+        table.cn[1].cn[1].text = format(record.gdp, v => '$' + compact(v));
+        table.cn[2].cn[1].text = format(record.lifeExpectancy, v => `${v.toFixed(1)} yrs`);
 
-        table.cn[0].cn[4].html = record.todayCases;
-        table.cn[1].cn[4].html = record.todayDeaths;
-        table.cn[2].cn[4].html = record.critical;
+        growthCell.text = format(growth, v => `${v > 0 ? '+' : ''}${v.toFixed(2)} %`);
+        growthCell.cls  = ['neo-align-right', ...growth > 0 ? ['neo-content-up'] : growth < 0 ? ['neo-content-down'] : []];
+
+        table.cn[1].cn[4].text = format(record.gdpPerCapita, v => `$${v.toLocaleString()}`);
+        table.cn[2].cn[4].text = format(record.internet, v => `${v} %`);
 
         return vdomItem
     }
 
-    /**
-     * @param {String} name
-     * @returns {String} url
-     */
-    getCountryFlagUrl(name) {
-        const map = {
-            'bosnia'                               : 'bosnia-and-herzegovina',
-            'cabo-verde'                           : 'cape-verde',
-            'car'                                  : 'central-african-republic',
-            'caribbean-netherlands'                : 'netherlands',
-            'channel-islands'                      : 'jersey',
-            'côte-d\'ivoire'                       : 'ivory-coast',
-            'congo'                                : 'republic-of-the-congo',
-            'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
-            'curaçao'                              : 'curacao',
-            'czechia'                              : 'czech-republic',
-            'diamond-princess'                     : 'japan', // cruise ship
-            'drc'                                  : 'democratic-republic-of-congo',
-            'el-salvador'                          : 'salvador',
-            'eswatini'                             : 'swaziland',
-            'faeroe-islands'                       : 'faroe-islands',
-            'falkland-islands-(malvinas)'          : 'falkland-islands',
-            'french-guiana'                        : 'france', // ?
-            'guadeloupe'                           : 'france', // ?
-            'holy-see-(vatican-city-state)'        : 'vatican-city',
-            'iran,-islamic-republic-of'            : 'iran',
-            'lao-people\'s-democratic-republic'    : 'laos',
-            'libyan-arab-jamahiriya'               : 'libya',
-            'macedonia'                            : 'republic-of-macedonia',
-            'marshall-islands'                     : 'marshall-island',
-            'mayotte'                              : 'france', // ?
-            'moldova,-republic-of'                 : 'moldova',
-            'ms-zaandam'                           : 'netherlands', // cruise ship
-            'new-caledonia'                        : 'france',
-            'palestinian-territory,-occupied'      : 'palestine',
-            'poland'                               : 'republic-of-poland',
-            'réunion'                              : 'france',
-            's.-korea'                             : 'south-korea',
-            'st.-barth'                            : 'st-barts',
-            'saint-helena'                         : 'united-kingdom', // sorry, icon not included
-            'saint-lucia'                          : 'st-lucia',
-            'saint-martin'                         : 'sint-maarten',
-            'saint-pierre-miquelon'                : 'france',
-            'saint-vincent-and-the-grenadines'     : 'st-vincent-and-the-grenadines',
-            'syrian-arab-republic'                 : 'syria',
-            'tanzania,-united-republic-of'         : 'tanzania',
-            'timor-leste'                          : 'east-timor',
-            'turks-and-caicos-islands'             : 'turks-and-caicos',
-            'u.s.-virgin-islands'                  : 'virgin-islands',
-            'uae'                                  : 'united-arab-emirates',
-            'uk'                                   : 'united-kingdom',
-            'usa'                                  : 'united-states-of-america',
-            'uzbekistan'                           : 'uzbekistn',
-            'venezuela,-bolivarian-republic-of'    : 'venezuela',
-            'viet-nam'                             : 'vietnam',
-            'wallis-and-futuna'                    : 'france'
-        };
-
-        let imageName = name.toLowerCase().replace(CountryHelix.flagRegEx, '-');
-
-        imageName = map[imageName] || imageName;
-
-        return 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/' + imageName + '.png'
-    }
     /**
      * @returns {String}
      */

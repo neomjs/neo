@@ -1,3 +1,6 @@
+import fs   from 'fs-extra';
+import path from 'node:path';
+
 /**
  * @module buildScripts/util/browserBundles
  * @summary Browser dependencies generated into `dist/` by the Engine's build scripts.
@@ -7,6 +10,24 @@
  * @type {String[]}
  */
 export const BROWSER_BUNDLES = ['marked', 'mermaid', 'parse5'];
+
+/**
+ * @summary Copies existing engine-owned browser bundles into an ESM output `dist/` directory as regular files.
+ * @description Dereferences symbolic links so relative symlinks in git worktrees resolve at their source location
+ * rather than copying a relative link target that dangles from `dist/esm/dist/`.
+ * @param {String} engineDistDir
+ * @param {String} outputDistDir
+ * @param {String[]} [names=BROWSER_BUNDLES]
+ */
+export function copyBrowserBundles(engineDistDir, outputDistDir, names = BROWSER_BUNDLES) {
+    for (const name of names) {
+        const bundlePath = path.join(engineDistDir, `${name}.mjs`);
+
+        if (fs.existsSync(bundlePath)) {
+            fs.copySync(bundlePath, path.join(outputDistDir, `${name}.mjs`), {dereference: true})
+        }
+    }
+}
 
 /**
  * @summary Browser artifacts addressed from the page's workspace rather than the Engine package.

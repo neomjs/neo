@@ -1,4 +1,8 @@
 import {expect, test} from '../../fixtures.mjs';
+import {
+    expectChartTextInside, expectContentFillsWindow, expectFrameAtPaneSize, expectPanesRefill, expectProxyOverSource,
+    readUnion, readWindowSize
+} from '../utils/tearOutGeometry.mjs';
 
 /**
  * @summary The seven-row tear-out portability witness suite — the headed measurement half of
@@ -27,7 +31,131 @@ import {expect, test} from '../../fixtures.mjs';
 const
     surfaceUrl = '/apps/colors/index.html',
     itemHandle = '.neo-draggable',
-    dragSteps  = 25;
+    panels     = '.neo-dashboard-panel',
+    dragSteps  = 25,
+    // How far the pointer moves right to arm the drag: past the drag threshold, inside the window.
+    armTravel  = 12;
+
+/**
+ * @summary Presses the first panel's drag handle and moves the pointer `armTravel` px right, so the drag
+ * arms inside the window.
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{arming: Object, press: {travel: Number, x: Number, y: Number}}>} The press point with the
+ *   pointer's travel from it, and what the user sees at gesture start in {@link expectProxyOverSource}'s shape.
+ */
+async function armPanelDrag(context, page) {
+    const handle = page.locator(itemHandle).first(),
+          proxy  = page.locator('.neo-dragproxy').first();
+
+    await expect(handle, 'calibration: the dashboard item drag handle must exist on the surface').toBeVisible({timeout: 30000});
+
+    const box        = await handle.boundingBox(),
+          press      = {x: box.x + box.width / 2, y: box.y + box.height / 2},
+          sourceRect = await handle.evaluate((element, panel) => {
+              const {height, width, x, y} = element.closest(panel).getBoundingClientRect();
+              return {height, width, x, y}
+          }, panels);
+
+    await page.mouse.move(press.x, press.y);
+    await page.mouse.down();
+    await page.mouse.move(press.x + armTravel / 2, press.y, {steps: 2});
+    await expect(proxy, 'the drag arms inside the window').toBeVisible();
+
+    // A proxy is born over its panel and follows from the first move after the main thread holds it, so
+    // the pointer moves on in 2 px steps until the proxy has left its panel, the way a hand keeps moving.
+    let travel = armTravel,
+        proxyRect;
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+        attempt && (travel += 2);
+        await page.mouse.move(press.x + travel, press.y);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        proxyRect = await proxy.boundingBox();
+
+        if (proxyRect && proxyRect.x !== sourceRect.x) break
+    }
+
+    return {
+        arming: {
+            pointerDelta  : {x: travel, y: 0},
+            proxyRect,
+            sourceRect,
+            windowDragging: context.pages().length > 1
+        },
+        press: {x: press.x, y: press.y, travel}
+    }
+}
+
+/**
+ * @summary Moves an armed drag right, in `dragSteps` even steps from where it armed to past the window's
+ * right edge, until the boundary exit acquires a popup.
+ * @param {import('@playwright/test').Page} page
+ * @param {{travel: Number, x: Number, y: Number}} press The point the drag was pressed at, and the pointer's travel since.
+ * @param {Promise<import('@playwright/test').Page>} popupPromise
+ * @returns {Promise<{popup: Object, proxyRect: Object, step: Number}>} The popup, the step that acquired
+ *   it and the proxy's rect after that step.
+ */
+async function crossRightEdge(page, press, popupPromise) {
+    const proxy  = page.locator('.neo-dragproxy').first(),
+          startX = press.x + press.travel,
+          endX   = page.viewportSize().width + 200;
+
+    let popup     = null,
+        proxyRect = null,
+        step      = 0;
+
+    while (!popup && step < dragSteps) {
+        step++;
+        await page.mouse.move(startX + (endX - startX) * (step / dragSteps), press.y, {steps: 4});
+        proxyRect = await proxy.boundingBox();
+        popup     = await Promise.race([popupPromise, page.waitForTimeout(50).then(() => null)])
+    }
+
+    return {popup: popup || await popupPromise, proxyRect, step}
+}
+
+/**
+ * @summary Records, in the main window, every delta that names the panel the drag will tear out, so a run whose pane
+ * comes back after the drop shows which update brought it back.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<String>} The id of the panel the drag handle belongs to.
+ */
+async function recordPanelDeltas(page) {
+    const panelId = await page.locator(itemHandle).first().evaluate((element, panel) => element.closest(panel).id, panels);
+
+    await page.evaluate(id => {
+        const records = window.tearOutPanelDeltas = [];
+
+        Neo.main.DeltaUpdates.on('update', ({deltas}) => {
+            const at = Math.round(performance.now());
+
+            [deltas].flat().forEach(delta => {
+                const text = JSON.stringify(delta);
+
+                text.includes(id) && records.push({action: delta.action, at, delta: text.slice(0, 240)})
+            })
+        })
+    }, panelId);
+
+    return panelId
+}
+
+/**
+ * @summary AC of the slow crossing: the popup comes only once the proxy has crossed the right edge.
+ * @param {import('@playwright/test').Page} page
+ * @param {Object} crossing {@link crossRightEdge}'s result.
+ * @param {import('@playwright/test').TestInfo} testInfo
+ */
+async function expectAcquiredPastRightEdge(page, crossing, testInfo) {
+    const receipt = {acquiredAtStep: crossing.step, of: dragSteps, proxyRight: crossing.proxyRect && crossing.proxyRect.x + crossing.proxyRect.width, windowWidth: page.viewportSize().width};
+
+    await testInfo.attach('crossing', {body: JSON.stringify(receipt, null, 2), contentType: 'application/json'});
+    console.log('CROSSING-RECEIPT ' + JSON.stringify(receipt));
+
+    expect(receipt.proxyRight, `the popup comes only after the proxy crossed the window's right edge: ${JSON.stringify(receipt)}`)
+        .toBeGreaterThan(receipt.windowWidth)
+}
 
 test.describe('tear-out portability matrix — colors app, headed', () => {
     test.setTimeout(120000);
@@ -37,53 +165,43 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         await expect(page.locator('.colors-viewport')).toBeVisible({timeout: 60000})
     });
 
-    test('row 1 probe — boundary-exit fires on a slow crossing, popup acquired MID-GESTURE, persists the drop terminal, Neo content renders (ratio-trace + instance-identity receipts pending)', async ({context, page}) => {
-        const handle = page.locator(itemHandle).first();
+    test('row 1 probe — boundary-exit fires on a slow crossing, popup acquired MID-GESTURE, persists the drop terminal, Neo content renders (ratio-trace + instance-identity receipts pending)', async ({context, page}, testInfo) => {
+        // The first batch settles the data-source label, which can wrap the toolbar and resize the dashboard.
+        await expect(page.locator('.neo-grid-body .neo-grid-cell[data-field="columnA"]').first()).toBeVisible({timeout: 15000});
 
-        await expect(handle, 'calibration: the dashboard item drag handle must exist on the surface').toBeVisible({timeout: 30000});
-
-        const
-            box      = await handle.boundingBox(),
-            viewport = page.viewportSize();
-
-        expect(box, 'the drag handle reports a bounding box').toBeTruthy();
+        const panelsBefore = await readUnion(page, panels),
+              panelId      = await recordPanelDeltas(page);
 
         // Diagnostic channels: the app worker's console surfaces re-entry/cleanup decisions
         // (`onDragBoundaryEntry` logs on the reattach path — the only popup-closing path).
         const mainConsole = [];
         page.on('console', message => mainConsole.push(`[${message.type()}] ${message.text()}`));
 
-        // Slow, stepped drag from the item toward and past the right window boundary — the
+        // Slow, stepped drag from where it armed toward and past the right window boundary — the
         // stepped path is what makes the direction-aware ratio trace meaningful (row-1 receipt:
         // exit fires while MOVING OUT below the detach threshold, never at rest). The loop stops
         // the moment acquisition fires, isolating the post-acquisition move stream from the
         // pointer-up path when hunting an unexpected close.
+        const {arming, press} = await armPanelDrag(context, page);
+
+        expectProxyOverSource(arming);
+
         const popupPromise = context.waitForEvent('page', {timeout: 30000});
-
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.down();
-
-        let popup = null;
-
-        for (let i = 1; i <= dragSteps && !popup; i++) {
-            await page.mouse.move(
-                box.x + (viewport.width + 200 - box.x) * (i / dragSteps),
-                box.y + box.height / 2,
-                {steps: 4}
-            );
-            popup = await Promise.race([popupPromise.then(acquired => acquired), page.waitForTimeout(50).then(() => null)])
-        }
 
         // The mid-gesture conversion: a REAL page (popup) must be acquired before pointer-up —
         // acquisition-during-gesture is the landed grammar, not a drop effect.
-        popup = popup || await popupPromise;
+        const crossing = await crossRightEdge(page, press, popupPromise),
+              {popup}  = crossing;
+
+        await expectAcquiredPastRightEdge(page, crossing, testInfo);
 
         const popupConsole  = [];
         let   popupClosedAt = null;
         popup.on('console', message => popupConsole.push(`[${message.type()}] ${message.text()}`));
         popup.on('close', () => popupClosedAt = Date.now());
 
-        const beforeUp = Date.now();
+        const beforeUp = Date.now(),
+              upAt     = await page.evaluate(() => Math.round(performance.now()));
         await page.mouse.up();
 
         expect(popup.url(), 'the popup is URL-addressed (openWidgetInPopup contract)').toContain('/apps/');
@@ -98,21 +216,35 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
 
         // The widget shell boots over the shared heap and adopts the parked widget — Neo-rendered
         // content (worker-created ids) is the adoption receipt, not the bare body.
-        await expect(popup.locator('[id^="neo-"]').first(), `adopted Neo content renders in the popup (console: ${popupConsole.join(' | ')})`).toBeVisible({timeout: 45000})
+        await expect(popup.locator('[id^="neo-"]').first(), `adopted Neo content renders in the popup (console: ${popupConsole.join(' | ')})`).toBeVisible({timeout: 45000});
+
+        const popupSize = await readWindowSize(popup);
+
+        expectFrameAtPaneSize({height: popupSize.outerHeight, width: popupSize.outerWidth}, arming.sourceRect, 'the popup');
+        await expectContentFillsWindow(popup, panels, 'the popup');
+
+        // Deltas after pointer-up that name the torn-out panel: whatever returns the pane to this window is among them
+        const returnReceipt = {
+            afterUp: (await page.evaluate(() => window.tearOutPanelDeltas)).filter(record => record.at >= upAt)
+                .map(record => ({...record, at: record.at - upAt})),
+            panelId,
+            panes  : await page.locator(panels).count()
+        };
+
+        await testInfo.attach('return-receipt', {body: JSON.stringify(returnReceipt, null, 2), contentType: 'application/json'});
+        console.log('RETURN-RECEIPT ' + JSON.stringify(returnReceipt));
+
+        await expectPanesRefill(page, panels, panelsBefore, 'the main window after the drop');
+        await expectChartTextInside(page, 'the main window after the drop')
     });
 
-    test('row 2 probe — activation decay-trace capture across an 8s held gesture (expiry itself UNMEASURABLE under CDP input; receipts recorded, verdict pending real-input + blocking-controlled cells)', async ({page}) => {
-        const handle = page.locator(itemHandle).first();
-
-        await expect(handle).toBeVisible({timeout: 30000});
-
-        const box = await handle.boundingBox();
-
+    test('row 2 probe — activation decay-trace capture across an 8s held gesture (expiry itself UNMEASURABLE under CDP input; receipts recorded, verdict pending real-input + blocking-controlled cells)', async ({context, page}) => {
         // A REAL drag gesture (the contract's context: "measured at drag-end after >5 s") —
-        // small in-container moves only, never crossing the boundary; the receipt is about the
+        // small moves around where it armed, never crossing the boundary; the receipt is about the
         // platform's activation window, not the tear-out.
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.down();
+        const {arming, press} = await armPanelDrag(context, page);
+
+        expectProxyOverSource(arming);
 
         const atStart = await page.evaluate(() => ({
             hasBeen : navigator.userActivation.hasBeenActive,
@@ -122,7 +254,7 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         const trace = [];
 
         for (let i = 0; i < 16; i++) {
-            await page.mouse.move(box.x + 90 + (i % 2) * 40, box.y + 70, {steps: 3});
+            await page.mouse.move(press.x + press.travel + (i % 2) * 40 - 20, press.y + 6, {steps: 3});
             await page.waitForTimeout(500);
             if (i % 4 === 3) {
                 trace.push(await page.evaluate(t => ({
@@ -155,25 +287,22 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
 
         expect(atStart.isActive,  'transient activation live at gesture start').toBe(true);
         expect(atDragEnd.hasBeen, 'sticky activation persists').toBe(true);
-        expect(trace.length,      'the decay trace was captured across the 8s gesture').toBeGreaterThan(2)
+        expect(trace.length,      'the decay trace was captured across the 8s gesture').toBeGreaterThan(2);
+        expect(context.pages(),   'a gesture that never leaves the window opens no popup').toEqual([page])
     });
 
     test('row 3 probe — post-acquisition lifecycle-terminal receipts (requested-vs-observed coordinate pairing pending)', async ({context, page}, testInfo) => {
-        const handle = page.locator(itemHandle).first();
-
-        await expect(handle).toBeVisible({timeout: 30000});
-
         const
-            box         = await handle.boundingBox(),
             viewport    = page.viewportSize(),
             mainConsole = [];
 
         page.on('console', message => mainConsole.push(`[${message.type()}] ${message.text()}`));
 
-        const popupPromise = context.waitForEvent('page', {timeout: 30000});
+        const {arming, press} = await armPanelDrag(context, page);
 
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-        await page.mouse.down();
+        expectProxyOverSource(arming);
+
+        const popupPromise = context.waitForEvent('page', {timeout: 30000});
 
         // Attach the close listener INSIDE the acquisition race so not even a microsecond of the
         // popup's life is unobserved — the first reproduction closed before a post-race attach.
@@ -186,17 +315,10 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
             return acquired
         });
 
-        let popup = null;
+        const crossing = await crossRightEdge(page, press, observedPopupPromise),
+              {popup}  = crossing;
 
-        for (let i = 1; i <= dragSteps && !popup; i++) {
-            await page.mouse.move(
-                box.x + (viewport.width + 200 - box.x) * (i / dragSteps),
-                box.y + box.height / 2,
-                {steps: 4}
-            );
-            popup = await Promise.race([observedPopupPromise, page.waitForTimeout(50).then(() => null)])
-        }
-        popup = popup || await observedPopupPromise;
+        await expectAcquiredPastRightEdge(page, crossing, testInfo);
 
         // The row-1 open observation under measurement: SUSTAINED pointer movement AFTER
         // acquisition closed the popup in early runs (first reproduction: within ~300ms of the
@@ -220,7 +342,7 @@ test.describe('tear-out portability matrix — colors app, headed', () => {
         await samplePopup();
 
         for (let i = 0; i < 8 && !popup.isClosed(); i++) {
-            await page.mouse.move(followX0 + i * 12, box.y + box.height / 2 + i * 6, {steps: 2});
+            await page.mouse.move(followX0 + i * 12, press.y + i * 6, {steps: 2});
             if (!await samplePopup()) break;
             await page.waitForTimeout(120)
         }

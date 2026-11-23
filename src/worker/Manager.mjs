@@ -5,6 +5,7 @@ import CanvasGroups, {
 }                         from './CanvasGroups.mjs';
 import DomAccess          from '../main/DomAccess.mjs';
 import DomEvents          from '../main/DomEvents.mjs';
+import {generateUUID}     from '../util/UUID.mjs';
 import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
@@ -105,11 +106,11 @@ class Manager extends Base {
          */
         webWorkersEnabled: false,
         /**
-         * Using crypto.randomUUID() as a unique window identifier
-         * @member {String} windowId=window.__NEO_SSR__?.windowId||crypto.randomUUID()
+         * Using the shared UUID helper for a unique window identifier
+         * @member {String} windowId=window.__NEO_SSR__?.windowId||generateUUID()
          * @protected
          */
-        windowId: window.__NEO_SSR__?.windowId || crypto.randomUUID(),
+        windowId: window.__NEO_SSR__?.windowId || generateUUID(),
         /**
          * The `sessionStorage` key carrying this window's topology identity — `{groupId, workspaceKey,
          * generationToken}` — across page loads. Read once per worker registration and sent with the
@@ -231,26 +232,17 @@ class Manager extends Base {
             });
 
             if (swVersion?.version && swVersion.version !== Neo.config.version) {
-                const
-                    key        = 'neoVersionReload',
-                    lastReload = parseInt(sessionStorage.getItem(key) || '0'),
-                    now        = Date.now();
-
-                if (now - lastReload < 5000) {
-                    console.error('Reload loop detected. Aborting version enforcement.');
-                    return
-                }
-
-                sessionStorage.setItem(key, String(now));
-
-                console.error(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`);
-                location.reload(true)
+                this.reloadOnce(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`)
             }
         }
     }
 
     /**
      * Creates a web worker using the passed options as well as adding error & message event listeners.
+     *
+     * A build's worker URL carries its `buildId`: a shared worker is keyed by its URL and name, so a page of a new
+     * build starts its own workers instead of joining those another tab of the previous build still runs. The name
+     * stays as it is, since a canvas worker reads its group from it.
      * @param {Object} opts
      * @returns {SharedWorker|Worker}
      */
@@ -258,7 +250,8 @@ class Manager extends Base {
         let me            = this,
             {canvasGroup} = me,
             {fileName}    = opts,
-            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName,
+            {buildId}     = Neo.config,
+            filePath      = (opts.basePath || Neo.config.workerBasePath) + fileName + (buildId ? `?buildId=${encodeURIComponent(buildId)}` : ''),
             isCanvas      = opts === me.workers.canvas,
             name          = isCanvas ? CANVAS_WORKER_NAME_PREFIX + canvasGroup : `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
             isShared      = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
@@ -293,23 +286,20 @@ class Manager extends Base {
      * document base beside its location, so workspace connections honor the page's base element.
      */
     createWorkers() {
-        let me                   = this,
-            config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me,
-            ssrData              = window.__NEO_SSR__,
+        let me             = this,
+            config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId),
+            ssrData        = window.__NEO_SSR__,
             key, value;
 
         // remove configs which are not relevant for the workers scope
         delete config.cesiumJsToken;
 
-        // pass the initial hash value as Neo.configs
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        // pass the initial route as Neo.configs
+        if (route) {
+            config.hash = route
         }
 
         config.url = {base: document.baseURI, href, search};
@@ -362,6 +352,12 @@ class Manager extends Base {
         NeoConfig.hasTouchEvents   = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         NeoConfig.prefersDarkTheme = matchMedia('(prefers-color-scheme: dark)').matches;
 
+        // A worker's own motion clock cannot read CSS synchronously, so the preference reaches it live
+        const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+        NeoConfig.prefersReducedMotion = reducedMotion.matches;
+        reducedMotion.addEventListener('change', ({matches}) => me.setNeoConfig({broadcast: true, config: {prefersReducedMotion: matches}}));
+
         // Useful for styling
         document.body.classList.add(NeoConfig.hasMouseEvents ? 'neo-mouse' : 'neo-no-mouse');
 
@@ -411,9 +407,10 @@ class Manager extends Base {
      *
      * This helper method centralizes the logic for both standard VDOM updates and direct `App.applyDeltas` calls.
      * Its primary purpose is to enforce the **"delayed reply"** pattern:
-     * - If the update contains visual changes (deltas), it registers a promise and queues the update for the next animation frame.
+     * - If the update contains DOM deltas or component metadata, it registers a promise and queues the update for the next animation frame.
      *   The reply to the worker is sent only *after* the main thread has processed the queue, ensuring the DOM is updated.
-     * - If the update is a no-op (zero deltas), it sends an immediate reply to avoid unnecessary latency.
+     *   Metadata-only updates still run Main's before/after-delta hooks.
+     * - If the update has neither deltas nor metadata entries, it sends an immediate reply to avoid unnecessary latency.
      *
      * This method also handles the firing of the `updateVdom` event, which triggers the actual processing in `Main.mjs`.
      *
@@ -424,9 +421,9 @@ class Manager extends Base {
      *                                  If false, constructs a new success reply (App worker path).
      */
     handleDomUpdate(data, deltas, replyDest, forward=false) {
-        let me = this;
+        const me = this, payload = forward ? data.data : data;
 
-        if (deltas?.length > 0) {
+        if (deltas?.length > 0 || Object.keys(payload.meta || {}).length > 0) {
             me.promiseForwardMessage(data).then(msgData => {
                 me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
             }).catch(({originalData, error}) => {
@@ -732,6 +729,28 @@ class Manager extends Base {
     }
 
     /**
+     * @summary Reloads the page to load one consistent set of files, unless it reloaded for this within the last five
+     * seconds: a mismatch that a reload does not cure would otherwise reload forever.
+     * @param {String} message Logged when the reload starts
+     */
+    reloadOnce(message) {
+        const
+            key        = 'neoVersionReload',
+            lastReload = parseInt(sessionStorage.getItem(key) || '0'),
+            now        = Date.now();
+
+        if (now - lastReload < 5000) {
+            console.error('Reload loop detected. Aborting version enforcement.');
+            return
+        }
+
+        sessionStorage.setItem(key, String(now));
+
+        console.error(message);
+        location.reload(true)
+    }
+
+    /**
      * @summary Resolves this window's canvas group by the carrier rule and keeps it in the window's sessionStorage,
      * where a `reload` of this window and a popup opened from it find it again.
      * @returns {String}
@@ -871,19 +890,16 @@ class Manager extends Base {
         item.worker = me.createWorker(item);
 
         // 3. Register Config
-        let config               = Neo.clone(NeoConfig, true),
-            {hash, href, search} = location,
-            {windowId}           = me;
+        let config         = Neo.clone(NeoConfig, true),
+            {href, search} = location,
+            {windowId}     = me,
+            route          = DomEvents.getRouteConfig(windowId);
 
         delete config.cesiumJsToken;
         config.url = {base: document.baseURI, href, search};
 
-        if (hash) {
-            config.hash = {
-                hash      : DomEvents.parseHash(hash.substring(1)),
-                hashString: hash.substring(1),
-                windowId
-            }
+        if (route) {
+            config.hash = route
         }
 
         let workerConfig = {...config, windowId};

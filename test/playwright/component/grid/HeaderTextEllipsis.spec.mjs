@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test';
 
 /**
  * A grid header label wider than its column ends in an ellipsis inside its own header instead of
- * painting over the header to its right. `grid/header/Button.scss` gave `.neo-button-text` no
+ * painting over the header to its right. `grid/header/Button.css` gave `.neo-button-text` no
  * overflow rule, so a composed label ("observed · Throughput") at a default width ran into the
  * next header ("queued · Pulse") and neither could be read. The fixture
  * (`apps/grid-header-ellipsis`) mounts two such 90 px columns side by side and a wide third one,

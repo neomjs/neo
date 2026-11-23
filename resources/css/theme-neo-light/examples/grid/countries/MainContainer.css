@@ -1,0 +1,14 @@
+:where(.neo-theme-neo-light) {
+    --countries-accent    : #176b72;
+    --countries-alternate : #f8fafc;
+    --countries-background: #f1f5f8;
+    --countries-border    : #dce5eb;
+    --countries-down      : #b42318;
+    --countries-header    : #eaf1f5;
+    --countries-hover     : #dcefed;
+    --countries-muted     : #647786;
+    --countries-surface   : #fff;
+    --countries-text      : #455c6b;
+    --countries-title     : #182e3b;
+    --countries-up        : #1a7f37;
+}

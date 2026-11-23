@@ -1,0 +1,12 @@
+/* The track list sits on the window's glass: the grid's own variables take the window's text and line tones, so
+   no rule here competes with the grid's rules */
+.desktop-basic-music {
+    --grid-container-border-color              : var(--desktop-app-window-border-color);
+    --grid-container-cell-background-color     : transparent;
+    --grid-container-cell-background-color-even: var(--desktop-app-window-border-color);
+    --grid-container-color                     : var(--desktop-app-window-color);
+    --grid-header-button-background-color      : transparent;
+    --grid-header-button-background-color-hover: var(--desktop-app-window-border-color);
+    --grid-header-button-color                 : var(--desktop-app-window-icon-color);
+    --grid-header-button-color-hover           : var(--desktop-app-window-color);
+}

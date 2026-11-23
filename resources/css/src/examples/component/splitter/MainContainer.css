@@ -1,0 +1,11 @@
+/* A phone's stage is narrower and shorter than the 600px panels: they share what there is, and each scrolls its text */
+.neo-examples-splitter-panes {
+    border    : 1px solid var(--panel-border-color);
+    max-height: 100%;
+    max-width : 100%;
+
+    .neo-examples-splitter-pane {
+        overflow: auto;
+        padding : 0 1em;
+    }
+}

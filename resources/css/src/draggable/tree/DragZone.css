@@ -1,0 +1,18 @@
+.neo-dragproxy.neo-tree-list {
+    /* An open folder sticks at z-index 10000 + its level (`Neo.tree.List#createItem`); the proxy passes over it */
+    z-index: 20000;
+
+    .neo-list {
+        overflow: hidden;
+
+        .neo-list-item {
+            margin-right: 0;
+        }
+    }
+
+    .neo-list-folder.neo-folder-open {
+        .neo-list-item-content:before {
+            content: "\f07b" !important;
+        }
+    }
+}

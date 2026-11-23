@@ -3,8 +3,9 @@ import {test, expect}                            from '../../fixtures.mjs';
 import {fiveBeatFilmScript}                      from '../../../../apps/workstation/tour/fiveBeatFilm.mjs';
 
 /**
- * @summary The flagship film plays from the Workstation's own toolbar: **Start film tour** runs the
- * all scenes, each window scene waits at a gate until the viewer clicks **Continue** (the user
+ * @summary The flagship film plays through Workstation's tour driver (`startFilmTour`) while the
+ * toolbar exposes one visitor **Start tour** button and conditional **Continue**: each window scene
+ * waits at a gate until the viewer clicks **Continue** (the user
  * activation its first `window.open` needs; the journey's later births inside the same held drag
  * rest on the site's pop-up permission, which Playwright grants by launch flag), and the tour's
  * receipt carries one settled cue per beat —
@@ -14,8 +15,9 @@ import {fiveBeatFilmScript}                      from '../../../../apps/workstat
  * its window born again around both panes and brought home.
  *
  * The gestures themselves are the five-beat witness's authority
- * (`WorkstationFiveBeatNL.spec.mjs`); this spec witnesses that the screenplay drives them from a
- * button, through gates, and that every earlier window closes while the signature keeps the matrix's.
+ * (`WorkstationFiveBeatNL.spec.mjs`); this spec witnesses that the screenplay drives them through
+ * `TourController#startFilmTour`, through toolbar **Continue** gates, and that every earlier window
+ * closes while the signature keeps the matrix's.
  */
 
 const
@@ -64,7 +66,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         page.on('popup', onPopup);
 
         await page.goto('/apps/workstation/index.html');
-        await page.waitForSelector('.workstation-tour-film',   {timeout: 30000});
+        await page.waitForSelector('.workstation-tour-play',    {timeout: 30000});
         await page.waitForSelector('.neo-tab-overflow-control', {timeout: 30000});
 
         const
@@ -260,11 +262,12 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         expect(receipt.feed.growth).toBeGreaterThan(0)
     }
 
-    test('Start film tour runs all scenes; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
+    test('startFilmTour runs all scenes through the tour driver; the viewer\'s Continue clicks open every window', async ({page, neuralLink}) => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         try {
-            await page.click('.workstation-tour-film');
+            const tourId  = await getWorkstationTour(app, wsId),
+                  filmRpc = app.callMethod(tourId, 'startFilmTour').catch(error => ({rpcError: String(error)}));
 
             // The provider now publishes the film's beat count, not the dense tour's.
             await expect.poll(() => callWorkstationTour(app, wsId, 'getTourState').then(state => state.totalBeats), {
@@ -321,6 +324,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
                 throw error
             });
 
+            await filmRpc;
             const receipt = await callWorkstationTour(app, wsId, 'getTourReceipt');
 
             receipt.completed || await dumpDiagnostics('incomplete receipt');
@@ -342,10 +346,9 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         const {app, dispose, pageErrors, popupProbe, wsId} = await boot({page, neuralLink});
 
         try {
-            // The replay/take mode is a controller property, set before the ordinary button is
-            // pressed — the same Start a viewer uses, minus the viewer.
-            await app.setProperties(await getWorkstationTour(app, wsId), {autoGates: true});
-            await page.click('.workstation-tour-film');
+            // The replay/take mode runs unattended through the tour driver (`autoGates: true`).
+            const tourId  = await getWorkstationTour(app, wsId),
+                  filmRpc = app.callMethod(tourId, 'startFilmTour', [{autoGates: true}]).catch(error => ({rpcError: String(error)}));
 
             // The probe line carries the beat's elapsed milliseconds, since the previous beat and
             // since the film started: one replay log is the silent choreography rehearsal's
@@ -382,6 +385,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
                 throw error
             });
 
+            await filmRpc;
             const receipt = await callWorkstationTour(app, wsId, 'getTourReceipt');
 
             await testInfo.attach('film-tour-receipt', {body: JSON.stringify(receipt, null, 2), contentType: 'application/json'});
@@ -406,7 +410,8 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
         const {app, dispose, wsId} = await boot({page, neuralLink});
 
         try {
-            await page.click('.workstation-tour-film');
+            const tourId  = await getWorkstationTour(app, wsId),
+                  filmRpc = app.callMethod(tourId, 'startFilmTour').catch(error => ({rpcError: String(error)}));
 
             const firstGate = fiveBeatFilmScript.scenes.flatMap(scene => scene.steps).find(step => step.cue?.type === 'gate').cue.prompt;
 
@@ -425,6 +430,7 @@ test.describe('Workstation — the film tour plays from the toolbar', () => {
 
             // Retire the playback owner mid-gate: the pending gate must not leak a late step.
             await callWorkstationTour(app, wsId, 'cancelTour');
+            await filmRpc;
             // a fresh playback owner reads the same root provider: the gate is gone and nothing runs
             const after = await callWorkstationTour(app, wsId, 'getTourState');
             expect(after.gate).toBeNull();

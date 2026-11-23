@@ -1,6 +1,12 @@
-import MainContainer from './MainContainer.mjs';
+import {resolveStartTheme} from '../../../src/util/Theme.mjs';
+import MainContainer       from './MainContainer.mjs';
 
+/**
+ * @summary Starts the card layout wizard in the theme `?theme=` names, else in the dark theme when the system prefers
+ * dark, else in the first configured theme.
+ * @returns {Neo.controller.Application}
+ */
 export const onStart = () => Neo.app({
-    mainView: MainContainer,
+    mainView: {module: MainContainer, theme: resolveStartTheme(Neo.config)},
     name    : 'Neo.examples.layout.card'
 });

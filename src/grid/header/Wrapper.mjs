@@ -146,25 +146,9 @@ class Wrapper extends BaseContainer {
         applyRegion(centerColumns,      me.gridContainer.headerToolbar);
         applyRegion(lockedEndColumns,   me.headerEnd);
 
-        // Buttons carry the grid-wide aria-colindex: their toolbar index plus the columns of the regions
-        // before it. Re-homed and shifted buttons, and every button after a region count changes, re-sync.
+        // Re-homed and shifted buttons, and every button after a region count changes, re-sync
         me.getToolbars().forEach(toolbar => {
-            let dirty  = false,
-                offset = toolbar.ariaColumnOffset;
-
-            toolbar.items.forEach((item, index) => {
-                let header = item.vdom;
-
-                if (header['aria-colindex'] !== index + 1 + offset) {
-                    header['aria-colindex'] = index + 1 + offset; // 1 based
-                    dirty = true
-                }
-            });
-
-            if (dirty) {
-                toolbar.updateDepth = 2;
-                toolbar.update()
-            }
+            toolbar.syncAriaColumnIndexes() && toolbar.update()
         });
 
         me.syncAriaRows()

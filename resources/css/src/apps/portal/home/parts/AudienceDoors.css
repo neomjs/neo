@@ -1,0 +1,261 @@
+.portal-home-parts-audiencedoors {
+    background-color: transparent;
+    box-sizing      : border-box;
+    color           : var(--sem-color-text-neutral-default);
+    padding         : clamp(2rem, 4vh, 3.5rem) 2rem;
+
+    .content-wrapper {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : column;
+        gap             : clamp(1.5rem, 2.6vh, 2.25rem);
+        margin          : 0 auto;
+        max-width       : 1240px;
+        width           : 100%;
+    }
+
+    .portal-audience-header {
+        max-width : 820px;
+        text-align: center;
+        width     : 100%;
+
+        /* A programmatic focus target (the hero's cue), not a control: no ring */
+        &:focus {
+            outline: none;
+        }
+
+        .neo-h1 {
+            color      : var(--portal-headline-primary);
+            font-family: "GT-Planar", sans-serif;
+            font-size  : clamp(2.1rem, 3.5vw, 3.25rem);
+            line-height: 1.1;
+            margin     : 0;
+            text-align : center;
+        }
+    }
+
+    .portal-audience-lead {
+        color      : var(--sem-color-text-neutral-subdued);
+        font-size  : clamp(1rem, 1.25vw, 1.2rem);
+        line-height: 1.55;
+        margin     : 0.75rem auto 0;
+        max-width  : 760px;
+        text-align : center;
+    }
+
+    .portal-audience-grid {
+        align-items          : stretch;
+        background-color     : transparent;
+        gap                  : 1.5rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width                : 100%;
+    }
+
+    .portal-glass-card {
+        align-items   : stretch;
+        border        : 1px solid var(--sem-color-border-default);
+        display       : flex;
+        flex-direction: column;
+        gap           : 1rem;
+        margin        : 0;
+        max-width     : none;
+        min-width     : 0;
+        padding       : 1.75rem;
+
+        &:hover {
+            border-color: var(--portal-glass-card-hover-border);
+        }
+
+        .portal-door-body {
+            display       : flex;
+            flex          : 1 1 auto;
+            flex-direction: column;
+            font-size     : 1rem;
+            line-height   : 1.6;
+            min-width     : 0;
+            opacity       : 1;
+        }
+
+        .portal-door-eyebrow {
+            color         : var(--sem-color-text-primary-default);
+            display       : block;
+            font-size     : 0.75rem;
+            font-weight   : 600;
+            letter-spacing: 0.04em;
+            line-height   : 1.35;
+            margin-bottom : 0.45rem;
+            text-transform: uppercase;
+        }
+
+        .portal-content-box-headline {
+            color        : var(--sem-color-text-neutral-contrast);
+            font-family  : "GT-Planar", sans-serif;
+            font-size    : 1.4rem;
+            font-weight  : 600;
+            line-height  : 1.2;
+            margin       : 0 0 0.65rem;
+            opacity      : 1;
+        }
+
+        .portal-door-copy {
+            color        : var(--sem-color-text-neutral-subdued);
+            font-size    : 0.96rem;
+            line-height  : 1.58;
+            margin       : 0 0 0.85rem;
+        }
+
+        .portal-door-command {
+            background-color: var(--sem-color-bg-neutral-highlighted);
+            border          : 1px solid var(--sem-color-border-subtle);
+            border-radius   : 8px;
+            box-sizing      : border-box;
+            margin-top      : auto;
+            max-width       : 100%;
+            overflow-x      : auto;
+            padding         : 0.45rem 0.75rem;
+
+            code {
+                background   : transparent;
+                border       : 0;
+                border-radius: 0;
+                color        : var(--sem-color-text-neutral-contrast);
+                font-family  : var(--core-fontfamily-mono);
+                font-size    : 0.85rem;
+                font-weight  : 500;
+                padding      : 0;
+                white-space  : nowrap;
+            }
+        }
+
+        .portal-door-proof {
+            border-top : 1px solid var(--sem-color-border-default);
+            font-size  : 0.88rem;
+            line-height: 1.4;
+            margin     : 0.75rem 0 0;
+            padding-top: 0.75rem;
+
+            /* Inline, not inline-block: the label's last word and the icon then share a line when the text wraps */
+            span + .fa {
+                --fa-display: inline;
+                margin-left : 0.35em;
+            }
+        }
+
+        .portal-door-cta {
+            --button-height                           : 42px;
+            --button-margin                           : 0;
+            --button-secondary-background-color       : var(--sem-color-bg-neutral-highlighted);
+            --button-secondary-background-color-hover : var(--sem-color-surface-primary-background);
+            --button-secondary-border                 : 1px solid var(--sem-color-border-default);
+            --button-secondary-border-hover           : 1px solid var(--sem-color-border-focus);
+            --button-secondary-text-color             : var(--sem-color-text-neutral-default);
+            --button-secondary-text-color-hover       : var(--sem-color-text-neutral-contrast);
+            box-sizing                                : border-box;
+            justify-content                           : center;
+            width                                     : 100%;
+        }
+    }
+
+    @media (min-width: 841px) and (max-height: 820px), (min-width: 841px) and (max-width: 1100px) {
+        justify-content  : center;
+        padding          : 1.15rem 1.5rem;
+        scroll-snap-align: start;
+
+        .content-wrapper {
+            gap: 0.95rem;
+        }
+
+        .portal-audience-header .neo-h1 {
+            font-size: clamp(1.7rem, 2.7vw, 2.3rem);
+        }
+
+        .portal-audience-lead {
+            font-size  : 0.94rem;
+            line-height: 1.42;
+            margin-top : 0.4rem;
+        }
+
+        .portal-audience-grid {
+            gap: 1rem;
+        }
+
+        .portal-glass-card {
+            gap    : 0.7rem;
+            padding: 1.1rem 1.15rem;
+
+            .portal-door-eyebrow {
+                font-size    : 0.68rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .portal-content-box-headline {
+                font-size    : 1.15rem;
+                margin-bottom: 0.4rem;
+            }
+
+            .portal-door-copy {
+                font-size    : 0.85rem;
+                line-height  : 1.44;
+                margin-bottom: 0.55rem;
+            }
+
+            .portal-door-command {
+                margin-top: auto;
+                padding   : 0.32rem 0.55rem;
+
+                code {
+                    font-size  : 0.72rem;
+                    line-height: 1.35;
+                    white-space: normal;
+                }
+            }
+
+            .portal-door-proof {
+                font-size  : 0.8rem;
+                margin-top : 0.5rem;
+                padding-top: 0.5rem;
+            }
+
+            .portal-door-cta {
+                --button-height        : 36px;
+                --button-text-font-size: 0.86rem;
+            }
+        }
+    }
+
+    @media (max-width: 840px) {
+        min-height       : auto;
+        padding          : 3rem 1.25rem;
+        scroll-snap-align: unset;
+
+        .content-wrapper {
+            gap: 1.5rem;
+        }
+
+        .portal-audience-grid {
+            gap                  : 1.25rem;
+            grid-template-columns: 1fr;
+        }
+
+        .portal-glass-card {
+            padding: 1.35rem;
+
+            .portal-door-command {
+                padding: 0.4rem 0.55rem;
+
+                code {
+                    font-size    : clamp(0.66rem, 3vw, 0.75rem);
+                    line-height  : 1.4;
+                    overflow-wrap: break-word;
+                    white-space  : normal;
+                }
+            }
+
+            .portal-door-proof {
+                margin-top : 1rem;
+                padding-top: 0.75rem;
+            }
+        }
+    }
+}

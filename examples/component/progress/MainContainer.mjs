@@ -56,13 +56,14 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /** @summary Returns the `Neo.component.Progress` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module   : Progress,
             height   : 30,
             labelText: 'Hello World',
             value    : 40
-        });
+        }
     }
 }
 

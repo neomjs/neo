@@ -1,10 +1,15 @@
 import BaseViewport  from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
 import GridContainer from '../../../src/grid/Container.mjs';
+import Label         from '../../../src/component/Label.mjs';
 import MainStore     from './MainStore.mjs';
 import NumberField   from '../../../src/form/field/Number.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar       from '../../../src/toolbar/Base.mjs';
 
 /**
+ * @summary Viewport for the animated row sorting example featuring a live leaderboard,
+ * transition speed adjustments, and pause/resume controls.
  * @class Neo.examples.grid.animatedRowSorting.Viewport
  * @extends Neo.container.Viewport
  */
@@ -25,7 +30,13 @@ class Viewport extends BaseViewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
-            style : {marginBottom: '1em', maxWidth: 'fit-content'},
+            layout: {
+                ntype: 'flexbox',
+                wrap : 'wrap',
+                align: 'center',
+                gap  : '0.75em'
+            },
+            style : {marginBottom: '1em'},
 
             items : [{
                 ntype        : 'textfield',
@@ -42,32 +53,79 @@ class Viewport extends BaseViewport {
                 maxValue     : 1000,
                 minValue     : 200,
                 stepSize     : 100,
-                style        : {marginLeft: '1em'},
                 value        : 500,
                 width        : 180
+            },{
+                module   : Button,
+                reference: 'pauseButton',
+                iconCls  : 'fa fa-pause',
+                text     : 'Pause',
+                handler  : 'up.onPauseButtonClick'
+            },{
+                module: Label,
+                text  : 'Rows re-sort as scores change. Click a header to sort by another column.',
+                style : {
+                    fontSize  : '0.9em',
+                    lineHeight: '1.4',
+                    maxWidth  : '100%',
+                    opacity   : 0.8,
+                    whiteSpace: 'normal'
+                }
+            }, '->', {
+                module: ThemeSwitcher,
+                flex  : 'none'
             }]
         }, {
-            module      : GridContainer,
-            reference   : 'grid',
-            store       : MainStore,
-            wrapperStyle: {maxWidth: '902px'},
+            module   : GridContainer,
+            reference: 'grid',
+            store    : MainStore,
 
             body: {
                 animatedRowSorting: true
             },
 
-            columnDefaults: {
-                width: 200
-            },
-
             columns: [
-                {dataField: 'id',        locked: 'start', text: 'Id', width: 100},
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'progress',  text: 'Progress', type: 'progress'},
-                {dataField: 'country',   text: 'Country'}
+                {dataField: 'id',        locked: 'start', text: 'Id', width: 70},
+                {dataField: 'firstname', text: 'Firstname', flex: 1, minWidth: 130},
+                {dataField: 'progress',  text: 'Progress',  flex: 1, minWidth: 140, type: 'progress'},
+                {dataField: 'lastname',  text: 'Lastname',  flex: 1, minWidth: 130},
+                {dataField: 'country',   text: 'Country',   width: 100}
             ]
         }]
+    }
+
+    /**
+     * @member {Number|null} intervalId=null
+     * @protected
+     */
+    intervalId = null
+
+    /**
+     * @member {Boolean} isPaused=false
+     */
+    isPaused = false
+
+    /**
+     * @summary Cleans up the background update timer and destroys the viewport.
+     */
+    destroy() {
+        clearInterval(this.intervalId);
+        super.destroy()
+    }
+
+    /**
+     * @summary Starts the 1500ms leaderboard update timer after viewport construction.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.intervalId = setInterval(() => {
+            if (!me.isPaused && !me.isDestroyed) {
+                me.getReference('grid').store.updateRankings()
+            }
+        }, 1500)
     }
 
     /**
@@ -78,6 +136,21 @@ class Viewport extends BaseViewport {
     }
 
     /**
+     * @summary Toggles automatic leaderboard updates and updates button appearance.
+     * @param {Object} data
+     */
+    onPauseButtonClick(data) {
+        let me          = this,
+            isPaused    = me.togglePause(),
+            pauseButton = me.getReference('pauseButton');
+
+        pauseButton.set({
+            iconCls: isPaused ? 'fa fa-play' : 'fa fa-pause',
+            text   : isPaused ? 'Resume' : 'Pause'
+        })
+    }
+
+    /**
      * Each body owns its AnimateRows plugin, the locked Id body included, so every body takes the new duration
      * @param {Object} data
      */
@@ -85,6 +158,15 @@ class Viewport extends BaseViewport {
         this.getReference('grid').view.bodies.forEach(body => {
             body.getPlugin('grid-animate-rows').transitionDuration = data.value
         })
+    }
+
+    /**
+     * @summary Toggles automatic leaderboard updates between paused and active.
+     * @returns {Boolean} The current paused state
+     */
+    togglePause() {
+        this.isPaused = !this.isPaused;
+        return this.isPaused
     }
 }
 

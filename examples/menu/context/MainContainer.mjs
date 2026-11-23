@@ -1,7 +1,9 @@
-import Button   from '../../../src/button/Base.mjs';
-import Label    from '../../../src/component/Label.mjs';
-import MenuList from '../../../src/menu/List.mjs';
-import Viewport from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
+import Label         from '../../../src/component/Label.mjs';
+import MenuList      from '../../../src/menu/List.mjs';
+import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
+import Viewport      from '../../../src/container/Viewport.mjs';
 
 /**
  * Minimal context-menu composition: real browser `contextmenu` input becomes serialized point
@@ -27,20 +29,23 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'center', pack: 'center'},
         /**
-         * @member {Object} style
-         */
-        style: {gap: '1.5em', padding: '3em'},
-        /**
          * @member {Object[]} items
          */
         items: [{
             module: Label,
             text  : 'Right-click anywhere in this workspace to open the context menu.'
         }, {
-            module   : Button,
-            handler  : 'up.onFocusableClick',
-            reference: 'focusable-target',
-            text     : 'Focusable outside target'
+            module: Container,
+            cls   : ['neo-context-menu-actions'],
+            layout: {ntype: 'hbox', align: 'center', pack: 'center', wrap: 'wrap'},
+            items : [{
+                module   : Button,
+                handler  : 'up.onFocusableClick',
+                reference: 'focusable-target',
+                text     : 'Focusable outside target'
+            }, {
+                module: ThemeSwitcher
+            }]
         }, {
             module   : Label,
             reference: 'context-status',
@@ -94,6 +99,20 @@ class MainContainer extends Viewport {
     }
 
     /**
+     * @summary Keeps the detached floating context menu synchronized with the viewport theme.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.contextMenu && value) {
+            this.contextMenu.theme = value
+        }
+    }
+
+    /**
      * Creates the one floating Menu. A context point is geometry, not a persistent trigger element,
      * so `parentComponent` is deliberately absent.
      * @returns {Neo.menu.List}
@@ -139,7 +158,7 @@ class MainContainer extends Viewport {
                 text    : 'Delete (disabled)'
             }],
             parentId: 'document.body',
-            theme   : me.theme,
+            theme   : me.getTheme(),
             windowId: me.windowId
         })
     }

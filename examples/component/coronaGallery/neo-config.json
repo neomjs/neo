@@ -1,9 +1,7 @@
 {
-    "appPath"          : "examples/component/coronaGallery/app.mjs",
-    "basePath"         : "../../../",
-    "environment"      : "development",
-    "mainPath"         : "./Main.mjs",
-    "renderCountDeltas": true,
-    "themes"           : ["neo-theme-dark"],
-    "useFallbackApi"   : true
+    "appPath"    : "examples/component/coronaGallery/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-dark", "neo-theme-light"]
 }

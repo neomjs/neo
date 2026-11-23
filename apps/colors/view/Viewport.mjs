@@ -42,7 +42,7 @@ class Viewport extends BaseViewport {
         }, {
             module   : Dashboard,
             layout   : {ntype: 'vbox', align: 'stretch'},
-            popupUrl : 'apps/colors/childapps/widget/index.html',
+            popupUrl : () => ViewportController.getWidgetPopupUrl(),
             reference: 'dashboard',
             sortGroup: 'neo-connected-dashboard',
 

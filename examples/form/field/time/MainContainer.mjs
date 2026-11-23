@@ -1,20 +1,36 @@
-import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import NumberField           from '../../../../src/form/field/Number.mjs';
-import Radio                 from '../../../../src/form/field/Radio.mjs';
-import TextField             from '../../../../src/form/field/Text.mjs';
-import TimeField             from '../../../../src/form/field/Time.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import NumberField    from '../../../../src/form/field/Number.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import StatesViewport from '../StatesViewport.mjs';
+import TextField      from '../../../../src/form/field/Text.mjs';
+import TimeField      from '../../../../src/form/field/Time.mjs';
 
 /**
  * @class Neo.examples.form.field.time.MainContainer
- * @extends Neo.examples.ConfigurationViewport
+ * @extends Neo.examples.form.field.StatesViewport
  */
-class MainContainer extends ConfigurationViewport {
+class MainContainer extends StatesViewport {
     static config = {
-        className           : 'Neo.examples.form.field.time.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 160,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className    : 'Neo.examples.form.field.time.MainContainer',
+        autoMount    : true,
+        componentName: 'Time field',
+        layout       : {ntype: 'hbox', align: 'stretch'},
+
+        field: {
+            module         : TimeField,
+            clearable      : true,
+            labelText      : 'Start time',
+            placeholderText: 'Pick a time',
+            labelWidth     : 90,
+            width          : 230
+        },
+        states: {
+            filled  : {value: '10:00'},
+            empty   : {},
+            invalid : {required: true},
+            disabled: {},
+            readOnly: {}
+        }
     }
 
     createConfigurationComponents() {
@@ -132,17 +148,6 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             value    : me.exampleComponent.width
         }]
-    }
-
-    createExampleComponent() {
-        return Neo.create(TimeField, {
-            clearable    : true,
-            labelPosition: 'inline',
-            labelText    : 'Pick a time',
-            labelWidth   : 100,
-            value        : '10:00',
-            width        : 200
-        })
     }
 }
 

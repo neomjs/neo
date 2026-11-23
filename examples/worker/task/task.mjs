@@ -1,5 +1,6 @@
-import MyTasks from './MyTasks.mjs';
+import './MyTasks.mjs';
 
-export const onStart = () => {
-    console.log('task.mjs imported');
-};
+/**
+ * @summary The import registers the example's computation for the App Worker.
+ */
+export const onStart = () => {};

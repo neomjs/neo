@@ -1,0 +1,128 @@
+.examples-videomove-maincontainer.neo-viewport {
+    background: var(--sem-color-surface-neutral-default);
+    color: var(--sem-color-text-neutral-default);
+    gap: 12px;
+    min-height: 100%;
+    overflow: auto;
+    padding: clamp(14px, 3vmin, 32px);
+
+    > * {
+        margin-inline: auto;
+        max-width: 72rem;
+        width: 100%;
+    }
+
+    h1 {
+        font-size: clamp(22px, 3.2vw, 36px);
+        line-height: 1.15;
+        margin: 0;
+    }
+
+    h2 {
+        font-size: clamp(16px, 2vmin, 20px);
+        line-height: 1.25;
+        margin: 0;
+    }
+
+    .neo-videomove-intro {
+        color: var(--sem-color-text-neutral-subdued);
+        line-height: 1.45;
+        margin-block: 0;
+    }
+
+    .neo-videomove-header {
+        background: transparent;
+        gap: 12px;
+    }
+
+    .neo-videomove-bar {
+        background: var(--sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 10px;
+        gap: 14px;
+        padding: 10px 14px;
+    }
+
+    .neo-videomove-readout {
+        color: var(--sem-color-text-neutral-default);
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+        line-height: 1.4;
+        white-space: normal;
+    }
+
+    .video-wrapper {
+        align-content: start;
+        background: transparent;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        min-height: min-content;
+    }
+
+    .neo-videomove-card {
+        background: var(--sem-color-surface-neutral-highlighted);
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 12px;
+        gap: 10px;
+        min-width: 0;
+        padding: clamp(12px, 2.2vmin, 20px);
+    }
+
+    .neo-videomove-card-header {
+        background: transparent;
+        gap: 8px;
+    }
+
+    .neo-videomove-badge {
+        color: var(--sem-color-text-neutral-subdued);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .neo-videomove-stage {
+        align-items: center;
+        aspect-ratio: 16 / 9;
+        background: var(--sem-color-surface-neutral-default);
+        border: 1px solid var(--sem-color-border-default);
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+        width: 100%;
+
+        &:empty {
+            border-style: dashed;
+        }
+
+        &:empty::before {
+            color: var(--sem-color-text-neutral-subdued);
+            content: 'Empty panel — press Move Video to move the playing <video> node here';
+            font-size: 13px;
+            line-height: 1.45;
+            max-width: 24rem;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .neo-video {
+            height: 100%;
+            width: 100%;
+        }
+
+        .neo-video-media {
+            object-fit: cover;
+        }
+    }
+
+    @media (max-width: 720px) {
+        gap: 10px;
+
+        .video-wrapper {
+            gap: 12px;
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+}

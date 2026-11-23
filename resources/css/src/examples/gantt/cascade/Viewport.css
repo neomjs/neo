@@ -1,0 +1,353 @@
+.cascade-viewport.neo-viewport {
+    .cascade-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--cascade-header-bg);
+        border-bottom: 1px solid var(--cascade-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 14px;
+        max-width    : 100%;
+        min-height   : 50px;
+        padding      : 8px 18px;
+
+        .cascade-spacer {
+            min-width: 0;
+        }
+
+        .cascade-title {
+            color         : var(--cascade-title);
+            font-size     : 18px;
+            font-weight   : 700;
+            letter-spacing: -0.02em;
+        }
+
+        .cascade-legend {
+            align-items: center;
+            color      : var(--cascade-muted);
+            display    : inline-flex;
+            flex-wrap  : wrap;
+            font-size  : 12px;
+            gap        : 10px;
+            margin-left: 2px;
+        }
+
+        .cascade-legend-dot {
+            align-items: center;
+            display    : inline-flex;
+            gap        : 6px;
+
+            &::before {
+                border-radius: 3px;
+                box-sizing   : border-box;
+                content      : '';
+                display      : inline-block;
+                height       : 10px;
+                width        : 10px;
+            }
+
+            &.is-trigger::before {
+                background: var(--cascade-trigger-accent);
+            }
+
+            &.is-chain::before {
+                background: var(--cascade-chain-accent);
+            }
+
+            &.is-goal::before {
+                background: var(--cascade-goal-accent);
+            }
+
+            &.is-beside::before {
+                background: var(--cascade-beside-bg);
+                border    : 1px dashed var(--cascade-beside-accent);
+            }
+        }
+
+        .cascade-delay-btn {
+            --button-background-color       : var(--cascade-cta-bg);
+            --button-background-color-active: var(--cascade-cta-hover);
+            --button-background-color-hover : var(--cascade-cta-hover);
+            --button-border                 : 1px solid var(--cascade-cta-border);
+            --button-border-hover           : 1px solid var(--cascade-cta-border);
+            --button-glyph-color            : var(--cascade-cta-text);
+            --button-text-color             : var(--cascade-cta-text);
+            --button-text-color-active      : var(--cascade-cta-text);
+            --button-text-color-hover       : var(--cascade-cta-text);
+            align-items  : center;
+            background   : var(--cascade-cta-bg);
+            border       : 1px solid var(--cascade-cta-border);
+            border-radius: 999px;
+            color        : var(--cascade-cta-text);
+            font-size    : 12px;
+            font-weight  : 600;
+            gap          : 7px;
+            min-height   : 32px;
+            padding      : 0 13px;
+
+            &:hover {
+                background: var(--cascade-cta-hover);
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--cascade-focus);
+                outline-offset: 2px;
+            }
+        }
+
+        .cascade-reset-btn {
+            --button-background-color-hover          : var(--cascade-hover-bg);
+            --button-glyph-color                     : var(--cascade-title);
+            --button-secondary-background-color-hover: var(--cascade-hover-bg);
+            --button-secondary-border-hover          : 1px solid var(--cascade-border);
+            --button-secondary-text-color            : var(--cascade-title);
+            --button-secondary-text-color-active     : var(--cascade-title);
+            --button-secondary-text-color-hover      : var(--cascade-title);
+            --button-text-color                      : var(--cascade-title);
+            --button-text-color-active               : var(--cascade-title);
+            --button-text-color-hover                : var(--cascade-title);
+            align-items  : center;
+            background   : var(--cascade-control-bg);
+            border       : 1px solid var(--cascade-border);
+            border-radius: 999px;
+            color        : var(--cascade-title);
+            font-size    : 12px;
+            font-weight  : 600;
+            gap          : 6px;
+            min-height   : 32px;
+            padding      : 0 12px;
+
+            &:focus-visible {
+                outline       : 2px solid var(--cascade-focus);
+                outline-offset: 2px;
+            }
+        }
+    }
+
+    .cascade-readout-bar.neo-container {
+        align-items  : center;
+        background   : var(--cascade-status-bg);
+        border-bottom: 1px solid var(--cascade-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 5px 12px;
+        min-height   : 36px;
+        padding      : 5px 18px;
+
+        .cascade-move-pill {
+            border-radius       : 999px;
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 700;
+            letter-spacing      : 0.01em;
+            padding             : 2px 10px;
+
+            &.is-on-plan {
+                background: var(--cascade-goal-pill-bg);
+                border    : 1px solid var(--cascade-goal-border);
+                color     : var(--cascade-goal-pill-text);
+            }
+
+            &.is-slipped {
+                background: var(--cascade-slip-pill-bg);
+                border    : 1px solid var(--cascade-trigger-border);
+                color     : var(--cascade-slip-pill-text);
+            }
+        }
+
+        .cascade-readout-text {
+            color               : var(--cascade-title);
+            font-size           : 12.5px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 500;
+        }
+    }
+
+    .cascade-gantt.neo-gantt {
+        .neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header) {
+            --grid-header-button-background-color      : var(--cascade-status-bg);
+            --grid-header-button-background-color-hover: var(--cascade-hover-bg);
+            --grid-header-button-background-image      : none;
+            --grid-header-button-border-right-color    : var(--cascade-border);
+            --grid-header-button-color                 : var(--cascade-title);
+            --grid-header-button-color-hover           : var(--cascade-title);
+            border-bottom: 1px solid var(--cascade-border);
+            padding      : 0 10px;
+
+            .neo-button-glyph {
+                display: none;
+            }
+        }
+
+        .neo-grid-row .neo-grid-cell[data-field="title"] {
+            font-size: 12.5px;
+            padding  : 0 10px;
+        }
+
+        .neo-timeline-header .neo-timeline-tick {
+            font-variant-numeric: tabular-nums;
+            justify-content     : center;
+            padding             : 0 3px;
+        }
+
+        .neo-timeline-header .neo-timeline-tick-major {
+            justify-content: flex-start;
+            padding        : 0 8px;
+        }
+
+        .neo-timeline-bar {
+            border-radius       : 5px;
+            box-shadow          : var(--cascade-bar-shadow);
+            font-size           : 11.5px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+            padding             : 0 6px;
+            z-index             : 2;
+
+            .neo-timeline-bar-label {
+                padding: 0;
+            }
+
+            &.cascade-bar-upstream {
+                background       : var(--cascade-upstream-bg);
+                border           : 1px solid var(--cascade-upstream-border);
+                border-left-color: var(--cascade-upstream-accent);
+                border-left-width: 3px;
+                color            : var(--cascade-bar-text);
+            }
+
+            &.cascade-bar-trigger {
+                background       : var(--cascade-trigger-bg);
+                border           : 1px solid var(--cascade-trigger-border);
+                border-left-color: var(--cascade-trigger-accent);
+                border-left-width: 3px;
+                box-shadow       : var(--cascade-trigger-shadow);
+                color            : var(--cascade-bar-text);
+            }
+
+            &.cascade-bar-chain {
+                background       : var(--cascade-chain-bg);
+                border           : 1px solid var(--cascade-chain-border);
+                border-left-color: var(--cascade-chain-accent);
+                border-left-width: 3px;
+                color            : var(--cascade-bar-text);
+            }
+
+            &.cascade-bar-goal {
+                background       : var(--cascade-goal-bg);
+                border           : 1px solid var(--cascade-goal-border);
+                border-left-color: var(--cascade-goal-accent);
+                border-left-width: 3px;
+                box-shadow       : var(--cascade-goal-shadow);
+                color            : var(--cascade-bar-text);
+            }
+
+            &.cascade-bar-beside {
+                background  : var(--cascade-beside-bg);
+                border      : 1px dashed var(--cascade-beside-border);
+                border-left : 3px solid var(--cascade-beside-accent);
+                color       : var(--cascade-beside-text);
+            }
+        }
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1060px) {
+    .cascade-viewport.neo-viewport .cascade-toolbar.neo-toolbar {
+        gap    : 4px 12px;
+        padding: 6px 18px;
+
+        .cascade-legend {
+            flex       : 0 0 100% !important;
+            margin-left: 0;
+            order      : 2;
+        }
+    }
+}
+
+@media (max-width: 767px) {
+    .cascade-viewport.neo-viewport {
+        .cascade-toolbar.neo-toolbar {
+            gap       : 6px 8px;
+            min-height: auto;
+            padding   : 8px 10px;
+
+            .cascade-title {
+                font-size: 15px;
+                order    : 1;
+            }
+
+            .cascade-spacer {
+                display: none;
+            }
+
+            .cascade-reset-btn {
+                font-size  : 11px;
+                margin-left: auto;
+                min-height : 28px;
+                order      : 2;
+                padding    : 0 9px;
+            }
+
+            .neo-theme-switcher {
+                order: 3;
+            }
+
+            .cascade-delay-btn {
+                font-size : 11px;
+                min-height: 28px;
+                order     : 4;
+                padding   : 0 10px;
+            }
+
+            .cascade-legend {
+                font-size  : 10.5px;
+                gap        : 5px 8px;
+                margin-left: 0;
+                order      : 5;
+                width      : 100%;
+            }
+        }
+
+        .cascade-readout-bar.neo-container {
+            gap    : 4px 8px;
+            padding: 6px 10px;
+
+            .cascade-move-pill {
+                font-size: 11px;
+                padding  : 1px 8px;
+            }
+
+            .cascade-readout-text {
+                font-size  : 11px;
+                line-height: 1.32;
+                white-space: normal;
+            }
+        }
+
+        .cascade-gantt.neo-gantt {
+            .neo-grid-header-toolbar .neo-grid-header-button:not(.neo-timeline-header) {
+                padding: 0 6px;
+            }
+
+            .neo-grid-row .neo-grid-cell[data-field="title"] {
+                font-size: 10.5px;
+                padding  : 0 6px;
+            }
+
+            .neo-timeline-header .neo-timeline-tick {
+                font-size: 9px;
+                padding  : 0;
+            }
+
+            .neo-timeline-header .neo-timeline-tick-major {
+                font-size: 10px;
+                padding  : 0 4px;
+            }
+
+            .neo-timeline-bar {
+                font-size: 10px;
+                padding  : 0 3px;
+            }
+        }
+    }
+}

@@ -10,16 +10,15 @@ import * as yaml         from 'js-yaml';
  *
  * `.github/workflows/classify-test-scope.yml` holds one inline `actions/github-script` step whose
  * outputs gate every expensive job downstream. `neomjs/neo` CI is three projects — `unit`,
- * `components` and the separately-piped `e2e` engine tier — so a classifier that answers `false`
+ * `components` and the `e2e` engine tier — so a classifier that answers `false`
  * too eagerly does not turn anything red. It produces a green run with nothing behind it — a
  * coverage loss indistinguishable from success, which is the one class of regression a test suite
  * cannot report about itself.
  *
- * **One classifier, two callers.** It lived inline in `test.yml`, which is why the e2e tier once
- * ran on every pull request and push: a workflow cannot read another workflow's job outputs, so
- * the separately-piped tier had no gate available to it. It is a reusable workflow now, called by
- * `test.yml` and `test-e2e.yml` alike, so the arms below assert one predicate rather than two
- * copies that could disagree.
+ * **One classifier, one run per push.** A workflow cannot read another workflow's job outputs, which
+ * is why the e2e tier once ran on every pull request and push from a workflow of its own, and why
+ * that tier now lives in `test.yml` beside the others: one classification serves all three. The
+ * classifier stays a reusable workflow, so the arms below assert one predicate in one place.
  *
  * **Why the subject is reached through YAML rather than imported.** The classifier is not a module.
  * It is a string inside a workflow file, evaluated by `actions/github-script` with `github`,
@@ -87,7 +86,7 @@ const CLASSIFIER = 'classify-test-scope.yml';
  * Every test workflow and the job in it that calls {@link CLASSIFIER}.
  * @type {String[][]}
  */
-const CALLERS = [['test.yml', 'changes'], ['test-e2e.yml', 'changes']];
+const CALLERS = [['test.yml', 'changes']];
 
 /**
  * @summary The committed classifier source, read from the workflow on every call.
@@ -108,7 +107,8 @@ const scopeScript = () =>
  * fetch of it genuinely throws. A mock that ignored the owner would let a fork-blind classifier pass.
  *
  * @param {Object}  [config={}]
- * @param {String[]}[config.files] Changed paths the PR reports.
+ * @param {Array<String|Object>} [config.files] Changed paths the PR reports, or GitHub file records
+ * (`{filename, status, previous_filename}`) where removals and renames matter.
  * @param {Object}  [config.basePkg] `package.json` content at the base ref.
  * @param {Object}  [config.headPkg] `package.json` content at the head ref.
  * @param {String}  [config.headPkgRaw] Raw head content, to serve unparseable bytes.
@@ -138,7 +138,8 @@ const createRuntime = ({
     runs            = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
     runsError       = null
 } = {}) => {
-    const outputs = new Map(),
+    const records = files.map(file => typeof file === 'string' ? {filename: file} : file),
+          outputs = new Map(),
           info    = [],
           notices = [],
           summary = [],
@@ -157,7 +158,7 @@ const createRuntime = ({
           github  = {
               paginate: async() => {
                   calls.listFiles++;
-                  return files.map(filename => ({ filename }));
+                  return records;
               },
               rest: {
                   pulls: {
@@ -177,7 +178,7 @@ const createRuntime = ({
                       // A push compares its two commits rather than listing a pull request's files
                       compareCommitsWithBasehead: async({ basehead }) => {
                           calls.basehead = basehead;
-                          return { data: { files: files.map(filename => ({ filename })) } };
+                          return { data: { files: records } };
                       },
                       getContent                : async({ owner, repo, path: filePath, ref }) => {
                           const isLock = filePath === 'package-lock.json';
@@ -245,7 +246,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         const outputs = readWorkflow(CLASSIFIER).jobs.classify.outputs;
 
         expect(Object.keys(outputs).sort()).toEqual(['e2e_boundary_report', 'e2e_engine_matrix', 'e2e_engine_paths', 'e2e_engine_shards',
-            'e2e_selection', 'e2e_selection_report', 'run_components', 'run_e2e', 'run_unit', 'skip_reason']);
+            'e2e_selection', 'e2e_selection_report', 'e2e_skip_reason', 'run_components', 'run_e2e', 'run_red_on_base', 'run_unit', 'skip_reason']);
     });
 
     test('a pull request\'s e2e selection runs only for a caller that asks, and its tier verdicts win', async () => {
@@ -257,21 +258,74 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
               guarded    = classifier.jobs.classify.steps.filter(step => String(step.if).includes('inputs.select_e2e'));
 
         expect(call.inputs.select_e2e).toEqual(expect.objectContaining({type: 'boolean', default: false}));
-        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'select']);
+        expect(guarded.map(step => step.uses ?? step.id)).toEqual(['actions/checkout@v7', 'actions/setup-node@v7', 'route-parser', 'select']);
         guarded.forEach(step => expect(String(step.if)).toContain("github.event_name == 'pull_request'"));
+        const parser = guarded.find(step => step.id === 'route-parser');
+
+        expect(parser.if).toContain("contains(steps.scope.outputs.e2e_example_css, '/examples/')");
+        expect(parser.run).toContain('npm ci --ignore-scripts');
+        expect(parser['continue-on-error']).toBe(true);
+        expect(guarded.at(-1).env).toEqual({
+            E2E_FILES      : '${{ steps.scope.outputs.e2e_files }}',
+            E2E_EXAMPLE_CSS: '${{ steps.scope.outputs.e2e_example_css }}'
+        });
         expect(guarded.at(-1).run).toContain('node buildScripts/util/e2eCiSelection.mjs --select | tee -a "$GITHUB_OUTPUT"');
         expect(guarded.at(-1).run, 'a failed selection fails the step, although tee succeeds').toContain('set -o pipefail');
 
         expect(outputs.run_e2e).toBe('${{ steps.select.outputs.run_e2e || steps.scope.outputs.run_e2e }}');
+        // The selection's reason is the e2e tier's alone; the other tiers' gates print the scope's
+        expect(outputs.e2e_skip_reason).toBe('${{ steps.select.outputs.skip_reason || steps.scope.outputs.skip_reason }}');
+        expect(outputs.skip_reason).toBe('${{ steps.scope.outputs.skip_reason }}');
 
-        const runtime = createRuntime({ files: ['src/grid/Body.mjs', 'learn/blog/post.md', '.github/workflows/test.yml'] });
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', 'learn/blog/post.md', 'test/playwright/unit/grid/Body.spec.mjs'] });
 
         await executeScript(scopeScript(), runtime);
 
         const files = JSON.parse(outputsOf(runtime).e2e_files);
 
         expect(files).toEqual(['src/grid/Body.mjs']);
-        expect(readWorkflow('test-e2e.yml').jobs.changes.with).toEqual({select_e2e: true});
+        expect(JSON.parse(outputsOf(runtime).e2e_example_css)).toEqual([]);
+        expect(readWorkflow('test.yml').jobs.changes.with).toEqual({select_e2e: true});
+    });
+
+    test('a PR exposes only normalized added or modified stylesheet paths as candidates for CSS narrowing', async () => {
+        const added    = 'resources/css/src/examples/scheduler/zoom/Viewport.css',
+              modified = 'resources/css/theme-neo-dark/examples/scheduler/zoom/Viewport.css',
+              removed  = 'resources/css/src/examples/scheduler/zoom/Old.css',
+              unknown  = 'resources/css/src/examples/scheduler/zoom/Unknown.css',
+              copied   = 'resources/css/src/examples/scheduler/zoom/Copy.css',
+              previous = 'resources/css/src/examples/scheduler/zoom/Prior.css',
+              source   = 'examples/scheduler/zoom/Viewport.mjs',
+              runtime  = createRuntime({files: [
+                  {filename: added, status: 'added'},
+                  {filename: modified.replaceAll('/', '\\'), status: 'modified'},
+                  {filename: removed, status: 'removed'},
+                  {filename: unknown},
+                  {filename: copied, status: 'copied'},
+                  {filename: previous, status: 'modified', previous_filename: null},
+                  {filename: source, status: 'modified'}
+              ]});
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(JSON.parse(outputsOf(runtime).e2e_files)).toEqual([added, modified, removed, unknown, copied, previous, source]);
+        expect(JSON.parse(outputsOf(runtime).e2e_example_css)).toEqual([added, modified]);
+    });
+
+    test('renames retain the CSS side of an E2E boundary crossing without permitting narrowing', async () => {
+        const css  = 'resources/css/src/examples/scheduler/zoom/Viewport.css',
+              docs = 'README.md';
+
+        for (const [filename, previous] of [[docs, css], [css, docs]]) {
+            const runtime = createRuntime({files: [{filename, status: 'renamed', previous_filename: previous.replaceAll('/', '\\')}]});
+
+            await executeScript(scopeScript(), runtime);
+
+            expect(outputsOf(runtime).run_e2e, filename).toBe('true');
+            expect(JSON.parse(outputsOf(runtime).e2e_files), filename).toEqual([css]);
+            expect(JSON.parse(outputsOf(runtime).e2e_example_css), filename).toEqual([]);
+            expect(outputsOf(runtime).e2e_boundary_report, filename).toContain(`${css}: in`);
+        }
     });
 
     test('every job output is re-declared to callers', () => {
@@ -316,7 +370,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // coverage-that-was-not-run claim inside the honesty guard itself, which is the one place
         // it would be believed. Discriminating on purpose: the gate must still emit it, so a
         // condition that silenced the summary everywhere would pass a one-sided assertion.
-        const steps    = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps,
+        const steps    = readWorkflow('test.yml').jobs['e2e-engine'].steps,
               coverage = steps.find(step => step.name === 'Report tier coverage'),
               probe    = steps.find(step => step.name === 'Report probe rate');
 
@@ -336,7 +390,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         //
         // A gated spec named ALONE already fails with "No tests found"; the mixed selector is the
         // one that lies, so the guard compares requested spec FILES against what Playwright selects.
-        const run = readWorkflow('test-e2e.yml').jobs['e2e-engine'].steps
+        const run = readWorkflow('test.yml').jobs['e2e-engine'].steps
             .find(step => step.name === 'Run e2e (engine tier)').run;
 
         expect(run, 'the guard must compare requested against selected').toContain('probe selection mismatch');
@@ -360,7 +414,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
         // gate's 12-minute job it would have received 12 — a probe killed by a limit nothing in the
         // log names, reporting a rate that is an artifact of the bound. The job allowance must
         // exceed the step's, and the gate's own numbers must be untouched.
-        const job  = readWorkflow('test-e2e.yml').jobs['e2e-engine'],
+        const job  = readWorkflow('test.yml').jobs['e2e-engine'],
               step = job.steps.find(s => s.name === 'Run e2e (engine tier)');
 
         const nums = String(job['timeout-minutes']).match(/\d+/g).map(Number),
@@ -368,7 +422,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
 
         expect(Math.max(...nums), 'the dispatch job allowance').toBeGreaterThan(Math.max(...sNum));
         expect(Math.min(...nums), 'the gate job bound is unchanged').toBe(12);
-        expect(Math.min(...sNum), 'the gate test-step ceiling is unchanged').toBe(5);
+        expect(Math.min(...sNum), 'the gate test-step ceiling is six minutes').toBe(6);
     });
 
     /**
@@ -378,20 +432,23 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
      * @type {Object[]}
      */
     const SHARDED_TIERS = [{
-        workflow: 'test-e2e.yml',
+        workflow: 'test.yml',
         job     : 'e2e-engine',
         gate    : 'e2e-engine-gate',
         context : 'e2e-engine',
         output  : 'run_e2e',
+        reason  : 'e2e_skip_reason',
         verdict : 'RUN_E2E',
         skipStep: 'Skip e2e (engine tier)',
-        jobIf   : "${{ needs.changes.outputs.run_e2e == 'true' }}"
+        // A dispatch runs the tier only when it names it
+        jobIf   : "${{ needs.changes.outputs.run_e2e == 'true' && (github.event_name != 'workflow_dispatch' || inputs.suite == 'e2e') }}"
     }, {
         workflow: 'test.yml',
         job     : 'components',
         gate    : 'components-gate',
         context : 'components',
         output  : 'run_components',
+        reason  : 'skip_reason',
         verdict : 'RUN_COMPONENTS',
         skipStep: 'Skip components tests',
         // A dispatch probe of another suite rules the tier out as well.
@@ -435,7 +492,7 @@ test.describe('Tests scope classifier — the outputs the changes job actually d
                 CLASSIFIER    : '${{ needs.changes.result }}',
                 [tier.verdict]: `\${{ needs.changes.outputs.${tier.output} }}`,
                 SHARDS        : `\${{ needs.${tier.job}.result }}`,
-                REASON        : '${{ needs.changes.outputs.skip_reason }}'
+                REASON        : `\${{ needs.changes.outputs.${tier.reason} }}`
             });
 
             // Executed, not pattern-matched: the script runs under `bash -e`, as GitHub runs it. Only an
@@ -466,7 +523,7 @@ test.describe('Tests scope classifier — the dev push range', () => {
         // in no classified range. A cancelled run classified nothing, so it is skipped as a base.
         const runtime = createRuntime({
             eventName: 'push',
-            files    : ['src/grid/Body.mjs'],
+            files    : [{filename: 'resources/css/src/examples/scheduler/zoom/Viewport.css', status: 'modified'}],
             runs     : [
                 { id: 3, conclusion: 'cancelled', head_sha: 'cancelled-sha' },
                 { id: 2, conclusion: 'failure',   head_sha: 'completed-sha' }
@@ -477,6 +534,7 @@ test.describe('Tests scope classifier — the dev push range', () => {
 
         expect(runtime.calls.basehead).toBe('completed-sha...after-sha');
         expect(outputsOf(runtime).run_e2e).toBe('true');
+        expect(JSON.parse(outputsOf(runtime).e2e_example_css)).toEqual([]);
     });
 
     test('a push reads package.json at the base its files were diffed from, not at before', async () => {
@@ -532,7 +590,7 @@ test.describe('Tests scope classifier — the dev push range', () => {
     });
 
     test('every caller grants its classifier job actions: read alongside what it already read', () => {
-        for (const file of ['test.yml', 'test-e2e.yml']) {
+        for (const [file] of CALLERS) {
             expect(readWorkflow(file).jobs.changes.permissions, file).toEqual({
                 actions         : 'read',
                 contents        : 'read',
@@ -556,9 +614,10 @@ test.describe('Tests scope classifier — stale-head guard', () => {
         expect(runtime.calls.listFiles).toBe(0);
         expect(runtime.calls.getContent).toBe(0);
         expect(outputsOf(runtime)).toMatchObject({
-            run_components: 'false',
-            run_e2e       : 'false',
-            run_unit      : 'false'
+            run_components : 'false',
+            run_e2e        : 'false',
+            run_red_on_base: 'false',
+            run_unit       : 'false'
         });
         expect(outputsOf(runtime).skip_reason).toContain('stale workflow head');
         expect(runtime.notices.join(' ')).toContain('Skipping expensive test suites');
@@ -796,15 +855,14 @@ test.describe('Tests scope classifier — unit admission on docs and content pat
         expect(outputsOf(runtime)).toMatchObject({ run_components: 'false', run_unit: 'false' });
     });
 
-    test('the workflow classifies edits to itself into the components suite', async () => {
+    test('the workflow classifies edits to itself into every suite it runs', async () => {
         // A change to the runner must run the suites it invokes, or a scoping regression ships on
-        // the one PR guaranteed not to exercise it. `test.yml` does not invoke the e2e tier, so it
-        // does not admit it — the two runners each answer for their own suites.
+        // the one PR guaranteed not to exercise it. `test.yml` runs all three tiers, so it admits all three.
         const runtime = createRuntime({ files: ['.github/workflows/test.yml'] });
 
         await executeScript(scopeScript(), runtime);
 
-        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'false', run_unit: 'true' });
+        expect(outputsOf(runtime)).toMatchObject({ run_components: 'true', run_e2e: 'true', run_unit: 'true' });
     });
 
     test('an edit to the shared classifier admits every suite it gates', async () => {
@@ -837,10 +895,11 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
         expect(runtime.calls.listFiles, 'a dispatch has no diff to list').toBe(0);
         expect(runtime.calls.pullsGet,  'and no head to compare').toBe(0);
         expect(outputsOf(runtime)).toMatchObject({
-            run_components: 'true',
-            run_e2e       : 'true',
-            run_unit      : 'true',
-            skip_reason   : 'changed files unavailable'
+            run_components : 'true',
+            run_e2e        : 'true',
+            run_red_on_base: 'true',
+            run_unit       : 'true',
+            skip_reason    : 'changed files unavailable'
         });
     });
 
@@ -850,11 +909,73 @@ test.describe('Tests scope classifier — unavailable diffs', () => {
         await executeScript(scopeScript(), runtime);
 
         expect(outputsOf(runtime)).toMatchObject({
-            run_components: 'true',
-            run_e2e       : 'true',
-            run_unit      : 'true',
-            skip_reason   : 'changed files unavailable'
+            run_components : 'true',
+            run_e2e        : 'true',
+            run_red_on_base: 'true',
+            run_unit       : 'true',
+            skip_reason    : 'changed files unavailable'
         });
+    });
+
+});
+
+test.describe('Tests scope classifier — the red-on-base falsifier', () => {
+
+    // red-on-base re-runs a pull request's changed unit specs against the merge parent's source, so
+    // it has a comparison only when the change holds both. Its runner starts on this verdict alone;
+    // `runRedOnBase.mjs` keeps the exact check on the merge commit.
+    const UNIT_SPEC = 'test/playwright/unit/grid/Body.spec.mjs';
+
+    test('a pull request that changes no unit spec starts no red-on-base runner', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', 'test/playwright/component/grid/Body.spec.mjs'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a changed unit spec with a source change still runs it', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', UNIT_SPEC] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('true');
+    });
+
+    test('a test-only change leaves no base source to compare', async () => {
+        const runtime = createRuntime({ files: [UNIT_SPEC, 'test/playwright/util/helpers.mjs'] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a removed unit spec is nothing to run, beside a source edit too', async () => {
+        const runtime = createRuntime({ files: ['src/grid/Body.mjs', {filename: UNIT_SPEC, status: 'removed'}] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('false');
+    });
+
+    test('a rename from outside test/ into the unit suite still runs it', async () => {
+        // The comparison diffs without rename detection, so the old path counts as a source change
+        const runtime = createRuntime({ files: [{filename: UNIT_SPEC, status: 'renamed', previous_filename: 'src/grid/Probe.mjs'}] });
+
+        await executeScript(scopeScript(), runtime);
+
+        expect(outputsOf(runtime).run_red_on_base).toBe('true');
+    });
+
+    test('the job starts on the classifier\'s verdict and keeps no copy of its predicate', () => {
+        // A deleted selection step leaves its `if:` conditions reading an empty output, and every
+        // step after the checkout would then skip on a green job.
+        const job = readWorkflow('test.yml').jobs['red-on-base'];
+
+        expect(job.needs).toBe('changes');
+        expect(job.if).toBe("${{ github.event_name == 'pull_request' && needs.changes.outputs.run_red_on_base == 'true' }}");
+        expect(job.steps.filter(step => String(step.run).includes('git diff')), 'no step re-derives the changed files').toEqual([]);
+        expect(job.steps.filter(step => String(step.if).includes('steps.selection')), 'no step waits on one').toEqual([]);
     });
 
 });
@@ -937,23 +1058,23 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         {file: 'test/playwright/e2e/grid/RowPinning.spec.mjs',       why: 'the specs themselves'},
         {file: 'test/playwright/fixtures.mjs',                       why: 'imported by the specs'},
         {file: 'test/playwright/playwright.config.e2e.mjs',          why: 'selection and projects'},
-        {file: '.github/workflows/test-e2e.yml',                     why: 'the runner that invokes the tier'},
+        {file: '.github/workflows/test.yml',                         why: 'the runner that invokes the tier'},
         {file: 'buildScripts/util/e2eCiSelection.mjs',               why: 'decides WHICH specs the job runs'},
         // Every row below is a measured FALSE NEGATIVE of the first version of this predicate,
         // found by executing the committed script against real inputs rather than re-reading it.
         // They are the reason the boundary is now stated as rules over the job's launch chain: each
         // one is consumed by the run, and none of them is a spec, an engine file or a nav target —
         // the three shapes a location list notices.
-        {file: 'resources/scss/src/dashboard/Container.scss',        why: 'compiles to the theme the dock paint and geometry arms measure'},
+        {file: 'resources/css/src/dashboard/Container.css',          why: 'builds into the theme the dock paint and geometry arms measure'},
         {file: 'test/playwright/externalBrainSelection.mjs',         why: 'imported by playwright.config.e2e.mjs — it decides the ignored population'},
         {file: 'test/playwright/resolveFreePort.mjs',                why: 'imported by playwright.config.e2e.mjs — it picks the server port'},
         {file: 'test/playwright/util/RmaHelpers.mjs',                why: 'imported by the shared fixtures every spec builds on'},
         {file: 'test/playwright/e2e/globalSetup.mjs',                why: 'the first half of the tier\'s own webServer.command'},
-        {file: 'buildScripts/webpack/webpack.server.config.mjs',     why: 'the server `server-start` launches for the tier to drive'},
+        {file: 'buildScripts/util/fileServer.mjs',                   why: 'the server `server-start` launches for the tier to drive'},
         {file: 'buildScripts/util/developmentThemeAssets.mjs',       why: 'builds the theme assets the run serves'},
-        // Runtime reach, which no import scan sees: the portal's Seo service fetches this on every
-        // route change, and a Docs spec's browser setup executes the docs generator
-        {file: 'apps/portal/resources/data/seo.json',                why: 'fetched by apps/portal/service/Seo.mjs on every portal route'},
+        // Runtime reach, which no import scan sees: the Portal Videos store fetches videos.json on
+        // #/news/videos (VideosNL.spec.mjs), and a Docs spec's browser setup executes the docs generator
+        {file: 'apps/portal/resources/data/videos.json',             why: 'fetched by the Portal Videos store on #/news/videos (VideosNL.spec.mjs)'},
         {file: 'buildScripts/docs/generateDocsJson.mjs',             why: 'executed by a Docs e2e spec\'s browser setup'}
     ];
 
@@ -1005,11 +1126,18 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
     });
 
     test('paths outside the launch chain do NOT run the tier; a new buildScripts directory does', async () => {
-        // Deny-listed rather than allow-listed: the portal's blog registry, read only on a route no
-        // e2e spec opens, and the `buildScripts/` directories no e2e code imports or executes. Every
-        // other portal data file and a directory that does not exist yet must still admit the tier.
-        for (const file of ['apps/portal/resources/data/blog.json', 'buildScripts/create/class.mjs',
-            'buildScripts/helpers/watchThemes.mjs', 'buildScripts/release/publish.mjs']) {
+        // Deny-listed rather than allow-listed: the portal's blog registry (read only on a route no
+        // e2e spec opens), server/SSG-only SEO JSON tables, and the `buildScripts/`
+        // directories no e2e code imports or executes. Every other portal data file and a directory
+        // that does not exist yet must still admit the tier.
+        for (const file of [
+            'apps/portal/resources/data/blog.json',
+            'apps/portal/resources/data/seo.json',
+            'apps/portal/resources/data/ssg-archive-routes.json',
+            'buildScripts/create/class.mjs',
+            'buildScripts/helpers/watchThemes.mjs',
+            'buildScripts/release/publish.mjs'
+        ]) {
             const runtime = createRuntime({ files: [file] });
 
             await executeScript(scopeScript(), runtime);
@@ -1024,25 +1152,65 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         }
     });
 
+    test('a contributor claim change runs units; a mixed change still runs browser tests', async () => {
+        const claimHelper = 'buildScripts/util/claimResponse.mjs',
+              files       = ['.github/workflows/claim-responder.yml', 'CONTRIBUTING.md', claimHelper,
+                  'test/playwright/unit/buildScripts/util/claimResponse.spec.mjs'],
+              claimOnly   = createRuntime({files});
+
+        await executeScript(scopeScript(), claimOnly);
+        expect(outputsOf(claimOnly)).toMatchObject({run_unit: 'true', run_e2e: 'false'});
+        expect(outputsOf(claimOnly).e2e_boundary_report).toContain(`${claimHelper}: out (buildScripts outside the e2e launch chain)`);
+
+        for (const extra of ['src/grid/View.mjs', 'test/playwright/e2e/grid/New.spec.mjs', 'buildScripts/util/newHelper.mjs']) {
+            const mixed = createRuntime({files: [...files, extra]});
+            await executeScript(scopeScript(), mixed);
+            expect(outputsOf(mixed), extra).toMatchObject({run_unit: 'true', run_e2e: 'true'});
+        }
+    });
+
+    test('a new reader of the claim, standing or guidance helper requires a browser reachability check', () => {
+        // Standing and guidance import claim rules; all three are read only by contributor workflows and unit tests.
+        // Include guidance in the search so a future browser consumer of it reopens this boundary too.
+        const readers = execFileSync('git', ['grep', '--untracked', '-Il', '-E', 'claimResponse|contributorStanding|claimGuidance', '--',
+            '*.mjs', '*.cjs', '*.js', '*.ts', '*.html', 'package.json', '*.sh', '.github/actions', '.github/workflows/test.yml',
+            ':!test/playwright/unit'], {cwd: repoRoot, encoding: 'utf8'}).trim().split('\n');
+
+        expect(readers).toContain('buildScripts/util/contributorStanding.mjs');
+        expect(readers).toContain('buildScripts/util/claimGuidance.mjs');
+        expect(readers.filter(file => !['buildScripts/util/claimResponse.mjs', 'buildScripts/util/contributorStanding.mjs',
+            'buildScripts/util/claimGuidance.mjs'].includes(file)),
+            'check the new reader against the Engine browser launch chain').toEqual([]);
+    });
+
     test('the exclusions hold only while no e2e code reaches what they exclude', () => {
         // Each exclusion rests on a reachability fact, and a fact can stop being true without anyone
         // touching the classifier. These reds name the exclusion to revisit when that happens.
         // `blog.json` is read only by the lazily loaded news/blog view, which another news tab never
-        // instantiates (`#/news/videos` holds only the Videos store); the excluded `buildScripts/`
-        // directories are neither imported nor executed, except the exact move CLI entry exercised
-        // by SourceMoveWorkspaceNL. Removing that literal must not hide other references in its file.
+        // instantiates (`#/news/videos` holds only the Videos store); `seo.json` and
+        // `ssg-archive-routes.json` are consumed exclusively by Node SSR/SSG tooling; the
+        // excluded `buildScripts/` directories are neither imported nor executed, except the exact
+        // move CLI entry exercised by SourceMoveWorkspaceNL. Removing that literal must not hide
+        // other references in its file.
         // The e2e side of `test/playwright/`, by the classifier's own support rule: not the unit or
         // component spec trees, except the component harness apps the e2e specs navigate
         const e2eCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'test/playwright'], {cwd: repoRoot, encoding: 'utf8'})
                   .trim().split('\n')
                   .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
                       (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
+              portalCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'apps/portal'], {cwd: repoRoot, encoding: 'utf8'})
+                  .trim().split('\n')
+                  .filter(file => file.endsWith('.mjs')),
               read    = file => fs.readFileSync(path.join(repoRoot, file), 'utf8'),
+              stripComments = source => source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''),
               opensBlog     = e2eCode.filter(file => /#\/news\/blog/.test(read(file))),
+              reachesSeoData = [...portalCode, ...e2eCode].filter(file => /\b(?:seo|ssg-archive-routes)\.json\b/.test(stripComments(read(file)))),
               reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file)));
 
         expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
+        expect(portalCode.length, 'the scan found the portal app tree').toBeGreaterThan(20);
         expect(opensBlog, 'an e2e spec opens the portal news/blog route: blog.json is reachable, admit it').toEqual([]);
+        expect(reachesSeoData, 'browser Portal or e2e code references seo.json / ssg-archive-routes.json: admit it').toEqual([]);
         expect(reachesScript, 'e2e code reaches an excluded buildScripts directory: admit it').toEqual([]);
     });
 
@@ -1111,7 +1279,7 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
         // Absent at base, present at head: the tier's own webServer command line changing.
         const invoked = createRuntime({
             files  : ['package.json'],
-            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'webpack serve --port 9000' } }
+            headPkg: { dependencies: { leftpad: '1.0.0' }, scripts: { 'build:all': 'a', 'server-start': 'node ./buildScripts/util/fileServer.mjs --port 9000' } }
         });
 
         await executeScript(scopeScript(), invoked);

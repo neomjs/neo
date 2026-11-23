@@ -1,6 +1,8 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
+ * @summary One order line: what was ordered, how many, at which price, when and where it ships. The line total is
+ * calculated from quantity and unit price, so an edited quantity changes it.
  * @class Neo.examples.grid.cellEditing.MainModel
  * @extends Neo.data.Model
  */
@@ -12,17 +14,24 @@ class MainModel extends Model {
             name: 'country',
             type: 'String'
         }, {
-            name: 'firstname',
+            name: 'delivery',
+            type: 'Date'
+        }, {
+            name: 'item',
             type: 'String'
         }, {
-            name: 'githubId',
+            name: 'orderId',
             type: 'String'
         }, {
-            name: 'randomNumber',
+            name: 'quantity',
             type: 'Int'
         }, {
-            name: 'randomDate',
-            type: 'Date'
+            name     : 'total',
+            type     : 'Float',
+            calculate: data => data.quantity * data.unitPrice
+        }, {
+            name: 'unitPrice',
+            type: 'Float'
         }]
     }
 }

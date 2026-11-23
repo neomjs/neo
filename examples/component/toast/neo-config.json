@@ -3,5 +3,6 @@
     "basePath"        : "../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["HighlightJS", "Navigator", "Stylesheet"]
+    "mainThreadAddons": ["HighlightJS", "Navigator", "Stylesheet"],
+    "themes"          : ["neo-theme-light", "neo-theme-dark"]
 }

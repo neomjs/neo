@@ -80,12 +80,13 @@ class MainContainer extends Viewport {
                 listeners : {change: 'up.onContentSizedChange'},
                 valueLabel: 'Content-sized rows'
             }, {
-                module : Button,
-                cls    : ['issues-theme-button'],
-                handler: 'up.onThemeButtonClick',
-                iconCls: 'fa-solid fa-moon',
-                tooltip: 'Switch between the light and dark theme',
-                ui     : 'ghost'
+                module   : Button,
+                cls      : ['issues-theme-button'],
+                handler  : 'up.onThemeButtonClick',
+                iconCls  : 'fa-solid fa-moon',
+                reference: 'themeButton',
+                tooltip  : 'Switch between the light and dark theme',
+                ui       : 'ghost'
             }]
         }, {
             module          : GridContainer,
@@ -132,7 +133,8 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Wires the subtitle to the store, which loads after construction and filters through the header menus.
+     * Wires the subtitle to the store, which loads after construction and filters through the header menus, and
+     * shows the theme button for the theme the example started in.
      */
     onConstructed() {
         super.onConstructed();
@@ -141,12 +143,14 @@ class MainContainer extends Viewport {
             store = me.getReference('grid').store;
 
         store.on({filter: me.onStoreChange, load: me.onStoreChange, scope: me});
-        store.getCount() > 0 && me.onStoreChange()
+        store.getCount() > 0 && me.onStoreChange();
+
+        me.syncThemeButton()
     }
 
     /**
      * @summary Switches the grid between content-sized and fixed rows; fixed rows show one line of each title and
-     * summary, cut with an ellipsis (MainContainer.scss).
+     * summary, cut with an ellipsis (MainContainer.css).
      * @param {Object} data
      * @param {Boolean} data.value
      */
@@ -176,14 +180,18 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @param {Object} data
-     * @param {Neo.button.Base} data.component
+     * @summary Switches between the light and dark neo themes.
      */
-    onThemeButtonClick({component}) {
-        let dark = this.theme !== 'neo-theme-neo-dark';
+    onThemeButtonClick() {
+        this.theme = this.getTheme() === 'neo-theme-neo-dark' ? 'neo-theme-neo-light' : 'neo-theme-neo-dark';
+        this.syncThemeButton()
+    }
 
-        this.theme        = dark ? 'neo-theme-neo-dark' : 'neo-theme-neo-light';
-        component.iconCls = dark ? 'fa-solid fa-sun' : 'fa-solid fa-moon'
+    /**
+     * @summary Shows the icon of the theme the button's next click selects: a sun while the dark theme is on screen.
+     */
+    syncThemeButton() {
+        this.getReference('themeButton').iconCls = this.getTheme() === 'neo-theme-neo-dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon'
     }
 }
 

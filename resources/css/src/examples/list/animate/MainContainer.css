@@ -1,0 +1,5 @@
+/* On a phone the sort buttons and the three checkboxes take two rows instead of leaving the screen */
+.neo-toolbar.neo-examples-list-animate-toolbar {
+    flex-wrap: wrap;
+    row-gap  : 8px;
+}

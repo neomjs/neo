@@ -157,3 +157,6 @@ class MainView extends Container {
 }
 MainView = Neo.setupClass(MainView);
 ```
+
+Listeners as view or controller methods, listeners added procedurally, and when a binding fits better than an event
+are covered in the reference page [Custom Events](../guides/userinteraction/events/CustomEvents.md).

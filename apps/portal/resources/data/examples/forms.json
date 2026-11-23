@@ -1,0 +1,626 @@
+[
+    {
+        "id": "date-selector",
+        "featured": false,
+        "kind": "component",
+        "image": "devmode/tiles/component-dateSelector-14.jpg",
+        "hasLightCover": true,
+        "name": "Date selector",
+        "sourceUrl": "examples/component/dateSelector",
+        "urls": {
+            "devmode": "examples/component/dateSelector/index.html",
+            "dist_dev": "dist/development/examples/component/dateSelector/index.html",
+            "dist_esm": "dist/esm/examples/component/dateSelector/index.html",
+            "dist_prod": "dist/production/examples/component/dateSelector/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 550,
+        "component": "DateSelector",
+        "feature": "The standalone date selector component",
+        "lookFor": "Pick a date and jump months with the radios."
+    },
+    {
+        "id": "date-field",
+        "featured": false,
+        "kind": "component",
+        "image": "devmode/tiles/form-field-date-14.jpg",
+        "hasLightCover": true,
+        "name": "Date field",
+        "sourceUrl": "examples/form/field/date",
+        "urls": {
+            "devmode": "examples/form/field/date/index.html",
+            "dist_dev": "dist/development/examples/form/field/date/index.html",
+            "dist_esm": "dist/esm/examples/form/field/date/index.html",
+            "dist_prod": "dist/production/examples/form/field/date/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 560,
+        "component": "DateField",
+        "feature": "A date field with picker and live configuration",
+        "lookFor": "Pick a date, type an invalid one to see the error state, and move the label between left and top."
+    },
+    {
+        "id": "combobox-field",
+        "featured": false,
+        "kind": "component",
+        "image": "devmode/tiles/form-field-combobox-14.jpg",
+        "hasLightCover": true,
+        "name": "Combo box",
+        "sourceUrl": "examples/form/field/combobox",
+        "urls": {
+            "devmode": "examples/form/field/combobox/index.html",
+            "dist_dev": "dist/development/examples/form/field/combobox/index.html",
+            "dist_esm": "dist/esm/examples/form/field/combobox/index.html",
+            "dist_prod": "dist/production/examples/form/field/combobox/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 570,
+        "component": "ComboBox",
+        "feature": "A combo box over a store with a live configuration panel",
+        "lookFor": "Type to filter the list, choose an entry, then toggle readOnly or required from the panel."
+    },
+    {
+        "id": "checkbox-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-checkbox-14.jpg",
+        "hasLightCover": true,
+        "name": "Checkbox",
+        "sourceUrl": "examples/form/field/checkbox",
+        "urls": {
+            "devmode": "examples/form/field/checkbox/index.html",
+            "dist_dev": "dist/development/examples/form/field/checkbox/index.html",
+            "dist_esm": "dist/esm/examples/form/field/checkbox/index.html",
+            "dist_prod": "dist/production/examples/form/field/checkbox/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 750,
+        "component": "CheckBox",
+        "feature": "A checkbox wired to a live configuration panel: disabled, readOnly, required, error, label position and width",
+        "lookFor": "Flip disabled or readOnly in the panel, set an error message, and watch the box react instantly."
+    },
+    {
+        "id": "chip-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-chip-14.jpg",
+        "hasLightCover": true,
+        "name": "Chip field",
+        "sourceUrl": "examples/form/field/chip",
+        "urls": {
+            "devmode": "examples/form/field/chip/index.html",
+            "dist_dev": "dist/development/examples/form/field/chip/index.html",
+            "dist_esm": "dist/esm/examples/form/field/chip/index.html",
+            "dist_prod": "dist/production/examples/form/field/chip/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 760,
+        "component": "ChipField",
+        "feature": "A chip field selecting multiple store entries as removable chips",
+        "lookFor": "Remove a state chip with its icon, pick more states from the list, and watch the value collection update."
+    },
+    {
+        "id": "color-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-color-14.jpg",
+        "hasLightCover": true,
+        "name": "Color field",
+        "sourceUrl": "examples/form/field/color",
+        "urls": {
+            "devmode": "examples/form/field/color/index.html",
+            "dist_dev": "dist/development/examples/form/field/color/index.html",
+            "dist_esm": "dist/esm/examples/form/field/color/index.html",
+            "dist_prod": "dist/production/examples/form/field/color/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 770,
+        "component": "ColorField",
+        "feature": "A color picker field listing entries from a store",
+        "lookFor": "Pick a color from the dropdown, then clear the field with its trigger."
+    },
+    {
+        "id": "email-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-email-14.jpg",
+        "hasLightCover": true,
+        "name": "Email field",
+        "sourceUrl": "examples/form/field/email",
+        "urls": {
+            "devmode": "examples/form/field/email/index.html",
+            "dist_dev": "dist/development/examples/form/field/email/index.html",
+            "dist_esm": "dist/esm/examples/form/field/email/index.html",
+            "dist_prod": "dist/production/examples/form/field/email/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 780,
+        "component": "EmailField",
+        "feature": "An email field validating its address",
+        "lookFor": "Replace the address with one missing an @ to see the failure state, then restore a valid one."
+    },
+    {
+        "id": "fileupload-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-fileupload-14.jpg",
+        "hasLightCover": true,
+        "name": "File upload",
+        "sourceUrl": "examples/form/field/fileupload",
+        "urls": {
+            "devmode": "examples/form/field/fileupload/index.html",
+            "dist_dev": "dist/development/examples/form/field/fileupload/index.html",
+            "dist_esm": "dist/esm/examples/form/field/fileupload/index.html",
+            "dist_prod": "dist/production/examples/form/field/fileupload/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 790,
+        "component": "FileUploadField",
+        "feature": "A file upload field wired to upload, status, download and delete endpoints",
+        "lookFor": "Choose a file and watch it stage on the field; the upload itself needs the local test server (see scope).",
+        "scope": "The upload, status and delete endpoints expect the local test server on 127.0.0.1:3000."
+    },
+    {
+        "id": "number-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-number-14.jpg",
+        "hasLightCover": true,
+        "name": "Number field",
+        "sourceUrl": "examples/form/field/number",
+        "urls": {
+            "devmode": "examples/form/field/number/index.html",
+            "dist_dev": "dist/development/examples/form/field/number/index.html",
+            "dist_esm": "dist/esm/examples/form/field/number/index.html",
+            "dist_prod": "dist/production/examples/form/field/number/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 800,
+        "component": "NumberField",
+        "feature": "A number field which clears back to its original value",
+        "lookFor": "Change the number, then use the clear trigger — the original 20 returns."
+    },
+    {
+        "id": "radio-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-radio-14.jpg",
+        "hasLightCover": true,
+        "name": "Radio button",
+        "sourceUrl": "examples/form/field/radio",
+        "urls": {
+            "devmode": "examples/form/field/radio/index.html",
+            "dist_dev": "dist/development/examples/form/field/radio/index.html",
+            "dist_esm": "dist/esm/examples/form/field/radio/index.html",
+            "dist_prod": "dist/production/examples/form/field/radio/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 810,
+        "component": "Radio",
+        "feature": "A single radio field with a live configuration panel",
+        "lookFor": "Select the radio and adjust its label text or position from the panel."
+    },
+    {
+        "id": "select-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-select-14.jpg",
+        "hasLightCover": true,
+        "name": "Select field",
+        "sourceUrl": "examples/form/field/select",
+        "urls": {
+            "devmode": "examples/form/field/select/index.html",
+            "dist_dev": "dist/development/examples/form/field/select/index.html",
+            "dist_esm": "dist/esm/examples/form/field/select/index.html",
+            "dist_prod": "dist/production/examples/form/field/select/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 820,
+        "component": "SelectField",
+        "feature": "A select field over a fruit store",
+        "lookFor": "Pick a fruit from the list, then change the selection again."
+    },
+    {
+        "id": "switch-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-switch-14.jpg",
+        "hasLightCover": true,
+        "name": "Switch",
+        "sourceUrl": "examples/form/field/switch",
+        "urls": {
+            "devmode": "examples/form/field/switch/index.html",
+            "dist_dev": "dist/development/examples/form/field/switch/index.html",
+            "dist_esm": "dist/esm/examples/form/field/switch/index.html",
+            "dist_prod": "dist/production/examples/form/field/switch/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 830,
+        "component": "SwitchField",
+        "feature": "A switch field with a live configuration panel",
+        "lookFor": "Flip the switch and adjust its label from the panel."
+    },
+    {
+        "id": "text-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-text-14.jpg",
+        "hasLightCover": true,
+        "name": "Text field",
+        "sourceUrl": "examples/form/field/text",
+        "urls": {
+            "devmode": "examples/form/field/text/index.html",
+            "dist_dev": "dist/development/examples/form/field/text/index.html",
+            "dist_esm": "dist/esm/examples/form/field/text/index.html",
+            "dist_prod": "dist/production/examples/form/field/text/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 840,
+        "component": "TextField",
+        "feature": "A text field with the full live configuration panel",
+        "lookFor": "Type, clear via the trigger, and toggle required to see the empty-value failure."
+    },
+    {
+        "id": "textarea-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-textarea-14.jpg",
+        "hasLightCover": true,
+        "name": "Text area",
+        "sourceUrl": "examples/form/field/textarea",
+        "urls": {
+            "devmode": "examples/form/field/textarea/index.html",
+            "dist_dev": "dist/development/examples/form/field/textarea/index.html",
+            "dist_esm": "dist/esm/examples/form/field/textarea/index.html",
+            "dist_prod": "dist/production/examples/form/field/textarea/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 850,
+        "component": "TextAreaField",
+        "feature": "A text area with a live character count and a 200-character limit",
+        "lookFor": "Type and watch the character count track the 200-character limit."
+    },
+    {
+        "id": "time-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-time-14.jpg",
+        "hasLightCover": true,
+        "name": "Time field",
+        "sourceUrl": "examples/form/field/time",
+        "urls": {
+            "devmode": "examples/form/field/time/index.html",
+            "dist_dev": "dist/development/examples/form/field/time/index.html",
+            "dist_esm": "dist/esm/examples/form/field/time/index.html",
+            "dist_prod": "dist/production/examples/form/field/time/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 860,
+        "component": "TimeField",
+        "feature": "A time field with picker and inline label",
+        "lookFor": "Pick a different time and clear the field with the trigger."
+    },
+    {
+        "id": "url-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-url-14.jpg",
+        "hasLightCover": true,
+        "name": "URL field",
+        "sourceUrl": "examples/form/field/url",
+        "urls": {
+            "devmode": "examples/form/field/url/index.html",
+            "dist_dev": "dist/development/examples/form/field/url/index.html",
+            "dist_esm": "dist/esm/examples/form/field/url/index.html",
+            "dist_prod": "dist/production/examples/form/field/url/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 870,
+        "component": "UrlField",
+        "feature": "A URL field with placeholder and clear trigger",
+        "lookFor": "Type an address over the placeholder and clear it with the trigger."
+    },
+    {
+        "id": "country-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-country-14.jpg",
+        "hasLightCover": true,
+        "name": "Country field",
+        "sourceUrl": "examples/form/field/country",
+        "urls": {
+            "devmode": "examples/form/field/country/index.html",
+            "dist_dev": "dist/development/examples/form/field/country/index.html",
+            "dist_esm": "dist/esm/examples/form/field/country/index.html",
+            "dist_prod": "dist/production/examples/form/field/country/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 880,
+        "component": "CountryField",
+        "feature": "A country field with flags, in its states beside a live configuration panel",
+        "lookFor": "Choose a country, then toggle showFlags in the panel."
+    },
+    {
+        "id": "currency-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-currency-14.jpg",
+        "hasLightCover": true,
+        "name": "Currency field",
+        "sourceUrl": "examples/form/field/currency",
+        "urls": {
+            "devmode": "examples/form/field/currency/index.html",
+            "dist_dev": "dist/development/examples/form/field/currency/index.html",
+            "dist_esm": "dist/esm/examples/form/field/currency/index.html",
+            "dist_prod": "dist/production/examples/form/field/currency/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 890,
+        "component": "CurrencyField",
+        "feature": "A currency field that formats its amount, in its states beside a live configuration panel",
+        "lookFor": "Type an amount above maxValue to see the failure state."
+    },
+    {
+        "id": "display-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-display-14.jpg",
+        "hasLightCover": true,
+        "name": "Display field",
+        "sourceUrl": "examples/form/field/display",
+        "urls": {
+            "devmode": "examples/form/field/display/index.html",
+            "dist_dev": "dist/development/examples/form/field/display/index.html",
+            "dist_esm": "dist/esm/examples/form/field/display/index.html",
+            "dist_prod": "dist/production/examples/form/field/display/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 900,
+        "component": "DisplayField",
+        "feature": "A field that shows a value without editing it, in its states beside a live configuration panel",
+        "lookFor": "Change the value in the panel and watch the field show it."
+    },
+    {
+        "id": "iban-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-iban-14.jpg",
+        "hasLightCover": true,
+        "name": "IBAN field",
+        "sourceUrl": "examples/form/field/iban",
+        "urls": {
+            "devmode": "examples/form/field/iban/index.html",
+            "dist_dev": "dist/development/examples/form/field/iban/index.html",
+            "dist_esm": "dist/esm/examples/form/field/iban/index.html",
+            "dist_prod": "dist/production/examples/form/field/iban/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 910,
+        "component": "IBANField",
+        "feature": "An IBAN field that validates its number, in its states beside a live configuration panel",
+        "lookFor": "Change one digit of the IBAN to see the failure state."
+    },
+    {
+        "id": "password-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-password-14.jpg",
+        "hasLightCover": true,
+        "name": "Password field",
+        "sourceUrl": "examples/form/field/password",
+        "urls": {
+            "devmode": "examples/form/field/password/index.html",
+            "dist_dev": "dist/development/examples/form/field/password/index.html",
+            "dist_esm": "dist/esm/examples/form/field/password/index.html",
+            "dist_prod": "dist/production/examples/form/field/password/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 920,
+        "component": "PasswordField",
+        "feature": "A password field, in its states beside a live configuration panel",
+        "lookFor": "Type a password that is too short to see the failure state."
+    },
+    {
+        "id": "phone-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-phone-14.jpg",
+        "hasLightCover": true,
+        "name": "Phone field",
+        "sourceUrl": "examples/form/field/phone",
+        "urls": {
+            "devmode": "examples/form/field/phone/index.html",
+            "dist_dev": "dist/development/examples/form/field/phone/index.html",
+            "dist_esm": "dist/esm/examples/form/field/phone/index.html",
+            "dist_prod": "dist/production/examples/form/field/phone/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 930,
+        "component": "PhoneField",
+        "feature": "A phone field that validates its number, in its states beside a live configuration panel",
+        "lookFor": "Type letters into the number to see the failure state."
+    },
+    {
+        "id": "range-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-range-14.jpg",
+        "hasLightCover": true,
+        "name": "Range slider",
+        "sourceUrl": "examples/form/field/range",
+        "urls": {
+            "devmode": "examples/form/field/range/index.html",
+            "dist_dev": "dist/development/examples/form/field/range/index.html",
+            "dist_esm": "dist/esm/examples/form/field/range/index.html",
+            "dist_prod": "dist/production/examples/form/field/range/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 940,
+        "component": "RangeField",
+        "feature": "A range slider, in its states beside a live configuration panel",
+        "lookFor": "Drag the slider, then change minValue and maxValue in the panel."
+    },
+    {
+        "id": "search-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-search-14.jpg",
+        "hasLightCover": true,
+        "name": "Search field",
+        "sourceUrl": "examples/form/field/search",
+        "urls": {
+            "devmode": "examples/form/field/search/index.html",
+            "dist_dev": "dist/development/examples/form/field/search/index.html",
+            "dist_esm": "dist/esm/examples/form/field/search/index.html",
+            "dist_prod": "dist/production/examples/form/field/search/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 950,
+        "component": "SearchField",
+        "feature": "A search field, in its states beside a live configuration panel",
+        "lookFor": "Type a term, then clear it with the trigger."
+    },
+    {
+        "id": "zipcode-field",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-zipcode-14.jpg",
+        "hasLightCover": true,
+        "name": "ZIP code field",
+        "sourceUrl": "examples/form/field/zipcode",
+        "urls": {
+            "devmode": "examples/form/field/zipcode/index.html",
+            "dist_dev": "dist/development/examples/form/field/zipcode/index.html",
+            "dist_esm": "dist/esm/examples/form/field/zipcode/index.html",
+            "dist_prod": "dist/production/examples/form/field/zipcode/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 960,
+        "component": "ZipCodeField",
+        "feature": "A ZIP code field that validates its format, in its states beside a live configuration panel",
+        "lookFor": "Delete a digit to see the failure state."
+    },
+    {
+        "id": "copy-to-clipboard-trigger",
+        "kind": "component",
+        "image": "devmode/tiles/form-field-trigger-copyToClipboard-14.jpg",
+        "hasLightCover": true,
+        "name": "Copy-to-clipboard trigger",
+        "sourceUrl": "examples/form/field/trigger/copyToClipboard",
+        "urls": {
+            "devmode": "examples/form/field/trigger/copyToClipboard/index.html",
+            "dist_dev": "dist/development/examples/form/field/trigger/copyToClipboard/index.html",
+            "dist_esm": "dist/esm/examples/form/field/trigger/copyToClipboard/index.html",
+            "dist_prod": "dist/production/examples/form/field/trigger/copyToClipboard/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 970,
+        "component": "TextField",
+        "feature": "A text field with a copy-to-clipboard trigger that appears on hover",
+        "lookFor": "Hover the field, copy its value with the clipboard trigger, and paste it anywhere."
+    },
+    {
+        "id": "fieldset",
+        "kind": "component",
+        "image": "devmode/tiles/form-fieldset-14.jpg",
+        "hasLightCover": true,
+        "name": "Fieldset",
+        "sourceUrl": "examples/form/fieldset",
+        "urls": {
+            "devmode": "examples/form/fieldset/index.html",
+            "dist_dev": "dist/development/examples/form/fieldset/index.html",
+            "dist_esm": "dist/esm/examples/form/fieldset/index.html",
+            "dist_prod": "dist/production/examples/form/fieldset/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 980,
+        "component": "Fieldset",
+        "feature": "A fieldset grouping number fields under a titled frame",
+        "lookFor": "Adjust the inner number values and try the title field in the panel."
+    },
+    {
+        "id": "form-app",
+        "image": "devmode/form-app-14.jpg",
+        "name": "Multi-Step Account Form",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "sourceUrl": "apps/form",
+        "urls": {
+            "devmode": "apps/form/index.html",
+            "dist_dev": "dist/development/apps/form/index.html",
+            "dist_esm": "dist/esm/apps/form/index.html",
+            "dist_prod": "dist/production/apps/form/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 990,
+        "alsoIn": [
+            "apps"
+        ],
+        "component": "Form",
+        "feature": "Each step validates before Next and says what is wrong; the last step shows the submitted object",
+        "lookFor": "Press Next on the empty first step, then open Review and press Create account."
+    },
+    {
+        "id": "form-validation",
+        "image": "devmode/form-validation-14.jpg",
+        "name": "Sign-up validation",
+        "sourceUrl": "examples/form/validation",
+        "urls": {
+            "devmode": "examples/form/validation/index.html",
+            "dist_dev": "dist/development/examples/form/validation/index.html",
+            "dist_esm": "dist/esm/examples/form/validation/index.html",
+            "dist_prod": "dist/production/examples/form/validation/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 1000,
+        "component": "Form Container",
+        "feature": "A sign-up form validates as you type, blocks submit and lists the errors",
+        "lookFor": "Type a bad email, fix it, and sign up."
+    },
+    {
+        "id": "field-with-prefix",
+        "image": "devmode/field-with-prefix-14.jpg",
+        "name": "Input masks",
+        "sourceUrl": "examples/fieldWithPrefix",
+        "urls": {
+            "devmode": "examples/fieldWithPrefix/index.html",
+            "dist_dev": "dist/development/examples/fieldWithPrefix/index.html",
+            "dist_esm": "dist/esm/examples/fieldWithPrefix/index.html",
+            "dist_prod": "dist/production/examples/fieldWithPrefix/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 1010,
+        "component": "TextField",
+        "feature": "The PrefixField plugin masks a phone number, a date, a MAC address, a code and a card number",
+        "lookFor": "Type letters into the phone field to see them refused, then fill +1 (___) ___-____ with a 10-digit number."
+    },
+    {
+        "id": "form-checkout",
+        "image": "devmode/form-checkout-14.jpg",
+        "hasLightCover": true,
+        "name": "Address and payment",
+        "sourceUrl": "examples/form/checkout",
+        "urls": {
+            "devmode": "examples/form/checkout/index.html",
+            "dist_dev": "dist/development/examples/form/checkout/index.html",
+            "dist_esm": "dist/esm/examples/form/checkout/index.html",
+            "dist_prod": "dist/production/examples/form/checkout/index.html"
+        },
+        "hiddenIn": [],
+        "family": "forms",
+        "order": 1020,
+        "component": "Form Container",
+        "feature": "Country, ZipCode, Phone, Currency and IBAN in one checkout form, where the postal code follows the country",
+        "lookFor": "Enter 1010 as the postal code, then pick Austria. Check an IBAN with one wrong check digit."
+    }
+]

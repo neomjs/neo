@@ -9,6 +9,7 @@ import DomEventManager     from '../manager/DomEvent.mjs';
 import FocusManager        from '../manager/Focus.mjs';
 import HashHistory         from '../util/HashHistory.mjs';
 import {getThemeNamespace} from '../util/Theme.mjs';
+import {generateUUID}     from '../util/UUID.mjs';
 
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
@@ -30,13 +31,13 @@ class App extends Base {
          */
         countLoadingThemeFiles_: 0,
         /**
-         * Using crypto.randomUUID() as a unique window identifier.
+         * Using the shared UUID helper to keep worker identifiers available on insecure HTTP origins.
          * This is especially important for the neural link, where multiple App workers can connect.
-         * @member {String} id=crypto.randomUUID()
+         * @member {String} id=generateUUID()
          * @protected
          * @reactive
          */
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         /**
          * Remote method access for other workers
          * @member {Object} remote
@@ -415,6 +416,13 @@ class App extends Base {
     }
 
     /**
+     * @summary Lazy-loads an app entry through one webpack context that spans every shipped `app.mjs`.
+     *
+     * webpack tests the `webpackExclude` against each walked entry's absolute, resolved path. It keeps test,
+     * build and foreign `node_modules` trees out of the context, but admits the `neo.mjs` package wherever an
+     * install placed it: `node_modules/neo.mjs/` and a pnpm store's real path
+     * `node_modules/.pnpm/neo.mjs@<version>/node_modules/neo.mjs/` alike. A foreign dependency's apps
+     * stay excluded in both layouts.
      * @param {String} path
      * @returns {Promise}
      */
@@ -425,7 +433,7 @@ class App extends Base {
 
         return import(
             /* webpackInclude: /(?:(?:apps|docs\/app|examples|src)\/.*|docs\/)app\.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
+            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs|\.pnpm(?:\/|\\)neo\.mjs@[^\/\\]+(?:\/|\\)node_modules(?:\/|\\)neo\.mjs)|ai(?:\/|\\)|\.claude(?:\/|\\)|server\.mjs|test(?:\/|\\)|System Volume Information|\$RECYCLE\.BIN)/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )

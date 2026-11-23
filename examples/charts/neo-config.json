@@ -3,5 +3,6 @@
     "basePath"        : "../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["AmCharts", "Stylesheet"]
+    "mainThreadAddons": ["AmCharts", "Stylesheet"],
+    "themes"          : ["neo-theme-neo-light", "neo-theme-neo-dark"]
 }

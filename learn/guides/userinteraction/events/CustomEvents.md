@@ -1,6 +1,8 @@
 # Custom Events
 
 As you read in the <a href="#/learn/gettingstarted/Events">Getting Started > Events</a> topic, components, stores, and many other objects fire events.
+This page is about those events, which Neo instances fire themselves. Events the browser fires on DOM nodes, such as
+`click` or `keydown`, are a separate mechanism and have their own page, [DOM Events](DomEvents.md).
 
 ```javascript live-preview
 import Container from '../container/Base.mjs';
@@ -220,7 +222,7 @@ Events are fired for user actions, such as a button click event, a component rec
 Non-visual classes can also fire an event; for example, a `Neo.data.Store` fires a `load` event, and other events
 relating to changes to the store. The event handler if a function run when the event fires.
 
-A binding detects a changed view model value, and assigns it to a property.
+A binding detects a changed state provider value, and assigns it to a property.
 
 ### When to use an event
 
@@ -232,11 +234,11 @@ like a button click or component focus.
 
 ### When to use a binding
 
-A binding is a way to keep properties in sync with values in the view model hierarchy. For example, button text,
-field values, or store properties, can simultaneously reflect the same view model property. That's pretty handy,
+A binding is a way to keep properties in sync with values in the state provider hierarchy. For example, button text,
+field values, or store properties, can simultaneously reflect the same state provider property. That's pretty handy,
 but keep in mind that a class can define a property as a _lifecycle property_. That means that updating a property
 can may result in complex logic being triggered. Furthermore, a _two way binding_ means a change to a property
-will automatically be reflected in the view model.
+will automatically be reflected in the state provider.
 
 ### A simple comparison
 

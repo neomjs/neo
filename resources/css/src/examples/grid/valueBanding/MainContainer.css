@@ -1,0 +1,57 @@
+.neo-examples-grid-value-banding.neo-viewport {
+    .neo-example-container,
+    .neo-grid-container {
+        min-height: 0;
+        min-width : 0;
+    }
+
+    .value-banding-introduction {
+        white-space: normal;
+
+        h2 {
+            font-size : 22px;
+            margin    : 0 0 12px;
+        }
+
+        p {
+            font-size  : 14px;
+            line-height: 1.5;
+            margin     : 0 0 16px;
+        }
+    }
+
+    .neo-checkboxfield {
+        margin-top: 10px;
+    }
+
+    @media (max-width: 700px) {
+        flex-direction: column;
+
+        .neo-configuration-panel {
+            flex     : none;
+            margin   : 12px 12px 0 !important;
+            max-width: none !important;
+            min-width: 0 !important;
+            order    : -1;
+        }
+
+        .neo-example-container {
+            flex   : 1 !important;
+            padding: 12px !important;
+        }
+
+        .value-banding-introduction {
+            width: auto !important;
+
+            h2 {
+                font-size: 18px;
+                margin   : 0 0 6px;
+            }
+
+            p {
+                font-size: 12px;
+                margin   : 0 0 8px;
+            }
+        }
+    }
+}

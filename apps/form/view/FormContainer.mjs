@@ -1,10 +1,12 @@
-import BaseFormContainer       from '../../../src/form/Container.mjs';
-import Container               from '../../../src/container/Base.mjs';
-import FormContainerController from './FormContainerController.mjs';
-import Label                   from '../../../src/component/Label.mjs';
-import Toolbar                 from '../../../src/toolbar/Base.mjs';
+import BaseFormContainer from '../../../src/form/Container.mjs';
+import Container         from '../../../src/container/Base.mjs';
+import Label             from '../../../src/component/Label.mjs';
+import Toolbar           from '../../../src/toolbar/Base.mjs';
 
 /**
+ * @summary The account form: one nested form per step inside a card layout, which loads each step's module the first
+ * time it opens. Back, Next and Create account sit below, a phone's Steps button in the header; the viewport's
+ * controller handles them, and every edit.
  * @class Form.view.FormContainer
  * @extends Neo.form.Container
  */
@@ -21,83 +23,76 @@ class FormContainer extends BaseFormContainer {
          */
         baseCls: ['form-form-container', 'neo-container'],
         /**
-         * @member {Neo.controller.Component} controller=FormContainerController
-         * @reactive
-         */
-        controller: FormContainerController,
-        /**
          * @member {Object[]} items
          */
         items: [{
             module: Toolbar,
             cls   : ['form-header'],
             flex  : 'none',
-
-            items: [{
+            items : [{
+                module: Label,
+                bind  : {text: data => `Step ${data.activeIndex + 1} of ${data.maxIndex + 1}`},
+                cls   : ['form-header-step'],
+                flex  : 'none'
+            }, {
                 module: Label,
                 bind  : {text: data => data.activeTitle},
                 cls   : ['form-header-label'],
                 flex  : 'none'
             }, '->', {
-                iconCls: ['fas', 'fa-file'],
-                handler: 'onValidatePageButtonClick',
-                text   : 'Validate page'
-            }, {
-                iconCls: ['fas', 'fa-layer-group'],
-                handler: 'onValidateAllPagesButtonClick',
-                style  : {marginLeft: '1em'},
-                text   : 'Validate all pages'
-            }, {
-                iconCls: ['fas', 'fa-floppy-disk'],
-                handler: 'onSaveButtonClick',
-                style  : {marginLeft: '1em'},
-                text   : 'Save'
+                bind   : {pressed: data => data.stepsOpen},
+                cls    : ['form-steps-button'],
+                handler: 'onStepsButtonClick',
+                iconCls: 'fas fa-list-ol',
+                text   : 'Steps'
             }]
         }, {
             module   : Container,
+            cls      : ['form-pages'],
+            flex     : 1,
             reference: 'pages-container',
-
-            layout: {
+            layout   : {
                 ntype: 'card',
                 bind : {activeIndex: data => data.activeIndex}
             },
-
             items: [
-                {module: () => import('./pages/Page1.mjs')},
-                {module: () => import('./pages/Page2.mjs')},
-                {module: () => import('./pages/Page3.mjs')},
-                {module: () => import('./pages/Page4.mjs')},
-                {module: () => import('./pages/Page5.mjs')},
-                {module: () => import('./pages/Page6.mjs')},
-                {module: () => import('./pages/Page7.mjs')},
-                {module: () => import('./pages/Page8.mjs')},
-                {module: () => import('./pages/Page9.mjs')},
-                {module: () => import('./pages/Page10.mjs')},
-                {module: () => import('./pages/Page11.mjs')},
-                {module: () => import('./pages/Page12.mjs')},
-                {module: () => import('./pages/Page13.mjs')},
-                {module: () => import('./pages/Page14.mjs')},
-                {module: () => import('./pages/Page15.mjs')}
+                {module: () => import('./pages/AboutYouPage.mjs')},
+                {module: () => import('./pages/AddressPage.mjs')},
+                {module: () => import('./pages/TeamPage.mjs')},
+                {module: () => import('./pages/PreferencesPage.mjs')},
+                {module: () => import('./pages/ReviewPage.mjs'), reference: 'review'}
             ]
         }, {
             module: Toolbar,
             cls   : ['form-footer'],
             flex  : 'none',
-
-            items: [{
+            items : [{
                 bind   : {disabled: data => data.activeIndex === 0},
-                handler: 'onPrevPageButtonClick',
+                handler: 'onBackButtonClick',
                 iconCls: 'fas fa-chevron-left',
                 text   : 'Back'
+            }, {
+                module: Label,
+                bind  : {text: data => data.stepMessage},
+                cls   : ['form-step-message']
             }, '->', {
-                bind        : {disabled: data => data.activeIndex === data.maxIndex},
-                handler     : 'onNextPageButtonClick',
+                bind        : {hidden: data => data.activeIndex === data.maxIndex},
+                handler     : 'onNextButtonClick',
                 iconCls     : 'fas fa-chevron-right',
                 iconPosition: 'right',
-                style       : {marginLeft: '1em'},
-                text        : 'Next page'
+                text        : 'Next'
+            }, {
+                bind   : {hidden: data => data.activeIndex !== data.maxIndex},
+                handler: 'onCreateAccountButtonClick',
+                iconCls: 'fas fa-check',
+                text   : 'Create account'
             }]
-        }]
+        }],
+        /**
+         * An edit clears what the last check marked
+         * @member {Object} listeners={fieldUserChange:'onFieldUserChange'}
+         */
+        listeners: {fieldUserChange: 'onFieldUserChange'}
     }
 }
 

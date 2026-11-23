@@ -17,6 +17,7 @@ import {
     formatSurvivingSubjectFailure,
     hasRetirementAccount,
     parseDeletedSpecs,
+    parseRenames,
     pendingRanges,
     retirementAccounts,
     unaccountedSurvivors
@@ -123,6 +124,17 @@ test.describe('check-spec-retirement', () => {
 
             expect(parseDeletedSpecs(block)).toEqual([SPEC]);
         });
+    });
+
+    test('parseRenames reads two-path rename rows only; a merge\'s `RR` row names no source', () => {
+        expect(parseRenames([
+            'R100\ttest/playwright/unit/a.spec.mjs\ttest/playwright/unit/b.spec.mjs',
+            'D\ttest/playwright/unit/c.spec.mjs',
+            'RR\ttest/playwright/unit/d.spec.mjs',
+            'C75\ttest/playwright/unit/e.spec.mjs\ttest/playwright/unit/f.spec.mjs'
+        ].join('\n'))).toEqual([['test/playwright/unit/a.spec.mjs', 'test/playwright/unit/b.spec.mjs']]);
+
+        expect(parseRenames('')).toEqual([]);
     });
 
     test.describe('hasRetirementAccount', () => {
@@ -501,29 +513,66 @@ test.describe('check-spec-retirement', () => {
     test.describe('the consumed path — the collector, not only its helpers (#17964 RC1 RA-1)', () => {
         // Everything above grades pure helpers. The two defects that actually shipped both lived HERE,
         // in the path the guard really runs, and helper-level green said nothing about either.
-        const port = overrides => ({
-            revList     : () => ['deadbeef'],
-            deletedSpecs: () => ['test/playwright/unit/buildScripts/util/check-block-alignment.spec.mjs'],
-            deletedPaths: () => ['test/playwright/unit/buildScripts/util/check-block-alignment.spec.mjs'],
-            message     : () => 'chore: split\n\nspec-retired: moved to Brain',
-            subject     : () => 'chore: split',
-            treePaths   : () => ['buildScripts/util/check-block-alignment.mjs'],
-            ...overrides
-        });
-
-        test('an unreadable tree REFUSES — it must not read as a clean one', () => {
-            // The shipped defect, exactly: `git ls-tree -r` over this repository emits 1,327,472 bytes
-            // against node's 1 MB default `maxBuffer`, threw ENOBUFS, and the catch returned ''. The
-            // scan then graded every commit against an EMPTY tree, in which nothing has ever survived.
-            const enobufs = () => {
+        const
+            SPEC = 'test/playwright/unit/buildScripts/util/check-block-alignment.spec.mjs',
+            // The range `a..b` merges onto `base`, which holds the spec; the tip `b` and the deleting
+            // commit `deadbeef` do not
+            trees = {base: ['buildScripts/util/check-block-alignment.mjs', SPEC]},
+            port  = overrides => ({
+                revList     : () => ['deadbeef'],
+                deletedSpecs: () => [SPEC],
+                deletedPaths: () => [SPEC],
+                mergeBase   : () => 'base',
+                message     : () => 'chore: split\n\nspec-retired: moved to Brain',
+                renames     : () => [],
+                subject     : () => 'chore: split',
+                treePaths   : sha => trees[sha] || ['buildScripts/util/check-block-alignment.mjs'],
+                ...overrides
+            }),
+            enobufs = () => {
                 const error = new Error('spawnSync git ENOBUFS');
 
                 error.code = 'ENOBUFS';
                 throw error
             };
 
-            expect(() => collectViolations(['a..b'], port({treePaths: enobufs})))
+        test('an unreadable tree REFUSES — it must not read as a clean one', () => {
+            // The shipped defect, exactly: `git ls-tree -r` over this repository emits 1,327,472 bytes
+            // against node's 1 MB default `maxBuffer`, threw ENOBUFS, and the catch returned ''. The
+            // scan then graded every commit against an EMPTY tree, in which nothing has ever survived.
+            const treePaths = sha => sha === 'deadbeef' ? enobufs() : port().treePaths(sha);
+
+            expect(() => collectViolations(['a..b'], port({treePaths})))
                 .toThrow(/cannot read the tree of deadbeef \(ENOBUFS\)/u);
+        });
+
+        test('an unreadable base or tip tree REFUSES too, and so does an unresolvable merge base (#21254)', () => {
+            for (const unreadable of ['base', 'b']) {
+                const treePaths = sha => sha === unreadable ? enobufs() : port().treePaths(sha);
+
+                expect(() => collectViolations(['a..b'], port({treePaths})), unreadable)
+                    .toThrow(new RegExp(`cannot read the tree of ${unreadable} \\(ENOBUFS\\)`, 'u'));
+            }
+
+            expect(() => collectViolations(['a..b'], port({mergeBase: () => { throw new Error('no merge base') }})))
+                .toThrow(/cannot resolve the merge base of `a\.\.b`/u);
+        });
+
+        test('only a deletion the whole range lands needs an account (#21254)', () => {
+            const noAccount = {message: () => 'chore: replace the spec, step 1 of 2'};
+
+            // The base never held the spec: the range added it and deleted it again
+            expect(collectViolations(['a..b'], port({...noAccount, treePaths: () => []})).unaccounted).toEqual([]);
+
+            // A later commit restores the spec at its path, so the tip still holds it
+            expect(collectViolations(['a..b'], port({...noAccount, treePaths: () => [SPEC]})).unaccounted).toEqual([]);
+
+            // The control: the base holds the spec and the tip does not, so the deleting commit answers for it
+            expect(collectViolations(['a..b'], port(noAccount)).unaccounted).toEqual([{
+                sha    : 'deadbeef',
+                specs  : [SPEC],
+                subject: 'chore: split'
+            }]);
         });
 
         test('an unresolvable range REFUSES', () => {
@@ -628,6 +677,97 @@ test.describe('check-spec-retirement', () => {
                     spec    : 'test/playwright/unit/ai/LockRegistry.spec.mjs',
                     subjects: ['src/ai/LockRegistry.mjs']
                 }]);
+            } finally {
+                rmSync(root, {recursive: true, force: true})
+            }
+        });
+
+        test('a spec the branch adds, deletes and renames a new version onto needs no account (#21254)', () => {
+            // The shape a file replaced through the GitHub web UI leaves: one commit deletes the spec, a
+            // later one renames the new version onto its path. Real git, real port.
+            const
+                root = mkdtempSync(join(tmpdir(), 'spec-retirement-')),
+                run  = command => execSync(command, {cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}),
+                spec = 'test/playwright/unit/examples/Workbench.spec.mjs';
+
+            try {
+                run('git init -q -b main');
+                run('git config user.email fixture@example.com');
+                run('git config user.name Fixture');
+
+                mkdirSync(join(root, 'test/playwright/unit/examples'), {recursive: true});
+                writeFileSync(join(root, 'README.md'), 'base\n');
+                run('git add -A');
+                run('git commit -q -m base');
+                run('git tag base');
+
+                writeFileSync(join(root, spec), 'export const arms = 1;\n');
+                run('git add -A');
+                run('git commit -q -m "test: add the spec"');
+
+                rmSync(join(root, spec));
+                run('git add -A');
+                run('git commit -q -m "chore: replace the spec, step 1 of 2"');
+
+                writeFileSync(join(root, 'test/playwright/unit/examples/3-Workbench.spec.mjs'), 'export const arms = 2;\n');
+                run('git add -A');
+                run('git commit -q -m "test: upload the new spec"');
+
+                run(`git mv test/playwright/unit/examples/3-Workbench.spec.mjs ${spec}`);
+                run('git commit -q -m "test: rename the new spec onto its path"');
+
+                expect(collectViolations(['base..HEAD'], createGit(root))).toEqual({unaccounted: [], survived: []});
+            } finally {
+                rmSync(root, {recursive: true, force: true})
+            }
+        });
+
+        test('a base spec renamed and then deleted still needs an account (#21256 review)', () => {
+            // The deleting commit names the NEW path, which the base never held, yet the coverage it
+            // removes is the base spec's. Real git, real port.
+            const
+                root    = mkdtempSync(join(tmpdir(), 'spec-retirement-')),
+                run     = command => execSync(command, {cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore']}),
+                spec    = 'test/playwright/unit/examples/Existing.spec.mjs',
+                renamed = 'test/playwright/unit/examples/Renamed.spec.mjs';
+
+            try {
+                run('git init -q -b main');
+                run('git config user.email fixture@example.com');
+                run('git config user.name Fixture');
+
+                mkdirSync(join(root, 'test/playwright/unit/examples'), {recursive: true});
+                writeFileSync(join(root, spec), 'export const arms = 1;\n');
+                run('git add -A');
+                run('git commit -q -m base');
+                run('git tag base');
+
+                run(`git mv ${spec} ${renamed}`);
+                run('git commit -q -m "test: rename the spec"');
+                run('git tag renamed');
+
+                rmSync(join(root, renamed));
+                run('git add -A');
+                run('git commit -q -m "chore: drop the spec"');
+
+                const deleting = run('git rev-parse HEAD').trim();
+
+                // A pure rename moves the coverage and owes nothing
+                expect(collectViolations(['base..renamed'], createGit(root))).toEqual({unaccounted: [], survived: []});
+
+                // Renamed, then deleted: the base's coverage is gone, and the deleting commit answers for it
+                expect(collectViolations(['base..HEAD'], createGit(root)).unaccounted).toEqual([{
+                    sha    : deleting,
+                    specs  : [renamed],
+                    subject: 'chore: drop the spec'
+                }]);
+
+                // Restored at the new path, the coverage is back and the deletion owes nothing
+                writeFileSync(join(root, renamed), 'export const arms = 1;\n');
+                run('git add -A');
+                run('git commit -q -m "test: restore the spec"');
+
+                expect(collectViolations(['base..HEAD'], createGit(root))).toEqual({unaccounted: [], survived: []});
             } finally {
                 rmSync(root, {recursive: true, force: true})
             }

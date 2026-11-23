@@ -210,12 +210,20 @@ This example will showcase:
 Here is the complete, interactive example.
 
 ```javascript live-preview
-import {defineComponent, useConfig} from 'neo.mjs';
-import List from 'neo.mjs/src/list/Base.mjs';
-import Store from 'neo.mjs/src/data/Store.mjs';
+import {defineComponent, useConfig} from '../functional/_export.mjs';
+import List from '../list/Base.mjs';
+import ListModel from '../selection/ListModel.mjs';
+import Store from '../data/Store.mjs';
 
 // 1. Define a simple data Store for our list
 const TaskStore = Neo.create(Store, {
+    model: {
+        fields: [
+            {name: 'id',          type: 'Integer'},
+            {name: 'title',       type: 'String'},
+            {name: 'description', type: 'String'}
+        ]
+    },
     data: [
         {id: 1, title: 'Build a better component model', description: 'Re-imagine what a component can be when freed from the main thread.'},
         {id: 2, title: 'Create a new reactivity system', description: 'Design a two-tier system that is both powerful and intuitive.'},
@@ -232,9 +240,9 @@ export default defineComponent({
         // 3. Manage the selected task with useConfig
         const [selectedTask, setSelectedTask] = useConfig(null);
 
-        const onSelectionChange = ({value}) => {
+        const onSelect = ({records}) => {
             // 4. Update our state when the list selection changes
-            setSelectedTask(TaskStore.get(value[0]));
+            setSelectedTask(records[0]);
         };
 
         const paneStyle = {
@@ -244,19 +252,22 @@ export default defineComponent({
         };
 
         return {
+            style: {display: 'flex'},
             cn: [{
-                // 5. The List Component
-                module   : List,
-                store    : TaskStore,
-                width    : 250,
-                style    : paneStyle,
-                listeners: {
-                    selectionChange: onSelectionChange
+                // 5. The List Component, with an id of its own so each re-render keeps the same instance
+                module        : List,
+                id            : 'task-list',
+                displayField  : 'title',
+                selectionModel: {module: ListModel},
+                store         : TaskStore,
+                width         : 300,
+                style         : paneStyle,
+                listeners     : {
+                    select: onSelect
                 }
             }, {
                 // 6. The Details Pane (with conditional rendering)
-                flex: 1,
-                style: paneStyle,
+                style: {...paneStyle, flex: 1},
                 cn: selectedTask ? [
                     {tag: 'h2', text: selectedTask.title},
                     {tag: 'p',  text: selectedTask.description}

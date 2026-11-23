@@ -1,0 +1,64 @@
+/* The sortable dashboard example: a header above a column of key-figure tiles. Colours come from the theme's own
+   tokens, so the page follows neo-light and neo-dark without a theme file of its own. */
+.sortable-dashboard-viewport {
+    background: var(--neo-background-color);
+    box-sizing: border-box;
+    color     : var(--neo-color);
+    gap       : 12px;
+    padding   : 16px 20px;
+
+    /* A container paints its own background, which on neo-light is not the page's */
+    .sortable-header {
+        background: transparent;
+        column-gap: 20px;
+        row-gap   : 6px;
+    }
+
+    .sortable-title {
+        font-size     : 22px;
+        font-weight   : 700;
+        letter-spacing: -0.01em;
+        margin        : 0;
+    }
+
+    .sortable-hint {
+        font-size: 14px;
+        min-width: 240px;
+        opacity  : 0.8;
+    }
+
+    .sortable-board {
+        gap       : 8px;
+        min-height: 0;
+
+        /* The slot a dragged tile left: the board's one child that is not a tile. The drag zone hides this placeholder
+           inline and positions it absolutely, and a pseudo-element can opt back into visibility, so the outline needs
+           no engine hook */
+        > :not(.sortable-kpi-tile)::after {
+            border       : 2px dashed color-mix(in srgb, var(--neo-color) 35%, transparent);
+            border-radius: 10px;
+            box-sizing   : border-box;
+            content      : '';
+            inset        : 0;
+            position     : absolute;
+            visibility   : visible;
+        }
+    }
+}
+
+/* The tile in hand lifts off the board. The proxy lives under the body, outside the viewport */
+.sortable-drag-proxy {
+    border-radius: 10px;
+    box-shadow   : 0 18px 40px rgba(0, 0, 0, 0.45),
+                   0 0 0 2px color-mix(in srgb, var(--neo-color) 35%, transparent);
+}
+
+@media (max-width: 640px) {
+    .sortable-dashboard-viewport {
+        padding: 12px;
+
+        .sortable-title {
+            font-size: 19px;
+        }
+    }
+}

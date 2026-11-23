@@ -2,5 +2,7 @@
     "appPath"    : "examples/tableStore/app.mjs",
     "basePath"   : "../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "mainPath"   : "./Main.mjs",
+    "seo"        : false,
+    "themes"     : ["neo-theme-neo-light", "neo-theme-neo-dark"]
 }

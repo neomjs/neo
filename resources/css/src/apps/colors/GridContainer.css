@@ -1,0 +1,64 @@
+.colors-grid-container.neo-grid-container {
+    width: 100%;
+
+    .neo-grid-header-toolbar {
+        .neo-grid-header-button {
+            &:not(:first-child) {
+                width: 10%;
+            }
+        }
+    }
+
+    .neo-grid-row .neo-grid-cell {
+        &.color-1 {
+            background-color: #1c60a0;
+        }
+
+        &.color-2 {
+            background-color: rgb(12.469753859%, 42.7534418023%, 71.2557363371%);
+        }
+
+        &.color-3 {
+            background-color: rgb(13.9591155611%, 47.859824781%, 79.766374635%);
+        }
+
+        &.color-4 {
+            background-color: rgb(18.0642469754%, 52.8869420108%, 85.6612432207%);
+        }
+
+        &.color-5 {
+            background-color: rgb(26.5748852733%, 57.7805590321%, 87.1506049228%);
+        }
+
+        &.color-6 {
+            background-color: rgb(35.0855235711%, 62.6741760534%, 88.6399666249%);
+        }
+
+        &.color-7 {
+            background-color: rgb(43.596161869%, 67.5677930747%, 90.1293283271%);
+        }
+
+        &.color-8 {
+            background-color: rgb(52.1068001669%, 72.461410096%, 91.6186900292%);
+        }
+
+        &.color-9 {
+            background-color: rgb(60.6174384647%, 77.3550271172%, 93.1080517313%);
+        }
+
+        &.color-10 {
+            background-color: rgb(69.1280767626%, 82.2486441385%, 94.5974134335%);
+        }
+    }
+
+    .neo-grid-view {
+        .neo-grid-row {
+            &:hover {
+                .neo-grid-cell {
+                    background-color: #d0aa72;
+                    color           : #2b2b2b;
+                }
+            }
+        }
+    }
+}

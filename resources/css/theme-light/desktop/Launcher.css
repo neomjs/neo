@@ -1,0 +1,8 @@
+:where(.neo-theme-light) { /* .neo-desktop-launcher: dark ink on the light theme's wallpaper, the panel header's grey for captions */
+    --desktop-launcher-color                       : #2b2b2b;
+    --desktop-launcher-focus-color                 : var(--button-badge-background-color, #1c60a0);
+    --desktop-launcher-header-color                : var(--panel-header-text-color, #666);
+    --desktop-launcher-item-background-color-active: rgba(28, 96, 160, .12);
+    --desktop-launcher-item-background-color-hover : rgba(0, 0, 0, .05);
+    --desktop-launcher-label-shadow                : 0 1px 1px rgba(255, 255, 255, .8);
+}

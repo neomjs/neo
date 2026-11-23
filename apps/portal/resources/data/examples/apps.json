@@ -1,0 +1,188 @@
+[
+    {
+        "id": "devindex",
+        "family": "apps",
+        "order": 40,
+        "featured": true,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/devindex-14.jpg",
+        "name": "GitHub Meritocracy Index",
+        "sourceUrl": "https://github.com/neomjs/devindex",
+        "urls": {
+            "devmode": "https://neomjs.com/devindex/",
+            "dist_dev": "https://neomjs.com/devindex/dist/development/apps/devindex/",
+            "dist_esm": "https://neomjs.com/devindex/",
+            "dist_prod": "https://neomjs.com/devindex/dist/production/apps/devindex/"
+        },
+        "hiddenIn": [],
+        "feature": "GitHub contributor rankings in a buffered grid",
+        "lookFor": "Open Search, filter the contributor grid by username, and compare ranks and contribution totals.",
+        "scope": "Loads a published GitHub contributor dataset rather than querying GitHub live."
+    },
+    {
+        "id": "webdesktop",
+        "family": "apps",
+        "order": 110,
+        "component": "Desktop",
+        "feature": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter",
+        "lookFor": "Sign in as two accounts and compare the apps they get. Double-click an icon to open its window, then open Permissions and switch that app off: its icon, its menu entry and its window go.",
+        "keywords": [
+            "desktop",
+            "window",
+            "drag",
+            "taskbar",
+            "launcher"
+        ],
+        "scope": "The accounts and their permissions are demonstration data; hiding UI is not authorization.",
+        "featured": true,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/webdesktop-14-0.jpg",
+        "hasLightCover": true,
+        "name": "Web Desktop",
+        "sourceUrl": "apps/webdesktop",
+        "urls": {
+            "devmode": "apps/webdesktop/index.html",
+            "dist_dev": "dist/development/apps/webdesktop/index.html",
+            "dist_esm": "dist/esm/apps/webdesktop/index.html",
+            "dist_prod": "dist/production/apps/webdesktop/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "covid-dashboard",
+        "family": "apps",
+        "order": 240,
+        "featured": false,
+        "image": "devmode/covid-dashboard-14.jpg",
+        "hasLightCover": true,
+        "name": "Covid Dashboard",
+        "sourceUrl": "apps/covid",
+        "urls": {
+            "devmode": "apps/covid/index.html#mainview=table",
+            "dist_dev": "dist/development/apps/covid/index.html#mainview=table",
+            "dist_esm": "dist/esm/apps/covid/index.html#mainview=table",
+            "dist_prod": "dist/production/apps/covid/index.html#mainview=table"
+        },
+        "hiddenIn": [],
+        "feature": "Country statistics and country selection",
+        "lookFor": "Browse the country table and choose a country from the picker.",
+        "scope": "Uses static fallback snapshots by default; data is fetched from neomjs/pages."
+    },
+    {
+        "id": "portal",
+        "family": "apps",
+        "order": 580,
+        "featured": false,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "dist_prod/portalApp.png",
+        "name": "Portal App",
+        "sharedWorkers": true,
+        "sourceUrl": "apps/portal",
+        "urls": {
+            "devmode": "apps/portal/index.html",
+            "dist_dev": "dist/development/apps/portal/index.html",
+            "dist_esm": "dist/esm/apps/portal/index.html",
+            "dist_prod": "dist/production/apps/portal/index.html"
+        },
+        "hiddenIn": [],
+        "feature": "Routed sections with lazy-loaded views",
+        "lookFor": "Open Learn, News, Examples or Connect from the header, then switch between the light and dark themes."
+    },
+    {
+        "id": "finance",
+        "family": "apps",
+        "order": 1320,
+        "component": "Grid",
+        "name": "Live Finance Desk",
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/finance-14.jpg",
+        "feature": "Streaming equity quotes with animated currency diffs and instant filtering",
+        "lookFor": "Filter by sector or ticker while live price and percent changes keep ticking, then press Stop to freeze the tape.",
+        "keywords": [
+            "streaming",
+            "realtime",
+            "quotes",
+            "sparkline",
+            "market"
+        ],
+        "scope": "Quotes and volumes are deterministic local simulation data.",
+        "sourceUrl": "apps/finance",
+        "urls": {
+            "devmode": "apps/finance/index.html",
+            "dist_dev": "dist/development/apps/finance/index.html",
+            "dist_esm": "dist/esm/apps/finance/index.html",
+            "dist_prod": "dist/production/apps/finance/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "email",
+        "family": "apps",
+        "order": 1330,
+        "alsoIn": [
+            "multi-window",
+            "functional"
+        ],
+        "component": "Dashboard",
+        "name": "Multi-Window Email Client",
+        "sharedWorkers": true,
+        "environments": [
+            "Desktop",
+            "Mobile"
+        ],
+        "image": "devmode/email-14.jpg",
+        "feature": "Buffered inbox and functional message reader that detaches into its own window",
+        "lookFor": "Select another conversation in the inbox, then press Open in window to move the live reader or a Compose draft into a native popup.",
+        "keywords": [
+            "inbox",
+            "mail",
+            "popout",
+            "compose"
+        ],
+        "scope": "Allow popups for multi-window transfer; messages are local fixture data.",
+        "sourceUrl": "apps/email",
+        "urls": {
+            "devmode": "apps/email/index.html",
+            "dist_dev": "dist/development/apps/email/index.html",
+            "dist_esm": "dist/esm/apps/email/index.html",
+            "dist_prod": "dist/production/apps/email/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "on-air-at-eight",
+        "family": "apps",
+        "order": 1340,
+        "alsoIn": ["lists", "multi-window", "drag-drop"],
+        "component": "Sortable List",
+        "name": "On Air at Eight",
+        "sharedWorkers": true,
+        "environments": ["Desktop"],
+        "image": "devmode/on-air-at-eight-14.jpg",
+        "hasLightCover": true,
+        "feature": "Direct a live TV opening from a sortable rundown that drives the program feed and the presenter’s next cue.",
+        "lookFor": "Drag Night Service ahead of the late guest, then press Take next cue to put the film on air. Replay with the guest first to see the difference.",
+        "keywords": ["broadcast", "rundown", "drag", "reorder", "presenter", "popup"],
+        "scope": "A local broadcast simulation. Play at one desk or open a second window for the presenter.",
+        "sourceUrl": "examples/list/onAir",
+        "urls": {
+            "devmode": "examples/list/onAir/index.html",
+            "dist_dev": "dist/development/examples/list/onAir/index.html",
+            "dist_esm": "dist/esm/examples/list/onAir/index.html",
+            "dist_prod": "dist/production/examples/list/onAir/index.html"
+        },
+        "hiddenIn": []
+    }
+]

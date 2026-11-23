@@ -1,45 +1,42 @@
-import autoprefixer  from 'autoprefixer';
-import chalk         from 'chalk';
-import fs            from 'fs-extra';
-import path          from 'node:path';
-import postcss       from 'postcss';
-import isEntryModule from '../util/isEntryModule.mjs';
+import autoprefixer    from 'autoprefixer';
+import chalk           from 'chalk';
+import fs              from 'fs-extra';
+import path            from 'node:path';
+import postcss         from 'postcss';
+import isEntryModule   from '../util/isEntryModule.mjs';
+import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
     inspectDevelopmentThemeAssets
 } from '../util/developmentThemeAssets.mjs';
 
 const REPO_ROOT = process.cwd();
-let sassModulePromise;
 
 /**
- * @summary Loads Dart Sass once. Successful watcher startup preloads this cached promise so the
- * first content edit retains the existing single-file latency profile.
- * @returns {Promise<Object>}
+ * CLI usage text scoping `watch-themes` to supervised interactive shells or explicit daemons.
+ * @type {String}
  */
-function loadSass() {
-    return sassModulePromise ??= import('sass')
-}
+export const WATCH_THEMES_HELP = [
+    'Usage: npm run watch-themes [-- --help]',
+    '',
+    'Starts a persistent foreground CSS watcher for supervised interactive development shells',
+    '(or explicit background daemon supervision). It never exits on its own.',
+    `For unattended one-shot theme builds in CI or coding-agent tasks, run: ${DEVELOPMENT_THEME_BUILD_COMMAND}`
+].join('\n');
 
 /**
- * @summary Returns the framework and workspace SCSS roots in override order. Framework checkouts
- * have one root; app workspaces layer their own sources over the installed Neo package.
+ * @summary Returns the theme source roots the full theme builder reads, in override order
+ * ({@link themeCssRoots}), and refuses to start without one of them. Like the builder, it takes a
+ * package name containing `neo.mjs` for the Engine checkout.
  * @param {String} repoRoot Repository root.
- * @returns {String[]}
+ * @returns {String[]} Absolute directories.
  */
 function getThemeSourceRoots(repoRoot) {
-    const
-        packageJson = fs.readJsonSync(path.join(repoRoot, 'package.json')),
-        neoRoot     = packageJson.name.includes('neo.mjs')
-            ? repoRoot
-            : path.join(repoRoot, 'node_modules/neo.mjs'),
-        roots       = neoRoot === repoRoot ? [repoRoot] : [neoRoot, repoRoot];
+    const roots = themeCssRoots(repoRoot, {insideNeo: fs.readJsonSync(path.join(repoRoot, 'package.json')).name.includes('neo.mjs')});
 
     roots.forEach(root => {
-        const scssRoot = path.join(root, 'resources/scss');
-
-        if (!fs.existsSync(scssRoot)) {
-            throw new Error(`[watch-themes] missing SCSS source root: ${scssRoot}`)
+        if (!fs.existsSync(root)) {
+            throw new Error(`[watch-themes] missing theme source root: ${root}`)
         }
     });
 
@@ -47,8 +44,9 @@ function getThemeSourceRoots(repoRoot) {
 }
 
 /**
- * @summary Builds the exact effective SCSS entry census for development output. Later workspace
- * roots replace framework entries with the same output path, matching the full theme builder.
+ * @summary Builds the exact effective source census for development output. A later root (a declared
+ * package over the Engine, the workspace over both) replaces an earlier entry with the same output
+ * path, matching the full theme builder.
  * @param {Object} [options]
  * @param {String} [options.repoRoot] Repository root.
  * @returns {Array<{className: String, filename: String, outputPath: String, root: String,
@@ -72,20 +70,16 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
                     return
                 }
 
-                if (!entry.name.endsWith('.scss') || entry.name.startsWith('_')) return;
+                if (!entry.name.endsWith('.css')) return;
 
                 const
                     filename   = path.join(root, relative),
-                    outputPath = path.join(
-                        repoRoot,
-                        'dist/development/css',
-                        filename.replace(/\.scss$/, '.css')
-                    ),
-                    classPath      = relative
-                        .replace(/\.scss$/, '')
+                    outputPath = path.join(repoRoot, 'dist/development/css', filename),
+                    classPath  = relative
+                        .replace(/\.css$/, '')
                         .split(path.sep)
                         .join('.'),
-                    className      = classPath.startsWith('apps.') ? classPath : `Neo.${classPath}`;
+                    className  = classPath.startsWith('apps.') ? classPath : `Neo.${classPath}`;
 
                 entries.set(outputPath, {
                     className,
@@ -97,26 +91,24 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             })
     }
 
-    getThemeSourceRoots(repoRoot).forEach(sourceRoot => {
-        const scssRoot = path.join(sourceRoot, 'resources/scss');
-
-        fs.readdirSync(scssRoot, {withFileTypes: true})
+    getThemeSourceRoots(repoRoot).forEach(cssRoot => {
+        fs.readdirSync(cssRoot, {withFileTypes: true})
             .filter(entry => (
                 entry.isDirectory() &&
                 !entry.isSymbolicLink() &&
                 (entry.name === 'src' || entry.name.includes('theme'))
             ))
             .sort((a, b) => a.name.localeCompare(b.name))
-            .forEach(entry => visit(path.join(scssRoot, entry.name), entry.name))
+            .forEach(entry => visit(path.join(cssRoot, entry.name), entry.name))
     });
 
     return [...entries.values()].sort((a, b) => a.outputPath.localeCompare(b.outputPath))
 }
 
 /**
- * @summary Adds one effective SCSS entry to the nested class-to-theme map used by worker.App.
+ * @summary Adds one effective source entry to the nested class-to-theme map used by worker.App.
  * @param {Object} themeMap Mutable theme map.
- * @param {Object} entry Effective SCSS census entry.
+ * @param {Object} entry Effective source census entry.
  * @returns {void}
  */
 function addToThemeMap(themeMap, entry) {
@@ -130,7 +122,7 @@ function addToThemeMap(themeMap, entry) {
 }
 
 /**
- * @summary Creates the exact nested class-to-theme map for an effective SCSS source census.
+ * @summary Creates the exact nested class-to-theme map for an effective source census.
  * @param {Array} census Effective source census.
  * @returns {Object}
  */
@@ -158,7 +150,7 @@ function themeMapHasEntry(themeMap, entry) {
 }
 
 /**
- * @summary Replaces both development theme-map copies from the effective SCSS source census.
+ * @summary Replaces both development theme-map copies from the effective source census.
  * Retired source paths therefore disappear instead of surviving as additive ghost entries.
  * @param {Object} [options]
  * @param {Array} [options.census] Effective source census.
@@ -185,50 +177,9 @@ export function regenerateDevelopmentThemeMap({
 }
 
 /**
- * @summary Finds the newest partial timestamp per build root and across shared SCSS roots. Partial
- * edits force these same output boundaries in the live watcher.
- * @param {String} repoRoot Repository root.
- * @returns {{byRoot: Map<String, Number>, shared: Number}}
- */
-function getPartialFreshnessBoundaries(repoRoot) {
-    const byRoot = new Map();
-    let   shared = 0;
-
-    function visit(dir, root) {
-        fs.readdirSync(dir, {withFileTypes: true}).forEach(entry => {
-            if (entry.isSymbolicLink()) return;
-
-            const target = path.join(dir, entry.name);
-
-            if (entry.isDirectory()) {
-                visit(target, root)
-            } else if (entry.name.startsWith('_') && entry.name.endsWith('.scss')) {
-                const mtime = fs.statSync(target).mtimeMs;
-
-                if (root === 'src' || root.includes('theme')) {
-                    byRoot.set(root, Math.max(byRoot.get(root) ?? 0, mtime))
-                } else {
-                    shared = Math.max(shared, mtime)
-                }
-            }
-        })
-    }
-
-    getThemeSourceRoots(repoRoot).forEach(sourceRoot => {
-        const scssRoot = path.join(sourceRoot, 'resources/scss');
-
-        fs.readdirSync(scssRoot, {withFileTypes: true})
-            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink())
-            .forEach(entry => visit(path.join(scssRoot, entry.name), entry.name))
-    });
-
-    return {byRoot, shared}
-}
-
-/**
- * @summary Inspects the watcher's precise startup contract. Entry outputs compare against their
- * own source plus owning/shared partial boundaries, so a prior valid one-file rebuild does not
- * falsely stale every unrelated output. Both map copies must reach every effective census entry.
+ * @summary Inspects the watcher's precise startup contract. Each entry output compares against its
+ * own source only, so a prior valid one-file rebuild does not falsely stale every unrelated output.
+ * Both map copies must reach every effective census entry.
  * @param {Object} [options]
  * @param {String} [options.repoRoot] Repository root.
  * @returns {{census: Array, invalidMap: String|null, mapMissing: String[], missing: String[],
@@ -237,7 +188,6 @@ function getPartialFreshnessBoundaries(repoRoot) {
 export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
     const
         census            = getThemeSourceCensus({repoRoot}),
-        boundaries        = getPartialFreshnessBoundaries(repoRoot),
         conservativeState = inspectDevelopmentThemeAssets({repoRoot}),
         mapMissing        = [],
         missing           = [],
@@ -247,17 +197,11 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
 
     census.forEach(entry => {
         try {
-            const
-                outputStat   = fs.statSync(entry.outputPath),
-                sourceMtime  = fs.statSync(entry.sourcePath).mtimeMs,
-                partialMtime = Math.max(
-                    boundaries.shared,
-                    boundaries.byRoot.get(entry.root) ?? 0
-                );
+            const outputStat = fs.statSync(entry.outputPath);
 
             if (!outputStat.isFile()) {
                 missing.push(path.relative(repoRoot, entry.outputPath))
-            } else if (outputStat.mtimeMs < Math.max(sourceMtime, partialMtime)) {
+            } else if (outputStat.mtimeMs < fs.statSync(entry.sourcePath).mtimeMs) {
                 stale.push(path.relative(repoRoot, entry.outputPath))
             }
         } catch {
@@ -312,7 +256,7 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
 }
 
 /**
- * @summary Removes development CSS and source maps with no corresponding effective SCSS entry.
+ * @summary Removes development CSS and source maps with no corresponding effective source entry.
  * Symbolic-link directories are never traversed.
  * @param {Object} [options]
  * @param {Array} [options.census] Effective source census.
@@ -362,8 +306,9 @@ export function pruneDevelopmentThemeArtifacts({
 }
 
 /**
- * @summary Compiles one effective SCSS entry to its development CSS and source-map targets.
- * @param {Object} entry Effective SCSS census entry.
+ * @summary Copies one effective source entry to its development CSS and source-map targets,
+ * through autoprefixer as the full theme build does.
+ * @param {Object} entry Effective source census entry.
  * @param {Object} [options]
  * @param {Object} [options.logger] Console-compatible logger.
  * @returns {Promise<String>} Absolute CSS output path.
@@ -372,33 +317,15 @@ async function buildEntry(entry, {logger = console} = {}) {
     const startTime = Date.now();
 
     try {
-        const
-            {compile}  = await loadSass(),
-            sassResult = compile(entry.sourcePath, {
-                outFile                : entry.outputPath,
-                sourceMap              : true,
-                sourceMapIncludeSources: true
-            }),
-            postcssResult = await postcss([autoprefixer]).process(sassResult.css, {
-                from: entry.sourcePath,
-                to  : entry.outputPath,
-                map : {
-                    inline: false,
-                    prev  : sassResult.sourceMap && JSON.stringify(sassResult.sourceMap)
-                }
-            });
+        const postcssResult = await postcss([autoprefixer]).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
+            from: entry.sourcePath,
+            to  : entry.outputPath,
+            map : {inline: false}
+        });
 
         fs.mkdirpSync(path.dirname(entry.outputPath));
         fs.writeFileSync(entry.outputPath, postcssResult.css);
-
-        if (postcssResult.map) {
-            const sourceMap = JSON.parse(postcssResult.map.toString());
-
-            // Sass can emit the same source as an absolute and a relative URL. Runtime debugging
-            // only needs the portable relative entries.
-            sourceMap.sources = sourceMap.sources.filter(source => source.startsWith('../'));
-            fs.writeFileSync(entry.outputPath + '.map', JSON.stringify(sourceMap))
-        }
+        fs.writeFileSync(entry.outputPath + '.map', postcssResult.map.toString());
 
         const processTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
@@ -406,7 +333,7 @@ async function buildEntry(entry, {logger = console} = {}) {
 
         return entry.outputPath
     } catch (error) {
-        const message = `[watch-themes] SCSS build failed for ${entry.filename}: ${error.message}`;
+        const message = `[watch-themes] build failed for ${entry.filename}: ${error.message}`;
 
         (logger.error ?? logger.log).call(logger, message);
         throw new Error(message, {cause: error})
@@ -414,8 +341,8 @@ async function buildEntry(entry, {logger = console} = {}) {
 }
 
 /**
- * @summary Compiles one non-partial workspace SCSS file through the low-latency watcher path.
- * @param {String} filename Path relative to `resources/scss`.
+ * @summary Copies one workspace source file through the low-latency watcher path.
+ * @param {String} filename Path relative to `resources/css`.
  * @param {Object} [options]
  * @param {Object} [options.logger] Console-compatible logger.
  * @param {String} [options.repoRoot] Repository root.
@@ -426,29 +353,21 @@ export function buildFile(filename, {
     repoRoot = REPO_ROOT
 } = {}) {
     const
-        scssRoot   = path.resolve(repoRoot, 'resources/scss'),
+        cssRoot    = path.resolve(repoRoot, 'resources/css'),
         normalized = path.normalize(String(filename)),
-        sourcePath = path.resolve(scssRoot, normalized);
+        sourcePath = path.resolve(cssRoot, normalized);
 
     if (
         path.isAbsolute(normalized) ||
-        sourcePath !== scssRoot && !sourcePath.startsWith(scssRoot + path.sep)
+        sourcePath !== cssRoot && !sourcePath.startsWith(cssRoot + path.sep)
     ) {
-        throw new Error(`[watch-themes] rejected SCSS path outside resources/scss: ${filename}`)
-    }
-
-    if (path.basename(normalized).startsWith('_')) {
-        throw new Error(`[watch-themes] partials require an owning-root rebuild: ${filename}`)
+        throw new Error(`[watch-themes] rejected source path outside resources/css: ${filename}`)
     }
 
     return buildEntry({
         className : '',
         filename  : normalized,
-        outputPath: path.join(
-            repoRoot,
-            'dist/development/css',
-            normalized.replace(/\.scss$/, '.css')
-        ),
+        outputPath: path.join(repoRoot, 'dist/development/css', normalized),
         root      : normalized.split(path.sep)[0],
         sourcePath
     }, {logger})
@@ -457,11 +376,9 @@ export function buildFile(filename, {
 /**
  * @summary Reconciles development CSS and the generated theme map against one immutable source
  * census. Structural events build missing/stale entries, delete ghosts, and replace the map.
- * Partial events can force their owning root (or every root for shared mixins).
  * @param {Object} [options]
- * @param {Function} [options.build] Injectable effective-entry compiler.
- * @param {String[]} [options.forceFiles] Repo-SCSS-relative entries to rebuild.
- * @param {String[]} [options.forceRoots] Top-level SCSS roots to rebuild; `*` means every root.
+ * @param {Function} [options.build] Injectable effective-entry builder.
+ * @param {String[]} [options.forceFiles] Entries to rebuild, relative to `resources/css`.
  * @param {Object} [options.logger] Console-compatible logger.
  * @param {String} [options.repoRoot] Repository root.
  * @returns {Promise<{built: String[], removed: String[], themeMap: Object}>}
@@ -469,14 +386,12 @@ export function buildFile(filename, {
 export async function reconcileThemeStructure({
     build      = buildEntry,
     forceFiles = [],
-    forceRoots = [],
     logger     = console,
     repoRoot   = REPO_ROOT
 } = {}) {
     const
         census      = getThemeSourceCensus({repoRoot}),
         forcedFiles = new Set(forceFiles.map(file => path.normalize(file))),
-        forcedRoots = new Set(forceRoots),
         built       = [];
 
     for (const entry of census) {
@@ -487,8 +402,6 @@ export async function reconcileThemeStructure({
         } catch {}
 
         const shouldBuild = (
-            forcedRoots.has('*') ||
-            forcedRoots.has(entry.root) ||
             forcedFiles.has(entry.filename) ||
             !outputStat ||
             outputStat.isSymbolicLink() ||
@@ -512,11 +425,11 @@ export async function reconcileThemeStructure({
 
 /**
  * @summary Handles one fs.watch event. Ordinary entry-file changes stay on the one-file path;
- * structural and partial events use the wider source-census reconciliation.
+ * structural events use the wider source-census reconciliation.
  * @param {String} eventType fs.watch event type.
- * @param {String|Buffer} filename Path relative to `resources/scss`.
+ * @param {String|Buffer} filename Path relative to `resources/css`.
  * @param {Object} [options]
- * @param {Function} [options.build] Injectable one-file compiler.
+ * @param {Function} [options.build] Injectable one-file builder.
  * @param {Object} [options.logger] Console-compatible logger.
  * @param {Function} [options.reconcile] Injectable structural reconciler.
  * @param {String} [options.repoRoot] Repository root.
@@ -532,14 +445,11 @@ export async function handleThemeWatchEvent(eventType, filename, {
 
     const normalized = path.normalize(String(filename));
 
-    if (!normalized.endsWith('.scss')) return {action: 'ignored', reason: 'not-scss'};
+    if (!normalized.endsWith('.css')) return {action: 'ignored', reason: 'not-css'};
 
-    const
-        sourcePath = path.join(repoRoot, 'resources/scss', normalized),
-        exists     = fs.existsSync(sourcePath),
-        isPartial  = path.basename(normalized).startsWith('_');
+    const exists = fs.existsSync(path.join(repoRoot, 'resources/css', normalized));
 
-    if (eventType === 'change' && exists && !isPartial) {
+    if (eventType === 'change' && exists) {
         await build(normalized, {logger, repoRoot});
         return {action: 'built', built: [normalized], removed: []}
     }
@@ -548,14 +458,11 @@ export async function handleThemeWatchEvent(eventType, filename, {
         return {action: 'ignored', reason: 'unsupported-event'}
     }
 
-    const
-        root       = normalized.split(path.sep)[0],
-        forceFiles = exists && !isPartial ? [normalized] : [],
-        forceRoots = isPartial ? [root === 'src' || root.includes('theme') ? root : '*'] : [];
-
     try {
-        const result = await reconcile({forceFiles, forceRoots, logger, repoRoot});
-        const action = isPartial ? 'rebuilt-root' : exists ? 'built' : 'removed';
+        // Forced even when deleted: a removed workspace sheet can uncover a package's or the Engine's
+        // sheet at the same path, whose source is older than the output the workspace sheet left
+        const result = await reconcile({forceFiles: [normalized], logger, repoRoot});
+        const action = exists ? 'built' : 'removed';
 
         logger.log(
             `[watch-themes] ${eventType} ${normalized}: ${action}; ` +
@@ -622,10 +529,9 @@ export function assertThemeWatcherReady({
 
 /**
  * @summary Verifies initial build state, reconciles any retired structural artifacts, then starts
- * the recursive SCSS watcher.
+ * the recursive source watcher.
  * @param {Object} [options]
  * @param {Function} [options.inspect] Injectable readiness inspector.
- * @param {Function} [options.loadCompiler] Injectable compiler preload.
  * @param {Object} [options.logger] Console-compatible logger.
  * @param {Function} [options.reconcile] Injectable structural reconciler.
  * @param {String} [options.repoRoot] Repository root.
@@ -633,31 +539,33 @@ export function assertThemeWatcherReady({
  * @returns {Promise<fs.FSWatcher>}
  */
 export async function startThemeWatcher({
-    inspect      = inspectThemeWatcherAssets,
-    loadCompiler = loadSass,
-    logger       = console,
-    reconcile    = reconcileThemeStructure,
-    repoRoot     = REPO_ROOT,
-    watch        = fs.watch
+    inspect   = inspectThemeWatcherAssets,
+    logger    = console,
+    reconcile = reconcileThemeStructure,
+    repoRoot  = REPO_ROOT,
+    watch     = fs.watch
 } = {}) {
     assertThemeWatcherReady({inspect, repoRoot});
     await reconcile({logger, repoRoot});
-    await loadCompiler();
 
-    const scssRoot = path.join(repoRoot, 'resources/scss');
+    const cssRoot = path.join(repoRoot, 'resources/css');
 
-    logger.log(`[watch-themes] watching ${scssRoot}`);
+    logger.log(`[watch-themes] watching ${cssRoot}`);
 
     return watch(
-        scssRoot,
+        cssRoot,
         {recursive: true},
         createThemeWatchListener({logger, reconcile, repoRoot})
     )
 }
 
 if (isEntryModule(import.meta.url)) {
-    startThemeWatcher().catch(error => {
-        console.error(error.message);
-        process.exitCode = 1
-    })
+    if (process.argv.includes('-h') || process.argv.includes('--help')) {
+        console.log(WATCH_THEMES_HELP);
+    } else {
+        startThemeWatcher().catch(error => {
+            console.error(error.message);
+            process.exitCode = 1
+        })
+    }
 }

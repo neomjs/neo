@@ -26,11 +26,15 @@ export const rawDimensionTags = new Set([
  * @protected
  */
 export const voidAttributes = new Set([
+    'autoplay',
     'checked',
+    'controls',
     'defer',
     'disabled',
     'ismap',
+    'loop',
     'multiple',
+    'muted',
     'nohref',
     'noresize',
     'noshade',

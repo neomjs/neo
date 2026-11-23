@@ -1,3 +1,7 @@
+---
+seoTitle: "Live Browser DOM & Runtime Inspection MCP Server (Neural Link) | Neo.mjs"
+seoDescription: "Inspect and mutate live Web Worker component trees, stores, state providers, and browser DOM geometry from AI agents via the Neural Link MCP server."
+---
 # Neural Link: The Possession Interface
 
 Most AI coding work still happens outside the running application. The model
@@ -199,7 +203,7 @@ the application knows.
 This guide is the concept. The tool catalog is intentionally not copied here.
 The authoritative operation surface lives in
 `ai/mcp/server/neural-link/openapi.yaml`. The per-verb reference spine lives in
-[Neural Link Capability Matrix](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/NeuralLinkCapabilityMatrix.md), and the
+[Neural Link Capability Matrix](https://neomjs.com/learn/agentos/tooling/NeuralLinkCapabilityMatrix), and the
 lazy handbook tool `get_mcp_tool_handbook` returns operation-level usage detail
 when an agent needs it.
 
@@ -212,12 +216,12 @@ keep explaining why the surface matters and how to think with it.
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) for the two
   hemispheres and the Body-to-Brain bridge.
-- [Swarm Intelligence](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/SwarmIntelligence.md) for the cross-family peer-team
+- [Swarm Intelligence](https://neomjs.com/learn/agentos/SwarmIntelligence) for the cross-family peer-team
   that uses this surface.
-- [Agent OS on Your Codebase](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/AgentOSOnYourCodebase.md) for the
+- [Agent OS on Your Codebase](https://neomjs.com/learn/benefits/brain/AgentOSOnYourCodebase) for the
   broader operator story around running the Brain against real applications.
 - [`ai/mcp/server/neural-link/openapi.yaml`](https://github.com/neomjs/neo-agent-brain/blob/dev/ai/mcp/server/neural-link/openapi.yaml) for the exact tool contract.
-- [Neural Link Capability Matrix](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/tooling/NeuralLinkCapabilityMatrix.md) for
+- [Neural Link Capability Matrix](https://neomjs.com/learn/agentos/tooling/NeuralLinkCapabilityMatrix) for
   the per-verb read/write/admin, transaction, firewall, and fixture support map.
 - `src/ai/Client.mjs` for the App Worker client, write guard, and transaction
   lifecycle.

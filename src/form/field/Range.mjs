@@ -56,7 +56,7 @@ class Range extends Number {
         useInputEvent: false,
         /**
          * Disables the field.Number buttons
-         * @member {Boolean} useInputEvent=false
+         * @member {Boolean} useSpinButtons=false
          */
         useSpinButtons: false
     }

@@ -1,0 +1,25 @@
+.example-fieldWithPrefix {
+  .neo-prefixfield {
+    .neo-input-wrapper {
+      position: relative;
+      overflow: visible;
+
+      &::before {
+        position: absolute;
+        content: "";
+        width: 8px;
+        height: 8px;
+        background-color: indianred;
+        border-radius: 50%;
+        top: 2px;
+        left: -12px;
+      }
+    }
+
+    &.neo-focus {
+      .neo-input-wrapper::before {
+        background-color: darkseagreen;
+      }
+    }
+  }
+}

@@ -1,0 +1,318 @@
+/* Neo.board.Card: one record as a card. The left edge carries the record's accent color when it has one; the
+   body is the card items in order (title, text, tags, progress, dueDate, avatars). */
+.neo-board-card {
+    background   : var(--neo-board-card-background);
+    border       : 1px solid var(--neo-board-card-border-color);
+    border-left  : 3px solid var(--neo-board-card-accent, var(--neo-board-card-border-color));
+    border-radius: var(--neo-board-radius);
+    box-shadow   : var(--neo-board-card-shadow);
+    box-sizing   : border-box;
+    color        : var(--neo-board-card-color);
+    cursor       : grab;
+    display      : flex;
+    flex         : none;
+    flex-wrap    : wrap;
+    align-items  : center;
+    gap          : 6px;
+    padding      : 10px 12px;
+    position     : relative;
+
+    > :not(.neo-board-card-menu-button) {
+        box-sizing: border-box;
+        flex      : 1 0 100%;
+        min-width : 0;
+    }
+
+    &:hover {
+        border-color     : var(--neo-board-card-hover-border-color);
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-hover-border-color));
+    }
+
+    &.neo-board-card-overdue {
+        border-color     : color-mix(in srgb, var(--neo-board-overdue-border-color) 55%, var(--neo-board-card-border-color));
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-overdue-border-color));
+    }
+
+    &.neo-selected {
+        background       : var(--neo-board-card-selected-background, var(--neo-board-card-background));
+        border-color     : var(--neo-board-card-selected-border-color, var(--neo-board-accent-color));
+        border-left-color: var(--neo-board-card-accent, var(--neo-board-card-selected-border-color, var(--neo-board-accent-color)));
+
+        @media (hover: hover) {
+            &:hover {
+                box-shadow: 0 0 0 1px var(--neo-board-card-selected-border-color, var(--neo-board-accent-color)), var(--neo-board-card-shadow);
+            }
+        }
+    }
+
+    &.neo-board-card-ghost {
+        opacity   : 0.4;
+        transition: opacity 150ms ease;
+    }
+
+    /* The landing slot: the dragged card's hidden box; a pseudo-element still shows through a hidden parent */
+    &.neo-board-card-slot::after {
+        background   : var(--neo-board-slot-background);
+        border       : 2px dashed var(--neo-board-accent-color);
+        border-radius: var(--neo-board-radius);
+        box-sizing   : border-box;
+        content      : '';
+        inset        : -1px -1px -1px -3px;
+        position     : absolute;
+        visibility   : visible;
+    }
+
+    &:focus,
+    &:focus-visible {
+        outline       : 2px solid var(--neo-board-focus-color);
+        outline-offset: 1px;
+    }
+
+    .neo-board-card-title {
+        font-weight  : 600;
+        line-height  : 1.3;
+        padding-right: 22px;
+    }
+
+    /* The inline edit takes the title's line box and type, so the card keeps its height and the name its font. The
+       field starts its border and padding (5px) left of the title, so the text stays where it was. */
+    .neo-board-card-inline-editor {
+        /* The board's focus ring says the name is being edited, in themes whose field border barely shows. A focused
+           field paints its input's outline from this variable, so the ring outlasts `.neo-focus`. */
+        --textfield-outline-active: 2px solid var(--neo-board-focus-color);
+
+        font-weight  : 600;
+        height       : auto;
+        line-height  : 1.3;
+        margin       : 0 0 0 -5px;
+        padding-right: 22px;
+        width        : calc(100% + 5px);
+
+        input {
+            box-sizing: border-box;
+            font      : inherit;
+            height    : 1lh;
+            min-height: 0;
+            padding   : 0 4px;
+
+            &:focus {
+                outline       : var(--textfield-outline-active);
+                outline-offset: 1px;
+            }
+        }
+    }
+
+    .neo-board-card-menu-button {
+        align-items    : center;
+        background     : transparent;
+        border         : 0;
+        border-radius  : 4px;
+        color          : var(--neo-board-card-muted-color);
+        cursor         : pointer;
+        display        : inline-flex;
+        font           : inherit;
+        height         : 20px;
+        justify-content: center;
+        line-height    : 1;
+        padding        : 0;
+        position       : absolute;
+        right          : 8px;
+        top            : 8px;
+        width          : 20px;
+
+        &:hover {
+            background: var(--neo-board-badge-background);
+            color     : var(--neo-board-card-color);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--neo-board-focus-color);
+            outline-offset: 1px;
+        }
+    }
+
+    .neo-board-card-text {
+        color      : var(--neo-board-card-muted-color);
+        font-size  : 0.9em;
+        line-height: 1.4;
+    }
+
+    .neo-board-card-tags {
+        display  : flex;
+        flex-wrap: wrap;
+        gap      : 4px;
+    }
+
+    .neo-board-card-tag {
+        background   : var(--neo-board-badge-background);
+        border-radius: 999px;
+        color        : var(--neo-board-badge-color);
+        font-size    : 0.78em;
+        line-height  : 1;
+        padding      : 3px 7px;
+    }
+
+    .neo-board-card-progress {
+        background   : var(--neo-board-track-color);
+        border-radius: 999px;
+        height       : 4px;
+        overflow     : hidden;
+    }
+
+    .neo-board-card-progress-bar {
+        background: var(--neo-board-card-accent, var(--neo-board-accent-color));
+        height    : 100%;
+    }
+
+    .neo-board-card-due-date {
+        align-items         : center;
+        border              : 1px solid var(--neo-board-card-hover-border-color);
+        border-radius       : 4px;
+        color               : var(--neo-board-badge-color);
+        display             : inline-flex;
+        flex                : 0 0 auto;
+        font-size           : 0.78em;
+        font-variant-numeric: tabular-nums;
+        gap                 : 4px;
+        line-height         : 1;
+        padding             : 3px 6px;
+
+        &.neo-board-card-due-date-today {
+            border-color: var(--neo-board-accent-color);
+            color       : var(--neo-board-card-color);
+            font-weight : 600;
+        }
+
+        &.neo-board-card-due-date-overdue {
+            background       : var(--neo-board-overdue-background);
+            border-color     : var(--neo-board-overdue-border-color);
+            border-left-width: 3px;
+            color            : var(--neo-board-overdue-color);
+            font-weight      : 700;
+
+            &::before {
+                align-items    : center;
+                background     : var(--neo-board-overdue-border-color);
+                border-radius  : 50%;
+                color          : var(--neo-board-card-background);
+                content        : '!';
+                display        : inline-flex;
+                flex           : 0 0 auto;
+                font-size      : 0.82em;
+                font-weight    : 800;
+                height         : 13px;
+                justify-content: center;
+                line-height    : 1;
+                width          : 13px;
+            }
+        }
+    }
+
+    .neo-board-card-due-date + .neo-board-card-avatars {
+        flex       : 0 0 auto;
+        margin-left: auto;
+    }
+
+    .neo-board-card-avatars {
+        display: flex;
+        gap    : 4px;
+    }
+
+    .neo-board-card-avatar {
+        align-items    : center;
+        background     : var(--neo-board-avatar-background);
+        border-radius  : 50%;
+        color          : var(--neo-board-avatar-color);
+        display        : inline-flex;
+        font-size      : 0.7em;
+        font-weight    : 600;
+        height         : 22px;
+        justify-content: center;
+        width          : 22px;
+    }
+}
+
+/* The card in flight is lifted, with an edge of its own where a shadow alone does not show */
+.neo-dragproxy > .neo-board-card,
+.neo-board-stack .neo-board-stack-lead {
+    border-color     : var(--neo-board-card-drag-border-color);
+    border-left-color: var(--neo-board-card-accent, var(--neo-board-card-drag-border-color));
+    box-shadow       : var(--neo-board-editor-shadow);
+}
+
+.neo-board-stack {
+    height  : 100%;
+    overflow: visible;
+    position: relative;
+    width   : 100%;
+
+    .neo-board-stack-lead {
+        cursor  : grabbing;
+        position: relative;
+        width   : 100%;
+        z-index : 5;
+    }
+
+    .neo-board-stack-card {
+        animation       : neo-board-stack-fly-in 200ms ease forwards;
+        inset           : 0;
+        opacity         : var(--stack-opacity, 0.85);
+        pointer-events  : none;
+        position        : absolute;
+        transform       : translate3d(var(--stack-offset, 6px), var(--stack-offset, 6px), 0) rotate(var(--stack-angle, 3deg));
+        transform-origin: center center;
+        transition      : transform 200ms ease, opacity 200ms ease;
+    }
+
+    .neo-board-stack-count {
+        align-items    : center;
+        background     : var(--neo-board-accent-color);
+        border         : 2px solid var(--neo-board-card-background);
+        border-radius  : 999px;
+        box-shadow     : var(--neo-board-card-shadow);
+        /* Each theme's accent sits opposite its background in lightness, so the background reads on it */
+        color          : var(--neo-board-background);
+        display        : inline-flex;
+        font-size      : 0.78em;
+        font-weight    : 700;
+        height         : 24px;
+        justify-content: center;
+        line-height    : 1;
+        min-width      : 24px;
+        padding        : 0 6px;
+        position       : absolute;
+        right          : -10px;
+        top            : -10px;
+        z-index        : 6;
+    }
+}
+
+.neo-board-stack-reverse .neo-board-stack-card {
+    animation: none;
+    opacity  : 0.4;
+    transform: translate3d(var(--flip-x, 0px), var(--flip-y, 0px), 0) rotate(0deg);
+}
+
+@keyframes neo-board-stack-fly-in {
+    from {
+        opacity  : 0.4;
+        transform: translate3d(var(--flip-x, 0px), var(--flip-y, 0px), 0) rotate(0deg);
+    }
+
+    to {
+        opacity  : var(--stack-opacity, 0.85);
+        transform: translate3d(var(--stack-offset, 6px), var(--stack-offset, 6px), 0) rotate(var(--stack-angle, 3deg));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .neo-board-card.neo-board-card-ghost {
+        transition: none;
+    }
+
+    .neo-board-stack .neo-board-stack-card,
+    .neo-board-stack-reverse .neo-board-stack-card {
+        animation : none;
+        transition: none;
+    }
+}

@@ -59,6 +59,9 @@
 !/apps/shareddialog/neo-config.json
 !/apps/shareddialog/childapps/shareddialog2/index.html
 !/apps/shareddialog/childapps/shareddialog2/neo-config.json
+!/apps/webdesktop/index.html
+!/apps/webdesktop/**/*.mjs
+!/apps/webdesktop/neo-config.json
 !/apps/workstation/index.html
 !/apps/workstation/**/*.mjs
 !/apps/workstation/neo-config.json
@@ -134,12 +137,13 @@ test/playwright/test-results/
 # Single-file Playwright runs via npx
 test-results/
 
-# The retired content mirror: the corpus publishes from neomjs/github-content-sync
+# The retired content mirror and corpus-derived Portal crawler outputs (built in neomjs/pages)
 resources/content/
+/apps/portal/sitemap*.xml
+/apps/portal/llms*.txt
 
 # Agent Harness Scratch Artifacts (Issue #11563)
-.gemini/*
-!.gemini/concepts/
+.gemini/
 /pr_*.md
 /scratch*.mjs
 /patch_*.js
@@ -160,6 +164,8 @@ resources/content/
 # Keep the Engine-owned contributor guards and Kimi hook-root README visible.
 .claude/hooks/*
 !.claude/hooks/bodyFileGuardHook.mjs
+!.claude/hooks/gitCommitPushGuardHook.mjs
+!.claude/hooks/helperCallGuardHook.mjs
 !.claude/hooks/redirectionGuardHook.mjs
 !.claude/hooks/rgReplaceGuardHook.mjs
 .codex/hooks/

@@ -1,0 +1,20 @@
+.email-workspace {
+    overflow: auto;
+
+    .email-detail-panel { min-width: 300px; }
+
+    @media (max-width: 767px) {
+        &.neo-flex-container.neo-flex-direction-row {
+            flex-direction: column !important;
+            overflow-x    : hidden;
+        }
+
+        .email-detail-panel {
+            flex      : 1 1 48% !important;
+            min-height: 0;
+            min-width : 0;
+            overflow  : hidden;
+            width     : 100%;
+        }
+    }
+}

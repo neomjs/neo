@@ -1,0 +1,33 @@
+:root .neo-theme-cyberpunk { /* .neo-textfield */
+    --textfield-border-color                   : #5c7a99;
+    --textfield-border-color-active            : var(--cyber-cyan);
+    --textfield-border-color-alert             : var(--cyber-gold);
+    --textfield-border-color-disabled          : var(--cyber-border);
+    --textfield-border-color-hovered           : color-mix(in srgb, var(--cyber-cyan) 65%, var(--cyber-border));
+    --textfield-border-color-invalid           : var(--cyber-red);
+    --textfield-border-color-readonly          : var(--cyber-border);
+    --textfield-border-radius                  : 2px;
+    --textfield-border-width                   : 1px;
+    --textfield-input-background-color         : var(--cyber-bg);
+    --textfield-input-background-color-disabled: var(--cyber-bg);
+    --textfield-input-background-color-readonly: var(--cyber-bg);
+    --textfield-input-color                    : var(--cyber-text);
+    --textfield-input-color-disabled           : var(--cyber-text);
+    --textfield-input-color-readonly           : var(--cyber-text);
+    --textfield-input-font                     : 400 13px/17px var(--neo-font-family);
+    --textfield-input-height                   : 26px;
+    --textfield-input-padding                  : 3px 6px 2px;
+    --textfield-input-placeholder-color        : var(--cyber-text);
+    --textfield-input-placeholder-opacity      : 0.6;
+    --textfield-label-color                    : var(--cyber-text);
+    --textfield-label-color-disabled           : var(--cyber-text);
+    --textfield-label-color-readonly           : var(--cyber-text);
+    --textfield-label-top-margin               : 0 0 3px;
+    --textfield-opacity-disabled               : var(--neo-disabled-opacity);
+    --textfield-opacity-readonly               : 1;
+    --textfield-outline-active                 : none;
+    --textfield-outline-hovered                : none;
+    --textfield-sublabel-color                 : color-mix(in srgb, var(--cyber-text) 70%, var(--cyber-bg));
+    --textfield-sublabel-font-size             : 12px;
+    --textfield-sublabel-margin                : 0 0 5px;
+}

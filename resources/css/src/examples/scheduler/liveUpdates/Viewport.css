@@ -1,0 +1,482 @@
+.gate-viewport.neo-viewport {
+    .gate-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--gate-header-bg);
+        border-bottom: 1px solid var(--gate-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 8px 10px;
+        min-height   : 54px;
+        padding      : 9px 20px;
+
+        .gate-title {
+            color         : var(--gate-title);
+            font-size     : 18px;
+            font-weight   : 700;
+            letter-spacing: -.02em;
+        }
+
+        .gate-sim-badge {
+            align-items   : center;
+            background    : var(--gate-sim-bg);
+            border        : 1px solid var(--gate-sim-border);
+            border-radius : 999px;
+            color         : var(--gate-sim-text);
+            display       : inline-flex;
+            font-size     : 12px;
+            font-weight   : 600;
+            gap           : 7px;
+            line-height   : 1;
+            padding       : 5px 11px 5px 24px;
+            position      : relative;
+
+            &::before {
+                background   : var(--gate-sim-dot);
+                border-radius: 50%;
+                box-shadow   : 0 0 0 3px var(--gate-sim-dot-ring);
+                content      : '';
+                height       : 7px;
+                left         : 10px;
+                position     : absolute;
+                top          : 50%;
+                transform    : translateY(-50%);
+                transition   : background-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out), box-shadow var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+                width        : 7px;
+            }
+        }
+
+        .gate-spacer {
+            min-width: 0;
+        }
+
+        .gate-counter {
+            background          : var(--gate-counter-bg);
+            border              : 1px solid var(--gate-counter-border);
+            border-radius       : 999px;
+            color               : var(--gate-counter-text);
+            font-size           : 12px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 700;
+            line-height         : 1;
+            padding             : 6px 12px;
+        }
+
+        .gate-pause-btn.neo-button {
+            --button-background-color-hover: var(--gate-btn-hover-bg);
+            --button-border-hover          : 1px solid var(--gate-btn-border);
+            --button-text-color            : var(--gate-title);
+            --button-text-color-active     : var(--gate-title);
+            --button-text-color-hover      : var(--gate-title);
+            align-items   : center;
+            background    : var(--gate-btn-bg);
+            border        : 1px solid var(--gate-btn-border);
+            border-radius : 999px;
+            color         : var(--gate-title);
+            cursor        : pointer;
+            display       : inline-flex;
+            font-size     : 12px;
+            font-weight   : 700;
+            min-height    : 32px;
+            padding       : 0 14px 0 30px;
+            position      : relative;
+            transition    : background-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out), border-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+
+            &::before {
+                border-left : 2.5px solid var(--gate-btn-glyph);
+                border-right: 2.5px solid var(--gate-btn-glyph);
+                box-sizing  : border-box;
+                content     : '';
+                height      : 10px;
+                left        : 13px;
+                position    : absolute;
+                top         : 50%;
+                transform   : translateY(-50%);
+                transition  : border-color var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+                width       : 8px;
+            }
+
+            &.pressed {
+                background  : var(--gate-btn-pressed-bg);
+                border-color: var(--gate-btn-pressed-border);
+
+                &::before {
+                    border-left-color : var(--gate-btn-pressed-glyph);
+                    border-right-color: var(--gate-btn-pressed-glyph);
+                }
+            }
+
+            &:focus-visible {
+                outline       : 2px solid var(--gate-focus);
+                outline-offset: 2px;
+            }
+
+            .neo-button-text {
+                line-height: 1;
+            }
+        }
+    }
+
+    &.is-paused .gate-toolbar .gate-sim-badge {
+        background  : var(--gate-btn-pressed-bg);
+        border-color: var(--gate-btn-pressed-border);
+        color       : var(--gate-title);
+
+        &::before {
+            background: var(--gate-sim-dot-paused);
+            box-shadow: 0 0 0 3px var(--gate-sim-dot-paused-ring);
+        }
+    }
+
+    .gate-feed-bar.neo-container {
+        align-items  : center;
+        background   : var(--gate-subbar-bg);
+        border-bottom: 1px solid var(--gate-border);
+        box-sizing   : border-box;
+        flex-wrap    : wrap;
+        gap          : 6px 12px;
+        min-height   : 40px;
+        padding      : 6px 20px;
+
+        .gate-feed-ticker {
+            align-items: center;
+            display    : inline-flex;
+            flex-wrap  : wrap;
+            gap        : 8px;
+            min-width  : 0;
+        }
+
+        .gate-feed-kind {
+            border-radius       : 5px;
+            font-size           : 11px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 700;
+            letter-spacing      : .01em;
+            line-height         : 1.2;
+            padding             : 2px 8px;
+
+            &.is-live,
+            &.is-arrive {
+                background: var(--gate-kind-live-bg);
+                border    : 1px solid var(--gate-kind-live-border);
+                color     : var(--gate-kind-live-text);
+            }
+
+            &.is-delay {
+                background: var(--gate-fresh-delta-bg);
+                border    : 1px solid var(--gate-fresh-delta-border);
+                color     : var(--gate-fresh-delta-text);
+            }
+
+            &.is-depart,
+            &.is-manual {
+                background: var(--gate-kind-info-bg);
+                border    : 1px solid var(--gate-kind-info-border);
+                color     : var(--gate-kind-info-text);
+            }
+
+            &.is-paused {
+                background: var(--gate-btn-pressed-bg);
+                border    : 1px solid var(--gate-btn-pressed-border);
+                color     : var(--gate-title);
+            }
+        }
+
+        .gate-feed-summary {
+            color               : var(--gate-muted);
+            font-size           : 12.5px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 500;
+        }
+
+        .gate-feed-spacer {
+            min-width: 0;
+        }
+
+        .gate-legend {
+            align-items: center;
+            display    : inline-flex;
+            gap        : 8px;
+        }
+
+        .gate-legend-chip {
+            align-items   : center;
+            border-radius : 5px;
+            display       : inline-flex;
+            font-size     : 11px;
+            font-weight   : 700;
+            line-height   : 1.2;
+            padding       : 3px 8px 3px 20px;
+            position      : relative;
+            user-select   : none;
+
+            &::before {
+                border-radius: 50%;
+                box-sizing   : border-box;
+                content      : '';
+                height       : 7px;
+                left         : 8px;
+                position     : absolute;
+                top          : 50%;
+                transform    : translateY(-50%);
+                width        : 7px;
+            }
+
+            &.is-fresh {
+                background: var(--gate-fresh-bg);
+                border    : 1.5px solid var(--gate-fresh-border);
+                box-shadow: 0 0 0 1px var(--gate-fresh-ring);
+                color     : var(--gate-bar-text);
+
+                &::before {
+                    background: var(--gate-fresh-border);
+                    box-shadow: 0 0 0 2px var(--gate-fresh-ring);
+                }
+            }
+
+            &.is-fading {
+                background: var(--gate-fading-bg);
+                border    : 1px dashed var(--gate-fading-border);
+                color     : var(--gate-bar-meta);
+
+                &::before {
+                    border: 1.5px dashed var(--gate-fading-border);
+                }
+            }
+        }
+    }
+
+    .gate-scheduler.neo-scheduler {
+        background: var(--gate-header-bg);
+
+        .neo-grid-header-toolbar .neo-grid-header-button {
+            --button-background-color      : var(--gate-subbar-bg);
+            --button-background-color-hover: var(--gate-subbar-bg);
+            --button-text-color            : var(--gate-title);
+            --button-text-color-hover      : var(--gate-title);
+            background   : var(--gate-subbar-bg);
+            border-bottom: 1px solid var(--gate-border);
+            border-right : 1px solid var(--gate-border);
+            color        : var(--gate-title);
+
+            .neo-button-text {
+                color: var(--gate-title);
+            }
+        }
+
+        .neo-grid-cell.neo-locked-start {
+            color               : var(--gate-title);
+            font-size           : 12.5px;
+            font-variant-numeric: tabular-nums;
+            font-weight         : 600;
+        }
+
+        .neo-timeline-bar.gate-flight-bar {
+            align-items  : center;
+            border-radius: 7px;
+            border-style : solid;
+            border-width : 1px;
+            color        : var(--gate-bar-text);
+            cursor       : grab;
+            padding      : 4px 9px 5px 10px;
+            transition   : background-color var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
+                           border-color var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
+                           box-shadow var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
+                           left var(--motion-fast, 160ms) var(--ease-out-soft, ease-out);
+
+            &:active {
+                cursor: grabbing;
+            }
+
+            &.gate-pier-a {
+                background  : var(--gate-pier-a-bg);
+                border-color: var(--gate-pier-a-border);
+                box-shadow  : inset 3.5px 0 0 var(--gate-pier-a-border);
+            }
+
+            &.gate-pier-b {
+                background  : var(--gate-pier-b-bg);
+                border-color: var(--gate-pier-b-border);
+                box-shadow  : inset 3.5px 0 0 var(--gate-pier-b-border);
+            }
+
+            &.gate-pier-c {
+                background  : var(--gate-pier-c-bg);
+                border-color: var(--gate-pier-c-border);
+                box-shadow  : inset 3.5px 0 0 var(--gate-pier-c-border);
+            }
+
+            &.is-feed-fresh {
+                background  : var(--gate-fresh-bg);
+                border-color: var(--gate-fresh-border);
+                border-width: 1.5px;
+                box-shadow  : inset 4px 0 0 var(--gate-fresh-border),
+                              0 0 0 2px var(--gate-fresh-ring),
+                              0 4px 14px var(--gate-fresh-glow);
+                z-index     : 3;
+            }
+
+            &.is-feed-fading {
+                background  : var(--gate-fading-bg);
+                border-color: var(--gate-fading-border);
+                border-style: dashed;
+                box-shadow  : inset 3.5px 0 0 var(--gate-fading-border),
+                              0 0 0 1px var(--gate-fading-ring);
+                z-index     : 2;
+            }
+
+            .gate-bar-body.neo-timeline-bar-label {
+                display        : flex;
+                flex-direction : column;
+                gap            : 2px;
+                justify-content: center;
+                line-height    : 1.22;
+                width          : 100%;
+            }
+
+            .gate-bar-top {
+                align-items    : center;
+                display        : flex;
+                gap            : 6px;
+                justify-content: space-between;
+                min-width      : 0;
+            }
+
+            .gate-bar-code {
+                color               : var(--gate-bar-text);
+                font-size           : 12px;
+                font-variant-numeric: tabular-nums;
+                font-weight         : 700;
+                min-width           : 0;
+                overflow            : hidden;
+                text-overflow       : ellipsis;
+                white-space         : nowrap;
+            }
+
+            .gate-bar-delta {
+                border-radius       : 4px;
+                flex                : none;
+                font-size           : 10px;
+                font-variant-numeric: tabular-nums;
+                font-weight         : 800;
+                letter-spacing      : .02em;
+                line-height         : 1.2;
+                padding             : 1px 5px;
+                transition          : opacity var(--motion-slow, 480ms) var(--ease-out-soft, ease-out),
+                                      background-color var(--motion-slow, 480ms) var(--ease-out-soft, ease-out);
+
+                &.is-fresh {
+                    background: var(--gate-fresh-delta-bg);
+                    border    : 1px solid var(--gate-fresh-delta-border);
+                    color     : var(--gate-fresh-delta-text);
+                    opacity   : 1;
+                }
+
+                &.is-fading {
+                    background: var(--gate-fading-delta-bg);
+                    border    : 1px dashed var(--gate-fading-border);
+                    color     : var(--gate-fading-delta-text);
+                    opacity   : .74;
+                }
+            }
+
+            .gate-bar-meta {
+                color               : var(--gate-bar-meta);
+                font-size           : 10.5px;
+                font-variant-numeric: tabular-nums;
+                font-weight         : 500;
+                min-width           : 0;
+                overflow            : hidden;
+                text-overflow       : ellipsis;
+                white-space         : nowrap;
+            }
+        }
+    }
+
+    @media (max-width: 767px) {
+        .gate-toolbar.neo-toolbar {
+            gap       : 3px 4px;
+            min-height: 42px;
+            padding   : 6px;
+
+            & > * {
+                margin: 0;
+            }
+
+            .gate-title {
+                font-size     : 12.5px;
+                letter-spacing: -.025em;
+            }
+
+            .gate-sim-badge {
+                font-size: 9.5px;
+                padding  : 3px 5px 3px 14px;
+
+                &::before {
+                    height: 5px;
+                    left  : 5.5px;
+                    width : 5px;
+                }
+            }
+
+            .gate-counter {
+                font-size: 9.5px;
+                padding  : 3px 5px;
+            }
+
+            .gate-pause-btn.neo-button {
+                font-size : 10px;
+                min-height: 25px;
+                padding   : 0 6px 0 17px;
+
+                &::before {
+                    height: 7.5px;
+                    left  : 6.5px;
+                    width : 6px;
+                }
+            }
+
+            .neo-theme-switcher.neo-button {
+                min-height: 25px;
+                padding   : 0 5px;
+            }
+        }
+
+        .gate-feed-bar.neo-container {
+            gap    : 5px 8px;
+            padding: 6px 10px;
+
+            .gate-feed-ticker {
+                display    : block;
+                line-height: 1.4;
+            }
+
+            .gate-feed-kind {
+                display       : inline-block;
+                margin-right  : 6px;
+                vertical-align: 1px;
+            }
+
+            .gate-feed-summary {
+                font-size: 11.5px;
+            }
+
+            .gate-legend-chip {
+                font-size: 10.5px;
+                padding  : 2px 7px 2px 18px;
+
+                &::before {
+                    height: 6px;
+                    left  : 7px;
+                    width : 6px;
+                }
+            }
+        }
+
+        .gate-scheduler.neo-scheduler {
+            .neo-grid-cell.neo-locked-start {
+                font-size: 11.5px;
+                padding  : 0 8px;
+            }
+        }
+    }
+}

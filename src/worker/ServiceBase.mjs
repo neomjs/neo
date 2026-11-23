@@ -38,8 +38,16 @@ class ServiceBase extends Base {
          */
         className: 'Neo.worker.ServiceBase',
         /**
+         * The build this worker belongs to. `construct()` reads it from `ServiceBase.buildStamp`, which the build
+         * stamps into the worker script after it succeeded. `null` in development mode, which builds nothing.
+         * @member {String|null} buildId=null
+         */
+        buildId: null,
+        /**
          * The name of the CacheStorage key.
-         * Appends the `version` property to create unique cache entries (e.g., "neo-runtime-1.0.0").
+         * Appends the registration's scope path, the `version` and the `buildId` of a build, so every registration
+         * owns its caches and every build gets a cache of its own
+         * (e.g., "neo-runtime:/dist/production/:1.0.0:mi2k3x9").
          * @member {String} cacheName_='neo-runtime'
          * @reactive
          */
@@ -70,6 +78,16 @@ class ServiceBase extends Base {
             ]
         }
     }
+
+    /**
+     * The build stamp. `buildScripts/util/buildId.mjs#stampBuildId()` writes the build run's id behind the colon in
+     * the built worker script, after the build succeeded, so the script's bytes change with every build. Development
+     * mode leaves it empty.
+     * @member {String} buildStamp
+     * @protected
+     * @static
+     */
+    static buildStamp = 'neo-build-id:'
 
     /**
      * List of path partials that should be cached dynamically.
@@ -155,6 +173,7 @@ class ServiceBase extends Base {
             bind = name => me[name].bind(me);
 
         me.channelPorts = [];
+        me.buildId    ??= ServiceBase.buildStamp.split(':')[1] || null;
 
         // Bind standard Service Worker lifecycle events to class methods.
         Object.assign(globalThis, {
@@ -170,27 +189,34 @@ class ServiceBase extends Base {
 
     /**
      * Triggered when accessing the cacheName config.
-     * Appends the application version to ensure cache invalidation on upgrades.
+     * Appends the registration's scope path, so registrations sharing an origin never touch each other's caches, the
+     * application version to ensure cache invalidation on upgrades, and the build id so that a redeploy which keeps
+     * its version never answers from the previous build's cache.
      * @param {String} value
      * @protected
      */
     beforeGetCacheName(value) {
-        return value + '-' + this.version
+        let {buildId, version} = this,
+            name               = `${this.getCachePrefix(value)}${version}`;
+
+        return buildId ? `${name}:${buildId}` : name
     }
 
     /**
      * Lazy cleanup of old caches.
-     * Iterates over all caches and removes those matching the prefix but not the current version.
+     * Removes this registration's caches of other versions and builds. Caches of other registrations, and the
+     * version-only caches of workers before the scope joined the name, stay: their owners may still serve them
+     * offline, and no scoped worker reads them.
      * @returns {Promise<void>}
      */
     async cleanUpCaches() {
-        let me   = this,
-            keys = await caches.keys(),
+        let me     = this,
+            keys   = await caches.keys(),
+            prefix = me.getCachePrefix(me._cacheName),
             key;
 
         for (key of keys) {
-            // Clear caches for prior SW versions, without touching non-related caches
-            if (key.startsWith(me._cacheName) && key !== me.cacheName) {
+            if (key.startsWith(prefix) && key !== me.cacheName) {
                 console.log('Deleting old cache:', key);
                 await me.clearCache(key)
             }
@@ -249,6 +275,19 @@ class ServiceBase extends Base {
             destination: 'app',
             port       : port1
         })
+    }
+
+    /**
+     * @summary The start every cache name of this registration shares: the prefix and the scope path, e.g.
+     * `neo-runtime:/dist/production/:`. The colons keep one scope's prefix from matching another scope's names, and
+     * the version-only names of earlier workers.
+     * @param {String} prefix The raw `cacheName` config value
+     * @returns {String}
+     */
+    getCachePrefix(prefix) {
+        let {scope} = globalThis.registration || {};
+
+        return `${prefix}:${scope ? new URL(scope).pathname : ''}:`
     }
 
     /**
@@ -384,7 +423,8 @@ class ServiceBase extends Base {
                     }
                     return response
                 }).catch(() => {
-                    return caches.match(request)
+                    // This registration's own cache only: another registration's cache may hold another build
+                    return caches.open(me.cacheName).then(cache => cache.match(request))
                 })
             );
             return

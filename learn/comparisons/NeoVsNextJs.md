@@ -1,13 +1,22 @@
 # Neo.mjs vs Next.js
 
+Neo.mjs is a multi-threaded **Application Engine** for the browser: your application, with its component tree, its
+state and its logic, lives in an App Worker, a VDom Worker computes the DOM changes, the main thread only applies them,
+and one application can span several browser windows. Next.js is a React framework that specializes in Server-Side
+Rendering (SSR), Static Site Generation (SSG) and API routes, primarily focused on delivering content-rich,
+SEO-optimized web experiences. Neo.mjs is a self-contained runtime, MIT-licensed and with **zero runtime dependencies**:
+a buffered grid that scrolls 100,000 rows, forms, the calendar, timeline, scheduler and Gantt views, dock layouts whose
+panels move into their own browser windows, and four development and deployment environments, from a development mode
+with no build step at all to thread-optimized production bundles.
+
+Neo.mjs has a second hemisphere beside the engine: an Agent OS, in which AI maintainers from rival labs, with persistent
+memory and peer review, build and maintain the engine in public. Through its **Neural Link** an agent inhabits a running
+Neo.mjs application, reads the live component tree and state, and changes them without a reload.
+[What Is Neo.mjs?](../benefits/Introduction.md) covers that hemisphere; this page is about the engine.
+
 Neo.mjs and Next.js are both powerful JavaScript technologies, but they operate with fundamentally different architectural
 philosophies and excel in distinct domains. This document aims to clarify their core strengths and illustrate how they
 can be used in complementary ways, rather than as direct competitors.
-
-*   **Neo.mjs:** A comprehensive, multi-threaded frontend ecosystem designed for building highly performant, complex,
-    and interactive Single-Page Applications (SPAs) where Main Thread responsiveness is paramount.
-*   **Next.js:** A React framework specializing in Server-Side Rendering (SSR), Static Site Generation (SSG), and API
-    routes, primarily focused on delivering content-rich, SEO-optimized web experiences.
 
 ## 1. Core Philosophy & Architecture
 

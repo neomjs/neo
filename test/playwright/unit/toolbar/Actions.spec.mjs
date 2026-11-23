@@ -142,3 +142,42 @@ test.describe('Neo.toolbar.Base — actions resolve by name, and names are uniqu
         expect(header.getAction('close')).toBe(header.getActionItems().find(item => item.action === 'close'))
     })
 });
+
+test.describe('Neo.toolbar.Base — the measurement reveal of withheld actions', () => {
+    test('a restore that resumes after a newer reveal began leaves that reveal on', async () => {
+        let releaseRestore;
+
+        const
+            action = {
+                cls        : ['neo-toolbar-action-context-inactive'],
+                showOnFocus: true,
+                style      : {},
+                setSilent(values) {Object.assign(this, values)}
+            },
+            owner  = {
+                applyContextualActionState: () => {},
+                getActionItems            : () => [action],
+                isFocusGatedAction        : Toolbar.prototype.isFocusGatedAction,
+                measureRevealGeneration   : 0,
+                measuringContextualActions: false,
+                promiseUpdate             : async () => {}
+            },
+            reveal = (active) => Toolbar.prototype.setContextualActionMeasureReveal.call(owner, active);
+
+        await reveal(true);
+
+        // The first restore waits on its update, and a second reveal begins meanwhile
+        owner.promiseUpdate = () => new Promise(resolve => {releaseRestore = resolve});
+
+        const restore = reveal(false);
+
+        owner.promiseUpdate = async () => {};
+        await reveal(true);
+
+        releaseRestore();
+        await restore;
+
+        expect(owner.measuringContextualActions, 'the newer reveal stays on').toBe(true);
+        expect(Object.hasOwn(action, '_toolbarActionMeasureVisibility'), 'and keeps its restore marker').toBe(true)
+    })
+});

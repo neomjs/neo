@@ -1,5 +1,6 @@
 import Base                    from '../../../src/core/Base.mjs';
 import NativeVesselTransaction from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import Placement               from '../../../src/dashboard/dock/window/Placement.mjs';
 import TransactionManager      from '../../../src/manager/Transaction.mjs';
 import WorkspaceDocument       from '../../../src/dashboard/dock/model/WorkspaceDocument.mjs';
 
@@ -596,12 +597,13 @@ class DemoBNativeWindowHost extends Base {
      * the seam's caller still receives the full `{generationToken, workspaceKey, …}` descriptor.
      * @param {Object} request
      * @param {String} request.itemId
-     * @param {Object} request.proxyRect
+     * @param {Object} request.proxyRect Where the drag proxy is: the vessel's position.
+     * @param {Object|null} [request.sourceRect] The pane's rect, measured at drag arming: the vessel's size.
      * @param {Object} request.topologyIdentity The reserved slot, supplied by `NativeLifecycle#acquire`.
      * @returns {Promise<{popupHeight: Number, popupWidth: Number, windowName: String}|null>}
      * @protected
      */
-    async openTearOutVessel({itemId, proxyRect, topologyIdentity}) {
+    async openTearOutVessel({itemId, proxyRect, sourceRect=null, topologyIdentity}) {
         let me         = this,
             {windowId} = me,
             windowName = me.vesselWindowName(itemId, topologyIdentity?.workspaceKey);
@@ -611,11 +613,10 @@ class DemoBNativeWindowHost extends Base {
         // effect invoked without one would open a native window no Group slot admits.
         if (!topologyIdentity) return null;
 
-        let winData = await Neo.Main.getWindowData({windowId}),
-            width   = Math.max(Math.round(proxyRect?.width  || 480), 320),
-            height  = Math.max(Math.round(proxyRect?.height || 360), 240),
-            left    = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
-            top     = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
+        let winData         = await Neo.Main.getWindowData({windowId}),
+            {height, width} = Placement.resolveVesselSize({screen: winData.screen, sourceRect}),
+            left            = Math.round((proxyRect?.x ?? 120) + winData.screenLeft),
+            top             = Math.round((proxyRect?.y ?? 120) + (winData.outerHeight - winData.innerHeight) + winData.screenTop);
 
         me.tearOutAcquisitionAttempts++;
 

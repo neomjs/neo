@@ -1,0 +1,136 @@
+.launch-toolbar.neo-toolbar {
+    align-items  : center;
+    background   : var(--launch-header-bg);
+    border-bottom: 1px solid var(--launch-border);
+    gap          : 16px;
+    min-height   : 60px;
+    padding      : 10px 24px;
+
+    .launch-title {
+        color      : var(--launch-title);
+        font-size  : 18px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .launch-status {
+        color    : var(--launch-muted);
+        flex     : 1;
+        font-size: 13px;
+        min-width: 0;
+    }
+
+    .launch-reset {
+        --button-background-color-hover          : var(--launch-hover);
+        --button-secondary-background-color-hover: var(--launch-hover);
+        --button-secondary-border-hover          : 1px solid var(--launch-border);
+        --button-secondary-text-color            : var(--launch-muted);
+        --button-secondary-text-color-active     : var(--launch-title);
+        --button-secondary-text-color-hover      : var(--launch-title);
+        --button-text-color                      : var(--launch-muted);
+        --button-text-color-hover                : var(--launch-title);
+        background   : var(--launch-control);
+        border       : 1px solid var(--launch-border);
+        border-radius: 6px;
+        min-height   : 34px;
+        padding      : 0 12px;
+
+        &:focus-visible {
+            outline       : 2px solid var(--launch-focus);
+            outline-offset: 2px;
+        }
+    }
+}
+
+.launch-legend-bar-row {
+    align-items  : center;
+    background   : var(--launch-header-bg);
+    border-bottom: 1px solid var(--launch-border);
+    display      : flex;
+    gap          : 20px;
+    padding      : 8px 24px;
+}
+
+.launch-legend-title {
+    color         : var(--launch-muted);
+    font-size     : 12px;
+    font-weight   : 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space   : nowrap;
+}
+
+.launch-legend {
+    display   : flex;
+    flex-wrap : wrap;
+    gap       : 8px 24px;
+    list-style: none;
+    margin    : 0;
+    padding   : 0;
+}
+
+.launch-legend-item {
+    align-items: center;
+    color      : var(--launch-title);
+    display    : inline-flex;
+    font-size  : 13px;
+    gap        : 8px;
+}
+
+/* The glyph reads the chart's own link colour, so the legend and the links match in every theme. */
+.launch-legend-glyph {
+    color : var(--neo-gantt-arrow-color);
+    flex  : none;
+    height: 30px;
+    width : 55px;
+
+    .launch-legend-bar {
+        fill: var(--launch-legend-bar);
+    }
+
+    .launch-legend-link {
+        fill           : none;
+        stroke         : currentColor;
+        stroke-linejoin: round;
+        stroke-width   : 1.75px;
+    }
+
+    .launch-legend-head {
+        fill: currentColor;
+    }
+}
+
+.launch-viewport.launch-is-compact {
+    .launch-toolbar.neo-toolbar {
+        flex-wrap: wrap;
+        gap      : 4px 8px;
+        padding  : 8px 12px;
+    }
+
+    .launch-reset {
+        margin-left: auto;
+    }
+
+    .launch-status {
+        flex     : 0 0 100% !important;
+        font-size: 12px;
+        order    : 3;
+    }
+
+    .launch-legend-bar-row {
+        align-items   : flex-start;
+        flex-direction: column;
+        gap           : 4px;
+        padding       : 6px 12px;
+    }
+
+    .launch-legend {
+        display              : grid;
+        gap                  : 4px 12px;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .launch-legend-item {
+        font-size: 12px;
+    }
+}

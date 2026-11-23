@@ -68,16 +68,22 @@ test.describe('Portal section tab bars on a portrait phone', () => {
         await expect.poll(() => reachableTabs(page)).toEqual(TABS)
     });
 
-    test('both section bars withdraw the control once a desktop viewport fits every header', async ({page}) => {
-        for (const route of ['#/examples', '#/news/releases']) {
-            await page.setViewportSize({width: 390, height: 300});
-            await page.goto(`${PORTAL}${route}`);
-            await expect(page.locator(CONTROL), `${route}: the plugin projects this bar`).toBeVisible();
+    test('a section bar withdraws the control once a desktop viewport fits every header, and keeps it while not', async ({page}) => {
+        const control = page.locator(`${CONTROL}:visible`);
 
-            await page.setViewportSize({width: 1920, height: 1080});
-            await expect(page.locator(CONTROL), `${route}: everything fits, so the control is gone`).toHaveCount(0)
-        }
+        // The seven headers need 883 px of height: a 1920 × 800 desktop does not fit them, 1920 × 1080 does
+        await page.setViewportSize({width: 1920, height: 800});
+        await page.goto(`${PORTAL}#/news/releases`);
+        await expect(control, 'the control shows while a header does not fit').toHaveCount(1);
 
-        await expect.poll(() => reachableTabs(page)).toEqual(TABS)
+        await page.setViewportSize({width: 1920, height: 1080});
+        await expect(control, 'and withdraws once every header fits').toHaveCount(0);
+        await expect.poll(() => reachableTabs(page)).toEqual(TABS);
+
+        // A section the route leaves takes its control with it: Examples has no tab bar, so none is visible there
+        await page.setViewportSize({width: 390, height: 300});
+        await expect(control, 'the plugin projects this bar').toBeVisible();
+        await page.goto(`${PORTAL}#/examples`);
+        await expect(control).toHaveCount(0)
     });
 });

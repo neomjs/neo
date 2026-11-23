@@ -2,8 +2,7 @@ import Base              from '../../../core/Base.mjs';
 import VesselPlaceholder from './VesselPlaceholder.mjs';
 
 /**
- * @summary Moves one live dock pane into an admitted tear-out vessel while preserving the source card
- * slot until document truth decides the gesture terminal.
+ * @summary Moves a live component into an admitted tear-out vessel while preserving its source slot.
  *
  * This class owns render topology only. It never opens, closes, identifies, or authorizes a native
  * window, and it never mutates a dock document. The host must first validate the exact vessel, then
@@ -88,6 +87,48 @@ class VesselEmbodiment extends Base {
      */
     isStaged(itemId) {
         return this.records.has(itemId)
+    }
+
+    /**
+     * @summary Removes the borrowed pane from a departing renderer before it is reaped, keeping its source slot.
+     * @param {Object} identity
+     * @param {String} identity.itemId
+     * @param {String} identity.windowId
+     * @returns {Boolean}
+     */
+    detach({itemId, windowId}) {
+        const record = this.records.get(itemId);
+
+        if (!record || record.windowId !== windowId || record.pane.isDestroyed) return false;
+
+        const {pane} = record;
+        pane.parent?.remove(pane, false, true);
+        pane.windowId = null;
+        return true
+    }
+
+    /**
+     * @summary Mounts a detached pane in the newly admitted renderer without losing its original placeholder.
+     * @param {Object} identity
+     * @param {String} identity.itemId
+     * @param {String} identity.previousWindowId
+     * @param {String} identity.windowId
+     * @returns {Promise<Boolean>}
+     */
+    async reattach({itemId, previousWindowId, windowId}) {
+        const record = this.records.get(itemId), target = this.resolveTarget(windowId);
+
+        if (!record || record.windowId !== previousWindowId || record.pane.parent || record.pane.isDestroyed || !target) return false;
+
+        record.windowId = windowId;
+        try {
+            target.add(record.pane, true);
+            target.updateDepth = -1;
+            await target.promiseUpdate();
+            return this.records.get(itemId) === record && record.windowId === windowId && record.pane.parent === target
+        } catch {
+            return false
+        }
     }
 
     /**
@@ -194,8 +235,8 @@ class VesselEmbodiment extends Base {
      * @protected
      */
     async settleStage(record, sourceIndex, target) {
-        const me                                        = this,
-              {itemId, pane, placeholder, sourceParent} = record;
+        const me                                                  = this,
+              {itemId, pane, placeholder, sourceParent, windowId} = record;
 
         try {
             sourceParent.removeAt(sourceIndex, false, true);
@@ -209,9 +250,9 @@ class VesselEmbodiment extends Base {
                 .catch(() => {});
             await Promise.resolve().then(() => target.promiseUpdate?.());
 
-            return !me.isDestroyed && me.records.get(itemId) === record
+            return !me.isDestroyed && me.records.get(itemId) === record && record.windowId === windowId
         } catch {
-            if (me.isDestroyed || me.records.get(itemId) !== record) return false;
+            if (me.isDestroyed || me.records.get(itemId) !== record || record.windowId !== windowId) return false;
 
             me.records.delete(itemId);
 

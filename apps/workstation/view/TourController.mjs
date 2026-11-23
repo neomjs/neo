@@ -815,7 +815,8 @@ class TourController extends Controller {
      *
      * The refresh joins the settled tail of the workspace's `refreshPromise`, as its commits do: a reconcile
      * started beside an in-flight one (the cold-hydrate projection after a reload) leaves a second shell in
-     * the dock host. Static, because a cancelled replay restores after its controller is destroyed.
+     * the dock host. It answers to the supersession current when it is queued, so a commit queued behind it
+     * releases its overflow reads. Static, because a cancelled replay restores after its controller is destroyed.
      * @param {Workstation.view.Workspace} workspace
      * @param {Object} document The document to project, held by identity.
      * @param {Object} [refreshOptions={}] The options `refreshDockWorkspace` receives.
@@ -824,10 +825,11 @@ class TourController extends Controller {
      * @static
      */
     static queueDockRefresh(workspace, document, refreshOptions={}) {
-        const tail = workspace.refreshPromise?.catch(() => {}) || Promise.resolve();
+        const abort = workspace.getProjectionAbort(),
+              tail  = workspace.refreshPromise?.catch(() => {}) || Promise.resolve();
 
         return workspace.refreshPromise = tail.then(() => {
-            if (!workspace.isDestroyed) return workspace.refreshDockWorkspace(null, document, refreshOptions)
+            if (!workspace.isDestroyed) return workspace.refreshDockWorkspace(null, document, refreshOptions, null, abort)
         })
     }
 
@@ -859,8 +861,10 @@ class TourController extends Controller {
      * @summary Runs a screenplay from the shipped arrangement on every replay.
      *
      * The entry is {@link Workstation.view.Workspace#resetTopology}, the same write as "Reset to
-     * default": a pane the viewer tore into a window comes home in it, so no screenplay starts
-     * from a pane listed twice. A refused reset starts no runner and stops with its errors.
+     * default", named for the shipped arrangement the screenplays are written against, so a viewer
+     * on the planning desk is brought back to it: a pane the viewer tore into a window comes home or
+     * leaves with the arrangement it belongs to, and the window it empties closes, so no screenplay
+     * starts from a pane listed twice. A refused reset starts no runner and stops with its errors.
      * @param {Object} [script=workstationTourScript]
      * @param {Object} [options={}]
      * @param {Boolean} [options.autoGates] Sets the gate mode when given; omitted keeps it.
@@ -889,7 +893,7 @@ class TourController extends Controller {
         me.progressPromise = Promise.resolve();
         await me.trap(me.setPipProgress(0));
 
-        const reset = await me.trap(workspace.resetTopology());
+        const reset = await me.trap(workspace.resetTopology('shipped'));
 
         const
             feedStore      = me.getStateProvider().getStore('feed'),

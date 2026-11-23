@@ -1,6 +1,7 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
+ * @summary Model for the Global Code Sprint Leaderboard in the animated row sorting example.
  * @class Neo.examples.grid.animatedRowSorting.MainModel
  * @extends Neo.data.Model
  */

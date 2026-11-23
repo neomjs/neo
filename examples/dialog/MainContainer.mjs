@@ -1,11 +1,14 @@
-import Button     from '../../src/button/Base.mjs';
-import CheckBox   from '../../src/form/field/CheckBox.mjs';
-import DemoDialog from './DemoDialog.mjs';
-import NeoArray   from '../../src/util/Array.mjs';
-import Toolbar    from '../../src/toolbar/Base.mjs';
-import Viewport   from '../../src/container/Viewport.mjs';
+import Button        from '../../src/button/Base.mjs';
+import Component     from '../../src/component/Base.mjs';
+import CheckBox      from '../../src/form/field/CheckBox.mjs';
+import List          from '../../src/list/Base.mjs';
+import ThemeSwitcher from '../../src/button/ThemeSwitcher.mjs';
+import Toolbar       from '../../src/toolbar/Base.mjs';
+import Viewport      from '../../src/container/Viewport.mjs';
+import DemoDialog    from './DemoDialog.mjs';
 
 /**
+ * @summary Displays a contact list and opens an editor for the selected contact.
  * @class Neo.examples.dialog.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -17,46 +20,46 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.dialog.MainContainer',
         /**
-         * We are not using a container layout here
-         * @member {String} layout='base'
+         * @member {String[]} cls
+         */
+        cls: ['neo-dialog-contact-scene'],
+        /**
+         * @member {Object} layout
          * @reactive
          */
-        layout: 'base',
-        /**
-         * @member {Object} style={padding:'20px'}
-         */
-        style: {padding: '20px'},
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {Object[]} items
          */
         items: [{
-            html: [
-                '<h3>The dialog is invoked from the "Create Dialog" button</h3>',
-                '<h1>Hide it by pressing the ESCAPE key. The button will be refocused</h1>'
-            ].join('')
+            module: Component,
+            flex  : 'none',
+            vdom  : {tag: 'header', cn: [
+                {tag: 'h1', text: 'Studio contacts'},
+                {tag: 'p', text: 'Edit a contact, drag its title bar, or open another editor.'}
+            ]}
         }, {
             module: Toolbar,
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'center', gap: '0.5em 1em', wrap: 'wrap'},
             items : [{
                 module   : Button,
+                reference: 'editorOpener',
                 handler  : 'up.createDialog',
-                iconCls  : 'fa fa-window-maximize',
-                reference: 'create-dialog-button',
-                text     : 'Create Dialog',
+                text     : 'Edit selected contact'
             }, {
                 module        : CheckBox,
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onBoundaryContainerIdChange'},
-                style         : {marginLeft: '3em'},
-                valueLabel    : 'Limit Drag&Drop to the document.body'
+                valueLabel    : 'Keep inside window'
             }, {
                 module        : CheckBox,
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onConfigChange'},
-                style         : {marginLeft: '3em'},
                 targetConfig  : 'animated',
                 valueLabel    : 'Animated'
             }, {
@@ -65,68 +68,121 @@ class MainContainer extends Viewport {
                 hideLabel     : true,
                 hideValueLabel: false,
                 listeners     : {change: 'up.onConfigChange'},
-                style         : {marginLeft: '1em'},
                 targetConfig  : 'modal',
                 valueLabel    : 'Modal'
             }, '->', {
-                module : Button,
-                handler: 'up.switchTheme',
-                iconCls: 'fa fa-moon',
-                text   : 'Theme Dark'
+                module: ThemeSwitcher
             }]
+        }, {
+            module     : List,
+            reference  : 'contactList',
+            cls        : ['neo-dialog-contact-list'],
+            activeIndex: 0,
+            store      : {
+                model: {fields: [
+                    {name: 'id', type: 'String'},
+                    {name: 'name', type: 'String'},
+                    {name: 'team', type: 'String'},
+                    {name: 'email', type: 'String'}
+                ]},
+                data: [
+                    {id: 'avery', name: 'Avery Chen', team: 'design', email: 'avery@example.com'},
+                    {id: 'riley', name: 'Riley Patel', team: 'engineering', email: 'riley@example.com'},
+                    {id: 'morgan', name: 'Morgan Reyes', team: 'production', email: 'morgan@example.com'},
+                    {id: 'jordan', name: 'Jordan Kim', team: 'operations', email: 'jordan@example.com'}
+                ]
+            }
         }]
     }
 
     /**
-     * Custom class field which gets passed to the dialog. Either a dom node id, 'document.body' or null
      * @member {String|null} boundaryContainerId='document.body'
      */
-    boundaryContainerId = 'document.body'
+    boundaryContainerId = 'document.body';
     /**
-     * Custom class field to store the created dialog.Base instance
-     * @member {Neo.dialog.Base|null} dialog=null
+     * @member {Neo.examples.dialog.DemoDialog|null} dialog=null
      */
-    dialog = null
-
+    dialog = null;
     /**
-     * @param {Object} data
+     * @member {Boolean} #landingOpened=false
      */
-    createDialog(data) {
-        let me                                       = this,
-            button                                   = data.component,
-            {appName, boundaryContainerId, windowId} = me;
-
-        button.disabled = true;
-
-        me.dialog = Neo.create(DemoDialog, {
-            animated               : me.down({valueLabel: 'Animated'}).checked,
-            appName,
-            boundaryContainerId,
-            listeners              : {close: me.onWindowClose, scope: me},
-            modal                  : me.down({valueLabel: 'Modal'}).checked,
-            trapFocus              : true,
-            optionalAnimateTargetId: button.id,
-            title                  : 'Dialog 1',
-            windowId
-        })
-    }
+    #landingOpened = false;
 
     /**
-     * @param {Object} opts
+     * @summary Opens the first editor after its real focus-return target has mounted.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
      */
-    onBoundaryContainerIdChange(opts) {
-        let me                  = this,
-            {dialog}            = me,
-            boundaryContainerId = opts.value ? 'document.body' : null;
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
 
-        me.boundaryContainerId = boundaryContainerId
+        if (value && !this.#landingOpened) {
+            this.#landingOpened = true;
 
-        if (dialog) {
-            dialog.boundaryContainerId = boundaryContainerId
+            const opener = this.getReference('editorOpener');
+
+            opener.mountedPromise.then(() => {
+                if (!this.isDestroyed && this.mounted && !this.dialog) {
+                    this.createDialog({component: opener})
+                }
+            })
         }
     }
 
     /**
+     * @summary Applies the viewport theme to the open editors attached to the document.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        for (let editor = this.dialog; editor; editor = editor.dialog) {
+            editor.theme = value
+        }
+    }
+
+    /**
+     * @summary Opens the selected contact's editor with the button as its focus-return target.
+     * @param {Object} data
+     */
+    createDialog(data) {
+        if (this.dialog) return;
+
+        const list   = this.getReference('contactList'),
+              itemId = list.selectionModel?.items[0],
+              record = (itemId && list.store.get(list.getItemRecordId(itemId))) || list.store.getAt(0);
+
+        this.dialog = Neo.create(DemoDialog, {
+            animated               : this.down({valueLabel: 'Animated'}).checked,
+            appName                : this.appName,
+            boundaryContainerId    : this.boundaryContainerId,
+            listeners              : {close: this.onWindowClose, scope: this},
+            modal                  : this.down({valueLabel: 'Modal'}).checked,
+            optionalAnimateTargetId: data.component.id,
+            record,
+            theme                  : this.getTheme(),
+            trapFocus              : true,
+            windowId               : this.windowId
+        })
+    }
+
+    /**
+     * @summary Centers drag confinement on the current page when selected.
+     * @param {Object} opts
+     */
+    onBoundaryContainerIdChange(opts) {
+        this.boundaryContainerId = opts.value ? 'document.body' : null;
+
+        for (let editor = this.dialog; editor; editor = editor.dialog) {
+            editor.boundaryContainerId = this.boundaryContainerId
+        }
+    }
+
+    /**
+     * @summary Applies the scene controls to the open editor.
      * @param {Object} opts
      */
     onConfigChange(opts) {
@@ -135,49 +191,18 @@ class MainContainer extends Viewport {
         }
     }
 
-    /**
-     *
-     */
+    /** @summary Releases the closed top-level editor. */
     onWindowClose() {
-        this.dialog = null;
-        this.getReference('create-dialog-button').disabled = false
+        this.dialog = null
     }
 
     /**
-     * @param {Object} data
+     * @summary Tears down any editor still attached to the document.
+     * @param {...*} args Arguments to pass to the superclass destroy method.
      */
-    switchTheme(data) {
-        let button     = data.component,
-            buttonText = 'Theme Light',
-            dialog     = this.dialog,
-            iconCls    = 'fa fa-sun',
-            oldTheme   = 'neo-theme-light',
-            theme      = 'neo-theme-dark',
-            cls;
-
-        if (button.text === 'Theme Light') {
-            buttonText = 'Theme Dark';
-            iconCls    = 'fa fa-moon';
-            oldTheme   = 'neo-theme-dark';
-            theme      = 'neo-theme-light';
-        }
-
-        Neo.main.DomAccess.setBodyCls({
-            add     : [theme],
-            remove  : [oldTheme],
-            windowId: this.windowId
-        });
-
-        button.set({
-            iconCls,
-            text: buttonText
-        });
-
-        if (dialog) {
-            cls = dialog.cls;
-            NeoArray.removeAdd(cls, oldTheme, theme);
-            dialog.cls = cls
-        }
+    destroy(...args) {
+        this.dialog?.destroy(true);
+        super.destroy(...args)
     }
 }
 

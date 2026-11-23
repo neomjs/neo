@@ -99,20 +99,29 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.component.Base}
+     * @summary Returns the `Neo.list.Circle` config bound to `MainStore`.
+     * @returns {Object}
      */
     createExampleComponent() {
-        let list = Neo.create({
-            module : CircleList,
-            animate: true,
-            height : 1000,
-            store  : MainStore,
-            width  : 1000
-        });
+        // Three 260 px circles a row fit the stage at 1440 px; the list's stylesheet caps it at a narrower stage
+        return {
+            module    : CircleList,
+            animate   : true,
+            height    : 560,
+            itemHeight: 260,
+            itemWidth : 260,
+            store     : MainStore,
+            width     : 800
+        }
+    }
 
-        list.store.on('sort', this.onStoreSort, this);
+    /**
+     * @summary Subscribes to `MainStore` sort changes once the circle list is constructed.
+     */
+    onConstructed() {
+        super.onConstructed();
 
-        return list
+        this.exampleComponent.store.on('sort', this.onStoreSort, this)
     }
 
     /**

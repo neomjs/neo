@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-theme-coverage
- * @summary Baselined guard for the two-layer SCSS split: every `resources/scss/src/<pkg>/` package
+ * @summary Baselined guard for the two-layer theme split: every `resources/css/src/<pkg>/` package
  * that renders user-visible chrome needs values in BOTH primary themes (`theme-neo-dark/<pkg>/` +
  * `theme-neo-light/<pkg>/`). A naive "every package has a theme layer" rule is unimplementable —
  * structure/behavior packages (`layout`, `plugin`, `filter`, …) are legitimately theme-free — so
@@ -39,16 +39,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
        */
       BASELINE_ZERO_COVERAGE = {
           filter : 'data-filtering behavior package — renders no user-visible chrome of its own',
-          global : 'engine resets/utilities — theme values live in the theme Global.scss + design-tokens layer',
           layout : 'flex/grid positioning only — structure, no paint',
           plugin : 'behavior augmentations — no chrome of its own',
           sitemap: 'single-file utility — no chrome of its own'
       },
 
       DEFAULT_PATHS = {
-          srcDir  : path.join(repoRoot, 'resources/scss/src'),
-          darkDir : path.join(repoRoot, 'resources/scss/theme-neo-dark'),
-          lightDir: path.join(repoRoot, 'resources/scss/theme-neo-light')
+          srcDir  : path.join(repoRoot, 'resources/css/src'),
+          darkDir : path.join(repoRoot, 'resources/css/theme-neo-dark'),
+          lightDir: path.join(repoRoot, 'resources/css/theme-neo-light')
       };
 
 /**
@@ -62,22 +61,22 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * @type {String[]}
  */
 export const SCAN_SURFACE = Object.freeze(
-    Object.values(DEFAULT_PATHS).map(dir => `${path.relative(repoRoot, dir)}/**/*.scss`)
+    Object.values(DEFAULT_PATHS).map(dir => `${path.relative(repoRoot, dir)}/**/*.css`)
 );
 
 /**
  * @param {String} dir
- * @returns {Boolean} true when dir exists and holds at least one .scss file, recursively.
+ * @returns {Boolean} true when dir exists and holds at least one .css file, recursively.
  */
-function hasScss(dir) {
+function hasCss(dir) {
     if (!fs.existsSync(dir)) return false;
 
     for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
         const full = path.join(dir, entry.name);
 
         if (entry.isDirectory()) {
-            if (hasScss(full)) return true;
-        } else if (entry.name.endsWith('.scss')) {
+            if (hasCss(full)) return true;
+        } else if (entry.name.endsWith('.css')) {
             return true;
         }
     }
@@ -89,7 +88,7 @@ function hasScss(dir) {
  * @summary Collect every theme-coverage violation for the given tree. Pure over the filesystem —
  * no process.exit, no logging.
  * @param {Object} [options]
- * @param {String} [options.srcDir]   the structure layer root (`resources/scss/src`)
+ * @param {String} [options.srcDir]   the structure layer root (`resources/css/src`)
  * @param {String} [options.darkDir]  theme-neo-dark root
  * @param {String} [options.lightDir] theme-neo-light root
  * @param {Object<String,String>} [options.baseline] known zero-coverage packages → justification
@@ -119,8 +118,8 @@ export function collectThemeCoverageFailures({
     }
 
     for (const pkg of packages) {
-        const dark  = hasScss(path.join(darkDir,  pkg)),
-              light = hasScss(path.join(lightDir, pkg));
+        const dark  = hasCss(path.join(darkDir,  pkg)),
+              light = hasCss(path.join(lightDir, pkg));
 
         if (dark && light) {
             if (pkg in baseline) {
@@ -135,7 +134,7 @@ export function collectThemeCoverageFailures({
 
     for (const pkg of Object.keys(baseline)) {
         if (!packages.includes(pkg)) {
-            failures.push(`[stale-row] baseline names ${pkg} but resources/scss/src/${pkg} does not exist — remove the row`);
+            failures.push(`[stale-row] baseline names ${pkg} but resources/css/src/${pkg} does not exist — remove the row`);
         }
     }
 

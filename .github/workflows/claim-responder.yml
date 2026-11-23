@@ -1,94 +1,734 @@
-# Answers a claim on a curated issue (`good first issue`, `help wanted`) within a minute, because no maintainer is
-# online around the clock. The reply says either "first in line, start now" or who holds the issue, plus claimable
-# alternatives. It never assigns: a maintainer confirms the assignment, and that step is also what screens out
-# accounts that spray claims. The rules live in buildScripts/util/claimResponse.mjs and its spec; this file only
-# fetches and posts.
+# Answers claim comments on curated issues (`good first issue`, `help wanted`) because no maintainer is online around
+# the clock, and counts outside pull requests targeting curated issues as claims:
 #
-# The comment is untrusted input. github-script reads it from the event payload, it is never interpolated into a shell
-# step, and the job checks out nothing but that module, from the default branch an `issue_comment` run uses.
+# - `issue_comment` (`created`): assigns first-in-line outside claimants under their standing cap (clearing any lapsed
+#   >3-day silent outside assignee), names holders on held issues, and offers rotated alternatives. An unrecognized
+#   outside comment gets one claiming hint per account on an unclaimed issue; a hint never reserves it.
+# - `pull_request_target` (`opened`, `reopened`, `edited`, `closed`): requests assignment for outside authors targeting
+#   unclaimed curated issues (attaching authors GitHub permits — issue commenters or the issue author — without
+#   fabricating issue comments), posts neutral overlap or residual-scope notices on held or already-completed issues,
+#   reconciles bot-created PR assignments safely when targets are removed, posts one deduplicated release notice on
+#   open curated issues when an unmerged PR closes at or after the active release boundary (`vars.NEO_CLAIM_RELEASE_SINCE`
+#   or `CLAIM_RELEASE_SINCE`; disabled while `null`), and catches errors on `closed` events with a warning so closed
+#   heads never carry stuck failed checks.
+#
+# Security boundary: `pull_request_target` runs with repository write permissions against fork PRs, so this workflow
+# accepts direct Engine events and `workflow_call` with zero inputs, verifies `job.workflow_sha` is a full 40-character
+# commit SHA, and fetches ONLY the three pure rule modules from `neomjs/neo` at `${{ job.workflow_sha }}` through the
+# contents API (making the running script and rule modules one reviewed commit by construction). It has no checkout
+# step: on a merged close that commit is the pull request's own merge commit, which `actions/checkout` refuses for a
+# fork. It never reads caller repository or pull request head files, treats event fields strictly as data, resolves
+# hidden team membership through collaborator permission lookups on the target repository, and owns the sole
+# repository-wide `claim-responder` concurrency group on `jobs.respond` (thin sibling callers omit `concurrency:` so
+# parent and child jobs never deadlock on the same group).
 name: Claim responder
 
 on:
   issue_comment:
     types: [created]
+  pull_request_target:
+    types: [opened, reopened, edited, closed]
+  workflow_call:
 
 permissions:
-  contents: read       # the sparse checkout of the reply module
-  issues: write        # the reply comment
-  pull-requests: read  # the issue's open linked pull requests
-
-concurrency:
-  group: claim-responder-${{ github.event.issue.number }}
-  cancel-in-progress: false
-  queue: max
+  contents: read       # the three rule modules, read at job.workflow_sha through the contents API
+  issues: write        # auto-assignment and release notices on curated issues
+  pull-requests: write # overlap and residual-scope notices on pull requests
 
 jobs:
   respond:
     if: >-
-      !github.event.issue.pull_request &&
-      github.event.issue.state == 'open' &&
-      github.event.comment.user.type != 'Bot' &&
-      !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.comment.author_association) &&
-      (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
+      (
+        github.event_name == 'issue_comment' &&
+        !github.event.issue.pull_request &&
+        github.event.issue.state == 'open' &&
+        github.event.comment.user.type != 'Bot' &&
+        !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.comment.author_association) &&
+        (contains(github.event.issue.labels.*.name, 'good first issue') || contains(github.event.issue.labels.*.name, 'help wanted'))
+      ) || (
+        github.event_name == 'pull_request_target' &&
+        github.event.pull_request.user.type != 'Bot' &&
+        (
+          github.event.action == 'closed' ||
+          !contains(fromJSON('["COLLABORATOR","MEMBER","OWNER"]'), github.event.pull_request.author_association)
+        )
+      )
+    concurrency:
+      group: claim-responder
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check out the reply module
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          sparse-checkout: buildScripts/util/claimResponse.mjs
-          sparse-checkout-cone-mode: false
+      - name: Verify defining workflow commit
+        env:
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [[ ! "$WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::job.workflow_sha must resolve to a full 40-character neomjs/neo commit SHA."
+            exit 1
+          fi
+
+      - name: Fetch the reply modules
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKFLOW_SHA: ${{ job.workflow_sha }}
+        run: |
+          mkdir -p buildScripts/util
+          for module in claimResponse.mjs contributorStanding.mjs claimGuidance.mjs; do
+            gh api -H 'Accept: application/vnd.github.raw' \
+              "repos/neomjs/neo/contents/buildScripts/util/${module}?ref=${WORKFLOW_SHA}" > "buildScripts/util/${module}"
+            test -s "buildScripts/util/${module}"
+          done
 
       - name: Answer the claim
         uses: actions/github-script@v9
+        env:
+          NEO_CLAIM_RELEASE_SINCE: ${{ vars.NEO_CLAIM_RELEASE_SINCE }}
         with:
           script: |
-            const {curatedLabel, decideReply} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
-            const {owner, repo}                = context.repo;
+            const {
+              CLAIM_RELEASE_SINCE, TEAM_ASSOCIATIONS, changedCloseTargets, closeTargets, curatedLabel, decideClaim,
+              decidePullRequestRelease, decidePullRequestTarget, decideTargetRemoval, decideWithdrawal, isClaim,
+              isOutsideHuman, isTeamPermission, isWithdrawal
+            } = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimResponse.mjs`);
+            const {decideClaimHint} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/claimGuidance.mjs`);
+            const {owner, repo} = context.repo;
+
+            const
+              LINKED_PR_STATES    = new Set(['OPEN', 'CLOSED', 'MERGED']),
+              MAX_LINKED_PR_PAGES = 20,
+              REPO_NAME_PATTERN   = /^[^/\s]+\/[^/\s]+$/;
+
+            const loadCompleteLinkedPrRefs = async (issueNumber, {includeClosedPrs = false, pageSize = 50} = {}) => {
+              const
+                collected   = [],
+                seenCursors = new Set();
+              let after = null;
+
+              for (let page = 0; page < MAX_LINKED_PR_PAGES; page++) {
+                let linked;
+                try {
+                  linked = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!, $first: Int!, $after: String, $includeClosedPrs: Boolean!) {
+                    repository(owner: $owner, name: $repo) {
+                      issue(number: $number) {
+                        closedByPullRequestsReferences(first: $first, after: $after, includeClosedPrs: $includeClosedPrs) {
+                          pageInfo { hasNextPage endCursor }
+                          nodes { number state merged author { login } repository { nameWithOwner } }
+                        }
+                      }
+                    }
+                  }`, {after, first: pageSize, includeClosedPrs, number: issueNumber, owner, repo});
+                } catch (error) {
+                  throw new Error(`Incomplete state read for #${issueNumber}: ${error.message}`)
+                }
+
+                const
+                  refs     = linked?.repository?.issue?.closedByPullRequestsReferences,
+                  pageInfo = refs?.pageInfo,
+                  nodes    = refs?.nodes;
+
+                if (!refs || typeof refs !== 'object' || !Array.isArray(nodes) ||
+                  !pageInfo || typeof pageInfo !== 'object' || typeof pageInfo.hasNextPage !== 'boolean' ||
+                  (pageInfo.endCursor !== undefined && pageInfo.endCursor !== null && typeof pageInfo.endCursor !== 'string')) {
+                  throw new Error(`Incomplete state read for #${issueNumber}: missing or malformed pagination metadata`)
+                }
+
+                for (const node of nodes) {
+                  // GitHub GraphQL redacts inaccessible private cross-repository PR references as explicit `null` entries.
+                  if (node === null) continue;
+                  const repoName = node?.repository?.nameWithOwner;
+                  if (typeof node !== 'object' || !Number.isSafeInteger(node.number) || node.number < 1 ||
+                    !LINKED_PR_STATES.has(node.state) ||
+                    typeof repoName !== 'string' || !REPO_NAME_PATTERN.test(repoName) ||
+                    (node.author != null && (typeof node.author !== 'object' || typeof node.author.login !== 'string' || !node.author.login.trim())) ||
+                    (includeClosedPrs && (typeof node.merged !== 'boolean' || node.merged !== (node.state === 'MERGED')))) {
+                    throw new Error(`Incomplete state read for #${issueNumber}: malformed linked pull request node`)
+                  }
+                  collected.push(node)
+                }
+
+                if (pageInfo.hasNextPage === false) {
+                  return collected
+                }
+
+                if (typeof pageInfo.endCursor !== 'string' || !pageInfo.endCursor ||
+                  seenCursors.has(pageInfo.endCursor) || nodes.length < 1) {
+                  throw new Error(`Incomplete state read for #${issueNumber}: missing or non-advancing pagination cursor`)
+                }
+
+                if (page + 1 >= MAX_LINKED_PR_PAGES) {
+                  throw new Error(`Incomplete state read for #${issueNumber}: exceeded pagination bound`)
+                }
+
+                seenCursors.add(pageInfo.endCursor);
+                after = pageInfo.endCursor
+              }
+
+              throw new Error(`Incomplete state read for #${issueNumber}: exceeded pagination bound`)
+            };
+
+            const loadTargetState = async (issueNumber, {includeClosedPrs = true} = {}) => {
+              const [{data: issue}, comments, events, linkedNodes] = await Promise.all([
+                github.rest.issues.get({owner, repo, issue_number: issueNumber}),
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issueNumber, per_page: 100}),
+                github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issueNumber, per_page: 100}),
+                loadCompleteLinkedPrRefs(issueNumber, {includeClosedPrs, pageSize: 50})
+              ]);
+              if (!issue || typeof issue !== 'object' || issue.number !== issueNumber ||
+                !Array.isArray(comments) || !Array.isArray(events)) {
+                throw new Error(`Incomplete state read for #${issueNumber}`)
+              }
+              return {
+                comments,
+                events,
+                issue,
+                mergedPullRequests: linkedNodes
+                  .filter(pr => pr.merged === true)
+                  .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner})),
+                openPullRequests  : linkedNodes
+                  .filter(pr => pr.state === 'OPEN')
+                  .map(pr => ({number: pr.number, author: pr.author?.login, repository: pr.repository?.nameWithOwner}))
+              }
+            };
+
+            if (context.eventName === 'pull_request_target' || context.payload.pull_request) {
+              const
+                action      = context.payload.action,
+                pullRequest = context.payload.pull_request,
+                repoFull    = `${owner}/${repo}`,
+                repoLower   = repoFull.toLowerCase(),
+                repoUrl     = `https://github.com/${owner}/${repo}`;
+
+              if (!pullRequest || pullRequest.user?.type === 'Bot') {
+                core.info('No action: missing pull request or bot author.');
+                return
+              }
+
+              // `author_association` hides private membership on pull requests, so non-Bots check collaborator permission.
+              const isOutsidePrAuthor = async (userObj, association) => {
+                if (!userObj || userObj.type === 'Bot') return false;
+                if (typeof userObj.login !== 'string' || !userObj.login || !Number.isSafeInteger(userObj.id) || userObj.id < 1) {
+                  throw new Error(`Incomplete pull request author identity for PR #${pullRequest.number}`)
+                }
+                if (TEAM_ASSOCIATIONS.includes(association)) return false;
+                const {data} = await github.rest.repos.getCollaboratorPermissionLevel({owner, repo, username: userObj.login});
+                return !isTeamPermission(data?.permission)
+              };
+
+              const readClaimLimit = async login => {
+                let claimLimit = 1;
+                try {
+                  const {claimLimit: limitForStanding} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+                  if (typeof limitForStanding !== 'function') throw new Error('claim limit export unavailable');
+                  const {data} = await github.rest.search.issuesAndPullRequests({
+                    q: `org:neomjs is:public is:pr is:merged author:${login}`,
+                    per_page: 1
+                  });
+                  if (!data || data.incomplete_results !== false || !Number.isSafeInteger(data.total_count) || data.total_count < 0) {
+                    throw new Error('merged pull request count is incomplete or invalid')
+                  }
+                  const resolved = limitForStanding(data.total_count);
+                  if (![1, 2].includes(resolved)) throw new Error('claim limit is invalid');
+                  claimLimit = resolved
+                } catch (error) {
+                  core.warning(`Could not resolve contributor standing; using one-claim limit: ${error.message}`)
+                }
+                return claimLimit
+              };
+
+              const findCandidates = async label => github.rest.search.issuesAndPullRequests({
+                q       : `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
+                per_page: 50
+              }).then(({data}) => data.items.map(item => item.number)).catch(error => {
+                core.warning(`Could not list alternative issues: ${error.message}`);
+                return []
+              });
+
+              if (action === 'closed') {
+                try {
+                  const targets = closeTargets(pullRequest.body, repoFull);
+                  if (targets.length < 1) {
+                    core.info(`No action: PR #${pullRequest.number} has no close targets.`);
+                    return
+                  }
+
+                  if (pullRequest.merged === true) {
+                    const mergedStates = new Map();
+                    for (const issueNumber of targets) {
+                      mergedStates.set(issueNumber, await loadTargetState(issueNumber));
+                    }
+
+                    const pendingNotices = [];
+                    for (const issueNumber of targets) {
+                      const state = mergedStates.get(issueNumber);
+                      const label = curatedLabel(state.issue);
+                      if (!label) continue;
+
+                      const otherOpen = state.openPullRequests.filter(pr =>
+                        pr.number !== pullRequest.number && String(pr.repository || '').toLowerCase() === repoLower
+                      );
+
+                      for (const openRef of otherOpen) {
+                        const {data: openPr} = await github.rest.pulls.get({owner, repo, pull_number: openRef.number});
+                        if (!(await isOutsidePrAuthor(openPr.user, openPr.author_association))) continue;
+
+                        const [prComments, candidates] = await Promise.all([
+                          github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: openPr.number, per_page: 100}),
+                          findCandidates(label)
+                        ]);
+                        const mergedPullRequests = [
+                          {number: pullRequest.number, author: pullRequest.user.login, repository: repoFull},
+                          ...state.mergedPullRequests
+                        ];
+                        const decision = decidePullRequestTarget({
+                          candidates,
+                          issue      : {...state.issue, state: 'closed'},
+                          mergedPullRequests,
+                          prComments,
+                          pullRequest: openPr,
+                          repoUrl
+                        });
+
+                        if (decision?.prNotice) {
+                          pendingNotices.push({body: decision.prNotice, issueNumber, openPrNumber: openPr.number})
+                        }
+                      }
+                    }
+
+                    for (const {body, issueNumber, openPrNumber} of pendingNotices) {
+                      await github.rest.issues.createComment({owner, repo, issue_number: openPrNumber, body});
+                      core.info(`Posted completed-issue residual notice on #${openPrNumber} for #${issueNumber}.`)
+                    }
+                    return
+                  }
+
+                  if (!(await isOutsidePrAuthor(pullRequest.user, pullRequest.author_association))) {
+                    core.info(`No release notice: PR #${pullRequest.number} is from the team or a bot.`);
+                    return
+                  }
+
+                  const
+                    envReleaseSince = process.env.NEO_CLAIM_RELEASE_SINCE?.trim(),
+                    releaseSince    = envReleaseSince ? envReleaseSince : CLAIM_RELEASE_SINCE;
+
+                  if (releaseSince === null) {
+                    core.info(`No release notice: release activation gate is disabled for PR #${pullRequest.number}.`);
+                    return
+                  }
+
+                  const initialStates = new Map();
+                  for (const issueNumber of targets) {
+                    initialStates.set(issueNumber, await loadTargetState(issueNumber));
+                  }
+
+                  const eligibleTargets = [];
+                  for (const issueNumber of targets) {
+                    const state1 = initialStates.get(issueNumber);
+                    const first  = decidePullRequestRelease({
+                      comments        : state1.comments,
+                      events          : state1.events,
+                      issue           : state1.issue,
+                      openPullRequests: state1.openPullRequests,
+                      pullRequest,
+                      releaseSince,
+                      repoUrl
+                    });
+                    if (first) {
+                      eligibleTargets.push(issueNumber)
+                    }
+                  }
+
+                  // Finish final re-reads and release decisions across all eligible targets before posting the first notice.
+                  const pendingReleases = [];
+                  for (const issueNumber of eligibleTargets) {
+                    const state2 = await loadTargetState(issueNumber);
+                    const fresh  = decidePullRequestRelease({
+                      comments        : state2.comments,
+                      events          : state2.events,
+                      issue           : state2.issue,
+                      openPullRequests: state2.openPullRequests,
+                      pullRequest,
+                      releaseSince,
+                      repoUrl
+                    });
+                    if (!fresh) {
+                      core.info(`Release notice suppressed after race re-check on #${issueNumber}.`);
+                      continue
+                    }
+                    pendingReleases.push({body: fresh.body, issueNumber})
+                  }
+
+                  for (const {body, issueNumber} of pendingReleases) {
+                    await github.rest.issues.createComment({owner, repo, issue_number: issueNumber, body});
+                    core.info(`Posted release notice on #${issueNumber} for closed PR #${pullRequest.number}.`)
+                  }
+                } catch (error) {
+                  core.warning(`Closed-event claim handling skipped for PR #${pullRequest?.number}: ${error.message}`)
+                }
+                return
+              }
+
+              if (!['opened', 'reopened', 'edited'].includes(action)) {
+                return
+              }
+
+              if (!(await isOutsidePrAuthor(pullRequest.user, pullRequest.author_association))) {
+                core.info(`No claim action: PR #${pullRequest.number} is from the team or a bot.`);
+                return
+              }
+
+              const {added, removed} = changedCloseTargets({
+                action,
+                changes   : context.payload.changes,
+                pullRequest,
+                repository: repoFull
+              });
+
+              if (added.length < 1 && removed.length < 1) {
+                core.info(`No claim action: no close-target delta on PR #${pullRequest.number}.`);
+                return
+              }
+
+              // Preflight every affected target (removals + additions) and caller state before mutating any issue.
+              const allTargets   = [...new Set([...removed, ...added])];
+              const stateByIssue = new Map();
+              for (const issueNumber of allTargets) {
+                stateByIssue.set(issueNumber, await loadTargetState(issueNumber));
+              }
+
+              const removals = [];
+              for (const issueNumber of removed) {
+                const state   = stateByIssue.get(issueNumber);
+                const removal = decideTargetRemoval({
+                  comments        : state.comments,
+                  events          : state.events,
+                  issue           : state.issue,
+                  openPullRequests: state.openPullRequests,
+                  pullRequest,
+                  repository      : repoFull
+                });
+                if (removal.unassign) {
+                  removals.push({assignee: removal.assignee, issueNumber})
+                }
+              }
+
+              let additions = null;
+              if (added.length > 0) {
+                const removedSet = new Set(removals.map(entry => entry.issueNumber));
+                const [claimLimit, prComments, assignedIssues] = await Promise.all([
+                  readClaimLimit(pullRequest.user.login),
+                  github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: pullRequest.number, per_page: 100}),
+                  github.paginate(github.rest.issues.listForRepo, {
+                    assignee: pullRequest.user.login,
+                    owner,
+                    per_page: 100,
+                    repo,
+                    state   : 'open'
+                  })
+                ]);
+                const heldByAuthor = assignedIssues
+                  .filter(item => !item.pull_request && curatedLabel(item) && !removedSet.has(item.number))
+                  .map(item => item.number);
+                additions = {claimLimit, heldByAuthor, prComments};
+              }
+
+              for (const {assignee, issueNumber} of removals) {
+                await github.rest.issues.removeAssignees({assignees: [assignee], issue_number: issueNumber, owner, repo});
+                core.info(`Unassigned ${assignee} from #${issueNumber} after close target removal.`)
+              }
+
+              if (!additions) {
+                return
+              }
+
+              const {claimLimit, heldByAuthor, prComments} = additions;
+
+              for (const issueNumber of added) {
+                const state = stateByIssue.get(issueNumber);
+                const label = curatedLabel(state.issue);
+                if (!label) continue;
+
+                const candidates = await findCandidates(label);
+                const decision   = decidePullRequestTarget({
+                  candidates,
+                  claimLimit,
+                  comments          : state.comments,
+                  events            : state.events,
+                  heldByAuthor,
+                  issue             : state.issue,
+                  mergedPullRequests: state.mergedPullRequests,
+                  openPullRequests  : state.openPullRequests,
+                  prComments,
+                  pullRequest,
+                  repoUrl
+                });
+
+                if (!decision) {
+                  continue
+                }
+
+                if (decision.assign) {
+                  try {
+                    const {data: updated} = await github.rest.issues.addAssignees({
+                      assignees   : [pullRequest.user.login],
+                      issue_number: state.issue.number,
+                      owner,
+                      repo
+                    });
+                    const assigned = (updated?.assignees || []).some(
+                      assignee => String(assignee.login).toLowerCase() === pullRequest.user.login.toLowerCase()
+                    );
+
+                    if (assigned) {
+                      if (!heldByAuthor.includes(state.issue.number)) {
+                        heldByAuthor.push(state.issue.number)
+                      }
+                      if (decision.unassign?.length > 0) {
+                        try {
+                          await github.rest.issues.removeAssignees({
+                            assignees   : decision.unassign,
+                            issue_number: state.issue.number,
+                            owner,
+                            repo
+                          })
+                        } catch (unassignError) {
+                          core.warning(`Could not unassign lapsed claimant(s) ${decision.unassign.join(', ')}: ${unassignError.message}`)
+                        }
+                      }
+                    } else {
+                      core.warning(`GitHub did not attach ${pullRequest.user.login} as assignee on #${state.issue.number}.`)
+                    }
+                  } catch (error) {
+                    core.warning(`Could not auto-assign ${pullRequest.user.login} on #${state.issue.number}: ${error.message}`)
+                  }
+                } else if (decision.prNotice) {
+                  await github.rest.issues.createComment({owner, repo, issue_number: pullRequest.number, body: decision.prNotice});
+                  prComments.push({
+                    body: decision.prNotice,
+                    id  : prComments.length + 1,
+                    user: {login: 'github-actions[bot]', type: 'Bot'}
+                  });
+                  core.info(`Posted overlap notice on PR #${pullRequest.number} for #${state.issue.number}.`)
+                }
+              }
+              return
+            }
+
             const {comment, issue: eventIssue} = context.payload;
-            const {data: issue}                = await github.rest.issues.get({owner, repo, issue_number: eventIssue.number});
-            const label                        = curatedLabel(issue);
+            const claimComment                 = isClaim(comment?.body);
+            const withdrawalComment            = !claimComment && isWithdrawal(comment?.body);
+
+            if (!isOutsideHuman(comment)) {
+              core.info('No reply: not an outside contributor.');
+              return
+            }
+
+            const {data: issue} = await github.rest.issues.get({owner, repo, issue_number: eventIssue.number});
+            const label         = curatedLabel(issue);
 
             if (issue.state !== 'open' || !label) {
               core.info('No reply: issue is closed or no longer curated.');
               return
             }
 
-            const comments = await github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100});
+            if (!claimComment && !withdrawalComment) {
+              const repoUrl = `https://github.com/${owner}/${repo}`;
+              const hint = state => decideClaimHint({...state, comment, repoUrl, now: new Date().toISOString()});
+              if (!hint(await loadTargetState(issue.number, {includeClosedPrs: false}))) return;
 
-            const linked = await github.graphql(`query($owner: String!, $repo: String!, $number: Int!) {
-              repository(owner: $owner, name: $repo) {
-                issue(number: $number) {
-                  closedByPullRequestsReferences(first: 20, includeClosedPrs: false) {
-                    nodes { number state author { login } repository { nameWithOwner } }
-                  }
+              // Reconcile delivered hints and holders again just before writing, including newer claim comments.
+              const body = hint(await loadTargetState(issue.number, {includeClosedPrs: false}));
+              if (body) {
+                await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body});
+                core.info(`Posted claiming guidance for ${comment.user.login}.`)
+              }
+              return
+            }
+
+            if (withdrawalComment) {
+              const
+                author          = String(comment.user?.login || '').toLowerCase(),
+                matchedAssignee = (issue.assignees || []).find(assignee => String(assignee?.login || '').toLowerCase() === author);
+
+              if (!matchedAssignee) {
+                core.info('No unassign: withdrawing commenter is not assigned.');
+                return
+              }
+
+              if (typeof github.rest.repos?.getCollaboratorPermissionLevel === 'function') {
+                const {data: permissionData} = await github.rest.repos.getCollaboratorPermissionLevel({
+                  owner,
+                  repo,
+                  username: matchedAssignee.login
+                });
+                if (isTeamPermission(permissionData?.permission)) {
+                  core.info('No unassign: assignee holds team permission.');
+                  return
                 }
               }
-            }`, {owner, repo, number: issue.number});
+
+              const [comments, events, linkedNodes] = await Promise.all([
+                github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100}),
+                github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issue.number, per_page: 100}),
+                loadCompleteLinkedPrRefs(issue.number, {includeClosedPrs: false, pageSize: 50})
+              ]);
+
+              const openPullRequests = linkedNodes
+                .filter(pullRequest => pullRequest.state === 'OPEN')
+                .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
+
+              const decision = decideWithdrawal({
+                comment,
+                comments,
+                events,
+                issue,
+                openPullRequests,
+                repoUrl: `https://github.com/${owner}/${repo}`
+              });
+
+              if (!decision) {
+                core.info('No unassign: withdrawal already processed or ineligible.');
+                return
+              }
+
+              try {
+                const {data: updated} = await github.rest.issues.removeAssignees({
+                  assignees   : [decision.unassign],
+                  issue_number: issue.number,
+                  owner,
+                  repo
+                });
+                const stillAssigned = !Array.isArray(updated?.assignees) || updated.assignees.some(
+                  assignee => String(assignee?.login || '').toLowerCase() === String(decision.unassign).toLowerCase()
+                );
+
+                if (stillAssigned) {
+                  core.warning(`GitHub did not remove ${decision.unassign} as assignee on #${issue.number}.`);
+                  return
+                }
+              } catch (error) {
+                core.warning(`Could not unassign ${decision.unassign} on #${issue.number}: ${error.message}`);
+                return
+              }
+
+              await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body: decision.body});
+              core.info(`Unassigned ${decision.unassign} on withdrawal.`);
+              return
+            }
+
+            // Count the contributor's public merged PRs once. Failure leaves the existing one-claim rule and the
+            // first-time greeting in force.
+            let claimLimit = 1, welcomeBack = false;
+            try {
+              const {claimLimit: limitForStanding, standing} = await import(`${process.env.GITHUB_WORKSPACE}/buildScripts/util/contributorStanding.mjs`);
+              if (typeof limitForStanding !== 'function' || typeof standing !== 'function') throw new Error('claim limit export unavailable');
+              const {data} = await github.rest.search.issuesAndPullRequests({
+                q: `org:neomjs is:public is:pr is:merged author:${comment.user.login}`,
+                per_page: 1
+              });
+              if (!data || data.incomplete_results !== false || !Number.isSafeInteger(data.total_count) || data.total_count < 0) {
+                throw new Error('merged pull request count is incomplete or invalid')
+              }
+              const resolved = limitForStanding(data.total_count);
+              if (![1, 2].includes(resolved)) throw new Error('claim limit is invalid');
+              claimLimit  = resolved;
+              welcomeBack = standing(data.total_count).rung !== null
+            } catch (error) {
+              core.warning(`Could not resolve contributor standing; using one-claim limit: ${error.message}`)
+            }
+
+            const [comments, events, linkedNodes] = await Promise.all([
+              github.paginate(github.rest.issues.listComments, {owner, repo, issue_number: issue.number, per_page: 100}),
+              github.paginate(github.rest.issues.listEvents,   {owner, repo, issue_number: issue.number, per_page: 100}),
+              loadCompleteLinkedPrRefs(issue.number, {includeClosedPrs: false, pageSize: 50})
+            ]);
 
             // `repository` is each pull request's base: one inside a contributor's fork only mentions the issue
-            const openPullRequests = linked.repository.issue.closedByPullRequestsReferences.nodes
+            const openPullRequests = linkedNodes
               .filter(pullRequest => pullRequest.state === 'OPEN')
               .map(pullRequest => ({number: pullRequest.number, author: pullRequest.author?.login, repository: pullRequest.repository?.nameWithOwner}));
 
-            const search = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
-              per_page: 50
-            });
+            const [candidates, assignedIssues] = await Promise.all([
+              github.rest.search.issuesAndPullRequests({
+                q       : `repo:${owner}/${repo} is:issue is:open label:"${label}" no:assignee -linked:pr`,
+                per_page: 50
+              }).then(({data}) => data.items.map(item => item.number)).catch(error => {
+                core.warning(`Could not list alternative issues: ${error.message}`);
+                return []
+              }),
+              github.paginate(github.rest.issues.listForRepo, {
+                assignee: comment.user.login,
+                owner,
+                per_page: 100,
+                repo,
+                state   : 'open'
+              })
+            ]);
 
-            const body = decideReply({
-              candidates: search.data.items.map(item => item.number),
+            const heldByClaimant = assignedIssues
+              .filter(item => !item.pull_request && curatedLabel(item) && item.number !== issue.number)
+              .map(item => item.number);
+
+            const decision = decideClaim({
+              candidates,
+              claimLimit,
               comment,
               comments,
+              events,
+              heldByClaimant,
               issue,
               openPullRequests,
-              repoUrl   : `https://github.com/${owner}/${repo}`
+              repoUrl   : `https://github.com/${owner}/${repo}`,
+              welcomeBack
             });
 
-            if (!body) {
-              core.info('No reply: not a claim, the assignee, or a claimant already answered here.');
+            if (!decision) {
+              core.info('No reply: the assignee, or a claimant already answered here.');
               return
+            }
+
+            // Keep one refusal per claimant and issue. If the edit fails, a rerun can retry the same update.
+            if (decision.updateCommentId !== undefined) {
+              await github.rest.issues.updateComment({owner, repo, comment_id: decision.updateCommentId, body: decision.body});
+              return
+            }
+
+            let body = decision.body;
+
+            if (decision.assign) {
+              try {
+                const {data: updated} = await github.rest.issues.addAssignees({
+                  assignees   : [comment.user.login],
+                  issue_number: issue.number,
+                  owner,
+                  repo
+                });
+                const assigned = (updated?.assignees || []).some(
+                  assignee => String(assignee.login).toLowerCase() === String(comment.user.login).toLowerCase()
+                );
+
+                if (assigned && decision.assignedBody) {
+                  body = decision.assignedBody;
+
+                  if (decision.unassign?.length > 0) {
+                    try {
+                      await github.rest.issues.removeAssignees({
+                        assignees   : decision.unassign,
+                        issue_number: issue.number,
+                        owner,
+                        repo
+                      })
+                    } catch (unassignError) {
+                      core.warning(`Could not unassign lapsed claimant(s) ${decision.unassign.join(', ')}: ${unassignError.message}`)
+                    }
+                  }
+                } else {
+                  core.warning(`GitHub did not attach ${comment.user.login} as assignee; posting fallback reply.`)
+                }
+              } catch (error) {
+                core.warning(`Could not auto-assign ${comment.user.login}: ${error.message}`)
+              }
             }
 
             await github.rest.issues.createComment({owner, repo, issue_number: issue.number, body});

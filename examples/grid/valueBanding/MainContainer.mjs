@@ -1,53 +1,68 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import Component             from '../../../src/component/Base.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import GridContainer         from '../../../src/grid/Container.mjs';
 import MainStore             from './MainStore.mjs';
-import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
+ * @summary Demonstrates country and department value banding on a repeatable staff directory.
  * @class Neo.examples.grid.valueBanding.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.grid.valueBanding.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 130,
-        configPanelFlex     : 1.5,
-        exampleComponentFlex: 3,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className             : 'Neo.examples.grid.valueBanding.MainContainer',
+        autoMount             : true,
+        cls                   : ['neo-examples-grid-value-banding'],
+        configItemLabelWidth  : 190,
+        configItemWidth       : 280,
+        configPanelFlex       : 'none',
+        configPanelMinWidth   : 300,
+        configPanelMaxWidth   : 320,
+        exampleComponentFlex  : 1,
+        exampleContainerConfig: {layout: {ntype: 'vbox', align: 'stretch'}},
+        layout                : {ntype: 'hbox', align: 'stretch'}
     }
 
+    /** @summary Explains the visible bands and offers independent banding and row-stripe controls. */
     createConfigurationComponents() {
         let me = this;
 
         return [{
-            module   : NumberField,
-            labelText: 'height',
-            listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 800,
-            minValue : 225,
-            stepSize : 5,
-            value    : me.exampleComponent.height
+            module: Component,
+            cls   : ['value-banding-introduction'],
+            vdom  : {cn: [{
+                tag : 'h2',
+                text: 'Staff by country'
+            }, {
+                tag : 'p',
+                text: 'Country banding keeps the same tint for consecutive country cells. Switch on Department banding for a second level; compare it with alternating row stripes.'
+            }, {
+                tag : 'p',
+                text: '100 fictional colleagues · sorted by country, then department.'
+            }]}
         }, {
             module   : CheckBox,
             checked  : false,
-            labelText: 'stripedRows',
+            labelText: 'Alternate row stripes',
             listeners: {change: me.onStripedRowsChange.bind(me)},
-            style    : {marginTop: '10px'}
+            name     : 'stripedRows'
         }, {
             module   : CheckBox,
-            checked  : true,
-            labelText: 'useValueBanding (Dept)',
+            checked  : false,
+            labelText: 'Department banding',
             listeners: {change: me.onUseValueBandingChange.bind(me, 'department')},
-            style    : {marginTop: '10px'}
+            name     : 'departmentBanding'
         }]
     }
 
+    /** @summary Fills the stage with a sorted directory; country banding is the initial single level. */
     createExampleComponent() {
         return {
-            module: GridContainer,
-            store : MainStore,
+            module   : GridContainer,
+            flex     : 1,
+            rowHeight: 32,
+            store    : MainStore,
 
             columnDefaults: {
                 width: 150
@@ -58,20 +73,16 @@ class MainContainer extends ConfigurationViewport {
             },
 
             columns: [
-                {dataField: 'id',         text: 'ID'},
-                {dataField: 'country',    text: 'Country',    useValueBanding: true},
-                {dataField: 'department', text: 'Department', useValueBanding: true},
-                {dataField: 'role',       text: 'Role'},
-                {dataField: 'firstname',  text: 'Firstname'}
-            ],
-
-            wrapperStyle: {
-                height: '400px'
-            }
+                {dataField: 'country',    text: 'Country',    useValueBanding: true, width: 125},
+                {dataField: 'department', text: 'Department', useValueBanding: false, width: 155},
+                {dataField: 'name',       text: 'Colleague', flex: 1, minWidth: 180},
+                {dataField: 'role',       text: 'Role', width: 180}
+            ]
         }
     }
 
     /**
+     * @summary Toggles ordinary alternating rows independently of the value bands.
      * @param {Object} opts
      */
     onStripedRowsChange(opts) {
@@ -79,6 +90,7 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
+     * @summary Adds or removes department banding without changing country banding or sorting.
      * @param {String} dataField
      * @param {Object} opts
      */

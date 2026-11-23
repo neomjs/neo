@@ -1,0 +1,64 @@
+[
+    {
+        "id": "file-explorer",
+        "family": "tree",
+        "alsoIn": ["drag-drop"],
+        "order": 1490,
+        "component": "Tree List",
+        "feature": "Drag files between folders, rename in place, and filter while keeping matched paths.",
+        "lookFor": "Drag a file onto another folder, double-click a name to rename it, type into the filter, then open logs: its 365 files load when it first opens.",
+        "featured": false,
+        "image": "devmode/file-explorer-14.jpg",
+        "hasLightCover": true,
+        "name": "File Explorer",
+        "sharedWorkers": false,
+        "sourceUrl": "examples/fileExplorer",
+        "urls": {
+            "devmode": "examples/fileExplorer/index.html",
+            "dist_dev": "dist/development/examples/fileExplorer/index.html",
+            "dist_esm": "dist/esm/examples/fileExplorer/index.html",
+            "dist_prod": "dist/production/examples/fileExplorer/index.html"
+        },
+        "hiddenIn": []
+    },
+    {
+        "id": "tree-list",
+        "kind": "component",
+        "image": "devmode/tiles/tree-14.jpg",
+        "hasLightCover": true,
+        "name": "Tree list",
+        "sourceUrl": "examples/tree",
+        "urls": {
+            "devmode": "examples/tree/index.html",
+            "dist_dev": "dist/development/examples/tree/index.html",
+            "dist_esm": "dist/esm/examples/tree/index.html",
+            "dist_prod": "dist/production/examples/tree/index.html"
+        },
+        "hiddenIn": [],
+        "family": "tree",
+        "order": 1500,
+        "component": "Tree List",
+        "feature": "A music library whose tracks, or whole albums, drag into a playlist",
+        "lookFor": "Drag a track onto the playlist, then drag an album: it brings every track it holds. Turn on DragZone.leafNodesOnly in the panel and only tracks drag."
+    },
+    {
+        "id": "tree-accordion",
+        "kind": "component",
+        "image": "devmode/tiles/treeAccordion-14.jpg",
+        "hasLightCover": true,
+        "name": "Tree accordion",
+        "sourceUrl": "examples/treeAccordion",
+        "urls": {
+            "devmode": "examples/treeAccordion/index.html",
+            "dist_dev": "dist/development/examples/treeAccordion/index.html",
+            "dist_esm": "dist/esm/examples/treeAccordion/index.html",
+            "dist_prod": "dist/production/examples/treeAccordion/index.html"
+        },
+        "hiddenIn": [],
+        "family": "tree",
+        "order": 1510,
+        "component": "Tree Accordion",
+        "feature": "An app's settings in sections that open and close, headed by the setting selected",
+        "lookFor": "Open Notifications and pick Quiet hours, then move through the settings with the arrow keys and pick one with Enter."
+    }
+]

@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Container      from '../../../../src/container/Base.mjs';
 import Viewport       from '../../../../src/container/Viewport.mjs';
 import WorkerBase     from '../../../../src/worker/Base.mjs';
 
@@ -27,7 +28,8 @@ const appName = 'ViewportBodyThemeTest';
  * exists to remove, arriving through its own fix.
  */
 test.describe('Neo.container.Viewport — body-theme publication', () => {
-    let calls             = [],
+    let applyBodyCalls    = [],
+        calls             = [],
         departed          = false,
         original          = null,
         originalDeparted  = undefined,
@@ -36,9 +38,10 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
         viewport          = null;
 
     test.beforeEach(() => {
-        calls      = [];
-        rejectWith = null;
-        departed   = false;
+        applyBodyCalls = [];
+        calls          = [];
+        rejectWith     = null;
+        departed       = false;
 
         Neo.currentWorker ??= {};
         originalDeparted   = Neo.currentWorker.isWindowDeparted;
@@ -54,7 +57,9 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
             setBodyCls  : Neo.main.DomAccess.setBodyCls
         };
 
-        Neo.main.DomAccess.applyBodyCls = () => {};
+        Neo.main.DomAccess.applyBodyCls = data => {
+            applyBodyCalls.push(data)
+        };
         // The real call is a remote method: it ALWAYS answers a promise, and `syncBodyTheme` attaches
         // its terminal handler to that promise. A stub returning a plain value would let a missing
         // handler pass unnoticed here while throwing in production.
@@ -81,6 +86,7 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
     test('an explicit theme at construction is published once', () => {
         viewport = Neo.create(Viewport, {appName, autoMount: false, theme: 'neo-theme-neo-light'});
 
+        expect(applyBodyCalls).toHaveLength(1);
         expect(calls).toHaveLength(1);
         expect(published()).toBe('neo-theme-neo-light');
         expect(viewport.getTheme()).toBe('neo-theme-neo-light');
@@ -197,6 +203,33 @@ test.describe('Neo.container.Viewport — body-theme publication', () => {
 
         viewport.theme = null;
 
+        expect(applyBodyCalls).toHaveLength(0);
         expect(calls).toHaveLength(0);
+    });
+
+    test('a nested viewport inside a parent container touches neither neo-body-viewport nor body theme', () => {
+        const host = Neo.create(Container, {appName, theme: 'neo-theme-neo-dark'});
+
+        try {
+            const nested = host.add({
+                module   : Viewport,
+                autoMount: false,
+                theme    : 'neo-theme-dark'
+            });
+
+            expect(nested.parentId).toBe(host.id);
+            expect(nested.getTheme()).toBe('neo-theme-dark');
+
+            nested.theme = 'neo-theme-light';
+            expect(nested.getTheme()).toBe('neo-theme-light');
+
+            nested.theme = null;
+            expect(nested.getTheme()).toBe('neo-theme-neo-dark');
+
+            expect(applyBodyCalls).toHaveLength(0);
+            expect(calls).toHaveLength(0)
+        } finally {
+            host.destroy()
+        }
     })
 });

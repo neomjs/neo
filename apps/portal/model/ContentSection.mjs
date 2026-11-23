@@ -15,10 +15,16 @@ class ContentSection extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'anchor',
+            type: 'String'
+        }, {
             name: 'id',
             type: 'String'
         }, {
             name: 'name',
+            type: 'String'
+        }, {
+            name: 'sourceId',
             type: 'String'
         }, {
             name: 'tag',

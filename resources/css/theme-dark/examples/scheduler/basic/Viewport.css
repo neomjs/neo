@@ -1,0 +1,11 @@
+:where(.neo-theme-dark) {
+    --studio-header-bg    : var(--grid-container-border-color, #2b2b2b);
+    --studio-border       : #4b5052;
+    --studio-title        : #e8eaed;
+    --studio-muted        : var(--neo-color);
+    --studio-control-bg   : var(--grid-container-cell-background-color, #3c3f41);
+    --studio-hover-bg     : var(--grid-cell-background-color-hover, #54595c);
+    --studio-selected-bg  : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+    --studio-selected-text: #1e242b;
+    --studio-focus        : var(--grid-rowmodel-selected-cell-background-color, #64b5f6);
+}

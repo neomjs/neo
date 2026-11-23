@@ -1,0 +1,222 @@
+:where(.neo-theme-neo-dark) {
+    /* .neo-button – Styles that will be inherited by ALL button styles */
+    --button-margin                             : var(--cmp-button-gap);
+    --button-text-font-family                   : var(--core-fontfamily-sans);
+    --button-text-font-weight                   : var(--core-fontweight-semibold);
+    --button-text-line-height                   : inherit;
+    --button-text-transform                     : none;
+    --button-border-radius                      : var(--cmp-button-borderradius);
+    --button-border-width                       : var(--cmp-button-borderwidth);
+    --button-badge-background-color             : var(--sem-color-fg-neutral-contrast);
+    --button-badge-color                        : var(--sem-color-fg-neutral-inverted);
+    --button-badge-margin-left                  : -10px;
+    --button-badge-margin-top                   : -10px;
+
+    /* {module: Button; ui: null (neutral application control)} ––––––––––––––––––––––––––––
+       Background Color */
+    --button-background-color                   : var(--cmp-button-secondary-surface-default);
+    --button-background-color-active            : var(--cmp-button-secondary-surface-active);
+    --button-background-color-disabled          : var(--cmp-button-secondary-surface-disabled);
+    --button-background-color-hover             : var(--cmp-button-secondary-surface-hover);
+    --button-background-color-pressed           : var(--sem-color-surface-primary-background);
+
+    /* Border */
+    --button-border                             : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-border-active                      : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-border-disabled                    : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled);
+    --button-border-hover                       : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-border-pressed                     : var(--cmp-button-borderwidth) solid var(--sem-color-surface-primary-default);
+
+    /* Text Color */
+    --button-text-color                         : var(--sem-color-text-neutral-default);
+    --button-text-color-hover                   : var(--sem-color-text-neutral-contrast);
+    --button-text-color-active                  : var(--sem-color-text-neutral-contrast);
+    --button-text-color-disabled                : var(--sem-color-text-disabled);
+    --button-text-color-pressed                 : var(--sem-color-text-neutral-contrast);
+
+    /* Icon Color */
+    --button-glyph-color                        : var(--sem-color-icon-neutral-default);
+    --button-glyph-color-hover                  : var(--sem-color-icon-neutral-contrast);
+    --button-glyph-color-active                 : var(--sem-color-icon-neutral-contrast);
+    --button-glyph-color-disabled               : var(--sem-color-text-disabled);
+    --button-glyph-color-pressed                : var(--sem-color-icon-neutral-contrast);
+    --button-glyph-margin                       : 1px 6px 0 0;
+
+    --button-background-image                   : none;
+    --button-background-gradient-end            : #323536;
+    --button-background-gradient-start          : #434749;
+    --button-opacity-disabled                   : inherit;
+    --button-outline-active                     : none;
+    --button-ripple-background-color            : #435DB1;
+    --button-use-gradients                      : false;
+
+    /* {module: Button; ui: --primary} –––––––––––––––––––––––––––––––––––––––––––––––––––––
+       Background Color */
+    --button-primary-background-color           : var(--cmp-button-primary-surface-default);
+    --button-primary-background-color-active    : var(--cmp-button-primary-surface-active);
+    --button-primary-background-color-disabled  : var(--cmp-button-primary-surface-disabled);
+    --button-primary-background-color-hover     : var(--cmp-button-primary-surface-hover);
+    --button-primary-background-color-pressed   : var(--cmp-button-primary-surface-active);
+
+    /* Border */
+    --button-primary-border                     : none;
+    --button-primary-border-active              : none;
+    --button-primary-border-disabled            : none;
+    --button-primary-border-hover               : none;
+    --button-primary-border-pressed             : none;
+
+    /* Text Color */
+    --button-primary-text-color                 : var(--cmp-button-primary-text-default);
+    --button-primary-text-color-hover           : var(--cmp-button-primary-text-default);
+    --button-primary-text-color-active          : var(--cmp-button-primary-text-default);
+    --button-primary-text-color-disabled        : var(--cmp-button-primary-text-disabled);
+    --button-primary-text-color-pressed         : var(--sem-color-text-neutral-contrast);
+
+    /* Icon Color */
+    --button-primary-glyph-color                : var(--cmp-button-primary-text-default);
+    --button-primary-glyph-color-hover          : var(--cmp-button-primary-text-default);
+    --button-primary-glyph-color-active         : var(--cmp-button-primary-text-default);
+    --button-primary-glyph-color-disabled       : var(--cmp-button-primary-text-disabled);
+    --button-primary-glyph-color-pressed        : var(--sem-color-text-neutral-contrast);
+
+    --button-primary-background-image           : none;
+    --button-primary-badge-background-color     : var(--button-badge-background-color);
+    --button-primary-badge-color                : var(--button-badge-color);
+    --button-primary-opacity-disabled           : inherit;
+    --button-primary-ripple-background-color    : #435DB1;
+
+    /* {module: Button; ui: --secondary}  ––––––––––––––––––––––––––––––––––––––––––––––––––
+       Background Color */
+    --button-secondary-background-color         : var(--cmp-button-secondary-surface-default);
+    --button-secondary-background-color-hover   : var(--cmp-button-secondary-surface-hover);
+    --button-secondary-background-color-active  : var(--cmp-button-secondary-surface-active);
+    --button-secondary-background-color-disabled: var(--cmp-button-secondary-surface-disabled);
+    --button-secondary-background-color-pressed : var(--sem-color-surface-primary-background);
+
+    /* Border */
+    --button-secondary-border                   : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-secondary-border-hover             : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-secondary-border-active            : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
+    --button-secondary-border-disabled          : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled);
+    --button-secondary-border-pressed           : var(--cmp-button-borderwidth) solid var(--sem-color-surface-primary-default);
+
+    /* Text Color */
+    --button-secondary-text-color               : var(--sem-color-text-neutral-default);
+    --button-secondary-text-color-hover         : var(--sem-color-text-neutral-contrast);
+    --button-secondary-text-color-active        : var(--sem-color-text-neutral-contrast);
+    --button-secondary-text-color-disabled      : var(--sem-color-text-disabled);
+    --button-secondary-text-color-pressed       : var(--sem-color-text-neutral-contrast);
+
+    /* Icon Color */
+    --button-secondary-glyph-color              : var(--sem-color-icon-neutral-default);
+    --button-secondary-glyph-color-hover        : var(--sem-color-icon-neutral-contrast);
+    --button-secondary-glyph-color-active       : var(--sem-color-icon-neutral-contrast);
+    --button-secondary-glyph-color-disabled     : var(--sem-color-text-disabled);
+    --button-secondary-glyph-color-pressed      : var(--sem-color-icon-neutral-contrast);
+
+    --button-secondary-background-image         : none;
+    --button-secondary-badge-background-color   : transparent;
+    --button-secondary-badge-color              : transparent;
+    --button-secondary-opacity-disabled         : none;
+    --button-secondary-ripple-background-color  : #435DB1;
+
+
+    /* {module: Button; ui: --ghost}  –––––––––––––––––––––––––––––––––––––––––––––––––––––--
+       Background Color */
+    --button-ghost-background-color             : var(--cmp-button-ghost-surface-default);
+    --button-ghost-background-color-hover       : var(--cmp-button-ghost-surface-hover);
+    --button-ghost-background-color-active      : var(--cmp-button-ghost-surface-active);
+    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-surface-disabled);
+    --button-ghost-background-color-pressed     : var(--cmp-button-primary-surface-default);
+
+    /* Border */
+    --button-ghost-border                       : none;
+    --button-ghost-border-active                : none;
+    --button-ghost-border-disabled              : inherit;
+    --button-ghost-border-hover                 : none;
+    --button-ghost-border-pressed               : none;
+
+    /* Text Color */
+    --button-ghost-text-color                   : var(--sem-color-text-neutral-default);
+    --button-ghost-text-color-hover             : var(--sem-color-text-neutral-contrast);
+    --button-ghost-text-color-active            : var(--sem-color-text-neutral-contrast);
+    --button-ghost-text-color-disabled          : var(--sem-color-text-disabled);
+    --button-ghost-text-color-pressed           : var(--sem-color-text-neutral-contrast);
+
+    /* Icon Color */
+    --button-ghost-glyph-color                  : var(--sem-color-icon-neutral-default);
+    --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
+    --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
+    --button-ghost-glyph-color-disabled         : var(--sem-color-text-disabled);
+    --button-ghost-glyph-color-pressed          : var(--sem-color-text-neutral-contrast);
+
+    --button-ghost-background-image             : none;
+    --button-ghost-badge-background-color       : transparent;
+    --button-ghost-badge-color                  : transparent;
+    --button-ghost-opacity-disabled             : inherit;
+    --button-ghost-ripple-background-color      : #435DB1;
+
+
+    /* {module: Button; ui: --tertiary}  –––––––––––––––––––––––––––––––––––––––––––––––––––
+       Background color */
+    --button-tertiary-background-color          : transparent;
+    --button-tertiary-background-color-hover    : transparent;
+    --button-tertiary-background-color-active   : transparent;
+    --button-tertiary-background-color-disabled : transparent;
+    --button-tertiary-background-color-pressed  : var(--cmp-button-primary-surface-default);
+
+    /* Border */
+    --button-tertiary-border                    : none;
+    --button-tertiary-border-hover              : none;
+    --button-tertiary-border-active             : none;
+    --button-tertiary-border-disabled           : none;
+    --button-tertiary-border-pressed            : none;
+
+    /* Text color */
+    --button-tertiary-text-color                : var(--sem-color-text-primary-default);
+    --button-tertiary-text-color-hover          : var(--sem-color-text-primary-default);
+    --button-tertiary-text-color-active         : var(--sem-color-text-neutral-contrast);
+    --button-tertiary-text-color-disabled       : var(--sem-color-text-disabled);
+    --button-tertiary-text-color-pressed        : var(--sem-color-text-neutral-contrast);
+
+    /* Icon color */
+    --button-tertiary-glyph-color               : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-active        : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-disabled      : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-hover         : var(--sem-color-icon-primary-default);
+    --button-tertiary-glyph-color-pressed       : var(--sem-color-text-neutral-contrast);
+
+    --button-tertiary-background-image          : none;
+    --button-tertiary-badge-background-color    : var(--button-badge-background-color);
+    --button-tertiary-badge-color               : var(--button-badge-color);
+    --button-tertiary-opacity-disabled          : var(--neo-disabled-opacity);
+    --button-tertiary-ripple-background-color   : inherit;
+
+    /* Moved out of a selector block: the rule is structural, only these values are the theme's. */
+    --button-tertiary-text-decoration           : underline;
+    --button-tertiary-text-decoration-color     : var(--sem-color-text-primary-default);
+    --button-tertiary-text-underline-offset     : 3px;
+}
+
+/* The three sizes a button's `size` config picks. The large one is the design system's call to action
+   (--cmp-button-height), for a button alone on a wide page. */
+:where(.neo-theme-neo-dark) {
+    --button-size-small-font-size : 0.75rem;
+    --button-size-small-height    : var(--height-24);
+    --button-size-small-padding   : 0 var(--sem-spacing-xsmall);
+    --button-size-medium-font-size: 0.875rem;
+    --button-size-medium-height   : var(--height-32);
+    --button-size-medium-padding  : 0 var(--sem-spacing-small);
+    --button-size-large-font-size : var(--core-fontsize-label);
+    --button-size-large-height    : var(--cmp-button-height);
+    --button-size-large-padding   : 0 var(--cmp-button-spacinghorizontal);
+}
+
+/* A button without a size is an app control: medium. A toolbar keeps this size under an ancestor that raises it, as
+   the Portal does, through `--toolbar-button-*` (toolbar/Base.css). */
+:where(.neo-theme-neo-dark) {
+    --button-height        : var(--button-size-medium-height);
+    --button-min-width     : var(--button-size-medium-height);
+    --button-padding       : var(--button-size-medium-padding);
+    --button-text-font-size: var(--button-size-medium-font-size);
+}

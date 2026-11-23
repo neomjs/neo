@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Content-Signal: search=yes, ai-input=yes
 
 Sitemap: https://neomjs.com/sitemap.xml

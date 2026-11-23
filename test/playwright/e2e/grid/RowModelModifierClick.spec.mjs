@@ -156,10 +156,11 @@ test.describe('RowModel modifierClickEvents in Grid and Table (#5102)', () => {
                     ctrlKey : Boolean(payload.data?.ctrlKey),
                     shiftKey: Boolean(payload.data?.shiftKey),
                     hasData : Boolean(payload.data),
-                    githubId: payload.record?.githubId ?? null
+                    recordId: payload.record ? String(table.store.getKey(payload.record)) : null
                 }));
             });
 
+            view.firstRecordId       = String(table.store.getKey(table.store.getAt(0)));
             view.selectionModelId    = model.id;
             view.selectionModelNtype = model.ntype;
         `;
@@ -170,16 +171,17 @@ test.describe('RowModel modifierClickEvents in Grid and Table (#5102)', () => {
 
         expect(success, 'App Worker table probe loaded').toBe(true);
 
-        const viewId                                  = await page.locator('.neo-table-body').first().getAttribute('id'),
-              [selectionModelId, selectionModelNtype] = await page.evaluate(id => Neo.worker.App.getConfigs({
+        const viewId                                                 = await page.locator('.neo-table-body').first().getAttribute('id'),
+              [firstRecordId, selectionModelId, selectionModelNtype] = await page.evaluate(id => Neo.worker.App.getConfigs({
                   id,
-                  keys: ['selectionModelId', 'selectionModelNtype']
+                  keys: ['firstRecordId', 'selectionModelId', 'selectionModelNtype']
               }), viewId),
               row  = page.locator('.neo-table-body .neo-table-row').first(),
               cell = row.locator('.neo-table-cell').first();
 
         expect(selectionModelNtype).toBe('selection-table-rowmodel');
         expect(selectionModelId).toBeTruthy();
+        expect(firstRecordId).toBeTruthy();
 
         const readLog = async () => (await page.evaluate(id => Neo.worker.App.getConfigs({
             id,
@@ -214,7 +216,7 @@ test.describe('RowModel modifierClickEvents in Grid and Table (#5102)', () => {
             ctrlKey  : true,
             shiftKey : false,
             hasData  : true,
-            githubId : 'tobiu'
+            recordId : firstRecordId
         }]);
         await expect(row).not.toHaveClass(/neo-selected/);
 
@@ -226,7 +228,7 @@ test.describe('RowModel modifierClickEvents in Grid and Table (#5102)', () => {
             ctrlKey  : false,
             shiftKey : true,
             hasData  : true,
-            githubId : 'tobiu'
+            recordId : firstRecordId
         }]);
         await expect(row).not.toHaveClass(/neo-selected/);
 
@@ -240,14 +242,14 @@ test.describe('RowModel modifierClickEvents in Grid and Table (#5102)', () => {
                 ctrlKey  : false,
                 shiftKey : false,
                 hasData  : false,
-                githubId : null
+                recordId : null
             },
             {
                 eventName: 'select',
                 ctrlKey  : false,
                 shiftKey : false,
                 hasData  : false,
-                githubId : 'tobiu'
+                recordId : firstRecordId
             }
         ]);
     });

@@ -1,0 +1,70 @@
+.zoom-viewport.neo-viewport {
+    .zoom-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--zoom-header-bg);
+        border-bottom: 1px solid var(--zoom-border);
+        flex-wrap    : wrap;
+        gap          : 8px 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+
+        .zoom-title    { color: var(--zoom-title); font-size: 18px; font-weight: 700; }
+        .zoom-subtitle { color: var(--zoom-muted); font-size: 12px; }
+
+        .zoom-levels {
+            background   : var(--zoom-track);
+            border       : 1px solid var(--zoom-border);
+            border-radius: 8px;
+            gap          : 2px;
+            padding      : 2px;
+        }
+
+        .zoom-level.neo-button {
+            --button-background-color        : transparent;
+            --button-background-color-active : var(--zoom-hover);
+            --button-background-color-hover  : var(--zoom-hover);
+            --button-background-color-pressed: var(--zoom-selected);
+            --button-border                  : 1px solid transparent;
+            --button-border-active           : 1px solid transparent;
+            --button-border-hover            : 1px solid transparent;
+            --button-border-pressed          : 1px solid var(--zoom-selected);
+            --button-text-color              : var(--zoom-muted);
+            --button-text-color-active       : var(--zoom-title);
+            --button-text-color-hover        : var(--zoom-title);
+            --button-text-color-pressed      : var(--zoom-selected-text);
+            border-radius: 6px;
+            font-size    : 13px;
+            font-weight  : 600;
+            min-height   : 30px;
+            min-width    : 64px;
+            padding      : 0 14px;
+
+            &.pressed {
+                background  : var(--zoom-selected);
+                border-color: var(--zoom-selected);
+
+                .neo-button-text { color: var(--zoom-selected-text); }
+            }
+
+            &:focus-visible { outline: 2px solid var(--zoom-focus); outline-offset: 2px; }
+        }
+    }
+
+    /* A bar too short to name its task shows its shape only: the tree column carries the name */
+    .neo-timeline-bar { container-type: inline-size; }
+
+    @container (max-width: 95px) {
+        .neo-timeline-bar-label { visibility: hidden; }
+    }
+}
+
+@media (max-width: 600px) {
+    .zoom-viewport.neo-viewport .zoom-toolbar.neo-toolbar {
+        gap    : 6px 8px;
+        padding: 8px 12px;
+
+        .zoom-title { font-size: 16px; }
+        .zoom-subtitle { display: none; }
+        .zoom-level.neo-button { min-width: 52px; padding: 0 10px; }
+    }
+}

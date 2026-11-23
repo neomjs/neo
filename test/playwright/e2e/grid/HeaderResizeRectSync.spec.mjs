@@ -151,15 +151,15 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
 
         assertAligned(await readPairs(page), 'baseline');
 
-        const before = await resizeColumn(page, 'Number 7', 160);
+        const before = await resizeColumn(page, 'May 2022', 160);
 
         // the gesture must have actually resized something, or the parity below is vacuous
-        const after = await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox();
+        const after = await page.locator('.neo-grid-header-button', {hasText: 'May 2022'}).first().boundingBox();
 
         expect(after.width, `the widen gesture engaged (before=${before.width} after=${after.width})`)
             .toBeGreaterThan(before.width + 20);
 
-        assertAligned(await readPairs(page), 'after widening "Number 7"')
+        assertAligned(await readPairs(page), 'after widening "May 2022"')
     });
 
     test('the header tracks the drag, not only the drop', async ({page}) => {
@@ -172,13 +172,13 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
 
         assertAligned(await readPairs(page), 'baseline');
 
-        const width = async () => (await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox()).width;
+        const width = async () => (await page.locator('.neo-grid-header-button', {hasText: 'May 2022'}).first().boundingBox()).width;
 
         const before = await width();
 
         let held = 0;
 
-        await resizeColumn(page, 'Number 7', 160, async () => {
+        await resizeColumn(page, 'May 2022', 160, async () => {
             // Non-vacuity: the hold assertion below is worthless unless the gesture has already
             // moved something at this point. A drag that never engaged leaves every rect at its
             // baseline, where alignment holds trivially.
@@ -242,16 +242,16 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
         // widen first: the column ships at the 100px `columnDefaults` width and `minWidth` is 100,
         // so there is no room to shrink from the shipped size — the narrow leg needs headroom, and
         // taking it through a real resize keeps the whole gesture chain under test.
-        await resizeColumn(page, 'Number 7', 200);
+        await resizeColumn(page, 'May 2022', 200);
         assertAligned(await readPairs(page), 'after the setup widen');
 
-        const before = await resizeColumn(page, 'Number 7', -120),
-              after  = await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox();
+        const before = await resizeColumn(page, 'May 2022', -120),
+              after  = await page.locator('.neo-grid-header-button', {hasText: 'May 2022'}).first().boundingBox();
 
         expect(after.width, `the narrow gesture engaged (before=${before.width} after=${after.width})`)
             .toBeLessThan(before.width - 20);
 
-        assertAligned(await readPairs(page), 'after narrowing "Number 7"')
+        assertAligned(await readPairs(page), 'after narrowing "May 2022"')
     });
 
     /**
@@ -283,8 +283,8 @@ test.describe('Grid header↔cell rect sync across a column resize', () => {
 
         assertAligned(await readPairs(page), 'baseline with a flex column present');
 
-        const before = await resizeColumn(page, 'Number 7', 160),
-              after  = await page.locator('.neo-grid-header-button', {hasText: 'Number 7'}).first().boundingBox();
+        const before = await resizeColumn(page, 'May 2022', 160),
+              after  = await page.locator('.neo-grid-header-button', {hasText: 'May 2022'}).first().boundingBox();
 
         expect(after.width, `the widen gesture engaged (before=${before.width} after=${after.width})`)
             .toBeGreaterThan(before.width + 20);

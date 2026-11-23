@@ -1,11 +1,25 @@
-import Model from './MainModel.mjs';
-import Store from '../../../src/data/Store.mjs';
+import Model                from './MainModel.mjs';
+import Store                from '../../../src/data/Store.mjs';
+import {createSeededRandom} from '../../../src/util/Random.mjs';
 
 /**
  * @class Neo.examples.grid.bigData.MainStore
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
+    /**
+     * The column amounts the Settings panel offers. The largest is the width the page title names.
+     * @member {Number[]} amountColumnsOptions
+     * @static
+     */
+    static amountColumnsOptions = [10, 25, 50, 75, 100, 200]
+    /**
+     * The row amounts the Settings panel offers. The largest is the height the page title names.
+     * @member {Number[]} amountRowsOptions
+     * @static
+     */
+    static amountRowsOptions = [1000, 5000, 10000, 20000, 50000, 100000]
+
     static config = {
         /**
          * @member {String} className='Neo.examples.grid.bigData.MainStore'
@@ -131,6 +145,8 @@ class MainStore extends Store {
     }
 
     /**
+     * @summary Draws the rows from a seeded generator, so a size opens on the same rows on every load: the first frame
+     * a visitor sees is the one the catalog cover shows.
      * @param {Number} amountRows
      * @param {Number} amountColumns
      * @returns {Object[]}
@@ -142,6 +158,7 @@ class MainStore extends Store {
             start            = performance.now(),
             amountFirstnames = me.firstnames.length,
             amountLastnames  = me.lastnames.length,
+            random           = createSeededRandom(),
             records          = [],
             row              = 0,
             column, record;
@@ -150,14 +167,14 @@ class MainStore extends Store {
             column = 7;
             record = {
                 id       : row + 1,
-                counter  : Math.round(Math.random() * 100),
-                firstname: me.firstnames[Math.floor(Math.random() * amountFirstnames)],
-                lastname : me.lastnames[ Math.floor(Math.random() * amountLastnames)],
-                progress : Math.round(Math.random() * 100)
+                counter  : Math.round(random() * 100),
+                firstname: me.firstnames[Math.floor(random() * amountFirstnames)],
+                lastname : me.lastnames[ Math.floor(random() * amountLastnames)],
+                progress : Math.round(random() * 100)
             };
 
             for (; column <= amountColumns; column++) {
-                record['number' + column] = Math.round(Math.random() * 10000)
+                record['number' + column] = Math.round(random() * 10000)
             }
 
             records.push(record)

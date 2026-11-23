@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
-import chalk           from 'chalk';
-import {spawnSync}     from 'child_process';
-import {Command}       from 'commander';
-import envinfo         from 'envinfo';
-import fs              from 'fs-extra';
-import inquirer        from 'inquirer';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import {sanitizeInput} from '../util/sanitizer.mjs';
+import chalk                     from 'chalk';
+import {spawnSync}               from 'child_process';
+import {Command}                 from 'commander';
+import envinfo                   from 'envinfo';
+import fs                        from 'fs-extra';
+import inquirer                  from 'inquirer';
+import path                      from 'path';
+import {fileURLToPath}           from 'url';
+import {isViewBaseClass}         from './class.mjs';
+import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
+import {sanitizeInput}           from '../util/sanitizer.mjs';
 
 const
     __dirname   = fileURLToPath(new URL('../', import.meta.url)),
@@ -37,8 +39,10 @@ program
     .option('-i, --info',              'print environment debug info')
     .option('-n, --singleton <value>', 'Create a singleton? Pick "yes" or "no"',                                                    sanitizeInput)
     .option('-s, --source <value>',    `name of the folder containing the project. Defaults to any of ${sourceRootDirs.join(',')}`, sanitizeInput)
-    .option('-b, --baseClass <value>', 'The base class to extend',                                                                  sanitizeInput)
-    .option('-c, --className <value>', 'The class name',                                                                            sanitizeInput)
+    .option('-b, --baseClass <value>',           'The base class to extend',                                                                  sanitizeInput)
+    .option('-c, --className <value>',           'The class name',                                                                            sanitizeInput)
+    .option('-C, --createController <value>',    'Create a matching controller.Component when generating a view? Pick "yes" or "no"',         sanitizeInput)
+    .option('-p, --createStateProvider <value>', 'Create a matching state.Provider when generating a view? Pick "yes" or "no"',               sanitizeInput)
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -66,6 +70,24 @@ if (programOpts.info) {
         .then(console.log);
 } else {
     console.log(chalk.green(programName));
+
+    const normalizedClassName = programOpts.className?.replace(/\.mjs$/, ''),
+          needsViewCompanions = Boolean(
+              normalizedClassName &&
+              isViewBaseClass(programOpts.baseClass) &&
+              (!normalizedClassName.startsWith('Neo.') || normalizedClassName.startsWith('Neo.examples'))
+          );
+
+    assertInteractivePrompt({
+        command: 'npm run create-component -- -c MyApp.view.MainComponent -b component.Base -n no -C no -p no',
+        missing: [
+            !programOpts.className                                  && 'className (-c)',
+            !programOpts.baseClass                                  && 'baseClass (-b)',
+            !programOpts.singleton                                  && 'singleton (-n)',
+            needsViewCompanions && !programOpts.createController    && 'createController (-C)',
+            needsViewCompanions && !programOpts.createStateProvider && 'createStateProvider (-p)'
+        ].filter(Boolean)
+    });
 
     let answers = {},
         answer;
@@ -114,7 +136,7 @@ if (programOpts.info) {
         });
     }
 
-    answer = await inquirer.prompt(questions);
+    answer = questions.length ? await inquirer.prompt(questions) : {};
 
     Object.assign(answers, answer);
 
@@ -135,8 +157,8 @@ if (programOpts.info) {
 
     const scssClassName = getScssClassName(className, rootLowerCase);
 
-    let childProcess = spawnSync('node', [
-        './buildScripts/create/class.mjs',
+    const classArgs = [
+        path.join(__dirname, 'create/class.mjs'),
         '-c',
         className,
         '-b',
@@ -145,15 +167,20 @@ if (programOpts.info) {
         singleton,
         '-r',
         scssClassName
-    ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
+    ];
+
+    programOpts.createController    && classArgs.push('-C', programOpts.createController);
+    programOpts.createStateProvider && classArgs.push('-p', programOpts.createStateProvider);
+
+    let childProcess = spawnSync('node', classArgs, {env: process.env, cwd: process.cwd(), stdio: 'inherit'});
     childProcess.status && process.exit(childProcess.status);
 
 
-    //create scss stubs only if it is a NEO component or a view component
+    //create css stubs only if it is a NEO component or a view component
     const resultView = ns.filter(f => f === 'view');
     if (rootLowerCase === 'neo' || resultView.length > 0) {
         let childProcess = spawnSync('node', [
-            './buildScripts/create/scss.mjs',
+            path.join(__dirname, 'create/css.mjs'),
             '-c',
             className,
             '-b',
@@ -165,7 +192,7 @@ if (programOpts.info) {
     // create only example stub when it is a NEO component
     if (rootLowerCase === 'neo') {
         let childProcess = spawnSync('node', [
-            './buildScripts/create/example.mjs',
+            path.join(__dirname, 'create/example.mjs'),
             //        '--',
             '-c',
             className
@@ -175,7 +202,7 @@ if (programOpts.info) {
 
     //re-build the themes
     let buildThemes = spawnSync('node', [
-        './buildScripts/build/themes.mjs',
+        path.join(__dirname, 'build/themes.mjs'),
         //        '--',
         '-f',
         '-e',
@@ -185,17 +212,15 @@ if (programOpts.info) {
     buildThemes.status && process.exit(buildThemes.status);
 
 
-    // start the dev server
-    if (rootLowerCase === 'neo') {
+    // start the dev server in interactive TTY sessions only
+    if (rootLowerCase === 'neo' && process.stdin.isTTY) {
         let temp = className.split('.');
         temp.splice(0, 1); //remove Neo namespace
         let componentPath = `/examples/${temp.join('/')}`;
         componentPath     = componentPath.toLowerCase();
 
-        let startServer = spawnSync('webpack', [
-            'serve',
-            '-c',
-            './buildScripts/webpack/webpack.server.config.mjs',
+        let startServer = spawnSync(process.execPath, [
+            path.join(__dirname, 'util/fileServer.mjs'),
             '--open',
             componentPath
         ], {env: process.env, cwd: process.cwd(), stdio: 'inherit'});

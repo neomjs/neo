@@ -789,16 +789,20 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
     });
 
     test.describe('Group refresh classification', () => {
-        const geometry = {operation: 'resizeSplit'},
-              itemFlag = {operation: 'setItemLocked'};
+        const activation = {operation: 'setActiveItem'},
+              geometry   = {operation: 'resizeSplit'},
+              itemFlag   = {operation: 'setItemLocked'};
 
         for (const [name, descriptor, expected] of [
             ['one geometry operation', {operations: [geometry]}, {geometryOnly: true}],
             ['different geometry operations', {operations: [geometry, {operation: 'resizeEdgeZone'}]}, {geometryOnly: true}],
             ['item flags', {operations: [itemFlag, itemFlag]}, {retainTopology: true}],
+            ['activations', {operations: [activation, activation]}, {retainTopology: true}],
             ['scalar geometry', geometry, {geometryOnly: true}],
             ['scalar item flag', itemFlag, {retainTopology: true}],
+            ['scalar activation', activation, {retainTopology: true}],
             ['mixed classes', {operations: [geometry, itemFlag]}, {}],
+            ['activation beside geometry', {operations: [activation, geometry]}, {}],
             ['structural operation', {operations: [geometry, {operation: 'moveItem'}]}, {}],
             ['unknown final operation', {operations: [geometry, {operation: 'futureOperation'}]}, {}],
             ['unknown first operation', {operations: [{operation: 'futureOperation'}, geometry]}, {}],
@@ -855,6 +859,35 @@ test.describe('Neo.dashboard.dock.Workspace', () => {
             } finally {
                 set.destroy()
             }
+        });
+
+        test('a real activation lands in place: the shell stays, the card switches, a parked lazy pane loads (#20958)', async () => {
+            workspace = Neo.create(LazyPaneTearOutWorkspace, {dockModel: createDocument()});
+
+            const shell              = workspace.getDockHost().items[0],
+                  tabs               = shell.down({dockNodeId: 'side-tabs', dockNodeType: 'tabs'}),
+                  afterRefresh       = workspace.afterRefreshDockWorkspace.bind(workspace),
+                  descriptor         = {operation: 'setActiveItem', tabsNodeId: 'side-tabs', itemId: 'terminal'},
+                  {document, errors} = Operations.setActiveItem(workspace.dockModel, descriptor);
+
+            let outcome;
+
+            workspace.afterRefreshDockWorkspace = context => {
+                outcome = context.result;
+                return afterRefresh(context)
+            };
+
+            expect(errors).toEqual([]);
+            expect(workspace.moduleLoads, 'the terminal card has never shown').toBe(0);
+
+            workspace.onDockZoneDocumentChange(document, descriptor);
+            await workspace.refreshPromise;
+
+            expect(outcome?.landedInPlace, 'the actual reconciler accepted stable topology').toBe(true);
+            expect(workspace.getDockHost().items[0], 'the shell survives').toBe(shell);
+            expect(shell.down({dockNodeId: 'side-tabs', dockNodeType: 'tabs'}), 'and so does the tabs node').toBe(tabs);
+            expect(tabs.activeIndex).toBe(1);
+            await expect.poll(() => workspace.moduleLoads, {message: 'the parked lazy pane loads on activation'}).toBe(1)
         })
     });
 
@@ -4094,6 +4127,62 @@ test('the holder contract: a config-assigned document is readable before any ope
         expect(playArgs.map(config => config.geometryOnly)).toEqual([true, false])
     });
 
+    test('a newer commit supersedes the refresh in flight and any still queued, and an obsolete catalog releases no pane', async () => {
+        workspace = Neo.create(PlainWorkspace, {dockModel: createDocument()});
+
+        const
+            reconcile = DockProjectionReconciler.reconcileProjection,
+            release   = workspace.releaseDeclaredPanes,
+            released  = [],
+            signals   = [],
+            commit    = sizes => {
+                const {document} = workspace.applyDockZoneOperation({operation: 'resizeSplit', splitNodeId: 'root-split', sizes});
+
+                workspace.onDockZoneDocumentChange(document, {operation: 'resizeSplit'});
+                return document
+            };
+
+        let answerFirst;
+
+        workspace.releaseDeclaredPanes = function (document) {
+            released.push(document);
+            return release.call(this, document)
+        };
+
+        // The first refresh's reconcile holds, as one whose overflow read has not answered; the others land
+        DockProjectionReconciler.reconcileProjection = ({signal}) => {
+            signals.push(signal);
+
+            return signals.length === 1
+                ? new Promise(resolve => {answerFirst = () => resolve({landedInPlace: true})})
+                : {landedInPlace: true}
+        };
+
+        try {
+            commit([0.5, 0.5]);
+
+            for (let tick = 0; tick < 50 && !answerFirst; tick++) {
+                await new Promise(resolve => setTimeout(resolve, 0))
+            }
+
+            commit([0.6, 0.4]);
+
+            const third = commit([0.7, 0.3]);
+
+            expect(signals[0].aborted, 'the refresh in flight is superseded').toBe(true);
+
+            answerFirst();
+            await workspace.refreshPromise;
+
+            expect(signals.length, 'every committed document still reconciles').toBe(3);
+            expect(signals[1].aborted, 'a refresh queued behind the first was superseded before it started').toBe(true);
+            expect(signals[2].aborted, 'the newest refresh runs unsuperseded').toBe(false);
+            expect(released, 'only the newest catalog releases panes').toEqual([third])
+        } finally {
+            DockProjectionReconciler.reconcileProjection = reconcile
+        }
+    });
+
     test('locking a railed item admits in-place reconciliation, and the refresh pays no staged shell', async () => {
         const document = createEdgeDocument();
 
@@ -5056,8 +5145,14 @@ test('the holder contract: a config-assigned document is readable before any ope
             Neo.config.useSharedWorkers = true;
 
             try {
+                // A tab drag: the proxy is the tab's 76.5 × 32 header button, the pane measured 640 × 500.
                 const identity = {generationToken: 'lineage-7', groupId: 'group-a', workspaceKey: 'popup:editor'},
-                      vessel   = await workspace.openTearOutVessel({itemId: 'editor', proxyRect: {height: 500, width: 640, x: 100, y: 60}, topologyIdentity: identity});
+                      vessel   = await workspace.openTearOutVessel({
+                          itemId          : 'editor',
+                          proxyRect       : {height: 32, width: 76.5, x: 100, y: 60},
+                          sourceRect      : {height: 500, width: 640, x: 12, y: 48},
+                          topologyIdentity: identity
+                      });
 
                 expect(opens.length, 'the engine opened a window without any consumer hook').toBe(1);
 
@@ -5070,11 +5165,10 @@ test('the holder contract: a config-assigned document is readable before any ope
                 expect(url.searchParams.get('existing'), 'the host document\'s own params survive').toBe('keep');
                 expect(opens[0].topologyIdentity, 'the reserved slot rides the staged-open carrier').toEqual(identity);
 
-                // The proxy rect is where the user let go, offset into screen space.
-                expect(opens[0].windowFeatures).toContain('width=640');
-                expect(opens[0].windowFeatures).toContain('height=500');
+                // The pane sizes the window; the proxy only places it, offset into screen space.
+                expect(opens[0].windowFeatures).toBe('height=500,left=140,top=140,width=640');
 
-                expect(vessel).toMatchObject({windowName: 'neo-dock-tearout-editor'})
+                expect(vessel).toEqual({popupHeight: 500, popupWidth: 640, windowName: 'neo-dock-tearout-editor'})
             } finally {
                 Neo.Main = originalMain;
                 Neo.config.useSharedWorkers = useSharedWorkers

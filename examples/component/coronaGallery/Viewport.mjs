@@ -3,11 +3,13 @@ import BoxLabel           from '../../../src/component/BoxLabel.mjs';
 import CountryGallery     from './CountryGallery.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import RangeField         from '../../../src/form/field/Range.mjs';
+import ThemeSwitcher      from '../../../src/button/ThemeSwitcher.mjs';
 import ViewportController from './ViewportController.mjs';
 
 /**
  * @class Neo.examples.component.coronaGallery.Viewport
  * @extends Neo.container.Viewport
+ * @summary 3D country indicators gallery viewport with live theme-able controls panel.
  */
 class Viewport extends BaseViewport {
     static config = {
@@ -39,47 +41,18 @@ class Viewport extends BaseViewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton_=true
-         * @reactive
-         */
-        showGitHubStarButton_: true,
-        /**
          * @member {Object[]} items
          */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
-
-            items : [{
-                ntype: 'component',
-                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
-                style: {
-                    position: 'absolute',
-                    right   : '150px',
-                    top     : '25px',
-                    width   : '200px',
-                    zIndex  : 1
-                }
-            }, {
-                ntype    : 'component',
-                html     : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                reference: 'github-button',
-
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
-                    zIndex  : 1
-                }
-            }]
+            style : {position: 'relative'}
         }, {
             module   : Panel,
             cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
-            style    : {backgroundColor: '#2b2b2b'},
             width    : 260,
 
             containerConfig: {
@@ -87,10 +60,11 @@ class Viewport extends BaseViewport {
             },
 
             headers: [{
-                dock: 'top',
-                items: [{
-                    ntype: 'button',
-                    text : 'X',
+                dock  : 'top',
+                layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+                items : [{
+                    ntype  : 'button',
+                    text   : 'X',
                     handler: function() {
                         const panel  = this.up('panel'),
                               expand = panel.width === 40;
@@ -101,12 +75,15 @@ class Viewport extends BaseViewport {
                 }, {
                     ntype: 'label',
                     text : 'Gallery Controls'
+                }, '->', {
+                    module  : ThemeSwitcher,
+                    showText: false
                 }]
             }],
 
             itemDefaults: {
-                flex         : '0 1 auto',
-                labelWidth   : '110px',
+                flex         : 'none',
+                labelPosition: 'top',
                 style        : {padding: '10px'},
                 useInputEvent: true
             },
@@ -176,20 +153,16 @@ class Viewport extends BaseViewport {
                     },
 
                     items: [{
-                        field: 'cases',
-                        text : 'Cases',
+                        field: 'population',
+                        text : 'Population',
                         style: {margin: '10px', marginTop: '0'}
                     }, {
-                        field: 'deaths',
-                        text : 'Deaths',
-                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
+                        field: 'gdp',
+                        text : 'GDP',
+                        style: {margin: '10px', marginTop: 0}
                     }, {
                         field: 'country',
                         text : 'Country',
-                        style: {margin: '10px', marginTop: 0}
-                    }, {
-                        field: 'recovered',
-                        text : 'Recovered',
                         style: {margin: '10px', marginTop: 0}
                     }]
                 }, {
@@ -202,17 +175,17 @@ class Viewport extends BaseViewport {
                     },
 
                     items: [{
-                        field: 'todayCases',
-                        text : 'Cases today',
+                        field: 'gdpPerCapita',
+                        text : 'Per head',
                         style: {margin: '10px', marginTop: '0'}
                     }, {
-                        field: 'todayDeaths',
-                        text : 'Deaths today',
-                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
+                        field: 'lifeExpectancy',
+                        text : 'Life',
+                        style: {margin: '10px', marginTop: 0}
                     }, {
-                        field: 'critical',
-                        text : 'Critical',
-                        style: {margin: '10px', marginBottom: '43px', marginTop: 0}
+                        field: 'internet',
+                        text : 'Internet',
+                        style: {margin: '10px', marginTop: 0}
                     }]
                 }]
             }, {
@@ -226,9 +199,8 @@ class Viewport extends BaseViewport {
                 cls   : ['neo-link-color'],
                 html  : [
                     '<b>Attribution</b>',
-                    '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
-                    '<p>Data provided by <a href="https://github.com/disease-sh/API">disease-sh/API</a>.</p>',
-                    '<p>Country Flag Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
+                    '<p>Data: <a href="https://data.worldbank.org">World Bank, World Development Indicators</a>, CC BY 4.0, retrieved 17 Nov 2026.</p>',
+                    '<p>Flags: <a href="https://github.com/HatScripts/circle-flags">circle-flags</a>, MIT.</p>'
                 ].join('')
             }]
         }]
@@ -240,11 +212,7 @@ class Viewport extends BaseViewport {
     construct(config) {
         super.construct(config);
 
-        let me         = this,
-            {windowId} = me,
-            url        = Neo.config.useFallbackApi ?
-                'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/cvid_static_countries.json' :
-                'https://disease.sh/v3/covid-19/countries';
+        let me = this;
 
         me.gallery = Neo.create({
             module   : CountryGallery,
@@ -254,36 +222,7 @@ class Viewport extends BaseViewport {
             ...me.galleryConfig
         });
 
-        me.items[0].items.unshift(me.gallery);
-
-        fetch(url)
-            .then(response => response.json())
-            .catch(err => console.log('Can’t access ' + url, err))
-            .then(data => me.addStoreItems(data));
-
-        Neo.Main.setNeoConfig({
-            key  : 'renderCountDeltas',
-            value: true,
-            windowId
-        });
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async: true,
-                    defer: true,
-                    src  : 'https://buttons.github.io/buttons.js',
-                    windowId
-                })
-            })
-        }
-    }
-
-    /**
-     * @param {Object[]} data
-     */
-    addStoreItems(data) {
-        this.getStore().data = data
+        me.items[0].items = [me.gallery]
     }
 
     /**
@@ -291,16 +230,6 @@ class Viewport extends BaseViewport {
      */
     getStore() {
         return this.items[0].items[0].store
-    }
-
-    /**
-     * Triggered after the showGitHubStarButton config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetShowGitHubStarButton(value, oldValue) {
-        this.getItem('github-button').hidden = !value
     }
 }
 

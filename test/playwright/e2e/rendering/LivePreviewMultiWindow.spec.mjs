@@ -144,7 +144,7 @@ test.describe('LivePreview Multi-Window Functionality (Issue #9586)', () => {
     for (const env of environments) {
         test.describe(`Environment: ${env.name}`, () => {
 
-            test('Popout LivePreview from Home Route (Helix)', async ({ page }) => {
+            test('Popout LivePreview from Home Route (Planning)', async ({ page }) => {
                 await page.goto(env.path);
                 await verifyLivePreviewPopout(page);
             });

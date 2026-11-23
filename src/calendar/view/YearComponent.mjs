@@ -189,6 +189,13 @@ class YearComponent extends Component {
     }
 
     /**
+     * True once {@link #createMonths} has populated the 12 month subtrees on the main container node.
+     * Provider bindings fire during `super.construct` before `mounted` and store-gated month creation.
+     * @member {Boolean} #monthsRendered=false
+     */
+    #monthsRendered = false
+
+    /**
      * @param config
      */
     construct(config) {
@@ -197,6 +204,7 @@ class YearComponent extends Component {
         let me = this;
 
         me.addDomListeners([
+            {click: me.onDayClick,       delegate: '.neo-cell',       scope: me},
             {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
             {
                 scope: me,
@@ -373,7 +381,8 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        if (oldValue !== undefined) {
+        // Provider bindings can fire before mounted/store-gated `createMonths` builds the 12 month subtrees
+        if (oldValue !== undefined && this.#monthsRendered) {
             let me     = this,
                 {vdom} = me,
                 i      = 0,
@@ -410,7 +419,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowWeekNumbers(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let me = this,
                 i  = 0,
                 itemCn, j, len;
@@ -435,7 +444,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetSixWeeksPerMonth(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let me   = this,
                 date = me.currentDate, // cloned
                 i    = 0;
@@ -658,7 +667,9 @@ class YearComponent extends Component {
                 }
 
                 if (!config.removeDom) {
-                    dayRecords = eventStore.getDayRecords(date);
+                    // getDayRecords() holds the events inside the day, so the all-day events running across it join
+                    // them: a vacation marks each of its days. A single-day all-day event is in both and counts once.
+                    dayRecords = [...new Set([...eventStore.getDayRecords(date), ...eventStore.getAllDayRecords(date, date)])];
                     dayRecords = dayRecords.filter(record => calendarStore.get(record.calendarId).active);
 
                          if (dayRecords.length >= me.eventIndicatorHigh)   {configCls.push('neo-events-high');}
@@ -712,6 +723,10 @@ class YearComponent extends Component {
                 monthContainer.cn.push(monthVdom)
             }
 
+            if (!containerEl) {
+                me.#monthsRendered = true
+            }
+
             !silent && me.update()
         }
     }
@@ -750,6 +765,29 @@ class YearComponent extends Component {
      */
     onCalendarStoreRecordChange(data) {
         this.createMonths()
+    }
+
+    /**
+     * @summary Opens a clicked day: the calendar's date moves to it, and a calendar that offers a day view shows it.
+     * Only a day of a month opens: its cell id ends in the date (see {@link #getCellId}). A week-number cell and the
+     * neighbouring months' days a grid shows (`neo-disabled`) stay inert.
+     * @param {Object} data
+     */
+    onDayClick(data) {
+        let me      = this,
+            {owner} = me,
+            prefix  = me.id + '__',
+            cell    = data.path.find(node => node.cls?.includes('neo-cell'));
+
+        if (cell?.id?.startsWith(prefix) && !cell.cls.includes('neo-disabled')) {
+            let [year, month, day] = cell.id.substring(prefix.length).split('-').map(Number);
+
+            me.getStateProvider().setData({currentDate: new Date(year, month - 1, day)});
+
+            if (owner?.views.includes('day')) {
+                owner.activeView = 'day'
+            }
+        }
     }
 
     /**
@@ -820,7 +858,7 @@ class YearComponent extends Component {
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let date   = me.currentDate, // cloned
                 {vdom} = me,
                 i      = 1,
@@ -868,7 +906,7 @@ class YearComponent extends Component {
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
 
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let {currentDate, vdom} = me,
                 i                   = 0;
 

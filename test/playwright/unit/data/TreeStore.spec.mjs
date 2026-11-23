@@ -1160,6 +1160,49 @@ test.describe('Neo.data.TreeStore (getChildren)', () => {
 
         turboStore.destroy()
     })
+
+    test('hydrates and heals children of a numeric parent in Turbo Mode (#20913)', async () => {
+        class NumericTreeModel extends TreeModel {
+            static config = {
+                className: 'Test.Unit.Data.TreeStore.NumericTreeModel',
+                fields   : [
+                    {name: 'id',   type: 'Integer'},
+                    {name: 'name', type: 'String'}
+                ]
+            }
+        }
+
+        const NumericModel = Neo.setupClass(NumericTreeModel);
+
+        const turboStore = Neo.create(TreeStore, {
+            autoInitRecords: false,
+            model          : NumericModel,
+            data           : [
+                {id: 1, name: 'a',  parentId: null, isLeaf: false, collapsed: true},
+                {id: 2, name: 'a1', parentId: 1,    isLeaf: true}
+            ]
+        });
+
+        const first  = turboStore.getChildren(1)[0];
+        const second = turboStore.getChildren(1)[0];
+
+        expect(first.isRecord).toBe(true);
+        expect(first === second).toBe(true);
+        expect(turboStore.get(2) === first).toBe(true);
+
+        first.name = 'edited';
+
+        expect(turboStore.get(2).name).toBe('edited');
+        expect(turboStore.getChildren(1)[0].name).toBe('edited');
+
+        await turboStore.expand(1);
+
+        const visibleChild = turboStore.items.find(item => item.id === 2);
+        expect(visibleChild === first).toBe(true);
+        expect(visibleChild.name).toBe('edited');
+
+        turboStore.destroy()
+    });
 });
 
 test.describe('Neo.data.TreeStore (re-adding an existing key)', () => {

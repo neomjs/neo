@@ -48,12 +48,13 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.list.Color` config bound to `MainStore`. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: ColorList,
             store : MainStore,
             width : 100
-        })
+        }
     }
 }
 

@@ -91,6 +91,46 @@ async function appWorker(page) {
     return page.workers().find(isApp)
 }
 
+/**
+ * The grid's centre header toolbar. Runs in the page, passed as source.
+ * @param {String} grid
+ * @returns {HTMLElement}
+ */
+const centreToolbarOf = grid => [...document.querySelectorAll(`${grid} .neo-grid-header-button`)]
+    .find(node => node.textContent.trim() === 'Area').closest('.neo-grid-header-toolbar');
+
+/**
+ * @summary Reads the centre header's and the horizontal scrollbar's `scrollLeft`, rounded.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{header: Number, scrollbar: Number}>}
+ */
+function readHorizontal(page) {
+    return page.evaluate(([grid, toolbarOf]) => ({
+        header   : Math.round(eval(toolbarOf)(grid).scrollLeft),
+        scrollbar: Math.round(document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft)
+    }), [GRID, centreToolbarOf.toString()])
+}
+
+/**
+ * @summary Scrolls the grid to its end through the scrollbar, the single source of the horizontal position, and
+ * waits for the header to follow. The centre region overflows at 800 px.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<{header: Number, scrollbar: Number}>}
+ */
+async function scrollToEnd(page) {
+    await page.setViewportSize({width: 800, height: 600});
+    await page.evaluate(grid => {
+        const node = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
+        node.scrollLeft = node.scrollWidth
+    }, GRID);
+    await expect.poll(async () => {
+        const {header, scrollbar} = await readHorizontal(page);
+        return scrollbar > 0 && header === scrollbar
+    }, {message: 'the header follows the scrolled grid'}).toBe(true);
+
+    return readHorizontal(page)
+}
+
 test('streamed batches preserve the scrolled view through completion', async ({page, neuralLink}) => {
     await page.setViewportSize({width: 1600, height: 900});
     await openShowcase(page);
@@ -111,10 +151,18 @@ test('streamed batches preserve the scrolled view through completion', async ({p
         let controller;
         const stream = new ReadableStream({start(value) {controller = value}});
         store.pipeline.connection.read = async () => ({stream, total: 0});
-        globalThis.__storeStreamWitness = {controller, loading: store.load()};
+        // Records the view's scroll-to-top dispatches: an ordinary load sends one per grid body (grid.Body#onStoreLoad)
+        const access = Neo.main.DomAccess, scrollTo = access.scrollTo, resets = [];
+        access.scrollTo = function(data) {
+            const result = scrollTo.call(this, data);
+            data.id === grid.view.id && data.direction === 'top' && resets.push(result);
+            return result
+        };
+        globalThis.__storeStreamWitness = {controller, loading: store.load(), resets, restore: () => {access.scrollTo = scrollTo}};
         return grid.view.id
     }, gridId);
-    const enqueue = (from, count) => worker.evaluate(({from, count}) => {
+    const resetCount = () => worker.evaluate(() => __storeStreamWitness.resets.length);
+    const enqueue    = (from, count) => worker.evaluate(({from, count}) => {
         const rows = Array.from({length: count}, (_, i) => ({
             id  : from + i, title: 'Stream record ' + (from + i), summary: 'Controlled arriving batch',
             type: 'Task', area: 'Grid', state: 'Open', author: 'neo-gpt-sophie', created: '2026-11-07', comments: 0
@@ -123,6 +171,15 @@ test('streamed batches preserve the scrolled view through completion', async ({p
     }, {from, count});
 
     try {
+        // The load that opens the stream is an ordinary one, so the bodies scroll the view to the top after
+        // grid.Body#onStoreLoad's 50ms. Wheel only once those resets landed: one applied after the wheel reads 0.
+        await worker.evaluate(async () => {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            await Promise.all(__storeStreamWitness.resets)
+        });
+        const resets = await resetCount();
+        expect(resets).toBeGreaterThan(0);
+
         await enqueue(1, 200);
         await expect.poll(async () => (await read())['store.count']).toBe(200);
         expect((await read())['store.isStreaming']).toBe(true);
@@ -139,7 +196,8 @@ test('streamed batches preserve the scrolled view through completion', async ({p
             expect((await read())['store.isStreaming']).toBe(true);
             // The ordinary-load reset is dispatched after 50ms; observe past that boundary for each batch.
             await page.waitForTimeout(150);
-            expect(await scrollTop()).toBe(position)
+            expect(await scrollTop()).toBe(position);
+            expect(await resetCount()).toBe(resets)
         }
         await worker.evaluate(async () => {
             __storeStreamWitness.controller.close();
@@ -147,10 +205,12 @@ test('streamed batches preserve the scrolled view through completion', async ({p
         });
         await expect.poll(async () => (await read())['store.isStreaming']).toBe(false);
         await page.waitForTimeout(150);
-        expect(await scrollTop()).toBe(position)
+        expect(await scrollTop()).toBe(position);
+        expect(await resetCount()).toBe(resets)
     } finally {
         await worker.evaluate(() => {
             try {__storeStreamWitness.controller.close()} catch {}
+            __storeStreamWitness.restore();
             delete globalThis.__storeStreamWitness
         })
     }
@@ -522,27 +582,7 @@ test.describe('Grid issues showcase', () => {
     });
 
     test('a header that loses its overflow for a moment leaves the grid scrolled (#19977)', async ({page}) => {
-        // At this width the centre region overflows
-        await page.setViewportSize({width: 800, height: 600});
-
-        const toolbarOf = grid => [...document.querySelectorAll(`${grid} .neo-grid-header-button`)]
-                  .find(node => node.textContent.trim() === 'Area').closest('.neo-grid-header-toolbar'),
-              read      = () => page.evaluate(([grid, toolbarOf]) => ({
-                  header   : Math.round(eval(toolbarOf)(grid).scrollLeft),
-                  scrollbar: Math.round(document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`).scrollLeft)
-              }), [GRID, toolbarOf.toString()]);
-
-        // Scrolled through the scrollbar, the single source of the horizontal position
-        await page.evaluate(grid => {
-            const node = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`);
-            node.scrollLeft = node.scrollWidth
-        }, GRID);
-        await expect.poll(async () => {
-            const {header, scrollbar} = await read();
-            return scrollbar > 0 && header === scrollbar
-        }, {message: 'the header follows the scrolled grid'}).toBe(true);
-
-        const {scrollbar} = await read();
+        const {scrollbar} = await scrollToEnd(page);
 
         // The header's items leave the flow for two frames, as a column drop's restore takes them out: the browser
         // clamps the header, and the clamp's scroll event follows
@@ -556,11 +596,37 @@ test.describe('Grid issues showcase', () => {
             await frame();
             [...toolbar.children].forEach(child => {child.style.display = ''});
             return value
-        }, [GRID, toolbarOf.toString()]);
+        }, [GRID, centreToolbarOf.toString()]);
 
         expect(clamped, 'the header clamped').toBe(0);
         await page.waitForTimeout(200);
-        expect((await read()).scrollbar, 'the clamp leaves the grid where it was').toBe(scrollbar)
+        expect((await readHorizontal(page)).scrollbar, 'the clamp leaves the grid where it was').toBe(scrollbar)
+    });
+
+    test('a header that shrinks under its position follows the scrollbar that moved since (#21758)', async ({page}) => {
+        await scrollToEnd(page);
+
+        // A zoom out's order: the header's content shrinks and layout clamps it inside its range, the scrollbar moves to
+        // a position the shrunk header still holds, and the clamp's scroll event arrives before the scrollbar's. The
+        // browser queues both; dispatching the header's here pins that order
+        const sent = await page.evaluate(async ([grid, toolbarOf]) => {
+            const toolbar   = eval(toolbarOf)(grid),
+                  scrollbar = document.querySelector(`${grid} .neo-grid-horizontal-scrollbar`),
+                  last      = toolbar.lastElementChild,
+                  frame     = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+            last.style.display = 'none';
+            const clamped = toolbar.scrollLeft, value = Math.floor(clamped / 2);
+            scrollbar.scrollLeft = value;
+            toolbar.dispatchEvent(new Event('scroll'));
+            await frame();
+            await frame();
+            last.style.display = '';
+            return {clamped, value}
+        }, [GRID, centreToolbarOf.toString()]);
+
+        expect(sent.clamped, 'the header clamped inside its range').toBeGreaterThan(0);
+        await expect.poll(() => readHorizontal(page)).toEqual({header: sent.value, scrollbar: sent.value})
     });
 
     test('a value picked before the menu\'s search focus lands keeps its focus (#19961)', async ({page}) => {

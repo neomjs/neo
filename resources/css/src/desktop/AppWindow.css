@@ -1,0 +1,63 @@
+/* An app window drawn as desktop glass. `.neo-dialog` in the selector outranks the dialog's own chrome rules. */
+.neo-dialog.neo-desktop-app-window {
+    /* A dialog renders outside the desktop, so it needs its own see-through containers */
+    --container-background-color: transparent;
+
+    backdrop-filter : blur(30px) saturate(160%);
+    background-color: var(--desktop-app-window-background-color);
+    border          : 1px solid var(--desktop-app-window-border-color);
+    border-radius   : 16px;
+    box-shadow      : var(--desktop-app-window-shadow);
+    color           : var(--desktop-app-window-color);
+    overflow        : hidden;
+
+    /* Declared on the header itself, so they win over the theme's dialog values inherited from the window */
+    .neo-header-toolbar {
+        --dialog-header-color     : var(--desktop-app-window-color);
+        --dialog-icon-color       : var(--desktop-app-window-icon-color);
+        --toolbar-background-color: transparent;
+
+        border-bottom: 1px solid var(--desktop-app-window-border-color);
+    }
+
+    /* The app's glyph on a tile of its color, before the title */
+    .neo-desktop-app-window-icon {
+        align-items     : center;
+        background-color: var(--desktop-app-color);
+        border-radius   : 7px;
+        color           : #fff;
+        display         : inline-flex;
+        flex            : none;
+        font-size       : 12px;
+        height          : 24px;
+        justify-content : center;
+        margin-right    : 8px;
+        width           : 24px;
+    }
+
+    /* Maximized fills the workspace, the area above the 60px taskbar (`Taskbar.css`), not the dialog's 98% of the
+       viewport. A window is `position: fixed` on the body, so the percentages read the viewport. */
+    &.neo-maximized {
+        border-radius: 0;
+        height       : calc(100% - 60px) !important;
+        left         : 0 !important;
+        top          : 0 !important;
+        width        : 100% !important;
+    }
+}
+
+/* A phone has no room for a floating window: every window fills the area above the 60px taskbar, as a maximized one
+   does above, so the maximize toggle has nothing left to do. */
+@media (max-width: 600px) {
+    .neo-dialog.neo-desktop-app-window {
+        border-radius: 0;
+        height       : calc(100% - 60px) !important;
+        left         : 0 !important;
+        top          : 0 !important;
+        width        : 100% !important;
+
+        .neo-toolbar-action:is([aria-label="maximize"], [aria-label="restore"]) {
+            display: none;
+        }
+    }
+}

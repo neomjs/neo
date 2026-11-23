@@ -397,6 +397,126 @@ test.describe('Grid Locked Columns', () => {
         expect(grid.columns.get('col5').locked).toBe(null);
     });
 
+    test('responsiveLockPolicy batches multi-column transitions into one rebuild and skips no-ops', async () => {
+        let mutateCount  = 0,
+            holdCount    = 0,
+            releaseCount = 0;
+
+        grid.columns.on('mutate', () => {mutateCount++});
+        grid.getPlugin = ntype => ntype === 'grid-cell-editing' ? {
+            session    : {},
+            holdEdit   : async () => {holdCount++},
+            releaseEdit: () => {releaseCount++}
+        } : null;
+
+        grid.responsiveLockPolicy = {
+            breakpoints: [{
+                maxWidth: 500,
+                columns : {
+                    col3: null,
+                    col4: null,
+                    col2: null
+                }
+            }, {
+                maxWidth: 900,
+                columns : {
+                    col3: 'start',
+                    col4: 'start',
+                    col2: 'end'
+                }
+            }]
+        };
+
+        expect(grid.applyResponsiveLockPolicy({width: 480})).toBe(true);
+
+        // Synchronous lock state updates remain visible immediately before async measurement settles
+        expect(grid.columns.get('col3').locked).toBe(null);
+        expect(grid.columns.get('col4').locked).toBe(null);
+        expect(grid.columns.get('col2').locked).toBe(null);
+
+        await grid.timeout(50);
+
+        expect(mutateCount).toBe(1);
+        expect(holdCount).toBe(1);
+        expect(releaseCount).toBe(1);
+        expect(grid.hasLockedColumns).toBe(false);
+        expect(grid.headerToolbar.items.map(item => item.dataField)).toEqual(
+            grid.columns.items.map(col => col.dataField)
+        );
+
+        // Re-evaluating the same matched state is a no-op with zero rebuilds
+        expect(grid.applyResponsiveLockPolicy({width: 460})).toBe(false);
+        await grid.timeout(50);
+
+        expect(mutateCount).toBe(1);
+        expect(holdCount).toBe(1);
+        expect(releaseCount).toBe(1);
+
+        // Re-locking three columns across start and end batches into one rebuild
+        expect(grid.applyResponsiveLockPolicy({width: 800})).toBe(true);
+        await grid.timeout(50);
+
+        expect(mutateCount).toBe(2);
+        expect(holdCount).toBe(2);
+        expect(releaseCount).toBe(2);
+        expect(grid.headerWrapper.headerStart.items.map(item => item.dataField)).toEqual(['col3', 'col4']);
+        expect(grid.headerToolbar.items.map(item => item.dataField)).toEqual(['col1', 'col5']);
+        expect(grid.headerWrapper.headerEnd.items.map(item => item.dataField)).toEqual(['col2']);
+    });
+
+    test('responsiveLockPolicy keeps header groups atomic when batched with other columns', async () => {
+        grid.columns = [{
+            text   : 'Pinned Pair',
+            locked : 'start',
+            columns: [{
+                dataField: 'col3',
+                text     : 'Col 3',
+                width    : 100
+            }, {
+                dataField: 'col4',
+                text     : 'Col 4',
+                width    : 100
+            }]
+        }, {
+            dataField: 'col1',
+            text     : 'Col 1',
+            width    : 100
+        }, {
+            dataField: 'col2',
+            text     : 'Col 2',
+            width    : 100,
+            locked   : 'end'
+        }];
+
+        await grid.timeout(50);
+
+        let mutateCount = 0;
+        grid.columns.on('mutate', () => {mutateCount++});
+
+        // Breakpoint names col3 (grouped with col4) first, then ungrouped col2 last:
+        // col4 must still follow col3's group atomically within the single batched rebuild
+        grid.responsiveLockPolicy = {
+            breakpoints: [{
+                maxWidth: 500,
+                columns : {
+                    col3: null,
+                    col2: null
+                }
+            }]
+        };
+
+        expect(grid.applyResponsiveLockPolicy({width: 480})).toBe(true);
+        expect(grid.columns.get('col3').locked).toBe(null);
+        expect(grid.columns.get('col4').locked).toBe(null);
+        expect(grid.columns.get('col2').locked).toBe(null);
+
+        await grid.timeout(50);
+
+        expect(mutateCount).toBe(1);
+        expect(grid.hasLockedColumns).toBe(false);
+        expect(grid.headerToolbar.items.map(item => item.dataField)).toEqual(['col3', 'col4', 'col1', 'col2']);
+    });
+
     test('responsiveLockPolicy leaves omitted columns user-owned and ignores invalid descriptors', async () => {
         const col1 = grid.columns.get('col1'),
               col2 = grid.columns.get('col2'),

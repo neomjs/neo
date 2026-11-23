@@ -157,13 +157,7 @@ class ComboBox extends Picker {
          * which you want to submit instead
          * @member {Number|String} valueField='id'
          */
-        valueField: 'id',
-        /**
-         * Default width to prevent rendering issues.
-         * @member {Number} width=150
-         * @reactive
-         */
-        width: 150
+        valueField: 'id'
     }
 
     /**
@@ -379,13 +373,14 @@ class ComboBox extends Picker {
 
     /**
      * Triggered before the listConfig config gets changed.
+     * Resolves its `'@config:'` strings, passed as one item: a bare object would read as a keyed items map.
      * @param {Object} value
      * @param {Object} oldValue
      * @returns {Object}
      * @protected
      */
     beforeSetListConfig(value, oldValue) {
-        value && this.parseItemConfigs(value);
+        value && this.parseItemConfigs([value]);
         return value
     }
 

@@ -180,6 +180,7 @@ class HighlightJS extends Base {
     }
 
     /**
+     * @summary Marks lines in a current code leaf; late requests for removed source DOM are no-ops.
      * @param {Object} data
      * @param {Number} data.addLine
      * @param {String} data.vnodeId
@@ -193,6 +194,10 @@ class HighlightJS extends Base {
         let parentEl = document.getElementById(data.vnodeId),
             cls      = 'neo-highlighted-line',
             el;
+
+        if (!parentEl) {
+            return
+        }
 
         if (Neo.isNumber(data.addLine)) {
             el = parentEl.querySelector('[data-line-number="' + data.addLine + '"]');

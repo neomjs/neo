@@ -1,12 +1,12 @@
 import Base from './Base.mjs';
 
 /**
- * @summary Saves text that the app worker generated as a file the browser downloads.
+ * @summary Saves text or binary content that the app worker generated as a file the browser downloads.
  *
- * A worker cannot start a download, because that needs the main thread's DOM. `saveText()` wraps the text in a Blob
- * and clicks an anchor that carries `download`, which works in every browser with no picker and no permission. The
- * app worker loads this addon on demand through `Neo.worker.App#getAddon()`, so an app that never saves a file never
- * loads it.
+ * A worker cannot start a download, because that needs the main thread's DOM. `saveText()` wraps any supported BlobPart
+ * (`String`, `ArrayBuffer`, `ArrayBufferView` or `Blob`) in a Blob and clicks an anchor that carries `download`, which
+ * works in every browser with no picker and no permission. The app worker loads this addon on demand through
+ * `Neo.worker.App#getAddon()`, so an app that never saves a file never loads it.
  *
  * @example
  *     const addon = await Neo.currentWorker.getAddon('FileDownload', windowId);
@@ -37,7 +37,7 @@ class FileDownload extends Base {
     /**
      * @summary Downloads `content` as a file named `fileName`.
      * @param {Object} data
-     * @param {String} data.content
+     * @param {ArrayBuffer|ArrayBufferView|Blob|String} data.content
      * @param {String} data.fileName
      * @param {String} [data.mimeType='text/plain']
      * @returns {Boolean} true once the browser has the download

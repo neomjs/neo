@@ -21,7 +21,7 @@ moving the entire frontend development into Node.js. This way, the new features 
 cost of introducing a mandatory, and often complex, build step, since developers now wrote code which Browsers can not
 understand.
 
-Over time, an entire ecosystem evolved around this paradigm. Think of hot module replacements, the webpack-dev-server,
+Over time, an entire ecosystem evolved around this paradigm. Think of hot module replacements, webpack's dev server,
 Vite, or Bun. While builds have become reasonably fast, developers receive transpiled and bundled code in the Browsers,
 which can introduce debugging challenges and requires source-maps to even have a chance of debugging.
 

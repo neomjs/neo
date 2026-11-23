@@ -1,4 +1,5 @@
-import ContentComponent from '../../../../src/app/content/Component.mjs';
+import ContentComponent   from '../../../../src/app/content/Component.mjs';
+import {rewriteRepoLinks} from '../../Util.mjs';
 
 // GitHub bot/app actors whose `github.com/<login>.png` avatar 404s — bot avatars live at
 // `avatars.githubusercontent.com/in/<app-id>` (not derivable from the login), so these fall back to a
@@ -26,6 +27,11 @@ class Component extends ContentComponent {
          * @protected
          */
         className: 'Portal.view.content.Component',
+        /**
+         * @member {String[]} contentObserverSelectors=['.neo-timeline-item[data-record-id]']
+         * @protected
+         */
+        contentObserverSelectors: ['.neo-timeline-item[data-record-id]'],
         /**
          * @member {Object} domListeners
          */
@@ -116,31 +122,13 @@ class Component extends ContentComponent {
     }
 
     /**
-     * @param {Object} record
-     * @returns {Promise<void>}
+     * @summary Resolves the relative links of a body written on GitHub from the repository root, where its
+     * author meant them: a repository file opens on GitHub, a `learn/` page opens its Portal route.
+     * @param {String} html
+     * @returns {String}
      */
-    async doFetchContent(record) {
-        let me         = this,
-            {windowId} = me,
-            content, data, path;
-
-        path = me.getContentPath(record);
-
-        if (record.isLeaf && path) {
-            data    = await fetch(path);
-            content = await data.text();
-
-            me.value = content;
-
-            me.toggleCls('lab', record.name?.startsWith('Lab:'));
-
-            Neo.main.addon.IntersectionObserver.observe({
-                disconnect: true,
-                id        : me.id,
-                observe   : ['.neo-timeline-item[data-record-id]'],
-                windowId
-            })
-        }
+    rewriteLinks(html) {
+        return rewriteRepoLinks(super.rewriteLinks(html))
     }
 
     /**

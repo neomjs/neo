@@ -104,6 +104,53 @@ test.describe('Neo.form.field.Text input value sync across a render in the air',
         expect(valueWrites([...held.batches, ...settled.batches]), 'the DOM held every value before any render wrote it').toEqual([])
     });
 
+    test('a native clear does not send a blank write that can land after refocus and typing', async () => {
+        const held = recordRenders(true);
+
+        field.onInputValueChange({value: ''});
+
+        expect(field.value).toBeNull();
+        await expect.poll(() => held.inFlight.length).toBeGreaterThan(0);
+
+        field.onInputValueChange({value: 'XX:XX:XX:XX:XX:XX'});
+        field.onInputValueChange({value: '00:XX:XX:XX:XX:XX'});
+
+        const settled = recordRenders(false);
+
+        held.inFlight.forEach(release => release());
+
+        await expect.poll(() => settled.batches.length).toBeGreaterThan(0);
+        await field.promiseUpdate();
+
+        expect(field.value).toBe('00:XX:XX:XX:XX:XX');
+        expect(valueWrites([...held.batches, ...settled.batches])).toEqual([])
+    });
+
+    test('CONTROL: a deliberate clear still writes an empty value over nonempty native input', async () => {
+        field.onInputValueChange({value: 'ab'});
+        await field.promiseUpdate();
+
+        const renders = recordRenders(false);
+
+        field.value = null;
+        await field.promiseUpdate();
+
+        expect(field.value).toBeNull();
+        expect(valueWrites(renders.batches)).toEqual([null])
+    });
+
+    test('CONTROL: a custom renderer can replace the native empty spelling', async () => {
+        field.inputValueRenderer = value => value ?? 'empty marker';
+
+        const renders = recordRenders(false);
+
+        field.onInputValueChange({value: ''});
+        await field.promiseUpdate();
+
+        expect(field.value).toBeNull();
+        expect(valueWrites(renders.batches)).toEqual(['empty marker'])
+    });
+
     test('CONTROL: a value set in code while a render is in the air still reaches the DOM', async () => {
         const held = recordRenders(true);
 

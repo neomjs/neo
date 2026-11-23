@@ -9,8 +9,8 @@ import path           from 'node:path';
  *
  * **The failure this guards.** Git does not descend into an ignored directory, so a negation placed
  * beneath a bare directory rule never participates. `.neo-ai-data` + `!.neo-ai-data/concepts/` read
- * exactly like the working `.gemini/*` + `!.gemini/concepts/` two blocks away, and only one of them
- * does anything. Nothing is red when it breaks: existing tracked files keep working because git
+ * exactly like the working `/docs/output/*` + `!/docs/output/class-hierarchy.json` pair, and only
+ * one of them does anything. Nothing is red when it breaks: existing tracked files keep working because git
  * grandfathers already-tracked paths, so the cost lands on the *next* file added under that
  * directory — silently absent from `git status`, silently absent from `git add`.
  *

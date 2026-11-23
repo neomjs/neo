@@ -1,0 +1,222 @@
+[
+    {
+        "id": "scheduler-basic",
+        "featured": true,
+        "image": "devmode/scheduler-basic-14.jpg",
+        "hasLightCover": true,
+        "name": "Studio Bookings",
+        "sourceUrl": "examples/scheduler/basic",
+        "urls": {
+            "devmode": "examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/basic/index.html?theme=neo-theme-neo-dark"
+        },
+        "hiddenIn": [],
+        "family": "scheduler",
+        "order": 70,
+        "component": "Scheduler",
+        "feature": "Resource bookings on an editable timeline",
+        "lookFor": "Move a booking to another studio or time. Reload after it saves to see the same booking in its new slot.",
+        "keywords": [
+            "date",
+            "drag",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource"
+        ]
+    },
+    {
+        "id": "scheduler-big-data",
+        "image": "devmode/scheduler-big-data-14.jpg",
+        "hasLightCover": true,
+        "name": "A year for 300 people",
+        "sourceUrl": "examples/scheduler/bigData",
+        "urls": {
+            "devmode": "examples/scheduler/bigData/index.html",
+            "dist_dev": "dist/development/examples/scheduler/bigData/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/bigData/index.html",
+            "dist_prod": "dist/production/examples/scheduler/bigData/index.html"
+        },
+        "hiddenIn": [],
+        "family": "scheduler",
+        "order": 1040,
+        "component": "Scheduler",
+        "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
+        "lookFor": "Scroll down through 300 people, then sideways through the year: buffered rows and viewport-clipped bars keep the DOM compact.",
+        "keywords": [
+            "date",
+            "calendar",
+            "booking",
+            "timeline",
+            "resource",
+            "scale"
+        ]
+    },
+    {
+        "id": "scheduler-drag-and-resize",
+        "image": "devmode/scheduler-drag-and-resize-14.jpg",
+        "hasLightCover": true,
+        "name": "Re-plan a day by drag",
+        "sourceUrl": "examples/scheduler/dragAndResize",
+        "urls": {
+            "devmode": "examples/scheduler/dragAndResize/index.html",
+            "dist_dev": "dist/development/examples/scheduler/dragAndResize/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/dragAndResize/index.html",
+            "dist_prod": "dist/production/examples/scheduler/dragAndResize/index.html"
+        },
+        "family": "scheduler",
+        "order": 1060,
+        "alsoIn": ["drag-drop"],
+        "component": "Scheduler",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "lookFor": "Drag a stop onto another van, then pull its right edge: it lands on the 15-minute grid. Switch the grid to 30 minutes and try again."
+    },
+    {
+        "id": "scheduler-non-working-time",
+        "image": "devmode/scheduler-non-working-time-14.jpg",
+        "hasLightCover": true,
+        "name": "Weekends and holidays in the plan",
+        "sourceUrl": "examples/scheduler/nonWorkingTime",
+        "urls": {
+            "devmode": "examples/scheduler/nonWorkingTime/index.html",
+            "dist_dev": "dist/development/examples/scheduler/nonWorkingTime/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/nonWorkingTime/index.html",
+            "dist_prod": "dist/production/examples/scheduler/nonWorkingTime/index.html"
+        },
+        "family": "scheduler",
+        "order": 1070,
+        "component": "Scheduler",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "lookFor": "Switch the working week to Sunday to Thursday: the shaded days move. Find the holiday in the second week."
+    },
+    {
+        "id": "scheduler-bar-renderer",
+        "image": "devmode/scheduler-bar-renderer-14.jpg",
+        "hasLightCover": true,
+        "name": "Bars that say more",
+        "sourceUrl": "examples/scheduler/barRenderer",
+        "urls": {
+            "devmode": "examples/scheduler/barRenderer/index.html",
+            "dist_dev": "dist/development/examples/scheduler/barRenderer/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/barRenderer/index.html",
+            "dist_prod": "dist/production/examples/scheduler/barRenderer/index.html"
+        },
+        "family": "scheduler",
+        "order": 1080,
+        "component": "Scheduler",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "lookFor": "Find the late jobs by colour and glyph. Switch to plain bars and back to see what the renderer adds."
+    },
+    {
+        "id": "scheduler-event-editor",
+        "image": "devmode/scheduler-event-editor-14.jpg",
+        "hasLightCover": true,
+        "name": "Edit a booking in a form",
+        "sourceUrl": "examples/scheduler/eventEditor",
+        "urls": {
+            "devmode": "examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "order": 1090,
+        "component": "Scheduler",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "lookFor": "The editor opens on Root canal in Surgery. Shorten the appointment to less than 30 minutes and try to save."
+    },
+    {
+        "id": "scheduler-zoom",
+        "image": "devmode/scheduler-zoom-14.jpg",
+        "hasLightCover": true,
+        "name": "Zoom from hours to a week",
+        "sourceUrl": "examples/scheduler/zoom",
+        "urls": {
+            "devmode": "examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "order": 1100,
+        "component": "Scheduler",
+        "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
+        "lookFor": "Switch from Hours to Week and back: the axis changes its units and the sessions keep their place."
+    },
+    {
+        "id": "scheduler-resource-columns",
+        "image": "devmode/scheduler-resource-columns-14.jpg",
+        "hasLightCover": true,
+        "name": "A table beside the timeline",
+        "sourceUrl": "examples/scheduler/resourceColumns",
+        "urls": {
+            "devmode": "examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "order": 1110,
+        "component": "Scheduler",
+        "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
+        "lookFor": "Sort by booked hours to find who has room. Scroll the timeline: the columns stay."
+    },
+    {
+        "id": "scheduler-time-zones",
+        "image": "devmode/scheduler-time-zones-14.jpg",
+        "hasLightCover": true,
+        "name": "One plan, three time zones",
+        "sourceUrl": "examples/scheduler/timeZones",
+        "urls": {
+            "devmode": "examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "order": 1120,
+        "component": "Scheduler",
+        "feature": "The same shifts read in Berlin, New York or Tokyo time",
+        "lookFor": "Switch the zone: every shift moves on the axis and the day boundary moves with it. The stored times do not change."
+    },
+    {
+        "id": "scheduler-live-updates",
+        "image": "devmode/scheduler-live-updates-14.jpg",
+        "name": "A plan that updates itself",
+        "sourceUrl": "examples/scheduler/liveUpdates",
+        "urls": {
+            "devmode": "examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark",
+            "dist_dev": "dist/development/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark",
+            "dist_esm": "dist/esm/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark",
+            "dist_prod": "dist/production/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark"
+        },
+        "family": "scheduler",
+        "order": 1130,
+        "component": "Scheduler",
+        "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
+        "lookFor": "Watch a delayed flight slide along its gate. Scroll, or drag a flight, while the feed runs. Then pause it."
+    },
+    {
+        "id": "meridian-observatory",
+        "name": "Meridian Observatory",
+        "family": "scheduler",
+        "order": 1250,
+        "alsoIn": ["gantt", "board"],
+        "component": "Scheduler, Gantt and Task Board",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "lookFor": "Hold ARC-17 over North and South at 22:12. Compare the predicted samples and the mosaic’s finish time, then release to book or press Escape.",
+        "scope": "The forecast and the sampled light curve both use a simulated observing night.",
+        "keywords": ["astronomy", "telescope", "resource scheduling", "dependencies", "clearance"],
+        "image": "devmode/meridian-observatory-14.jpg",
+        "hasLightCover": true,
+        "sourceUrl": "examples/scheduler/meridian",
+        "urls": {
+            "devmode": "examples/scheduler/meridian/index.html",
+            "dist_dev": "dist/development/examples/scheduler/meridian/index.html",
+            "dist_esm": "dist/esm/examples/scheduler/meridian/index.html",
+            "dist_prod": "dist/production/examples/scheduler/meridian/index.html"
+        }
+    }
+]

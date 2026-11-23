@@ -290,12 +290,14 @@ class Overflow extends Plugin {
      * @member {Boolean} queuedRecapture=false
      */
     queuedRecapture = false
-    /**
-     * A re-mount attempt for a transiently unmounted control is in flight — see `syncControl`.
-     * Prevents overlapping re-arms when syncs land faster than the mount round-trip settles.
-     * @member {Boolean} remountArming=false
-     */
-    remountArming = false
+    /** The floating controls whose initial mount or remount has yet to settle. */
+    #mountingControls = new WeakSet()
+
+    /** @summary Whether the current floating control has a pending mount. */
+    get remountArming() {
+        return this.#mountingControls.has(this.control)
+    }
+
     /**
      * A projection requested while the tab SortZone owned a gesture.
      * @member {Boolean} sortDragProjectionQueued=false
@@ -405,6 +407,9 @@ class Overflow extends Plugin {
                     me.project(false)
                 })
             }
+            me.observeConfig(me.owner, 'mounted', value => {
+                !value && !me.isDestroyed && me.onOwnerUnmounted()
+            })
         }
     }
 
@@ -514,6 +519,21 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary Retires the floating control when its toolbar unmounts.
+     *
+     * The floating embodiment mounts under `document.body`, outside the toolbar's DOM, so it cannot leave with
+     * the toolbar. A control whose insert is still in flight is destroyed once that insert settles
+     * (`mountFloatingControl()`), and a remount runs {@link #onOwnerMounted} and projects afresh. The action
+     * embodiment lives inside the toolbar and leaves with it.
+     * @protected
+     */
+    onOwnerUnmounted() {
+        let me = this;
+
+        !me.projectAsAction && me.control && me.syncControl([], me.getTabContainer())
+    }
+
+    /**
      * @summary Removes every owner subscription `onOwnerMounted` adds, so re-running it re-registers
      * rather than duplicates.
      *
@@ -539,6 +559,8 @@ class Overflow extends Plugin {
 
         tabContainer?.un('activeIndexChange', me.onActiveIndexChange, me);
         tabContainer?.un('moveTo',            me.onTabSetChange,      me);
+        me.tabPressSortZone?.un('dragCancel', me.releaseTabPress,     me);
+        me.tabPressSortZone = null;
 
         // The DOM listeners belong here for the same reason and were missed for a different one:
         // `manager.DomEvent` is not `Observable`, so a duplicate produces no console warning, and
@@ -559,12 +581,13 @@ class Overflow extends Plugin {
             tab = {delegate: '.neo-tab-header-button', scope: me};
 
         return [
-            {resize      : me.onResize,          scope: me},
-            {click       : me.releaseTabPress,   ...tab},
-            {'drag:end'  : me.releaseTabPress,   ...tab},
-            {'drag:start': me.onTabDragStart,    ...tab},
-            {mousedown   : me.onTabPointerDown,  ...tab},
-            {mouseleave  : me.onTabPointerLeave, ...tab}
+            {resize       : me.onResize,          scope: me},
+            {click        : me.releaseTabPress,   ...tab},
+            {'drag:cancel': me.releaseTabPress,   ...tab},
+            {'drag:end'   : me.releaseTabPress,   ...tab},
+            {'drag:start' : me.onTabDragStart,    ...tab},
+            {mousedown    : me.onTabPointerDown,  ...tab},
+            {mouseleave   : me.onTabPointerLeave, ...tab}
         ]
     }
 
@@ -847,9 +870,15 @@ class Overflow extends Plugin {
 
     /**
      * Measures (natural widths as needed, strip extent always) and applies the visible/hidden split.
+     * A measure without layout (getLayoutRect answers one object instead of a list, as on a server-side
+     * render) skips the pass: no split is applied and nothing is logged.
      * @param {Boolean} recapture  Re-read natural widths (mount, or the tab set changed).
+     * @param {Object} [options={}]
+     * @param {AbortSignal|null} [options.signal=null] The caller's supersession. Once it aborts, the pass stops
+     *     waiting on its reads, hands the strip back as the last split left it and releases the latch; a read
+     *     that answers later reaches nothing, so it writes no cache and no split.
      */
-    async project(recapture) {
+    async project(recapture, {signal=null}={}) {
         let me       = this,
             {owner}  = me,
             buttons  = me.getTabButtons(),
@@ -880,6 +909,12 @@ class Overflow extends Plugin {
             return
         }
 
+        // A superseded caller's recapture is its successor's to make.
+        if (signal?.aborted) {
+            !me.measuring && me.resolveProjectionIdle();
+            return
+        }
+
         // Re-entrancy: getLayoutRect is an async main-thread round-trip, so a resize / activation / tab-set
         // storm can overlap passes. Coalesce instead of dropping — remember a re-run is owed (recapture is
         // sticky) and apply it ONCE after the in-flight pass, so the last state wins over a stale split.
@@ -892,7 +927,16 @@ class Overflow extends Plugin {
         me.measuring = true;
         me.publishProjectionState();
 
-        try {
+        // A read can outlive the caller's projection, and an answer that never comes would hold the latch
+        // and the caller for good. Each await races the caller's abort: a pass that stops there hands the
+        // strip back in its finally, and an answer that comes later reaches nothing.
+        let aborted    = signal && new Promise(resolve => signal.addEventListener('abort', resolve, {once: true})),
+            settle     = promise => aborted ? Promise.race([promise, aborted]) : promise,
+            liftedCaps = [],
+            measurable = false;
+
+        // `break pass` leaves a pass that has nothing to project; the finally and the drain below still run.
+        pass: try {
             let controlIconCls = geometry.dimension === 'height'
                 ? 'fa fa-ellipsis-vertical'
                 : 'fa fa-ellipsis';
@@ -900,8 +944,10 @@ class Overflow extends Plugin {
             if (me.control && me.control.iconCls !== controlIconCls) {
                 me.control.iconCls       = controlIconCls;
                 me.measuredControlWidth = null;
-                me.control.mounted && await me.control.promiseUpdate?.()
+                me.control.mounted && await settle(me.control.promiseUpdate?.())
             }
+
+            if (signal?.aborted) break pass;
 
             // Adopt any plugin-installed cap carried across a toolbar move (e.g. a dock pop-out or
             // cross-zone drag drop reusing the same tab.header.Button instance in a new strip) so the
@@ -941,9 +987,12 @@ class Overflow extends Plugin {
                 // fresh numbers (the recorded caller value stays authoritative) or clears via its ordinary
                 // restore branch. Only ledger members are touched — a consumer-configured maxWidth is not
                 // plugin residue and measures as part of the button's real constraint set.
+                measurable = removedButtons.length > 0 || cappedButtons.length > 0;
+
                 cappedButtons.forEach(button => {
                     let cap = me.appliedCaps.get(button.id);
 
+                    liftedCaps.push([button, cap.maxSize, button[cap.maxSize]]);
                     button[cap.maxSize] = cap.value
                 });
 
@@ -960,10 +1009,14 @@ class Overflow extends Plugin {
                         delete button.vdom.removeDom
                     });
                     owner.updateDepth = -1;
-                    await owner.promiseUpdate()
+                    await settle(owner.promiseUpdate())
                 }
 
-                let rects = await owner.getLayoutRect(buttons.map(button => button.id));
+                if (signal?.aborted) break pass;
+
+                let rects = await settle(owner.getLayoutRect(buttons.map(button => button.id)));
+
+                if (signal?.aborted || !Array.isArray(rects)) break pass;
 
                 me.naturalWidths      = {};
                 me.naturalWidthLabels = {};
@@ -994,17 +1047,26 @@ class Overflow extends Plugin {
 
             if (needRevealProbe) {
                 me.measuringWithheldActions = true;
-                await owner.setContextualActionMeasureReveal?.(true)
+                await settle(owner.setContextualActionMeasureReveal?.(true))
             }
+
+            if (signal?.aborted) break pass;
 
             let controlId = me.control?.mounted ? me.control.id : null,
                 ids       = [owner.id, ...actionItems.map(item => item.id), ...(controlId ? [controlId] : [])],
-                rects     = await owner.getLayoutRect(ids);
+                rects     = await settle(owner.getLayoutRect(ids));
+
+            if (signal?.aborted) break pass;
 
             if (needRevealProbe) {
-                await owner.setContextualActionMeasureReveal?.(false);
+                await settle(owner.setContextualActionMeasureReveal?.(false));
+
+                if (signal?.aborted) break pass;
+
                 me.measuringWithheldActions = false
             }
+
+            if (!Array.isArray(rects)) break pass;
 
             let ownerRect     = rects.shift(),
                 actionRects   = rects.splice(0, actionItems.length),
@@ -1095,7 +1157,9 @@ class Overflow extends Plugin {
             // A drag can begin while either DOM round-trip above is in flight. Recheck at the
             // mutation boundary so a pre-gesture measurement cannot hide/show members beneath the
             // SortZone snapshot captured in the meantime.
-            if (!me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
+            // The owner can also unmount meanwhile: a split applied then would create a floating control
+            // for a toolbar that is gone (onOwnerUnmounted()).
+            if (owner.mounted && !me.queueSortDragProjection(recapture, false) && !me.queueOpenMenuProjection(recapture)) {
                 me.applySplit(hidden, buttons, tabContainer, {
                     activeButton,
                     focusedButton,
@@ -1108,6 +1172,9 @@ class Overflow extends Plugin {
                         : activeButton && me.naturalWidths[activeButton.id] > extent ? extent : null
                 });
 
+                // The split re-hid and re-capped what the measure restored: nothing is left to hand back.
+                measurable = false;
+
                 // When an initial recapture pass had all tabs visible, the action cluster was pushed beyond
                 // the owner's trailing edge, so `coordinateExtent` fell back to `sizeExtent` (which omits
                 // the toolbar's trailing padding / action-cluster gaps). Once `applySplit` hides the
@@ -1118,7 +1185,7 @@ class Overflow extends Plugin {
                     && clusterEnd > ownerStart + ownerSize + 1) {
                     me.revealedClusterSpan   = null;
                     me.revealedTrailingInset = null;
-                    await owner.promiseUpdate?.();
+                    await settle(owner.promiseUpdate?.());
                     me.projectQueued = true
                 }
             }
@@ -1139,9 +1206,19 @@ class Overflow extends Plugin {
                 console.error('Neo.tab.plugin.Overflow: project() threw against a live owner', error)
             }
         } finally {
+            // A pass the caller's supersession stopped hands the strip back as the last split left it.
+            signal?.aborted && me.rollBackAbortedPass(measurable, liftedCaps);
+
             // ALWAYS release the latch: a thrown getLayoutRect / applySplit must not strand `measuring` at
             // true, which would silently freeze every future projection (the header stops responding).
             me.measuring = false
+        }
+
+        // A superseded pass hands its queued re-run to the projection that superseded it, which recaptures
+        // under its own signal; a detached re-run here could wait on an unanswered read again.
+        if (signal?.aborted) {
+            me.projectQueued   = false;
+            me.queuedRecapture = false
         }
 
         // Drain a coalesced re-run: an event that arrived mid-pass is applied once here, against the
@@ -1164,8 +1241,23 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary Whether this plugin still owns `button`'s plugin-installed cap: the ledger names it, and no
+     * other live Overflow plugin holds the strip the button sits in now.
+     * @param {Neo.tab.header.Button|null} button
+     * @returns {Boolean}
+     * @protected
+     */
+    ownsCap(button) {
+        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== this) return false;
+
+        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
+
+        return !currentPlugin || currentPlugin === this || currentPlugin.isDestroying || currentPlugin.isDestroyed
+    }
+
+    /**
      * Restores a plugin-installed cap on a departed or retiring button unless another live
-     * Overflow plugin now owns the button or its cap.
+     * Overflow plugin now owns the button or its cap ({@link #ownsCap}).
      * @param {String} buttonId
      * @param {{maxSize: String, value: *}} cap
      * @protected
@@ -1176,15 +1268,7 @@ class Overflow extends Plugin {
                 || me.getTabButtons().find(item => item.id === buttonId)
                 || Neo.getComponent(buttonId);
 
-        if (!button || button.isDestroyed || Overflow.buttonCaps.get(button)?.plugin !== me) {
-            return
-        }
-
-        let currentPlugin = button.up?.('toolbar')?.getPlugin?.('tab-overflow');
-
-        if (currentPlugin && currentPlugin !== me && !currentPlugin.isDestroying && !currentPlugin.isDestroyed) {
-            return
-        }
+        if (!me.ownsCap(button)) return;
 
         button.removeCls?.('neo-tab-overflow-capped');
         button[cap.maxSize] = cap.value;
@@ -1315,6 +1399,32 @@ class Overflow extends Plugin {
     }
 
     /**
+     * @summary Hands the strip back as the last committed split left it, after the caller's supersession
+     * stopped a pass mid-measure: the withheld-action reveal closes, the caps the measure lifted return while
+     * this plugin still owns them ({@link #ownsCap}), and the headers it restored hide again
+     * ({@link #restoreOpenMenuPartition}). A header that moved strips mid-pass keeps its new strip's cap.
+     *
+     * Nothing here waits: the channel that left a read unanswered must not hold the rollback too.
+     * @param {Boolean} measurable The pass had restored headers or caps for its measure.
+     * @param {Array[]} liftedCaps `[button, maxSize, value]` for each cap the measure lifted.
+     * @protected
+     */
+    rollBackAbortedPass(measurable, liftedCaps) {
+        let me      = this,
+            {owner} = me;
+
+        if (me.measuringWithheldActions) {
+            me.measuringWithheldActions = false;
+            Promise.resolve(owner.setContextualActionMeasureReveal?.(false)).catch(() => {})
+        }
+
+        if (measurable && !owner.isDestroyed) {
+            liftedCaps.forEach(([button, maxSize, value]) => {me.ownsCap(button) && (button[maxSize] = value)});
+            me.restoreOpenMenuPartition()
+        }
+    }
+
+    /**
      * Restores the last committed header partition when the menu opens during a recapture pass.
      * The recapture path may already have made every header measurable; parking its new decision
      * without this rollback would leave those temporary headers visible beside stale menu records.
@@ -1414,11 +1524,22 @@ class Overflow extends Plugin {
     }
 
     /**
-     * The press became a drag: the drag's release ends it, not a leave of its tab.
+     * @summary Marks the active tab press as dragging and binds `sortZone#dragCancel` so Escape or `drag:cancel` releases it.
      * @protected
      */
     onTabDragStart() {
-        this.tabPress && (this.tabPress.dragging = true)
+        let me         = this,
+            {sortZone} = me.owner;
+
+        if (me.tabPress) {
+            me.tabPress.dragging = true;
+
+            if (sortZone && me.tabPressSortZone !== sortZone) {
+                me.tabPressSortZone?.un('dragCancel', me.releaseTabPress, me);
+                me.tabPressSortZone = sortZone;
+                sortZone.on('dragCancel', me.releaseTabPress, me)
+            }
+        }
     }
 
     /**
@@ -1591,7 +1712,7 @@ class Overflow extends Plugin {
                 me.menuRecaptureQueued    = false;
                 me.observedMenuList       = null;
                 // The measurement belongs to the torn-down embodiment; the next control re-measures.
-                control.destroy(true)
+                if (!me.#mountingControls.has(control)) control.destroy(true)
             }
             return
         }
@@ -1634,58 +1755,23 @@ class Overflow extends Plugin {
                 }
             }
 
-            // Re-arm a transiently unmounted control. A floating instance mounts once at
-            // create; any later unmount (a re-projection wave, a tour reset) previously
-            // ratcheted into a permanent wedge — every following sync only mutated menu
-            // items on the unmounted instance, and the overflow surface was gone for the
-            // document's lifetime. The mount path itself is starvation-proof (message-driven
-            // vnode create + insert; verified live in a fully hidden document), so
-            // re-attempting here makes the surface self-healing against any transient
-            // un-mounter. The latch bounds it to one in-flight attempt — which relies on
-            // initVnode's lifecycle contract: its promise settles only when the REAL attempt
-            // settles (a theme-file deferral chains through the re-entered attempt), and a
-            // rejection releases isVnodeInitializing before rethrowing, so the guard above
-            // re-opens and a later sync retries. The align follows only a successful mount
-            // (mirroring the sync-time re-align below).
             if (me.projectAsAction) {
                 if (me.control.hidden) {
                     me.control.hidden = false
                 } else if (me.control.vdom?.removeDom) {
                     me.control.show()
                 }
-            } else if (!me.control.mounted && !me.control.isVnodeInitializing && !me.remountArming) {
-                me.remountArming = true;
-
-                me.control.initVnode(true)
-                    .then(() => {
-                        const {control} = me;
-                        control && !control.isDestroyed && control.mounted && control.alignTo()
-                    })
-                    .catch(() => {})
-                    .finally(() => {
-                        me.remountArming = false
-                    })
             }
         } else {
-            // OUT-OF-COLLECTION mount: a floating button rooted directly at document.body, NOT a trailing
-            // toolbar item. Ordinary toolbar actions are members of `owner.items` but excluded through the
-            // tab toolbar's semantic subset; the independently mounted overflow embodiment stays outside
-            // both collections.
-            //
-            // `Neo.create` with `floating:true` + `parentId:'document.body'` roots at document.body directly
-            // (verified: `Container.createItem` is the only path that injects `parentId=owner.id`, and we
-            // bypass it). `parentComponent` restores logical TabContainer focus ancestry while the physical
-            // root stays on document.body. The `initVnode(true)` autoMount reaches the DOM via the merged
-            // hidden-document render-queue drain — before it, the insertNode reply parked behind a
-            // suspended requestAnimationFrame in an offscreen / hidden document.
+            // The toolbar owns focus ancestry; the floating button mounts under document.body.
+            // The same mount guard handles its first insertion and recovery after a later unmount.
             me.control = Neo.create({
                 module         : Button,
                 // Align to the main-axis slot immediately before actions (or the owner edge without actions).
                 // Without an align target a floating component stays at its off-screen default.
                 align        : me.getControlAlign(),
                 appName      : me.owner.appName,
-                autoInitVnode: true,
-                autoMount    : true,
+                autoInitVnode: false,
                 cls          : ['neo-tab-overflow-control'],
                 floating     : true,
                 iconCls      : me.getMainAxisConfig().dimension === 'height'
@@ -1722,10 +1808,33 @@ class Overflow extends Plugin {
                 ? 'fa fa-ellipsis-vertical'
                 : 'fa fa-ellipsis';
 
-            if (!me.projectAsAction && me.control.mounted) {
-                me.control.align = me.getControlAlign();
-                me.control.alignTo()
+            if (!me.projectAsAction) {
+                const control = me.control;
+                if (control.mounted) {
+                    control.align = me.getControlAlign();
+                    control.alignTo()
+                } else if (!control.isVnodeInitializing && !me.remountArming) {
+                    me.mountFloatingControl(control)
+                }
             }
+        }
+    }
+
+    /**
+     * @summary Mounts a floating control once across theme loading and DOM insertion.
+     * @param {Neo.button.Base} control The button owned by this projection.
+     */
+    async mountFloatingControl(control) {
+        this.#mountingControls.add(control);
+        try {
+            await control.initVnode(true);
+            if (this.control === control && control.mounted) control.alignTo()
+        } catch {
+            // The next projection retries a failed mount.
+        } finally {
+            this.#mountingControls.delete(control);
+            // A retired control can have an insert in flight; remove it after that insert settles.
+            if (this.control !== control && !control.isDestroyed) control.destroy(true)
         }
     }
 
@@ -1749,6 +1858,8 @@ class Overflow extends Plugin {
         me.resolveProjectionIdle();
         me.sortDragZone?.un('dragEnd', me.onSortDragEnd, me);
         me.sortDragZone           = null;
+        me.tabPressSortZone?.un('dragCancel', me.releaseTabPress, me);
+        me.tabPressSortZone       = null;
         me.menuProjectionQueued   = false;
         me.menuRecaptureQueued    = false;
         me.observedMenuList       = null;
@@ -1761,7 +1872,7 @@ class Overflow extends Plugin {
         if (me.control && !me.control.isDestroyed) {
             if (me.control.isToolbarActionContribution === true) {
                 me.owner.removeActionContribution(me.control)
-            } else {
+            } else if (!me.#mountingControls.has(me.control)) {
                 me.control.destroy(true)
             }
         }

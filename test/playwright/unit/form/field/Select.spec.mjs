@@ -24,6 +24,34 @@ const instances = [],
 test.afterEach(() => instances.splice(0).reverse().forEach(instance => instance.destroy()));
 
 test.describe('Native Select Store and form contract', () => {
+    test('the label sits above by default, beside the select at labelWidth for left, and an unknown position keeps the current one', async () => {
+        const field   = create(Select, {labelText: 'Room', options, style: {color: 'red'}}),
+              columns = () => field.style.gridTemplateColumns;
+
+        await field.ready();
+        expect(field.cls).not.toContain('label-left');
+        expect(columns() ?? null).toBeNull();
+
+        field.labelPosition = 'left';
+        expect(field.cls).toContain('label-left');
+        expect(columns()).toBe('150px minmax(0, 1fr)');
+        expect(field.style.color, 'a consumer style survives').toBe('red');
+
+        field.labelWidth = '37.5%';
+        expect(columns(), 'a percentage sizes the column, so it resolves against the field').toBe('37.5% minmax(0, 1fr)');
+
+        field.hideLabel = true;
+        expect(columns() ?? null, 'a hidden label leaves no column').toBeNull();
+        field.hideLabel = false;
+
+        field.labelPosition = 'inline';
+        expect(field.labelPosition).toBe('left');
+
+        field.labelPosition = 'top';
+        expect(field.cls).not.toContain('label-left');
+        expect(columns() ?? null).toBeNull()
+    });
+
     test('ordinary Store configs get the same default Model with or without an explicit base class', async () => {
         for (const selector of [{}, {ntype: 'store'}, {module: Store}, {className: 'Neo.data.Store'}]) {
             const field = create(Select, {store: {...selector, data: options}, value: false});

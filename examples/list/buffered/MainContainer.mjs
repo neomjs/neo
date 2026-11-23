@@ -24,7 +24,9 @@ class MainContainer extends ConfigurationViewport {
         autoMount           : true,
         configItemLabelWidth: 130,
         configItemWidth     : 230,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        // The stage names what the list holds and what it renders: a buffer is invisible otherwise
+        description: '5,000 records in the store. The list renders only the rows in view plus bufferRowRange rows above and below them, and recycles those rows as you scroll.',
+        layout     : {ntype: 'hbox', align: 'stretch'}
     }
 
     createConfigurationComponents() {
@@ -62,16 +64,17 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.list.Buffered` config over 5,000 records. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module        : Buffered,
             bufferRowRange: 3,
             height        : 400,
-            itemConfig    : ({record}) => ({module: PooledRow, record}),
+            itemConfig    : ({list, record}) => ({module: PooledRow, record, total: list.store.getCount()}),
             itemHeight    : 40,
             store         : MainStore,
             width         : 300
-        })
+        }
     }
 }
 

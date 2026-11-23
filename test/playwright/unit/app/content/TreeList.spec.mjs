@@ -333,11 +333,11 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
                       select: record => selected.push(record)
                   }
               },
-              controller = Object.create(LearnController.prototype);
+              controller = new LearnController();
 
         controller.component        = {windowId: 'portal-window-1'};
         controller.getStateProvider = () => stateProvider;
-        controller.getReference     = () => tree;
+        controller.getReference     = name => name === 'tree' ? tree : null;
 
         try {
             controller.navigateTo('Glossary');
@@ -358,6 +358,65 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
         } finally {
             store.destroy();
             Neo.Main = originalMain
+        }
+    });
+
+    test('Retained Decisions in learn/tree.json shows all 7 substantive Engine ADRs and hides the 5 moved redirect stubs (#20526)', async () => {
+        const treeData            = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'learn/tree.json'), 'utf8')).data,
+              usingTheseTopics    = fs.readFileSync(path.resolve(process.cwd(), 'learn/UsingTheseTopics.md'), 'utf8'),
+              visibleEngineLeaves = treeData.filter(node => node.isLeaf !== false && !node.hidden),
+              decisions           = treeData.filter(node => node.parentId === 'AgentInterfaces/Decisions'),
+              visible             = decisions.filter(node => !node.hidden).map(node => node.id),
+              hidden              = decisions.filter(node => node.hidden === true).map(node => node.id);
+
+        expect(visibleEngineLeaves).toHaveLength(127);
+        expect(usingTheseTopics).toContain('composes `222` visible topics across ten sections (`127` Engine topics plus `95` federated guides');
+        expect(usingTheseTopics).toContain('and `7` retained Architectural Decision Records (`77` topics).');
+
+        expect(visible).toEqual([
+            'agentos/decisions/0004-github-content-architecture',
+            'agentos/decisions/0007-agents-md-compaction-taxonomy',
+            'agentos/decisions/0008-skill-anatomy-and-authoring-contract',
+            'agentos/decisions/0018-neo-identity-source-of-truth-model',
+            'agentos/decisions/0021-extended-nl-multi-writer-write-enforcement',
+            'agentos/decisions/0029-docking-design',
+            'agentos/decisions/0031-target-architecture-composition'
+        ]);
+
+        expect(hidden).toEqual([
+            'agentos/decisions/0020-agent-harness-concept',
+            'agentos/decisions/0032-institution-cockpit-render-model',
+            'agentos/decisions/0034-electron-shell-architecture',
+            'agentos/decisions/0037-fleet-manager-outward-door-topology',
+            'agentos/decisions/0038-fm-client-topology'
+        ]);
+
+        const store = Neo.create(ContentStore, {
+            id  : 'portal-learn-retained-decisions-store-test',
+            data: [
+                treeData.find(node => node.id === 'AgentInterfaces'),
+                treeData.find(node => node.id === 'AgentInterfaces/Decisions'),
+                ...decisions
+            ]
+        });
+
+        const tree = Neo.create(TreeList, {
+            appName                   : 'AppContentTreeListLazyLoadTest',
+            id                        : 'portal-learn-retained-decisions-tree-test',
+            routePrefix               : '/learn',
+            showCollapseExpandAllIcons: false,
+            store
+        });
+
+        try {
+            await tree.initVnode();
+            expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0004-github-content-architecture')).style.display).toBe('flex');
+            expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0007-agents-md-compaction-taxonomy')).style.display).toBe('flex');
+            expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0020-agent-harness-concept')).style.display).toBe('none');
+            expect(tree.getVdomChild(tree.getItemId('agentos/decisions/0038-fm-client-topology')).style.display).toBe('none')
+        } finally {
+            tree.destroy();
+            store.destroy()
         }
     })
 });

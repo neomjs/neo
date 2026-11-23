@@ -1,0 +1,174 @@
+/* Keep the example's palette on each theme carrier, including drag proxies mounted outside its viewport. */
+.neo-examples-grid-cell-types,
+.neo-examples-grid-cell-types [class*=neo-theme-],
+body:has(.neo-examples-grid-cell-types) .neo-dragproxy,
+body:has(.neo-examples-grid-cell-types) .neo-dragproxy [class*=neo-theme-] {
+    --grid-container-border-color                  : var(--cell-types-border);
+    --grid-container-cell-background-color         : var(--cell-types-surface);
+    --grid-container-cell-background-color-even    : var(--cell-types-alternate);
+    --grid-container-color                         : var(--cell-types-text);
+    --grid-container-font-size                     : 13px;
+    --grid-cell-background-color-hover             : var(--cell-types-hover);
+    --grid-header-button-background-color          : var(--cell-types-header);
+    --grid-header-button-background-color-hover    : var(--cell-types-hover);
+    --grid-header-button-background-image          : none;
+    --grid-header-button-border-right-color        : var(--cell-types-border);
+    --grid-header-button-color                     : var(--cell-types-text);
+    --grid-header-button-color-hover               : var(--cell-types-accent);
+    --grid-header-button-font-size                 : 12px;
+    --grid-header-button-font-weight               : 600;
+    --grid-header-button-glyph-color               : var(--cell-types-muted);
+    --grid-header-button-glyph-color-hover         : var(--cell-types-accent);
+    --grid-rowmodel-selected-cell-background-color : var(--cell-types-hover);
+    --grid-rowmodel-selected-cell-color            : var(--cell-types-title);
+}
+
+.neo-examples-grid-cell-types .neo-grid-row .neo-grid-cell,
+.neo-examples-grid-cell-types [class*=neo-theme-] .neo-grid-row .neo-grid-cell {
+    align-items         : center;
+    display             : flex;
+    font-variant-numeric: tabular-nums;
+}
+
+.neo-examples-grid-cell-types .neo-grid-row .neo-grid-cell.neo-right,
+.neo-examples-grid-cell-types [class*=neo-theme-] .neo-grid-row .neo-grid-cell.neo-right {
+    justify-content: flex-end;
+}
+
+.neo-examples-grid-cell-types .neo-grid-row .neo-grid-cell.neo-center,
+.neo-examples-grid-cell-types [class*=neo-theme-] .neo-grid-row .neo-grid-cell.neo-center {
+    justify-content: center;
+}
+
+.neo-examples-grid-cell-types.neo-viewport {
+    background-color: var(--cell-types-background);
+    color           : var(--cell-types-text);
+    font-family     : var(--neo-font-family);
+
+    .cell-types-toolbar {
+        background-color: var(--cell-types-background);
+        flex-wrap       : wrap;
+        gap             : 16px;
+        padding         : 20px 24px;
+
+        .cell-types-actions {
+            gap: 8px;
+        }
+
+        .neo-button {
+            border       : 1px solid var(--cell-types-border);
+            border-radius: 8px;
+            color        : var(--cell-types-title);
+        }
+    }
+
+    .cell-types-title {
+        color         : var(--cell-types-title);
+        font-size     : 24px;
+        font-weight   : 700;
+        letter-spacing: -0.025em;
+        line-height   : 1.2;
+    }
+
+    .cell-types-instruction {
+        color      : var(--cell-types-muted);
+        font-size  : 13px;
+        line-height: 1.5;
+        margin-top : 4px;
+    }
+
+    .neo-grid-container {
+        background-color: var(--cell-types-surface);
+        box-shadow      : 0 -1px 0 var(--cell-types-border);
+    }
+
+    .cell-types-footer {
+        background-color: var(--cell-types-background);
+        border-top      : 1px solid var(--cell-types-border);
+        color           : var(--cell-types-muted);
+        font-size       : 12px;
+        line-height     : 1.4;
+        padding         : 8px 24px;
+    }
+
+    .neo-grid-cell {
+        .neo-sparkline-wrapper {
+            height: 28px;
+            width : 100%;
+        }
+
+        .neo-progress-wrapper {
+            align-items: center;
+            display    : flex;
+            flex       : 1 1 auto;
+            width      : 100%;
+        }
+
+        progress.neo-progress {
+            accent-color: var(--cell-types-accent);
+            height      : 10px;
+            width       : 100%;
+        }
+
+        .neo-icon-link {
+            align-items    : center;
+            color          : var(--cell-types-accent);
+            display        : inline-flex;
+            font-weight    : 600;
+            gap            : 6px;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+
+        .fa-circle-check,
+        .fa-award,
+        .fa-bolt {
+            color    : var(--cell-types-accent);
+            font-size: 15px;
+        }
+
+        img.neo-org-avatar {
+            background-color: var(--cell-types-surface);
+            border          : 1px solid var(--cell-types-border);
+            border-radius   : 4px;
+        }
+
+        .cell-types-sponsor-button.neo-button {
+            border       : 1px solid var(--cell-types-border);
+            border-radius: 6px;
+            color        : var(--cell-types-accent);
+            font-size    : 12px;
+            font-weight  : 600;
+            height       : 28px;
+            padding      : 0 10px;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .cell-types-toolbar {
+            gap    : 10px;
+            padding: 14px 16px;
+
+            .cell-types-actions {
+                flex-wrap: wrap;
+                gap      : 6px;
+            }
+        }
+
+        .cell-types-title {
+            font-size: 20px;
+        }
+
+        .cell-types-instruction {
+            font-size: 12px;
+        }
+
+        .cell-types-footer {
+            font-size: 11px;
+            padding  : 6px 16px;
+        }
+    }
+}

@@ -574,8 +574,8 @@ class DeltaUpdates extends Base {
      *
      * **Fragment Support:**
      * If the target `id` refers to a Fragment (which has no single DOM node), this method uses XPath
-     * to find the "Start Anchor", extracts the full range of nodes (Start...End) into a `DocumentFragment`,
-     * and moves that lightweight wrapper to the new location.
+     * to find the "Start Anchor" and moves the full range of nodes (Start...End): node by node with
+     * `moveBefore()`, which takes no `DocumentFragment`, else as one `DocumentFragment` by `insertBefore`.
      *
      * @param {Object} delta
      * @param {String} delta.id       The ID of the DOM node to move.
@@ -623,8 +623,25 @@ class DeltaUpdates extends Base {
                 const fragmentData = this.getFragmentNodes(startNode.parentNode, id);
 
                 if (fragmentData) {
+                    const rangeNodes = [fragmentData.startNode, ...fragmentData.nodes, fragmentData.endNode];
+
+                    if (this.nativeMoveBefore === null) {
+                        this.nativeMoveBefore = typeof parentNode.moveBefore === 'function'
+                    }
+
+                    // moveBefore() takes no DocumentFragment: the range moves node by node, each keeping its state.
+                    // A target inside the range is where the range already is.
+                    if (this.nativeMoveBefore) {
+                        if (!rangeNodes.includes(siblingRef)) {
+                            rangeNodes.forEach(rangeNode => parentNode.moveBefore(rangeNode, siblingRef || null));
+                            (this.pendingLayoutHeals ||= new Set()).add(parentNode)
+                        }
+
+                        return
+                    }
+
                     const fragment = document.createDocumentFragment();
-                    fragment.append(fragmentData.startNode, ...fragmentData.nodes, fragmentData.endNode);
+                    fragment.append(...rangeNodes);
                     node = fragment
                 }
             }
@@ -689,9 +706,11 @@ class DeltaUpdates extends Base {
      * running transitions rather than pausing them — see the gate's own reasoning below.
      *
      * The toggle zeroes the parent's own scroll position and can drop focus, so both are captured
-     * immediately before it and restored after. Boundary, unchanged from the per-move form: scrolled
-     * DESCENDANTS inside the parent also reset and are not walked here, since that would reintroduce a
-     * subtree scan.
+     * immediately before it and restored after. A scrolled ANCESTOR loses its place too: for the forced
+     * layout the parent's content leaves the ancestor's scroll extent, and the browser clamps the offset
+     * (a board column's cards root inside its scrolled body). The ancestor chain is O(depth), so it is
+     * captured and restored as well. Boundary, unchanged from the per-move form: scrolled DESCENDANTS
+     * inside the parent also reset and are not walked here, since that would reintroduce a subtree scan.
      * @protected
      */
     flushLayoutHeals() {
@@ -726,6 +745,12 @@ class DeltaUpdates extends Base {
             // reorders siblings that carry no transitions, so this gate never fires there.
             if (parentNode.getAnimations?.({subtree: true}).length > 0) return;
 
+            const scrolledAncestors = [];
+
+            for (let node = parentNode.parentElement; node; node = node.parentElement) {
+                (node.scrollLeft || node.scrollTop) && scrolledAncestors.push([node, node.scrollLeft, node.scrollTop])
+            }
+
             parentNode.style.display = 'none';
             void parentNode.offsetHeight;
             parentNode.style.display = displayValue;
@@ -734,6 +759,11 @@ class DeltaUpdates extends Base {
                 parentNode.scrollLeft = scrollLeft;
                 parentNode.scrollTop  = scrollTop
             }
+
+            scrolledAncestors.forEach(([node, left, top]) => {
+                node.scrollLeft = left;
+                node.scrollTop  = top
+            });
 
             if (containsFocus && document.activeElement !== activeElement) {
                 activeElement.focus()
@@ -1059,7 +1089,7 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Applies a set of VDom delta updates to the real DOM.
+     * @summary Applies the final VDOM delta batch after synchronous update listeners have edited it.
      * This method is the core entry point for rendering changes initiated from the VDom worker.
      * It iterates through the provided deltas and dispatches them to specific DOM manipulation
      * methods (e.g., insertNode, removeNode, updateNode) based on their `action` property.
@@ -1085,7 +1115,6 @@ class DeltaUpdates extends Base {
             len;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
-        len    = deltas.length;
 
         // Fire an event before applying the deltas.
         // Important: Listeners receive the `data` object by reference.
@@ -1093,22 +1122,17 @@ class DeltaUpdates extends Base {
         // Addons (like GridRowPinning) can safely mutate the deltas array or individual delta
         // properties here, and those modifications will be consumed directly by the update loop below.
         me.fire('update', data);
+        len = deltas.length;
 
         // The instruments load dynamically (importDeltaInstruments); a just-flipped flag is
         // inert until its module arrives — dev-mode graceful, deterministic after init.
         if (NeoConfig.useDeltaGrammarGuards && me.deltaGrammar) {
-            // Keep the enabled guard path aligned with post-event array mutations.
-            len = deltas.length;
-
             if (len > 0) {
                 me.validateDeltaGrammarBatch(deltas)
             }
         }
 
         if (NeoConfig.useDeltaCoherenceRegistry && me.coherenceRegistry) {
-            // Keep the enabled registry path aligned with post-event array mutations.
-            len = deltas.length;
-
             if (len > 0) {
                 coherenceCommit = me.observeDeltaCoherence(deltas)
             }

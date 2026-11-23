@@ -311,6 +311,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary The `dataField` of every column that has one, in display order: locked start, center, locked end.
+     * {@link #getCellValues} reads these columns by default, so `values[row][column]` maps back to a column.
+     * @member {String[]} dataFields
+     * @readonly
+     */
+    get dataFields() {
+        let me = this;
+
+        return [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns].map(column => column.dataField).filter(Boolean)
+    }
+
+    /**
      * @member {Boolean} hasLockedColumns=false
      * @readonly
      */
@@ -395,13 +407,14 @@ class GridContainer extends BaseContainer {
         });
 
         me.verticalScrollbar = Neo.create({
-            module     : VerticalScrollbar,
+            module         : VerticalScrollbar,
             appName,
-            parentId   : me.id,
-            rowGeometry: me.view.rowGeometry,
+            maxScrollHeight: me.view.maxScrollHeight,
+            parentId       : me.id,
+            rowGeometry    : me.view.rowGeometry,
             rowHeight,
             store,
-            theme      : me.theme,
+            theme          : me.theme,
             windowId
         });
 
@@ -417,6 +430,10 @@ class GridContainer extends BaseContainer {
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
+
+        // The View registers its selection model while it is created above, before this container has an
+        // ariaWrapper to write on; the model states aria-multiselectable as soon as the root exists.
+        me.view.selectionModel?.syncAriaMultiselectable();
 
         me.syncSearchToolbar();
 
@@ -654,7 +671,11 @@ class GridContainer extends BaseContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        oldValue !== undefined && this.addResizeObserver(value);
+
+        if (oldValue !== undefined) {
+            this.addResizeObserver(value);
+            this.getPlugin('grid-cell-editing')?.onOwnerMountedChange(value)
+        }
 
         let {scrollManager} = this;
 
@@ -737,7 +758,8 @@ class GridContainer extends BaseContainer {
 
     /**
      * Triggered after the store config got changed.
-     * Automatically infers the `isTreeGrid` state based on the store's type.
+     * Automatically infers the `isTreeGrid` state based on the store's type, and hands the store to the bodies,
+     * scrollbar, view, toolbars and the columns that declare a `store` config.
      * @param {Neo.data.Store|Neo.data.TreeStore|null} value
      * @param {Neo.data.Store|Neo.data.TreeStore|null} oldValue
      * @protected
@@ -770,6 +792,9 @@ class GridContainer extends BaseContainer {
         }
 
         if (me.searchToolbar && me.searchToolbar.store !== value) me.searchToolbar.store = value;
+
+        // columns that declare a store config (animatedChange) follow it; any other must not gain a property
+        me.columns?.items?.forEach(column => {if (column.isConfig('store')) column.store = value});
 
         me.syncValueBandingFields();
         me.syncFilteredHeaders()
@@ -821,11 +846,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * @summary Keeps the ScrollManager realm aligned on initial attachment and later window transfers.
+     * @summary Keeps the ScrollManager realm and the columns aligned on initial attachment and later window transfers.
      *
      * Grids can be constructed while detached, so their first real `windowId` transition is
      * `null` → id. Forwarding only when `oldValue` was truthy left the ScrollManager permanently
      * windowless and routed its main-thread addon registrations through the first-port fallback.
+     * Columns are not components, so no container cascade reaches them; each loads its theme files when its id arrives.
      * Triggered after the windowId config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -836,9 +862,13 @@ class GridContainer extends BaseContainer {
 
         let {scrollManager} = this;
 
+        this._columns?.items?.forEach(column => {column.windowId = value});
+
         if (scrollManager) {
             scrollManager.windowId = value
         }
+
+        this.getPlugin('grid-cell-editing')?.onOwnerWindowIdChange(value, oldValue)
     }
 
     /**
@@ -942,26 +972,12 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * In case you want to update multiple existing records in parallel,
-     * using this method is faster than updating each record one by one.
-     * At least until we introduce row based vdom updates.
+     * @summary Updates existing rows through one store batch, leaving Turbo Mode rows unhydrated.
+     * Body updates follow the store's `rowsChange` event. Key, undeclared and calculated fields are ignored.
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        let {body, store} = this,
-            {keyProperty} = store;
-
-        if (body) {
-            body.silentVdomUpdate = true;
-
-            for (let i = 0, len = records.length; i < len; i++) {
-                store.get(records[i][keyProperty])?.set(records[i])
-            }
-
-            body.silentVdomUpdate = false;
-
-            body.update()
-        }
+        this.store.updateRecords(records)
     }
 
     /**
@@ -1133,7 +1149,8 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Applies the first matching responsive locked-column breakpoint.
+     * @summary Applies the first matching responsive locked-column breakpoint, coalescing multi-column transitions
+     * into one rebuild.
      * @param {Object|Number} data Resize payload or measured width
      * @returns {Boolean} true when at least one column lock state changed
      */
@@ -1142,7 +1159,7 @@ class GridContainer extends BaseContainer {
             policy      = me.responsiveLockPolicy,
             width       = me.resolveResponsiveLockPolicyWidth(data),
             breakpoints = me.getResponsiveLockPolicyBreakpoints(policy),
-            changed     = false;
+            lastColumn  = null;
 
         if (!width || breakpoints.length === 0) {
             return false
@@ -1158,17 +1175,29 @@ class GridContainer extends BaseContainer {
             return false
         }
 
-        for (let key in columns) {
-            let column = me.getResponsiveLockPolicyColumn(key),
-                locked = me.normalizeResponsiveLockValue(columns[key]);
+        me.syncingGroupLock = true;
 
-            if (column && locked !== undefined && column.locked !== locked) {
-                column.locked = locked;
-                changed       = true
+        try {
+            for (let key in columns) {
+                let column = me.getResponsiveLockPolicyColumn(key),
+                    locked = me.normalizeResponsiveLockValue(columns[key]);
+
+                if (column && locked !== undefined && column.locked !== locked) {
+                    column.locked = locked;
+                    lastColumn    = column;
+                    me.syncHeaderGroupLock(column)
+                }
             }
+        } finally {
+            me.syncingGroupLock = false
         }
 
-        return changed
+        if (lastColumn) {
+            me.onColumnLockChange(lastColumn);
+            return true
+        }
+
+        return false
     }
 
     /**
@@ -1268,11 +1297,29 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * True while {@link #onColumnLockChange} carries a column's `locked` to the rest of its header group
+     * @summary True while a multi-column lock batch ({@link #onColumnLockChange} group sync or
+     * {@link #applyResponsiveLockPolicy}) updates `locked` setters before a single rebuild.
      * @member {Boolean} syncingGroupLock=false
      * @protected
      */
     syncingGroupLock = false
+
+    /**
+     * @summary Propagates `column.locked` to every sibling sharing `column.headerGroup.id`.
+     * @param {Neo.grid.column.Base} column
+     * @protected
+     */
+    syncHeaderGroupLock(column) {
+        let {headerGroup, locked} = column;
+
+        if (headerGroup) {
+            this.columns.items.forEach(sibling => {
+                if (sibling.headerGroup?.id === headerGroup.id && sibling.locked !== locked) {
+                    sibling.locked = locked
+                }
+            })
+        }
+    }
 
     /**
      * @summary Triggered by `grid.column.Base#afterSetLocked`. Re-sorts the internal columns collection, the header
@@ -1290,20 +1337,15 @@ class GridContainer extends BaseContainer {
             return
         }
 
-        let {headerGroup, locked} = column,
-            cellEditing           = me.getPlugin('grid-cell-editing'),
-            holds                 = !!cellEditing?.session,
+        let cellEditing = me.getPlugin('grid-cell-editing'),
+            holds       = !!cellEditing?.session,
             sortedColumns;
 
-        if (headerGroup) {
+        if (column.headerGroup) {
             me.syncingGroupLock = true;
 
             try {
-                me.columns.items.forEach(sibling => {
-                    if (sibling.headerGroup?.id === headerGroup.id && sibling.locked !== locked) {
-                        sibling.locked = locked
-                    }
-                })
+                me.syncHeaderGroupLock(column)
             } finally {
                 me.syncingGroupLock = false
             }
@@ -1397,6 +1439,63 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @summary Reads cells as values: one array per record, one value per column.
+     *
+     * The grid's one value walk: `toCsv()` serializes it, and a reader outside the grid (a clipboard, a spreadsheet
+     * writer, an agent) calls it for the records and columns it needs, so every reader gets the same value for the
+     * same cell. A reader that needs another value extends the walk, and never walks the records itself.
+     *
+     * `mode: 'export'` yields the column's `exportRenderer({record, value})` when it has one, else the record's
+     * value. `undefined` becomes `null`, and an object or array that is not a `Date` becomes its JSON text, so a
+     * serializer formats only strings, numbers, booleans, dates and `null`. `mode: 'raw'` skips export formatting;
+     * for a raw Turbo Mode row, the Store resolves the requested model fields on a copy (`Neo.data.Store#resolveRow()`),
+     * so the column reads what the row's record holds.
+     *
+     * @example
+     *     grid.getCellValues();                                          // every record × every column
+     *     grid.getCellValues({dataFields: ['name'], records: [record]}); // [['Ada']]
+     *
+     * @param {Object}                     [options={}]
+     * @param {String[]}                   [options.dataFields=this.dataFields] The columns to read, in the order given.
+     *     A dataField no column carries yields `undefined` in `raw` mode and `null` in `export` mode
+     * @param {String}                     [options.mode='export'] 'export' or 'raw'
+     * @param {Neo.data.Record[]|Object[]} [options.records=this.store.items] The rows to read, in the order given
+     * @returns {Array[]} `values[rowIndex][columnIndex]`
+     */
+    getCellValues({dataFields=this.dataFields, mode='export', records=this.store.items}={}) {
+        if (mode !== 'export' && mode !== 'raw') {
+            throw new Error(`Neo.grid.Container#getCellValues: unknown mode '${mode}'`)
+        }
+
+        // Resolved against the region arrays: they hold the live columns, also one whose `dataField` changed at runtime
+        let me      = this,
+            all     = [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns],
+            columns = dataFields.map(dataField => all.find(column => column.dataField === dataField));
+
+        return records.map(record => {
+            let resolvedRow = me.store.resolveRow(record, dataFields);
+
+            return columns.map(column => {
+                let value = column?.getRecordValue(resolvedRow);
+
+                if (mode === 'raw') {
+                    return value
+                }
+
+                if (column?.exportRenderer) {
+                    value = column.exportRenderer({record, value})
+                }
+
+                if (value && typeof value === 'object' && !(value instanceof Date)) {
+                    value = JSON.stringify(value)
+                }
+
+                return value ?? null
+            })
+        })
+    }
+
+    /**
      * Recomputes the region-grouped column arrays from the global `columns` collection. These
      * arrays are the engine's region+index oracle — they must refresh on EVERY column-order
      * mutation, including within-region drag reorders, which mutate the collection via
@@ -1446,6 +1545,44 @@ class GridContainer extends BaseContainer {
 
         me.updateColCount();
         me.syncSearchToolbar()
+    }
+
+    /**
+     * @summary Expands a collapsed parent row or collapses an expanded one, and fires the matching event.
+     *
+     * The single home of the tree toggle: the toggle icon of {@link Neo.grid.column.component.Tree} and the
+     * `Left` / `Right` keys of {@link Neo.selection.grid.RowModel} both end up here, so the store call and the
+     * `expand` / `collapse` event cannot drift apart. Does nothing in a grid without a tree store, on a leaf, or
+     * when `expand` is passed and the record is already expanded (and vice versa).
+     * @param {Neo.data.Record|Object} record
+     * @param {Boolean} [expand] Pass `true` to only expand, `false` to only collapse; omit to toggle.
+     * @returns {Boolean} `true` if the record changed its expansion state
+     */
+    toggleTreeNode(record, expand) {
+        let me      = this,
+            {store} = me;
+
+        if (!me.isTreeGrid || !store || !record || record.isLeaf) {
+            return false
+        }
+
+        if (expand === undefined) {
+            expand = record.collapsed
+        }
+
+        if (expand !== record.collapsed) {
+            return false
+        }
+
+        if (expand) {
+            store.expand(record);
+            me.fire('expand', {record})
+        } else {
+            store.collapse(record);
+            me.fire('collapse', {record})
+        }
+
+        return true
     }
 
     /**
@@ -1661,7 +1798,9 @@ class GridContainer extends BaseContainer {
             return
         }
 
-        let {scrollLeft, scrollTop} = scrollManager;
+        let {scrollLeft} = scrollManager,
+            // The main thread's offset: the logical one less the page offset
+            scrollTop    = scrollManager.scrollTop - view.pageOffset;
 
         scrollLeft > 0 && bar?.scrollLeft === 0 && Neo.main.DomAccess.scrollTo({
             direction: 'left', id: horizontalScrollbar.id, value: scrollLeft, windowId
@@ -1766,9 +1905,9 @@ class GridContainer extends BaseContainer {
      * @summary The store's current records as CSV, over the grid's columns in display order.
      *
      * Rows follow the store's current filter and sort, rows a buffered grid has not rendered included: the store
-     * holds the data, and the rendered rows are only a window onto it. A cell is `record.get(dataField)`, the value a
-     * grid row reads, or the return value of the column's `exportRenderer({record, value})`. The header line holds
-     * each column's header text.
+     * holds the data, and the rendered rows are only a window onto it. A cell is its {@link #getCellValues} `export`
+     * value: `record.get(dataField)`, the value a grid row reads, or the return value of the column's
+     * `exportRenderer({record, value})`. The header line holds each column's header text.
      *
      * Quoting follows RFC 4180: a field containing the delimiter, a double quote, CR or LF is quoted with its inner
      * quotes doubled, and lines end in CRLF. A string cell starting with `=`, `+`, `-`, `@`, a tab or CR gets a
@@ -1786,19 +1925,17 @@ class GridContainer extends BaseContainer {
      * @returns {String}
      */
     toCsv({delimiter=',', escapeFormulas=true, header=true}={}) {
-        let me      = this,
-            columns = [...me.lockedStartColumns, ...me.centerColumns, ...me.lockedEndColumns].filter(column => column.dataField),
-            lines   = [];
+        let me           = this,
+            {dataFields} = me,
+            lines        = [];
 
         const field = value => {
-            if (value === null || value === undefined) {
+            if (value === null) {
                 return ''
             }
 
             if (value instanceof Date) {
                 value = value.toISOString()
-            } else if (typeof value === 'object') {
-                value = JSON.stringify(value)
             } else if (escapeFormulas && typeof value === 'string' && /^[=+\-@\t\r]/.test(value)) {
                 value = `'${value}`
             }
@@ -1809,15 +1946,11 @@ class GridContainer extends BaseContainer {
         };
 
         if (header) {
-            lines.push(columns.map(column => field(me.headerWrapper?.getButton(column.dataField)?.text ?? column.dataField)).join(delimiter))
+            lines.push(dataFields.map(dataField => field(me.headerWrapper?.getButton(dataField)?.text ?? dataField)).join(delimiter))
         }
 
-        me.store.items.forEach(record => {
-            lines.push(columns.map(column => {
-                let value = typeof record.get === 'function' ? record.get(column.dataField) : Neo.ns(column.dataField, false, record);
-
-                return field(column.exportRenderer ? column.exportRenderer({record, value}) : value)
-            }).join(delimiter))
+        me.getCellValues({dataFields}).forEach(row => {
+            lines.push(row.map(field).join(delimiter))
         });
 
         return lines.join('\r\n')

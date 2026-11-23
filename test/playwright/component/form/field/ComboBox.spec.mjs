@@ -375,4 +375,132 @@ test.describe('Neo.form.field.ComboBox', () => {
         // All data items represented
         await expect(page.locator('.neo-list-item')).toHaveCount(3);
     });
+
+    test('Un-sized ComboBox and Country fields keep intrinsic input width in align-start containers and shrink when constrained', async ({page}) => {
+        const ids = await page.evaluate(async () => {
+            const container = await Neo.worker.App.createNeoInstance({
+                layout  : {ntype: 'vbox', align: 'start'},
+                ntype   : 'container',
+                parentId: 'component-test-viewport',
+                style   : {padding: '20px'}
+            });
+            const text = await Neo.worker.App.createNeoInstance({
+                importPath: '../form/field/Text.mjs',
+                ntype     : 'textfield',
+                parentId  : container.id,
+                labelText : 'City',
+                labelWidth: 80,
+                value     : 'Stuttgart'
+            });
+            const combo = await Neo.worker.App.createNeoInstance({
+                importPath: '../form/field/ComboBox.mjs',
+                ntype     : 'combobox',
+                parentId  : container.id,
+                labelText : 'State',
+                labelWidth: 80,
+                store     : ['California', 'Texas'],
+                value     : 'California'
+            });
+            const inlineCombo = await Neo.worker.App.createNeoInstance({
+                importPath   : '../form/field/ComboBox.mjs',
+                ntype        : 'combobox',
+                parentId     : container.id,
+                labelPosition: 'inline',
+                labelText    : 'Inline State',
+                store        : ['California', 'Texas'],
+                value        : 'California'
+            });
+            const country = await Neo.worker.App.createNeoInstance({
+                importPath: '../form/field/Country.mjs',
+                ntype     : 'countryfield',
+                parentId  : container.id,
+                labelText : 'Country',
+                labelWidth: 80,
+                showFlags : true,
+                value     : 'germany'
+            });
+            const narrow = await Neo.worker.App.createNeoInstance({
+                importPath: '../form/field/ComboBox.mjs',
+                ntype     : 'combobox',
+                parentId  : container.id,
+                hideLabel : true,
+                store     : ['California', 'Texas'],
+                value     : 'California',
+                width     : 120
+            });
+
+            return {
+                comboId      : combo.id,
+                containerId  : container.id,
+                countryId    : country.id,
+                inlineComboId: inlineCombo.id,
+                narrowId     : narrow.id,
+                textId       : text.id
+            }
+        });
+
+        componentId = ids.containerId;
+
+        for (const id of [ids.textId, ids.comboId, ids.inlineComboId, ids.countryId, ids.narrowId]) {
+            await expect(page.locator(`#${id} .neo-input-wrapper`)).toBeVisible()
+        }
+        for (const id of [ids.comboId, ids.inlineComboId, ids.countryId, ids.narrowId]) {
+            await expect(page.locator(`#${id} .neo-field-trigger`).first()).toBeVisible()
+        }
+        await expect(page.locator(`#${ids.comboId} input.neo-typeahead-input`)).toBeAttached();
+        await expect(page.locator(`#${ids.textId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('Stuttgart');
+        await expect(page.locator(`#${ids.comboId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('California');
+        await expect(page.locator(`#${ids.inlineComboId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('California');
+        await expect(page.locator(`#${ids.countryId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('germany');
+        await expect(page.locator(`#${ids.narrowId} input.neo-textfield-input:not(.neo-typeahead-input)`)).toHaveValue('California');
+
+        const metrics = await page.evaluate(ids => {
+            const measureField = id => {
+                const el       = document.getElementById(id),
+                      fieldBox = el.getBoundingClientRect(),
+                      wrapper  = el.querySelector('.neo-input-wrapper').getBoundingClientRect(),
+                      input    = el.querySelector('input.neo-textfield-input:not(.neo-typeahead-input)').getBoundingClientRect(),
+                      hint     = el.querySelector('input.neo-typeahead-input')?.getBoundingClientRect() || null,
+                      triggers = [...el.querySelectorAll('.neo-field-trigger')].map(t => t.getBoundingClientRect());
+
+                return {
+                    fieldRight      : fieldBox.right,
+                    fieldWidth      : fieldBox.width,
+                    firstTriggerLeft: triggers.length ? Math.min(...triggers.map(t => t.left)) : null,
+                    hintLeft        : hint?.left ?? null,
+                    hintWidth       : hint?.width ?? null,
+                    inputLeft       : input.left,
+                    inputRight      : input.right,
+                    inputWidth      : input.width,
+                    wrapperRight    : wrapper.right
+                }
+            };
+
+            return {
+                combo      : measureField(ids.comboId),
+                country    : measureField(ids.countryId),
+                inlineCombo: measureField(ids.inlineComboId),
+                narrow     : measureField(ids.narrowId),
+                text       : measureField(ids.textId)
+            }
+        }, ids);
+
+        // AC-1: Un-sized ComboBox (left & inline) and Country in align: 'start' render >= 120px inputs with zero trigger overlap
+        expect(metrics.combo.inputWidth).toBeGreaterThanOrEqual(120);
+        expect(metrics.inlineCombo.inputWidth).toBeGreaterThanOrEqual(120);
+        expect(metrics.country.inputWidth).toBeGreaterThanOrEqual(120);
+        expect(Math.abs(metrics.combo.inputWidth - metrics.text.inputWidth)).toBeLessThanOrEqual(4);
+        expect(metrics.combo.inputRight).toBeLessThanOrEqual(metrics.combo.firstTriggerLeft + 1);
+        expect(metrics.inlineCombo.inputRight).toBeLessThanOrEqual(metrics.inlineCombo.firstTriggerLeft + 1);
+        expect(metrics.country.inputRight).toBeLessThanOrEqual(metrics.country.firstTriggerLeft + 1);
+
+        // Typeahead overlay stays aligned 1:1 with the real input
+        expect(Math.abs(metrics.combo.hintLeft - metrics.combo.inputLeft)).toBeLessThan(1);
+        expect(Math.abs(metrics.combo.hintWidth - metrics.combo.inputWidth)).toBeLessThan(1);
+
+        // AC-2: Explicit narrow width (120px) constrains cleanly without horizontal overflow
+        expect(Math.abs(metrics.narrow.fieldWidth - 120)).toBeLessThan(1);
+        expect(metrics.narrow.wrapperRight).toBeLessThanOrEqual(metrics.narrow.fieldRight + 1);
+        expect(metrics.narrow.inputRight).toBeLessThanOrEqual(metrics.narrow.firstTriggerLeft + 1)
+    });
 });

@@ -1,0 +1,26 @@
+:where(.neo-theme-neo-dark) {
+    --portal-examples-list-band-bg          : rgba(13, 16, 22, 0.86);
+    --portal-examples-list-band-border      : color-mix(in srgb, var(--portal-examples-list-selected) 62%, transparent);
+    --portal-examples-list-band-text        : var(--gray-100);
+    --portal-examples-list-band-text-muted  : #c5cad8;
+    --portal-examples-list-cue-text         : #fff;
+    --portal-examples-list-edge             : color-mix(in srgb, var(--sem-color-text-neutral-default) 11%, transparent);
+    --portal-examples-list-focus            : var(--sem-color-text-neutral-default);
+    --portal-examples-list-glint-core       : rgba(255, 255, 255, 0.42);
+    --portal-examples-list-glint-edge       : color-mix(in srgb, var(--sem-color-border-focus) 34%, transparent);
+    --portal-examples-list-hover            : var(--sem-color-border-focus);
+    --portal-examples-list-hover-light      : color-mix(in srgb, var(--sem-color-border-focus) 48%, transparent);
+    --portal-examples-list-hover-shadow     : 0 14px 34px rgba(0, 0, 0, 0.46);
+    --portal-examples-list-link-hover       : var(--portal-headline-primary);
+    --portal-examples-list-pill-bg          : rgba(13, 16, 22, 0.88);
+    --portal-examples-list-pill-border      : rgba(255, 255, 255, 0.14);
+    --portal-examples-list-pill-text        : var(--gray-100);
+    --portal-examples-list-selected         : var(--green-500);
+    --portal-examples-list-selected-deep    : color-mix(in srgb, var(--green-700) 50%, var(--green-800));
+    --portal-examples-list-selected-glow    : 0 0 24px -8px color-mix(in srgb, var(--green-500) 50%, transparent);
+    --portal-examples-list-selected-light   : color-mix(in srgb, var(--green-600) 30%, transparent);
+    --portal-examples-list-selected-text    : var(--green-500);
+    --portal-examples-list-shadow           : 0 10px 28px rgba(0, 0, 0, 0.34);
+    --portal-examples-list-surface          : color-mix(in srgb, var(--purple-900) 26%, var(--sem-color-bg-neutral-default));
+    --portal-examples-list-text             : var(--sem-color-text-neutral-default);
+}

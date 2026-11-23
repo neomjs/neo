@@ -1,0 +1,46 @@
+:where(.neo-theme-light) {
+    --cascade-header-bg      : #fafaf9;
+    --cascade-status-bg      : #f5f5f4;
+    --cascade-border         : #d6d3d1;
+    --cascade-title          : #1c1917;
+    --cascade-muted          : #57534e;
+    --cascade-control-bg     : #f5f5f4;
+    --cascade-hover-bg       : #e7e5e4;
+    --cascade-focus          : #0284c7;
+
+    --cascade-cta-bg         : #fffbeb;
+    --cascade-cta-hover      : #fef3c7;
+    --cascade-cta-border     : #d97706;
+    --cascade-cta-text       : #78350f;
+
+    --cascade-goal-pill-bg   : #ecfdf5;
+    --cascade-goal-pill-text : #065f46;
+    --cascade-slip-pill-bg   : #fffbeb;
+    --cascade-slip-pill-text : #92400e;
+
+    --cascade-bar-text       : #1c1917;
+    --cascade-bar-shadow     : 0 1px 4px rgba(28, 25, 23, 0.12);
+
+    --cascade-upstream-bg    : #dbeafe;
+    --cascade-upstream-border: #3b82f6;
+    --cascade-upstream-accent: #1d4ed8;
+
+    --cascade-trigger-bg     : #fef3c7;
+    --cascade-trigger-border : #d97706;
+    --cascade-trigger-accent : #b45309;
+    --cascade-trigger-shadow : 0 0 0 1px rgba(217, 119, 6, 0.34), 0 2px 8px rgba(28, 25, 23, 0.14);
+
+    --cascade-chain-bg       : #cffafe;
+    --cascade-chain-border   : #0891b2;
+    --cascade-chain-accent   : #0369a1;
+
+    --cascade-goal-bg        : #d1fae5;
+    --cascade-goal-border    : #10b981;
+    --cascade-goal-accent    : #047857;
+    --cascade-goal-shadow    : 0 0 0 1px rgba(16, 185, 129, 0.34), 0 2px 8px rgba(28, 25, 23, 0.14);
+
+    --cascade-beside-bg      : #f5f5f4;
+    --cascade-beside-border  : #78716c;
+    --cascade-beside-accent  : #57534e;
+    --cascade-beside-text    : #292524;
+}

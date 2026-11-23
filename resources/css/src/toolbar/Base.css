@@ -1,0 +1,162 @@
+.neo-toolbar {
+    background-color: var(--toolbar-background-color);
+    box-sizing: border-box;
+    padding: var(--toolbar-padding);
+}
+
+/* A toolbar's buttons take their theme's toolbar size, whatever an ancestor raises a button to, such as the Portal's
+   calls to action. Each theme declares `--toolbar-button-*` on its own scope, so in a nested scope the nearest theme
+   wins, and zero specificity leaves a toolbar's own size, such as the taskbar's, in charge. */
+:where(.neo-toolbar) {
+    --button-height        : var(--toolbar-button-height);
+    --button-min-width     : var(--toolbar-button-min-width);
+    --button-padding       : var(--toolbar-button-padding);
+    --button-text-font-size: var(--toolbar-button-font-size);
+}
+
+.neo-toolbar .neo-button {
+    margin: 0;
+}
+
+/* A phone's toolbar padding for a button without a size; a size class re-values the variable on the button itself */
+@media (max-width: 600px) {
+    :where(.neo-toolbar) {
+        --button-padding: 0 5px;
+    }
+}
+
+.neo-toolbar {
+    /* A gated action that is not being offered has NO DOM node. `toolbar.Base` withdraws it through
+       the component's own absence primitive (`vdom.removeDom`), so no consumer rule on
+       `.neo-toolbar-action` — whatever its specificity — can give it a box back. A class-driven
+       `display: none` used to live here and was outranked by ordinary viewport-scoped app CSS.
+       `.neo-toolbar-action-context-inactive` is the instance-side marker the tab overflow
+       measurement filters by; it never reaches a rendered node, so there is nothing to style. */
+}
+
+.neo-toolbar.neo-dock-left .neo-button {
+    padding: 12px 6px;
+}
+
+.neo-toolbar.neo-dock-left .neo-button.icon-left {
+    flex-direction: column-reverse;
+}
+
+.neo-toolbar.neo-dock-left .neo-button.icon-left .neo-button-glyph {
+    margin: 10px 0 0 0;
+}
+
+.neo-toolbar.neo-dock-left .neo-button-badge {
+    transform: rotate(180deg);
+    writing-mode: vertical-rl;
+}
+
+.neo-toolbar.neo-dock-left .neo-button-badge.neo-bottom-left {
+    bottom: var(--button-badge-margin-top);
+    left: unset;
+    right: var(--button-badge-margin-left);
+    top: unset;
+}
+
+.neo-toolbar.neo-dock-left .neo-button-badge.neo-bottom-right {
+    bottom: unset;
+    left: unset;
+    right: var(--button-badge-margin-left);
+    top: var(--button-badge-margin-top);
+}
+
+.neo-toolbar.neo-dock-left .neo-button-badge.neo-top-left {
+    bottom: var(--button-badge-margin-top);
+    left: var(--button-badge-margin-left);
+    right: unset;
+    top: unset;
+}
+
+.neo-toolbar.neo-dock-left .neo-button-badge.neo-top-right {
+    bottom: unset;
+    left: var(--button-badge-margin-left);
+    right: unset;
+    top: var(--button-badge-margin-top);
+}
+
+.neo-toolbar.neo-dock-left .neo-button-glyph {
+    transform: rotate(-90deg);
+}
+
+.neo-toolbar.neo-dock-left .neo-button-text {
+    transform: rotate(180deg);
+    writing-mode: vertical-rl;
+}
+
+.neo-toolbar.neo-dock-left .neo-label {
+    margin-bottom: 10px;
+    margin-top: 10px;
+    transform: rotate(180deg);
+    writing-mode: vertical-rl;
+}
+
+.neo-toolbar.neo-dock-right .neo-button {
+    padding: 12px 6px;
+}
+
+.neo-toolbar.neo-dock-right .neo-button.icon-left {
+    flex-direction: column;
+}
+
+.neo-toolbar.neo-dock-right .neo-button.icon-left .neo-button-glyph {
+    margin: 0 0 10px 0;
+}
+
+.neo-toolbar.neo-dock-right .neo-button-badge {
+    writing-mode: vertical-lr;
+}
+
+.neo-toolbar.neo-dock-right .neo-button-badge.neo-bottom-left {
+    bottom: unset;
+    left: var(--button-badge-margin-left);
+    right: unset;
+    top: var(--button-badge-margin-top);
+}
+
+.neo-toolbar.neo-dock-right .neo-button-badge.neo-bottom-right {
+    bottom: var(--button-badge-margin-top);
+    left: var(--button-badge-margin-left);
+    right: unset;
+    top: unset;
+}
+
+.neo-toolbar.neo-dock-right .neo-button-badge.neo-top-left {
+    bottom: unset;
+    left: unset;
+    right: var(--button-badge-margin-left);
+    top: var(--button-badge-margin-top);
+}
+
+.neo-toolbar.neo-dock-right .neo-button-badge.neo-top-right {
+    bottom: var(--button-badge-margin-top);
+    left: unset;
+    right: var(--button-badge-margin-left);
+    top: unset;
+}
+
+.neo-toolbar.neo-dock-right .neo-button-glyph {
+    transform: rotate(90deg);
+}
+
+.neo-toolbar.neo-dock-right .neo-button-text {
+    writing-mode: vertical-lr;
+}
+
+.neo-toolbar.neo-dock-right .neo-label {
+    margin-bottom: 10px;
+    margin-top: 10px;
+    writing-mode: vertical-lr;
+}
+
+.neo-toolbar.neo-dock-bottom .neo-button.icon-left .neo-button-glyph, .neo-toolbar.neo-dock-top .neo-button.icon-left .neo-button-glyph {
+    margin: var(--button-glyph-margin);
+}
+
+.neo-toolbar.neo-dock-bottom .neo-label, .neo-toolbar.neo-dock-top .neo-label {
+    margin: 0 10px 0 5px;
+}

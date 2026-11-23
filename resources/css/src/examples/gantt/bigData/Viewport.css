@@ -1,0 +1,120 @@
+.programme-toolbar.neo-toolbar {
+    align-items  : center;
+    background   : var(--programme-header-bg);
+    border-bottom: 1px solid var(--programme-border);
+    box-sizing   : border-box;
+    flex-wrap    : wrap;
+    gap          : 8px 12px;
+    max-width    : 100%;
+    min-height   : 64px;
+    padding      : 10px 20px;
+
+    .programme-spacer {
+        min-width: 0;
+    }
+
+    .programme-title {
+        color         : var(--programme-title);
+        font-size     : 18px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .programme-counts {
+        background          : var(--programme-badge-bg);
+        border              : 1px solid var(--programme-badge-border);
+        border-radius       : 999px;
+        color               : var(--programme-badge-text);
+        font-size           : 12px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 600;
+        padding             : 3px 10px;
+    }
+
+    .programme-hint {
+        color    : var(--programme-muted);
+        font-size: 13px;
+    }
+
+    .programme-zoom-group.neo-container {
+        align-items: center;
+        display    : inline-flex;
+    }
+
+    .programme-zoom {
+        --button-background-color-hover: var(--programme-hover-bg);
+        --button-border-hover          : 1px solid var(--programme-border);
+        --button-text-color            : var(--programme-muted);
+        --button-text-color-active     : var(--programme-title);
+        --button-text-color-hover      : var(--programme-title);
+        background   : var(--programme-control-bg);
+        border       : 1px solid var(--programme-border);
+        border-radius: 6px 0 0 6px;
+        color        : var(--programme-muted);
+        margin-right : -1px;
+        min-height   : 32px;
+        min-width    : 52px;
+        padding      : 0 11px;
+
+        & + .programme-zoom {
+            border-radius: 0 6px 6px 0;
+            margin-right : 0;
+        }
+
+        &.pressed {
+            --button-background-color-hover: var(--programme-selected-bg);
+            --button-text-color            : var(--programme-selected-text);
+            --button-text-color-active     : var(--programme-selected-text);
+            --button-text-color-hover      : var(--programme-selected-text);
+            background: var(--programme-selected-bg);
+        }
+
+        &:focus-visible {
+            outline       : 2px solid var(--programme-focus);
+            outline-offset: 2px;
+        }
+    }
+}
+
+@media (max-width: 1120px) {
+    .programme-toolbar.neo-toolbar {
+        .programme-hint {
+            flex       : 0 0 100% !important;
+            order      : 2;
+            white-space: normal;
+        }
+    }
+}
+
+@media (max-width: 767px) {
+    .programme-toolbar.neo-toolbar {
+        gap       : 6px 8px;
+        min-height: auto;
+        padding   : 8px 12px;
+
+        .programme-title {
+            font-size: 14px;
+        }
+
+        .programme-counts {
+            font-size: 11px;
+            padding  : 2px 8px;
+        }
+
+        .programme-hint {
+            flex       : 0 0 100% !important;
+            font-size  : 11px;
+            white-space: normal;
+        }
+
+        .programme-spacer {
+            display: none;
+        }
+
+        .programme-zoom {
+            min-height: 26px;
+            min-width : 42px;
+            padding   : 0 8px;
+        }
+    }
+}

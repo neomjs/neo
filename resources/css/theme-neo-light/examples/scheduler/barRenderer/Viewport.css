@@ -1,0 +1,42 @@
+:where(.neo-theme-neo-light) {
+    --print-header-bg            : #f8fafc;
+    --print-subbar-bg            : #f1f5f9;
+    --print-border               : rgba(15, 23, 42, 0.12);
+    --print-title                : #0f172a;
+    --print-muted                : #334155;
+    --print-focus                : #0284c7;
+    --print-badge-bg             : #e0f2fe;
+    --print-badge-border         : #7dd3fc;
+    --print-badge-text           : #0c4a6e;
+
+    --print-switch-surface       : #ffffff;
+    --print-switch-hover-bg      : #f1f5f9;
+    --print-switch-active-surface: #e0f2fe;
+    --print-switch-border        : #94a3b8;
+    --print-switch-track-off     : #94a3b8;
+    --print-switch-track-border  : #64748b;
+    --print-switch-track-on      : #0284c7;
+    --print-switch-thumb         : #ffffff;
+    --print-switch-thumb-on      : #ffffff;
+
+    --print-bar-text             : #0f172a;
+    --print-bar-meta             : #1e293b;
+
+    --print-on-time-bg           : #f0fdf4;
+    --print-on-time-fill         : #bbf7d0;
+    --print-on-time-border       : #059669;
+
+    --print-at-risk-bg           : #fffbeb;
+    --print-at-risk-fill         : #fde68a;
+    --print-at-risk-border       : #d97706;
+    --print-risk-flag-bg         : #92400e;
+    --print-risk-flag-border     : #78350f;
+    --print-risk-flag-text       : #ffffff;
+
+    --print-late-bg              : #fff1f2;
+    --print-late-fill            : #fecdd3;
+    --print-late-border          : #e11d48;
+    --print-late-flag-bg         : #9f1239;
+    --print-late-flag-border     : #881337;
+    --print-late-flag-text       : #ffffff;
+}

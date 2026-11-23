@@ -46,8 +46,8 @@ const
 
 test.describe('Neo.dashboard.dock.interaction.Preview', () => {
     test.describe('stylesheet contract (visible affordances)', () => {
-        test('the structural scss backs the emitted affordance classes with visible styling', () => {
-            const scss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8');
+        test('the structural sheet backs the emitted affordance classes with visible styling', () => {
+            const scss = fs.readFileSync(path.join(repoRoot, 'resources/css/src/dashboard/dock/interaction/Preview.css'), 'utf8');
 
             expect(scss).toContain('.neo-dock-preview-affordance');
             expect(scss).toContain('.neo-dock-preview-accepted');
@@ -65,7 +65,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
         });
 
         test('shared consumers stay on the declared DockPreview contract', () => {
-            const structural = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8'),
+            const structural = fs.readFileSync(path.join(repoRoot, 'resources/css/src/dashboard/dock/interaction/Preview.css'), 'utf8'),
                   consumers  = [...new Set(
                       [...structural.matchAll(/var\((--(?:fm|dock-transition)-[\w-]+)/g)].map(match => match[1])
                   )].sort();
@@ -82,10 +82,10 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
 
         test('the proxy surface and signal language have no fallbacks and stay dock-owned', () => {
             const
-                containerScss = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/Container.scss'), 'utf8'),
-                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/scss/src/dashboard/dock/interaction/Preview.scss'), 'utf8'),
-                // strip line comments: the census asserts on SELECTORS and declarations, not prose
-                uncomment     = source => source.replace(/\/\/[^\n]*/g, ''),
+                containerScss = fs.readFileSync(path.join(repoRoot, 'resources/css/src/dashboard/Container.css'), 'utf8'),
+                previewScss   = fs.readFileSync(path.join(repoRoot, 'resources/css/src/dashboard/dock/interaction/Preview.css'), 'utf8'),
+                // strip comments: the census asserts on SELECTORS and declarations, not prose
+                uncomment     = source => source.replace(/\/\*[\s\S]*?\*\//g, ''),
                 signalStart   = containerScss.indexOf('.neo-preview-lang-signal');
 
             expect(signalStart).toBeGreaterThan(-1);
@@ -94,7 +94,7 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             // fallback-masking class this variant's whole review cycle exists to kill — an
             // equal-valued literal hides a missing app projection in exactly one mode. Every
             // shared signal consumer (the indicator/chip section + the proxy edge-light in
-            // Container.scss) consumes the aliases bare.
+            // Container.css) consumes the aliases bare.
             [containerScss.slice(signalStart), previewScss].forEach(source => {
                 expect([...source.matchAll(/var\(--agent-dock-preview-signal[\w-]*\s*,/g)]).toEqual([])
             });
@@ -121,8 +121,8 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
 
         test('the workstation projects every dock-affordance domain alias in both modes', () => {
             const
-                dark  = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-dark/apps/workstation/Viewport.scss'), 'utf8'),
-                light = fs.readFileSync(path.join(repoRoot, 'resources/scss/theme-neo-light/apps/workstation/Viewport.scss'), 'utf8');
+                dark  = fs.readFileSync(path.join(repoRoot, 'resources/css/theme-neo-dark/apps/workstation/Viewport.css'), 'utf8'),
+                light = fs.readFileSync(path.join(repoRoot, 'resources/css/theme-neo-light/apps/workstation/Viewport.css'), 'utf8');
 
             // The flagship consumes the shared preview family (default AND signal), so BOTH mode
             // files must project the full preview + proxy contract. With the no-fallback census above,
@@ -184,6 +184,16 @@ test.describe('Neo.dashboard.dock.interaction.Preview', () => {
             expect(affordance).not.toBe(null);
             expect(affordance.group).toBe('tab');
             expect(affordance.accepted).toBe(false)
+        });
+
+        test('a zone placement paints the whole well it targets', () => {
+            const affordance = DockPreview.mapPreviewToAffordance(preview({
+                target   : {containerId: 'workspace', nodeId: 'root'},
+                placement: {kind: 'zone-center', tabsNodeId: 'root-center-0'}
+            }));
+
+            expect(affordance.group).toBe('zone');
+            expect(DockPreview.affordanceGeometry(affordance, {x: 10, y: 20, width: 300, height: 200})).toEqual({x: 10, y: 20, width: 300, height: 200})
         });
 
         test('returns null for a rejected placement (no candidate to draw)', () => {

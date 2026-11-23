@@ -1,0 +1,84 @@
+/* The hiring pipeline example's chrome: a toolbar, the line naming each edit's keys, and the board. It reads the
+   board's own tokens, so each theme that styles the board styles the example too. The five columns share a desktop's
+   width, and the first one fits a phone whole. */
+.pipeline-example {
+    --neo-board-column-width: clamp(264px, calc((100vw - 6 * var(--neo-board-gap, 12px)) / 5), 340px);
+
+    background: var(--neo-board-background);
+
+    .pipeline-toolbar.neo-toolbar {
+        align-items  : center;
+        background   : var(--neo-board-column-background);
+        border-bottom: 1px solid var(--neo-board-column-border-color);
+        flex-wrap    : wrap;
+        gap          : 4px 12px;
+        min-height   : 64px;
+        padding      : 12px 24px;
+    }
+
+    .pipeline-title {
+        color         : var(--neo-board-card-color);
+        font-size     : 19px;
+        font-weight   : 700;
+        letter-spacing: -.02em;
+    }
+
+    .pipeline-subtitle {
+        color    : var(--neo-board-card-muted-color);
+        font-size: 13px;
+    }
+
+    .pipeline-hints {
+        align-items  : center;
+        border-bottom: 1px solid var(--neo-board-column-border-color);
+        color        : var(--neo-board-card-muted-color);
+        display      : flex;
+        flex-wrap    : wrap;
+        font-size    : 12px;
+        gap          : 6px 18px;
+        min-height   : 44px;
+        padding      : 8px 24px;
+    }
+
+    .pipeline-hint {
+        align-items: center;
+        display    : inline-flex;
+        gap        : 5px;
+        white-space: nowrap;
+
+        kbd {
+            background         : var(--neo-board-card-background);
+            border             : 1px solid var(--neo-board-card-border-color);
+            border-bottom-width: 2px;
+            border-radius      : 5px;
+            color              : var(--neo-board-card-color);
+            font-family        : inherit;
+            font-size          : 11px;
+            font-weight        : 600;
+            line-height        : 1;
+            padding            : 3px 6px;
+        }
+    }
+
+    .pipeline-hint-effect {
+        margin-left: 2px;
+    }
+
+    /* A phone has no F2 or Enter key to name; the ⋯ button and a double tap still open each edit */
+    @media (max-width: 720px) {
+        .pipeline-hints {
+            display: none;
+        }
+
+        .pipeline-toolbar.neo-toolbar {
+            padding-left : 16px;
+            padding-right: 16px;
+        }
+
+        .pipeline-subtitle {
+            font-size: 12px;
+            order    : 2;
+            width    : 100%;
+        }
+    }
+}

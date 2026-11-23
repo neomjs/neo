@@ -19,7 +19,7 @@ import Component from '../../../component/Base.mjs';
  * per-theme values could be declared: the `cls` entry was applied but no sheet in the repository
  * defined it, so both inherit chains fell through to the user-agent default and the slot rendered
  * black-on-white under every theme. Registering the class supplies that address;
- * `VesselPlaceholder.scss` and its per-theme values supply the two properties the mask reads.
+ * `VesselPlaceholder.css` and its per-theme values supply the two properties the mask reads.
  */
 class VesselPlaceholder extends Component {
     static config = {

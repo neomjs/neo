@@ -1,0 +1,30 @@
+.neo-tooltip {
+    background-color: var(--tooltip-bg);
+    border          : var(--tooltip-border);
+    border-radius   : var(--tooltip-borderradius);
+    box-shadow      : var(--tooltip-boxshadow);
+    color           : var(--tooltip-color);
+    font-size       : var(--tooltip-fontsize);
+    height          : var(--tooltip-height);
+    padding         : var(--tooltip-padding);
+    position        : absolute;
+
+    /* Out of sight until Main aligned it, which writes the zone class: a tooltip hidden while its insert was on its
+       way is never aligned, so that insert paints nothing before its landing removes it */
+    &:not([class*=neo-aligned-]) {
+        visibility: hidden;
+    }
+
+    /* A hoverable tooltip's hit area reaches across the gap to its target, on the side that faces it and no wider than
+       the two boxes. Main writes the gap at every alignment (`Neo.main.DomAccess.writeGap()`), its own resyncs on a
+       resize or scroll included, so a pointer on its way from the target enters the tooltip, while one parked anywhere
+       else is outside it */
+    &.neo-tooltip-hoverable::before {
+        content : '';
+        height  : var(--neo-align-gap-height, 0);
+        left    : var(--neo-align-gap-left, 0);
+        position: absolute;
+        top     : var(--neo-align-gap-top, 0);
+        width   : var(--neo-align-gap-width, 0);
+    }
+}

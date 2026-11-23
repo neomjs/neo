@@ -1,197 +1,167 @@
-import Button                from '../../../src/button/Base.mjs';
-import CellColumnModel       from '../../../src/selection/table/CellColumnModel.mjs';
-import CellColumnRowModel    from '../../../src/selection/table/CellColumnRowModel.mjs';
-import CellModel             from '../../../src/selection/table/CellModel.mjs';
-import CellRowModel          from '../../../src/selection/table/CellRowModel.mjs';
-import Checkbox              from '../../../src/form/field/CheckBox.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import ColumnModel           from '../../../src/selection/table/ColumnModel.mjs';
 import MainStore             from './MainStore.mjs';
-import NumberField           from '../../../src/form/field/Number.mjs';
-import Radio                 from '../../../src/form/field/Radio.mjs';
-import RowModel              from '../../../src/selection/table/RowModel.mjs';
+import NeoArray              from '../../../src/util/Array.mjs';
 import TableContainer        from '../../../src/table/Container.mjs';
 
 /**
+ * @summary Shows when `Neo.table.Container` beats a virtualized grid: small local datasets with content-sized columns,
+ * sticky headers, and wrapping prose cells.
  * @class Neo.examples.table.container.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.table.container.MainContainer',
-        autoMount           : true,
-        configItemLabelWidth: 130,
-        configPanelFlex     : 1.5,
-        exampleComponentFlex: 3,
-        layout              : {ntype: 'hbox', align: 'stretch'}
+        className             : 'Neo.examples.table.container.MainContainer',
+        autoMount             : true,
+        cls                   : ['neo-examples-table-container'],
+        componentName         : 'Service Tier Specifications',
+        configItemLabelWidth  : 165,
+        configItemWidth       : 260,
+        configPanelFlex       : 'none',
+        configPanelMaxWidth   : 310,
+        configPanelMinWidth   : 290,
+        description           : 'Use Neo.table.Container for local tabular data where all records are already present, columns size to their content, and cells wrap — switch to Neo.grid.Container when thousands of rows need virtualization.',
+        exampleComponentFlex  : 1,
+        exampleContainerConfig: {
+            layout: {ntype: 'vbox', align: 'start'},
+            style : {overflow: 'hidden', padding: '16px'}
+        },
+        layout                : {ntype: 'hbox', align: 'stretch'}
     }
 
-    createConfigurationComponents() {
-        let me               = this,
-            {selectionModel} = me.exampleComponent.body;
+    /**
+     * @summary Builds the five specification columns with wrapping prose on `notes`.
+     * @returns {Object[]}
+     */
+    createColumns() {
+        return [
+            {dataField: 'specification', text: 'Specification'},
+            {dataField: 'area',          text: 'Area'},
+            {dataField: 'starter',       text: 'Starter'},
+            {dataField: 'production',    text: 'Production'},
+            {
+                dataField: 'notes',
+                text     : 'Notes',
+                renderer : ({value}) => ({
+                    cls : ['neo-table-spec-notes'],
+                    text: value
+                })
+            }
+        ]
+    }
 
-        const selectionModelRadioDefaults = {
-            module        : Radio,
-            hideValueLabel: false,
-            labelText     : '',
-            name          : 'selectionModel',
-            width         : 350
-        };
+    /**
+     * @summary Exposes the table's own header, resize, reorder, filter, and width switches.
+     * @returns {Object[]}
+     */
+    createConfigurationComponents() {
+        let me              = this,
+            {headerToolbar} = me.exampleComponent;
 
         return [{
-            module   : NumberField,
-            labelText: 'height',
-            listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 800,
-            minValue : 225,
-            stepSize : 5,
-            value    : me.exampleComponent.height
+            module   : CheckBox,
+            checked  : me.exampleComponent.sortable,
+            labelText: 'Sortable headers',
+            listeners: {change: me.onConfigChange.bind(me, 'sortable')},
+            name     : 'sortable'
         }, {
-            ...selectionModelRadioDefaults,
-            checked   : selectionModel.ntype === 'selection-table-cellmodel',
-            labelText : 'selectionModel',
-            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellModel)},
-            style     : {marginTop: '10px'},
-            valueLabel: 'Cell'
-        }, {
-            ...selectionModelRadioDefaults,
-            checked   : selectionModel.ntype === 'selection-table-columnmodel',
-            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', ColumnModel)},
-            valueLabel: 'Column'
-        }, {
-            ...selectionModelRadioDefaults,
-            checked   : selectionModel.ntype === 'selection-table-rowmodel',
-            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', RowModel)},
-            valueLabel: 'Row'
-        }, {
-            ...selectionModelRadioDefaults,
-            checked   : selectionModel.ntype === 'selection-table-cellcolumnmodel',
-            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnModel)},
-            valueLabel: 'Cell & Column'
-        }, {
-            ...selectionModelRadioDefaults,
-            checked   : selectionModel.ntype === 'selection-table-cellrowmodel',
-            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellRowModel)},
-            valueLabel: 'Cell & Row'
-        }, {
-            ...selectionModelRadioDefaults,
-            checked   : selectionModel.ntype === 'selection-table-cellcolumnrowmodel',
-            listeners : {change: me.onRadioViewChange.bind(me, 'selectionModel', CellColumnRowModel)},
-            valueLabel: 'Cell & Column & Row'
-        }, {
-            module   : Checkbox,
-            checked  : me.exampleComponent.dragResortable,
-            labelText: 'dragResortable',
-            listeners: {change: me.onConfigChange.bind(me, 'dragResortable')},
+            module   : CheckBox,
+            checked  : me.exampleComponent.showHeaderFilters,
+            labelText: 'Inline header filters',
+            listeners: {change: me.onConfigChange.bind(me, 'showHeaderFilters')},
+            name     : 'showHeaderFilters',
             style    : {marginTop: '10px'}
         }, {
-            module   : Checkbox,
+            module   : CheckBox,
+            checked  : headerToolbar.dragResortable,
+            labelText: 'Drag-reorder columns',
+            listeners: {change: me.onToolbarConfigChange.bind(me, 'dragResortable')},
+            name     : 'dragResortable',
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
+            checked  : headerToolbar.resizable,
+            labelText: 'Resizable columns',
+            listeners: {change: me.onToolbarConfigChange.bind(me, 'resizable')},
+            name     : 'resizable',
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : false,
             labelText: 'Fit width',
-            listeners: {
-                change({value}) {
-                    const {style} = me.exampleComponent;
-
-                    if (value) {
-                        style.width = '100%';
-                        style.tableLayout = 'fixed';
-                    } else {
-                        style.width = '';
-                        style.tableLayout = '';
-                    }
-
-                    me.exampleComponent.style = style
-                }
-            },
-            style: {marginTop: '10px'}
+            listeners: {change: me.onFitWidthChange.bind(me)},
+            name     : 'fitWidth',
+            style    : {marginTop: '10px'}
         }]
     }
 
     /**
-     * @returns {Neo.table.Container}
+     * @summary Returns the `Neo.table.Container` config bound to `MainStore`.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create(TableContainer, {
-            id   : 'myTableStoreContainer',
-            store: MainStore,
-
-            bodyConfig: {
-                selectionModel: CellModel
-            },
-
-            columns: [
-                {dataField: 'firstname', text: 'Firstname'},
-                {dataField: 'lastname',  text: 'Lastname'},
-                {dataField: 'githubId',  text: 'Github Id'},
-                {dataField: 'country',   text: 'Country'},
-                {
-                    dataField: 'edit',
-                    text     : 'Edit Action',
-                    renderer({column, rowIndex}) {
-                        const
-                            me       = this,
-                            widgetId = `${column.id}-widget-${rowIndex}`,
-                            button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create({
-                                module  : Button,
-                                appName : me.appName,
-                                handler : 'up.editButtonHandler',
-                                parentId: 'myTableStoreContainer',
-                                text    : 'Edit'
-                            }));
-
-                        me.body.updateDepth = -1;
-
-                        return button.createVdomReference()
-                    }
-                }, {
-                    dataField: 'menu',
-                    text     : 'Menu',
-                    renderer({column, record, rowIndex}) {
-                        const
-                            me       = this,
-                            widgetId = `${column.id}-widget-${rowIndex}`,
-                            button   = (column.widgetMap || (column.widgetMap = {}))[widgetId] || (column.widgetMap[widgetId] = Neo.create('Neo.button.Base', {
-                                ntype   : 'button',
-                                appName : me.appName,
-                                text    : '\u22ee',
-                                windowId: me.windowId,
-                                menu    : {
-                                    items : [{
-                                        text : 'Menu option 1'
-                                    }, {
-                                        text : 'Menu option 2'
-                                    }, {
-                                        text : 'Menu option 3'
-                                    }, {
-                                        text : 'Menu option 4'
-                                    }]
-                                }
-                            }));
-
-                        me.body.updateDepth = -1;
-
-                        return button.createVdomReference()
-                    }
-                }
-            ]
-        })
+        return {
+            module : TableContainer,
+            id     : 'myTableStoreContainer',
+            columns: this.createColumns(),
+            store  : MainStore
+        }
     }
 
     /**
-     * @param {Object} data
-     */
-    editButtonHandler(data) {
-        console.log(data)
-    }
-
-    /**
-     * @param {String} config
-     * @param {String} value
+     * @summary Toggles full-stage fixed table layout vs natural content-sized column widths.
      * @param {Object} opts
      */
-    onRadioViewChange(config, value, opts) {
-        if (opts.value === true) { // we only want to listen to check events, not uncheck
-            this.exampleComponent.body[config] = value
+    onFitWidthChange(opts) {
+        let table = this.exampleComponent,
+            cls   = [...table.cls];
+
+        NeoArray.toggle(cls, 'neo-table-fit-width', Boolean(opts.value));
+        table.cls = cls
+    }
+
+    /**
+     * @summary Restores initial controls, column widths/order, fit-width mode, filters, and sort order.
+     */
+    onReset() {
+        let me      = this,
+            table   = me.exampleComponent,
+            store   = table?.store,
+            toolbar = table?.headerToolbar;
+
+        super.onReset();
+
+        if (store) {
+            store.clearFilters();
+            store.clearSorters();
+            store.data = [];
+            store.data = Neo.clone(MainStore.initialData, true)
+        }
+
+        toolbar?.set({
+            dragResortable: true,
+            resizable     : true
+        });
+
+        if (table) {
+            let cls = [...table.cls];
+            NeoArray.remove(cls, 'neo-table-fit-width');
+            table.cls     = cls;
+            table.columns = me.createColumns()
+        }
+    }
+
+    /**
+     * @summary Updates a `Neo.table.header.Toolbar` capability flag from the Inspector.
+     * @param {String} config
+     * @param {Object} opts
+     */
+    onToolbarConfigChange(config, opts) {
+        let toolbar = this.exampleComponent?.headerToolbar;
+
+        if (toolbar) {
+            toolbar[config] = Boolean(opts.value)
         }
     }
 }

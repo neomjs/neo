@@ -7,6 +7,9 @@ import TableBody       from './Body.mjs';
 import * as header     from './header/_export.mjs';
 
 /**
+ * @summary Coordinates a table's columns, body and store updates.
+ *
+ * Whole-record bulk edits are forwarded to the store as one row batch.
  * @class Neo.table.Container
  * @extends Neo.container.Base
  */
@@ -347,26 +350,12 @@ class Container extends BaseContainer {
     }
 
     /**
-     * In case you want to update multiple existing records in parallel,
-     * using this method is faster than updating each record one by one.
-     * At least until we introduce row based vdom updates.
+     * @summary Updates existing rows through one store batch, leaving Turbo Mode rows unhydrated.
+     * Body updates follow the store's `rowsChange` event. Key, undeclared and calculated fields are ignored.
      * @param {Object[]} records
      */
     bulkUpdateRecords(records) {
-        let {body, store} = this,
-            {keyProperty} = store;
-
-        if (body) {
-            body.silentVdomUpdate = true;
-
-            records.forEach(item => {
-                store.get(item[keyProperty])?.set(item)
-            });
-
-            body.silentVdomUpdate = false;
-
-            body.update()
-        }
+        this.store.updateRecords(records)
     }
 
     /**

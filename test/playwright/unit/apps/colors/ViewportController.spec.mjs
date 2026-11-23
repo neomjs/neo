@@ -8,6 +8,7 @@ import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
 import DragProxyContainer from '../../../../../src/draggable/DragProxyContainer.mjs';
 import Viewport           from '../../../../../apps/colors/view/Viewport.mjs';
+import ViewportController from '../../../../../apps/colors/view/ViewportController.mjs';
 
 const appName = 'ColorsViewportControllerTest';
 
@@ -50,7 +51,7 @@ Neo.ns('Colors.backend.ColorService', true).read = ({amountRows}) => new Promise
     })
 });
 
-test.describe('Colors ViewportController resume across a drag', () => {
+test.describe('Colors ViewportController', () => {
     let dragProxy, viewport;
 
     /**
@@ -90,14 +91,29 @@ test.describe('Colors ViewportController resume across a drag', () => {
         dragProxy = viewport = null
     });
 
+    test('builds the environment-aware widget popup URL', () => {
+        const originalEnvironment = Neo.config.environment;
+
+        try {
+            Neo.config.environment = 'development';
+            expect(ViewportController.getWidgetPopupUrl()).toBe('apps/colors/childapps/widget/index.html');
+
+            Neo.config.environment = 'dist/production';
+            expect(ViewportController.getWidgetPopupUrl()).toBe('dist/production/apps/colors/childapps/widget/index.html');
+        } finally {
+            Neo.config.environment = originalEnvironment
+        }
+    });
+
     /**
      * @summary Creates the real Colors Viewport, whose controller asks for its first answer while constructing.
+     * @param {Object} [config={}] Configs for the Viewport, such as a controller with its own deadline
      * @returns {Object} `{controller, dashboard, grid, gridPanel}`
      */
-    function createViewport() {
+    function createViewport(config={}) {
         // applyBodyCls is off for the same reason the stand-ins above exist: it would reach the real
         // `Neo.main.DomAccess`, and standing an object in for that namespace breaks later spec files
-        viewport = Neo.create(Viewport, {appName, applyBodyCls: false, parentId: 'document.body'});
+        viewport = Neo.create(Viewport, {appName, applyBodyCls: false, parentId: 'document.body', ...config});
 
         return {
             controller: viewport.controller,
@@ -153,7 +169,30 @@ test.describe('Colors ViewportController resume across a drag', () => {
 
         expect(controller.getReference('grid')).toBe(grid);
         expect(grid.store.first().columnA).toBe(`answer-${readCount}`);
-        expect(controller.getReference('bar-chart').chartData).toEqual([{color: `#00000${readCount}`, count: 10}])
+        expect(controller.getReference('bar-chart').chartData).toEqual([{color: `#00000${readCount}`, count: 10}]);
+        expect(viewport.getStateProvider().getData('dataSource'), 'an answer in time keeps the backend').toBe('backend')
+    });
+
+    test('a backend that does not answer in time: the app generates the batch and stops asking', async () => {
+        const {controller, grid} = createViewport({controller: {module: ViewportController, backendDeadline: 50}}),
+              stateProvider      = viewport.getStateProvider();
+
+        expect(stateProvider.getData('dataSource')).toBe('backend');
+
+        await expect.poll(() => grid.store.getCount(), {timeout: 1000}).toBe(10);
+
+        const summary = controller.getReference('bar-chart').chartData;
+
+        expect(stateProvider.getData('dataSource')).toBe('local');
+        expect(summary).toHaveLength(10);
+        expect(summary.reduce((sum, {count}) => sum + count, 0), 'ten rows of ten columns').toBe(100);
+
+        // The answer that arrives late reaches nobody, and the next batch asks nobody
+        releaseReads();
+        await controller.updateWidgets();
+
+        expect(pendingReads).toHaveLength(0);
+        expect(grid.store.first().columnA).not.toContain('answer')
     });
 
     test('CONTROL: a widget that is gone leaves the resume returning instead of throwing', async () => {
