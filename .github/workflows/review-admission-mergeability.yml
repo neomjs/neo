@@ -50,7 +50,7 @@ jobs:
           MERGEABILITY_REST_WAKE_BATCH: '32'
           MERGEABILITY_REST_WAKE_BUDGET: '64'
         with:
-          retries: 3
+          retries: 0
           script: |
             const baseBranch       = 'dev';
             const qualifiedBaseRef = 'refs/heads/dev';
@@ -69,20 +69,22 @@ jobs:
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
             const metrics = {
-              graphqlCalls: 0,
-              graphqlCost : 0,
-              restReads   : 0,
-              retries     : 0,
-              statusReads : 0,
-              statusWrites: 0
+              failedRequests: 0,
+              graphqlCalls  : 0,
+              graphqlCost   : 0,
+              restReads     : 0,
+              retries       : 0,
+              statusReads   : 0,
+              statusWrites  : 0
             };
 
             const formatMetrics = () =>
               `graphqlCalls=${metrics.graphqlCalls} graphqlCost=${metrics.graphqlCost} ` +
               `restReads=${metrics.restReads} statusReads=${metrics.statusReads} ` +
-              `statusWrites=${metrics.statusWrites} retries=${metrics.retries}`;
+              `statusWrites=${metrics.statusWrites} failedRequests=${metrics.failedRequests} retries=${metrics.retries}`;
 
             class ControllerSourceError extends Error {}
+            class IncompleteBoardError extends ControllerSourceError {}
             class PullInactive extends Error {}
 
             const BOARD_QUERY = `
@@ -255,11 +257,23 @@ jobs:
                 throw new ControllerSourceError('github.graphql client is unavailable.');
               }
 
-              const response = await github.graphql(query, variables);
               metrics.graphqlCalls++;
-              metrics.graphqlCost += Number(response?.rateLimit?.cost ?? 1);
+
+              let response;
+              try {
+                response = await github.graphql(query, variables);
+              } catch (error) {
+                metrics.failedRequests++;
+                throw error;
+              }
+
+              const reportedCost = Number(response?.rateLimit?.cost);
+              if (Number.isFinite(reportedCost) && reportedCost >= 0) {
+                metrics.graphqlCost += reportedCost;
+              }
 
               if (Array.isArray(response?.errors) && response.errors.length > 0) {
+                metrics.failedRequests++;
                 const detail = response.errors.map(err => err?.message || 'GraphQL error').join('; ');
                 throw new ControllerSourceError(`GraphQL response carried errors: ${detail}`);
               }
@@ -299,10 +313,13 @@ jobs:
 
             const readBoardSnapshot = async() => {
               const byNumber      = new Map();
+              const seenNumbers   = new Set();
               const inactiveNotes = [];
               let   cursor        = null;
               let   devTip        = null;
+              let   expectedTotal = null;
               let   pages         = 0;
+              let   rawNodeCount  = 0;
 
               while (true) {
                 pages++;
@@ -339,27 +356,54 @@ jobs:
                   throw new ControllerSourceError(`Board GraphQL page ${pages} omitted pull-request nodes or pageInfo.`);
                 }
 
+                if (!Number.isInteger(connection.totalCount) || connection.totalCount < 0) {
+                  throw new ControllerSourceError(`Board GraphQL page ${pages} omitted integer totalCount.`);
+                }
+
+                if (expectedTotal === null) {
+                  expectedTotal = connection.totalCount;
+                } else if (connection.totalCount !== expectedTotal) {
+                  throw new IncompleteBoardError(
+                    `Board GraphQL totalCount shifted mid-pagination from ${expectedTotal} to ${connection.totalCount} on page ${pages}.`
+                  );
+                }
+
                 if (nodes.some(node => !node)) {
                   throw new ControllerSourceError(`Board GraphQL page ${pages} contained null pull-request nodes.`);
                 }
 
-                if (pages === 1 && !pageInfo.hasNextPage && Number.isInteger(connection.totalCount) && nodes.length < connection.totalCount) {
-                  throw new ControllerSourceError(
-                    `Board GraphQL page 1 returned ${nodes.length} of ${connection.totalCount} PRs with hasNextPage=false.`
+                if (nodes.length === 0 && pageInfo.hasNextPage) {
+                  throw new IncompleteBoardError(
+                    `Board GraphQL page ${pages} returned 0 nodes while reporting hasNextPage=true.`
                   );
                 }
 
                 for (const node of nodes) {
                   const parsed = parsePrNode(node, devTip);
+                  rawNodeCount++;
+
+                  if (seenNumbers.has(parsed.number)) {
+                    throw new IncompleteBoardError(
+                      `Board GraphQL page ${pages} returned duplicate PR #${parsed.number} across paginated board.`
+                    );
+                  }
+
+                  seenNumbers.add(parsed.number);
 
                   if (parsed.active) {
-                    byNumber.set(parsed.number, parsed);
+                    byNumber.set(parsed.number, {...parsed, boardOrder: byNumber.size});
                   } else {
                     inactiveNotes.push(parsed.reason);
                   }
                 }
 
                 if (!pageInfo.hasNextPage) {
+                  if (rawNodeCount !== expectedTotal || seenNumbers.size !== expectedTotal) {
+                    throw new IncompleteBoardError(
+                      `Board GraphQL pagination returned ${seenNumbers.size} distinct PR(s) (${rawNodeCount} nodes) of ${expectedTotal} declared across ${pages} page(s) with hasNextPage=false.`
+                    );
+                  }
+
                   break;
                 }
 
@@ -383,32 +427,64 @@ jobs:
                 return null;
               }
 
-              restWakeBudget--;
+              let lastError = null;
 
-              return withBoundedRetry(`PR #${prNumber} REST wakeup`, async() => {
+              for (let attempt = 0; attempt <= maxApiRetries; attempt++) {
+                if (restWakeBudget <= 0) {
+                  break;
+                }
+
+                if (attempt > 0) {
+                  metrics.retries++;
+                  if (apiRetryDelayMs > 0) {
+                    await sleep(Math.min(apiRetryDelayMs * (2 ** (attempt - 1)), maxDelayMs));
+                  }
+                }
+
+                restWakeBudget--;
                 metrics.restReads++;
-                const response = await github.rest.pulls.get({
-                  owner      : context.repo.owner,
-                  pull_number: prNumber,
-                  repo       : context.repo.repo
-                });
-                return response?.data || null;
-              });
+
+                try {
+                  const response = await github.rest.pulls.get({
+                    owner      : context.repo.owner,
+                    pull_number: prNumber,
+                    repo       : context.repo.repo,
+                    request    : {retries: 0}
+                  });
+                  return response?.data || null;
+                } catch (error) {
+                  metrics.failedRequests++;
+                  lastError = error;
+                }
+              }
+
+              if (lastError) {
+                throw new ControllerSourceError(
+                  `PR #${prNumber} REST wakeup failed within attempt/budget bound: ${lastError?.message || lastError}`
+                );
+              }
+
+              return null;
             };
 
-            const writeCommitStatus = async(headSha, state, description) =>
-              withBoundedRetry(`Commit status write (${state} on ${headSha.slice(0, 10)})`, async() => {
+            const writeCommitStatusOnce = async(headSha, state, description) => {
+              try {
                 await github.rest.repos.createCommitStatus({
                   context    : contextKey,
                   description,
                   owner      : context.repo.owner,
                   repo       : context.repo.repo,
+                  request    : {retries: 0},
                   sha        : headSha,
                   state,
                   target_url : runUrl
                 });
                 metrics.statusWrites++;
-              });
+              } catch (error) {
+                metrics.failedRequests++;
+                throw error;
+              }
+            };
 
             const descriptionForBoolean = mergeable => mergeable
               ? 'Mergeable with current dev base'
@@ -417,65 +493,118 @@ jobs:
             const pendingHoldDescription = 'Mergeability still computing; recovers on bounded retry, next dev push, or workflow_dispatch';
 
             const publishVerifiedBoolean = async(prNumber, expectedCoordinate) => {
-              const verified = await readSinglePr(prNumber);
+              let lastWriteError = null;
 
-              if (!sameCoordinate(expectedCoordinate, verified.coordinate)) {
-                return {outcome: 'moved', observed: verified};
+              for (let attempt = 0; attempt <= maxApiRetries; attempt++) {
+                if (attempt > 0) {
+                  metrics.retries++;
+                  if (apiRetryDelayMs > 0) {
+                    await sleep(Math.min(apiRetryDelayMs * (2 ** (attempt - 1)), maxDelayMs));
+                  }
+                }
+
+                const verified = await readSinglePr(prNumber);
+
+                if (!sameCoordinate(expectedCoordinate, verified.coordinate)) {
+                  return {outcome: 'moved', observed: verified};
+                }
+
+                if (verified.mergeable === null) {
+                  return {outcome: 'unknown', observed: verified};
+                }
+
+                const state = verified.mergeable ? 'success' : 'failure';
+
+                if (verified.publishedState !== state) {
+                  try {
+                    await writeCommitStatusOnce(verified.head, state, descriptionForBoolean(verified.mergeable));
+                    lastWriteError = null;
+                  } catch (error) {
+                    lastWriteError = error;
+                    continue;
+                  }
+                } else {
+                  core.info(`PR #${prNumber} already publishes ${contextKey}=${state}; no duplicate status.`);
+                  lastWriteError = null;
+                }
+
+                const postWrite = await readSinglePr(prNumber);
+
+                if (!sameCoordinate(expectedCoordinate, postWrite.coordinate)) {
+                  return {outcome: 'moved', observed: postWrite};
+                }
+
+                if (postWrite.mergeable === null) {
+                  return {outcome: 'unknown', observed: postWrite};
+                }
+
+                const postState = postWrite.mergeable ? 'success' : 'failure';
+
+                if (postWrite.publishedState !== postState) {
+                  return {outcome: 'moved', observed: postWrite};
+                }
+
+                return {outcome: 'settled', observed: postWrite, state: postState};
               }
 
-              if (verified.mergeable === null) {
-                return {outcome: 'unknown', observed: verified};
-              }
-
-              const state = verified.mergeable ? 'success' : 'failure';
-
-              if (verified.publishedState !== state) {
-                await writeCommitStatus(verified.head, state, descriptionForBoolean(verified.mergeable));
-              } else {
-                core.info(`PR #${prNumber} already publishes ${contextKey}=${state}; no duplicate status.`);
-              }
-
-              const postWrite = await readSinglePr(prNumber);
-
-              if (!sameCoordinate(expectedCoordinate, postWrite.coordinate)) {
-                return {outcome: 'moved', observed: postWrite};
-              }
-
-              if (postWrite.mergeable === null) {
-                return {outcome: 'unknown', observed: postWrite};
-              }
-
-              const postState = postWrite.mergeable ? 'success' : 'failure';
-
-              if (postWrite.publishedState !== null && postWrite.publishedState !== postState) {
-                return {outcome: 'moved', observed: postWrite};
-              }
-
-              return {outcome: 'settled', observed: postWrite, state: postState};
+              throw new ControllerSourceError(
+                `Commit status write for PR #${prNumber} failed after ${maxApiRetries + 1} attempt(s): ${lastWriteError?.message || lastWriteError}`
+              );
             };
 
             const publishPendingHold = async(prNumber, expectedCoordinate) => {
-              const verified = await readSinglePr(prNumber);
+              let lastWriteError = null;
 
-              if (!sameCoordinate(expectedCoordinate, verified.coordinate)) {
-                return {outcome: 'moved', observed: verified};
+              for (let attempt = 0; attempt <= maxApiRetries; attempt++) {
+                if (attempt > 0) {
+                  metrics.retries++;
+                  if (apiRetryDelayMs > 0) {
+                    await sleep(Math.min(apiRetryDelayMs * (2 ** (attempt - 1)), maxDelayMs));
+                  }
+                }
+
+                const verified = await readSinglePr(prNumber);
+
+                if (!sameCoordinate(expectedCoordinate, verified.coordinate)) {
+                  return {outcome: 'moved', observed: verified};
+                }
+
+                if (verified.mergeable !== null) {
+                  return publishVerifiedBoolean(prNumber, verified.coordinate);
+                }
+
+                if (verified.publishedState !== 'pending') {
+                  try {
+                    await writeCommitStatusOnce(verified.head, 'pending', pendingHoldDescription);
+                    lastWriteError = null;
+                  } catch (error) {
+                    lastWriteError = error;
+                    continue;
+                  }
+                } else {
+                  lastWriteError = null;
+                }
+
+                const postWrite = await readSinglePr(prNumber);
+
+                if (!sameCoordinate(expectedCoordinate, postWrite.coordinate)) {
+                  return {outcome: 'moved', observed: postWrite};
+                }
+
+                if (postWrite.mergeable !== null) {
+                  return publishVerifiedBoolean(prNumber, postWrite.coordinate);
+                }
+
+                if (postWrite.publishedState !== 'pending') {
+                  return {outcome: 'moved', observed: postWrite};
+                }
+
+                return {outcome: 'pending', observed: postWrite};
               }
 
-              if (verified.mergeable !== null) {
-                return publishVerifiedBoolean(prNumber, verified.coordinate);
-              }
-
-              if (verified.publishedState !== 'pending') {
-                await writeCommitStatus(verified.head, 'pending', pendingHoldDescription);
-              }
-
-              const postWrite = await readSinglePr(prNumber);
-
-              if (!sameCoordinate(expectedCoordinate, postWrite.coordinate)) {
-                return {outcome: 'moved', observed: postWrite};
-              }
-
-              return {outcome: 'pending', observed: postWrite};
+              throw new ControllerSourceError(
+                `Pending status write for PR #${prNumber} failed after ${maxApiRetries + 1} attempt(s): ${lastWriteError?.message || lastWriteError}`
+              );
             };
 
             const runPool = async(items, workerFn) => {
@@ -537,7 +666,7 @@ jobs:
                     if (observed.mergeable === null) {
                       const coordKey = `${observed.head}:${observed.devTip}`;
 
-                      if (wokenCoordinateKey !== coordKey) {
+                      if (wokenCoordinateKey !== coordKey && restWakeBudget > 0) {
                         wokenCoordinateKey = coordKey;
                         const restData     = await wakePullViaRest(prNumber);
 
@@ -610,6 +739,13 @@ jobs:
               }
             };
 
+            const sortByBoardAge = pulls =>
+              [...pulls].sort((left, right) => {
+                const leftOrder  = Number.isInteger(left.boardOrder)  ? left.boardOrder  : left.number;
+                const rightOrder = Number.isInteger(right.boardOrder) ? right.boardOrder : right.number;
+                return (leftOrder - rightOrder) || (left.number - right.number);
+              });
+
             const evaluateBoard = async() => {
               const wokenKeys = new Set();
 
@@ -617,8 +753,9 @@ jobs:
                 for (let restart = 0; restart <= maxRestarts; restart++) {
                   let activeDevTip     = null;
                   let baseMoved        = false;
-                  let lastUnknownPulls = [];
-                  const settledHeads   = new Map();
+                  let incompleteBoard  = false;
+                  let lastMovedMap     = new Map();
+                  let lastUnknownMap   = new Map();
                   const controllerErrs = [];
 
                   for (let poll = 0; poll < maxPolls; poll++) {
@@ -626,7 +763,17 @@ jobs:
                       await sleep(Math.min(delayMs * (2 ** (poll - 1)), maxDelayMs));
                     }
 
-                    const snapshot = await readBoardSnapshot();
+                    let snapshot;
+                    try {
+                      snapshot = await readBoardSnapshot();
+                    } catch (error) {
+                      if (error instanceof IncompleteBoardError && restart < maxRestarts) {
+                        core.warning(`${error.message} Retrying consistent board snapshot (${restart + 1}/${maxRestarts}).`);
+                        incompleteBoard = true;
+                        break;
+                      }
+                      throw error;
+                    }
 
                     if (snapshot.baseMoved) {
                       baseMoved = true;
@@ -649,19 +796,19 @@ jobs:
                       break;
                     }
 
+                    const movedMap     = new Map();
+                    const unknownMap   = new Map();
                     const writesNeeded = [];
-                    const unknownPulls = [];
 
                     for (const pull of snapshot.pulls) {
                       if (pull.mergeable === null) {
-                        unknownPulls.push(pull);
+                        unknownMap.set(pull.number, pull);
                         continue;
                       }
 
                       const desired = pull.mergeable ? 'success' : 'failure';
 
-                      if (pull.publishedState === desired || settledHeads.get(pull.number) === `${pull.head}:${desired}`) {
-                        settledHeads.set(pull.number, `${pull.head}:${desired}`);
+                      if (pull.publishedState === desired) {
                         continue;
                       }
 
@@ -677,12 +824,22 @@ jobs:
                         try {
                           const result = await publishVerifiedBoolean(pull.number, pull.coordinate);
 
-                          if (result.outcome === 'settled') {
-                            settledHeads.set(pull.number, `${result.observed.head}:${result.state}`);
-                          } else if (result.outcome === 'moved' && result.observed.devTip !== activeDevTip) {
-                            baseMoved = true;
+                          if (result.outcome === 'moved') {
+                            if (result.observed.devTip !== activeDevTip) {
+                              baseMoved = true;
+                            } else {
+                              movedMap.set(pull.number, {
+                                ...result.observed,
+                                boardOrder: pull.boardOrder,
+                                isDraft   : result.observed.isDraft ?? pull.isDraft
+                              });
+                            }
                           } else if (result.outcome === 'unknown') {
-                            unknownPulls.push(result.observed);
+                            unknownMap.set(pull.number, {
+                              ...result.observed,
+                              boardOrder: pull.boardOrder,
+                              isDraft   : result.observed.isDraft ?? pull.isDraft
+                            });
                           }
                         } catch (error) {
                           if (error instanceof PullInactive) {
@@ -698,9 +855,10 @@ jobs:
                       break;
                     }
 
-                    lastUnknownPulls = unknownPulls;
+                    lastMovedMap   = movedMap;
+                    lastUnknownMap = unknownMap;
 
-                    if (unknownPulls.length === 0) {
+                    if (unknownMap.size === 0 && movedMap.size === 0) {
                       if (controllerErrs.length > 0) {
                         core.setFailed(
                           `Board mergeability controller encountered ${controllerErrs.length} per-PR condition(s): ` +
@@ -715,16 +873,17 @@ jobs:
                       return;
                     }
 
-                    if (poll >= 1 && restWakeBudget > 0 && restWakeBatch > 0) {
-                      const prioritized = [
-                        ...unknownPulls.filter(pr => !pr.isDraft),
-                        ...unknownPulls.filter(pr => pr.isDraft)
+                    if (poll >= 1 && unknownMap.size > 0 && restWakeBudget > 0 && restWakeBatch > 0) {
+                      const orderedUnknown = sortByBoardAge(unknownMap.values());
+                      const prioritized    = [
+                        ...orderedUnknown.filter(pr => !pr.isDraft),
+                        ...orderedUnknown.filter(pr => pr.isDraft)
                       ].filter(pr => !wokenKeys.has(`${pr.number}:${pr.head}:${activeDevTip}`))
                        .slice(0, Math.min(restWakeBatch, restWakeBudget));
 
                       if (prioritized.length > 0) {
                         await runPool(prioritized, async pull => {
-                          if (baseMoved) {
+                          if (baseMoved || restWakeBudget <= 0) {
                             return;
                           }
 
@@ -737,13 +896,26 @@ jobs:
                               const wokeResult = await publishVerifiedBoolean(pull.number, pull.coordinate);
 
                               if (wokeResult.outcome === 'settled') {
-                                settledHeads.set(pull.number, `${wokeResult.observed.head}:${wokeResult.state}`);
-                              } else if (wokeResult.outcome === 'moved' && wokeResult.observed.devTip !== activeDevTip) {
-                                baseMoved = true;
+                                unknownMap.delete(pull.number);
+                                movedMap.delete(pull.number);
+                              } else if (wokeResult.outcome === 'moved') {
+                                unknownMap.delete(pull.number);
+
+                                if (wokeResult.observed.devTip !== activeDevTip) {
+                                  baseMoved = true;
+                                } else {
+                                  movedMap.set(pull.number, {
+                                    ...wokeResult.observed,
+                                    boardOrder: pull.boardOrder,
+                                    isDraft   : wokeResult.observed.isDraft ?? pull.isDraft
+                                  });
+                                }
                               }
                             }
                           } catch (error) {
                             if (error instanceof PullInactive) {
+                              unknownMap.delete(pull.number);
+                              movedMap.delete(pull.number);
                               core.info(error.message);
                               return;
                             }
@@ -755,9 +927,10 @@ jobs:
                           break;
                         }
 
-                        lastUnknownPulls = unknownPulls.filter(pull => !settledHeads.has(pull.number));
+                        lastMovedMap   = movedMap;
+                        lastUnknownMap = unknownMap;
 
-                        if (lastUnknownPulls.length === 0 && controllerErrs.length === 0) {
+                        if (unknownMap.size === 0 && movedMap.size === 0 && controllerErrs.length === 0) {
                           core.info(
                             `Board mergeability current across ${snapshot.pulls.length} open ${baseBranch} PR(s) after REST wakeup at ${activeDevTip.slice(0, 10)}. (${formatMetrics()})`
                           );
@@ -767,11 +940,68 @@ jobs:
                     }
                   }
 
+                  if (incompleteBoard || baseMoved) {
+                    continue;
+                  }
+
+                  if (lastMovedMap.size > 0) {
+                    const pendingMoved = sortByBoardAge(lastMovedMap.values());
+
+                    await runPool(pendingMoved, async pull => {
+                      if (baseMoved) {
+                        return;
+                      }
+
+                      try {
+                        const latest = await readSinglePr(pull.number);
+
+                        if (latest.devTip !== activeDevTip) {
+                          baseMoved = true;
+                          return;
+                        }
+
+                        if (latest.mergeable === null) {
+                          lastMovedMap.delete(pull.number);
+                          lastUnknownMap.set(pull.number, {...latest, boardOrder: pull.boardOrder});
+                          return;
+                        }
+
+                        const desired = latest.mergeable ? 'success' : 'failure';
+                        if (latest.publishedState === desired) {
+                          lastMovedMap.delete(pull.number);
+                          return;
+                        }
+
+                        const recheck = await publishVerifiedBoolean(pull.number, latest.coordinate);
+
+                        if (recheck.outcome === 'settled') {
+                          lastMovedMap.delete(pull.number);
+                        } else if (recheck.outcome === 'unknown') {
+                          lastMovedMap.delete(pull.number);
+                          lastUnknownMap.set(pull.number, {...recheck.observed, boardOrder: pull.boardOrder});
+                        } else if (recheck.outcome === 'moved') {
+                          if (recheck.observed.devTip !== activeDevTip) {
+                            baseMoved = true;
+                          } else {
+                            lastMovedMap.set(pull.number, {...recheck.observed, boardOrder: pull.boardOrder});
+                          }
+                        }
+                      } catch (error) {
+                        if (error instanceof PullInactive) {
+                          lastMovedMap.delete(pull.number);
+                          core.info(error.message);
+                          return;
+                        }
+                        controllerErrs.push(`#${pull.number}: ${error.message}`);
+                      }
+                    });
+                  }
+
                   if (baseMoved) {
                     continue;
                   }
 
-                  const remainingUnknown = lastUnknownPulls.filter(pull => !settledHeads.has(pull.number));
+                  const remainingUnknown = sortByBoardAge(lastUnknownMap.values());
 
                   await runPool(remainingUnknown, async pull => {
                     if (baseMoved) {
@@ -782,12 +1012,19 @@ jobs:
                       const holdResult = await publishPendingHold(pull.number, pull.coordinate);
 
                       if (holdResult.outcome === 'settled') {
-                        settledHeads.set(pull.number, `${holdResult.observed.head}:${holdResult.state}`);
-                      } else if (holdResult.outcome === 'moved' && holdResult.observed.devTip !== activeDevTip) {
-                        baseMoved = true;
+                        lastUnknownMap.delete(pull.number);
+                      } else if (holdResult.outcome === 'moved') {
+                        lastUnknownMap.delete(pull.number);
+
+                        if (holdResult.observed.devTip !== activeDevTip) {
+                          baseMoved = true;
+                        } else {
+                          lastMovedMap.set(pull.number, {...holdResult.observed, boardOrder: pull.boardOrder});
+                        }
                       }
                     } catch (error) {
                       if (error instanceof PullInactive) {
+                        lastUnknownMap.delete(pull.number);
                         core.info(error.message);
                         return;
                       }
@@ -799,11 +1036,10 @@ jobs:
                     continue;
                   }
 
-                  const stillPending = remainingUnknown
-                    .filter(pull => !settledHeads.has(pull.number))
-                    .map(pull => `#${pull.number}`);
+                  const stillPending = sortByBoardAge(lastUnknownMap.values()).map(pull => `#${pull.number}`);
+                  const stillMoving  = sortByBoardAge(lastMovedMap.values()).map(pull => `#${pull.number}`);
 
-                  if (stillPending.length === 0 && controllerErrs.length === 0) {
+                  if (stillPending.length === 0 && stillMoving.length === 0 && controllerErrs.length === 0) {
                     core.info(`Board mergeability settled on final verification pass. (${formatMetrics()})`);
                     return;
                   }
@@ -811,6 +1047,9 @@ jobs:
                   const reasons = [];
                   if (stillPending.length > 0) {
                     reasons.push(`${stillPending.length} PR(s) stayed UNKNOWN (${stillPending.join(', ')})`);
+                  }
+                  if (stillMoving.length > 0) {
+                    reasons.push(`${stillMoving.length} PR(s) kept moving at ${activeDevTip.slice(0, 10)} (${stillMoving.join(', ')})`);
                   }
                   if (controllerErrs.length > 0) {
                     reasons.push(`controller errors: ${controllerErrs.join('; ')}`);
