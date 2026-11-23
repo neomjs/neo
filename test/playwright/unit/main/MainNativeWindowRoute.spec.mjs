@@ -515,8 +515,9 @@ async function runNativeWindowRouteProbe(scenario) {
             const url = scenario === 'cross-origin'
                 ? 'https://other.example.test/popup'
                 : './popup.html?mode=tear-out';
-            const releasesClosedEntry     = scenario.startsWith('native-release-closed'),
-                  renewNativeRouteOnReload = releasesClosedEntry || scenario.startsWith('native-route-reload');
+            const closesBeforeRoute        = scenario.startsWith('named-close-before-route'),
+                  renewNativeRouteOnReload = scenario.startsWith('native-release-closed') ||
+                      scenario.startsWith('native-route-reload') || scenario === 'named-close-before-route-renewable';
             const success = Main.windowOpen({
                 nativeCapabilities: scenario === 'native-resize-default-denied'
                     ? {close: true}
@@ -532,7 +533,7 @@ async function runNativeWindowRouteProbe(scenario) {
                 windowFeatures: 'popup,width=900,height=600',
                 windowName    : 'tear-out'
             });
-            const route = state.token
+            const route = !closesBeforeRoute && state.token
                 ? Main.consumeNativeWindowRoute({targetWindowId: 'child-window', token: state.token, win: popup})
                 : null;
             let
@@ -543,7 +544,14 @@ async function runNativeWindowRouteProbe(scenario) {
                 reload   = null,
                 resize   = null;
 
-            if (scenario === 'native-release-closed-replaced') {
+            if (closesBeforeRoute) {
+                state.closed = true;
+                exactCompletion = Main.windowClose({names: ['tear-out']});
+                closure = {
+                    missing: Main.windowClose({names: ['tear-out']}),
+                    late   : Main.consumeNativeWindowRoute({targetWindowId: 'late-window', token: state.token, win: popup})
+                };
+            } else if (scenario === 'native-release-closed-replaced') {
                 Main.windowOpen({renewNativeRouteOnReload, url, useTotalHeight: false, windowName: route.windowName});
                 const successor = Main.consumeNativeWindowRoute({targetWindowId: 'successor-window', token: state.token, win: popup});
 
@@ -940,6 +948,23 @@ test.describe('Neo.Main native window routes (#15396)', () => {
         const result = await runNativeWindowRouteProbe('native-close-observation');
 
         expect(result.closure).toEqual({open: false, unknown: null, missing: null, unreachable: null, closed: true, superseded: null, tokenChanged: false})
+    });
+
+    test('an already-closed popup without a bound route acknowledges retirement only when opted in', async () => {
+        const [renewable, legacy] = await Promise.all([
+            runNativeWindowRouteProbe('named-close-before-route-renewable'),
+            runNativeWindowRouteProbe('named-close-before-route-legacy')
+        ]);
+
+        expect(renewable.exactCompletion).toBe(true);
+        expect(legacy.exactCompletion).toBe(false);
+        for (const result of [renewable, legacy]) {
+            expect(result.route).toBeNull();
+            expect(result.tokenMinted).toBe(true);
+            expect(result.closure).toEqual({missing: false, late: null});
+            expect(result.hasEntry).toBe(false);
+            expect(result.events).not.toContain('close')
+        }
     });
 
     test('only an explicit exact release forgets the confirmed closed popup', async () => {

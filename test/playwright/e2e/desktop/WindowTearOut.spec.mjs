@@ -244,6 +244,55 @@ test.describe('desktop window tear-out', () => {
         }
     });
 
+    test('closing a popup before its route connects lets the same window pop out again', async ({browser, context, page}) => {
+        const worker  = await openNotes(browser, page),
+              note    = page.locator(notes + ' textarea'),
+              popout  = page.locator(dialog).getByRole('button', {name: 'Pop out window', exact: true}),
+              release = Promise.withResolvers(),
+              matches = url => url.pathname === entry && url.searchParams.has('desktopPopup');
+        let popupName;
+
+        try {
+            const holdNavigation = async route => {
+                popupName = new URL(route.request().url()).searchParams.get('desktopPopup');
+                await release.promise;
+                await route.abort().catch(() => {})
+            };
+
+            await context.route(matches, holdNavigation);
+            try {
+                await popout.click();
+                await expect.poll(() => popupName, {message: 'the initial popup navigation is held'}).toBeTruthy();
+                await expect(note).toBeHidden();
+
+                const closed = await page.evaluate(name => {
+                    const popup = Neo.Main.openWindows[name]?.win;
+                    if (!popup || popup.closed) return false;
+                    popup.close();
+                    return true
+                }, popupName);
+
+                expect(closed, 'the opener had a live popup to close').toBe(true);
+                await expect(note).toBeVisible({timeout: 15000});
+                await expect(note).toHaveValue(marker);
+                await expect(page.locator(tasks)).toHaveCount(1);
+                await expectOriginalOwnership(worker)
+            } finally {
+                release.resolve();
+                await context.unroute(matches, holdNavigation)
+            }
+
+            const birth   = page.waitForEvent('popup', {timeout: 10000}),
+                  [popup] = await Promise.all([birth, popout.click()]);
+
+            await expect(popup.locator(notes + ' textarea')).toHaveValue(marker);
+            expect(new URL(popup.url()).searchParams.get('desktopPopup')).not.toBe(popupName);
+            await expectOriginalOwnership(worker)
+        } finally {
+            await worker.close()
+        }
+    });
+
     test('a refused popup leaves the same task and note in the source', async ({browser, context, page}) => {
         const worker = await openNotes(browser, page);
         try {

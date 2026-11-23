@@ -1125,10 +1125,10 @@ class Main extends core.Base {
     }
 
     /**
-     * Closes popup windows
+     * @summary Closes named popups and acknowledges an already-closed renewable entry.
      * @param {Object} data
      * @param {String|String[]} data.names
-     * @returns {Boolean} True when every named live handle accepted the close request.
+     * @returns {Boolean} True when every named popup accepted close or was a registered, already-closed renewable popup.
      */
     windowClose(data) {
         const names = Array.isArray(data.names) ? data.names : [data.names];
@@ -1140,10 +1140,12 @@ class Main extends core.Base {
                 entry = this.openWindows[name],
                 win   = entry?.win;
 
-            if (!win || win.closed || typeof win.close !== 'function') {
-                closed = false
-            } else {
+            if (win?.closed) {
+                closed &&= Boolean(entry.renewal)
+            } else if (typeof win?.close === 'function') {
                 win.close()
+            } else {
+                closed = false
             }
 
             this.#invalidateNativeWindowEntry(entry);
