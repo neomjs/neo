@@ -241,6 +241,17 @@
         .portal-glass-card {
             padding: 1.35rem;
 
+            .portal-door-command {
+                padding: 0.4rem 0.55rem;
+
+                code {
+                    font-size    : clamp(0.66rem, 3vw, 0.75rem);
+                    line-height  : 1.4;
+                    overflow-wrap: break-word;
+                    white-space  : normal;
+                }
+            }
+
             .portal-door-proof {
                 margin-top : 1rem;
                 padding-top: 0.75rem;

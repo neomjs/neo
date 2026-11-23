@@ -354,6 +354,13 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             '390x844 mobile viewport has zero horizontal overflow'
         ).toBe(true);
 
+        for (const chip of await page.locator(`#${doors.id} .portal-door-command`).all()) {
+            expect(
+                await chip.evaluate(node => node.scrollWidth <= node.clientWidth + 1),
+                '390x844 command chip fits without horizontal clipping'
+            ).toBe(true)
+        }
+
         // A proof link's icon stays after its label's last word: an icon alone on a line reads as a stray mark
         for (const proof of await page.locator(`#${doors.id} .portal-door-proof a`).all()) {
             expect(await proof.evaluate(link => {
@@ -362,6 +369,20 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
 
                 return icon.left >= last.right - 1 && Math.abs(icon.top + icon.height / 2 - (last.top + last.height / 2)) < last.height / 2
             }), 'the proof icon shares its label\'s last line').toBe(true)
+        }
+
+        await page.setViewportSize({width: 360, height: 800});
+        await page.locator(`#${doors.id}`).scrollIntoViewIfNeeded();
+        expect(
+            await page.locator(`#${home.id}`).evaluate(node => node.scrollWidth <= node.clientWidth + 1),
+            '360x800 mobile viewport has zero horizontal overflow'
+        ).toBe(true);
+
+        for (const chip of await page.locator(`#${doors.id} .portal-door-command`).all()) {
+            expect(
+                await chip.evaluate(node => node.scrollWidth <= node.clientWidth + 1),
+                '360x800 command chip fits without horizontal clipping'
+            ).toBe(true)
         }
     });
 
