@@ -1,0 +1,2877 @@
+{
+  "scope": "Pre-lock rehearsal of approved heads in disposable Git object stores. Engine and Pages publication, the physical desktop check and the public Portal remain separate.",
+  "engine": {
+    "base": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+    "stages": [
+      {
+        "number": 22073,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "54ee4cd44142ceb40cd32bc1a9b5e560d5e47206",
+        "requiredPass": 7,
+        "tree": "ba3b5a22769859d99d1577f7081119198890734e",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22070,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "41643a5fe93f69ab8a31cab0e949113d786c32ed",
+        "requiredPass": 7,
+        "tree": "7d271929adc43c102545f612b6d8e22df914c457",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22072,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "0312d22364fcf76a2ddfe259b49b09f3d91cc46f",
+        "requiredPass": 7,
+        "tree": "3ca1dd877368efcc2ba9f34e257aa12dc3260311",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22074,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "d8afed2d0e44b146c05136bdb4472554a282e096",
+        "requiredPass": 7,
+        "tree": "70776e4d37000e3534b676378fc8d7a542800d1c",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22008,
+        "recordedBase": "9f0c242251cb1182ff7f08fc884f47b178ba199e",
+        "head": "3eeacf78300c65880e1b9c6753563a10f44d39e8",
+        "requiredPass": 7,
+        "tree": "306a8276026457ccb6383b018904c4afff8a671a",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22062,
+        "recordedBase": "301bcce680a201c4a11140c3fe555416539b78ff",
+        "head": "9ef750a25411c4b47ba741107311dc8500714206",
+        "requiredPass": 7,
+        "tree": "d483d313dcfd2b9c06ca6ef8fc3424c19cab02e9",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22071,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "ce003ee753ea918e1da3eaffa848fbc94b6a6a69",
+        "requiredPass": 7,
+        "tree": "01551cea8d4751b6eccea0be91829ddcf1661a2e",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22075,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "8257d659160afaff9534fe9bbc81429035c76848",
+        "requiredPass": 7,
+        "tree": "ba8894fd5fc481d8f7bd79c96a9b512b7ac9dff7",
+        "mergeTreeExit": 0
+      },
+      {
+        "number": 22067,
+        "recordedBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+        "head": "cd8b659a3f781a51ca3bd4a7a89b5407bf0f5532",
+        "requiredPass": 7,
+        "tree": "02848e2f07ed434ff1aeedfdc0068e2142979d21",
+        "mergeTreeExit": 0
+      }
+    ],
+    "eight": "ba8894fd5fc481d8f7bd79c96a9b512b7ac9dff7",
+    "nine": "02848e2f07ed434ff1aeedfdc0068e2142979d21"
+  },
+  "pages": {
+    "main": "65a4eab9e383da7354a25da20b28ccab7406685d",
+    "pulls": {
+      "201": "3230c3b61adf26d085a6ffa5683e8102003cff7c",
+      "202": "b4fc26517249d8303bc951ac9869952e7dbf231a",
+      "203": "a5760c2164efae35c76ccd16696b6380053a2781"
+    },
+    "resultTree": "66d8fc15ea9135a987afb88d36686df439b580ac",
+    "ordersChecked": 6,
+    "allOrdersMatch": true,
+    "added": 10,
+    "modified": 8
+  },
+  "catalog": {
+    "engineBase": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+    "engineOrder": [
+      22073,
+      22070,
+      22072,
+      22074,
+      22008,
+      22062,
+      22071,
+      22075,
+      22067
+    ],
+    "engineTree": "02848e2f07ed434ff1aeedfdc0068e2142979d21",
+    "pagesBase": "65a4eab9e383da7354a25da20b28ccab7406685d",
+    "pagesTree": "66d8fc15ea9135a987afb88d36686df439b580ac",
+    "baselineAtRead": {
+      "current": 167,
+      "currentPaired": 115,
+      "originalPaired": 91,
+      "originalSingle": 51,
+      "retiredOriginal": [
+        "multi-window-drag-drop"
+      ]
+    },
+    "simulatedMergeOnly": {
+      "current": 168,
+      "currentPaired": 126,
+      "originalPaired": 101,
+      "originalSingle": 41,
+      "retiredOriginal": [
+        "multi-window-drag-drop"
+      ]
+    },
+    "addedRecords": [
+      "asset-preloading"
+    ],
+    "uniqueReferencedFiles": 294,
+    "changedRecords": {
+      "asset-preloading": {
+        "basePaths": [],
+        "candidatePaths": [
+          "devmode/asset-preloading-14.jpg",
+          "devmode/asset-preloading-14-light.jpg"
+        ],
+        "blobs": [
+          "65a73c8b24da07b3efba8356e4543c727d8ca536",
+          "e250e6f514d46e2a9f9edc80087189ecdf34ffb0"
+        ]
+      },
+      "breadcrumb": {
+        "basePaths": [
+          "devmode/breadcrumb-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/breadcrumb-14.jpg",
+          "devmode/breadcrumb-14-light.jpg"
+        ],
+        "blobs": [
+          "9002c70a19e87b26321fb7887c3f47790c1f5d9e",
+          "f2d5fdfc88de5434e82c502af22d6cbe3e4c3986"
+        ]
+      },
+      "calendar": {
+        "basePaths": [
+          "devmode/calendar-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/calendar-14.jpg",
+          "devmode/calendar-14-light.jpg"
+        ],
+        "blobs": [
+          "376ee54634b73e077a316784fc1333ae1620be28",
+          "a1fe291296b5532b56d831743198b2585fc24daa"
+        ]
+      },
+      "dock-cross-window": {
+        "basePaths": [
+          "devmode/dock-cross-window-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/dock-cross-window-14.jpg",
+          "devmode/dock-cross-window-14-light.jpg"
+        ],
+        "blobs": [
+          "a7369501979bfde6c02cc14c7e6b1691473f959e",
+          "ccd12bca9aef3ad1cdbb4edf05d4323652e780ba"
+        ]
+      },
+      "gantt-task-editor": {
+        "basePaths": [
+          "devmode/gantt-task-editor-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/gantt-task-editor-14.jpg",
+          "devmode/gantt-task-editor-14-light.jpg"
+        ],
+        "blobs": [
+          "8e4acfaed8d9a246bb6c125e1987d82ce9013901",
+          "529a43ec0ef02438bbbd86b854d44d3bb08b03c5"
+        ]
+      },
+      "graph-scene": {
+        "basePaths": [
+          "devmode/graph-scene-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/graph-scene-14.jpg",
+          "devmode/graph-scene-14-light.jpg"
+        ],
+        "blobs": [
+          "d382de988f8dea54d8dec9e31dfb8813a2b970e7",
+          "446e3857abb7756179ded6dd7cfa1f455a1c76fd"
+        ]
+      },
+      "grid-big-data": {
+        "basePaths": [
+          "devmode/grid-big-data-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/grid-big-data-14.jpg",
+          "devmode/grid-big-data-14-light.jpg"
+        ],
+        "blobs": [
+          "19873a9466c40c0f15c6ee1e7876ebe232a022af",
+          "a316619960ad7c5265aec0a8aa4d7854c643720b"
+        ]
+      },
+      "grid-tree-big-data": {
+        "basePaths": [
+          "devmode/grid-tree-big-data-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/grid-tree-big-data-14.jpg",
+          "devmode/grid-tree-big-data-14-light.jpg"
+        ],
+        "blobs": [
+          "76429ed2daa2dca2afbf9bb12113085a88c986ba",
+          "3168f5cd32db4063b6bf1b3179835fdaea9f481c"
+        ]
+      },
+      "list-animate": {
+        "basePaths": [
+          "devmode/list-animate-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/list-animate-14.jpg",
+          "devmode/list-animate-14-light.jpg"
+        ],
+        "blobs": [
+          "d8e5919080a91772ebd062d45cc8902f66cda9fa",
+          "8e06df9afcc780edba1b4801135335636a7a0dfc"
+        ]
+      },
+      "markdown": {
+        "basePaths": [
+          "devmode/markdown-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/markdown-14.jpg",
+          "devmode/markdown-14-light.jpg"
+        ],
+        "blobs": [
+          "c51075f54c5f77cc49de1802d9ff796d2d91085a",
+          "cde1435aeaf0e31aeeaf9b4dece39f6f42d374da"
+        ]
+      },
+      "scheduler-event-editor": {
+        "basePaths": [
+          "devmode/scheduler-event-editor-14.jpg"
+        ],
+        "candidatePaths": [
+          "devmode/scheduler-event-editor-14.jpg",
+          "devmode/scheduler-event-editor-14-light.jpg"
+        ],
+        "blobs": [
+          "ba6361a1f82e5b4ef70946469d656ab1065d4080",
+          "1da42e6e4a340eed2c316f34f421979671f7f387"
+        ]
+      }
+    },
+    "missingFiles": {},
+    "duplicatePaletteBlobs": []
+  },
+  "builds": {
+    "eight": {
+      "exitCode": 0,
+      "productionAppChunks": 418,
+      "compiledDesktopEntry": true,
+      "productionBuildId": "mwsttf0i"
+    },
+    "nine": {
+      "exitCode": 0,
+      "productionAppChunks": 418,
+      "compiledDesktopEntry": true,
+      "productionBuildId": "mwsttf0i"
+    }
+  },
+  "planning": {
+    "eight": {
+      "production": {
+        "errors": [],
+        "localHttpFailures": [],
+        "boot": {
+          "environment": "dist/production",
+          "buildId": "mwsttf0i"
+        },
+        "before": {
+          "start": "2026-11-11T00:00:00.000Z",
+          "end": "2026-11-13T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-13T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "distinctWindows": 3,
+        "sharedAppWorker": true,
+        "after": {
+          "start": "2026-11-12T00:00:00.000Z",
+          "end": "2026-11-14T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-14T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "dateOnBoard": "12 – 13 Nov UTC",
+        "ganttMovementCssPx": 59.171875,
+        "returned": {
+          "start": "2026-11-12T00:00:00.000Z",
+          "end": "2026-11-14T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-14T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "passed": true
+      }
+    },
+    "nine": {
+      "production": {
+        "errors": [],
+        "localHttpFailures": [],
+        "boot": {
+          "environment": "dist/production",
+          "buildId": "mwsttf0i"
+        },
+        "before": {
+          "start": "2026-11-11T00:00:00.000Z",
+          "end": "2026-11-13T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-13T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "distinctWindows": 3,
+        "sharedAppWorker": true,
+        "after": {
+          "start": "2026-11-12T00:00:00.000Z",
+          "end": "2026-11-14T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-14T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "dateOnBoard": "12 – 13 Nov UTC",
+        "ganttMovementCssPx": 59.171875,
+        "returned": {
+          "start": "2026-11-12T00:00:00.000Z",
+          "end": "2026-11-14T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-14T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "passed": true
+      },
+      "esm": {
+        "errors": [],
+        "localHttpFailures": [],
+        "boot": {
+          "environment": "dist/esm",
+          "buildId": "mwsttf0i"
+        },
+        "before": {
+          "start": "2026-11-11T00:00:00.000Z",
+          "end": "2026-11-13T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-13T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "distinctWindows": 3,
+        "sharedAppWorker": true,
+        "after": {
+          "start": "2026-11-12T00:00:00.000Z",
+          "end": "2026-11-14T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-14T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "dateOnBoard": "12 – 13 Nov UTC",
+        "ganttMovementCssPx": 59.171875,
+        "returned": {
+          "start": "2026-11-12T00:00:00.000Z",
+          "end": "2026-11-14T00:00:00.000Z",
+          "person": "mara",
+          "successor": "2026-11-14T00:00:00.000Z",
+          "control": "2026-11-10T00:00:00.000Z",
+          "sameRecord": true,
+          "samePanes": true
+        },
+        "passed": true
+      }
+    }
+  },
+  "gallery": {
+    "desktop": {
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "checks": 22,
+      "buildId": "mwsttf0i",
+      "images": [
+        {
+          "id": "asset-preloading",
+          "group": "platform",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14.jpg",
+          "sha256": "e50d1495d510a369d535fa1bfd992563ae16c70cea380ef83efcf7f52d9b57b0",
+          "candidateBlob": "65a73c8b24da07b3efba8356e4543c727d8ca536",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "asset-preloading",
+          "group": "platform",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14-light.jpg",
+          "sha256": "0225f644bf580fefba8fdbe995b11f9548ea42f0295aff7c9d7d23ed26907ab6",
+          "candidateBlob": "e250e6f514d46e2a9f9edc80087189ecdf34ffb0",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "breadcrumb",
+          "group": "buttons",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14.jpg",
+          "sha256": "aa3c7768545d9f2cdb00b07d506a88178c6d87b0893d94f07846dd78f988d703",
+          "candidateBlob": "9002c70a19e87b26321fb7887c3f47790c1f5d9e",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "breadcrumb",
+          "group": "buttons",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14-light.jpg",
+          "sha256": "d91b0fd0a283b514c53bcc91c0de5b4dd61adf1e8ad4fa847808116df5ebcc58",
+          "candidateBlob": "f2d5fdfc88de5434e82c502af22d6cbe3e4c3986",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "calendar",
+          "group": "calendar",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14.jpg",
+          "sha256": "a9002be30daca19705b3facc393b5ae6d5ad0b037cade9a630e6329d27ffcf71",
+          "candidateBlob": "376ee54634b73e077a316784fc1333ae1620be28",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "calendar",
+          "group": "calendar",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14-light.jpg",
+          "sha256": "d938669c06f5250a3df81af5fae7f21d382278e505c826ea6d2e27008462a44d",
+          "candidateBlob": "a1fe291296b5532b56d831743198b2585fc24daa",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "dock-cross-window",
+          "group": "dashboard",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14.jpg",
+          "sha256": "c789834cb25fb72b808b38fde6cb169dd67cb4288a4aa07d78c6e1b04d427bce",
+          "candidateBlob": "a7369501979bfde6c02cc14c7e6b1691473f959e",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "dock-cross-window",
+          "group": "dashboard",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14-light.jpg",
+          "sha256": "72069cbb44d7a070b65113b946d1c3871c2e3e2152726041f64d32a5ec8419f7",
+          "candidateBlob": "ccd12bca9aef3ad1cdbb4edf05d4323652e780ba",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "group": "gantt",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+          "candidateBlob": "8e4acfaed8d9a246bb6c125e1987d82ce9013901",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "group": "gantt",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+          "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+          "candidateBlob": "529a43ec0ef02438bbbd86b854d44d3bb08b03c5",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "graph-scene",
+          "group": "charts",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14.jpg",
+          "sha256": "1c7ef4e7524baa2b4e64cb4f2b02e918800475c4db7a78a55d55a357c0e6ef50",
+          "candidateBlob": "d382de988f8dea54d8dec9e31dfb8813a2b970e7",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "graph-scene",
+          "group": "charts",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14-light.jpg",
+          "sha256": "13b975bf0cdddc5795ecb135ff9cc58ab1949b9cb1fc05555acf4de856ffbdbd",
+          "candidateBlob": "446e3857abb7756179ded6dd7cfa1f455a1c76fd",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-big-data",
+          "group": "grid",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14.jpg",
+          "sha256": "e4e9ec9a57dc081406fe4be0796a574d0a2216b2732db129f0601c0c2fdeb0a0",
+          "candidateBlob": "19873a9466c40c0f15c6ee1e7876ebe232a022af",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-big-data",
+          "group": "grid",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14-light.jpg",
+          "sha256": "8d8b3c00bd3913583e52f5e75f2798a1849761129c5ea9eb97e022b163556d15",
+          "candidateBlob": "a316619960ad7c5265aec0a8aa4d7854c643720b",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-tree-big-data",
+          "group": "grid",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14.jpg",
+          "sha256": "84d16a08aa348238807ce021ed04739317990867793882c68e1512d4ee77e7b3",
+          "candidateBlob": "76429ed2daa2dca2afbf9bb12113085a88c986ba",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-tree-big-data",
+          "group": "grid",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14-light.jpg",
+          "sha256": "2cfad8857249ddc6f25e4a0af1f1c57c61e36dc6e085ebb73567bf54b72f0690",
+          "candidateBlob": "3168f5cd32db4063b6bf1b3179835fdaea9f481c",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "list-animate",
+          "group": "lists",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14.jpg",
+          "sha256": "26688b4493dc3108a3aa8eda6a709df51b53bc7797275b5d928d0bdfbac8c3c0",
+          "candidateBlob": "d8e5919080a91772ebd062d45cc8902f66cda9fa",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "list-animate",
+          "group": "lists",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14-light.jpg",
+          "sha256": "410b66d83c37cde588a71e04ac6f4d8a985ffe4bf985376890ae6d848524f4bf",
+          "candidateBlob": "8e06df9afcc780edba1b4801135335636a7a0dfc",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "markdown",
+          "group": "components",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14.jpg",
+          "sha256": "2f57c15858022dbc83e7370f3467a5136434a59aa5ce74e6542fdd4fc3d297fe",
+          "candidateBlob": "c51075f54c5f77cc49de1802d9ff796d2d91085a",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "markdown",
+          "group": "components",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14-light.jpg",
+          "sha256": "90902662e304728b817fb42494deaaff2496223e2c4219c452a8bb0d9db66a69",
+          "candidateBlob": "cde1435aeaf0e31aeeaf9b4dece39f6f42d374da",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "group": "scheduler",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+          "candidateBlob": "ba6361a1f82e5b4ef70946469d656ab1065d4080",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "group": "scheduler",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+          "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+          "candidateBlob": "1da42e6e4a340eed2c316f34f421979671f7f387",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        }
+      ]
+    },
+    "phone": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "checks": 22,
+      "buildId": "mwsttf0i",
+      "images": [
+        {
+          "id": "asset-preloading",
+          "group": "platform",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14.jpg",
+          "sha256": "e50d1495d510a369d535fa1bfd992563ae16c70cea380ef83efcf7f52d9b57b0",
+          "candidateBlob": "65a73c8b24da07b3efba8356e4543c727d8ca536",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "asset-preloading",
+          "group": "platform",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14-light.jpg",
+          "sha256": "0225f644bf580fefba8fdbe995b11f9548ea42f0295aff7c9d7d23ed26907ab6",
+          "candidateBlob": "e250e6f514d46e2a9f9edc80087189ecdf34ffb0",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "breadcrumb",
+          "group": "buttons",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14.jpg",
+          "sha256": "aa3c7768545d9f2cdb00b07d506a88178c6d87b0893d94f07846dd78f988d703",
+          "candidateBlob": "9002c70a19e87b26321fb7887c3f47790c1f5d9e",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "breadcrumb",
+          "group": "buttons",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14-light.jpg",
+          "sha256": "d91b0fd0a283b514c53bcc91c0de5b4dd61adf1e8ad4fa847808116df5ebcc58",
+          "candidateBlob": "f2d5fdfc88de5434e82c502af22d6cbe3e4c3986",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "calendar",
+          "group": "calendar",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14.jpg",
+          "sha256": "a9002be30daca19705b3facc393b5ae6d5ad0b037cade9a630e6329d27ffcf71",
+          "candidateBlob": "376ee54634b73e077a316784fc1333ae1620be28",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "calendar",
+          "group": "calendar",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14-light.jpg",
+          "sha256": "d938669c06f5250a3df81af5fae7f21d382278e505c826ea6d2e27008462a44d",
+          "candidateBlob": "a1fe291296b5532b56d831743198b2585fc24daa",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "dock-cross-window",
+          "group": "dashboard",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14.jpg",
+          "sha256": "c789834cb25fb72b808b38fde6cb169dd67cb4288a4aa07d78c6e1b04d427bce",
+          "candidateBlob": "a7369501979bfde6c02cc14c7e6b1691473f959e",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "dock-cross-window",
+          "group": "dashboard",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14-light.jpg",
+          "sha256": "72069cbb44d7a070b65113b946d1c3871c2e3e2152726041f64d32a5ec8419f7",
+          "candidateBlob": "ccd12bca9aef3ad1cdbb4edf05d4323652e780ba",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "group": "gantt",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+          "candidateBlob": "8e4acfaed8d9a246bb6c125e1987d82ce9013901",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": true,
+            "unrequested": true
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "group": "gantt",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+          "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+          "candidateBlob": "529a43ec0ef02438bbbd86b854d44d3bb08b03c5",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": true,
+            "unrequested": true
+          }
+        },
+        {
+          "id": "graph-scene",
+          "group": "charts",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14.jpg",
+          "sha256": "1c7ef4e7524baa2b4e64cb4f2b02e918800475c4db7a78a55d55a357c0e6ef50",
+          "candidateBlob": "d382de988f8dea54d8dec9e31dfb8813a2b970e7",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "graph-scene",
+          "group": "charts",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14-light.jpg",
+          "sha256": "13b975bf0cdddc5795ecb135ff9cc58ab1949b9cb1fc05555acf4de856ffbdbd",
+          "candidateBlob": "446e3857abb7756179ded6dd7cfa1f455a1c76fd",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-big-data",
+          "group": "grid",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14.jpg",
+          "sha256": "e4e9ec9a57dc081406fe4be0796a574d0a2216b2732db129f0601c0c2fdeb0a0",
+          "candidateBlob": "19873a9466c40c0f15c6ee1e7876ebe232a022af",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-big-data",
+          "group": "grid",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14-light.jpg",
+          "sha256": "8d8b3c00bd3913583e52f5e75f2798a1849761129c5ea9eb97e022b163556d15",
+          "candidateBlob": "a316619960ad7c5265aec0a8aa4d7854c643720b",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-tree-big-data",
+          "group": "grid",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14.jpg",
+          "sha256": "84d16a08aa348238807ce021ed04739317990867793882c68e1512d4ee77e7b3",
+          "candidateBlob": "76429ed2daa2dca2afbf9bb12113085a88c986ba",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "grid-tree-big-data",
+          "group": "grid",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14-light.jpg",
+          "sha256": "2cfad8857249ddc6f25e4a0af1f1c57c61e36dc6e085ebb73567bf54b72f0690",
+          "candidateBlob": "3168f5cd32db4063b6bf1b3179835fdaea9f481c",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "list-animate",
+          "group": "lists",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14.jpg",
+          "sha256": "26688b4493dc3108a3aa8eda6a709df51b53bc7797275b5d928d0bdfbac8c3c0",
+          "candidateBlob": "d8e5919080a91772ebd062d45cc8902f66cda9fa",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "list-animate",
+          "group": "lists",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14-light.jpg",
+          "sha256": "410b66d83c37cde588a71e04ac6f4d8a985ffe4bf985376890ae6d848524f4bf",
+          "candidateBlob": "8e06df9afcc780edba1b4801135335636a7a0dfc",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "markdown",
+          "group": "components",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14.jpg",
+          "sha256": "2f57c15858022dbc83e7370f3467a5136434a59aa5ce74e6542fdd4fc3d297fe",
+          "candidateBlob": "c51075f54c5f77cc49de1802d9ff796d2d91085a",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "markdown",
+          "group": "components",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14-light.jpg",
+          "sha256": "90902662e304728b817fb42494deaaff2496223e2c4219c452a8bb0d9db66a69",
+          "candidateBlob": "cde1435aeaf0e31aeeaf9b4dece39f6f42d374da",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": false,
+            "unadmitted": false,
+            "unrequested": false
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "group": "scheduler",
+          "to": "dark",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+          "candidateBlob": "ba6361a1f82e5b4ef70946469d656ab1065d4080",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": true,
+            "unrequested": true
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "group": "scheduler",
+          "to": "light",
+          "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+          "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+          "candidateBlob": "1da42e6e4a340eed2c316f34f421979671f7f387",
+          "decoded": [
+            1280,
+            720
+          ],
+          "afterSwitchBeforeScroll": {
+            "belowFold": true,
+            "unadmitted": true,
+            "unrequested": true
+          }
+        }
+      ]
+    },
+    "scope": "The real locally emitted production Portal rendered its normal group pages. Only the 22 exact image files for the changed records were supplied from the synthetic Pages tree."
+  },
+  "demoOpenings": [
+    {
+      "id": "scheduler-event-editor",
+      "route": "/dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "scheme": "dark",
+      "bodyThemes": [
+        "neo-theme-neo-dark"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Root canal",
+        "barId": "appt-22",
+        "barText": "Root canal",
+        "dialogRect": {
+          "x": 260,
+          "y": 124.5,
+          "width": 440,
+          "height": 291
+        },
+        "barRect": {
+          "x": 333.5,
+          "y": 465.390625,
+          "width": 294,
+          "height": 67.1875
+        },
+        "barLabel": "Root canal (Nov 24, 09:30 – 11:30)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-dark neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Root canal",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 333.5,
+          "y": 455.390625,
+          "width": 294,
+          "height": 67.1875
+        }
+      },
+      "afterThemeSwitch": {
+        "newPalette": "light",
+        "title": "Root canal",
+        "dialogClasses": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-light"
+      },
+      "pass": true
+    },
+    {
+      "id": "gantt-task-editor",
+      "route": "/dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "scheme": "dark",
+      "bodyThemes": [
+        "neo-theme-neo-dark"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Design the inner pages",
+        "barId": "pages",
+        "barText": "Design the inner pages",
+        "dialogRect": {
+          "x": 260,
+          "y": 124.5,
+          "width": 440,
+          "height": 291
+        },
+        "barRect": {
+          "x": 644.1875,
+          "y": 414.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        },
+        "barLabel": "Design the inner pages (Mar 15 – 20)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-dark neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Design the inner pages",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 644.1875,
+          "y": 414.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        }
+      },
+      "afterThemeSwitch": {
+        "newPalette": "light",
+        "title": "Design the inner pages",
+        "dialogClasses": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-light"
+      },
+      "pass": true
+    },
+    {
+      "id": "calendar",
+      "route": "/dist/production/examples/calendar/basic/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "scheme": "dark",
+      "bodyThemes": [
+        "neo-theme-dark"
+      ],
+      "opening": {
+        "firstHour": "8 AM",
+        "day": false,
+        "events": [
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 368.5625,
+              "y": 280.171875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 465.125,
+              "bottom": 299.15625,
+              "left": 368.5625
+            }
+          },
+          {
+            "label": "10:00 AMSprint planning",
+            "rect": {
+              "x": 368.5625,
+              "y": 301.1875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 301.1875,
+              "right": 465.125,
+              "bottom": 341.1875,
+              "left": 368.5625
+            }
+          },
+          {
+            "label": "01:00 PMOnboarding flow critique",
+            "rect": {
+              "x": 368.5625,
+              "y": 427.1875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 427.1875,
+              "right": 465.125,
+              "bottom": 467.1875,
+              "left": 368.5625
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 467.125,
+              "y": 280.171875,
+              "width": 96.578125,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 563.703125,
+              "bottom": 299.15625,
+              "left": 467.125
+            }
+          },
+          {
+            "label": "11:00 AMAcme renewal call",
+            "rect": {
+              "x": 467.125,
+              "y": 343.1875,
+              "width": 96.578125,
+              "height": 40,
+              "top": 343.1875,
+              "right": 563.703125,
+              "bottom": 383.1875,
+              "left": 467.125
+            }
+          },
+          {
+            "label": "02:00 PMPairing: offline sync",
+            "rect": {
+              "x": 467.125,
+              "y": 469.171875,
+              "width": 96.578125,
+              "height": 60.984375,
+              "top": 469.171875,
+              "right": 563.703125,
+              "bottom": 530.15625,
+              "left": 467.125
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 565.703125,
+              "y": 280.171875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 662.265625,
+              "bottom": 299.15625,
+              "left": 565.703125
+            }
+          },
+          {
+            "label": "10:30 AMDesign review",
+            "rect": {
+              "x": 565.703125,
+              "y": 322.171875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 322.171875,
+              "right": 662.265625,
+              "bottom": 362.171875,
+              "left": 565.703125
+            }
+          },
+          {
+            "label": "01:00 PMCode review: grid export",
+            "rect": {
+              "x": 565.703125,
+              "y": 427.1875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 427.1875,
+              "right": 662.265625,
+              "bottom": 467.1875,
+              "left": 565.703125
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 664.265625,
+              "y": 280.171875,
+              "width": 96.578125,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 760.84375,
+              "bottom": 299.15625,
+              "left": 664.265625
+            }
+          },
+          {
+            "label": "12:00 PMLunch & learn: web workers",
+            "rect": {
+              "x": 664.265625,
+              "y": 385.1875,
+              "width": 96.578125,
+              "height": 40,
+              "top": 385.1875,
+              "right": 760.84375,
+              "bottom": 425.1875,
+              "left": 664.265625
+            }
+          },
+          {
+            "label": "02:00 PMGlobex product demo",
+            "rect": {
+              "x": 664.265625,
+              "y": 469.171875,
+              "width": 96.578125,
+              "height": 40,
+              "top": 469.171875,
+              "right": 760.84375,
+              "bottom": 509.171875,
+              "left": 664.265625
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 762.84375,
+              "y": 280.171875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 859.40625,
+              "bottom": 299.15625,
+              "left": 762.84375
+            }
+          },
+          {
+            "label": "11:00 AMOn-call handover",
+            "rect": {
+              "x": 762.84375,
+              "y": 343.1875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 343.1875,
+              "right": 859.40625,
+              "bottom": 362.171875,
+              "left": 762.84375
+            }
+          }
+        ],
+        "bodyText": "neo.mjs Calendar\nDrag an event to move it, drag its lower edge to resize it\nTheme Light\nGitHub\nToday\nDay\nWeek\nMonth\nYear\nNov\n2026\nSun\nMon\nTue\nWed\nThu\nFri\nSat\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n1\n2\n3\n4\n5\nJonas\nLeo\nMaya\nPriya\nSofia\nTeam\nAdd Calendar\nSun\n15\nMon\n16\nTue\n17\nWed\n18\nThu\n19\nFri\n20\nSat\n21\nSun\n22\n"
+      },
+      "pass": true
+    },
+    {
+      "id": "scheduler-event-editor",
+      "route": "/dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "scheme": "light",
+      "bodyThemes": [
+        "neo-theme-neo-light"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Root canal",
+        "barId": "appt-22",
+        "barText": "Root canal",
+        "dialogRect": {
+          "x": 260,
+          "y": 124.5,
+          "width": 440,
+          "height": 291
+        },
+        "barRect": {
+          "x": 333.5,
+          "y": 465.390625,
+          "width": 294,
+          "height": 67.1875
+        },
+        "barLabel": "Root canal (Nov 24, 09:30 – 11:30)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-light neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Root canal",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 333.5,
+          "y": 455.390625,
+          "width": 294,
+          "height": 67.1875
+        }
+      },
+      "afterThemeSwitch": {
+        "newPalette": "dark",
+        "title": "Root canal",
+        "dialogClasses": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-dark"
+      },
+      "pass": true
+    },
+    {
+      "id": "gantt-task-editor",
+      "route": "/dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "scheme": "light",
+      "bodyThemes": [
+        "neo-theme-neo-light"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Design the inner pages",
+        "barId": "pages",
+        "barText": "Design the inner pages",
+        "dialogRect": {
+          "x": 260,
+          "y": 124.5,
+          "width": 440,
+          "height": 291
+        },
+        "barRect": {
+          "x": 644.1875,
+          "y": 414.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        },
+        "barLabel": "Design the inner pages (Mar 15 – 20)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-light neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Design the inner pages",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 644.1875,
+          "y": 414.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        }
+      },
+      "afterThemeSwitch": {
+        "newPalette": "dark",
+        "title": "Design the inner pages",
+        "dialogClasses": "neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-dark"
+      },
+      "pass": true
+    },
+    {
+      "id": "calendar",
+      "route": "/dist/production/examples/calendar/basic/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "scheme": "light",
+      "bodyThemes": [
+        "neo-theme-light"
+      ],
+      "opening": {
+        "firstHour": "8 AM",
+        "day": false,
+        "events": [
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 368.5625,
+              "y": 280.171875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 465.125,
+              "bottom": 299.15625,
+              "left": 368.5625
+            }
+          },
+          {
+            "label": "10:00 AMSprint planning",
+            "rect": {
+              "x": 368.5625,
+              "y": 301.1875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 301.1875,
+              "right": 465.125,
+              "bottom": 341.1875,
+              "left": 368.5625
+            }
+          },
+          {
+            "label": "01:00 PMOnboarding flow critique",
+            "rect": {
+              "x": 368.5625,
+              "y": 427.1875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 427.1875,
+              "right": 465.125,
+              "bottom": 467.1875,
+              "left": 368.5625
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 467.125,
+              "y": 280.171875,
+              "width": 96.578125,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 563.703125,
+              "bottom": 299.15625,
+              "left": 467.125
+            }
+          },
+          {
+            "label": "11:00 AMAcme renewal call",
+            "rect": {
+              "x": 467.125,
+              "y": 343.1875,
+              "width": 96.578125,
+              "height": 40,
+              "top": 343.1875,
+              "right": 563.703125,
+              "bottom": 383.1875,
+              "left": 467.125
+            }
+          },
+          {
+            "label": "02:00 PMPairing: offline sync",
+            "rect": {
+              "x": 467.125,
+              "y": 469.171875,
+              "width": 96.578125,
+              "height": 60.984375,
+              "top": 469.171875,
+              "right": 563.703125,
+              "bottom": 530.15625,
+              "left": 467.125
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 565.703125,
+              "y": 280.171875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 662.265625,
+              "bottom": 299.15625,
+              "left": 565.703125
+            }
+          },
+          {
+            "label": "10:30 AMDesign review",
+            "rect": {
+              "x": 565.703125,
+              "y": 322.171875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 322.171875,
+              "right": 662.265625,
+              "bottom": 362.171875,
+              "left": 565.703125
+            }
+          },
+          {
+            "label": "01:00 PMCode review: grid export",
+            "rect": {
+              "x": 565.703125,
+              "y": 427.1875,
+              "width": 96.5625,
+              "height": 40,
+              "top": 427.1875,
+              "right": 662.265625,
+              "bottom": 467.1875,
+              "left": 565.703125
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 664.265625,
+              "y": 280.171875,
+              "width": 96.578125,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 760.84375,
+              "bottom": 299.15625,
+              "left": 664.265625
+            }
+          },
+          {
+            "label": "12:00 PMLunch & learn: web workers",
+            "rect": {
+              "x": 664.265625,
+              "y": 385.1875,
+              "width": 96.578125,
+              "height": 40,
+              "top": 385.1875,
+              "right": 760.84375,
+              "bottom": 425.1875,
+              "left": 664.265625
+            }
+          },
+          {
+            "label": "02:00 PMGlobex product demo",
+            "rect": {
+              "x": 664.265625,
+              "y": 469.171875,
+              "width": 96.578125,
+              "height": 40,
+              "top": 469.171875,
+              "right": 760.84375,
+              "bottom": 509.171875,
+              "left": 664.265625
+            }
+          },
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 762.84375,
+              "y": 280.171875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 280.171875,
+              "right": 859.40625,
+              "bottom": 299.15625,
+              "left": 762.84375
+            }
+          },
+          {
+            "label": "11:00 AMOn-call handover",
+            "rect": {
+              "x": 762.84375,
+              "y": 343.1875,
+              "width": 96.5625,
+              "height": 18.984375,
+              "top": 343.1875,
+              "right": 859.40625,
+              "bottom": 362.171875,
+              "left": 762.84375
+            }
+          }
+        ],
+        "bodyText": "neo.mjs Calendar\nDrag an event to move it, drag its lower edge to resize it\nTHEME DARK\nGITHUB\nTODAY\nDAY\nWEEK\nMONTH\nYEAR\nNov\n2026\nSun\nMon\nTue\nWed\nThu\nFri\nSat\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n1\n2\n3\n4\n5\nJonas\nLeo\nMaya\nPriya\nSofia\nTeam\nADD CALENDAR\nSun\n15\nMon\n16\nTue\n17\nWed\n18\nThu\n19\nFri\n20\nSat\n21\nSun\n22\nM"
+      },
+      "pass": true
+    },
+    {
+      "id": "scheduler-event-editor",
+      "route": "/dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scheme": "dark",
+      "bodyThemes": [
+        "neo-theme-neo-dark"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Root canal",
+        "barId": "appt-22",
+        "barText": "Root canal",
+        "dialogRect": {
+          "x": 15.59375,
+          "y": 231.5,
+          "width": 358.796875,
+          "height": 381
+        },
+        "barRect": {
+          "x": 333.5,
+          "y": 529.390625,
+          "width": 294,
+          "height": 67.1875
+        },
+        "barLabel": "Root canal (Nov 24, 09:30 – 11:30)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-dark neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Root canal",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 333.5,
+          "y": 529.390625,
+          "width": 294,
+          "height": 67.1875
+        }
+      },
+      "pass": true
+    },
+    {
+      "id": "gantt-task-editor",
+      "route": "/dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scheme": "dark",
+      "bodyThemes": [
+        "neo-theme-neo-dark"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Design the inner pages",
+        "barId": "pages",
+        "barText": "Design the inner pages",
+        "dialogRect": {
+          "x": 15.59375,
+          "y": 231.5,
+          "width": 358.796875,
+          "height": 381
+        },
+        "barRect": {
+          "x": 564.1875,
+          "y": 432.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        },
+        "barLabel": "Design the inner pages (Mar 15 – 20)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-dark neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Design the inner pages",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 264.1875,
+          "y": 432.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        }
+      },
+      "pass": true
+    },
+    {
+      "id": "calendar",
+      "route": "/dist/production/examples/calendar/basic/index.html?theme=neo-theme-neo-dark",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scheme": "dark",
+      "bodyThemes": [
+        "neo-theme-dark"
+      ],
+      "opening": {
+        "firstHour": "8 AM",
+        "day": true,
+        "events": [
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 149,
+              "y": 254.171875,
+              "width": 238.5625,
+              "height": 18.984375,
+              "top": 254.171875,
+              "right": 387.5625,
+              "bottom": 273.15625,
+              "left": 149
+            }
+          },
+          {
+            "label": "10:00 AMSprint planning",
+            "rect": {
+              "x": 149,
+              "y": 275.1875,
+              "width": 238.5625,
+              "height": 40,
+              "top": 275.1875,
+              "right": 387.5625,
+              "bottom": 315.1875,
+              "left": 149
+            }
+          },
+          {
+            "label": "01:00 PMOnboarding flow critique",
+            "rect": {
+              "x": 149,
+              "y": 401.1875,
+              "width": 238.5625,
+              "height": 40,
+              "top": 401.1875,
+              "right": 387.5625,
+              "bottom": 441.1875,
+              "left": 149
+            }
+          },
+          {
+            "label": "03:00 PMCustomer interview: Northwind",
+            "rect": {
+              "x": 149,
+              "y": 485.171875,
+              "width": 238.5625,
+              "height": 40,
+              "top": 485.171875,
+              "right": 387.5625,
+              "bottom": 525.171875,
+              "left": 149
+            }
+          }
+        ],
+        "bodyText": "neo.mjs Calendar\nTheme Light\nGitHub\nToday\nDay\nWeek\nMonth\nYear\nNov\n2026\nSun\nMon\nTue\nWed\nThu\nFri\nSat\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n1\n2\n3\n4\n5\nJonas\nLeo\nMaya\nPriya\nSofia\nTeam\nAdd Calendar\nSun\n22\nMon\n23\nTue\n24\nArchitecture summit\n8 AM\n9 AM\n10 AM\n11 AM\n12 PM\n1 PM\n2 PM\n3 PM\n4 PM\n5 PM\n6 PM\n7 PM\n09:30 AM\nSt"
+      },
+      "pass": true
+    },
+    {
+      "id": "scheduler-event-editor",
+      "route": "/dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scheme": "light",
+      "bodyThemes": [
+        "neo-theme-neo-light"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Root canal",
+        "barId": "appt-22",
+        "barText": "Root canal",
+        "dialogRect": {
+          "x": 15.59375,
+          "y": 231.5,
+          "width": 358.796875,
+          "height": 381
+        },
+        "barRect": {
+          "x": 333.5,
+          "y": 529.390625,
+          "width": 294,
+          "height": 67.1875
+        },
+        "barLabel": "Root canal (Nov 24, 09:30 – 11:30)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-light neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Root canal",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 333.5,
+          "y": 529.390625,
+          "width": 294,
+          "height": 67.1875
+        }
+      },
+      "pass": true
+    },
+    {
+      "id": "gantt-task-editor",
+      "route": "/dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scheme": "light",
+      "bodyThemes": [
+        "neo-theme-neo-light"
+      ],
+      "opening": {
+        "focused": true,
+        "title": "Design the inner pages",
+        "barId": "pages",
+        "barText": "Design the inner pages",
+        "dialogRect": {
+          "x": 15.59375,
+          "y": 231.5,
+          "width": 358.796875,
+          "height": 381
+        },
+        "barRect": {
+          "x": 564.1875,
+          "y": 432.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        },
+        "barLabel": "Design the inner pages (Mar 15 – 20)",
+        "dialogClasses": "neo-timeline-event-editor neo-dialog neo-panel neo-container neo-floating neo-theme-neo-light neo-modal neo-flex-container neo-flex-align-stretch neo-flex-direction-column neo-flex-wrap-nowrap"
+      },
+      "afterCancel": {
+        "reopenedBy": "Enter on matching bar",
+        "title": "Design the inner pages",
+        "focus": true,
+        "barRectAfterScroll": {
+          "x": 264.1875,
+          "y": 432.03125,
+          "width": 172.796875,
+          "height": 25.90625
+        }
+      },
+      "pass": true
+    },
+    {
+      "id": "calendar",
+      "route": "/dist/production/examples/calendar/basic/index.html?theme=neo-theme-neo-light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scheme": "light",
+      "bodyThemes": [
+        "neo-theme-light"
+      ],
+      "opening": {
+        "firstHour": "8 AM",
+        "day": true,
+        "events": [
+          {
+            "label": "09:30 AMStand-up",
+            "rect": {
+              "x": 84,
+              "y": 263.171875,
+              "width": 303.5625,
+              "height": 18.984375,
+              "top": 263.171875,
+              "right": 387.5625,
+              "bottom": 282.15625,
+              "left": 84
+            }
+          },
+          {
+            "label": "10:00 AMSprint planning",
+            "rect": {
+              "x": 84,
+              "y": 284.1875,
+              "width": 303.5625,
+              "height": 40,
+              "top": 284.1875,
+              "right": 387.5625,
+              "bottom": 324.1875,
+              "left": 84
+            }
+          },
+          {
+            "label": "01:00 PMOnboarding flow critique",
+            "rect": {
+              "x": 84,
+              "y": 410.1875,
+              "width": 303.5625,
+              "height": 40,
+              "top": 410.1875,
+              "right": 387.5625,
+              "bottom": 450.1875,
+              "left": 84
+            }
+          },
+          {
+            "label": "03:00 PMCustomer interview: Northwind",
+            "rect": {
+              "x": 84,
+              "y": 494.171875,
+              "width": 303.5625,
+              "height": 40,
+              "top": 494.171875,
+              "right": 387.5625,
+              "bottom": 534.171875,
+              "left": 84
+            }
+          }
+        ],
+        "bodyText": "neo.mjs Calendar\nTHEME DARK\nGITHUB\nTODAY\nDAY\nWEEK\nMONTH\nYEAR\nNov\n2026\nSun\nMon\nTue\nWed\nThu\nFri\nSat\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n1\n2\n3\n4\n5\nJonas\nLeo\nMaya\nPriya\nSofia\nTeam\nADD CALENDAR\nSun\n22\nMon\n23\nTue\n24\nArchitecture summit\n8 AM\n9 AM\n10 AM\n11 AM\n12 PM\n1 PM\n2 PM\n3 PM\n4 PM\n5 PM\n6 PM\n7 PM\n09:30 AM\nSta"
+      },
+      "pass": true
+    }
+  ],
+  "localTarball": {
+    "name": "neo.mjs",
+    "version": "13.4.0",
+    "tarballSha256": "dc9901cbdd2baf3eff0d9277de0237d508ba08ebe4fe2ce3a4fdd4f8bd1a11d9",
+    "entryCount": 6202,
+    "size": 22741050,
+    "usesOfficialComposition": true,
+    "nativeDistMembers": [],
+    "forbiddenMembers": [],
+    "verifiedSourceFileCount": 245,
+    "productionWorkerContexts": 229,
+    "examples": [
+      {
+        "key": "./examples/dashboard/planning/app.mjs",
+        "entryModule": 91276,
+        "chunkCount": 33,
+        "allChunkFilesPresent": true
+      },
+      {
+        "key": "./apps/webdesktop/app.mjs",
+        "entryModule": 79359,
+        "chunkCount": 14,
+        "allChunkFilesPresent": true
+      }
+    ],
+    "scope": "The unpacked pre-release source archive was rebuilt offline with existing local dependencies. Its source version was 13.4.0. Verification of a published v14 package remains a cut-day step."
+  },
+  "postMerge": {
+    "engine": "8e649faff96f9d940bcfad621fa482d877ea766b",
+    "pages": "ac70c9635ee840dcb30b3e5ebf255e953ca56a76",
+    "deployment": "https://github.com/neomjs/pages/actions/runs/45121155041",
+    "publicHosts": {
+      "site": 22,
+      "gallery": 22
+    },
+    "liveMediaGallery": {
+      "desktop": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "checked": 22,
+        "routedRequests": 0,
+        "buildId": "mwsv1dj1",
+        "reads": [
+          {
+            "id": "asset-preloading",
+            "group": "platform",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14.jpg",
+            "sha256": "e50d1495d510a369d535fa1bfd992563ae16c70cea380ef83efcf7f52d9b57b0",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "asset-preloading",
+            "group": "platform",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14-light.jpg",
+            "sha256": "0225f644bf580fefba8fdbe995b11f9548ea42f0295aff7c9d7d23ed26907ab6",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "breadcrumb",
+            "group": "buttons",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14.jpg",
+            "sha256": "aa3c7768545d9f2cdb00b07d506a88178c6d87b0893d94f07846dd78f988d703",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "breadcrumb",
+            "group": "buttons",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14-light.jpg",
+            "sha256": "d91b0fd0a283b514c53bcc91c0de5b4dd61adf1e8ad4fa847808116df5ebcc58",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "calendar",
+            "group": "calendar",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14.jpg",
+            "sha256": "a9002be30daca19705b3facc393b5ae6d5ad0b037cade9a630e6329d27ffcf71",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "calendar",
+            "group": "calendar",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14-light.jpg",
+            "sha256": "d938669c06f5250a3df81af5fae7f21d382278e505c826ea6d2e27008462a44d",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "dock-cross-window",
+            "group": "dashboard",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14.jpg",
+            "sha256": "c789834cb25fb72b808b38fde6cb169dd67cb4288a4aa07d78c6e1b04d427bce",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "dock-cross-window",
+            "group": "dashboard",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14-light.jpg",
+            "sha256": "72069cbb44d7a070b65113b946d1c3871c2e3e2152726041f64d32a5ec8419f7",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "gantt-task-editor",
+            "group": "gantt",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+            "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "gantt-task-editor",
+            "group": "gantt",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+            "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "graph-scene",
+            "group": "charts",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14.jpg",
+            "sha256": "1c7ef4e7524baa2b4e64cb4f2b02e918800475c4db7a78a55d55a357c0e6ef50",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "graph-scene",
+            "group": "charts",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14-light.jpg",
+            "sha256": "13b975bf0cdddc5795ecb135ff9cc58ab1949b9cb1fc05555acf4de856ffbdbd",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-big-data",
+            "group": "grid",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14.jpg",
+            "sha256": "e4e9ec9a57dc081406fe4be0796a574d0a2216b2732db129f0601c0c2fdeb0a0",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-big-data",
+            "group": "grid",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14-light.jpg",
+            "sha256": "8d8b3c00bd3913583e52f5e75f2798a1849761129c5ea9eb97e022b163556d15",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-tree-big-data",
+            "group": "grid",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14.jpg",
+            "sha256": "84d16a08aa348238807ce021ed04739317990867793882c68e1512d4ee77e7b3",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-tree-big-data",
+            "group": "grid",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14-light.jpg",
+            "sha256": "2cfad8857249ddc6f25e4a0af1f1c57c61e36dc6e085ebb73567bf54b72f0690",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "list-animate",
+            "group": "lists",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14.jpg",
+            "sha256": "26688b4493dc3108a3aa8eda6a709df51b53bc7797275b5d928d0bdfbac8c3c0",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "list-animate",
+            "group": "lists",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14-light.jpg",
+            "sha256": "410b66d83c37cde588a71e04ac6f4d8a985ffe4bf985376890ae6d848524f4bf",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "markdown",
+            "group": "components",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14.jpg",
+            "sha256": "2f57c15858022dbc83e7370f3467a5136434a59aa5ce74e6542fdd4fc3d297fe",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "markdown",
+            "group": "components",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14-light.jpg",
+            "sha256": "90902662e304728b817fb42494deaaff2496223e2c4219c452a8bb0d9db66a69",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "scheduler-event-editor",
+            "group": "scheduler",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+            "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "scheduler-event-editor",
+            "group": "scheduler",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+            "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          }
+        ]
+      },
+      "phone": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "checked": 22,
+        "routedRequests": 0,
+        "buildId": "mwsv1dj1",
+        "reads": [
+          {
+            "id": "asset-preloading",
+            "group": "platform",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14.jpg",
+            "sha256": "e50d1495d510a369d535fa1bfd992563ae16c70cea380ef83efcf7f52d9b57b0",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "asset-preloading",
+            "group": "platform",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/asset-preloading-14-light.jpg",
+            "sha256": "0225f644bf580fefba8fdbe995b11f9548ea42f0295aff7c9d7d23ed26907ab6",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "breadcrumb",
+            "group": "buttons",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14.jpg",
+            "sha256": "aa3c7768545d9f2cdb00b07d506a88178c6d87b0893d94f07846dd78f988d703",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "breadcrumb",
+            "group": "buttons",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/breadcrumb-14-light.jpg",
+            "sha256": "d91b0fd0a283b514c53bcc91c0de5b4dd61adf1e8ad4fa847808116df5ebcc58",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "calendar",
+            "group": "calendar",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14.jpg",
+            "sha256": "a9002be30daca19705b3facc393b5ae6d5ad0b037cade9a630e6329d27ffcf71",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "calendar",
+            "group": "calendar",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14-light.jpg",
+            "sha256": "d938669c06f5250a3df81af5fae7f21d382278e505c826ea6d2e27008462a44d",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "dock-cross-window",
+            "group": "dashboard",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14.jpg",
+            "sha256": "c789834cb25fb72b808b38fde6cb169dd67cb4288a4aa07d78c6e1b04d427bce",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "dock-cross-window",
+            "group": "dashboard",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/dock-cross-window-14-light.jpg",
+            "sha256": "72069cbb44d7a070b65113b946d1c3871c2e3e2152726041f64d32a5ec8419f7",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "gantt-task-editor",
+            "group": "gantt",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+            "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": true,
+              "unrequested": true
+            }
+          },
+          {
+            "id": "gantt-task-editor",
+            "group": "gantt",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+            "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": true,
+              "unrequested": true
+            }
+          },
+          {
+            "id": "graph-scene",
+            "group": "charts",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14.jpg",
+            "sha256": "1c7ef4e7524baa2b4e64cb4f2b02e918800475c4db7a78a55d55a357c0e6ef50",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "graph-scene",
+            "group": "charts",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/graph-scene-14-light.jpg",
+            "sha256": "13b975bf0cdddc5795ecb135ff9cc58ab1949b9cb1fc05555acf4de856ffbdbd",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-big-data",
+            "group": "grid",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14.jpg",
+            "sha256": "e4e9ec9a57dc081406fe4be0796a574d0a2216b2732db129f0601c0c2fdeb0a0",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-big-data",
+            "group": "grid",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14-light.jpg",
+            "sha256": "8d8b3c00bd3913583e52f5e75f2798a1849761129c5ea9eb97e022b163556d15",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-tree-big-data",
+            "group": "grid",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14.jpg",
+            "sha256": "84d16a08aa348238807ce021ed04739317990867793882c68e1512d4ee77e7b3",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "grid-tree-big-data",
+            "group": "grid",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-tree-big-data-14-light.jpg",
+            "sha256": "2cfad8857249ddc6f25e4a0af1f1c57c61e36dc6e085ebb73567bf54b72f0690",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "list-animate",
+            "group": "lists",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14.jpg",
+            "sha256": "26688b4493dc3108a3aa8eda6a709df51b53bc7797275b5d928d0bdfbac8c3c0",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "list-animate",
+            "group": "lists",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/list-animate-14-light.jpg",
+            "sha256": "410b66d83c37cde588a71e04ac6f4d8a985ffe4bf985376890ae6d848524f4bf",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "markdown",
+            "group": "components",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14.jpg",
+            "sha256": "2f57c15858022dbc83e7370f3467a5136434a59aa5ce74e6542fdd4fc3d297fe",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "markdown",
+            "group": "components",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/markdown-14-light.jpg",
+            "sha256": "90902662e304728b817fb42494deaaff2496223e2c4219c452a8bb0d9db66a69",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": false,
+              "unadmitted": false,
+              "unrequested": false
+            }
+          },
+          {
+            "id": "scheduler-event-editor",
+            "group": "scheduler",
+            "to": "dark",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+            "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": true,
+              "unrequested": true
+            }
+          },
+          {
+            "id": "scheduler-event-editor",
+            "group": "scheduler",
+            "to": "light",
+            "actualRawUrl": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+            "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+            "decoded": [
+              1280,
+              720
+            ],
+            "afterSwitchBeforeScroll": {
+              "belowFold": true,
+              "unadmitted": true,
+              "unrequested": true
+            }
+          }
+        ]
+      }
+    },
+    "scope": "Production Portal built and served locally from the actual merged Engine commit, all eleven changed covers read directly from the public host. The released site walkthrough follows the v14 package rollout."
+  }
+}
