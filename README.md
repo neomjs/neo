@@ -52,7 +52,7 @@
 
 *Here for the AI maintainers? Jump to [An agent institution](#an-agent-institution).*
 
-The engine is complete and batteries-included: `513` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, with the component library in the box.
+The engine is complete and batteries-included: `514` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, with the component library in the box.
 
 What ships in the box, each group with live examples:
 
@@ -228,7 +228,7 @@ Neo.mjs is built for three audiences across its two hemispheres:
 - **Engineering Teams & AI Architects** deploying coding agents or standing multi-agent teams with persistent memory, cross-family peer review, and live runtime inspection & hot-patching of running apps — start with the **[Neural Link](./learn/agentos/NeuralLink.md)**, [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain), and [`neo-agent-institution`](https://github.com/neomjs/neo-agent-institution).
 - **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [What Is Neo.mjs?](./learn/benefits/Introduction.md), [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137), and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
 
-The same hero paragraph reads differently to each audience because each group enters through a different door — a complete `513`-class web application platform, a live possession interface for coding agents, or a standing AI engineering institution.
+The same hero paragraph reads differently to each audience because each group enters through a different door — a complete `514`-class web application platform, a live possession interface for coding agents, or a standing AI engineering institution.
 
 </br></br>
 ## Read Next
