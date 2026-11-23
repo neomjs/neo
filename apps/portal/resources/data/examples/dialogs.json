@@ -44,7 +44,7 @@
         "family": "dialogs",
         "order": 430,
         "component": "Popover",
-        "feature": "A popover opens against the button that owns it, on the side its align value names, and flips when that side has no room.",
+        "feature": "A popover opens beside its button on the chosen side and flips when space runs out.",
         "lookFor": "Press Click Me, then pick another align value in the inspector and press the button again.",
         "image": "devmode/popover-14.jpg",
         "name": "Popover",
@@ -66,7 +66,7 @@
             "Desktop",
             "Mobile"
         ],
-        "feature": "Controls and tickets explain themselves: plain hints, a rich velocity card and tunable delays, by pointer or keyboard.",
+        "feature": "Plain hints, a rich velocity card and tunable delays work by pointer or keyboard.",
         "lookFor": "Hover a toolbar button or a ticket, or move there with Tab; open Velocity for the card, press Escape to close it, then change the delays.",
         "hasLightCover": true,
         "image": "devmode/tooltip-14.jpg",
