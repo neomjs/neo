@@ -1,0 +1,2674 @@
+{
+  "capturedAt": "2026-11-23T02:20:31.358Z",
+  "shas": {
+    "current": "301bcce680a201c4a11140c3fe555416539b78ff",
+    "candidate": "a535027ad0d0629d4896541e44d14fc430a4f55d"
+  },
+  "pages": "3515ee98a32cd6dd5eedb4e8cd2b16107d26c8bc",
+  "publicCovers": {
+    "devmode/scheduler-event-editor-14.jpg": {
+      "publicSha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "pagesSha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "bytes": 61600
+    },
+    "devmode/scheduler-event-editor-14-light.jpg": {
+      "publicSha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+      "pagesSha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+      "bytes": 60538
+    },
+    "devmode/gantt-task-editor-14.jpg": {
+      "publicSha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "pagesSha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "bytes": 72392
+    },
+    "devmode/gantt-task-editor-14-light.jpg": {
+      "publicSha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+      "pagesSha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+      "bytes": 69122
+    }
+  },
+  "css": {
+    "current": {
+      "source": "79ce6279c2496eea93fcbdb60f71f75c6dc717817bfde29f6c77d2c1e16cabb5",
+      "built": "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+    },
+    "candidate": {
+      "source": "79ce6279c2496eea93fcbdb60f71f75c6dc717817bfde29f6c77d2c1e16cabb5",
+      "built": "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+    }
+  },
+  "frames": [
+    {
+      "variant": "current",
+      "group": "scheduler",
+      "palette": "dark",
+      "transition": "initial",
+      "id": "scheduler-event-editor",
+      "file": "devmode/scheduler-event-editor-14.jpg",
+      "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "title": "Studio Bookings",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-big-data",
+          "title": "A year for 300 people",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "title": "Re-plan a day by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "title": "Weekends and holidays in the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "title": "Bars that say more",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "title": "Edit a booking in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-zoom",
+          "title": "Zoom from hours to a week",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "title": "A table beside the timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-time-zones",
+          "title": "One plan, three time zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-live-updates",
+          "title": "A plan that updates itself",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "timeline-basic",
+          "title": "Resource Timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1669.796875,
+            "width": 376,
+            "height": 211.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "scheduler-dark-current.png",
+      "frameSha256": "6b094024e41a466cf5df72ae84bd513ef7d64cedf2814568973a5e15a995e699"
+    },
+    {
+      "variant": "current",
+      "group": "scheduler",
+      "palette": "light",
+      "transition": "dark-to-light",
+      "id": "scheduler-event-editor",
+      "file": "devmode/scheduler-event-editor-14.jpg",
+      "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "title": "Studio Bookings",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-big-data",
+          "title": "A year for 300 people",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "title": "Re-plan a day by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "title": "Weekends and holidays in the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "title": "Bars that say more",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "title": "Edit a booking in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-zoom",
+          "title": "Zoom from hours to a week",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "title": "A table beside the timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-time-zones",
+          "title": "One plan, three time zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-live-updates",
+          "title": "A plan that updates itself",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "timeline-basic",
+          "title": "Resource Timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1669.796875,
+            "width": 376,
+            "height": 211.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "scheduler-light-current.png",
+      "frameSha256": "e682faa383ad60b2100f923c740d98933f60a5d53979f22e0cb85f0cf8e3ee5b"
+    },
+    {
+      "variant": "current",
+      "group": "scheduler",
+      "palette": "dark",
+      "transition": "light-to-dark",
+      "id": "scheduler-event-editor",
+      "file": "devmode/scheduler-event-editor-14.jpg",
+      "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "title": "Studio Bookings",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-big-data",
+          "title": "A year for 300 people",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "title": "Re-plan a day by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "title": "Weekends and holidays in the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "title": "Bars that say more",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "title": "Edit a booking in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-zoom",
+          "title": "Zoom from hours to a week",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "title": "A table beside the timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-time-zones",
+          "title": "One plan, three time zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-live-updates",
+          "title": "A plan that updates itself",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "timeline-basic",
+          "title": "Resource Timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1669.796875,
+            "width": 376,
+            "height": 211.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ]
+    },
+    {
+      "variant": "current",
+      "group": "gantt",
+      "palette": "dark",
+      "transition": "initial",
+      "id": "gantt-task-editor",
+      "file": "devmode/gantt-task-editor-14.jpg",
+      "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "title": "Community Garden Plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-big-data",
+          "title": "A project of 2,000 tasks",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-zoom",
+          "title": "Zoom a plan in and out",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-working-time",
+          "title": "Durations in working days",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-dependencies",
+          "title": "Link tasks by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "title": "Edit a task in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-columns",
+          "title": "Your columns beside the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-cascade",
+          "title": "A late task moves the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-milestones",
+          "title": "A plan's release gates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-tree",
+          "title": "An exhibition takes shape",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "gantt-dark-current.png",
+      "frameSha256": "482a3164cb87731fbf17a64b7da665b04325f96422eb419fc7b534d77c391afb"
+    },
+    {
+      "variant": "current",
+      "group": "gantt",
+      "palette": "light",
+      "transition": "dark-to-light",
+      "id": "gantt-task-editor",
+      "file": "devmode/gantt-task-editor-14.jpg",
+      "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "title": "Community Garden Plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-big-data",
+          "title": "A project of 2,000 tasks",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-zoom",
+          "title": "Zoom a plan in and out",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-working-time",
+          "title": "Durations in working days",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-dependencies",
+          "title": "Link tasks by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "title": "Edit a task in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-columns",
+          "title": "Your columns beside the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-cascade",
+          "title": "A late task moves the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-milestones",
+          "title": "A plan's release gates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-tree",
+          "title": "An exhibition takes shape",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "gantt-light-current.png",
+      "frameSha256": "5342a783d1e4168b8355e635ddcff64615ad9d9d4c59f68d9e207162a562464e"
+    },
+    {
+      "variant": "current",
+      "group": "gantt",
+      "palette": "dark",
+      "transition": "light-to-dark",
+      "id": "gantt-task-editor",
+      "file": "devmode/gantt-task-editor-14.jpg",
+      "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "title": "Community Garden Plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-big-data",
+          "title": "A project of 2,000 tasks",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-zoom",
+          "title": "Zoom a plan in and out",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-working-time",
+          "title": "Durations in working days",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-dependencies",
+          "title": "Link tasks by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "title": "Edit a task in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-columns",
+          "title": "Your columns beside the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-cascade",
+          "title": "A late task moves the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-milestones",
+          "title": "A plan's release gates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-tree",
+          "title": "An exhibition takes shape",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ]
+    },
+    {
+      "variant": "candidate",
+      "group": "scheduler",
+      "palette": "dark",
+      "transition": "initial",
+      "id": "scheduler-event-editor",
+      "file": "devmode/scheduler-event-editor-14.jpg",
+      "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "title": "Studio Bookings",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-big-data",
+          "title": "A year for 300 people",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "title": "Re-plan a day by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "title": "Weekends and holidays in the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "title": "Bars that say more",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "title": "Edit a booking in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-zoom",
+          "title": "Zoom from hours to a week",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "title": "A table beside the timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-time-zones",
+          "title": "One plan, three time zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-live-updates",
+          "title": "A plan that updates itself",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "timeline-basic",
+          "title": "Resource Timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1669.796875,
+            "width": 376,
+            "height": 211.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "scheduler-dark-candidate.png",
+      "frameSha256": "fc3f20ec4860a6cb474a43b715c59cbee47ba3c098b7a7acc4df84342475aad0"
+    },
+    {
+      "variant": "candidate",
+      "group": "scheduler",
+      "palette": "light",
+      "transition": "dark-to-light",
+      "id": "scheduler-event-editor",
+      "file": "devmode/scheduler-event-editor-14-light.jpg",
+      "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "title": "Studio Bookings",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-big-data",
+          "title": "A year for 300 people",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "title": "Re-plan a day by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "title": "Weekends and holidays in the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "title": "Bars that say more",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "title": "Edit a booking in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-zoom",
+          "title": "Zoom from hours to a week",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "title": "A table beside the timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-time-zones",
+          "title": "One plan, three time zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-live-updates",
+          "title": "A plan that updates itself",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "timeline-basic",
+          "title": "Resource Timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1669.796875,
+            "width": 376,
+            "height": 211.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "scheduler-light-candidate.png",
+      "frameSha256": "b74b82ef9b0e9e18c6b6c7d050f0eaf497a8223c9fab614e3893fb81ba07516b"
+    },
+    {
+      "variant": "candidate",
+      "group": "scheduler",
+      "palette": "dark",
+      "transition": "light-to-dark",
+      "id": "scheduler-event-editor",
+      "file": "devmode/scheduler-event-editor-14.jpg",
+      "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "scheduler-basic",
+          "title": "Studio Bookings",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-big-data",
+          "title": "A year for 300 people",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-drag-and-resize",
+          "title": "Re-plan a day by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-non-working-time",
+          "title": "Weekends and holidays in the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-bar-renderer",
+          "title": "Bars that say more",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-event-editor",
+          "title": "Edit a booking in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-zoom",
+          "title": "Zoom from hours to a week",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-resource-columns",
+          "title": "A table beside the timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1077.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-time-zones",
+          "title": "One plan, three time zones",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "scheduler-live-updates",
+          "title": "A plan that updates itself",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1373.796875,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "timeline-basic",
+          "title": "Resource Timeline",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1669.796875,
+            "width": 376,
+            "height": 211.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ]
+    },
+    {
+      "variant": "candidate",
+      "group": "gantt",
+      "palette": "dark",
+      "transition": "initial",
+      "id": "gantt-task-editor",
+      "file": "devmode/gantt-task-editor-14.jpg",
+      "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "title": "Community Garden Plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-big-data",
+          "title": "A project of 2,000 tasks",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-zoom",
+          "title": "Zoom a plan in and out",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-working-time",
+          "title": "Durations in working days",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-dependencies",
+          "title": "Link tasks by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "title": "Edit a task in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-columns",
+          "title": "Your columns beside the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-cascade",
+          "title": "A late task moves the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-milestones",
+          "title": "A plan's release gates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-tree",
+          "title": "An exhibition takes shape",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "gantt-dark-candidate.png",
+      "frameSha256": "127504cfa5f99ff0ff7fe27e6fa1b22c64454a89fa346cfb92f2a02a9fa84945"
+    },
+    {
+      "variant": "candidate",
+      "group": "gantt",
+      "palette": "light",
+      "transition": "dark-to-light",
+      "id": "gantt-task-editor",
+      "file": "devmode/gantt-task-editor-14-light.jpg",
+      "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "title": "Community Garden Plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-big-data",
+          "title": "A project of 2,000 tasks",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-zoom",
+          "title": "Zoom a plan in and out",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-working-time",
+          "title": "Durations in working days",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-dependencies",
+          "title": "Link tasks by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "title": "Edit a task in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-columns",
+          "title": "Your columns beside the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-cascade",
+          "title": "A late task moves the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-milestones",
+          "title": "A plan's release gates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-tree",
+          "title": "An exhibition takes shape",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ],
+      "screenshot": "gantt-light-candidate.png",
+      "frameSha256": "36c9af2aec5523cc386e522d9bd92904bfafe5abc096595554e11ca7998cfdfc"
+    },
+    {
+      "variant": "candidate",
+      "group": "gantt",
+      "palette": "dark",
+      "transition": "light-to-dark",
+      "id": "gantt-task-editor",
+      "file": "devmode/gantt-task-editor-14.jpg",
+      "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "lead": {
+        "x": 288,
+        "y": 170.890625,
+        "width": 744,
+        "height": 418.5
+      },
+      "cards": [
+        {
+          "id": "gantt-basic",
+          "title": "Community Garden Plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 170.890625,
+            "width": 744,
+            "height": 418.5
+          }
+        },
+        {
+          "id": "shared-planning",
+          "title": "One plan, three windows",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 170.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-big-data",
+          "title": "A project of 2,000 tasks",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 466.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-zoom",
+          "title": "Zoom a plan in and out",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-working-time",
+          "title": "Durations in working days",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-dependencies",
+          "title": "Link tasks by drag",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 762.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-editor",
+          "title": "Edit a task in a form",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-columns",
+          "title": "Your columns beside the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-cascade",
+          "title": "A late task moves the plan",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1058.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-milestones",
+          "title": "A plan's release gates",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 288,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "gantt-task-tree",
+          "title": "An exhibition takes shape",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 672,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        },
+        {
+          "id": "meridian-observatory",
+          "title": "Meridian Observatory",
+          "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+          "dimensions": [
+            1280,
+            720
+          ],
+          "cover": {
+            "x": 1056,
+            "y": 1354.890625,
+            "width": 360,
+            "height": 202.5
+          }
+        }
+      ],
+      "css": [
+        "d2f54a0f70fd1d08f8bc36edeeca4aa143e3605ee107d0976aa56b2412932640"
+      ]
+    }
+  ],
+  "requests": [
+    {
+      "variant": "current",
+      "group": "scheduler",
+      "fetched": {
+        "devmode/shared-planning-14.jpg": "c4b11b954ec50a349ea17ea200e69a3a582cf869b0c088a577c5b985e9921a14",
+        "devmode/scheduler-drag-and-resize-14.jpg": "d41296816e96551e3fc9e3d9aeec1b7274c83aaafdf3d3d0a136bd0061a3a59d",
+        "devmode/scheduler-bar-renderer-14.jpg": "9310b155f0d73b6dbc66c652c15c641f68576904d205f66b09bb1bae4ae195f3",
+        "devmode/scheduler-non-working-time-14.jpg": "f28a034629c63bb025e9d2e659e04fe1f1dd28e46ea43a1eb3fd90305b7599bd",
+        "devmode/scheduler-basic-14.jpg": "1602ada1a9a3d2fe9b4b0c71665ef399485016ae8f792408a84aed220e83c31f",
+        "devmode/scheduler-big-data-14.jpg": "9b3c83d8cc2b9d5768eb049f9810cc939dad36c3b21721dea1693567a7154162",
+        "devmode/scheduler-event-editor-14.jpg": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+        "devmode/scheduler-zoom-14.jpg": "134e43b69a03a085b1e6b9a6e5035cb54636d7eff6e4713f27afb78e345fdf61",
+        "devmode/scheduler-time-zones-14.jpg": "0326a1bd84ca8261d442e5bf4cf9069f1db28d87806e957732797d64f8792f06",
+        "devmode/meridian-observatory-14.jpg": "0a3fa0327b23d5a2bd660835155295f0f7748d988174127cf4a32da0793db468",
+        "devmode/timeline-basic-14.jpg": "55bd07e3f6dd880e9800d8d7f4f98c1c82b356a52727179e91410d631cd8fc13",
+        "devmode/scheduler-live-updates-14.jpg": "70c0b4d62c600cd0366c8c688a66d829433930b65f163ef34395cbc8b27cd5a1",
+        "devmode/scheduler-resource-columns-14.jpg": "41bbc48fe39d379564a51c68ee773426af0a0b1899d8f302337143754f2dbd80",
+        "devmode/scheduler-basic-14-light.jpg": "dd35520f3de4dc4e79315feb55e91c0888f9fb6d2a197cae2a0f78de1ddbc793",
+        "devmode/scheduler-non-working-time-14-light.jpg": "28eebc10ae535126e0b6017bf9d46ff217c98b2e6e63efd2eec11fd57fe0be0c",
+        "devmode/scheduler-big-data-14-light.jpg": "fc85de5ec71d04c0cfc4e5f39013b5146017043121b9fc1df588a01a6f1e2dc4",
+        "devmode/scheduler-drag-and-resize-14-light.jpg": "946ed8cf7a031e816c20617b5a3e5badfef2fb5199c64aba4d2aa963e2e6f43b",
+        "devmode/shared-planning-14-light.jpg": "db68abb7845f5eb5721d30c88ba2d44d5c012362c1961f87daaad2e78262a19b",
+        "devmode/scheduler-bar-renderer-14-light.jpg": "014734d3a4405cad86c28de139473ff2062c85913bb231e762e45dfb483f229b",
+        "devmode/scheduler-zoom-14-light.jpg": "5a1a8af01148be3f7a39be3f82b3b74534988941b2d1bd3d8a22e8091a3ad7e7",
+        "devmode/scheduler-resource-columns-14-light.jpg": "74f6cc73ada4e4c79f01bc9ebc7c372542df922b595decd1f9bafac2f1d141ac",
+        "devmode/timeline-basic-14-light.jpg": "49e3b6449b7c45647874902f4c64d91eedb37969a601a370438d1e192cbd413a",
+        "devmode/scheduler-time-zones-14-light.jpg": "b3bd93bdb690708b56cdaaaf0d2342fab2388b022b01ce82883f0652d3b66536",
+        "devmode/meridian-observatory-14-light.jpg": "d6054a7c003543a3621a901b1c7d978fdc896a90500715c57cd7e211769a244c"
+      },
+      "pageErrors": []
+    },
+    {
+      "variant": "current",
+      "group": "gantt",
+      "fetched": {
+        "devmode/shared-planning-14.jpg": "c4b11b954ec50a349ea17ea200e69a3a582cf869b0c088a577c5b985e9921a14",
+        "devmode/gantt-working-time-14.jpg": "2f97e820b41b452072b1f0c0f03777209d4eede2c008b4baba965c7062d2842b",
+        "devmode/gantt-big-data-14.jpg": "b90f95bd6d60e64b56b52e962cf3f6480b299c39038e75730e00a89809fc269b",
+        "devmode/gantt-zoom-14.jpg": "d704321d1680752065496e90336cdc09d81586bd1f062e6fa2f656019c158201",
+        "devmode/gantt-dependencies-14.jpg": "072f7526be23dc25285211a28243cc06239d1a2cc4974452b28b3515cd440595",
+        "devmode/gantt-basic-14.jpg": "50703dcc3323ffde30bd27dfbdbb08e2f8d8a2ba8b1be4110d1b8659e28a9efc",
+        "devmode/gantt-task-editor-14.jpg": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+        "devmode/meridian-observatory-14.jpg": "0a3fa0327b23d5a2bd660835155295f0f7748d988174127cf4a32da0793db468",
+        "devmode/gantt-task-tree-14.jpg": "d87c4839522d23a09a11cdc0181461860bc1762727c4724ff2c4a668f16ba743",
+        "devmode/gantt-milestones-14.jpg": "3d32b005fde3c59bf303aa9f533b02561a2af39e9e7e846929d3f63841e48dd1",
+        "devmode/gantt-cascade-14.jpg": "f409595601c4ae95ed8abecbddda11a7cf5564c9391bf1b32872e1dd1208a1d8",
+        "devmode/gantt-task-columns-14.jpg": "4a733b4abc33ed133ad775be8af55b0150892f423b5992dcb3f90fb0e1ec7e5a",
+        "devmode/shared-planning-14-light.jpg": "db68abb7845f5eb5721d30c88ba2d44d5c012362c1961f87daaad2e78262a19b",
+        "devmode/meridian-observatory-14-light.jpg": "d6054a7c003543a3621a901b1c7d978fdc896a90500715c57cd7e211769a244c",
+        "devmode/gantt-big-data-14-light.jpg": "46e688b5ad797d31a628de8e387e638b77058d6135e70bb766ba3fe17ba902cb",
+        "devmode/gantt-task-tree-14-light.jpg": "345176cbd9aa4a45f8c3585574f6f34692f6cd676418f6b7ccd4569b13b1a049",
+        "devmode/gantt-basic-14-light.jpg": "374f490cb8b091a1c4800b2a9578084156abf0b6eaddd98e27f7769026318f01",
+        "devmode/gantt-zoom-14-light.jpg": "9c6a700bfdbda2c219721ed5a5da15ac6d19fc8acd074ea24b1355405c48293c",
+        "devmode/gantt-task-columns-14-light.jpg": "51a8b84f1ecbf68d892fb7a3f150354bd74ffcb3f4377c879f31174295d55a2d",
+        "devmode/gantt-cascade-14-light.jpg": "ddad111b4bc3a38873c799e383cb1218dda8cffa7dade5e616fcef01e6452d7d",
+        "devmode/gantt-milestones-14-light.jpg": "e23e42fb5b5f9c823737724280e03b7da78ba72159c7653b32d356aab54216e2",
+        "devmode/gantt-dependencies-14-light.jpg": "cbe6659ac302b40ad69689db96f9b40c0336027a78f6f4489f12ae0814d97bb9",
+        "devmode/gantt-working-time-14-light.jpg": "68e680a8199687f6d983a82478dc9499205f228a7edc6a457bf9a9bd7af96189"
+      },
+      "pageErrors": []
+    },
+    {
+      "variant": "candidate",
+      "group": "scheduler",
+      "fetched": {
+        "devmode/shared-planning-14.jpg": "c4b11b954ec50a349ea17ea200e69a3a582cf869b0c088a577c5b985e9921a14",
+        "devmode/scheduler-big-data-14.jpg": "9b3c83d8cc2b9d5768eb049f9810cc939dad36c3b21721dea1693567a7154162",
+        "devmode/scheduler-drag-and-resize-14.jpg": "d41296816e96551e3fc9e3d9aeec1b7274c83aaafdf3d3d0a136bd0061a3a59d",
+        "devmode/scheduler-non-working-time-14.jpg": "f28a034629c63bb025e9d2e659e04fe1f1dd28e46ea43a1eb3fd90305b7599bd",
+        "devmode/scheduler-bar-renderer-14.jpg": "9310b155f0d73b6dbc66c652c15c641f68576904d205f66b09bb1bae4ae195f3",
+        "devmode/scheduler-basic-14.jpg": "1602ada1a9a3d2fe9b4b0c71665ef399485016ae8f792408a84aed220e83c31f",
+        "devmode/scheduler-event-editor-14.jpg": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+        "devmode/scheduler-zoom-14.jpg": "134e43b69a03a085b1e6b9a6e5035cb54636d7eff6e4713f27afb78e345fdf61",
+        "devmode/scheduler-resource-columns-14.jpg": "41bbc48fe39d379564a51c68ee773426af0a0b1899d8f302337143754f2dbd80",
+        "devmode/scheduler-time-zones-14.jpg": "0326a1bd84ca8261d442e5bf4cf9069f1db28d87806e957732797d64f8792f06",
+        "devmode/scheduler-live-updates-14.jpg": "70c0b4d62c600cd0366c8c688a66d829433930b65f163ef34395cbc8b27cd5a1",
+        "devmode/meridian-observatory-14.jpg": "0a3fa0327b23d5a2bd660835155295f0f7748d988174127cf4a32da0793db468",
+        "devmode/timeline-basic-14.jpg": "55bd07e3f6dd880e9800d8d7f4f98c1c82b356a52727179e91410d631cd8fc13",
+        "devmode/scheduler-basic-14-light.jpg": "dd35520f3de4dc4e79315feb55e91c0888f9fb6d2a197cae2a0f78de1ddbc793",
+        "devmode/shared-planning-14-light.jpg": "db68abb7845f5eb5721d30c88ba2d44d5c012362c1961f87daaad2e78262a19b",
+        "devmode/scheduler-big-data-14-light.jpg": "fc85de5ec71d04c0cfc4e5f39013b5146017043121b9fc1df588a01a6f1e2dc4",
+        "devmode/scheduler-drag-and-resize-14-light.jpg": "946ed8cf7a031e816c20617b5a3e5badfef2fb5199c64aba4d2aa963e2e6f43b",
+        "devmode/scheduler-non-working-time-14-light.jpg": "28eebc10ae535126e0b6017bf9d46ff217c98b2e6e63efd2eec11fd57fe0be0c",
+        "devmode/scheduler-bar-renderer-14-light.jpg": "014734d3a4405cad86c28de139473ff2062c85913bb231e762e45dfb483f229b",
+        "devmode/scheduler-event-editor-14-light.jpg": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+        "devmode/scheduler-zoom-14-light.jpg": "5a1a8af01148be3f7a39be3f82b3b74534988941b2d1bd3d8a22e8091a3ad7e7",
+        "devmode/scheduler-resource-columns-14-light.jpg": "74f6cc73ada4e4c79f01bc9ebc7c372542df922b595decd1f9bafac2f1d141ac",
+        "devmode/scheduler-time-zones-14-light.jpg": "b3bd93bdb690708b56cdaaaf0d2342fab2388b022b01ce82883f0652d3b66536",
+        "devmode/meridian-observatory-14-light.jpg": "d6054a7c003543a3621a901b1c7d978fdc896a90500715c57cd7e211769a244c",
+        "devmode/timeline-basic-14-light.jpg": "49e3b6449b7c45647874902f4c64d91eedb37969a601a370438d1e192cbd413a"
+      },
+      "pageErrors": []
+    },
+    {
+      "variant": "candidate",
+      "group": "gantt",
+      "fetched": {
+        "devmode/shared-planning-14.jpg": "c4b11b954ec50a349ea17ea200e69a3a582cf869b0c088a577c5b985e9921a14",
+        "devmode/gantt-big-data-14.jpg": "b90f95bd6d60e64b56b52e962cf3f6480b299c39038e75730e00a89809fc269b",
+        "devmode/gantt-zoom-14.jpg": "d704321d1680752065496e90336cdc09d81586bd1f062e6fa2f656019c158201",
+        "devmode/gantt-working-time-14.jpg": "2f97e820b41b452072b1f0c0f03777209d4eede2c008b4baba965c7062d2842b",
+        "devmode/gantt-dependencies-14.jpg": "072f7526be23dc25285211a28243cc06239d1a2cc4974452b28b3515cd440595",
+        "devmode/gantt-basic-14.jpg": "50703dcc3323ffde30bd27dfbdbb08e2f8d8a2ba8b1be4110d1b8659e28a9efc",
+        "devmode/gantt-task-editor-14.jpg": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+        "devmode/gantt-task-columns-14.jpg": "4a733b4abc33ed133ad775be8af55b0150892f423b5992dcb3f90fb0e1ec7e5a",
+        "devmode/gantt-cascade-14.jpg": "f409595601c4ae95ed8abecbddda11a7cf5564c9391bf1b32872e1dd1208a1d8",
+        "devmode/gantt-milestones-14.jpg": "3d32b005fde3c59bf303aa9f533b02561a2af39e9e7e846929d3f63841e48dd1",
+        "devmode/gantt-task-tree-14.jpg": "d87c4839522d23a09a11cdc0181461860bc1762727c4724ff2c4a668f16ba743",
+        "devmode/meridian-observatory-14.jpg": "0a3fa0327b23d5a2bd660835155295f0f7748d988174127cf4a32da0793db468",
+        "devmode/gantt-basic-14-light.jpg": "374f490cb8b091a1c4800b2a9578084156abf0b6eaddd98e27f7769026318f01",
+        "devmode/shared-planning-14-light.jpg": "db68abb7845f5eb5721d30c88ba2d44d5c012362c1961f87daaad2e78262a19b",
+        "devmode/gantt-big-data-14-light.jpg": "46e688b5ad797d31a628de8e387e638b77058d6135e70bb766ba3fe17ba902cb",
+        "devmode/gantt-zoom-14-light.jpg": "9c6a700bfdbda2c219721ed5a5da15ac6d19fc8acd074ea24b1355405c48293c",
+        "devmode/gantt-working-time-14-light.jpg": "68e680a8199687f6d983a82478dc9499205f228a7edc6a457bf9a9bd7af96189",
+        "devmode/gantt-dependencies-14-light.jpg": "cbe6659ac302b40ad69689db96f9b40c0336027a78f6f4489f12ae0814d97bb9",
+        "devmode/gantt-task-editor-14-light.jpg": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+        "devmode/gantt-task-columns-14-light.jpg": "51a8b84f1ecbf68d892fb7a3f150354bd74ffcb3f4377c879f31174295d55a2d",
+        "devmode/gantt-cascade-14-light.jpg": "ddad111b4bc3a38873c799e383cb1218dda8cffa7dade5e616fcef01e6452d7d",
+        "devmode/gantt-milestones-14-light.jpg": "e23e42fb5b5f9c823737724280e03b7da78ba72159c7653b32d356aab54216e2",
+        "devmode/gantt-task-tree-14-light.jpg": "345176cbd9aa4a45f8c3585574f6f34692f6cd676418f6b7ccd4569b13b1a049",
+        "devmode/meridian-observatory-14-light.jpg": "d6054a7c003543a3621a901b1c7d978fdc896a90500715c57cd7e211769a244c"
+      },
+      "pageErrors": []
+    }
+  ]
+}
