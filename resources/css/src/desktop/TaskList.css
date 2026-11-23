@@ -21,7 +21,8 @@
         height       : 40px;
         position     : relative;
 
-        /* Underline the icon and label of a running app; a minimized task keeps a centered 6px mark. */
+        /* Only this absolute, 3px-high marker changes size. Moving its edges preserves the 2px
+           rounded ends as any label width shrinks to the same centered 6px mark. */
         &::after {
             background-color: var(--desktop-task-list-accent-color);
             border-radius   : 2px;

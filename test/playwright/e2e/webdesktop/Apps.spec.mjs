@@ -66,6 +66,20 @@ async function signIn(page) {
 const windowOf = (page, app) => page.locator(WINDOW).filter({hasText: app}).filter({visible: true});
 
 /**
+ * @summary Opens the actual desktop dialog in a native window and waits for its return action.
+ * @param {Object} page
+ * @param {Object} dialog
+ * @returns {Promise<Object>}
+ */
+async function detachWindow(page, dialog) {
+    const [popup] = await Promise.all([
+        page.waitForEvent('popup'), dialog.getByRole('button', {name: 'Pop out window'}).click()
+    ]);
+    await expect(popup.getByRole('button', {name: 'Back to desktop'})).toBeVisible();
+    return popup
+}
+
+/**
  * Waits for the window's opening flight to land in the App worker. A window shows while it still grows out of
  * its icon, so its Close button moves until `Neo.dialog.Base#show`'s mount flight settles, and a click aimed at
  * it earlier can lift elsewhere. `PhoneAndTouch.spec.mjs` waits the same way.
@@ -101,6 +115,53 @@ async function expectInsideWorkspace(page, window) {
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(box.y + box.height).toBeLessThanOrEqual(taskbar.y + 1)
+}
+
+for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+    test.describe(`taskbar at ${viewport.width}px`, () => {
+        const mobile = viewport.width === 390;
+        test.use({hasTouch: mobile, isMobile: mobile, viewport});
+
+        test('running indicators fit their task and a minimized task keeps a centered mark', async ({page}) => {
+            const task = name => page.locator('.neo-desktop-task-list .neo-list-item').filter({hasText: name}),
+                  mail = task('Mail'), messages = task('Messages');
+
+            async function open(app) {
+                const icon = page.locator(ICON).filter({hasText: app});
+                mobile ? await icon.tap() : await icon.dblclick();
+                await expect(windowOf(page, app)).toBeVisible()
+            }
+
+            async function expectMarker(item, minimized = false) {
+                await expect.poll(() => item.evaluate((node, minimized) => {
+                    const marker = getComputedStyle(node, '::after'),
+                          width  = node.getBoundingClientRect().width,
+                          scale  = new DOMMatrixReadOnly(marker.transform === 'none' ? undefined : marker.transform).a,
+                          mark   = parseFloat(marker.width) * scale,
+                          inset  = parseFloat(marker.insetInlineStart) + (parseFloat(marker.width) - mark) / 2;
+
+                    return Math.max(Math.abs(mark - (minimized ? 6 : width - 16)), Math.abs(inset - (width - mark) / 2))
+                }, minimized)).toBeLessThan(0.5)
+            }
+
+            await signIn(page);
+            await open('Mail');
+            await expectMarker(mail);
+            await windowOf(page, 'Mail').getByRole('button', {name: 'minimize', exact: true}).click();
+            await expect(mail).toHaveClass(/neo-desktop-task-minimized/);
+            await expectMarker(mail, true);
+            await open('Messages');
+            await expectMarker(messages);
+
+            await mail.click();
+            await expect(windowOf(page, 'Mail')).toBeVisible();
+            await expectMarker(mail);
+            await mail.focus();
+            await page.keyboard.press('ArrowRight');
+            await expect(messages).toBeFocused();
+            await expect(messages).toHaveCSS('outline-width', '2px')
+        })
+    })
 }
 
 test.describe('web desktop apps', () => {
@@ -146,11 +207,7 @@ test.describe('web desktop apps', () => {
 
         const popOut = async app => {
             await page.locator(ICON).filter({hasText: app}).dblclick();
-            const opened = page.waitForEvent('popup');
-            await windowOf(page, app).getByRole('button', {name: 'Pop out window'}).click();
-            const popup = await opened;
-            await expect(popup.getByRole('button', {name: 'Back to desktop'})).toBeVisible();
-            return popup
+            return detachWindow(page, windowOf(page, app))
         };
         const palette = target => target.locator('.neo-viewport').evaluate(view => {
             const content = view.querySelector('.webdesktop-settings, .webdesktop-mail-message, .neo-desktop-taskbar') || view;
@@ -159,9 +216,13 @@ test.describe('web desktop apps', () => {
                 ink : getComputedStyle(content).getPropertyValue('--webdesktop-ink-dim').trim()
             }
         });
-        const mail = await popOut('Mail'), settings = await popOut('Settings'),
-              dark = await palette(independent);
+        const dark = await palette(independent);
+        await page.getByRole('button', {name: 'Switch theme', exact: true}).click();
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        const mail = await popOut('Mail'), settings = await popOut('Settings');
 
+        await settings.getByRole('button', {name: 'Dark', exact: true}).click();
+        await expect.poll(() => Promise.all([page, mail, settings].map(palette))).toEqual([dark, dark, dark]);
         expect(dark.body).toBe('neo-theme-neo-dark');
         expect(dark.ink).not.toBe('');
         await settings.getByRole('button', {name: 'Light', exact: true}).click();
@@ -186,7 +247,58 @@ test.describe('web desktop apps', () => {
         await expect(returned).toBeVisible();
         await expect.poll(() => returned.evaluate(el => getComputedStyle(el).getPropertyValue('--webdesktop-ink-dim').trim())).toBe(light.ink);
         await page.getByRole('button', {name: 'Switch theme', exact: true}).click();
-        await expect.poll(() => Promise.all([page, mail, independent].map(palette))).toEqual([dark, dark, dark])
+        await expect.poll(() => Promise.all([page, mail, independent].map(palette))).toEqual([dark, dark, dark]);
+        await expect.poll(() => returned.evaluate(el => getComputedStyle(el).getPropertyValue('--webdesktop-ink-dim').trim())).toBe(dark.ink)
+    });
+
+    test('a detached window follows its logical desktop and restores local body overrides', async ({browser, page}) => {
+        await signIn(page);
+        const light = 'neo-theme-neo-light', dark = 'neo-theme-neo-dark';
+        await page.getByRole('button', {name: 'Switch theme', exact: true}).click();
+        await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await page.locator(ICON).filter({hasText: 'Mail'}).dblclick();
+        const dialog = windowOf(page, 'Mail'), id = await dialog.getAttribute('id'),
+              worker = await attachPageSharedAppWorker({browser, page});
+        const restore = async popup => {
+            await Promise.all([popup.waitForEvent('close'), popup.getByRole('button', {name: 'Back to desktop'}).click()]);
+            await expect(dialog.locator('.webdesktop-mail-message')).toBeVisible()
+        };
+        const bodyTheme = () => worker.evaluate(id => Neo.get(id).getItem('bodyContainer').theme, id),
+              mailInk   = target => target.locator('.webdesktop-mail-message').evaluate(node => getComputedStyle(node).getPropertyValue('--webdesktop-ink-dim').trim());
+        try {
+            // A floating AppWindow can inherit from a themed desktop without being among its items.
+            let popup = await detachWindow(page, dialog);
+            await worker.evaluate(id => { Neo.get(id).parent.theme = 'neo-theme-neo-dark' }, id);
+            await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+            await expect(page.locator('body')).toHaveClass(/neo-theme-neo-light/);
+            await restore(popup);
+
+            // An owner theme propagated to the body before pop-out must continue to follow its owner on return.
+            await worker.evaluate(id => { Neo.get(id).theme = 'neo-theme-neo-light' }, id);
+            expect(await bodyTheme()).toBe(light);
+            popup = await detachWindow(page, dialog);
+            await worker.evaluate(id => { Neo.get(id).theme = 'neo-theme-neo-dark' }, id);
+            await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+            await restore(popup);
+            expect(await bodyTheme()).toBe(dark);
+            await worker.evaluate(id => { Neo.get(id).theme = 'neo-theme-neo-light' }, id);
+            expect(await bodyTheme()).toBe(light);
+
+            // A body carrying a different theme keeps its own scope through a round trip.
+            const lightInk = await page.locator('.neo-viewport').evaluate(node => getComputedStyle(node).getPropertyValue('--webdesktop-ink-dim').trim());
+            await expect.poll(() => mailInk(dialog)).toBe(lightInk);
+            await worker.evaluate(id => { Neo.get(id).getItem('bodyContainer').theme = 'neo-theme-neo-dark' }, id);
+            await expect.poll(() => mailInk(dialog)).not.toBe(lightInk);
+            const darkInk = await mailInk(dialog);
+            popup = await detachWindow(page, dialog);
+            await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-light/);
+            await expect.poll(() => mailInk(popup)).toBe(darkInk);
+            await restore(popup);
+            expect(await bodyTheme()).toBe(dark);
+            await expect.poll(() => mailInk(dialog)).toBe(darkInk)
+        } finally {
+            await worker.close()
+        }
     });
 
     test('the calendar opens on the week of today with its meetings in view', async ({page}) => {
