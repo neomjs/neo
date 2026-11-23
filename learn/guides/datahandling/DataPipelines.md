@@ -147,9 +147,24 @@ The same `{className, modulePath, ...dataOptions}` form works for a custom conne
 default export must be the registered Neo class named by `className`. Only data options cross the
 worker boundary; import the class directly as usual when executing in the App worker.
 
-`modulePath` follows the interceptor path rules: a workspace-relative `.mjs` path under `apps/`,
-`examples/`, `docs/app/` or `src/data/`, with no escaping segments, query, fragment, encoded path or
-control characters. All stage paths are validated before any worker call. A custom class without
+`modulePath` follows the interceptor path rules: a scoped `.mjs` path under `apps/`, `examples/`,
+`docs/app/` or `src/data/`, with no escaping segments, query, fragment, encoded path or control
+characters. In an Engine checkout these paths resolve inside that checkout. In an installed
+workspace, `apps/`, `examples/` and `docs/app/` resolve in the consumer workspace, while `src/data/`
+resolves inside the Engine package (`node_modules/neo.mjs/src/data/`).
+
+An installed consumer's ESM build includes `apps/` and `docs/` by default. To emit custom stages
+from the consumer's `examples/` root, include it in the consumer's `package.json`:
+
+```json
+{
+    "neo": {
+        "esmSourceRoots": ["examples"]
+    }
+}
+```
+
+All stage paths are validated before any worker call. A custom class without
 `modulePath`, or a refused preload, fails setup; remote operations reject with the class name and
 reason instead of dispatching to a missing counterpart. The loader consumes `modulePath`; it is not
 passed to the constructed stage as an instance config.

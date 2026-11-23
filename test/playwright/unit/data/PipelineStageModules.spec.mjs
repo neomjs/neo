@@ -133,6 +133,29 @@ test.describe('Pipeline stage modules at the Data-worker boundary', () => {
         expect(dispatches).toBe(0)
     });
 
+    test('a later admitted preload can recover from startup failure after an earlier refusal', async () => {
+        const config = descriptor('parser'), pipeline = await makePipeline({parser: config}),
+              load   = Neo.worker.Data.loadModule;
+        let creations = 0;
+        pipeline.maxRemoteRetries = 1;
+        Neo.worker.Data.loadModule = async () => ({success: false, error: 'module not ready'});
+        await expect(pipeline.read()).rejects.toThrow(`${config.className}: module not ready`);
+
+        Neo.worker.Data.loadModule = load;
+        Neo.worker.Data.createInstance = async () => {
+            if (++creations === 1) throw new Error('transient startup failure');
+            return {success: true, id: 'recovered-counterpart'}
+        };
+        pipeline.remote.data.read = async () => {
+            dispatches++;
+            if (!pipeline.remoteId) throw new Error('counterpart not connected');
+            return [{id: 9}]
+        };
+        await expect(pipeline.read()).resolves.toEqual([{id: 9}]);
+        expect(creations).toBe(2);
+        expect(dispatches).toBe(2)
+    });
+
     for (const modulePath of ['apps/demo/Stage.mjs', 'examples/data/Stage.mjs', 'docs/app/data/Stage.mjs', 'src/data/parser/Stream.mjs']) {
         test(`stage and interceptor share the admitted root: ${modulePath}`, async () => {
             const config = {...descriptor('parser'), modulePath}, pipeline = await makePipeline({parser: config});

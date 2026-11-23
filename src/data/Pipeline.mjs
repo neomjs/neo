@@ -216,6 +216,12 @@ class Pipeline extends Base {
     remoteConnectionPromise = null
     /** @member {Error|null} remoteInitializationError @protected */
     remoteInitializationError = null
+    /**
+     * Descriptor or preload failure, separate from retryable counterpart creation failures.
+     * @member {Error|null} remotePreloadError
+     * @protected
+     */
+    remotePreloadError = null
 
     /**
      * @summary Validates the cache lifetime before construction and retains the existing counterpart setup.
@@ -506,15 +512,18 @@ class Pipeline extends Base {
      * @summary Performs one shared counterpart attempt, retaining failures for configured callers.
      * Validates every stage modulePath before any worker call. Custom stages use the scoped module
      * loader; built-ins without modulePath retain the data loader. Loader metadata is removed from
-     * construction configs. A refused preload retains its class and reason in remoteInitializationError,
-     * which remote operations reject before dispatching to an absent counterpart.
+     * construction configs. A refused preload retains its class and reason in remotePreloadError,
+     * which remote operations reject before dispatching to an absent counterpart. Counterpart creation
+     * failures retain the existing read/execute transport retry budget.
      * @returns {Promise<void>}
      * @protected
      */
     async createRemoteExecution() {
-        const me = this;
+        const me         = this;
+        let   preloading = true;
         me.isRemoteConnecting = true;
         me.remoteInitializationError = null;
+        me.remotePreloadError = null;
 
         try {
             const remoteConfig = {
@@ -567,6 +576,7 @@ class Pipeline extends Base {
 
             if (me.isDestroyed) return;
 
+            preloading = false;
             const data = await Neo.worker.Data.createInstance({
                 config: remoteConfig,
                 path  : 'src/data/Pipeline.mjs'
@@ -585,7 +595,10 @@ class Pipeline extends Base {
                 console.error('Pipeline: Failed to create remote instance', data.error)
             }
         } catch (e) {
-            if (!me.isDestroyed) me.remoteInitializationError = e;
+            if (!me.isDestroyed) {
+                me.remoteInitializationError = e;
+                if (preloading) me.remotePreloadError = e
+            }
             console.error('Pipeline: IPC error during remote instantiation', e)
         } finally {
             if (!me.isDestroyed) me.isRemoteConnecting = false
@@ -640,7 +653,7 @@ class Pipeline extends Base {
             }
 
             if (me.isDestroyed) return null;
-            if (!me.remoteId && me.remoteInitializationError) {
+            if (!me.remoteId && (me.remotePreloadError || me.interceptors != null && me.remoteInitializationError)) {
                 throw me.remoteInitializationError
             }
 
