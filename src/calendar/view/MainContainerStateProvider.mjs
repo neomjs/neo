@@ -1,5 +1,6 @@
 import CalendarsStore from '../store/Calendars.mjs';
 import ColorsStore    from '../store/Colors.mjs';
+import DateUtil       from '../../../src/util/Date.mjs';
 import EventsStore    from '../store/Events.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
 
@@ -25,6 +26,11 @@ class MainContainerStateProvider extends StateProvider {
              * @member {Number|String|null} data.activeCalendarId=null
              */
             activeCalendarId: null,
+            /**
+             * Mirrors {@link Neo.calendar.view.MainContainer#activeView} so header formulas follow view changes.
+             * @member {String} data.activeView='week'
+             */
+            activeView: 'week',
             /**
              * The currently active date inside all views
              * @member {Date} data.currentDate=new Date()
@@ -103,6 +109,13 @@ class MainContainerStateProvider extends StateProvider {
          */
         formulas: {
             /**
+             * Formats full and compact localized labels for the active calendar period.
+             * Re-runs automatically whenever `activeView`, `currentDate`, `locale`, `showWeekends`, or `weekStartDay` changes.
+             * @param {Object} data The hierarchical data proxy
+             * @returns {{full: String, short: String}}
+             */
+            headerPeriod: data => MainContainerStateProvider.formatHeaderPeriod(data),
+            /**
              * Creates the Intl.DateTimeFormat instance based on the current locale and timeFormat.
              * This formula will automatically re-run whenever `data.locale` or `data.timeFormat` changes.
              * The result is exposed as the 'timeFormatter' property in the state.
@@ -114,6 +127,67 @@ class MainContainerStateProvider extends StateProvider {
     }
 
     /**
+     * @summary Formats full and compact localized labels for the active calendar period.
+     * @param {Object} opts
+     * @param {String} opts.activeView
+     * @param {Date|null} opts.currentDate
+     * @param {String} [opts.locale=Neo.config.locale]
+     * @param {Boolean} [opts.showWeekends=true]
+     * @param {Number} [opts.weekStartDay=0]
+     * @returns {{full: String, short: String}}
+     */
+    static formatHeaderPeriod({activeView, currentDate, locale = Neo.config.locale, showWeekends = true, weekStartDay = 0}) {
+        if (!currentDate || activeView === 'year') {
+            return {full: '', short: ''}
+        }
+
+        const toWallUtc = date => new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())),
+              wall      = toWallUtc(currentDate);
+
+        if (activeView === 'day') {
+            return {
+                full : DateUtil.formatWall(locale, {weekday: 'long', month: 'long',  day: 'numeric', year: 'numeric'}, wall),
+                short: DateUtil.formatWall(locale, {month:   'short', day: 'numeric', year: 'numeric'}, wall)
+            }
+        }
+
+        if (activeView === 'month') {
+            return {
+                full : DateUtil.formatWall(locale, {month: 'long',  year: 'numeric'}, wall),
+                short: DateUtil.formatWall(locale, {month: 'short', year: 'numeric'}, wall)
+            }
+        }
+
+        if (activeView === 'week') {
+            let cursor = new Date(
+                    currentDate.getFullYear(),
+                    currentDate.getMonth(),
+                    currentDate.getDate() - currentDate.getDay() + weekStartDay
+                ),
+                visibleDays = [],
+                i           = 0;
+
+            for (; i < 7; i++) {
+                let day = cursor.getDay();
+
+                if (showWeekends || (day !== 0 && day !== 6)) {
+                    visibleDays.push(toWallUtc(cursor))
+                }
+
+                cursor.setDate(cursor.getDate() + 1)
+            }
+
+            let rangeStart = visibleDays[0] || wall,
+                rangeEnd   = visibleDays[visibleDays.length - 1] || rangeStart,
+                text       = DateUtil.formatWall(locale, {month: 'short', day: 'numeric', year: 'numeric'}, rangeStart, rangeEnd);
+
+            return {full: text, short: text}
+        }
+
+        return {full: '', short: ''}
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -121,6 +195,10 @@ class MainContainerStateProvider extends StateProvider {
 
         let me          = this,
             {component} = me;
+
+        if (component?.activeView) {
+            me.setData({activeView: component.activeView})
+        }
 
         /**
          * @member {Object} stores

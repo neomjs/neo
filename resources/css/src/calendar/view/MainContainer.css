@@ -1,4 +1,6 @@
 .neo-calendar-maincontainer {
+    container-type: inline-size;
+
     .neo-calendar-header-toolbar {
         border-bottom: 1px solid var(--calendar-border-color);
 
@@ -31,17 +33,21 @@
         display: none;
     }
 
-    @media (max-width: 680px) {
+    @container (max-width: 680px) {
         .neo-calendar-header.neo-flex-container {
             flex-wrap: wrap;
         }
 
         .neo-calendar-header-toolbar {
-            flex : 1 0 100%;
-            width: 100% !important;
+            flex     : 1 0 100%;
+            min-width: 0;
 
             &.neo-left {
                 padding-right: var(--toolbar-padding);
+
+                .neo-calendar-nav-spacer {
+                    max-width: 8px;
+                }
             }
 
             .neo-calendar-settings-button {

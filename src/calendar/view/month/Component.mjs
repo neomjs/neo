@@ -377,12 +377,13 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        if (oldValue !== undefined) {
+        // Provider bindings run during `super.construct` before `createContent` populates the week rows
+        if (oldValue !== undefined && this.isConstructed) {
             let me     = this,
                 {vdom} = me,
                 i, item;
 
-            vdom?.cn?.[1]?.cn?.forEach(row => {
+            vdom.cn[1].cn.forEach(row => {
                 if (row.flag) {
                     for (i=0; i < 7; i++) {
                         item = row.cn[i];
@@ -869,16 +870,18 @@ class Component extends BaseComponent {
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
-        let me     = this,
-            date   = me.currentDate, // cloned
-            {vdom} = me,
-            header = vdom?.cn?.[0]?.cn?.[0],
-            i      = 1,
-            day, node;
+        let me = this;
 
-        if (!header || !date) {
+        // Provider bindings run during `super.construct` before `construct` invokes `updateHeader(true)`
+        if (!create && !me.isConstructed) {
             return
         }
+
+        let date = me.currentDate, // cloned
+            {vdom} = me,
+            header = vdom.cn[0].cn[0],
+            i      = 1,
+            day, node;
 
         header.cn[0].text = me.intlFormat_month.format(date);
         header.cn[1].text = ` ${date.getFullYear()}`;

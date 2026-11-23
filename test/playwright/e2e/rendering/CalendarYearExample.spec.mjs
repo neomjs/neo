@@ -111,6 +111,50 @@ test.describe('Calendar year example', () => {
         }
     });
 
+    test('a narrow 480 px calendar inside a 1440 × 900 viewport triggers the two-row container-query header without clipping buttons', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(URL);
+
+        const day = page.locator(cellOf('07', '22'));
+        await expect(day).toBeVisible();
+        await day.click();
+
+        await page.evaluate(() => {
+            const main = document.querySelector('.neo-calendar-maincontainer');
+            main.style.width = '480px'
+        });
+
+        for (const view of ['Day', 'Week', 'Month']) {
+            if (view !== 'Day') {
+                await page.getByRole('button', {name: view, exact: true}).click()
+            }
+
+            await expect.poll(async () => {
+                const layout = await page.evaluate(() => {
+                    const main     = document.querySelector('.neo-calendar-maincontainer'),
+                          mainRect = main.getBoundingClientRect(),
+                          label    = main.querySelector('.neo-calendar-header-period'),
+                          toolbars = main.querySelectorAll('.neo-calendar-header-toolbar'),
+                          navRow   = toolbars[0].getBoundingClientRect(),
+                          viewRow  = toolbars[1].getBoundingClientRect(),
+                          buttons  = [...toolbars[1].querySelectorAll('.neo-button')].map(b => b.getBoundingClientRect()),
+                          tops     = buttons.map(r => r.top);
+
+                    return {
+                        allInsideContainer: buttons.every(r => r.width > 0 && r.right <= mainRect.right + 0.5),
+                        periodText        : label?.innerText.trim() || '',
+                        periodWidth       : label?.getBoundingClientRect().width || 0,
+                        scrollWidth       : main.scrollWidth,
+                        topSpread         : Math.max(...tops) - Math.min(...tops),
+                        twoRows           : viewRow.top >= navRow.bottom - 1
+                    }
+                });
+
+                return layout.allInsideContainer && layout.periodText.length > 0 && layout.periodWidth > 20 && layout.scrollWidth <= 480 && layout.topSpread <= 1 && layout.twoRows
+            }, {message: `${view} header geometry inside 480 px container at 1440 × 900`}).toBe(true)
+        }
+    });
+
     test('a phone opens the year on the month of today', async ({page}) => {
         await page.setViewportSize({width: 390, height: 844});
         await page.goto(URL);

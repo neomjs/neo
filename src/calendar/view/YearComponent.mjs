@@ -189,6 +189,13 @@ class YearComponent extends Component {
     }
 
     /**
+     * True once {@link #createMonths} has populated the 12 month subtrees on the main container node.
+     * Provider bindings fire during `super.construct` before `mounted` and store-gated month creation.
+     * @member {Boolean} #monthsRendered=false
+     */
+    #monthsRendered = false
+
+    /**
      * @param config
      */
     construct(config) {
@@ -374,7 +381,8 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
+        // Provider bindings can fire before mounted/store-gated `createMonths` builds the 12 month subtrees
+        if (oldValue !== undefined && this.#monthsRendered) {
             let me     = this,
                 {vdom} = me,
                 i      = 0,
@@ -411,7 +419,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowWeekNumbers(value, oldValue) {
-        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let me = this,
                 i  = 0,
                 itemCn, j, len;
@@ -436,7 +444,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetSixWeeksPerMonth(value, oldValue) {
-        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let me   = this,
                 date = me.currentDate, // cloned
                 i    = 0;
@@ -715,6 +723,10 @@ class YearComponent extends Component {
                 monthContainer.cn.push(monthVdom)
             }
 
+            if (!containerEl) {
+                me.#monthsRendered = true
+            }
+
             !silent && me.update()
         }
     }
@@ -846,7 +858,7 @@ class YearComponent extends Component {
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let date   = me.currentDate, // cloned
                 {vdom} = me,
                 i      = 1,
@@ -894,7 +906,7 @@ class YearComponent extends Component {
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
 
-        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
+        if (oldValue !== undefined && this.#monthsRendered) {
             let {currentDate, vdom} = me,
                 i                   = 0;
 

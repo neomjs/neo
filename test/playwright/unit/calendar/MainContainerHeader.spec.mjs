@@ -22,19 +22,19 @@ import DateUtil       from '../../../../src/util/Date.mjs';
 import MainContainer  from '../../../../src/calendar/view/MainContainer.mjs';
 
 /**
- * @summary Reads the full and short period text nodes from a MainContainer's header period component.
+ * @summary Reads the full and short period text values from a MainContainer's bound header period item.
  * @param {Neo.calendar.view.MainContainer} calendar
  * @returns {{full: String|undefined, hidden: Boolean, removeDom: Boolean, short: String|undefined}}
  */
 function readPeriod(calendar) {
-    const cmp               = calendar.headerPeriodComponent,
-          [fullNode, short] = cmp.vdom.cn;
+    const cmp                 = calendar.getReference('header-period'),
+          [fullCmp, shortCmp] = cmp.items;
 
     return {
-        full     : fullNode.text,
+        full     : fullCmp.text,
         hidden   : cmp.hidden,
         removeDom: Boolean(cmp.vdom.removeDom),
-        short    : short.text
+        short    : shortCmp.text
     }
 }
 

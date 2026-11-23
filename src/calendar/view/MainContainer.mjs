@@ -5,8 +5,6 @@ import DateSelector               from '../../component/DateSelector.mjs';
 import DateUtil                   from '../../util/Date.mjs';
 import EditCalendarContainer      from './calendars/EditContainer.mjs';
 import EditEventContainer         from './EditEventContainer.mjs';
-import Effect                     from '../../core/Effect.mjs';
-import EffectManager              from '../../core/EffectManager.mjs';
 import MainContainerStateProvider from './MainContainerStateProvider.mjs';
 import Toolbar                    from '../../toolbar/Base.mjs';
 
@@ -108,11 +106,6 @@ class MainContainer extends Container {
          */
         eventStoreConfig_: null,
         /**
-         * Header component displaying the localized period of the active view.
-         * @member {Neo.component.Base|null} headerPeriodComponent=null
-         */
-        headerPeriodComponent: null,
-        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          * @reactive
@@ -188,12 +181,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Reactive effect synchronizing {@link #headerPeriodComponent} with `activeView` and state-provider date/locale fields.
-     * @member {Neo.core.Effect|null} #periodEffect=null
-     */
-    #periodEffect = null
-
-    /**
      * The latest side panel transition. A fold or an expand finishes only while it is still the latest: a fold's
      * delayed removal must not undo an expand that started before it ran.
      * @member {Number} #sideBarTransition=0
@@ -206,15 +193,6 @@ class MainContainer extends Container {
     construct(config) {
         super.construct(config);
         this.createItemsContent()
-    }
-
-    /**
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.#periodEffect?.destroy();
-        this.#periodEffect = null;
-        super.destroy(...args)
     }
 
     /**
@@ -234,8 +212,6 @@ class MainContainer extends Container {
             sideBar._vdom.style     = style; // silent update
             sideBar._vdom.removeDom = true
         }
-
-        me.#periodEffect = new Effect(() => me.updateHeaderPeriod())
     }
 
     /**
@@ -248,6 +224,7 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             let me = this;
 
+            me.setState('activeView', value);
             me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
 
             me.items[0].items[1].items.forEach(item => {
@@ -505,21 +482,6 @@ class MainContainer extends Container {
     createHeaderItems() {
         let me = this;
 
-        me.headerPeriodComponent = Neo.create({
-            module  : Component,
-            appName : me.appName,
-            cls     : ['neo-calendar-header-period'],
-            hidden  : me.activeView === 'year',
-            owner   : me,
-            windowId: me.windowId,
-            vdom    : {
-                cn: [
-                    {tag: 'span', cls: ['neo-calendar-period-full']},
-                    {tag: 'span', cls: ['neo-calendar-period-short']}
-                ]
-            }
-        });
-
         return [{
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
@@ -528,7 +490,11 @@ class MainContainer extends Container {
                 handler: me.toggleSidebar.bind(me),
                 iconCls: 'fa fa-bars',
                 size   : 'small'
-            }, '->', {
+            }, {
+                module: Component,
+                cls   : ['neo-calendar-nav-spacer'],
+                flex  : 1
+            }, {
                 handler: me.onPreviousIntervalButtonClick.bind(me),
                 iconCls: 'fa fa-chevron-left',
                 size   : 'small'
@@ -544,7 +510,30 @@ class MainContainer extends Container {
         }, {
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
-            items : [me.headerPeriodComponent, '->', ...me.createViewHeaderButtons()]
+            items : [{
+                module   : Container,
+                cls      : ['neo-calendar-header-period'],
+                layout   : null,
+                reference: 'header-period',
+                bind     : {
+                    hidden: data => data.activeView === 'year'
+                },
+                items: [{
+                    module: Component,
+                    cls   : ['neo-calendar-period-full'],
+                    tag   : 'span',
+                    bind  : {
+                        text: data => data.headerPeriod.full
+                    }
+                }, {
+                    module: Component,
+                    cls   : ['neo-calendar-period-short'],
+                    tag   : 'span',
+                    bind  : {
+                        text: data => data.headerPeriod.short
+                    }
+                }]
+            }, '->', ...me.createViewHeaderButtons()]
         }]
     }
 
@@ -737,63 +726,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * @summary Formats full and compact localized labels for the active calendar period.
-     * @param {Object} opts
-     * @param {String} opts.activeView
-     * @param {Date} opts.currentDate
-     * @param {String} opts.locale
-     * @param {Boolean} opts.showWeekends
-     * @param {Number} opts.weekStartDay
-     * @returns {{full: String, short: String}}
-     */
-    formatHeaderPeriod({activeView, currentDate, locale, showWeekends, weekStartDay}) {
-        const toWallUtc = date => new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())),
-              wall      = toWallUtc(currentDate);
-
-        if (activeView === 'day') {
-            return {
-                full : DateUtil.formatWall(locale, {weekday: 'long', month: 'long',  day: 'numeric', year: 'numeric'}, wall),
-                short: DateUtil.formatWall(locale, {month:   'short', day: 'numeric', year: 'numeric'}, wall)
-            }
-        }
-
-        if (activeView === 'month') {
-            return {
-                full : DateUtil.formatWall(locale, {month: 'long',  year: 'numeric'}, wall),
-                short: DateUtil.formatWall(locale, {month: 'short', year: 'numeric'}, wall)
-            }
-        }
-
-        if (activeView === 'week') {
-            let cursor = new Date(
-                    currentDate.getFullYear(),
-                    currentDate.getMonth(),
-                    currentDate.getDate() - currentDate.getDay() + weekStartDay
-                ),
-                visibleDays = [],
-                i           = 0;
-
-            for (; i < 7; i++) {
-                let day = cursor.getDay();
-
-                if (showWeekends || (day !== 0 && day !== 6)) {
-                    visibleDays.push(toWallUtc(cursor))
-                }
-
-                cursor.setDate(cursor.getDate() + 1)
-            }
-
-            let rangeStart = visibleDays[0] || wall,
-                rangeEnd   = visibleDays[visibleDays.length - 1] || rangeStart,
-                text       = DateUtil.formatWall(locale, {month: 'short', day: 'numeric', year: 'numeric'}, rangeStart, rangeEnd);
-
-            return {full: text, short: text}
-        }
-
-        return {full: '', short: ''}
-    }
-
-    /**
      * @param data
      */
     onTodayButtonClick(data) {
@@ -833,50 +765,6 @@ class MainContainer extends Container {
         map[me.activeView]();
 
         me.stateProvider.setData({currentDate})
-    }
-
-    /**
-     * @summary Synchronizes the header period component's text and visibility with the active view and calendar state.
-     * @protected
-     */
-    updateHeaderPeriod() {
-        let me           = this,
-            periodCmp    = me.headerPeriodComponent,
-            {activeView} = me,
-            data         = me.getStateProvider()?.data,
-            currentDate  = data?.currentDate,
-            locale       = data?.locale || Neo.config.locale,
-            showWeekends = data?.showWeekends ?? true,
-            weekStartDay = data?.weekStartDay ?? 0;
-
-        if (!periodCmp || !currentDate) {
-            return
-        }
-
-        EffectManager.pauseTracking();
-
-        try {
-            if (activeView === 'year') {
-                periodCmp.hidden = true;
-                return
-            }
-
-            let {full, short}         = me.formatHeaderPeriod({activeView, currentDate, locale, showWeekends, weekStartDay}),
-                [fullNode, shortNode] = periodCmp.vdom.cn;
-
-            if (fullNode.text !== full || shortNode.text !== short) {
-                fullNode.text  = full;
-                shortNode.text = short;
-                !periodCmp.hidden && periodCmp.update()
-            }
-
-            if (periodCmp.hidden) {
-                periodCmp.parent && (periodCmp.parent.denseUpdate = true);
-                periodCmp.hidden = false
-            }
-        } finally {
-            EffectManager.resumeTracking()
-        }
     }
 }
 
