@@ -274,7 +274,7 @@
         {"selector": ".neo-desktop-workspace"},
         {"selector": ".webdesktop-mail-inbox"}
       ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+      "region": "viewport"
     },
     {
       "id": "portal",

@@ -81,7 +81,7 @@ class WindowTearOut extends Base {
             popupWidth < 1 || popupHeight < 1) return null;
 
         const popupName = generateUUID(),
-              entry     = {body, bodyTheme: body.theme, gestureId, popupName, sourceId};
+              entry     = {body, bodyTheme: body.theme !== owner.theme ? body.theme : null, gestureId, popupName, sourceId};
 
         me.#entry = entry;
         source.searchParams.forEach((value, key) => {
@@ -189,7 +189,18 @@ class WindowTearOut extends Base {
             if (root) Neo.currentWorker.insertThemeFiles(windowId, Object.getPrototypeOf(root));
             Neo.currentWorker.insertThemeFiles(windowId, Object.getPrototypeOf(owner));
 
-            view.theme = owner.getTheme();
+            // Floating dialogs have a logical desktop parent but are outside its items, so a desktop
+            // theme change can reach that parent without publishing a change on the dialog itself.
+            const parent = owner.parent || root,
+                  sync   = () => {
+                      if (me.#entry !== entry || entry.view !== view || view.isDestroyed) return;
+                      const ownScope = owner.parent || owner.theme || owner.cls?.some(cls => cls.startsWith('neo-theme-'));
+                      view.theme = (ownScope ? owner : root || owner).getTheme()
+                  };
+            sync();
+            const stopOwner  = view.observeConfig(owner, 'theme', sync),
+                  stopParent = parent && view.observeConfig(parent, 'theme', sync);
+            entry.stopThemeSync = () => { stopOwner(); stopParent?.() };
             target.parentComponent = owner;
             entry.keyListener = {
                 keydown: data => {
@@ -325,7 +336,10 @@ class WindowTearOut extends Base {
     }
 
     /** @summary Removes only bindings owned by this child renderer. @param {Object} entry */
-    #unhookTarget({target, view, keyListener}) {
+    #unhookTarget(entry) {
+        const {target, view, keyListener} = entry;
+        entry.stopThemeSync?.();
+        entry.stopThemeSync = null;
         if (target && !target.isDestroyed && keyListener) target.removeDomListeners(keyListener);
         if (view && !view.isDestroyed) view.setReturnHandler?.(null)
     }
@@ -337,7 +351,7 @@ class WindowTearOut extends Base {
         if (windowId && !this.#embodiment.restore({itemId, windowId})) return false;
 
         this.#releaseNativeReturn(entry);
-        if (windowId && !entry.body.isDestroyed) entry.body.theme = entry.bodyTheme;
+        if (windowId && !entry.body.isDestroyed) entry.body.theme = entry.bodyTheme || owner.theme;
         if (entry.target && !entry.target.isDestroyed) entry.target.parentComponent = null;
         owner.setTearOutSourceVisible?.(true);
         return true
