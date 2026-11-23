@@ -1,4 +1,4 @@
-import PopupViewport from '../../src/container/Viewport.mjs';
+import PopupViewport from '../../src/desktop/PopupViewport.mjs';
 import Viewport      from './view/Viewport.mjs';
 
 /**
@@ -11,7 +11,7 @@ export const onStart = () => {
           popup    = new URLSearchParams(config.url?.search).has('desktopPopup');
 
     return Neo.app({
-        mainView: popup ? {module: PopupViewport, layout: 'fit'} : Viewport,
+        mainView: popup ? PopupViewport : Viewport,
         name    : popup ? 'WebDesktopPopup' : 'WebDesktop',
         windowId
     })

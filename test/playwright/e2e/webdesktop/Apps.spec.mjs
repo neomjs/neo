@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}              from '../../fixtures.mjs';
+import {attachPageSharedAppWorker} from '../../sharedWorkerAppWorker.mjs';
 
 const DESKTOP = '/apps/webdesktop/index.html',
       ICON    = '.neo-desktop-launcher .neo-list-item:not(.neo-list-header)',
@@ -72,15 +73,19 @@ const windowOf = (page, app) => page.locator(WINDOW).filter({hasText: app}).filt
  * @param {Object} window
  * @param {String} app
  */
-async function expectOpened(page, window, app) {
+async function expectOpened(browser, page, window, app) {
     const id        = await window.getAttribute('id'),
-          appWorker = page.workers().find(worker => worker.url().includes('worker/App'));
+          appWorker = await attachPageSharedAppWorker({browser, page});
 
-    await expect.poll(() => appWorker.evaluate(id => {
-        const dialog = Neo.get(id);
+    try {
+        await expect.poll(() => appWorker.evaluate(id => {
+            const dialog = Neo.get(id);
 
-        return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null
-    }, id), {message: `${app} has finished opening`}).toBe(true)
+            return dialog?.mounted && !dialog.hidden && dialog.mountFlight === null
+        }, id), {message: `${app} has finished opening`}).toBe(true)
+    } finally {
+        await appWorker.close()
+    }
 }
 
 /**
@@ -101,7 +106,7 @@ async function expectInsideWorkspace(page, window) {
 test.describe('web desktop apps', () => {
     test.use({viewport: {width: 1440, height: 900}});
 
-    test('every app opens its own view at its own size, its stylesheet arriving with its first open', async ({page}) => {
+    test('every app opens its own view at its own size, its stylesheet arriving with its first open', async ({browser, page}) => {
         const errors   = trackErrors(page),
               requests = [];
 
@@ -118,7 +123,7 @@ test.describe('web desktop apps', () => {
             const window = windowOf(page, app);
 
             await expect(window.locator(view)).toBeVisible();
-            await expectOpened(page, window, app);
+            await expectOpened(browser, page, window, app);
 
             // The boundary fit runs after the flight lands, so the box may still move once
             await expect(async () => {

@@ -1,8 +1,8 @@
-import PopupViewport from '../../../src/container/Viewport.mjs';
+import PopupViewport from '../../../src/desktop/PopupViewport.mjs';
 import Viewport      from './Viewport.mjs';
 
 /**
- * @summary Starts the desktop or its empty popup host in the theme carried by this window.
+ * @summary Starts the desktop or its popup host in the theme carried by this window.
  * @returns {Neo.controller.Application}
  */
 export const onStart = () => {
@@ -15,7 +15,7 @@ export const onStart = () => {
         popup         = Boolean(params.get('desktopPopup'));
 
     return Neo.app({
-        mainView: popup ? {module: PopupViewport, layout: 'fit', theme} : {module: Viewport, theme},
+        mainView: {module: popup ? PopupViewport : Viewport, theme},
         name    : popup ? 'DesktopBasicPopup' : 'DesktopBasic',
         windowId
     })

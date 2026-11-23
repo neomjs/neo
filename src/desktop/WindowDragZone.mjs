@@ -88,7 +88,7 @@ class WindowDragZone extends DragZone {
 
         if (!gesture) return;
         if (gesture.clamped) return super.dragMove(data);
-        if (!boundary || !me.dragProxy) {
+        if (!boundary || !me.dragProxy || gesture.retiring) {
             gesture.pendingMove = data;
             return
         }
@@ -160,12 +160,25 @@ class WindowDragZone extends DragZone {
      * @param {Object} gesture The held source gesture
      */
     returnDuringDrag(gesture) {
+        const me = this;
         gesture.opening = null;
         gesture.vessel = null;
-        this.owner.tearOut.returnToDesktop();
-        Neo.main.addon.DragDrop.setConfigs({gestureId: gesture.id, isWindowDragging: false, windowId: this.windowId});
-        this.setSourceVisible(true);
-        this.dragProxy.style = {...this.dragProxy.style, left: `${gesture.x}px`, top: `${gesture.y}px`, opacity: 1}
+        gesture.retiring = me.owner.tearOut.returnToDesktop();
+        Neo.main.addon.DragDrop.setConfigs({gestureId: gesture.id, isWindowDragging: false, windowId: me.windowId});
+        me.setSourceVisible(true);
+        me.dragProxy.style = {...me.dragProxy.style, left: `${gesture.x}px`, top: `${gesture.y}px`, opacity: 1};
+
+        gesture.retiring.then(closed => {
+            if (me.gesture !== gesture) return;
+            gesture.retiring = null;
+
+            if (!closed) {
+                gesture.clamped = true;
+                Neo.main.addon.DragDrop.setConfigs({gestureId: gesture.id, allowOverdrag: false, windowId: me.windowId})
+            } else if (gesture.pendingMove) {
+                me.dragMove(gesture.pendingMove)
+            }
+        })
     }
 
     /**
@@ -173,7 +186,7 @@ class WindowDragZone extends DragZone {
      * popup leaves the dialog reachable in its workspace.
      * @param {Object} data
      */
-    finishGesture(data) {
+    async finishGesture(data) {
         let me = this, {gesture, owner} = me, style = owner.style;
         if (!gesture) return;
 
@@ -183,10 +196,18 @@ class WindowDragZone extends DragZone {
             owner.tearOut.commit()
         } else {
             if (gesture.opening) owner.tearOut.returnToDesktop();
-            let rect = gesture.rect, boundary = me.boundaryContainerRect;
+            const live = owner.boundaryContainerId
+                ? await owner.getDomRect(owner.boundaryContainerId).catch(() => null)
+                : null;
+
+            if (me.isDestroyed || owner.isDestroyed || me.gesture) return;
+
+            const boundary = live?.width > 0 && live?.height > 0 ? live : me.boundaryContainerRect;
             if (boundary) {
-                const position = me.workspacePosition(data.clientX - gesture.offsetX, data.clientY - gesture.offsetY, rect);
-                style = {...style, ...position, height: `${rect.height}px`, width: `${rect.width}px`, transform: 'none'}
+                const width    = Math.min(gesture.rect.width, boundary.right - boundary.left),
+                      height   = Math.min(gesture.rect.height, boundary.bottom - boundary.top),
+                      position = me.workspacePosition(data.clientX - gesture.offsetX, data.clientY - gesture.offsetY, {width, height}, boundary);
+                style = {...owner.style, ...position, height: `${height}px`, width: `${width}px`, transform: 'none'}
             }
         }
         owner.style = {...style, opacity: 1};
@@ -230,14 +251,7 @@ class WindowDragZone extends DragZone {
      * @param {Boolean} visible
      */
     setSourceVisible(visible) {
-        let owner = this.owner, style = owner.wrapperStyle;
-        if (!visible && !this.savedVisibility) {
-            this.savedVisibility = {value: style.visibility};
-            owner.wrapperStyle = {...style, visibility: 'hidden'}
-        } else if (visible && this.savedVisibility) {
-            owner.wrapperStyle = {...style, visibility: this.savedVisibility.value ?? null};
-            this.savedVisibility = null
-        }
+        this.owner.setTearOutSourceVisible(visible)
     }
 
     /**
@@ -245,10 +259,10 @@ class WindowDragZone extends DragZone {
      * @param {Number} x
      * @param {Number} y
      * @param {Object} size
+     * @param {Object} [boundary=this.boundaryContainerRect]
      * @returns {{left: String, top: String}}
      */
-    workspacePosition(x, y, {width, height}) {
-        const boundary = this.boundaryContainerRect;
+    workspacePosition(x, y, {width, height}, boundary=this.boundaryContainerRect) {
         return {
             left: `${Math.max(boundary.left, Math.min(x, boundary.right - width))}px`,
             top : `${Math.max(boundary.top, Math.min(y, boundary.bottom - height))}px`

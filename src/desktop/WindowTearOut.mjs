@@ -1,18 +1,19 @@
-import Base           from '../core/Base.mjs';
-import {generateUUID} from '../util/UUID.mjs';
+import Base                    from '../core/Base.mjs';
+import NativeVesselTransaction from '../dashboard/dock/window/NativeVesselTransaction.mjs';
+import VesselEmbodiment        from '../dashboard/dock/window/VesselEmbodiment.mjs';
+import {generateUUID}          from '../util/UUID.mjs';
+
+const reconnectLease = 10_000;
 
 /**
- * @summary Hosts a floating desktop window's live body in a native popup. The desktop keeps the AppWindow,
- * its task and the source drag zone while the same body moves between browser windows on the shared App worker.
+ * @summary Stages a desktop window's live body in an admitted native vessel. The desktop retains the window, task,
+ * and state while a popup document can disconnect and reconnect on the same opener-owned handle.
  * @class Neo.desktop.WindowTearOut
  * @extends Neo.core.Base
  */
 class WindowTearOut extends Base {
     static config = {
-        /**
-         * @member {String} className='Neo.desktop.WindowTearOut'
-         * @protected
-         */
+        /** @member {String} className='Neo.desktop.WindowTearOut' */
         className: 'Neo.desktop.WindowTearOut',
         /** @member {Neo.desktop.AppWindow|null} owner=null The window whose body is borrowed. */
         owner: null,
@@ -20,50 +21,56 @@ class WindowTearOut extends Base {
         popupUrl: null
     }
 
-    /** @member {Object|null} #entry The current admission, including a popup whose child app is still booting. */
+    /** @member {Object|null} #entry The native admission while it is opening, bound, reconnecting or retiring. */
     #entry = null
 
-    /**
-     * @summary Whether release left the app in its native window.
-     * @returns {Boolean}
-     */
+    /** @member {Neo.dashboard.dock.window.VesselEmbodiment|null} #embodiment */
+    #embodiment = null
+
+    /** @summary Whether the popup owns the desktop task's presentation. */
     get committed() {
         return this.#entry?.committed === true
     }
 
-    /**
-     * @summary Returns the child's measured outer extent once the browser has given it a frame.
-     * @returns {{width:Number,height:Number}|null}
-     */
+    /** @summary The child's measured outer extent, once the browser has supplied it. */
     get currentSize() {
         return this.#entry?.size ?? null
     }
 
     /**
-     * @summary Listens for child arrivals and departures on the same App worker.
+     * @summary Configures the shared body staging and listens for native renderer lifecycles.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
+
+        this.#embodiment = Neo.create(VesselEmbodiment, {
+            resolvePane  : () => this.owner.getItem('bodyContainer'),
+            resolveTarget: windowId => {
+                const view = Neo.apps[windowId]?.mainView;
+                return view?.getReference('desktopPopupBody') || view
+            }
+        });
         Neo.currentWorker.on({connect: this.onWindowConnect, disconnect: this.onWindowDisconnect, scope: this})
     }
 
     /**
-     * @summary Opens the native drag proxy. A later connection attaches the existing app body. A late grant for a
-     * cancelled gesture closes only its own popup.
+     * @summary Opens a new vessel for the held gesture or deliberate popout command.
      * @param {Object} data
-     * @param {Number} [data.gestureId] Source Main's current pointer gesture, for cancelling from the child
-     * @param {Object} data.rect Requested screen-space outer rectangle in CSS pixels
+     * @param {Number} [data.gestureId] Source Main's pointer gesture, if any.
+     * @param {Object} data.rect Requested screen-space rectangle.
      * @returns {Promise<{popupName:String,popupWidth:Number,popupHeight:Number}|null>}
      */
     async open({gestureId, rect}) {
-        const me        = this,
-              {owner}   = me,
-              sourceId  = owner.windowId,
-              sourceUrl = Neo.windowConfigs?.[sourceId]?.url?.href,
-              body      = owner.getItem('bodyContainer');
+        const me = this, {owner} = me;
 
-        if (!Neo.currentWorker.isSharedWorker || !sourceUrl || !body || me.committed) return null;
+        if (me.#entry?.retiring) await me.returnToDesktop();
+        if (me.isDestroyed || me.isDestroying || me.#entry || !Neo.currentWorker.isSharedWorker) return null;
+
+        const sourceId = owner.windowId, sourceUrl = Neo.windowConfigs?.[sourceId]?.url?.href,
+              body     = owner.getItem('bodyContainer');
+
+        if (!sourceUrl || !body?.parent || owner.hidden) return null;
 
         const address    = new URL(me.popupUrl, sourceUrl), source = new URL(sourceUrl),
               left       = Math.round(rect.left ?? rect.x), top = Math.round(rect.top ?? rect.y),
@@ -72,11 +79,9 @@ class WindowTearOut extends Base {
         if (address.origin !== source.origin || ![left, top, popupWidth, popupHeight].every(Number.isFinite) ||
             popupWidth < 1 || popupHeight < 1) return null;
 
-        me.returnToDesktop();
-        const popupName = generateUUID(), home = body.parent,
-              entry     = {body, gestureId, home, index: home.indexOf(body), popupName, sourceId};
+        const popupName = generateUUID(),
+              entry     = {body, bodyTheme: body.theme, gestureId, popupName, sourceId};
 
-        if (entry.index < 0) return null;
         me.#entry = entry;
         source.searchParams.forEach((value, key) => {
             if (!address.searchParams.has(key)) address.searchParams.set(key, value)
@@ -84,74 +89,100 @@ class WindowTearOut extends Base {
         address.searchParams.set('desktopPopup', popupName);
 
         try {
-            entry.admitted = await Neo.Main.windowOpen({
-                nativeCapabilities: {close: true, focus: true, position: true},
-                url               : address.href,
-                windowFeatures    : `popup=yes,left=${left},top=${top},width=${popupWidth},height=${popupHeight}`,
-                windowId          : sourceId,
-                windowName        : popupName
-            }) === true
+            entry.opening = NativeVesselTransaction.openVessel({
+                nativeCapabilities      : {close: true, focus: true, position: true},
+                renewNativeRouteOnReload: true,
+                url                     : address.href,
+                windowFeatures          : `popup=yes,left=${left},top=${top},width=${popupWidth},height=${popupHeight}`,
+                windowId                : sourceId,
+                windowName              : popupName
+            }).then(result => entry.admitted = result === true, () => entry.admitted = false);
+
+            await entry.opening
         } catch {
             entry.admitted = false
         }
 
-        if (me.#entry !== entry) {
-            entry.admitted && me.#close(entry);
+        if (!entry.admitted) {
+            if (me.#entry === entry) me.#entry = null;
             return null
         }
-        if (!entry.admitted) {
-            me.#entry = null;
-            return null
+
+        if (entry.retiring || me.#entry !== entry) return null;
+
+        if (gestureId == null) {
+            entry.committed = true;
+            owner.setTearOutSourceVisible?.(false)
         }
 
         if (entry.target) {
             me.#attach(entry)
         } else {
-            // A window that closes before its App worker connects never emits a matching disconnect.
-            entry.timer = setTimeout(() => me.#lost(entry), 10_000)
+            entry.timer = setTimeout(() => me.#failedAdmission(entry), reconnectLease)
         }
-        return me.#entry === entry ? {popupName, popupWidth, popupHeight} : null
+
+        return {popupName, popupWidth, popupHeight}
     }
 
     /**
-     * @summary Associates a child with its opener and unique gesture before borrowing its viewport.
-     * @param {Object} data App worker connect event
+     * @summary Accepts the exact new document for this vessel and stages the original body there.
+     * @param {Object} data App worker connect event.
      * @protected
      */
     onWindowConnect({windowId, windowData}) {
-        const me = this, entry = me.#entry, config = Neo.windowConfigs[windowId];
+        const entry = this.#entry, config = Neo.windowConfigs[windowId], route = windowData?.nativeRoute;
 
-        if (!entry || new URLSearchParams(config?.url?.search).get('desktopPopup') !== entry.popupName) return;
-        const route = windowData?.nativeRoute;
+        if (!entry || route?.ownerWindowId !== entry.sourceId ||
+            route.targetWindowId !== windowId || route.windowName !== entry.popupName ||
+            !route.nativeHandleKey || new URLSearchParams(config?.url?.search).get('desktopPopup') !== entry.popupName ||
+            entry.route && (entry.route.nativeHandleKey !== route.nativeHandleKey || entry.route.targetWindowId === windowId)) return;
 
-        if (entry.target || route?.ownerWindowId !== entry.sourceId || route?.targetWindowId !== windowId) return;
-        const target = Neo.apps[windowId]?.mainView;
+        const view   = Neo.apps[windowId]?.mainView,
+              target = view?.getReference('desktopPopupBody') || view;
+
         if (!target) return;
+
+        if (entry.target) this.#detachTarget(entry);
 
         const {outerWidth: width, outerHeight: height} = windowData;
         if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
             entry.size = {width, height}
         }
+
+        clearTimeout(entry.timer);
         entry.route  = route;
         entry.target = target;
-        if (entry.admitted) me.#attach(entry)
+        entry.view   = view;
+
+        if (entry.retiring) {
+            Promise.resolve(entry.retirement).then(() => {
+                if (this.#entry === entry && entry.route === route && !entry.retirement) this.returnToDesktop()
+            });
+            return
+        }
+
+        if (entry.admitted) this.#attach(entry)
     }
 
     /**
-     * @summary Mounts the existing body in the popup, retaining its desktop state-provider ancestry.
-     * @param {Object} entry The admitted popup and its source slot
+     * @summary Preserves the desktop provider while the shared vessel mounts the same body in this document.
+     * @param {Object} entry Current native admission.
      */
-    #attach(entry) {
-        const me = this, {body, home, target} = entry;
-        clearTimeout(entry.timer);
+    async #attach(entry) {
+        const me               = this, {body, target, view} = entry, {owner} = me,
+              itemId           = owner.id, windowId = entry.route.targetWindowId,
+              previousWindowId = me.#embodiment.getWindowId(itemId);
+
+        if (entry.attachingTo === target) return;
+        entry.attachingTo = target;
+
         try {
-            // The contents depend on theme tokens owned by two classes that stay in the source window.
             const root = Neo.apps[entry.sourceId]?.mainView;
-            if (root) Neo.currentWorker.insertThemeFiles(target.windowId, Object.getPrototypeOf(root));
-            Neo.currentWorker.insertThemeFiles(target.windowId, Object.getPrototypeOf(me.owner));
-            target.theme = body.getTheme();
-            target.parentComponent = me.owner;
-            entry.bodyTheme = body.theme;
+            if (root) Neo.currentWorker.insertThemeFiles(windowId, Object.getPrototypeOf(root));
+            Neo.currentWorker.insertThemeFiles(windowId, Object.getPrototypeOf(owner));
+
+            view.theme = owner.getTheme();
+            target.parentComponent = owner;
             entry.keyListener = {
                 keydown: data => {
                     if (data.key === 'Escape' && me.#entry === entry && !entry.committed && entry.gestureId != null) {
@@ -164,101 +195,191 @@ class WindowTearOut extends Base {
                 vnodeId: 'document.body'
             };
             target.addDomListeners(entry.keyListener);
-            home.remove(body, false, true);
-            target.add(body, true);
-            home.updateDepth = target.updateDepth = -1;
-            home.update();
-            target.promiseUpdate().catch(() => me.#lost(entry))
+
+            const staged = previousWindowId
+                ? await me.#embodiment.reattach({itemId, previousWindowId, windowId})
+                : await me.#embodiment.stage({itemId, windowId});
+
+            if (me.#entry !== entry || entry.target !== target || entry.retiring) return;
+            if (!staged || body.isDestroyed) {
+                me.#failedAdmission(entry);
+                return
+            }
+
+            view.setReturnHandler?.(() => me.returnToDesktop({focus: true}))
         } catch {
-            me.#lost(entry)
+            if (entry.target === target) me.#failedAdmission(entry)
         }
     }
 
-    /**
-     * @summary Retains the current native admission across pointer release.
-     * @returns {Boolean}
-     */
+    /** @summary Retains an admitted popup after the source pointer releases. */
     commit() {
         const entry = this.#entry;
-        if (!entry?.admitted) return false;
+        if (!entry?.admitted || entry.retiring) return false;
         entry.committed = true;
         return true
     }
 
     /**
-     * @summary Asks the source browser to focus the exact admitted popup.
+     * @summary Focuses the exact live popup bound to this desktop app.
      * @returns {Promise<Boolean>}
      */
     async focus() {
         const entry = this.#entry;
-        if (!entry?.admitted) return false;
-        try {
-            const focused = entry.route
-                ? await Neo.Main.windowNativeFocus({...entry.route, windowId: entry.sourceId})
-                : await Neo.Main.windowFocus({windowName: entry.popupName, windowId: entry.sourceId});
-            return this.#entry === entry && focused === true
-        } catch {
-            return false
-        }
+        if (!entry?.route || !entry.target || entry.retiring) return false;
+
+        const {route} = entry,
+              focused = await NativeVesselTransaction.focusVessel({ownerWindowId: entry.sourceId, route});
+        return this.#entry === entry && entry.route === route && focused
     }
 
     /**
-     * @summary Moves a departed window's body home before the worker reaps the departed app.
-     * @param {Object} data App worker disconnect event
+     * @summary Releases a departing renderer before reaping and observes the opener's native handle.
+     * @param {Object} data App worker disconnect event.
      * @protected
      */
     onWindowDisconnect({windowId}) {
         const entry = this.#entry;
-        if (entry?.route?.targetWindowId === windowId) this.#lost(entry)
-    }
 
-    /**
-     * @summary Restores a failed or departed generation and informs its gesture owner.
-     * @param {Object} entry
-     */
-    #lost(entry) {
-        if (this.#entry !== entry) return;
-        this.returnToDesktop();
-        this.owner.onTearOutDisconnect?.({committed: entry.committed === true})
-    }
+        if (entry?.route?.targetWindowId !== windowId) return;
 
-    /**
-     * @summary Releases the native handle of this unique admission.
-     * @param {Object} entry
-     */
-    #close(entry) {
-        Neo.Main.windowClose({names: entry.popupName, windowId: entry.sourceId}).catch(() => {})
-    }
+        this.#detachTarget(entry);
 
-    /** @summary Cancels acquisition or restores the body synchronously to its original slot, then closes its popup. */
-    returnToDesktop() {
-        const entry = this.#entry;
-        if (!entry) return;
-        this.#entry = null;
-        clearTimeout(entry.timer);
-
-        const {body, home, index, target} = entry;
-        if (target) {
-            entry.keyListener && target.removeDomListeners(entry.keyListener);
-            if (!home.isDestroyed && !home.isDestroying && !body.isDestroyed && !home.items.includes(body)) {
-                target.remove(body, false, true);
-                home.insert(index, body, true);
-                body.theme = entry.bodyTheme;
-                home.updateDepth = -1;
-                home.update()
-            }
-            target.parentComponent = null
+        if (entry.retirement) return;
+        if (!entry.committed) {
+            this.#failedAdmission(entry);
+            return
         }
-        if (entry.admitted) this.#close(entry)
+
+        this.#observeClosure(entry, windowId, Date.now() + reconnectLease)
+    }
+
+    /** @summary Detaches the live body before its old renderer can destroy it. @param {Object} entry */
+    #detachTarget(entry) {
+        this.#embodiment.detach({itemId: this.owner.id, windowId: entry.route.targetWindowId});
+        this.#unhookTarget(entry);
+        entry.target = entry.view = null
     }
 
     /**
-     * @summary Returns borrowed contents and removes the worker listeners.
-     * @param {...*} args
+     * @summary Waits for the exact opener handle to distinguish a native close from a document reload.
+     * @param {Object} entry
+     * @param {String} windowId Departed renderer.
+     * @param {Number} deadline Bounded reconnect lease.
      */
+    async #observeClosure(entry, windowId, deadline) {
+        const closed = await this.#isClosed(entry);
+
+        if (this.#entry !== entry || entry.target || entry.route.targetWindowId !== windowId || entry.retirement) return;
+        if (closed) {
+            const committed = entry.committed;
+            if (!this.#restorePane(entry)) return;
+            this.#entry = null;
+            this.owner.onTearOutDisconnect?.({committed})
+        } else if (Date.now() >= deadline) {
+            this.#failedAdmission(entry)
+        } else {
+            entry.timer = setTimeout(() => this.#observeClosure(entry, windowId, deadline), 120)
+        }
+    }
+
+    /** @summary Restores a failed admission and ends its still-held drag. @param {Object} entry */
+    #failedAdmission(entry) {
+        if (this.#entry !== entry || entry.retirement) return;
+
+        this.returnToDesktop();
+        this.owner.onTearOutDisconnect?.({committed: false})
+    }
+
+    /** @summary Removes only bindings owned by this child renderer. @param {Object} entry */
+    #unhookTarget({target, view, keyListener}) {
+        if (target && !target.isDestroyed && keyListener) target.removeDomListeners(keyListener);
+        if (view && !view.isDestroyed) view.setReturnHandler?.(null)
+    }
+
+    /** @summary Restores through the shared placeholder only while the original pane is still staged. @param {Object} entry */
+    #restorePane(entry) {
+        const {owner} = this, itemId = owner.id, windowId = this.#embodiment.getWindowId(itemId);
+
+        if (windowId && !this.#embodiment.restore({itemId, windowId})) return false;
+
+        if (windowId && !entry.body.isDestroyed) entry.body.theme = entry.bodyTheme;
+        if (entry.target && !entry.target.isDestroyed) entry.target.parentComponent = null;
+        owner.setTearOutSourceVisible?.(true);
+        return true
+    }
+
+    /**
+     * @summary Returns the live body and retires just this admission. A refused close remains available for retry.
+     * @param {Object} [options]
+     * @param {Boolean} [options.focus=false] Give the opener focus for an explicit Back to desktop action.
+     * @returns {Promise<Boolean>}
+     */
+    returnToDesktop({focus=false}={}) {
+        const entry = this.#entry;
+        if (!entry) return Promise.resolve(false);
+
+        entry.retiring = true;
+        clearTimeout(entry.timer);
+        return entry.retirement ??= this.#retire(entry, focus)
+    }
+
+    /** @summary Dispatches shared native retirement with the captured route and the source's exact body slot. */
+    async #retire(entry, focus) {
+        const {owner} = this, itemId = owner.id, {popupName, sourceId} = entry;
+
+        await entry.opening;
+        if (!entry.admitted) return true;
+
+        if (focus && entry.target) {
+            await NativeVesselTransaction.focusVessel({ownerWindowId: sourceId, route: entry.route, opener: true})
+        }
+
+        if (!this.isDestroyed) {
+            this.#unhookTarget(entry);
+            if (!this.#restorePane(entry)) {
+                entry.retirement = null;
+                return false
+            }
+        }
+
+        entry.committed = false;
+
+        const {route} = entry,
+              result  = await NativeVesselTransaction.closeVessel({
+                  ownerWindowId: sourceId,
+                  resolveVessel: (id, key) => id === itemId && key === popupName
+                      ? {itemId, nativeRoute: route, windowId: route?.targetWindowId, windowName: popupName, generationToken: popupName}
+                      : null,
+                  windowNameFor: (id, key) => id === itemId && key === popupName ? popupName : null
+              }, {itemId, generationToken: popupName, nativeRoute: route, windowName: popupName, workspaceKey: popupName}),
+              closed = result || await this.#isClosed(entry);
+
+        entry.retirement = null;
+        if (closed && this.#entry === entry) {
+            this.#entry = null;
+            if (focus && !owner.isDestroyed) owner.focus(owner.id, true)
+        } else if (entry.target && !this.isDestroyed) {
+            entry.view.setReturnHandler?.(() => this.returnToDesktop({focus: true}))
+        }
+        return closed
+    }
+
+    /** @summary Reads closure from the opener's retained handle, independently of document identity. @param {Object} entry */
+    async #isClosed({route}) {
+        return route ? await NativeVesselTransaction.observeVesselClosure(route).catch(() => null) === true : false
+    }
+
+    /** @summary Releases borrowed contents and removes the worker listeners. @param {...*} args */
     destroy(...args) {
         Neo.currentWorker.un({connect: this.onWindowConnect, disconnect: this.onWindowDisconnect, scope: this});
-        this.returnToDesktop();
+        const entry = this.#entry;
+        if (entry) {
+            this.#unhookTarget(entry);
+            this.#restorePane(entry);
+            this.returnToDesktop()
+        }
+        this.#embodiment.destroy();
         super.destroy(...args)
     }
 }

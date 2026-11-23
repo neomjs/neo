@@ -1,5 +1,6 @@
 import Dialog         from '../dialog/Base.mjs';
 import Icon           from '../component/Icon.mjs';
+import Window         from '../manager/Window.mjs';
 import WindowDragZone from './WindowDragZone.mjs';
 import WindowTearOut  from './WindowTearOut.mjs';
 
@@ -73,7 +74,26 @@ class AppWindow extends Dialog {
     }
 
     /**
-     * @summary Opts a shared-worker window into desktop drag handling before the dialog registers its header listeners.
+     * @member {Boolean} #popOutPending=false
+     */
+    #popOutPending = false;
+
+    /**
+     * @member {Object|null} #sourceVisibility=null
+     */
+    #sourceVisibility = null;
+
+    /**
+     * @summary Whether the source still accepts a header-initiated popout.
+     * @returns {Boolean}
+     */
+    get #canPopOut() {
+        return Boolean(this.tearOut && !this.tearOut.committed && this.mounted && !this.hidden &&
+            !this.isDragging && !this.isDestroying && !this.isDestroyed)
+    }
+
+    /**
+     * @summary Opts a shared-worker window into desktop tear-out through its header and drag zone.
      * @param {Object} config
      */
     construct(config) {
@@ -81,7 +101,14 @@ class AppWindow extends Dialog {
 
         if (this.tearOutUrl && Neo.currentWorker.isSharedWorker) {
             this.tearOut = Neo.create(WindowTearOut, {owner: this, popupUrl: this.tearOutUrl});
-            this.dragZoneConfig = {...this.dragZoneConfig, module: WindowDragZone, alwaysFireDragMove: true, allowOverdrag: true}
+            this.dragZoneConfig = {...this.dragZoneConfig, module: WindowDragZone, alwaysFireDragMove: true, allowOverdrag: true};
+
+            const toolbar = this.headerToolbar,
+                  factory = toolbar.actionMap?.['pop-out'];
+
+            if (factory && !toolbar.getAction('pop-out')) {
+                toolbar.addActionContribution(factory())
+            }
         }
     }
 
@@ -99,6 +126,15 @@ class AppWindow extends Dialog {
     }
 
     /**
+     * @summary Opens a tear-out from the native header button and preserves the dialog's header action event.
+     * @param {Object} data
+     */
+    executeHeaderAction(data) {
+        if (data.action === 'pop-out') this.popOutWindow();
+        super.executeHeaderAction(data)
+    }
+
+    /**
      * @summary Directs a task activation to the popup while it owns the app.
      * @returns {Boolean}
      */
@@ -106,6 +142,23 @@ class AppWindow extends Dialog {
         if (!this.tearOut?.committed) return false;
         this.tearOut.focus();
         return true
+    }
+
+    /**
+     * @summary Adds the popout button to the desktop window's header vocabulary.
+     * @returns {Object}
+     * @protected
+     */
+    getWindowActionMap() {
+        return {
+            ...super.getWindowActionMap(),
+            'pop-out': () => ({
+                action : 'pop-out',
+                iconCls: 'far fa-window-restore',
+                tooltip: 'Pop out window',
+                vdom   : {'aria-label': 'Pop out window'}
+            })
+        }
     }
 
     /**
@@ -154,6 +207,58 @@ class AppWindow extends Dialog {
     onTearOutDisconnect({committed}={}) {
         if (committed) this.hide(false);
         else this.dragZone?.restoreSource()
+    }
+
+    /**
+     * @summary Positions a popup over its desktop dialog, admitting one header activation at a time.
+     * @returns {Promise<Boolean>}
+     */
+    async popOutWindow() {
+        if (this.#popOutPending || !this.#canPopOut) return false;
+
+        const {windowId} = this;
+        this.#popOutPending = true;
+
+        try {
+            const [rect, windowData] = await Promise.all([
+                this.getDomRect(),
+                Neo.Main.getWindowData({windowId})
+            ]);
+
+            if (!this.#canPopOut || this.windowId !== windowId) return false;
+
+            const {innerRect} = Window.calculateGeometry(windowData);
+
+            return Boolean(await this.tearOut.open({rect: {
+                left  : innerRect.left + rect.left,
+                top   : innerRect.top + rect.top,
+                width : rect.width,
+                height: rect.height
+            }}))
+        } catch (reason) {
+            if (reason !== Neo.isDestroyed && !Neo.currentWorker.isDeparture(reason, windowId)) {
+                console.error('desktop.AppWindow: popout failed', {reason, windowId})
+            }
+            return false
+        } finally {
+            this.#popOutPending = false
+        }
+    }
+
+    /**
+     * @summary Hides the dialog during a tear-out and restores its previous wrapper visibility on return.
+     * @param {Boolean} visible
+     */
+    setTearOutSourceVisible(visible) {
+        const style = this.wrapperStyle;
+
+        if (!visible && !this.#sourceVisibility) {
+            this.#sourceVisibility = {value: style?.visibility};
+            this.wrapperStyle = {...style, visibility: 'hidden'}
+        } else if (visible && this.#sourceVisibility) {
+            this.wrapperStyle = {...style, visibility: this.#sourceVisibility.value ?? null};
+            this.#sourceVisibility = null
+        }
     }
 
     /**

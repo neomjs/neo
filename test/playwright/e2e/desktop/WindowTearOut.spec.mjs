@@ -39,8 +39,9 @@ async function openNotes(browser, page, shared=true) {
     await expect(page.locator(notes + ' textarea')).toBeVisible();
     await expect(page.locator(tasks)).toHaveCount(1);
 
-    const worker = shared ? await attachPageSharedAppWorker({browser, page}) : page.workers().find(worker => /\/App\.mjs$/.test(worker.url())),
-          ids    = await page.evaluate(({notes}) => ({
+    const dedicated = page.workers().find(worker => /\/App\.mjs$/.test(worker.url())),
+          worker    = dedicated ?? (shared ? await attachPageSharedAppWorker({browser, page}) : null),
+          ids       = await page.evaluate(({notes}) => ({
               desktop: document.querySelector('.neo-desktop').id,
               content: document.querySelector(notes).id
           }), {notes});
@@ -136,6 +137,17 @@ test.describe('desktop window tear-out', () => {
                     await popup.locator(notes + ' textarea').fill(marker + ' after release');
                     await popup.locator(notes + ' textarea').press('Tab');
                     await expectOriginalOwnership(worker);
+
+                    const placement = () => popup.evaluate(() => ({x: window.screenX, y: window.screenY})),
+                          before    = await placement();
+
+                    await popup.reload();
+                    await expect(popup.locator(notes + ' textarea')).toHaveValue(marker + ' after release');
+                    await expect(page.locator(notes + ' textarea')).toHaveCount(0);
+                    await expect(page.locator(tasks)).toHaveCount(1);
+                    await expectOriginalOwnership(worker);
+                    expect(await placement()).toEqual(before);
+
                     await popup.close({runBeforeUnload: true});
                     await expect(page.locator(tasks)).toHaveCount(0);
                     await page.locator('.neo-desktop-launcher .neo-list-item').filter({hasText: 'Notes'}).dblclick()
@@ -153,10 +165,73 @@ test.describe('desktop window tear-out', () => {
                 await expect(page.locator(notes + ' textarea')).toBeVisible();
                 await expect(page.locator(notes + ' textarea')).toHaveValue(value)
             } finally {
-                await worker.close()
+                await worker.close?.()
             }
         })
     }
+
+    test('a second exit during the same press acquires a fresh popup', async ({browser, context, page}) => {
+        const worker = await openNotes(browser, page);
+        try {
+            const press  = await pressTitle(page),
+                  exitX  = page.viewportSize().width + 300,
+                  popups = [];
+
+            try {
+                for (let exit = 0; exit < 2; exit++) {
+                    const birth     = page.waitForEvent('popup', {timeout: 10000}),
+                          [, popup] = await Promise.all([page.mouse.move(exitX, press.y, {steps: 35}), birth]);
+
+                    popups.push(popup);
+                    await expect(popup.locator(notes + ' textarea')).toHaveValue(marker);
+                    await expectOriginalOwnership(worker);
+                    const closing = popup.waitForEvent('close', {timeout: 10000});
+
+                    await Promise.all([page.mouse.move(press.x, press.y, {steps: 35}), closing]);
+                    await expect(page.locator(`${dialog}:not(.neo-dragproxy) ${notes} textarea`)).toHaveValue(marker)
+                }
+            } finally {
+                await page.mouse.up()
+            }
+
+            expect(popups[0]).not.toBe(popups[1]);
+            await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
+            await expect(page.locator(tasks)).toHaveCount(1);
+            expect(context.pages()).toHaveLength(1);
+            await expectOriginalOwnership(worker)
+        } finally {
+            await worker.close()
+        }
+    });
+
+    test('keyboard activation of the popout and return controls preserves the live app', async ({browser, context, page}) => {
+        const worker = await openNotes(browser, page);
+        try {
+            const popout = page.locator(dialog).getByRole('button', {name: 'Pop out window', exact: true});
+            await expect(popout).toBeVisible();
+            const birth = page.waitForEvent('popup', {timeout: 10000});
+
+            await popout.press('Enter');
+            const popup = await birth;
+            await expect(popup.locator(notes + ' textarea')).toHaveValue(marker);
+            await expect(page.locator(notes + ' textarea')).toHaveCount(0);
+            await expect(page.locator(tasks)).toHaveCount(1);
+            await expectOriginalOwnership(worker);
+
+            const back = popup.getByRole('button', {name: 'Back to desktop', exact: true});
+            await expect(back).toBeVisible();
+            const closing = popup.waitForEvent('close', {timeout: 10000});
+
+            await back.press('Enter');
+            await closing;
+            await expect(page.locator(notes + ' textarea')).toHaveValue(marker);
+            await expect(page.locator(tasks)).toHaveCount(1);
+            expect(context.pages()).toHaveLength(1);
+            await expectOriginalOwnership(worker)
+        } finally {
+            await worker.close()
+        }
+    });
 
     test('a refused popup leaves the same task and note in the source', async ({browser, context, page}) => {
         const worker = await openNotes(browser, page);
