@@ -15,30 +15,33 @@ setup({
     }
 });
 
-import {test, expect}     from '@playwright/test';
-import fs                 from 'node:fs';
-import path               from 'node:path';
-import {fileURLToPath}    from 'node:url';
+import {test, expect}                     from '@playwright/test';
+import fs                                 from 'node:fs';
+import path                               from 'node:path';
+import {fileURLToPath}                    from 'node:url';
 import {EXAMPLES_DIR, readExampleCatalog} from '../../../../../../../buildScripts/util/exampleCatalog.mjs';
-import Neo                from '../../../../../../../src/Neo.mjs';
-import * as core          from '../../../../../../../src/core/_export.mjs';
-import InstanceManager    from '../../../../../../../src/manager/Instance.mjs';
-import DomApiVnodeCreator from '../../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
-import VdomHelper         from '../../../../../../../src/vdom/Helper.mjs';
-import ContentBox         from '../../../../../../../apps/portal/view/home/ContentBox.mjs';
-import Example            from '../../../../../../../apps/portal/model/Example.mjs';
-import ExamplesContainer  from '../../../../../../../apps/portal/view/examples/MainContainer.mjs';
-import Grid               from '../../../../../../../apps/portal/view/home/parts/Grid.mjs';
-import HeaderToolbar      from '../../../../../../../apps/portal/view/HeaderToolbar.mjs';
-import HeroContent        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
-import MainContainer      from '../../../../../../../apps/portal/view/home/MainContainer.mjs';
-import Planning           from '../../../../../../../apps/portal/view/home/parts/Planning.mjs';
+import Neo                                from '../../../../../../../src/Neo.mjs';
+import * as core                          from '../../../../../../../src/core/_export.mjs';
+import InstanceManager                    from '../../../../../../../src/manager/Instance.mjs';
+import DomApiVnodeCreator                 from '../../../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import VdomHelper                         from '../../../../../../../src/vdom/Helper.mjs';
+import ContentBox                         from '../../../../../../../apps/portal/view/home/ContentBox.mjs';
+import MemberContainer                    from '../../../../../../../apps/portal/view/about/MemberContainer.mjs';
+import Example                            from '../../../../../../../apps/portal/model/Example.mjs';
+import ExamplesContainer                  from '../../../../../../../apps/portal/view/examples/MainContainer.mjs';
+import Grid                               from '../../../../../../../apps/portal/view/home/parts/Grid.mjs';
+import HeaderToolbar                      from '../../../../../../../apps/portal/view/HeaderToolbar.mjs';
+import HeroContent                        from '../../../../../../../apps/portal/view/home/parts/hero/Content.mjs';
+import MainContainer                      from '../../../../../../../apps/portal/view/home/MainContainer.mjs';
+import Planning                           from '../../../../../../../apps/portal/view/home/parts/Planning.mjs';
 
 const brainDocUrl       = 'https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MemoryCore.md',
       currentDir        = path.dirname(fileURLToPath(import.meta.url)),
       examplesDir       = path.resolve(currentDir, '../../../../../../../', EXAMPLES_DIR),
       featureSectionCss = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/FeatureSection.css'),
-      heroCssPath       = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/parts/hero/Content.css');
+      heroCssPath       = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/home/parts/hero/Content.css'),
+      memberCssPath     = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/about/MemberContainer.css'),
+      viewportCssPath   = path.resolve(currentDir, '../../../../../../../resources/css/src/apps/portal/Viewport.css');
 
 /**
  * Recursively collects vnodes matching `nodeName` across a rendered vnode tree.
@@ -217,6 +220,48 @@ test.describe('Portal.view.home.ContentBox', () => {
                 Neo.main.addon.MonacoEditor = originalMonacoAddon
             }
         }
+    });
+
+    test('Home and About member cards carry the shared glass card chrome while .portal-content-box stays layout-only (#22063)', () => {
+        const box = Neo.create(ContentBox, {
+            appName,
+            header: 'Active Hybrid GraphRAG',
+            route : brainDocUrl
+        });
+
+        expect(box.baseCls).toEqual(['portal-content-box', 'portal-glass-card']);
+        expect(box.cls).toEqual(['portal-content-box', 'portal-glass-card']);
+
+        // #/about-us keeps the card surface once .portal-content-box drops its legacy chrome
+        expect(MemberContainer.config.cls).toEqual(['portal-about-member-container', 'portal-content-box', 'portal-glass-card']);
+
+        const viewportCss = fs.readFileSync(viewportCssPath, 'utf8'),
+              memberCss   = fs.readFileSync(memberCssPath, 'utf8'),
+              contentBox  = viewportCss.match(/\.portal-content-box\s*\{[\s\S]*?\n    \}/)?.[0] ?? '';
+
+        // Grid layout + link reset only: no surface chrome, and a card never moves
+        expect(contentBox).toContain('display        : flex');
+        expect(contentBox).toContain('min-height     : 300px');
+        expect(contentBox).toContain('text-decoration: none');
+        expect(contentBox).not.toContain('background-color');
+        expect(contentBox).not.toContain('border-radius');
+        expect(contentBox).not.toContain('translateY');
+        expect(contentBox).not.toContain('scale(0.99)');
+        expect(contentBox).not.toContain('cursor');
+
+        // Only a real link keeps the pointer
+        expect(viewportCss).toContain('a.portal-content-box');
+
+        // A hover and a keyboard focus light a glass card identically
+        expect(viewportCss).toMatch(/&:hover,\s*&:focus-visible,\s*&:has\(:focus-visible\)/);
+
+        // #/about-us keeps its centered column: the standalone glass card sizing, not the grid override
+        expect(memberCss).toContain('cursor       : default');
+        expect(memberCss).toContain('margin-left  : auto');
+        expect(memberCss).toContain('margin-right : auto');
+        expect(memberCss).toContain('max-width    : 800px');
+
+        box.destroy()
     });
 
     test('HeaderToolbar home-button links to #/ and ViewportController routes both / and /home to onHomeRoute (#20917)', async () => {
