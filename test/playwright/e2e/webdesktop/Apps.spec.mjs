@@ -153,6 +153,66 @@ test.describe('web desktop apps', () => {
         expect(errors).toEqual([])
     });
 
+    test('an early keyboard pop out opens Mail at its settled size', async ({browser, page}) => {
+        await signIn(page);
+        const worker   = await attachPageSharedAppWorker({browser, page}),
+              launcher = page.locator(ICON).filter({hasText: 'Mail'}),
+              mail     = windowOf(page, 'Mail'),
+              button   = mail.getByRole('button', {name: 'Pop out window'}),
+              task     = page.locator('.neo-desktop-task-list .neo-list-item');
+
+        try {
+            // Hold the real expansion delta after animateShow has applied the launcher's rectangle.
+            // The dialog's own headerAction releases it after the keyboard command reaches the App worker.
+            await worker.evaluate(() => {
+                const gate = globalThis.mailExpansion = {apply: Neo.applyDeltas};
+                Neo.applyDeltas = (windowId, delta) => {
+                    const dialog = delta.cls?.add?.includes('animated-hiding-showing') && Neo.get(delta.id);
+                    if (dialog?.record?.id !== 'mail') return gate.apply(windowId, delta);
+                    Neo.applyDeltas = gate.apply;
+                    return new Promise(resolve => {
+                        gate.release = () => {
+                            dialog.un('headerAction', gate.release, dialog);
+                            delete gate.release;
+                            resolve()
+                        };
+                        dialog.on('headerAction', gate.release, dialog)
+                    }).then(() => gate.apply(windowId, delta))
+                }
+            });
+            const icon = await launcher.boundingBox();
+            await launcher.dblclick();
+            await expect.poll(() => worker.evaluate(() => Boolean(globalThis.mailExpansion.release))).toBe(true);
+
+            const taskId = await task.getAttribute('id');
+            await button.evaluate(el => el.addEventListener('click', event => {
+                const {width, height} = el.closest('.neo-dialog').getBoundingClientRect();
+                globalThis.earlyMailActivation = {trusted: event.isTrusted, width: Math.round(width), height: Math.round(height)}
+            }, {once: true}));
+            const [popup] = await Promise.all([page.waitForEvent('popup'), button.press('Enter')]);
+            expect(await page.evaluate(() => globalThis.earlyMailActivation)).toEqual({
+                trusted: true, width: Math.round(icon.width), height: Math.round(icon.height)
+            });
+            await expect(popup.locator('.webdesktop-mail-message h2')).toHaveText('Launch checklist for Monday');
+            expect(await popup.evaluate(() => [innerWidth, innerHeight])).toEqual([880, 520]);
+            await popup.locator('.webdesktop-mail-inbox').getByText('Robin Chen', {exact: true}).click();
+            await Promise.all([popup.waitForEvent('close'), popup.getByRole('button', {name: 'Back to desktop'}).click()]);
+            await expect(mail.locator('.webdesktop-mail-message h2')).toHaveText('Guest access to the help pages');
+            await expect(task).toHaveCount(1);
+            await expect(task).toHaveAttribute('id', taskId);
+            expect(page.context().pages()).toHaveLength(1)
+        } finally {
+            await worker.evaluate(() => {
+                const gate = globalThis.mailExpansion;
+                if (!gate) return;
+                Neo.applyDeltas = gate.apply;
+                gate.release?.();
+                delete globalThis.mailExpansion
+            });
+            await worker.close()
+        }
+    });
+
     test('revoking a permission closes its committed popup and removes its task', async ({page}) => {
         await signIn(page);
         await page.getByRole('button', {name: 'Switch theme'}).click();
