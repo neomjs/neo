@@ -1,0 +1,1420 @@
+[
+  {
+    "group": "scheduler",
+    "theme": "neo-theme-neo-dark",
+    "variant": "current",
+    "file": "scheduler-neo-theme-neo-dark-current.png",
+    "cards": [
+      {
+        "title": "Studio Bookings",
+        "feature": "Resource bookings on an editable timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A year for 300 people",
+        "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Re-plan a day by drag",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Weekends and holidays in the plan",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Bars that say more",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom from hours to a week",
+        "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A table beside the timeline",
+        "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three time zones",
+        "feature": "The same shifts read in Berlin, New York or Tokyo time",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan that updates itself",
+        "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Resource Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/shared-planning-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-non-working-time-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-drag-and-resize-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-big-data-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-bar-renderer-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-basic-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/timeline-basic-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-live-updates-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-time-zones-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-event-editor-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-resource-columns-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-zoom-14.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": null
+  },
+  {
+    "group": "scheduler",
+    "theme": "neo-theme-neo-dark",
+    "variant": "candidate",
+    "file": "scheduler-neo-theme-neo-dark-candidate.png",
+    "cards": [
+      {
+        "title": "Studio Bookings",
+        "feature": "Resource bookings on an editable timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A year for 300 people",
+        "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Re-plan a day by drag",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Weekends and holidays in the plan",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Bars that say more",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom from hours to a week",
+        "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A table beside the timeline",
+        "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three time zones",
+        "feature": "The same shifts read in Berlin, New York or Tokyo time",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan that updates itself",
+        "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Resource Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/scheduler-basic-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-big-data-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-non-working-time-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-drag-and-resize-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-event-editor-14.jpg",
+        "source": "candidate",
+        "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69"
+      },
+      {
+        "rel": "devmode/scheduler-bar-renderer-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-zoom-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-live-updates-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/timeline-basic-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-resource-columns-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-time-zones-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-event-editor-14-light.jpg",
+        "source": "candidate",
+        "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918"
+      },
+      {
+        "rel": "devmode/shared-planning-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-drag-and-resize-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-resource-columns-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-big-data-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-zoom-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-time-zones-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-non-working-time-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/timeline-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-bar-renderer-14-light.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": [
+      {
+        "title": "Studio Bookings",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14-light.jpg\")"
+      },
+      {
+        "title": "One plan, three windows",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg\")"
+      },
+      {
+        "title": "A year for 300 people",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14-light.jpg\")"
+      },
+      {
+        "title": "Re-plan a day by drag",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14-light.jpg\")"
+      },
+      {
+        "title": "Weekends and holidays in the plan",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14-light.jpg\")"
+      },
+      {
+        "title": "Bars that say more",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14-light.jpg\")"
+      },
+      {
+        "title": "Edit a booking in a form",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg\")"
+      },
+      {
+        "title": "Zoom from hours to a week",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14-light.jpg\")"
+      },
+      {
+        "title": "A table beside the timeline",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14-light.jpg\")"
+      },
+      {
+        "title": "One plan, three time zones",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14-light.jpg\")"
+      },
+      {
+        "title": "A plan that updates itself",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg\")"
+      },
+      {
+        "title": "Meridian Observatory",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg\")"
+      },
+      {
+        "title": "Resource Timeline",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14-light.jpg\")"
+      }
+    ]
+  },
+  {
+    "group": "scheduler",
+    "theme": "neo-theme-neo-light",
+    "variant": "current",
+    "file": "scheduler-neo-theme-neo-light-current.png",
+    "cards": [
+      {
+        "title": "Studio Bookings",
+        "feature": "Resource bookings on an editable timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A year for 300 people",
+        "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Re-plan a day by drag",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Weekends and holidays in the plan",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Bars that say more",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom from hours to a week",
+        "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A table beside the timeline",
+        "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three time zones",
+        "feature": "The same shifts read in Berlin, New York or Tokyo time",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan that updates itself",
+        "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Resource Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14-light.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/scheduler-non-working-time-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-drag-and-resize-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-bar-renderer-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-big-data-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-zoom-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/timeline-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-event-editor-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-time-zones-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-live-updates-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-resource-columns-14-light.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": null
+  },
+  {
+    "group": "scheduler",
+    "theme": "neo-theme-neo-light",
+    "variant": "candidate",
+    "file": "scheduler-neo-theme-neo-light-candidate.png",
+    "cards": [
+      {
+        "title": "Studio Bookings",
+        "feature": "Resource bookings on an editable timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A year for 300 people",
+        "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-big-data-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Re-plan a day by drag",
+        "feature": "Bookings that move between resources, stretch, and snap to a grid you choose",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-drag-and-resize-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Weekends and holidays in the plan",
+        "feature": "Non-working days and dates shaded across the timeline and its header",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-non-working-time-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Bars that say more",
+        "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-bar-renderer-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom from hours to a week",
+        "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-zoom-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A table beside the timeline",
+        "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-resource-columns-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three time zones",
+        "feature": "The same shifts read in Berlin, New York or Tokyo time",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-time-zones-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan that updates itself",
+        "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-live-updates-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Resource Timeline",
+        "feature": "A plain grid mounting the timeline column with interval bars",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/timeline-basic-14-light.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/scheduler-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-drag-and-resize-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-non-working-time-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-big-data-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-bar-renderer-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-event-editor-14-light.jpg",
+        "source": "candidate",
+        "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918"
+      },
+      {
+        "rel": "devmode/timeline-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-zoom-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-live-updates-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-resource-columns-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/scheduler-time-zones-14-light.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": null
+  },
+  {
+    "group": "gantt",
+    "theme": "neo-theme-neo-dark",
+    "variant": "current",
+    "file": "gantt-neo-theme-neo-dark-current.png",
+    "cards": [
+      {
+        "title": "Community Garden Plan",
+        "feature": "A project plan with linked, editable tasks",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A project of 2,000 tasks",
+        "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom a plan in and out",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Durations in working days",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Link tasks by drag",
+        "feature": "Dependencies drawn from one task's handle to another, in four link types",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Your columns beside the plan",
+        "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A late task moves the plan",
+        "feature": "One task slips, and every task that depends on it follows to its new date",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan's release gates",
+        "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "An exhibition takes shape",
+        "feature": "Each phase takes its dates and progress from its tasks.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/gantt-big-data-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-zoom-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-basic-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-dependencies-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-working-time-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-editor-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-tree-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-columns-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-cascade-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-milestones-14.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": null
+  },
+  {
+    "group": "gantt",
+    "theme": "neo-theme-neo-dark",
+    "variant": "candidate",
+    "file": "gantt-neo-theme-neo-dark-candidate.png",
+    "cards": [
+      {
+        "title": "Community Garden Plan",
+        "feature": "A project plan with linked, editable tasks",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A project of 2,000 tasks",
+        "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom a plan in and out",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Durations in working days",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Link tasks by drag",
+        "feature": "Dependencies drawn from one task's handle to another, in four link types",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Your columns beside the plan",
+        "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A late task moves the plan",
+        "feature": "One task slips, and every task that depends on it follows to its new date",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan's release gates",
+        "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "An exhibition takes shape",
+        "feature": "Each phase takes its dates and progress from its tasks.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/shared-planning-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-big-data-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-zoom-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-dependencies-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-working-time-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-basic-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-editor-14.jpg",
+        "source": "candidate",
+        "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b"
+      },
+      {
+        "rel": "devmode/gantt-task-columns-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-tree-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-cascade-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-milestones-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-editor-14-light.jpg",
+        "source": "candidate",
+        "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b"
+      },
+      {
+        "rel": "devmode/gantt-zoom-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-big-data-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-cascade-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-dependencies-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-milestones-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-working-time-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-columns-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-tree-14-light.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": [
+      {
+        "title": "Community Garden Plan",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14-light.jpg\")"
+      },
+      {
+        "title": "One plan, three windows",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg\")"
+      },
+      {
+        "title": "A project of 2,000 tasks",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14-light.jpg\")"
+      },
+      {
+        "title": "Zoom a plan in and out",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14-light.jpg\")"
+      },
+      {
+        "title": "Durations in working days",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14-light.jpg\")"
+      },
+      {
+        "title": "Link tasks by drag",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14-light.jpg\")"
+      },
+      {
+        "title": "Edit a task in a form",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg\")"
+      },
+      {
+        "title": "Your columns beside the plan",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14-light.jpg\")"
+      },
+      {
+        "title": "A late task moves the plan",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14-light.jpg\")"
+      },
+      {
+        "title": "A plan's release gates",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14-light.jpg\")"
+      },
+      {
+        "title": "An exhibition takes shape",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14-light.jpg\")"
+      },
+      {
+        "title": "Meridian Observatory",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg\")"
+      }
+    ]
+  },
+  {
+    "group": "gantt",
+    "theme": "neo-theme-neo-light",
+    "variant": "current",
+    "file": "gantt-neo-theme-neo-light-current.png",
+    "cards": [
+      {
+        "title": "Community Garden Plan",
+        "feature": "A project plan with linked, editable tasks",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A project of 2,000 tasks",
+        "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom a plan in and out",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Durations in working days",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Link tasks by drag",
+        "feature": "Dependencies drawn from one task's handle to another, in four link types",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Your columns beside the plan",
+        "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A late task moves the plan",
+        "feature": "One task slips, and every task that depends on it follows to its new date",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan's release gates",
+        "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "An exhibition takes shape",
+        "feature": "Each phase takes its dates and progress from its tasks.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/gantt-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-big-data-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-dependencies-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-zoom-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-working-time-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-editor-14.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-columns-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-milestones-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-cascade-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-tree-14-light.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": null
+  },
+  {
+    "group": "gantt",
+    "theme": "neo-theme-neo-light",
+    "variant": "candidate",
+    "file": "gantt-neo-theme-neo-light-candidate.png",
+    "cards": [
+      {
+        "title": "Community Garden Plan",
+        "feature": "A project plan with linked, editable tasks",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "One plan, three windows",
+        "feature": "A Scheduler booking, Gantt task and board card share one record across windows.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/shared-planning-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A project of 2,000 tasks",
+        "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-big-data-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Zoom a plan in and out",
+        "feature": "The same linked plan at more than one scale, its links re-drawn at each",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-zoom-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Durations in working days",
+        "feature": "Tasks that skip weekends and holidays when they compute their end",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-working-time-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Link tasks by drag",
+        "feature": "Dependencies drawn from one task's handle to another, in four link types",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-dependencies-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Your columns beside the plan",
+        "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-columns-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A late task moves the plan",
+        "feature": "One task slips, and every task that depends on it follows to its new date",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-cascade-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "A plan's release gates",
+        "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-milestones-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "An exhibition takes shape",
+        "feature": "Each phase takes its dates and progress from its tasks.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-tree-14-light.jpg",
+        "decoded": true
+      },
+      {
+        "title": "Meridian Observatory",
+        "feature": "Book a telescope to catch a dip in starlight.",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/meridian-observatory-14-light.jpg",
+        "decoded": true
+      }
+    ],
+    "routed": [
+      {
+        "rel": "devmode/gantt-zoom-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-big-data-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-basic-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/shared-planning-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-dependencies-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-working-time-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-editor-14-light.jpg",
+        "source": "candidate",
+        "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b"
+      },
+      {
+        "rel": "devmode/gantt-cascade-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-columns-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-task-tree-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/gantt-milestones-14-light.jpg",
+        "source": "public",
+        "status": 200
+      },
+      {
+        "rel": "devmode/meridian-observatory-14-light.jpg",
+        "source": "public",
+        "status": 200
+      }
+    ],
+    "errors": [],
+    "switched": null
+  }
+]

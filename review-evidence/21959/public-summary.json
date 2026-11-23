@@ -1,0 +1,264 @@
+{
+  "baseline": "6d32a7457509adc5cf591ebcd018b27dd8e339f5",
+  "candidate": {
+    "base": "6d32a7457509adc5cf591ebcd018b27dd8e339f5",
+    "dialogSource": "21a7c554c387fc6b2fd632f0ed63584d57d52392",
+    "description": "Local integration with example, catalog, tests and camera changes; four candidate covers routed locally."
+  },
+  "frames": [
+    {
+      "group": "scheduler",
+      "theme": "neo-theme-neo-dark",
+      "variant": "current",
+      "file": "scheduler-neo-theme-neo-dark-current.png",
+      "cards": 13,
+      "decoded": 13,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+        "decoded": true
+      },
+      "switched": null,
+      "candidateAssets": []
+    },
+    {
+      "group": "scheduler",
+      "theme": "neo-theme-neo-dark",
+      "variant": "candidate",
+      "file": "scheduler-neo-theme-neo-dark-candidate.png",
+      "cards": 13,
+      "decoded": 13,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+        "decoded": true
+      },
+      "switched": {
+        "title": "Edit a booking in a form",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg\")"
+      },
+      "candidateAssets": [
+        {
+          "rel": "devmode/scheduler-event-editor-14.jpg",
+          "source": "candidate",
+          "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69"
+        },
+        {
+          "rel": "devmode/scheduler-event-editor-14-light.jpg",
+          "source": "candidate",
+          "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918"
+        }
+      ]
+    },
+    {
+      "group": "scheduler",
+      "theme": "neo-theme-neo-light",
+      "variant": "current",
+      "file": "scheduler-neo-theme-neo-light-current.png",
+      "cards": 13,
+      "decoded": 13,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14.jpg",
+        "decoded": true
+      },
+      "switched": null,
+      "candidateAssets": []
+    },
+    {
+      "group": "scheduler",
+      "theme": "neo-theme-neo-light",
+      "variant": "candidate",
+      "file": "scheduler-neo-theme-neo-light-candidate.png",
+      "cards": 13,
+      "decoded": 13,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a booking in a form",
+        "feature": "A booking's editor: title, room, start and end, with a minimum length",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-event-editor-14-light.jpg",
+        "decoded": true
+      },
+      "switched": null,
+      "candidateAssets": [
+        {
+          "rel": "devmode/scheduler-event-editor-14-light.jpg",
+          "source": "candidate",
+          "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918"
+        }
+      ]
+    },
+    {
+      "group": "gantt",
+      "theme": "neo-theme-neo-dark",
+      "variant": "current",
+      "file": "gantt-neo-theme-neo-dark-current.png",
+      "cards": 12,
+      "decoded": 12,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+        "decoded": true
+      },
+      "switched": null,
+      "candidateAssets": []
+    },
+    {
+      "group": "gantt",
+      "theme": "neo-theme-neo-dark",
+      "variant": "candidate",
+      "file": "gantt-neo-theme-neo-dark-candidate.png",
+      "cards": 12,
+      "decoded": 12,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+        "decoded": true
+      },
+      "switched": {
+        "title": "Edit a task in a form",
+        "image": "url(\"https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg\")"
+      },
+      "candidateAssets": [
+        {
+          "rel": "devmode/gantt-task-editor-14.jpg",
+          "source": "candidate",
+          "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b"
+        },
+        {
+          "rel": "devmode/gantt-task-editor-14-light.jpg",
+          "source": "candidate",
+          "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b"
+        }
+      ]
+    },
+    {
+      "group": "gantt",
+      "theme": "neo-theme-neo-light",
+      "variant": "current",
+      "file": "gantt-neo-theme-neo-light-current.png",
+      "cards": 12,
+      "decoded": 12,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14.jpg",
+        "decoded": true
+      },
+      "switched": null,
+      "candidateAssets": []
+    },
+    {
+      "group": "gantt",
+      "theme": "neo-theme-neo-light",
+      "variant": "candidate",
+      "file": "gantt-neo-theme-neo-light-candidate.png",
+      "cards": 12,
+      "decoded": 12,
+      "errors": [],
+      "editorCard": {
+        "title": "Edit a task in a form",
+        "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
+        "url": "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-task-editor-14-light.jpg",
+        "decoded": true
+      },
+      "switched": null,
+      "candidateAssets": [
+        {
+          "rel": "devmode/gantt-task-editor-14-light.jpg",
+          "source": "candidate",
+          "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b"
+        }
+      ]
+    }
+  ],
+  "blind": [
+    {
+      "label": "A",
+      "state": "editor",
+      "app": "gantt",
+      "theme": "light",
+      "bytes": 69122,
+      "sha256": "097d8c4837c79ca238a52e82ad4eb6b2693c8decd46d78c2a04cf234898f368b",
+      "score": null
+    },
+    {
+      "label": "B",
+      "state": "landing",
+      "app": "scheduler",
+      "theme": "dark",
+      "bytes": 92935,
+      "sha256": "cac910f932324dc9e27acde2942c423e3dd5c486f24ab48e6d0f3d9733e4a940",
+      "score": null
+    },
+    {
+      "label": "C",
+      "state": "landing",
+      "app": "gantt",
+      "theme": "light",
+      "bytes": 120688,
+      "sha256": "0c87e531834da1dc11c9e4c5359f8edef35b3c7372b54376237c909312cd49fa",
+      "score": null
+    },
+    {
+      "label": "D",
+      "state": "editor",
+      "app": "scheduler",
+      "theme": "light",
+      "bytes": 60538,
+      "sha256": "2098e1c1431adac8f1f0a080a148a02615df2740e4ba6e2d0371475e8270b918",
+      "score": null
+    },
+    {
+      "label": "E",
+      "state": "landing",
+      "app": "scheduler",
+      "theme": "light",
+      "bytes": 90647,
+      "sha256": "943d5798a933115d18ed7e821794b82eb6b2904ab71500a87b4b3e182adc5fc0",
+      "score": null
+    },
+    {
+      "label": "F",
+      "state": "editor",
+      "app": "gantt",
+      "theme": "dark",
+      "bytes": 72392,
+      "sha256": "b2fc07e2cf8466e2f691858758613610b60db988a3771eaa5cb1a8c6bb67dc4b",
+      "score": null
+    },
+    {
+      "label": "G",
+      "state": "editor",
+      "app": "scheduler",
+      "theme": "dark",
+      "bytes": 61600,
+      "sha256": "6da3953a90e4cccfdc132ed12651bb6847a9de2c170641331db0003a13ff3b69",
+      "score": null
+    },
+    {
+      "label": "H",
+      "state": "landing",
+      "app": "gantt",
+      "theme": "dark",
+      "bytes": 129563,
+      "sha256": "962ebe3a368387882ebb5a93a7a2b22b21c51e2d678896eb7966aabd76b31d2e",
+      "score": null
+    }
+  ],
+  "limits": [
+    "Local browser preview, not Pages deployment.",
+    "Blind scores are unassigned; visual acceptance requires an independent read."
+  ]
+}
