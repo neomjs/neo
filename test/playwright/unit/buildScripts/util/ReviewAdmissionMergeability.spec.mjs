@@ -929,6 +929,33 @@ test.describe('review-admission mergeability GraphQL controller', () => {
         expect(budgetOneWake.failures[0]).toContain('restReads=1');
         expect(budgetOneWake.failures[0]).toContain('failedRequests=1');
 
+        // 2b. Two UNKNOWN targets, concurrency=2, budget=3, apiRetryDelayMs>0, and 503s -> synchronous post-backoff debit caps at 3 physical GETs (never 4)
+        const concurrentBudgetThree = createReviewAdmissionRuntime({
+            devTip   : 'dev-wake-concurrent',
+            prs      : [makePr(16, null), makePr(17, null)],
+            onRestGet: async() => {
+                await Promise.resolve();
+                return new Error('HttpError: 503 Service Unavailable')
+            }
+        });
+        concurrentBudgetThree.setTimeout = (resolve, delay) => {
+            concurrentBudgetThree.delays.push(delay);
+            Promise.resolve().then(resolve)
+        };
+
+        await executeReviewAdmissionPublisher(script, concurrentBudgetThree, {
+            MERGEABILITY_API_RETRIES       : '2',
+            MERGEABILITY_API_RETRY_DELAY_MS: '50',
+            MERGEABILITY_CONCURRENCY       : '2',
+            MERGEABILITY_POLL_ATTEMPTS     : '2',
+            MERGEABILITY_REST_WAKE_BUDGET  : '3'
+        });
+
+        expect(concurrentBudgetThree.restReads).toHaveLength(3);
+        expect(concurrentBudgetThree.failures[0]).toContain('restReads=3');
+        expect(concurrentBudgetThree.failures[0]).toContain('failedRequests=3');
+        expect(concurrentBudgetThree.failures[0]).toContain('retries=1');
+
         // 3. Three thrown GraphQL invocations log graphqlCalls=3, graphqlCost=0, statusWrites=0, failedRequests=3, retries=2
         const thrownGraphql = createReviewAdmissionRuntime({
             devTip        : 'dev-gql-throw',

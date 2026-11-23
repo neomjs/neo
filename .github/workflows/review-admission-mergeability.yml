@@ -435,10 +435,15 @@ jobs:
                 }
 
                 if (attempt > 0) {
-                  metrics.retries++;
                   if (apiRetryDelayMs > 0) {
                     await sleep(Math.min(apiRetryDelayMs * (2 ** (attempt - 1)), maxDelayMs));
                   }
+
+                  if (restWakeBudget <= 0) {
+                    break;
+                  }
+
+                  metrics.retries++;
                 }
 
                 restWakeBudget--;
