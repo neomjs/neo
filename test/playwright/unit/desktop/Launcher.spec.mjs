@@ -64,6 +64,11 @@ test.describe('Neo.desktop.Launcher', () => {
      */
     const rendered = () => launcher.vdom.cn.map(item => store.get(launcher.getItemRecordId(item.id)).id);
 
+    /**
+     * @returns {Number} The rendered index of the drop marker, or -1 for no proposed move
+     */
+    const markerIndex = () => launcher.vdom.cn.findIndex(item => item.cls?.includes('neo-sort-placement'));
+
     test.beforeEach(async () => {
         Neo.main.addon.DragDrop = {
             registerZone       : async () => {},
@@ -106,23 +111,91 @@ test.describe('Neo.desktop.Launcher', () => {
         const zone = launcher.dragZone;
 
         await zone.onDragStart({clientX: 50, clientY: 50, path: [icon('mail'), {cls: [], id: launcher.id}], targetPath: []});
+        expect(markerIndex()).toBe(-1);
 
         // The upper half of the target, at its right edge: before it
         zone.onDragMove({clientX: 90, clientY: 210, targetPath: [icon('notes', 200), {cls: [], id: launcher.id}]});
 
         expect(rendered()).toEqual(['work', 'chat', 'mail', 'notes']);
+        expect(markerIndex()).toBe(2);
 
         // Its lower half, at its left edge: after it
         zone.onDragMove({clientX: 10, clientY: 290, targetPath: [icon('notes', 200), {cls: [], id: launcher.id}]});
 
         // The preview lives in the vdom only
         expect(rendered()).toEqual(['work', 'chat', 'notes', 'mail']);
+        expect(markerIndex()).toBe(3);
         expect(store.get('mail').order).toBe(0);
 
-        await zone.onDragEnd({});
+        // The preview moved the faded source into the landing slot under the pointer.
+        await zone.onDragEnd({targetPath: [icon('mail', 200), {id: launcher.id}]});
 
         expect(['mail', 'chat', 'notes'].map(id => store.get(id).order)).toEqual([2, 0, 1]);
+        expect(markerIndex()).toBe(-1);
         expect(rendered()).toEqual(['work', 'chat', 'notes', 'mail'])
+    });
+
+    test('leaving the source group clears the preview and marks the drop unavailable', async () => {
+        const zone = launcher.dragZone, root = {id: launcher.id};
+
+        store.add([
+            {id: 'media', text: 'Media', isLeaf: false, collapsed: false},
+            {id: 'photos', text: 'Photos', parentId: 'media'}
+        ]);
+        launcher.createItems();
+
+        const before = rendered();
+
+        await zone.onDragStart({clientX: 50, clientY: 50, path: [icon('mail'), root], targetPath: []});
+        zone.onDragMove({clientX: 50, clientY: 290, targetPath: [icon('notes', 200), root]});
+        expect(rendered()).not.toEqual(before);
+
+        zone.onDragMove({clientX: 180, clientY: 50, targetPath: [icon('photos'), root]});
+        expect(rendered()).toEqual(before);
+        expect(markerIndex()).toBe(-1);
+        expect(zone.dragProxy.cls).toContain('neo-sort-drop-rejected');
+
+        zone.onDragMove({clientX: 50, clientY: 50, targetPath: [icon('mail'), root]});
+        expect(markerIndex()).toBe(-1);
+        expect(zone.dragProxy.cls).not.toContain('neo-sort-drop-rejected');
+
+        zone.onDragMove({clientX: 50, clientY: 110, targetPath: [icon('chat', 100), root]});
+        expect(markerIndex()).toBe(-1);
+
+        zone.onDragMove({clientX: 50, clientY: 290, targetPath: [icon('notes', 200), root]});
+        expect(markerIndex()).toBeGreaterThan(0);
+        expect(zone.dragProxy.cls).not.toContain('neo-sort-drop-rejected');
+        await zone.onDragEnd({targetPath: [icon('mail', 200), root]});
+        expect(store.get('mail').order).toBe(2)
+    });
+
+    test('a release over a header rejects a preview even without a final move event', async () => {
+        const zone = launcher.dragZone, root = {id: launcher.id}, before = rendered();
+
+        let batches = 0;
+        store.on('rowsChange', () => batches++);
+
+        await zone.onDragStart({clientX: 50, clientY: 50, path: [icon('mail'), root], targetPath: []});
+        zone.onDragMove({clientX: 50, clientY: 290, targetPath: [icon('notes', 200), root]});
+        expect(rendered()).not.toEqual(before);
+
+        await zone.onDragEnd({targetPath: [icon('work'), root]});
+        expect(rendered()).toEqual(before);
+        expect(batches).toBe(0)
+    });
+
+    test('a release over a different sibling commits the terminal hit without a final move event', async () => {
+        const zone = launcher.dragZone, root = {id: launcher.id};
+
+        await zone.onDragStart({clientX: 50, clientY: 50, path: [icon('mail'), root], targetPath: []});
+        zone.onDragMove({clientX: 50, clientY: 290, targetPath: [icon('notes', 200), root]});
+        expect(rendered()).toEqual(['work', 'chat', 'notes', 'mail']);
+
+        await zone.onDragEnd({clientX: 50, clientY: 190, targetPath: [icon('chat', 100), root]});
+
+        expect(store.items.map(item => item.id)).toEqual(['work', 'chat', 'mail', 'notes']);
+        expect(rendered()).toEqual(['work', 'chat', 'mail', 'notes']);
+        expect(markerIndex()).toBe(-1)
     });
 
     test('Ctrl+Shift+Right moves the focused app one place and keeps the focus on it; a bare arrow moves nothing', async () => {

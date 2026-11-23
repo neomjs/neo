@@ -1,6 +1,8 @@
 /* The desktop: a wallpaper under see-through containers, the workspace above the taskbar */
 .neo-desktop {
     --container-background-color: transparent;
+    --desktop-return-dwell      : 0ms;
+    --desktop-return-offset     : 0ms;
 
     background: var(--desktop-wallpaper);
     color     : var(--desktop-color);
@@ -15,5 +17,38 @@
         > .neo-desktop-launcher {
             min-width: 0;
         }
+        /* Mark the whole return target; its lower edge fills on the coordinator's dwell clock. */
+        &.neo-desktop-window-dwelling {
+            &::before, &::after {
+                color         : var(--desktop-launcher-focus-color, currentColor);
+                content       : '';
+                pointer-events: none;
+                position      : absolute;
+                z-index       : 20;
+            }
+            &::before {
+                border       : 2px solid currentColor;
+                border-radius: 8px;
+                inset        : 4px;
+                opacity      : .75;
+            }
+            &::after {
+                animation       : neo-desktop-return-dwell var(--desktop-return-dwell) linear calc(-1 * var(--desktop-return-offset)) forwards;
+                background-color: currentColor;
+                border-radius   : 2px;
+                bottom          : 4px;
+                height          : 4px;
+                left            : 10px;
+                right           : 10px;
+                transform-origin: left;
+            }
+        }
     }
+}
+@keyframes neo-desktop-return-dwell {
+    from { transform: scaleX(0) }
+    to   { transform: scaleX(1) }
+}
+@media (prefers-reduced-motion: reduce) {
+    .neo-desktop .neo-desktop-workspace.neo-desktop-window-dwelling::after { content: none }
 }

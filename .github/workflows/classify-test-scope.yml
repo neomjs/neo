@@ -445,7 +445,7 @@ jobs:
             //                                          executed by SourceMoveWorkspaceNL
             //
             // A unit arm reds when either premise stops holding. A false positive is not cheap either:
-            // one starts the engine tier's fifteen shards on a twenty-job cap.
+            // one starts the engine tier's eighteen shards from the org's shared runner pool.
             const isPortalBlogRegistry      = file => file === 'apps/portal/resources/data/blog.json';
             const isPortalServerOnlySeoData = file =>
               file === 'apps/portal/resources/data/seo.json' ||

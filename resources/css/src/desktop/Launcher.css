@@ -85,10 +85,20 @@
         text-shadow   : var(--desktop-launcher-label-shadow);
     }
 
-    /* The icon a drag moves keeps its slot, faded, while the proxy carries it */
+    /* The icon fades while the proxy carries it. An outlined slot marks the proposed new position. */
     .neo-list-item.neo-sort-source {
         opacity  : .3;
         transform: none;
+    }
+
+    .neo-list-item.neo-sort-source.neo-sort-placement {
+        opacity       : 1;
+        outline       : 2px dashed var(--desktop-launcher-focus-color);
+        outline-offset: -2px;
+
+        > * {
+            opacity: .3;
+        }
     }
 }
 
@@ -96,6 +106,14 @@
 .neo-desktop-launcher-proxy .neo-list-item {
     background-color: var(--desktop-launcher-item-background-color-active);
     box-shadow      : 0 18px 40px -12px rgba(0, 0, 0, .55);
+}
+
+.neo-desktop-launcher-proxy.neo-sort-drop-rejected {
+    opacity: .65;
+}
+
+body.neo-drag-active:has(.neo-desktop-launcher-proxy.neo-sort-drop-rejected) {
+    cursor: no-drop !important;
 }
 
 /* A phone: rows of tiles a step smaller in narrower gutters, so a 375px screen holds four columns, and each caption

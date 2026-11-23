@@ -30,7 +30,8 @@
 
     @media (max-width: 700px) {
         align-self           : start;
-        grid-template-columns: repeat(6, 1fr);
+        /* A scroller: each track keeps its card's width, whatever min-width the card sets */
+        grid-template-columns: repeat(6, minmax(min-content, 1fr));
         margin-bottom        : 5em;
         max-width            : fill-available; /* prefixed by postCSS */
         min-height           : 50%;

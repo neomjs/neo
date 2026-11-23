@@ -87,16 +87,24 @@ class Chain extends CoreBase {
                 throw new TypeError(`${location} requires module or className`)
             }
 
-            if (copy.modulePath !== undefined) {
-                const path = copy.modulePath;
-                if (typeof path !== 'string' || !/^(apps\/|examples\/|docs\/app\/|src\/data\/).+\.mjs$/.test(path) ||
-                    /[\\?#%:\u0000-\u001f\u007f]/.test(path) || path.split('/').some(part => !part || part === '.' || part === '..')) {
-                    throw new TypeError(`${location}.modulePath must be a scoped, non-escaping .mjs path`)
-                }
-            }
+            if (copy.modulePath !== undefined) Chain.validateModulePath(copy.modulePath, `${location}.modulePath`);
 
             return copy
         })
+    }
+
+    /**
+     * @summary Validates a shared Data-worker module path for interceptors and Pipeline stages.
+     * @param {String} path Workspace-relative .mjs path, never a URL.
+     * @param {String} [location='modulePath'] Descriptor location for the error message.
+     * @throws {TypeError} Unsupported root, escaping segment or URL syntax.
+     * @static
+     */
+    static validateModulePath(path, location='modulePath') {
+        if (typeof path !== 'string' || !/^(apps\/|examples\/|docs\/app\/|src\/data\/).+\.mjs$/.test(path) ||
+            /[\\?#%:\u0000-\u001f\u007f]/.test(path) || path.split('/').some(part => !part || part === '.' || part === '..')) {
+            throw new TypeError(`${location} must be a scoped, non-escaping .mjs path`)
+        }
     }
 
     /** @summary Whether a value is an ordinary data/config object. @private */

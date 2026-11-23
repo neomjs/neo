@@ -258,22 +258,6 @@
       "region": "viewport"
     },
     {
-      "id": "grid-issues",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The public issue snapshot sorted by issue number with wrapped Title and Summary rows.",
-      "dependencies": [
-        "https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/data/neo_issues.json",
-        "https://github.com/"
-      ],
-      "ready": [{"selector": ".neo-grid-cell[data-field='title']"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-grid-header-button", "text": "#"}
-      ],
-      "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "#"}, {"selector": ".neo-grid-cell[data-field='summary']"}],
-      "region": {"x": 8, "y": 8, "width": 640, "height": 360}
-    },
-    {
       "id": "webdesktop",
       "viewport": {"width": 1280, "height": 720},
       "theme": "default",
@@ -290,26 +274,7 @@
         {"selector": ".neo-desktop-workspace"},
         {"selector": ".webdesktop-mail-inbox"}
       ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "covid-dashboard",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "default",
-      "state": "Country statistics table with USA selected alongside the global summary header.",
-      "dependencies": ["https://raw.githubusercontent.com/neomjs/pages/main/"],
-      "ready": [
-        {"selector": ".covid-header-container"},
-        {"selector": ".neo-country-column", "text": "USA"}
-      ],
-      "steps": [
-        {"kind": "click", "selector": ".neo-country-column", "text": "USA"}
-      ],
-      "after": [
-        {"selector": ".covid-numberbox", "text": "Cases", "inRegion": true},
-        {"selector": ".neo-country-column", "text": "USA"}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
+      "region": "viewport"
     },
     {
       "id": "portal",

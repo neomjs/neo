@@ -1,0 +1,11 @@
+{
+    "appPath"         : "test/playwright/e2e/core/fixtures/pipeline-stages/app.mjs",
+    "basePath"        : "../../../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["Stylesheet"],
+    "themes"          : [],
+    "useAiClient"     : true,
+    "useSharedWorkers": false,
+    "useServiceWorker": false
+}

@@ -34,6 +34,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'component/StandaloneThemeSwitcher.spec.mjs',
     'component/VideoTile.spec.mjs',
     'core/DistEsmWorkspaceBoot.spec.mjs',
+    'core/PipelineStageModules.spec.mjs',
     'core/RefreshDomCorpseRepro.spec.mjs',
     'core/SourceMoveWorkspaceNL.spec.mjs',
     'core/SplitterLiveResizeNL.spec.mjs',

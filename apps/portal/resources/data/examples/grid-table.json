@@ -65,6 +65,7 @@
             "Mobile"
         ],
         "image": "devmode/grid-issues-14.jpg",
+        "hasLightCover": true,
         "name": "GitHub Issues Grid",
         "sourceUrl": "examples/grid/issues",
         "urls": {

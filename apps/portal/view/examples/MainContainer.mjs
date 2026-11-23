@@ -358,6 +358,7 @@ class MainContainer extends Container {
             items    : [me.createFindField('sidebar-find'), {
                 module      : GroupIndex,
                 flex        : 1,
+                listeners   : {enterCards: 'onIndexEnterCards', walk: 'onIndexWalk'},
                 presentation: 'list',
                 reference   : 'group-index'
             }]
