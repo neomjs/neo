@@ -44,17 +44,45 @@ async function editWireframes(page) {
     await expect(page.locator('.neo-timeline-event-editor input[name="title"]')).toHaveValue('Sketch the wireframes')
 }
 
+test('the landing editor names its visible task and can be reopened by keyboard', async ({page}) => {
+    await page.setViewportSize({width: 960, height: 540});
+    await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+    const editor = page.locator('.neo-timeline-event-editor'), title = editor.locator('input[name="title"]'),
+          bar    = page.locator('.neo-timeline-bar[data-event-id="pages"]');
+    await expect(title).toHaveValue('Design the inner pages');
+    await expect(title).toBeFocused();
+    await expect(editor).toBeInViewport({ratio: 1});
+    await expect(bar).toBeInViewport();
+    const dialogBox = await editor.boundingBox(), barBox = await bar.boundingBox();
+    expect(barBox.x + barBox.width).toBeGreaterThan(dialogBox.x + dialogBox.width);
+    expect(barBox.x).toBeLessThan(960);
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden();
+    await bar.focus();
+    await page.keyboard.press('Enter');
+    await expect(title).toHaveValue('Design the inner pages');
+    await editor.getByRole('button', {name: 'close'}).click();
+    await expect(editor).toBeHidden()
+});
+
 test.describe('at 1440 × 900', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
-        await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeVisible()
+        await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeVisible();
+        await expect(page.locator('.neo-timeline-event-editor input[name="title"]')).toHaveValue('Design the inner pages');
+        await page.locator('.neo-timeline-event-editor-cancel').click();
+        await expect(page.locator('.neo-timeline-event-editor')).toBeHidden()
     });
 
     test('the editor opens on a task by double-click and by Enter, and Escape hands focus back to it', async ({page}) => {
         const editor = page.locator('.neo-timeline-event-editor');
 
+        await page.locator('.neo-theme-switcher').first().click();
+        await page.getByRole('menuitemradio', {name: 'Neo Light', exact: true}).click();
+        await expect(page.locator('.neo-viewport').first()).toHaveClass(/\bneo-theme-neo-light\b/);
         await editWireframes(page);
+        await expect(editor).toHaveClass(/\bneo-theme-neo-light\b/);
         await page.keyboard.press('Escape');
         await expect(editor).toBeHidden();
         await expect(page.locator('.neo-timeline-bar[data-event-id="wireframes"]')).toBeFocused();

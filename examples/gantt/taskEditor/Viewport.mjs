@@ -143,6 +143,21 @@ class TaskEditorViewport extends Viewport {
     }
 
     /**
+     * @summary Opens the inner-pages task on first mount, with its dependency visible beside the editor.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        const gantt = this.getReference('gantt');
+        if (value && !gantt.eventEditor) {
+            gantt.openTaskEditor('pages')
+        }
+    }
+
+    /**
      * @summary Narrows the task column at the phone breakpoint and widens it back above it.
      * @param {Object} data The viewport's `resize` event
      */

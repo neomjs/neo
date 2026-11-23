@@ -727,27 +727,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "scheduler-event-editor",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "dark",
-      "state": "Crown preparation is open over the day and the form shows the minimum-length refusal.",
-      "ready": [
-        {"selector": ".neo-timeline-bar[data-event-id=\"appt-13\"]"}
-      ],
-      "steps": [
-        {"kind": "dblclick", "selector": ".neo-timeline-bar[data-event-id=\"appt-13\"]"},
-        {"kind": "fill", "selector": ".neo-timeline-event-editor [id$=\"__field__endDate__time__input\"]", "value": "10:45"},
-        {"kind": "press", "selector": ".neo-timeline-event-editor [id$=\"__field__endDate__time__input\"]", "key": "Tab"},
-        {"kind": "click", "selector": ".neo-timeline-event-editor button", "text": "Save"}
-      ],
-      "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
-        {"selector": ".neo-timeline-event-editor input[name=\"title\"]", "value": "Crown preparation", "inRegion": true},
-        {"selector": ".neo-timeline-event-editor .neo-textfield-error", "text": "at least 30 minutes", "inRegion": true}
-      ],
-      "region": "viewport"
-    },
-    {
       "id": "scheduler-zoom",
       "viewport": {"width": 640, "height": 720},
       "theme": "dark",
@@ -825,24 +804,6 @@
         {"selector": ".neo-timeline-bar.is-feed-fresh .gate-bar-delta", "inRegion": true}
       ],
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "gantt-task-editor",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "The wireframes task editor is open over the linked plan.",
-      "ready": [
-        {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
-      ],
-      "steps": [
-        {"kind": "dblclick", "selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
-      ],
-      "after": [
-        {"selector": "[class~=\"neo-theme-neo-dark\"] .neo-theme-switcher, .neo-theme-switcher.neo-theme-neo-dark"},
-        {"selector": ".neo-timeline-event-editor input[name=\"title\"]", "value": "Sketch the wireframes", "inRegion": true},
-        {"selector": ".neo-timeline-bar[data-event-id=\"wireframes\"]"}
-      ],
-      "region": {"selector": ".neo-timeline-event-editor", "anchor": "center", "width": 640, "height": 360}
     },
     {
       "id": "gantt-cascade",

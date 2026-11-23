@@ -82,11 +82,40 @@ function clickButton(page, text) {
     return page.locator(`${EDITOR} button`, {hasText: text}).click()
 }
 
+/** @summary Closes the example's initial editor before exercising another appointment. */
+async function dismissOpening(page) {
+    await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toHaveValue('Root canal');
+    await clickButton(page, 'Cancel');
+    await expect(page.locator(EDITOR)).toBeHidden()
+}
+
+test('the landing editor names its visible appointment and can be reopened by keyboard', async ({page}) => {
+    await page.setViewportSize({width: 960, height: 540});
+    await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+    const editor      = page.locator(EDITOR), title = editor.locator('[id$="__field__title__input"]'),
+          appointment = bar(page, 'appt-22');
+    await expect(title).toHaveValue('Root canal');
+    await expect(title).toBeFocused();
+    await expect(editor).toBeInViewport({ratio: 1});
+    await expect(appointment).toBeInViewport();
+    const dialogBox = await editor.boundingBox(), barBox = await appointment.boundingBox();
+    expect(barBox.y).toBeGreaterThanOrEqual(dialogBox.y + dialogBox.height);
+    expect(barBox.y).toBeLessThan(540);
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden();
+    await appointment.focus();
+    await page.keyboard.press('Enter');
+    await expect(title).toHaveValue('Root canal');
+    await editor.getByRole('button', {name: 'close'}).click();
+    await expect(editor).toBeHidden()
+});
+
 test.describe('Scheduler event editor example (#21615)', () => {
     test.beforeEach(async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
-        await expect(bar(page, 'appt-1')).toBeVisible()
+        await expect(bar(page, 'appt-1')).toBeVisible();
+        await dismissOpening(page)
     });
 
     test('Tab and Enter, or a double-click, open the editor, and Cancel and Escape change nothing', async ({page}) => {
@@ -104,9 +133,14 @@ test.describe('Scheduler event editor example (#21615)', () => {
         await expect(page.locator(EDITOR)).toBeHidden();
         await expect.poll(() => focusedAppointment(page)).toBe('appt-1');
 
-        // A double-click opens an appointment, worded for the practice: a room, no progress
+        await page.locator('.neo-theme-switcher').first().click();
+        await page.getByRole('menuitemradio', {name: 'Neo Light', exact: true}).click();
+        await expect(page.locator('.neo-viewport').first()).toHaveClass(/\bneo-theme-neo-light\b/);
+
+        // A double-click reopens the editor in the current theme, with a room and no progress
         await bar(page, 'appt-2').dblclick();
         await expect(page.locator(EDITOR)).toBeVisible();
+        await expect(page.locator(EDITOR)).toHaveClass(/\bneo-theme-neo-light\b/);
         await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toHaveValue('Cleaning');
         await expect(page.locator(`${EDITOR} [id$="__field__endDate__time__input"]`)).toHaveValue('09:30');
         await expect(page.locator(`${EDITOR} label`, {hasText: 'Room'})).toBeVisible();
@@ -170,6 +204,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
 
         await page.setViewportSize({width: 390, height: 844});
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+        await dismissOpening(page);
 
         // About two hours fit the phone, and the hint says the plan scrolls
         await expect(page.locator('.dp-hint-narrow', {hasText: 'Scroll sideways'})).toBeVisible();
@@ -196,6 +231,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
         for (const size of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
             await page.setViewportSize(size);
             await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+            await dismissOpening(page);
             await bar(page, 'appt-2').dblclick();
             await expect(page.locator(`${EDITOR} [id$="__field__title__input"]`)).toBeFocused();
 

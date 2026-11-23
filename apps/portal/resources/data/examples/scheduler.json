@@ -112,6 +112,7 @@
     {
         "id": "scheduler-event-editor",
         "image": "devmode/scheduler-event-editor-14.jpg",
+        "hasLightCover": true,
         "name": "Edit a booking in a form",
         "sourceUrl": "examples/scheduler/eventEditor",
         "urls": {
@@ -124,7 +125,7 @@
         "order": 1090,
         "component": "Scheduler",
         "feature": "A booking's editor: title, room, start and end, with a minimum length",
-        "lookFor": "Double-click an appointment, or focus it and press Enter. Shorten it below 30 minutes: the editor refuses."
+        "lookFor": "The editor opens on Root canal in Surgery. Shorten the appointment to less than 30 minutes and try to save."
     },
     {
         "id": "scheduler-zoom",

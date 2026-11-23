@@ -112,6 +112,7 @@
     {
         "id": "gantt-task-editor",
         "image": "devmode/gantt-task-editor-14.jpg",
+        "hasLightCover": true,
         "name": "Edit a task in a form",
         "sourceUrl": "examples/gantt/taskEditor",
         "urls": {
@@ -124,7 +125,7 @@
         "order": 1170,
         "component": "Gantt",
         "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
-        "lookFor": "Double-click a task and move its end a week out: its successors shift. Then set it to 100 %."
+        "lookFor": "The editor opens on Design the inner pages. Move its end a week later and save to see Review the designs follow."
     },
     {
         "id": "gantt-task-columns",
