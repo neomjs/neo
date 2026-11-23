@@ -180,10 +180,20 @@ class GroupIndex extends Component {
         });
 
         me.vdom.cn = [
-            {tag: 'a', id: me.id + '__all', cls: ['portal-examples-group-index-all'], 'aria-current': !me.matchCounts && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null, href: '#/examples', removeDom: me.presentation === 'overview', cn: [
-                {tag: 'i', cls: ['fa', 'fa-table-cells-large'], 'aria-hidden': true},
-                {tag: 'span', text: 'All examples'}
-            ]},
+            {
+                tag           : 'a',
+                id            : me.id + '__all',
+                cls           : ['portal-examples-group-index-all'],
+                'aria-current': !me.matchCounts && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null,
+                'aria-label'  : `All examples, ${ExampleGroup.countLabel({count: published, crossCount: 0})}`,
+                href          : '#/examples',
+                removeDom     : me.presentation === 'overview',
+                cn            : [
+                    {tag: 'i',    cls: ['fa', 'fa-table-cells-large'], 'aria-hidden': true},
+                    {tag: 'span', text: 'All examples'},
+                    {tag: 'span', cls: ['portal-examples-group-index-count'], text: String(published)}
+                ]
+            },
             {tag: 'ul', cls: ['portal-examples-group-index-top'], removeDom: unbanded.length === 0, cn: unbanded.map(group => me.createEntry(group))},
             ...[...bands].map(([band, groups]) => ({
                 tag: 'section',
