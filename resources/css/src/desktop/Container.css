@@ -1,6 +1,8 @@
 /* The desktop: a wallpaper under see-through containers, the workspace above the taskbar */
 .neo-desktop {
     --container-background-color: transparent;
+    --desktop-return-dwell      : 0ms;
+    --desktop-return-offset     : 0ms;
 
     background: var(--desktop-wallpaper);
     color     : var(--desktop-color);
