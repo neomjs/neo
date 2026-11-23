@@ -83,6 +83,7 @@
         "id": "grid-countries",
         "featured": false,
         "image": "devmode/grid-countries-14.jpg",
+        "hasLightCover": true,
         "name": "Country Statistics Grid",
         "sourceUrl": "examples/grid/countries",
         "urls": {
@@ -103,6 +104,7 @@
         "id": "table-filtering",
         "featured": false,
         "image": "devmode/table-filtering-14.jpg",
+        "hasLightCover": true,
         "name": "Table Filtering",
         "sourceUrl": "examples/tableFiltering",
         "urls": {
@@ -230,6 +232,7 @@
     {
         "id": "grid-server-side",
         "image": "devmode/grid-server-side-14.jpg",
+        "hasLightCover": true,
         "name": "Grid Server-side Paging",
         "sourceUrl": "examples/grid/serverSide",
         "urls": {
@@ -253,6 +256,7 @@
     {
         "id": "grid-header-groups",
         "image": "devmode/grid-header-groups-14.jpg",
+        "hasLightCover": true,
         "name": "Grouped Grid Headers",
         "sourceUrl": "examples/grid/headerGroups",
         "urls": {
@@ -295,6 +299,7 @@
     {
         "id": "grid-cell-types",
         "image": "devmode/grid-cell-types-14.jpg",
+        "hasLightCover": true,
         "name": "Built-in Cell Types",
         "keywords": [
             "columns",
