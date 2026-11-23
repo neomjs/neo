@@ -61,6 +61,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(groupLink(page, 'Gantt')).toBeFocused();
         await expectOpenPage(page, 'Gantt');
         await expect(groupLink(page, 'Gantt')).toHaveAttribute('aria-current', 'page');
+        await expect(nav, 'focus moves to real links, so the landmark names no active descendant').not.toHaveAttribute('aria-activedescendant');
 
         await page.keyboard.press('ArrowUp');
         await expect(scheduler).toBeFocused();

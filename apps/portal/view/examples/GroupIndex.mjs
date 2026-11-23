@@ -404,11 +404,11 @@ class GroupIndex extends Component {
 
         if (active && !me.navigator) {
             me.navigator = {
-                appName       : me.appName,
-                id            : me.id,
-                rovingTabIndex: false,
-                selector      : `[${Neo.config.useDomIds ? 'id' : 'data-neo-id'}="${me.id}"] a[href]`,
-                windowId      : me.windowId
+                appName  : me.appName,
+                focusOnly: true,
+                id       : me.id,
+                selector : `[${Neo.config.useDomIds ? 'id' : 'data-neo-id'}="${me.id}"] a[href]`,
+                windowId : me.windowId
             };
 
             Neo.main.addon.Navigator.subscribe(me.navigator)
