@@ -1,0 +1,91 @@
+{
+  "engine": {
+    "before": "aa41c1f139dba87d8fd3d9f3075dade0354263d0",
+    "after": "356e8d435f8715cdab49163cf66af1f68a0ee2ed"
+  },
+  "record": {
+    "commit": "fa9dfe44c37ab09a46b775bf3acd17fdc2b5093d",
+    "path": "apps/portal/resources/data/record-week.json",
+    "gitBlob": "f21210e8f751968369cd0fcc68bca93b446ce113",
+    "bytes": 62860,
+    "sha256": "168f4b9d84dfa1dcedbf434c825a518a7418523e2af95aa6ce15fefa582e5394",
+    "appWorkerCaption": "16–22 Nov 2026 · 695 reviews · 35 outside contributors · neomjs/neo"
+  },
+  "method": "Each stock Portal ran from a fresh archive with its own compiled development themes and browser dependencies. The only tracked-path overlay was the same record blob. Opening screenshots use normal motion after fonts and button entrance animations settled. Reduced-motion counts use pixel samples at the renderer’s expected square centers, with empty day slots as negative controls.",
+  "phone390": {
+    "beforeMode": "none",
+    "beforeStrip": null,
+    "afterMode": "strip",
+    "squarePx": 2,
+    "gapPx": 1,
+    "painted": 459,
+    "emptyControls": 185,
+    "dayCounts": [
+      51,
+      47,
+      47,
+      69,
+      62,
+      91,
+      92
+    ],
+    "visibleCaption": "16–22 Nov 2026 · 459 merged pull requests · 695 reviews",
+    "captionFontPx": 12,
+    "buttonToStripPx": 10,
+    "spaceBelowStripPx": 11.875
+  },
+  "desktop1440": {
+    "mode": "table",
+    "seats": 12,
+    "squarePx": 6,
+    "spaceBelowStripPx": 48,
+    "reducedMotionPainted": 459
+  },
+  "phone375": {
+    "viewport": [
+      375,
+      812
+    ],
+    "firstScreenStripBottomOverhangPx": 44.234375,
+    "scrollPx": 100,
+    "afterScrollPainted": 459,
+    "afterScrollEmptyControls": 185
+  },
+  "images": [
+    {
+      "file": "before-phone-390x844-opening.png",
+      "title": "Phone before the repair",
+      "caption": "The 459-item record loads, but the original renderer cannot fit a strip under the buttons.",
+      "bytes": 151297,
+      "sha256": "096b7bd996d2d698a10f9f485a216b236c699063d4b3a99129b6110796bee3fd"
+    },
+    {
+      "file": "after-phone-390x844-replay.png",
+      "title": "Phone during normal replay",
+      "caption": "The operating strip and replay caption appear below both buttons without moving the statement.",
+      "bytes": 160489,
+      "sha256": "ec4459132e06e0ad747923c0dce1ee3c0be02f21b10c4713988151f6b3033e60"
+    },
+    {
+      "file": "after-phone-390x844-settled.png",
+      "title": "Phone with reduced motion",
+      "caption": "All 459 merged pull requests are visible in seven day columns. The caption fits within the opening screen.",
+      "bytes": 161843,
+      "sha256": "4e5e5f591eb96686b7e3d13c9d8a460cf87a8c021420ec37e0423e67389ded04"
+    },
+    {
+      "file": "after-desktop-1440x900-replay.png",
+      "title": "Desktop during normal replay",
+      "caption": "The original desktop table retains the ten maintainers, Contributors and the merge seat.",
+      "bytes": 496984,
+      "sha256": "01aaed2ee474b1bca54cc54cdac6066d33ecac08fb354c43d2069acc39f17a0c"
+    },
+    {
+      "file": "after-phone-375x812-scrolled.png",
+      "title": "Shorter phone after scrolling",
+      "caption": "At 375 × 812 the strip starts below the opening screen. A 100 px scroll reveals all 459 squares and the caption.",
+      "bytes": 159087,
+      "sha256": "dc3f2a14e016f6c0439c6a1dce253e9781e1ebe10c465caa6dbdcb5e03b44eff"
+    }
+  ]
+}
