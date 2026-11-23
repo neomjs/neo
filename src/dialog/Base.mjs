@@ -1123,9 +1123,14 @@ class Dialog extends Panel {
     }
 
     /**
+     * Lifecycle override: show() mounts a dialog through initVnode(), so the revert of the initial
+     * offscreen positioning from .neo-floating has to ride that method. An override parked on a
+     * differently named lifecycle method would never run, leaving a dialog shown without an
+     * animation target at its offscreen position.
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     * @returns {Promise<Object>}
      */
-    async render(mount) {
+    async initVnode(mount) {
         let me             = this,
             {wrapperStyle} = me;
 
@@ -1143,7 +1148,7 @@ class Dialog extends Panel {
             me.wrapperStyle = wrapperStyle
         }
 
-        await super.render(mount)
+        return super.initVnode(mount)
     }
 
     /**
