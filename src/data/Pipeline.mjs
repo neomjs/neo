@@ -3,6 +3,9 @@ import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import InterceptorChain from './interceptor/Chain.mjs';
 import {generateUUID}  from '../util/UUID.mjs';
 
+// Built-in loader transport rejections retain the established cold-start retry budget.
+const retryableLoaderCall = Symbol('retryableLoaderCall');
+
 /**
  * @summary The central orchestrator for data transformation and remote execution.
  *
@@ -557,14 +560,17 @@ class Pipeline extends Base {
             }
 
             const modulesToLoad = stages.map(async ({className, modulePath}) => {
+                let result;
                 try {
-                    const result = await (modulePath === undefined
+                    result = await (modulePath === undefined
                         ? Neo.worker.Data.loadDataModule({className})
                         : Neo.worker.Data.loadModule({path: modulePath, className}));
-                    if (!result?.success) throw new Error(result?.error ?? 'No successful loader result')
                 } catch (error) {
-                    throw new Error(`Failed to load ${className}: ${error?.message ?? error}`)
+                    const failure = new Error(`Failed to load ${className}: ${error?.message ?? error}`, {cause: error});
+                    if (modulePath === undefined) failure[retryableLoaderCall] = true;
+                    throw failure
                 }
+                if (!result?.success) throw new Error(`Failed to load ${className}: ${result?.error ?? 'No successful loader result'}`)
             });
             if (remoteConfig.interceptors) {
                 modulesToLoad.push(Pipeline.preloadInterceptors(remoteConfig.interceptors))
@@ -597,7 +603,7 @@ class Pipeline extends Base {
         } catch (e) {
             if (!me.isDestroyed) {
                 me.remoteInitializationError = e;
-                if (preloading) me.remotePreloadError = e
+                if (preloading && !e?.[retryableLoaderCall]) me.remotePreloadError = e
             }
             console.error('Pipeline: IPC error during remote instantiation', e)
         } finally {

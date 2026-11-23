@@ -138,14 +138,14 @@ test('remote progressive loads retain streaming state and continuation through t
 
 test.describe('built-in Pipeline cold-start recovery through instance RMA', () => {
     for (const operation of ['read', 'execute']) {
-        for (const startupFailure of ['rejected call', 'refused result']) {
+        for (const startupFailure of ['rejected call', 'refused result', 'rejected loader call']) {
             for (const maxRemoteRetries of [0, 1]) {
                 test(`${operation}: ${startupFailure} before the first counterpart, retry budget ${maxRemoteRetries}`, async () => {
                     const previousWorker = Neo.currentWorker, previousData = Neo.worker.Data,
                           previousMode   = Neo.config.unitTestMode, previousWorkerId = Neo.workerId,
                           previousError  = console.error, previousWarn = console.warn,
                           wire           = [], rows = [], requests = [], params = {page: 2};
-                    let source, target, receiver, creations = 0;
+                    let source, target, receiver, creations = 0, streamLoads = 0;
 
                     try {
                         console.error = console.warn = () => {};
@@ -169,10 +169,15 @@ test.describe('built-in Pipeline cold-start recovery through instance RMA', () =
                             }
                         };
                         Neo.worker.Data = {
-                            loadDataModule: async () => ({success: true}),
+                            async loadDataModule({className}) {
+                                if (className === StreamParser.prototype.className && ++streamLoads === 1 && startupFailure === 'rejected loader call') {
+                                    throw new Error('transient loader transport failure')
+                                }
+                                return {success: true}
+                            },
                             async createInstance({config}) {
                                 creations++;
-                                if (creations === 1) {
+                                if (creations === 1 && startupFailure !== 'rejected loader call') {
                                     if (startupFailure === 'rejected call') throw new Error('transient startup failure');
                                     return {success: false, error: 'transient startup failure'}
                                 }
@@ -200,7 +205,8 @@ test.describe('built-in Pipeline cold-start recovery through instance RMA', () =
 
                         const result = operation === 'read' ? source.read(params) : source.execute('search', params);
                         await expect(result).resolves.toEqual(maxRemoteRetries ? {success: true, count: 1} : null);
-                        expect(creations).toBe(maxRemoteRetries + 1);
+                        expect(streamLoads).toBe(maxRemoteRetries + 1);
+                        expect(creations).toBe(startupFailure === 'rejected loader call' ? maxRemoteRetries : maxRemoteRetries + 1);
                         expect(wire).toHaveLength(maxRemoteRetries + 1);
                         expect(wire[0].remoteId, 'the first startup has no Data counterpart').toBeUndefined();
                         expect(rows).toEqual(maxRemoteRetries ? [{id: 7}] : []);
