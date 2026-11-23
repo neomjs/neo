@@ -137,10 +137,10 @@ test.describe('Portal.view.home.ContentBox', () => {
                 expect(subNode?.className).toContain('neo-h2');
             }
 
-            // Each sub-headline counts its own snippet; the grid's feed writes records and measures its own rate
-            expect(Grid.config.subHeadline).toBe(`Live Data · ${Grid.config.livePreviewCode.split('\n').length} Lines`);
-            expect(Planning.config.subHeadline).toBe(`One Store · ${Planning.config.livePreviewCode.split('\n').length} Lines`);
-            expect(Grid.config.livePreviewCode).toContain('record.set(');
+            // Each sub-headline counts its own snippet; the grid's feed writes records (including demand) and measures its own rate
+            expect(Grid.config.subHeadline).toBe(`Live Data · ${Grid.config.livePreviewCode.split('\n').length} Lines of Code`);
+            expect(Planning.config.subHeadline).toBe(`One Store · ${Planning.config.livePreviewCode.split('\n').length} Lines of Code`);
+            expect(Grid.config.livePreviewCode).toContain('record.set({price, trend, change: price - record.open, demand})');
             expect(Grid.config.livePreviewCode).toContain('done * 1000 / (Date.now() - since)');
 
             // The planning page binds one store to both of its views, and comes first

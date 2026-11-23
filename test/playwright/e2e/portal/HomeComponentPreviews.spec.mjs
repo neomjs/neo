@@ -74,7 +74,7 @@ async function expectLineCount(page, section) {
           editorId    = await section.locator('.neo-monaco-editor').getAttribute('id');
 
     await expect.poll(() => page.evaluate(id => Neo.main.addon.MonacoEditor.map[id]?.getModel()?.getLineCount(), editorId))
-        .toBe(Number(subHeadline.match(/(\d+) Lines/)[1]))
+        .toBe(Number(subHeadline.match(/(\d+) Lines of Code/)[1]))
 }
 
 /**
@@ -153,6 +153,7 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
         await expect(planning.getByText('Source', {exact: true})).toBeVisible();
 
         await expect(planning.getByRole('heading', {level: 2})).toHaveText('Gantt & Task Board');
+        await expect(planning.getByRole('heading', {level: 3})).toHaveText('One Store · 48 Lines of Code');
         await expectLineCount(page, planning);
         await expect(planning.getByRole('link', {name: 'The Gantt guide'})).toBeVisible();
         await expect(planning.locator('.neo-timeline-bar')).toHaveCount(11);
@@ -228,9 +229,20 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
         expectTextBesidePreview(await readLayout(grid), false);
 
         await expect(grid.getByRole('heading', {level: 2})).toHaveText('Data Grid');
+        await expect(grid.getByRole('heading', {level: 3})).toHaveText('Live Data · 48 Lines of Code');
         await expectLineCount(page, grid);
         await expect(grid.getByRole('link', {name: 'The grid guide'})).toBeVisible();
         await expect(grid.locator('.neo-grid-row').first()).toContainText('Novatek Energy');
+
+        // Demand stretches to the desktop grid's trailing edge and animates on same-record feed ticks
+        const demandRight = await grid.locator('.neo-grid-header-button', {hasText: 'Demand'}).evaluate(node => node.getBoundingClientRect().right),
+              gridRight   = await grid.locator('.neo-grid-container').evaluate(node => node.getBoundingClientRect().right),
+              demands     = () => grid.locator('.neo-grid-cell[data-field="demand"] progress').evaluateAll(bars => bars.map(bar => bar.value).join('|')),
+              demandStart = await demands();
+
+        expect(gridRight - demandRight).toBeLessThanOrEqual(20);
+        await expect.poll(demands, {timeout: 10000}).not.toBe(demandStart);
+        await expect.poll(() => grid.locator('.neo-grid-cell[data-field="demand"] progress.neo-progress-animate').count(), {timeout: 10000}).toBeGreaterThan(0);
 
         // The feed reaches the cells: the prices on screen change by themselves
         const prices = () => grid.locator('.neo-grid-row').evaluateAll(rows => rows.map(row => row.innerText).join('|'));

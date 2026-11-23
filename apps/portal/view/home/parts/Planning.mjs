@@ -109,10 +109,10 @@ class Planning extends FeatureSection {
             'the code and both follow.'
         ].join(''),
         /**
-         * @member {String} subHeadline='One Store · 48 Lines'
+         * @member {String} subHeadline='One Store · 48 Lines of Code'
          * @reactive
          */
-        subHeadline: 'One Store · 48 Lines'
+        subHeadline: 'One Store · 48 Lines of Code'
     }
 }
 
