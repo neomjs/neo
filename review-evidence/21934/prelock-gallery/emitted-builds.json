@@ -1,0 +1,360 @@
+{
+  "candidate": "8257d659160afaff9534fe9bbc81429035c76848",
+  "scope": "Actual locally built Portal, selected mode and visible title link. Only the exact public document navigation was redirected to the matching built artifact and query on loopback. No cover publication check.",
+  "catalogs": [
+    {
+      "mode": "devmode",
+      "folder": "apps/portal/resources/data/examples",
+      "verifiedAgainstGit": 21,
+      "byteMatches": 21,
+      "records": 167,
+      "paired": 122,
+      "rawCatalogBytes": 157396,
+      "catalogSha256": "befcea4935586b1b0b271768077138d302c66bcf4d295bfdde536d85240f5845",
+      "canonicalRecordsSha256": "1e73b70eb0bd0ead718fd46e2721ac4d3e57d0ee51831f775041e2e369d81486",
+      "portalBuildId": null,
+      "candidates": {
+        "grid-big-data": {
+          "image": "devmode/grid-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/grid/bigData/index.html"
+        },
+        "grid-tree-big-data": {
+          "image": "devmode/grid-tree-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/grid/treeBigData/index.html"
+        },
+        "list-animate": {
+          "image": "devmode/list-animate-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/list/animate/index.html"
+        },
+        "markdown": {
+          "image": "devmode/markdown-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/component/markdown/index.html"
+        },
+        "graph-scene": {
+          "image": "devmode/graph-scene-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/component/graphScene/index.html"
+        },
+        "breadcrumb": {
+          "image": "devmode/breadcrumb-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/toolbar/breadcrumb/index.html"
+        },
+        "dock-cross-window": {
+          "image": "devmode/dock-cross-window-14.jpg",
+          "hasLightCover": true,
+          "launch": "examples/dashboard/crossWindow/index.html"
+        }
+      }
+    },
+    {
+      "mode": "dist_dev",
+      "folder": "dist/development/apps/portal/resources/data/examples",
+      "verifiedAgainstGit": 21,
+      "byteMatches": 21,
+      "records": 167,
+      "paired": 122,
+      "rawCatalogBytes": 157396,
+      "catalogSha256": "befcea4935586b1b0b271768077138d302c66bcf4d295bfdde536d85240f5845",
+      "canonicalRecordsSha256": "1e73b70eb0bd0ead718fd46e2721ac4d3e57d0ee51831f775041e2e369d81486",
+      "portalBuildId": "mwsrak2d",
+      "candidates": {
+        "grid-big-data": {
+          "image": "devmode/grid-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/grid/bigData/index.html"
+        },
+        "grid-tree-big-data": {
+          "image": "devmode/grid-tree-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/grid/treeBigData/index.html"
+        },
+        "list-animate": {
+          "image": "devmode/list-animate-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/list/animate/index.html"
+        },
+        "markdown": {
+          "image": "devmode/markdown-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/component/markdown/index.html"
+        },
+        "graph-scene": {
+          "image": "devmode/graph-scene-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/component/graphScene/index.html"
+        },
+        "breadcrumb": {
+          "image": "devmode/breadcrumb-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/toolbar/breadcrumb/index.html"
+        },
+        "dock-cross-window": {
+          "image": "devmode/dock-cross-window-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/development/examples/dashboard/crossWindow/index.html"
+        }
+      }
+    },
+    {
+      "mode": "dist_esm",
+      "folder": "dist/esm/apps/portal/resources/data/examples",
+      "verifiedAgainstGit": 21,
+      "byteMatches": 0,
+      "records": 167,
+      "paired": 122,
+      "rawCatalogBytes": 120975,
+      "catalogSha256": "6d944517f3c810464d1f6f6558efcd781b216c8d7454da038c38b7fef4246cd6",
+      "canonicalRecordsSha256": "1e73b70eb0bd0ead718fd46e2721ac4d3e57d0ee51831f775041e2e369d81486",
+      "portalBuildId": "mwsrak2d",
+      "candidates": {
+        "grid-big-data": {
+          "image": "devmode/grid-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/grid/bigData/index.html"
+        },
+        "grid-tree-big-data": {
+          "image": "devmode/grid-tree-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/grid/treeBigData/index.html"
+        },
+        "list-animate": {
+          "image": "devmode/list-animate-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/list/animate/index.html"
+        },
+        "markdown": {
+          "image": "devmode/markdown-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/component/markdown/index.html"
+        },
+        "graph-scene": {
+          "image": "devmode/graph-scene-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/component/graphScene/index.html"
+        },
+        "breadcrumb": {
+          "image": "devmode/breadcrumb-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/toolbar/breadcrumb/index.html"
+        },
+        "dock-cross-window": {
+          "image": "devmode/dock-cross-window-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/esm/examples/dashboard/crossWindow/index.html"
+        }
+      }
+    },
+    {
+      "mode": "dist_prod",
+      "folder": "dist/production/apps/portal/resources/data/examples",
+      "verifiedAgainstGit": 21,
+      "byteMatches": 0,
+      "records": 167,
+      "paired": 122,
+      "rawCatalogBytes": 120975,
+      "catalogSha256": "6d944517f3c810464d1f6f6558efcd781b216c8d7454da038c38b7fef4246cd6",
+      "canonicalRecordsSha256": "1e73b70eb0bd0ead718fd46e2721ac4d3e57d0ee51831f775041e2e369d81486",
+      "portalBuildId": "mwsrak2d",
+      "candidates": {
+        "grid-big-data": {
+          "image": "devmode/grid-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/grid/bigData/index.html"
+        },
+        "grid-tree-big-data": {
+          "image": "devmode/grid-tree-big-data-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/grid/treeBigData/index.html"
+        },
+        "list-animate": {
+          "image": "devmode/list-animate-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/list/animate/index.html"
+        },
+        "markdown": {
+          "image": "devmode/markdown-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/component/markdown/index.html"
+        },
+        "graph-scene": {
+          "image": "devmode/graph-scene-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/component/graphScene/index.html"
+        },
+        "breadcrumb": {
+          "image": "devmode/breadcrumb-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/toolbar/breadcrumb/index.html"
+        },
+        "dock-cross-window": {
+          "image": "devmode/dock-cross-window-14.jpg",
+          "hasLightCover": true,
+          "launch": "dist/production/examples/dashboard/crossWindow/index.html"
+        }
+      }
+    }
+  ],
+  "browser": [
+    {
+      "mode": "dist_prod",
+      "id": "grid-big-data",
+      "portal": "/dist/production/apps/portal/index.html#/examples/grid",
+      "portalEnvironment": "dist/production",
+      "canonicalHref": "https://neomjs.com/dist/production/examples/grid/bigData/index.html?theme=neo-theme-neo-dark",
+      "localArtifact": "/dist/production/examples/grid/bigData/index.html?theme=neo-theme-neo-dark",
+      "appliedTheme": "neo-theme-dark",
+      "appBuild": {
+        "environment": "dist/production",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "footer": "20,000 rows × 50 columns = 1,000,000 cells\nUp to 100,000 × 200 in ☰ Settings",
+        "rowName": "Amanda",
+        "previousCounter": 63,
+        "newCounter": 64
+      }
+    },
+    {
+      "mode": "dist_prod",
+      "id": "grid-big-data",
+      "portal": "/dist/production/apps/portal/index.html#/examples/grid",
+      "portalEnvironment": "dist/production",
+      "canonicalHref": "https://neomjs.com/dist/production/examples/grid/bigData/index.html?theme=neo-theme-neo-light",
+      "localArtifact": "/dist/production/examples/grid/bigData/index.html?theme=neo-theme-neo-light",
+      "appliedTheme": "neo-theme-light",
+      "appBuild": {
+        "environment": "dist/production",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "footer": "20,000 rows × 50 columns = 1,000,000 cells\nUp to 100,000 × 200 in ☰ Settings",
+        "rowName": "Amanda",
+        "previousCounter": 63,
+        "newCounter": 64
+      }
+    },
+    {
+      "mode": "dist_prod",
+      "id": "graph-scene",
+      "portal": "/dist/production/apps/portal/index.html#/examples/charts",
+      "portalEnvironment": "dist/production",
+      "canonicalHref": "https://neomjs.com/dist/production/examples/component/graphScene/index.html?theme=neo-theme-neo-dark",
+      "localArtifact": "/dist/production/examples/component/graphScene/index.html?theme=neo-theme-neo-dark",
+      "appliedTheme": "neo-theme-neo-dark",
+      "appBuild": {
+        "environment": "dist/production",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "text": "frames 3 · nodes 240 · edges 458 · paths 1 · buffer 1440×835 · camera fitted · context live · restores 0",
+        "frames": 3,
+        "nodes": 240,
+        "edges": 458,
+        "contextLost": false
+      }
+    },
+    {
+      "mode": "dist_prod",
+      "id": "graph-scene",
+      "portal": "/dist/production/apps/portal/index.html#/examples/charts",
+      "portalEnvironment": "dist/production",
+      "canonicalHref": "https://neomjs.com/dist/production/examples/component/graphScene/index.html?theme=neo-theme-neo-light",
+      "localArtifact": "/dist/production/examples/component/graphScene/index.html?theme=neo-theme-neo-light",
+      "appliedTheme": "neo-theme-neo-light",
+      "appBuild": {
+        "environment": "dist/production",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "text": "frames 2 · nodes 240 · edges 458 · paths 1 · buffer 1440×835 · camera fitted · context live · restores 0",
+        "frames": 2,
+        "nodes": 240,
+        "edges": 458,
+        "contextLost": false
+      }
+    },
+    {
+      "mode": "dist_esm",
+      "id": "grid-big-data",
+      "portal": "/dist/esm/apps/portal/index.html#/examples/grid",
+      "portalEnvironment": "dist/esm",
+      "canonicalHref": "https://neomjs.com/dist/esm/examples/grid/bigData/index.html?theme=neo-theme-neo-dark",
+      "localArtifact": "/dist/esm/examples/grid/bigData/index.html?theme=neo-theme-neo-dark",
+      "appliedTheme": "neo-theme-dark",
+      "appBuild": {
+        "environment": "dist/esm",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "footer": "20,000 rows × 50 columns = 1,000,000 cells\nUp to 100,000 × 200 in ☰ Settings",
+        "rowName": "Amanda",
+        "previousCounter": 63,
+        "newCounter": 64
+      }
+    },
+    {
+      "mode": "dist_esm",
+      "id": "grid-big-data",
+      "portal": "/dist/esm/apps/portal/index.html#/examples/grid",
+      "portalEnvironment": "dist/esm",
+      "canonicalHref": "https://neomjs.com/dist/esm/examples/grid/bigData/index.html?theme=neo-theme-neo-light",
+      "localArtifact": "/dist/esm/examples/grid/bigData/index.html?theme=neo-theme-neo-light",
+      "appliedTheme": "neo-theme-light",
+      "appBuild": {
+        "environment": "dist/esm",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "footer": "20,000 rows × 50 columns = 1,000,000 cells\nUp to 100,000 × 200 in ☰ Settings",
+        "rowName": "Amanda",
+        "previousCounter": 63,
+        "newCounter": 64
+      }
+    },
+    {
+      "mode": "dist_esm",
+      "id": "graph-scene",
+      "portal": "/dist/esm/apps/portal/index.html#/examples/charts",
+      "portalEnvironment": "dist/esm",
+      "canonicalHref": "https://neomjs.com/dist/esm/examples/component/graphScene/index.html?theme=neo-theme-neo-dark",
+      "localArtifact": "/dist/esm/examples/component/graphScene/index.html?theme=neo-theme-neo-dark",
+      "appliedTheme": "neo-theme-neo-dark",
+      "appBuild": {
+        "environment": "dist/esm",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "text": "frames 2 · nodes 240 · edges 458 · paths 1 · buffer 1440×835 · camera fitted · context live · restores 0",
+        "frames": 2,
+        "nodes": 240,
+        "edges": 458,
+        "contextLost": false
+      }
+    },
+    {
+      "mode": "dist_esm",
+      "id": "graph-scene",
+      "portal": "/dist/esm/apps/portal/index.html#/examples/charts",
+      "portalEnvironment": "dist/esm",
+      "canonicalHref": "https://neomjs.com/dist/esm/examples/component/graphScene/index.html?theme=neo-theme-neo-light",
+      "localArtifact": "/dist/esm/examples/component/graphScene/index.html?theme=neo-theme-neo-light",
+      "appliedTheme": "neo-theme-neo-light",
+      "appBuild": {
+        "environment": "dist/esm",
+        "buildId": "mwsrak2d"
+      },
+      "witness": {
+        "text": "frames 3 · nodes 240 · edges 458 · paths 1 · buffer 1440×835 · camera fitted · context live · restores 0",
+        "frames": 3,
+        "nodes": 240,
+        "edges": 458,
+        "contextLost": false
+      }
+    }
+  ]
+}
