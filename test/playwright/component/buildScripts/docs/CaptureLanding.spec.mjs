@@ -1,5 +1,5 @@
-import {test, expect}               from '@playwright/test';
-import {landingReady, trackNetwork} from '../../../../../buildScripts/docs/captureExamples.mjs';
+import {test, expect}                           from '@playwright/test';
+import {landingReady, paintReady, trackNetwork} from '../../../../../buildScripts/docs/captureExamples.mjs';
 
 /**
  * @summary A page whose `<body>` carries its theme from the start, as Neo's stylesheet startup sets it, and whose view
@@ -41,4 +41,40 @@ test('an ordinary request left open keeps a mounted, still page from counting as
     const network = await trackNetwork(page);
     await page.setContent(lateMount(0, `fetch('http://capture.test/held.json').catch(() => {});`));
     await expect(landingReady(page, network)).rejects.toThrow('landing: the network never went quiet; open: http://capture.test/held.json')
+});
+
+test('capture readiness waits for a visible pixel of media after both the scroller and capture have clipped it', async ({page}) => {
+    const clip = {x: 40, y: 0, width: 100, height: 50};
+    await page.setContent(`<style>body{margin:0} section{width:100px;height:40px;position:relative;overflow:hidden}
+        img{position:absolute;width:20px;height:10px;left:100px;top:10px}</style>
+        <section><img loading="lazy" src="data:image/png,invalid" alt=""></section>`);
+    const image = page.locator('img');
+    await image.evaluate(el => el.decode().catch(() => {}));
+    expect(await image.evaluate(el => el.naturalWidth)).toBe(0);
+
+    // At x=100 the image touches the scroller's edge and its box overlaps the capture.
+    await paintReady(page, clip, 1000);
+    await image.evaluate(el => el.style.left = '99px');
+    await expect(paintReady(page, clip, 600)).rejects.toThrow('inside the capture region');
+
+    // One pixel inside the capture must also wait when the whole image is inside its scroller.
+    await image.evaluate(el => el.style.left = '20px');
+    await paintReady(page, clip, 1000);
+    await image.evaluate(el => el.style.left = '21px');
+    await expect(paintReady(page, clip, 600)).rejects.toThrow('inside the capture region');
+    await image.evaluate(async el => {
+        el.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"/>';
+        await el.decode()
+    });
+    await paintReady(page, clip, 1000)
+});
+
+test('a clipped video cannot hold the capture, but a visible video with a source must paint', async ({page}) => {
+    const clip = {x: 0, y: 0, width: 200, height: 100};
+    await page.setContent(`<div style="width:80px;overflow:hidden">
+        <video style="display:block;width:40px;height:20px;margin-left:81px"><source src="data:video/mp4,invalid"></video>
+        </div>`);
+    await paintReady(page, clip, 1000);
+    await page.locator('video').evaluate(el => el.style.marginLeft = '79px');
+    await expect(paintReady(page, clip, 600)).rejects.toThrow('inside the capture region')
 });

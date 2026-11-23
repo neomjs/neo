@@ -577,20 +577,34 @@ export async function landingReady(page, network, sharedWorkerUrls=async () => [
     return startups
 }
 
-/** @summary Waits for fonts, stylesheets and visible capture-region images or videos (past Chromium's ~1.5s initial `<video controls>` overlay at 1800ms) to finish loading. */
-async function paintReady(page, clip) {
+/**
+ * @summary Waits for fonts, stylesheets and media that can paint inside the capture, including native video controls.
+ * @param {Object} page Playwright page
+ * @param {Object} clip Capture region in viewport coordinates
+ * @param {Number} [timeout=15000] Maximum wait for styles and visible media in milliseconds
+ */
+export async function paintReady(page, clip, timeout=15000) {
     await page.evaluate(async () => { await document.fonts.ready });
-    await page.waitForFunction(rect => {
-        const visible = el => {
-            const box = el.getBoundingClientRect();
-            return box.width && box.height && box.right > rect.x && box.bottom > rect.y && box.left < rect.x + rect.width && box.top < rect.y + rect.height
-        };
-        const styles = [...document.querySelectorAll('link[rel="stylesheet"]')].every(link => !!link.sheet);
-        const images = [...document.images].every(image => !visible(image) || image.complete && image.naturalWidth > 0);
-        const videos = [...document.querySelectorAll('video')].every(video => !visible(video) || !(video.currentSrc || video.querySelector('source[src]')) ||
-            video.readyState >= 2 && video.videoWidth > 0 && (!video.controls || video.paused || Number(document.timeline?.currentTime ?? 2000) >= 1800));
-        return styles && images && videos
-    }, clip, {timeout: 15000})
+    await expect.poll(() => page.evaluate(rect => {
+        if ([...document.querySelectorAll('link[rel="stylesheet"]')].some(link => !link.sheet)) return false;
+
+        const images = [...document.images].filter(image => !image.complete || !image.naturalWidth),
+              videos = [...document.querySelectorAll('video')].filter(video => (video.currentSrc || video.querySelector('source[src]')) &&
+                  (video.readyState < 2 || !video.videoWidth || video.controls && !video.paused && Number(document.timeline?.currentTime ?? 2000) < 1800)),
+              pending = [...images, ...videos];
+        if (!pending.length) return true;
+
+        // A lazy image behind a scroller's edge can stay unloaded for the life of the page.
+        return new Promise(resolve => {
+            const observer = new IntersectionObserver(entries => {
+                observer.disconnect();
+                const inCapture = entries.some(({intersectionRect: box}) => box.width > 0 && box.height > 0 &&
+                    box.right > rect.x && box.bottom > rect.y && box.left < rect.x + rect.width && box.top < rect.y + rect.height);
+                resolve(entries.length === pending.length && !inCapture)
+            });
+            pending.forEach(el => observer.observe(el))
+        })
+    }, clip), {timeout, message: 'waiting for styles and media inside the capture region to paint'}).toBe(true)
 }
 
 /** @summary Reads JPEG frame dimensions so device-scale output is checked rather than assumed. */
