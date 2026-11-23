@@ -465,8 +465,9 @@ jobs:
   #   Time — the ceiling is six minutes of test time per shard, enforced on the step below
   #          rather than on the job, so a slow suite is distinguishable from a slow `npm ci`.
   #          A shard nearing it gets its slow spec fixed first, and a sibling only when the
-  #          runner budget has room: the org's CI has 20 runner slots, so a sibling queues
-  #          every full run, while a stop at the ceiling costs a re-run and a review cycle.
+  #          runner budget has room: the org's CI draws on one shared pool of hosted runners,
+  #          so another shard consumes capacity the next run needs and can lengthen queueing
+  #          under load, while a stop at the ceiling costs a re-run and a review cycle.
   #
   # A third constraint bounds the REPORTING, and is the one a reader is most likely to be
   # misled by: `playwright.config.e2e.mjs` uses `testIgnore` for the Brain-dependent
