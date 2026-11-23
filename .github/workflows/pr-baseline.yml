@@ -7,7 +7,8 @@ name: PR Baseline
 # THREE CONTEXTS: `baseline / PR baseline` (every check that runs no pull-request code), `baseline / Skills
 # materialized` and `baseline / guards`. The `dev` ruleset is the authority on which of them gate a merge;
 # this comment only names them. `guards` runs the list below as one context, so a guard added to the list
-# needs no ruleset edit, and all of them hold one of the organization's 20 concurrent job slots.
+# needs no ruleset edit, and all of them hold one shared slot from the pool of hosted runners the
+# account's plan and live load make available.
 #
 # THE TRIGGER IS THE CALLER'S OBLIGATION, and `edited` is the load-bearing entry: the body checks read the
 # live body, so a corrected body goes green with no push only if this workflow fires on the edit.
