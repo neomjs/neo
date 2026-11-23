@@ -58,7 +58,8 @@
         "family": "apps",
         "order": 240,
         "featured": false,
-        "image": "devmode/covidDashboard.png",
+        "image": "devmode/covid-dashboard-14.jpg",
+        "hasLightCover": true,
         "name": "Covid Dashboard",
         "sourceUrl": "apps/covid",
         "urls": {
