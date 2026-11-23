@@ -83,7 +83,8 @@ class SortZone extends DragZone {
      * @param {Number}   data.clientX
      * @param {Number}   data.clientY
      * @param {Object[]} [data.targetPath=[]] The nodes under the pointer, innermost first, each with its `rect`
-     * @returns {Object|null|undefined} `{before, target}`; `null` for a rejected hit; `undefined` to keep the preview
+     * @returns {Object|null|undefined} `{before, target}`; `null` for a rejected hit; `undefined` on the source
+     * placeholder. By default gaps, headers and other parents' items also keep the last preview (`undefined`).
      */
     getSlot({clientX, clientY, targetPath=[]}) {
         let me      = this,
@@ -205,7 +206,7 @@ class SortZone extends DragZone {
         if (me.#source) {
             slot = me.getSlot(data);
 
-            if (me.requireDropTarget && slot !== undefined && me.dragProxy) {
+            if (me.requireDropTarget && me.dragProxy) {
                 const proxy = me.dragProxy, cls = 'neo-sort-drop-rejected', rejected = slot === null;
 
                 if (rejected !== proxy.cls.includes(cls)) {
@@ -263,7 +264,8 @@ class SortZone extends DragZone {
 
     /**
      * Shows the slot. The visible siblings' item nodes take the order a drop would write, and the source's node
-     * is the placeholder. Only the owner's vdom changes, the store keeps its order.
+     * is the placeholder. A strict drop marks the slot only if the source moves in the visible order. Only the
+     * owner's vdom changes, the store keeps its order.
      * @protected
      */
     preview() {
@@ -285,6 +287,12 @@ class SortZone extends DragZone {
             });
 
             NeoArray.add(placeholder.cls = placeholder.cls || [], 'neo-sort-source');
+
+            if (me.requireDropTarget) {
+                const moved = ordered.indexOf(source) !== siblings.indexOf(source);
+
+                NeoArray[moved ? 'add' : 'remove'](placeholder.cls, 'neo-sort-placement')
+            }
 
             owner.update()
         }

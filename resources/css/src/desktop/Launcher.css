@@ -85,10 +85,27 @@
         text-shadow   : var(--desktop-launcher-label-shadow);
     }
 
-    /* The icon a drag moves keeps its slot, faded, while the proxy carries it */
+    /* The icon fades while the proxy carries it. An outlined slot marks the proposed new position. */
     .neo-list-item.neo-sort-source {
         opacity  : .3;
         transform: none;
+    }
+
+    .neo-list-item.neo-sort-source.neo-sort-placement {
+        opacity: 1;
+
+        > * {
+            opacity: .3;
+        }
+
+        &::before {
+            border        : 2px dashed var(--desktop-launcher-focus-color);
+            border-radius : inherit;
+            content       : '';
+            inset         : 0;
+            pointer-events: none;
+            position      : absolute;
+        }
     }
 }
 
