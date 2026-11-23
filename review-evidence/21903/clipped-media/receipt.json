@@ -1,0 +1,122 @@
+{
+  "source": "d8afed2d0e44b146c05136bdb4472554a282e096",
+  "exampleSource": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+  "method": "Normal camera in a temporary producer with only the old grid-issues recipe omitted. The feature branch changes the shared paint gate. Both captures reproduced byte-for-byte on a second launch.",
+  "captureTimes": [
+    "2026-11-23T04:51:14.243Z",
+    "2026-11-23T04:51:18.288Z"
+  ],
+  "images": [
+    {
+      "id": "grid-issues",
+      "openedTheme": "neo-theme-neo-dark",
+      "steps": [],
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "width": 1280,
+      "height": 720,
+      "sha256": "00aedd876e479984b2b0513a7d375c2ba2e5fe76514e01e3adfde7ef1b9dfef8",
+      "image": "devmode/grid-issues-14.jpg"
+    },
+    {
+      "id": "grid-issues",
+      "openedTheme": "neo-theme-neo-light",
+      "steps": [],
+      "viewport": {
+        "width": 960,
+        "height": 540
+      },
+      "width": 1280,
+      "height": 720,
+      "sha256": "8192befa9c220a6f13ed632f3d3cbcfe38eac9884c86ddd001d0fc5d406ed458",
+      "image": "devmode/grid-issues-14-light.jpg"
+    }
+  ],
+  "browserMeasurements": {
+    "viewport": [
+      960,
+      540
+    ],
+    "rightScrollerEdge": 939,
+    "lazyAvatarLeft": 943,
+    "avatarSize": [
+      24,
+      24
+    ],
+    "fullyClippedAvatars": 5
+  },
+  "scratchControls": [
+    {
+      "fixture": "fully clipped broken",
+      "kind": "candidate",
+      "outcome": "ready"
+    },
+    {
+      "fixture": "fully clipped broken",
+      "kind": "unchanged",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "fully visible broken",
+      "kind": "candidate",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "fully visible broken",
+      "kind": "unchanged",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "one pixel in crop broken",
+      "kind": "candidate",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "one pixel in crop broken",
+      "kind": "unchanged",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "one pixel visible broken",
+      "kind": "candidate",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "one pixel visible broken",
+      "kind": "unchanged",
+      "outcome": "timeout"
+    },
+    {
+      "fixture": "outside crop broken",
+      "kind": "candidate",
+      "outcome": "ready"
+    },
+    {
+      "fixture": "outside crop broken",
+      "kind": "unchanged",
+      "outcome": "ready"
+    },
+    {
+      "fixture": "partially visible loaded",
+      "kind": "candidate",
+      "outcome": "ready"
+    },
+    {
+      "fixture": "partially visible loaded",
+      "kind": "unchanged",
+      "outcome": "ready"
+    },
+    {
+      "fixture": "zero width edge contact",
+      "kind": "candidate",
+      "outcome": "ready"
+    },
+    {
+      "fixture": "zero width edge contact",
+      "kind": "unchanged",
+      "outcome": "timeout"
+    }
+  ]
+}
