@@ -108,13 +108,15 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.form.field.Picker` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create(PickerField, {
+        return {
+            module              : PickerField,
             clearToOriginalValue: true,
             labelText           : 'Label',
             labelWidth          : 70,
             width               : 200
-        })
+        }
     }
 }
 

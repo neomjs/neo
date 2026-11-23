@@ -79,12 +79,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.container.Accordion}
+     * @summary Returns the help-center `Neo.container.Accordion` config for the workbench stage.
+     * @returns {Object}
      */
     createExampleComponent() {
         const answer = html => [{ntype: 'component', cls: ['help-center-answer'], html}];
 
-        return Neo.create({
+        return {
             module          : Accordion,
             cls             : ['help-center'],
             height          : 420,
@@ -110,7 +111,7 @@ class MainContainer extends ConfigurationViewport {
                 title  : 'Is there a warranty?',
                 items  : answer('Two years on everything we sell, three on our own furniture.')
             }]
-        })
+        }
     }
 }
 

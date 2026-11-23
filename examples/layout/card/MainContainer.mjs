@@ -97,7 +97,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.container.Base}
+     * @summary Returns the three-step setup wizard `Neo.container.Base` config using `layout-card`.
+     * @returns {Object}
      */
     createExampleComponent() {
         const step = (no, title, items) => ({
@@ -111,7 +112,7 @@ class MainContainer extends ConfigurationViewport {
             ]
         });
 
-        return Neo.create({
+        return {
             module: Container,
             cls   : ['card-wizard'],
             height: 240,
@@ -163,7 +164,7 @@ class MainContainer extends ConfigurationViewport {
                     text     : 'Next'
                 }]
             }]
-        })
+        }
     }
 
     /**

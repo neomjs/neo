@@ -4,12 +4,12 @@ import NumberField           from '../../../src/form/field/Number.mjs';
 import TimeField             from '../../../src/form/field/Time.mjs';
 
 /**
- * @class Neo.examples.component.chip.MainContainer
+ * @class Neo.examples.component.clock.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static config = {
-        className           : 'Neo.examples.component.chip.MainContainer',
+        className           : 'Neo.examples.component.clock.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 110,
         configItemWidth     : 230,
@@ -47,11 +47,12 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.Clock` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Clock,
             time  : '10:20'
-        })
+        }
     }
 }
 

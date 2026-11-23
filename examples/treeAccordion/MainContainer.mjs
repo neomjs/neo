@@ -108,10 +108,11 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.tree.Accordion}
+     * @summary Returns the `Neo.tree.Accordion` config bound two-way to the viewport's `selection` state.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module                   : AccordionTree,
             bind                     : {selection: {key: 'selection', twoWay: true}},
             height                   : 350,
@@ -124,7 +125,7 @@ class MainContainer extends ConfigurationViewport {
                     this.selectionModel.select(this.getItemId('profile'))
                 }
             }
-        })
+        }
     }
 
     /**

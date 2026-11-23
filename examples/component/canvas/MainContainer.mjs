@@ -46,13 +46,14 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /** @summary Returns the offscreen `Neo.component.Canvas` config. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module   : Canvas,
             height   : 400,
             offscreen: true,
             width    : 400
-        });
+        }
     }
 }
 

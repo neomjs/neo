@@ -161,15 +161,16 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.component.Base}
+     * @summary Returns the `Neo.component.wrapper.MonacoEditor` config for the workbench stage.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: MonacoEditor,
             height: 500,
             value : ['function x() {', '\tconsole.log("Hello world!");', '}'],
             width : 500
-        })
+        }
     }
 
     /**

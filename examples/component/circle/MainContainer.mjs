@@ -107,11 +107,13 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.Circle` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create(Circle, {
+        return {
+            module: Circle,
             height: 500,
             width : 500
-        })
+        }
     }
 
     onResetRotation() {

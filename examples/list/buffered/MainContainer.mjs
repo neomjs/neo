@@ -64,8 +64,9 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.list.Buffered` config over 5,000 records. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module        : Buffered,
             bufferRowRange: 3,
             height        : 400,
@@ -73,7 +74,7 @@ class MainContainer extends ConfigurationViewport {
             itemHeight    : 40,
             store         : MainStore,
             width         : 300
-        })
+        }
     }
 }
 

@@ -42,12 +42,13 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.menu.List` config bound to `MainStore`. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module      : MenuList,
             displayField: 'text',
             store       : MainStore
-        })
+        }
     }
 }
 

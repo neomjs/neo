@@ -212,3 +212,105 @@ test.describe('Workbench Code View (Stage + Inspector + Live Diff + Copy)', () =
         expect(pageErrors).toEqual([]);
     });
 });
+
+/**
+ * @summary Installs hermetic stubs for third-party CDN/API requests made by MWC, Video, and RealWorld Process examples,
+ * then opens each workbench route in the batch and verifies stage + example component + inspector render error-free.
+ * @param {import('@playwright/test').Page} page
+ * @param {String[]} routes
+ */
+async function smokeWorkbenchBatch(page, routes) {
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(`${page.url()}: ${err.message}`));
+
+    await page.route('**/big-buck-bunny-trailer.mp4*', route => route.abort());
+    await page.route('https://api.open-meteo.com/**', route => route.fulfill({
+        body       : JSON.stringify({current_weather: {temperature: 18.4}}),
+        contentType: 'application/json',
+        status     : 200
+    }));
+    await page.route('https://unpkg.com/**', route => route.fulfill({
+        body       : 'export {};',
+        contentType: 'application/javascript',
+        status     : 200
+    }));
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({
+        body       : '',
+        contentType: 'text/css',
+        status     : 200
+    }));
+
+    await page.setViewportSize({width: 1280, height: 800});
+
+    for (const route of routes) {
+        await page.goto(route);
+        await expect(page.locator('.neo-workbench-stage'), `${route} stage`).toBeVisible({timeout: 15000});
+        await expect(page.locator('.neo-workbench-inspector'), `${route} inspector`).toBeVisible({timeout: 15000});
+        await expect(page.locator('.neo-example-container > *').first(), `${route} example component`).toBeAttached({timeout: 15000});
+    }
+
+    expect(pageErrors).toEqual([]);
+}
+
+test.describe('Workbench config-return smoke across all 37 converted examples (#22068)', () => {
+    test('batch 1 (buttons & core components 1-10)', async ({page}) => {
+        await smokeWorkbenchBatch(page, [
+            '/examples/button/effect/index.html',
+            '/examples/button/split/index.html',
+            '/examples/component/canvas/index.html',
+            '/examples/component/carousel/index.html',
+            '/examples/component/chip/index.html',
+            '/examples/component/circle/index.html',
+            '/examples/component/clock/index.html',
+            '/examples/component/dateSelector/index.html',
+            '/examples/component/mwc/button/index.html',
+            '/examples/component/mwc/textField/index.html'
+        ]);
+    });
+
+    test('batch 2 (process, media, monaco & containers 11-20)', async ({page}) => {
+        await smokeWorkbenchBatch(page, [
+            '/examples/component/process/index.html',
+            '/examples/component/process/realWorldExample/index.html',
+            '/examples/component/progress/index.html',
+            '/examples/component/statusbadge/index.html',
+            '/examples/component/timer/index.html',
+            '/examples/component/video/index.html',
+            '/examples/component/wrapper/monacoEditor/index.html',
+            '/examples/container/accordion/index.html',
+            '/examples/container/fragment/index.html',
+            '/examples/date/selectorContainer/index.html'
+        ]);
+    });
+
+    test('batch 3 (fields, functional, layouts & lists 21-30, including circle sort)', async ({page}) => {
+        await smokeWorkbenchBatch(page, [
+            '/examples/form/field/picker/index.html',
+            '/examples/form/fieldset/index.html',
+            '/examples/functional/button/base/index.html',
+            '/examples/layout/card/index.html',
+            '/examples/layout/cube/index.html',
+            '/examples/layout/form/index.html',
+            '/examples/list/buffered/index.html',
+            '/examples/list/chip/index.html',
+            '/examples/list/color/index.html',
+            '/examples/list/circle/index.html'
+        ]);
+
+        // Verify list/circle post-construction store sort listener updates Group1 Name on DESC sort
+        await page.getByText('DESC', {exact: true}).click();
+        await expect(page.locator('.neo-workbench-inspector input[name="group1"]')).toHaveValue('Yellow');
+    });
+
+    test('batch 4 (menus, sitemap, table & trees 31-37)', async ({page}) => {
+        await smokeWorkbenchBatch(page, [
+            '/examples/menu/list/index.html',
+            '/examples/menu/panel/index.html',
+            '/examples/menu/tree/index.html',
+            '/examples/sitemap/index.html',
+            '/examples/table/container/index.html',
+            '/examples/tree/index.html',
+            '/examples/treeAccordion/index.html'
+        ]);
+    });
+});

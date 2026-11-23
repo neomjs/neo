@@ -811,4 +811,112 @@ test.describe('ConfigurationViewport Workbench (Stage, Inspector, Reset, Theme)'
             if (origHash !== undefined) Neo.config.hash = origHash; else delete Neo.config.hash;
         }
     });
+
+    test('all 37 converted workbench examples return plain config objects from createExampleComponent (#22068)', async () => {
+        const convertedPaths = [
+            '../../../../examples/button/effect/MainContainer.mjs',
+            '../../../../examples/button/split/MainContainer.mjs',
+            '../../../../examples/component/canvas/MainContainer.mjs',
+            '../../../../examples/component/carousel/MainContainer.mjs',
+            '../../../../examples/component/chip/MainContainer.mjs',
+            '../../../../examples/component/circle/MainContainer.mjs',
+            '../../../../examples/component/clock/MainContainer.mjs',
+            '../../../../examples/component/dateSelector/MainContainer.mjs',
+            '../../../../examples/component/mwc/button/MainContainer.mjs',
+            '../../../../examples/component/mwc/textField/MainContainer.mjs',
+            '../../../../examples/component/process/MainContainer.mjs',
+            '../../../../examples/component/process/realWorldExample/MainContainer.mjs',
+            '../../../../examples/component/progress/MainContainer.mjs',
+            '../../../../examples/component/statusbadge/MainContainer.mjs',
+            '../../../../examples/component/timer/MainContainer.mjs',
+            '../../../../examples/component/video/MainContainer.mjs',
+            '../../../../examples/component/wrapper/monacoEditor/MainContainer.mjs',
+            '../../../../examples/container/accordion/MainContainer.mjs',
+            '../../../../examples/container/fragment/MainContainer.mjs',
+            '../../../../examples/date/selectorContainer/MainContainer.mjs',
+            '../../../../examples/form/field/picker/MainContainer.mjs',
+            '../../../../examples/form/fieldset/MainContainer.mjs',
+            '../../../../examples/functional/button/base/MainContainer.mjs',
+            '../../../../examples/layout/card/MainContainer.mjs',
+            '../../../../examples/layout/cube/MainContainer.mjs',
+            '../../../../examples/layout/form/MainContainer.mjs',
+            '../../../../examples/list/buffered/MainContainer.mjs',
+            '../../../../examples/list/chip/MainContainer.mjs',
+            '../../../../examples/list/circle/MainContainer.mjs',
+            '../../../../examples/list/color/MainContainer.mjs',
+            '../../../../examples/menu/list/MainContainer.mjs',
+            '../../../../examples/menu/panel/MainContainer.mjs',
+            '../../../../examples/menu/tree/MainContainer.mjs',
+            '../../../../examples/sitemap/MainContainer.mjs',
+            '../../../../examples/table/container/MainContainer.mjs',
+            '../../../../examples/tree/MainContainer.mjs',
+            '../../../../examples/treeAccordion/MainContainer.mjs'
+        ];
+
+        expect(convertedPaths).toHaveLength(37);
+
+        for (const modulePath of convertedPaths) {
+            const {default: ExampleViewport} = await import(modulePath),
+                  config                     = ExampleViewport.prototype.createExampleComponent.call(ExampleViewport.prototype);
+
+            expect(Neo.typeOf(config), `${modulePath} returns a plain Object`).toBe('Object');
+            expect(config instanceof Neo.core.Base, `${modulePath} does not return a Neo instance`).toBe(false);
+            expect(typeof config.module, `${modulePath} carries a module constructor`).toBe('function')
+        }
+    });
+
+    test('list/circle and process/realWorldExample wire post-construction hooks in onConstructed (#22068)', async () => {
+        const [{default: CircleListMainContainer}, {default: RealWorldMainContainer}] = await Promise.all([
+            import('../../../../examples/list/circle/MainContainer.mjs'),
+            import('../../../../examples/component/process/realWorldExample/MainContainer.mjs')
+        ]);
+
+        const origFetch     = globalThis.fetch,
+              origRegTarget = Neo.main.DomEvents.registerPreventDefaultTargets,
+              origXhr       = Neo.Xhr;
+
+        globalThis.fetch = async url => ({
+            json: async () => String(url).includes('open-meteo')
+                ? {current_weather: {temperature: 17.2}}
+                : []
+        });
+        Neo.main.DomEvents.registerPreventDefaultTargets ??= () => {};
+        Neo.Xhr ??= {promiseJson: async () => ({json: []})};
+
+        let circleViewport, realWorldViewport;
+
+        try {
+            circleViewport = Neo.create(CircleListMainContainer, {autoMount: false});
+            await circleViewport.initVnode();
+            circleViewport.mounted = true;
+
+            expect(circleViewport.exampleComponent.className).toBe('Neo.list.Circle');
+            expect(circleViewport.down({name: 'group1'}).value).toBe('Blue');
+
+            circleViewport.changeSorting('DESC', {value: true});
+            await new Promise(resolve => setTimeout(resolve, 30));
+
+            expect(circleViewport.down({name: 'group1'}).value).toBe('Yellow');
+            expect(circleViewport.down({name: 'group2'}).value).toBe('Red');
+
+            realWorldViewport = Neo.create(RealWorldMainContainer, {autoMount: false});
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            expect(realWorldViewport.down({flag: 'temperature'}).value).toBe(18);
+        } finally {
+            globalThis.fetch = origFetch;
+            if (origRegTarget !== undefined) {
+                Neo.main.DomEvents.registerPreventDefaultTargets = origRegTarget;
+            } else {
+                delete Neo.main.DomEvents.registerPreventDefaultTargets;
+            }
+            if (origXhr !== undefined) {
+                Neo.Xhr = origXhr;
+            } else {
+                delete Neo.Xhr;
+            }
+            circleViewport?.destroy();
+            realWorldViewport?.destroy();
+        }
+    });
 });

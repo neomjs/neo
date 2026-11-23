@@ -37,8 +37,9 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the trip-log `Neo.container.Base` config wrapping `Neo.component.Process`. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Container,
             cls   : ['neo-examples-process-trip'],
             items : [{
@@ -68,7 +69,7 @@ class MainContainer extends ConfigurationViewport {
                     text   : 'Distance and duration follow from the two readings.'
                 }]
             }]
-        })
+        }
     }
 
     /**

@@ -183,13 +183,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @summary Creates the functional button at rest on the stage and increments `badgeText` on each click.
-     * @returns {Neo.functional.button.Base}
+     * @summary Returns the `Neo.functional.button.Base` config that increments `badgeText` on each click.
+     * @returns {Object}
      */
     createExampleComponent() {
         let me = this;
 
-        return Neo.create({
+        return {
             module   : FunctionalButton,
             badgeText: '0',
             flex     : 'none',
@@ -208,7 +208,7 @@ class MainContainer extends ConfigurationViewport {
             text     : 'Hello World',
             ui       : 'primary',
             width    : 150
-        })
+        }
     }
 }
 
