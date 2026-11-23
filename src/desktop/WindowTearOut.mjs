@@ -275,6 +275,7 @@ class WindowTearOut extends Base {
             const committed = entry.committed;
             if (!this.#restorePane(entry)) return;
             this.#entry = null;
+            NativeVesselTransaction.releaseClosedVessel(entry.route).catch(() => {});
             this.owner.onTearOutDisconnect?.({committed})
         } else if (Date.now() >= deadline) {
             this.#failedAdmission(entry)
@@ -358,6 +359,7 @@ class WindowTearOut extends Base {
         entry.retirement = null;
         if (closed && this.#entry === entry) {
             this.#entry = null;
+            if (!result) NativeVesselTransaction.releaseClosedVessel(entry.route).catch(() => {});
             if (focus && !owner.isDestroyed) owner.focus(owner.id, true)
         } else if (entry.target && !this.isDestroyed) {
             entry.view.setReturnHandler?.(() => this.returnToDesktop({focus: true}))

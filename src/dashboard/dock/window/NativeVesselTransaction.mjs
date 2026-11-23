@@ -224,6 +224,18 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
+     * @summary Releases the opener's exact closed handle once the vessel owner has settled its content.
+     * @param {Object} route
+     * @param {String} route.nativeHandleKey
+     * @param {String} route.ownerWindowId
+     * @param {String} route.windowName
+     * @returns {Promise<Boolean>}
+     */
+    static async releaseClosedVessel({nativeHandleKey, ownerWindowId, windowName}) {
+        return Neo.Main.windowNativeReleaseClosed({nativeHandleKey, windowId: ownerWindowId, windowName})
+    }
+
+    /**
      * @summary Opens a native render target for an existing semantic workspace identity.
      * Refusal revokes only this reservation and leaves its participant and history intact.
      * @param {Neo.dashboard.dock.window.WorkspaceSet} workspaceSet

@@ -165,6 +165,7 @@ class Main extends core.Base {
                 'windowNativeGetGeometry',
                 'windowNativeIsClosed',
                 'windowNativeMoveTo',
+                'windowNativeReleaseClosed',
                 'windowNativeResizeTo',
                 'windowOpen',
                 'windowResizeTo'
@@ -1315,6 +1316,30 @@ class Main extends core.Base {
         } catch {
             return null
         }
+    }
+
+    /**
+     * @summary Retires an exact closed popup from the opener's registry after its owner settles the vessel.
+     * @param {Object} data
+     * @param {String} data.nativeHandleKey The observed generation.
+     * @param {String} data.windowName The generation's semantic name in the opener.
+     * @returns {Boolean} True when the closed entry was still registered and was removed.
+     */
+    windowNativeReleaseClosed({nativeHandleKey, windowName}) {
+        if (typeof nativeHandleKey !== 'string' || !nativeHandleKey || typeof windowName !== 'string' || !windowName) return false;
+
+        const entry = this.openWindows[windowName];
+        if (entry?.nativeHandleKey !== nativeHandleKey) return false;
+
+        try {
+            if (entry.win.closed !== true) return false
+        } catch {
+            return false
+        }
+
+        this.#invalidateNativeWindowEntry(entry);
+        delete this.openWindows[windowName];
+        return true
     }
 
     /**

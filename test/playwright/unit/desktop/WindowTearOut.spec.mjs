@@ -21,7 +21,7 @@ const
 
 test.describe('Desktop window tear-out admission and restoration', () => {
     let apps, host, manager, nativeClosed, nativeCloseAllowed, opened, original, owner,
-        physicallyClosed, popups, probed, focused, lost, semanticClosed, tasks;
+        physicallyClosed, popups, probed, focused, lost, released, semanticClosed, tasks;
 
     test.beforeEach(async () => {
         original       = {apps: Neo.apps, currentWorker: Neo.currentWorker, Main: Neo.Main, windowConfigs: Neo.windowConfigs};
@@ -31,6 +31,7 @@ test.describe('Desktop window tear-out admission and restoration', () => {
         opened         = [];
         popups         = new Map();
         probed         = [];
+        released       = [];
         semanticClosed = [];
         nativeCloseAllowed = true;
         physicallyClosed   = false;
@@ -39,11 +40,12 @@ test.describe('Desktop window tear-out admission and restoration', () => {
         Neo.currentWorker = {...Neo.currentWorker, isSharedWorker: true};
         Neo.windowConfigs = {source: {url: {href: 'https://example.test/desktop/index.html?theme=light'}}};
         Neo.Main = {...Neo.Main,
-            windowClose         : async data => {semanticClosed.push(data); return true},
-            windowNativeClose   : async data => {nativeClosed.push(data); return nativeCloseAllowed},
-            windowNativeFocus   : async data => {focused.push(data); return true},
-            windowNativeIsClosed: async data => {probed.push(data); return physicallyClosed},
-            windowOpen          : async data => {opened.push(data); return true}
+            windowClose              : async data => {semanticClosed.push(data); return true},
+            windowNativeClose        : async data => {nativeClosed.push(data); return nativeCloseAllowed},
+            windowNativeFocus        : async data => {focused.push(data); return true},
+            windowNativeIsClosed     : async data => {probed.push(data); return physicallyClosed},
+            windowNativeReleaseClosed: async data => {released.push(data); return physicallyClosed},
+            windowOpen               : async data => {opened.push(data); return true}
         };
 
         apps    = Neo.create(Apps, {data: [{id: 'notes', text: 'Notes'}]});
@@ -154,7 +156,24 @@ test.describe('Desktop window tear-out admission and restoration', () => {
         expect(owner.getItem('bodyContainer')).toBe(body);
         expect(tasks.getCount()).toBe(0);
         expect(probed).toEqual([handleProbe]);
+        expect(released).toEqual([{...handleProbe, windowName: popupName}]);
         expect(host.committed).toBe(false)
+    });
+
+    test('external close during explicit return releases the exact handle and keeps the returned task', async () => {
+        const body = owner.getItem('bodyContainer'), {popupName} = await host.open({rect});
+        connect(popupName);
+        nativeCloseAllowed = false;
+        physicallyClosed   = true;
+
+        const retirement = host.returnToDesktop();
+        host.onWindowDisconnect({windowId: 'child'});
+
+        expect(await retirement).toBe(true);
+        expect(owner.getItem('bodyContainer')).toBe(body);
+        expect(tasks.getCount()).toBe(1);
+        expect(released).toEqual([{...handleProbe, windowName: popupName}]);
+        expect(lost).toEqual([])
     });
 
     test('a grant after cancellation cannot reclaim the body or close its successor', async () => {
@@ -266,6 +285,7 @@ test.describe('Desktop window tear-out admission and restoration', () => {
             expect(tasks.get('notes')).toBe(task);
             expect(tasks.getCount()).toBe(1);
             expect(lost).toEqual([]);
+            expect(released).toEqual([]);
 
             manager.restore('notes');
             expect(focused).toEqual([expect.objectContaining({...childClose, targetWindowId: 'reloaded'})]);

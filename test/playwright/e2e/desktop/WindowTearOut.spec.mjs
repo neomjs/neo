@@ -138,8 +138,17 @@ test.describe('desktop window tear-out', () => {
                     await popup.locator(notes + ' textarea').press('Tab');
                     await expectOriginalOwnership(worker);
 
-                    const placement = () => popup.evaluate(() => ({x: window.screenX, y: window.screenY})),
+                    const popupName = new URL(popup.url()).searchParams.get('desktopPopup'),
+                          readEntry = () => page.evaluate(name => {
+                              const entry = globalThis.Neo.Main.openWindows[name];
+                              return entry ? {nativeHandleKey: entry.nativeHandleKey, open: !entry.win.closed} : null
+                          }, popupName),
+                          placement = () => popup.evaluate(() => ({x: window.screenX, y: window.screenY})),
+                          admitted  = await readEntry(),
                           before    = await placement();
+
+                    expect(popupName).toBeTruthy();
+                    expect(admitted).toEqual({nativeHandleKey: expect.any(String), open: true});
 
                     await popup.reload();
                     await expect(popup.locator(notes + ' textarea')).toHaveValue(marker + ' after release');
@@ -147,9 +156,11 @@ test.describe('desktop window tear-out', () => {
                     await expect(page.locator(tasks)).toHaveCount(1);
                     await expectOriginalOwnership(worker);
                     expect(await placement()).toEqual(before);
+                    await expect.poll(readEntry).toEqual(admitted);
 
                     await popup.close({runBeforeUnload: true});
                     await expect(page.locator(tasks)).toHaveCount(0);
+                    await expect.poll(readEntry, {message: 'a physical close removes the admitted popup from the opener registry'}).toBeNull();
                     await page.locator('.neo-desktop-launcher .neo-list-item').filter({hasText: 'Notes'}).dblclick()
                 }
 
