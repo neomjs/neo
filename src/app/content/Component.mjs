@@ -48,6 +48,11 @@ class Component extends Markdown {
          */
         record_: null,
         /**
+         * Gives the article's section records URL anchors and enables routed section selection.
+         * @member {Boolean} routeSections=false
+         */
+        routeSections: false,
+        /**
          * @member {Boolean} replaceTicketIds=true
          */
         replaceTicketIds: true,
@@ -73,6 +78,21 @@ class Component extends Markdown {
      * @private
      */
     #contentRequest = 0
+
+    /** @member {Promise|null} #contentRender The current Markdown render. */
+    #contentRender = null
+
+    /** @member {Object|null} #renderedRecord The article that has reached the DOM. */
+    #renderedRecord = null
+
+    /** @member {Object[]} #renderedSections Section rows awaiting publication with the article. */
+    #renderedSections = []
+
+    /** @member {Object|null} #routeSection The route's record and decoded fragment. */
+    #routeSection = null
+
+    /** @member {Set|null} #sectionSlugs Slugs assigned during the current Markdown parse. */
+    #sectionSlugs = null
 
     /**
      * @param {Object} config
@@ -102,7 +122,7 @@ class Component extends Markdown {
         if (value) {
             me.timeout(50).then(() => {
                 Neo.main.addon.IntersectionObserver.register({
-                    callback: 'findTopmostItem',
+                    callback: me.routeSections ? 'findActiveContentSection' : 'findTopmostItem',
                     id      : me.id,
                     root    : `#${me.parentId}`,
                     windowId: me.windowId
@@ -120,24 +140,102 @@ class Component extends Markdown {
         const me      = this,
               request = ++me.#contentRequest;
 
+        me.#renderedRecord = null;
+
         if (value) {
             await me.doFetchContent(value, request);
 
-            if (oldValue && me.#isCurrentContentRequest(request)) {
-                await me.timeout(50).catch(error => {
+            if (!me.#isCurrentContentRequest(request)) return;
+
+            if (me.routeSections && value.isLeaf) {
+                await me.#contentRender;
+
+                if (!me.#isCurrentContentRequest(request)) return;
+
+                await me.promiseUpdate().catch(error => {
                     if (error !== Neo.isDestroyed) throw error
                 });
 
-                if (me.#isCurrentContentRequest(request)) {
-                    Neo.main.DomAccess.scrollTo({
-                        direction: 'top',
-                        id       : me.parentId,
-                        value    : 0,
-                        windowId : me.windowId
-                    })
+                if (!me.#isCurrentContentRequest(request)) return;
+
+                me.#renderedRecord = value;
+
+                if (me.updateSectionsStore) {
+                    me.getStateProvider().getStore('sections').data = me.#renderedSections
                 }
+
+                me.#observeSections();
+
+                me.#applyRouteSection();
+                return
+            } else if (oldValue) {
+                await me.timeout(50).catch(error => {
+                    if (error !== Neo.isDestroyed) throw error
+                })
+            }
+
+            if (oldValue && me.#isCurrentContentRequest(request)) {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.parentId,
+                    value    : 0,
+                    windowId : me.windowId
+                })
             }
         }
+    }
+
+    /**
+     * @summary Tracks the Markdown render so route scrolling can wait for its DOM update.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {Promise<void>}
+     */
+    afterSetValue(value, oldValue) {
+        return this.#contentRender = super.afterSetValue(value, oldValue)
+    }
+
+    /**
+     * @summary Applies the routed fragment or resets the reading position within the current article.
+     * @param {Object} record
+     * @param {String} [fragment]
+     */
+    setRouteSection(record, fragment) {
+        if (fragment) {
+            try {
+                fragment = decodeURIComponent(fragment)
+            } catch {
+                fragment = null
+            }
+        }
+
+        this.#routeSection = fragment ? {record, fragment} : null;
+
+        if (record && record === this.#renderedRecord) this.#applyRouteSection()
+    }
+
+    /**
+     * @summary Reveals a matching heading or returns to the start of the rendered article.
+     */
+    #applyRouteSection() {
+        const section  = this.#routeSection,
+              sections = this.updateSectionsStore ? this.getStateProvider().getStore('sections') : null,
+              record   = section && section.record === this.#renderedRecord
+                  ? sections?.find('anchor', section.fragment, true)
+                  : null;
+
+        if (record) {
+            this.fire('routeSection', {record});
+            return
+        }
+
+        Neo.main.DomAccess.scrollTo({
+            behavior: 'instant',
+            id      : this.parentId,
+            value   : 0,
+            windowId: this.windowId
+        });
+        this.fire('routeSection', {record: sections?.getAt(0) ?? null, scrollToHeading: false})
     }
 
     /**
@@ -147,9 +245,8 @@ class Component extends Markdown {
      * @returns {Promise<void>}
      */
     async doFetchContent(record, request=++this.#contentRequest) {
-        const me         = this,
-              {windowId} = me,
-              path       = me.getContentPath(record);
+        const me   = this,
+              path = me.getContentPath(record);
 
         if (record.isLeaf && path) {
             const data    = await fetch(path),
@@ -160,13 +257,22 @@ class Component extends Markdown {
             me.value = content;
             me.toggleCls('lab', record.name?.startsWith('Lab:'));
 
-            Neo.main.addon.IntersectionObserver.observe({
-                disconnect: true,
-                id        : me.id,
-                observe   : me.contentObserverSelectors,
-                windowId
-            });
+            if (!me.routeSections) me.#observeSections()
         }
+    }
+
+    /** @summary Watches the headings owned by this article. */
+    #observeSections() {
+        const {id, windowId, contentObserverSelectors} = this;
+
+        Neo.main.addon.IntersectionObserver.observe({
+            disconnect: true,
+            id,
+            observe   : this.routeSections
+                ? ['.neo-h1', ...contentObserverSelectors].map(selector => `#${id} ${selector}`)
+                : contentObserverSelectors,
+            windowId
+        })
     }
 
     /**
@@ -192,15 +298,26 @@ class Component extends Markdown {
      * @returns {String}
      */
     modifyMarkdown(content) {
+        const {routeSections} = this;
+
         this.headlineData = [];
+
+        if (routeSections) this.#sectionSlugs = new Set();
+
         const result = super.modifyMarkdown(content);
 
-        // Using 'sections' store (generic name)
         if (this.updateSectionsStore) {
-            this.getStateProvider().getStore('sections').data = this.headlineData
+            if (routeSections) {
+                this.#renderedSections = this.headlineData
+            } else {
+                this.getStateProvider().getStore('sections').data = this.headlineData
+            }
         }
 
         this.headlineData = null;
+
+        if (routeSections) this.#sectionSlugs = null;
+
         return result
     }
 
@@ -296,6 +413,7 @@ class Component extends Markdown {
     }
 
     /**
+     * @summary Creates the rendered heading and its matching contents-panel record.
      * @param {String} tag
      * @param {String} text
      * @param {Number} index
@@ -303,11 +421,33 @@ class Component extends Markdown {
      */
     onHeadline(tag, text, index) {
         // Markdown titles can contain inline code, which we don't want to display inside SectionsList.
-        const sideNavTitle = text.replaceAll('`', '');
+        const sideNavTitle = text.replaceAll('`', ''),
+              headline     = marked.parseInline(text),
+              section      = {id: index, name: sideNavTitle, sourceId: this.id, tag};
 
-        this.headlineData.push({id: index, name: sideNavTitle, sourceId: this.id, tag});
+        if (this.routeSections) {
+            const parser         = new marked.Parser(marked.getDefaults()),
+                  {textRenderer} = parser;
 
-        const headline = marked.parseInline(text);
+            textRenderer.html  = () => '';
+            textRenderer.image = () => '';
+
+            const headingText = parser.parseInline(marked.Lexer.lexInline(text), textRenderer),
+                  slugParts   = headingText.match(/&(?:#\w+|[a-z][\da-z]*);|[\p{L}\p{M}\p{N}_ -]+/giu) ?? [],
+                  slug        = slugParts.filter(part => !part.startsWith('&')).join('').trim().toLowerCase().replaceAll(' ', '-');
+
+            let anchor = slug,
+                suffix = 1;
+
+            while (this.#sectionSlugs.has(anchor)) {
+                anchor = `${slug}-${suffix++}`
+            }
+
+            this.#sectionSlugs.add(anchor);
+            section.anchor = anchor
+        }
+
+        this.headlineData.push(section);
 
         return `<${tag} class="neo-${tag}" data-record-id="${index}">${headline}</${tag}>`
     }

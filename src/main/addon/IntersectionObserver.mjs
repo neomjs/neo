@@ -78,6 +78,41 @@ class NeoIntersectionObserver extends Base {
     }
 
     /**
+     * @summary Reads the active heading at an article's scroll edge from its current layout.
+     * @param {IntersectionObserverEntry[]} entries The changes that signal a new reading position.
+     * @param {IntersectionObserver} observer
+     */
+    findActiveContentSection(entries, observer) {
+        const {root, rootId} = observer,
+              article        = document.getElementById(rootId);
+
+        if (!article || !root?.contains(article)) return;
+
+        const edge = root.getBoundingClientRect().top + 1;
+        let target;
+
+        for (const heading of article.querySelectorAll('h1[data-record-id], h2[data-record-id], h3[data-record-id]')) {
+            const {height, top} = heading.getBoundingClientRect();
+
+            if (height > 0) {
+                if (target && top > edge) break;
+
+                target = heading
+            }
+        }
+
+        if (target) {
+            this.sendMessage({
+                data          : {...target.dataset},
+                id            : rootId,
+                isIntersecting: true,
+                path          : DomEvents.getPathFromElement(target).map(element => DomEvents.getTargetData(element)),
+                targetId      : target.id
+            })
+        }
+    }
+
+    /**
      * @param {IntersectionObserverEntry[]} entries
      * @param {IntersectionObserver} observer
      */

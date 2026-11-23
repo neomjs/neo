@@ -1401,7 +1401,7 @@ class DomAccess extends Base {
             opts = {behavior, block, inline};
 
         if (behavior !== 'smooth') {
-            node.scrollIntoView(opts)
+            node?.scrollIntoView(opts)
         } else {
             // scrollIntoView() does not provide a callback yet.
             // See: https://github.com/w3c/csswg-drafts/issues/3744

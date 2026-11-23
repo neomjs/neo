@@ -333,11 +333,11 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
                       select: record => selected.push(record)
                   }
               },
-              controller = Object.create(LearnController.prototype);
+              controller = new LearnController();
 
         controller.component        = {windowId: 'portal-window-1'};
         controller.getStateProvider = () => stateProvider;
-        controller.getReference     = () => tree;
+        controller.getReference     = name => name === 'tree' ? tree : null;
 
         try {
             controller.navigateTo('Glossary');
