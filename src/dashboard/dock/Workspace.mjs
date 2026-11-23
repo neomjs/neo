@@ -1549,9 +1549,7 @@ class Workspace extends Container {
      * @protected
      */
     async observeWindowGeometry(windowId) {
-        const WindowPosition = await Neo.currentWorker.getAddon('WindowPosition', windowId);
-
-        return WindowPosition.setConfigs({observeMovement: true, observeResize: true, windowId})
+        return NativeVesselTransaction.observeWindowGeometry(windowId)
     }
 
     /**
