@@ -118,8 +118,9 @@ test.describe('Portal home hero: the round table stands around the statement (Ne
         });
 
         let stats;
-        await expect.poll(async () => (stats = await read())?.items).toBe(items.length);
-        expect(stats).toMatchObject({landed: items.length, mode: 'strip', seats: null, still: true});
+        await expect.poll(async () => (stats = await read()), {
+            message: 'the canvas has laid out and drawn the dense record', timeout: 20000
+        }).toMatchObject({items: items.length, landed: items.length, mode: 'strip', seats: null, still: true});
         expect(await touching(page, stats)).toEqual([]);
         expect(stats.strip[1] + stats.strip[3]).toBeLessThanOrEqual(stats.size.height)
     });
