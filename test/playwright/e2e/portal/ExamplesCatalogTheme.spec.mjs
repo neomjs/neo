@@ -174,6 +174,29 @@ test.describe('Examples that start through resolveStartTheme', () => {
     }
 });
 
+test.describe('Dual-theme examples that list Neo Dark first', () => {
+    const paths = [
+        'examples/toolbar/breadcrumb',
+        'examples/menu/contextFiles',
+        'apps/form',
+        'examples/dashboard/crossWindow',
+        'examples/dashboard/tearOut'
+    ];
+
+    for (const path of paths) {
+        test(`${path} starts on Neo Light from a light link and on Neo Dark from a dark one`, async ({page}) => {
+            const viewport = page.locator('.neo-viewport').first();
+
+            await page.goto(`/${path}/index.html?theme=${LIGHT}`);
+            await expect(viewport, 'a light link opens light, not on the first configured theme').toHaveClass(new RegExp(`\\b${LIGHT}\\b`));
+
+            // The same context loads again with the opposite request; a SharedWorker example must follow its own link
+            await page.goto(`/${path}/index.html?theme=${DARK}`);
+            await expect(viewport, 'a dark link opens dark').toHaveClass(new RegExp(`\\b${DARK}\\b`))
+        })
+    }
+});
+
 /**
  * @summary Stubs external network assets used by `apps/covid` so tests stay deterministic and offline-safe.
  * @param {import('@playwright/test').Page} page
