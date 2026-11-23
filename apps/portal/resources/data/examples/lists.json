@@ -101,6 +101,7 @@
         "lookFor": "Press Lastname, type an a into Search, then turn on Is online and watch the cards slide into place.",
         "featured": false,
         "image": "devmode/list-animate-14.jpg",
+        "hasLightCover": true,
         "name": "Animated List",
         "sourceUrl": "examples/list/animate",
         "urls": {

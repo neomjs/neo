@@ -258,72 +258,6 @@
       "region": "viewport"
     },
     {
-      "id": "grid-big-data",
-      "viewport": {"width":640,"height":451},
-      "theme": "dark",
-      "state": "The unsorted buffered grid scrolled to five-digit row numbers with varied names.",
-      "ready": [
-        {"selector":".neo-grid-cell[data-field='countAction'] .neo-button"}
-      ],
-      "steps": [
-        {"kind":"scroll","selector":".neo-grid-view","y":320000}
-      ],
-      "after": [
-        {"selector":".neo-grid-cell[data-field='id']:text-is('10001')","inRegion":true},
-        {"selector":"[role='columnheader'][aria-sort]","count":0}
-      ],
-      "region": {"selector":".neo-examples-bigdata-maincontainer > .neo-grid-container","anchor":"top-left","offsetX":-16,"offsetY":-12,"width":640,"height":360}
-    },
-    {
-      "id": "grid-tree-big-data",
-      "viewport": {
-        "width": 640,
-        "height": 451
-      },
-      "theme": "dark",
-      "state": "The first frame's open path, Engineering to Team Atlas, with Squad Alpha opened to its four pods; the footer states the 20,000 rows.",
-      "ready": [
-        {
-          "selector": ".neo-grid-row[aria-level='3'] .neo-tree-toggle.is-expanded"
-        }
-      ],
-      "steps": [
-        {
-          "kind": "click",
-          "selector": ".neo-grid-row[aria-level='4']:has-text('Squad Alpha') .neo-tree-toggle"
-        },
-        {
-          "kind": "wait",
-          "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']"
-        }
-      ],
-      "after": [
-        {
-          "selector": ".neo-grid-row[aria-level='4'][aria-expanded='true'] .neo-grid-cell[data-field='name']",
-          "text": "Squad Alpha",
-          "inRegion": true
-        },
-        {
-          "selector": ".neo-grid-row[aria-level='5'] .neo-grid-cell[data-field='name']",
-          "text": "Pod 4",
-          "inRegion": true
-        },
-        {
-          "selector": ".neo-examples-treebigdata-footer",
-          "text": "20,000 rows",
-          "inRegion": true
-        }
-      ],
-      "region": {
-        "selector": ".neo-examples-treebigdata-maincontainer > .neo-grid-container",
-        "anchor": "top-left",
-        "offsetX": -16,
-        "offsetY": -12,
-        "width": 640,
-        "height": 360
-      }
-    },
-    {
       "id": "grid-issues",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -488,16 +422,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "dock-cross-window",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "default",
-      "state": "The cross-window dock's first layout three seconds in: the Tour bar over the Workbench pane with its counter running, and the Inspector, Timeline and Console tabs beside it.",
-      "ready": [{"selector": ".agentos-dockdemo-counter-label", "text": "Workbench"}],
-      "steps": [{"kind": "wait", "selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken"}],
-      "after": [{"selector": ".agentos-dockdemo-tour-play", "text": "Tour", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-value", "text": "3s unbroken", "inRegion": true}, {"selector": ".agentos-dockdemo-counter-note", "text": "same worker instance", "inRegion": true}, {"selector": ".neo-tab-header-button", "text": "Inspector", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "dock-choreography",
       "viewport": {"width": 640, "height": 360},
       "theme": "default",
@@ -562,33 +486,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "breadcrumb",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "dark",
-      "state": "The guides folder three levels down, its crumbs neo, learn and guides above its description and its two subfolders.",
-      "ready": [{"selector": ".neo-breadcrumb-folders-children .neo-button", "text": "toolbar"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-breadcrumb-toolbar .neo-button", "text": "neo"},
-        {"kind": "click", "selector": ".neo-breadcrumb-folders-children .neo-button", "text": "learn"},
-        {"kind": "click", "selector": ".neo-breadcrumb-folders-children .neo-button", "text": "guides"}
-      ],
-      "after": [
-        {"selector": ".neo-breadcrumb-toolbar .neo-button", "text": "learn", "inRegion": true},
-        {"selector": ".neo-breadcrumb-folders-children .neo-button", "text": "uibuildingblocks", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "markdown",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "default",
-      "state": "The end of the document the page streamed on open: the code block, the table under its head, and a script tag and a javascript: link rendered as plain text.",
-      "ready": [{"selector": "p", "text": "render as plain text"}],
-      "steps": [],
-      "after": [{"selector": "th", "text": "Surface", "inRegion": true}, {"selector": "p", "text": "render as plain text", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "gallery",
       "viewport": {"width": 1280, "height": 720},
       "theme": "dark",
@@ -607,26 +504,6 @@
       "steps": [],
       "after": [{"selector": ".neo-helix-item"}],
       "region": {"x": 200, "y": 180, "width": 640, "height": 360}
-    },
-    {
-      "id": "list-animate",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "default",
-      "state": "The portrait cards sorted by first name, the ones online marked green.",
-      "ready": [{"selector": ".neo-list-item img"}, {"selector": ".neo-list-item", "text": "Parsons"}],
-      "steps": [],
-      "after": [{"selector": ".neo-list-item", "text": "Parsons", "inRegion": true}],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
-      "id": "graph-scene",
-      "viewport": {"width": 800, "height": 470},
-      "theme": "default",
-      "state": "The middle of the default 240-node scene with its labels, fitted and drawn, before any orbit.",
-      "ready": [{"selector": "canvas[data-drawn='true']"}],
-      "steps": [],
-      "after": [{"selector": ".graph-scene-stats", "text": "drag orbits"}, {"selector": "canvas[data-drawn='true']"}],
-      "region": {"selector": "canvas", "anchor": "center", "width": 640, "height": 360}
     },
     {
       "id": "layout-cube",

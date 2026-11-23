@@ -28,6 +28,7 @@
         "lookFor": "Choose 100k clustered, drag to orbit, and press Read stats to compare nodes, edges and renderer state.",
         "scope": "Requires WebGL. The largest scene is generated locally in the browser.",
         "image": "devmode/graph-scene-14.jpg",
+        "hasLightCover": true,
         "name": "GraphScene",
         "sourceUrl": "examples/component/graphScene",
         "urls": {

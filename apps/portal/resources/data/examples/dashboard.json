@@ -56,6 +56,7 @@
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
         "scope": "Allow popups for the cross-window part of the tour.",
         "image": "devmode/dock-cross-window-14.jpg",
+        "hasLightCover": true,
         "sharedWorkers": true,
         "sourceUrl": "examples/dashboard/crossWindow",
         "urls": {

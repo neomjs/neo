@@ -25,6 +25,7 @@
         "feature": "A breadcrumb over the engine repository's folders: a subfolder goes one level down, a crumb goes back up.",
         "lookFor": "Open grid under src, then press the neo crumb to return to the top; reload and the page keeps its folder.",
         "image": "devmode/breadcrumb-14.jpg",
+        "hasLightCover": true,
         "name": "Breadcrumb Toolbar",
         "sourceUrl": "examples/toolbar/breadcrumb",
         "urls": {
