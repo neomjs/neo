@@ -49,7 +49,10 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-        &::-moz-progress-bar,
+        &::-moz-progress-bar {
+            transition: none;
+        }
+
         &::-webkit-progress-value {
             transition: none;
         }

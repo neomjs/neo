@@ -21,6 +21,7 @@ import path               from 'node:path';
 import {fileURLToPath}    from 'node:url';
 import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
+import '../../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import VdomHelper         from '../../../../../src/vdom/Helper.mjs';
 import Model              from '../../../../../src/data/Model.mjs';
@@ -124,5 +125,6 @@ test.describe('Neo.grid.column.Progress same-record transition gating', () => {
         expect(css).toContain('.neo-grid-body:not(.neo-is-scrolling) .neo-grid-cell .neo-progress-wrapper progress[value].neo-progress-animate');
         expect(css).toContain('transition: width 220ms ease-out;');
         expect(css).toContain('prefers-reduced-motion: reduce');
+        expect(css).not.toMatch(/::-moz-progress-bar\s*,\s*&?::-webkit-progress-value/);
     });
 });
