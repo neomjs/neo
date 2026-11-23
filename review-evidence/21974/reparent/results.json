@@ -1,0 +1,143 @@
+{
+  "revision": "29dc2d5aea6cba9886b12cd533a0e85e70393596",
+  "tree": "f057201bb65492701dbf8ac10680793f3af2f11e",
+  "archiveFilesAndSymlinksVerifiedAfterBuild": 7518,
+  "archiveDifferences": [],
+  "browser": "157.0.8103.80",
+  "sourceSha256": {
+    "src/mixin/VdomLifecycle.mjs": "fdc9b181b1fd6999bfd126b54631267d5e713976786331124dc9fe570fcc7b0f",
+    "src/component/Abstract.mjs": "4a07f0426bfe744be1d8da95f2e3a62e6f92212b8079e2cae8f61863a8c65dcc",
+    "src/container/Base.mjs": "225b72089f2eb93acf2a390d6a8afd11c71a9db0eac487a1ad9bb65558d477a2",
+    "src/manager/VDomUpdate.mjs": "ad7ae9b42fd918d2974c90a6f24834be2032e348fa235d2c22f72fa5c0c6725b",
+    "test/playwright/sharedWorkerAppWorker.mjs": "ee6a965aa51166ac534cfa869afaf42cceafd0caeb52af18319bc7f8f903dcf2"
+  },
+  "diagnosticSha256": "cb4174c1a0a6d1bea51ee4b7774d9383627b6398f71d8d3b560381a94b5e5c1f",
+  "results": [
+    {
+      "order": "source-first",
+      "repetitions": 2,
+      "earlyDestinationPromise": true,
+      "afterSourceResponse": {
+        "sameInstance": true,
+        "window": "destination",
+        "parentWindowMatches": true,
+        "mounted": true,
+        "hasVnode": true,
+        "promises": {
+          "sourceLeaf": "settled",
+          "sourceRoot": "settled",
+          "destinationRoot": "pending",
+          "destinationLeaf": "settled"
+        },
+        "sourceDOM": [
+          "source text"
+        ],
+        "destinationDOM": []
+      },
+      "afterBothLanded": {
+        "sameInstance": true,
+        "window": "destination",
+        "parentWindowMatches": true,
+        "mounted": true,
+        "hasVnode": true,
+        "promises": {
+          "sourceLeaf": "settled",
+          "sourceRoot": "settled",
+          "destinationRoot": "settled",
+          "destinationLeaf": "settled",
+          "sourceCleanup": "settled"
+        },
+        "sourceDOM": [],
+        "destinationDOM": [
+          "destination text"
+        ]
+      },
+      "subsequentEditPaintedAndSettled": true,
+      "destinationPixelSha256": "452da60b0e2d03208330b1742e8a9751eebce17a00d3abef4c2f4a49b33f9002"
+    },
+    {
+      "order": "move-before-collection",
+      "repetitions": 2,
+      "earlyDestinationPromise": false,
+      "afterSourceResponse": {
+        "sameInstance": true,
+        "window": "destination",
+        "parentWindowMatches": true,
+        "mounted": false,
+        "hasVnode": true,
+        "promises": {
+          "sourceLeaf": "pending",
+          "destinationRoot": "pending",
+          "destinationLeaf": "pending",
+          "sourceRoot": "settled"
+        },
+        "sourceDOM": [],
+        "destinationDOM": []
+      },
+      "afterBothLanded": {
+        "sameInstance": true,
+        "window": "destination",
+        "parentWindowMatches": true,
+        "mounted": true,
+        "hasVnode": true,
+        "promises": {
+          "sourceLeaf": "settled",
+          "destinationRoot": "settled",
+          "destinationLeaf": "settled",
+          "sourceRoot": "settled",
+          "sourceCleanup": "settled"
+        },
+        "sourceDOM": [],
+        "destinationDOM": [
+          "destination text"
+        ]
+      },
+      "subsequentEditPaintedAndSettled": true,
+      "destinationPixelSha256": "452da60b0e2d03208330b1742e8a9751eebce17a00d3abef4c2f4a49b33f9002"
+    },
+    {
+      "order": "destination-first",
+      "repetitions": 2,
+      "earlyDestinationPromise": false,
+      "afterSourceResponse": {
+        "sameInstance": true,
+        "window": "destination",
+        "parentWindowMatches": true,
+        "mounted": true,
+        "hasVnode": true,
+        "promises": {
+          "sourceLeaf": "settled",
+          "sourceRoot": "settled",
+          "destinationRoot": "settled",
+          "destinationLeaf": "settled"
+        },
+        "sourceDOM": [
+          "source text"
+        ],
+        "destinationDOM": [
+          "destination text"
+        ]
+      },
+      "afterBothLanded": {
+        "sameInstance": true,
+        "window": "destination",
+        "parentWindowMatches": true,
+        "mounted": true,
+        "hasVnode": true,
+        "promises": {
+          "sourceLeaf": "settled",
+          "sourceRoot": "settled",
+          "destinationRoot": "settled",
+          "destinationLeaf": "settled",
+          "sourceCleanup": "settled"
+        },
+        "sourceDOM": [],
+        "destinationDOM": [
+          "destination text"
+        ]
+      },
+      "subsequentEditPaintedAndSettled": true,
+      "destinationPixelSha256": "452da60b0e2d03208330b1742e8a9751eebce17a00d3abef4c2f4a49b33f9002"
+    }
+  ]
+}
