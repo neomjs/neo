@@ -77,3 +77,46 @@ for (const theme of THEMES) {
         }
     })
 }
+
+test('a closed companion can reopen while its previous focus check is pending', async ({page}) => {
+    await page.goto(`${EXAMPLE}?theme=neo-theme-neo-dark`);
+
+    const launcher = page.getByRole('button', {name: 'Open second window'}),
+          [popup]  = await Promise.all([page.waitForEvent('popup'), launcher.click()]);
+
+    let reopened;
+
+    try {
+        await expect(popup.getByText('Sprint 14 · Second window', {exact: true})).toBeVisible();
+
+        await page.evaluate(() => {
+            const original = Neo.Main.windowFocus;
+            let release;
+            const pending = new Promise(resolve => {release = resolve});
+
+            window.tooltipFocusCheck = {
+                requested: false,
+                restore() {
+                    Neo.Main.windowFocus = original;
+                    release(false)
+                }
+            };
+
+            Neo.Main.windowFocus = function(...args) {
+                window.tooltipFocusCheck.requested = true;
+                return original.apply(this, args).then(() => pending)
+            }
+        });
+
+        await launcher.click();
+        await page.waitForFunction(() => window.tooltipFocusCheck.requested);
+        await popup.close();
+
+        [reopened] = await Promise.all([page.waitForEvent('popup', {timeout: 5000}), launcher.click()]);
+        await expect(reopened.getByText('Sprint 14 · Second window', {exact: true})).toBeVisible()
+    } finally {
+        await page.evaluate(() => window.tooltipFocusCheck?.restore());
+        await reopened?.close();
+        if (!popup.isClosed()) await popup.close()
+    }
+});

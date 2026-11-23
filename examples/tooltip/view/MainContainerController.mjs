@@ -39,7 +39,7 @@ class MainContainerController extends Controller {
 
     /**
      * @summary Opens the same board in a second window, or focuses the existing companion without reloading it.
-     * @returns {Promise<void>}
+     * @returns {Promise<Boolean|undefined>} Native outcome when a window action is dispatched.
      */
     async onOpenSecondWindowClick() {
         if (this.#openingCompanion) return;
@@ -58,15 +58,15 @@ class MainContainerController extends Controller {
             if (this.isDestroyed) return;
 
             if (closed === false) {
-                await Neo.Main.windowFocus({windowId, windowName});
-                return
+                // Release the open guard while Main verifies focus on the existing window.
+                return Neo.Main.windowFocus({windowId, windowName})
             }
 
             const url = new URL(Neo.windowConfigs[windowId].url.href);
             url.searchParams.set('companion', '1');
             url.searchParams.set('theme', component.getTheme());
 
-            await Neo.Main.windowOpen({url: url.href, windowFeatures: 'popup=yes,width=640,height=620', windowId, windowName})
+            return await Neo.Main.windowOpen({url: url.href, windowFeatures: 'popup=yes,width=640,height=620', windowId, windowName})
         } finally {
             this.#openingCompanion = false
         }
