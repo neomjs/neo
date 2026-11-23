@@ -1128,6 +1128,7 @@ class Dialog extends Panel {
      * differently named lifecycle method would never run, leaving a dialog shown without an
      * animation target at its offscreen position.
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
+     * @returns {Promise<Object>}
      */
     async initVnode(mount) {
         let me             = this,
@@ -1147,7 +1148,7 @@ class Dialog extends Panel {
             me.wrapperStyle = wrapperStyle
         }
 
-        await super.initVnode(mount)
+        return super.initVnode(mount)
     }
 
     /**

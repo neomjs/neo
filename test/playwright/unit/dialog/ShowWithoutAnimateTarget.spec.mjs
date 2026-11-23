@@ -21,10 +21,12 @@ const appName = 'DialogShowWithoutAnimateTargetTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
+        useDomApiRenderer      : true,
         useVdomWorker          : false
     },
     appConfig: {
-        name: appName
+        name             : appName,
+        vnodeInitialising: false
     }
 });
 
@@ -34,6 +36,9 @@ import * as core      from '../../../../src/core/_export.mjs';
 import Abstract       from '../../../../src/component/Abstract.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 import Dialog         from '../../../../src/dialog/Base.mjs';
+import '../../../../src/vdom/Helper.mjs';
+import '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import '../../../../src/vdom/util/StringFromVnode.mjs';
 
 // Imported for its side effect: `manager/Instance.mjs` assigns `Neo.get`, which teardown needs.
 import '../../../../src/manager/Instance.mjs';
@@ -48,7 +53,7 @@ test.describe('dialog.Base: showing without an animation target reverts the offs
         parentInitVnode              = Abstract.prototype.initVnode;
         Abstract.prototype.initVnode = function(mount) {
             calls.push(mount);
-            return Promise.resolve()
+            return Promise.resolve({vnode: {id: this.id}})
         };
     });
 
@@ -88,9 +93,10 @@ test.describe('dialog.Base: showing without an animation target reverts the offs
         expect(dialog.wrapperStyle.left).not.toBe('initial');
         expect(dialog.wrapperStyle.top).not.toBe('initial');
 
-        await dialog.initVnode(true);
+        const result = await dialog.initVnode(true);
 
         expect(calls, 'the mount argument reaches super').toEqual([true]);
+        expect(result, 'the superclass payload reaches awaiting callers').toEqual({vnode: {id: dialog.id}});
         expect(dialog.wrapperStyle.left).toBe('initial');
         expect(dialog.wrapperStyle.top).toBe('initial')
     });
@@ -101,10 +107,22 @@ test.describe('dialog.Base: showing without an animation target reverts the offs
 
         instances.push(target);
 
-        await dialog.initVnode(true);
+        const result = await dialog.initVnode(true);
 
         expect(calls).toEqual([true]);
+        expect(result).toEqual({vnode: {id: dialog.id}});
         expect(dialog.wrapperStyle.left).not.toBe('initial');
         expect(dialog.wrapperStyle.top).not.toBe('initial')
+    });
+
+    test('unstubbed initVnode(false) returns the real VdomLifecycle payload containing vnode', async () => {
+        Abstract.prototype.initVnode = parentInitVnode;
+
+        const dialog = create(),
+              result = await dialog.initVnode(false);
+
+        expect(result?.vnode?.id).toBe(dialog.id);
+        expect(dialog.wrapperStyle.left).toBe('initial');
+        expect(dialog.wrapperStyle.top).toBe('initial')
     })
 });
