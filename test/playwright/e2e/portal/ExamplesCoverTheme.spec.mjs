@@ -24,7 +24,7 @@ test.describe('Portal example cover themes', () => {
     test('a visible group card follows both switches without replacement or losing selection', async ({page}) => {
         await page.setViewportSize({width:1440, height:900});
         await page.addInitScript(() => localStorage.setItem('portalTheme', 'neo-theme-neo-dark'));
-        const requests = await interceptPair(page), single = await interceptPair(page, 'board-basic-14'),
+        const requests = await interceptPair(page), hero = await interceptPair(page, 'board-basic-14'),
               loaded   = page.waitForResponse(response => response.url().endsWith(BASE));
         await page.goto(`${PORTAL}#/examples/board`);
         const item = card(page), cover = image(item);
@@ -39,8 +39,8 @@ test.describe('Portal example cover themes', () => {
         const scroll = await page.locator(PAGE).evaluate(node => node.scrollTop);
         await switchTheme(page);
         await expect.poll(() => url(cover)).toContain(LIGHT_IMAGE);
-        await expect.poll(() => single).toContain('board-basic-14.jpg');
-        expect(single).not.toContain('board-basic-14-light.jpg');
+        await expect.poll(() => hero).toContain('board-basic-14.jpg');
+        await expect.poll(() => hero).toContain('board-basic-14-light.jpg');
         await expect(item).toHaveAttribute('data-cover-identity-probe','retained');
         await expect(item).toHaveClass(/neo-selected/);
         expect(await page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(scroll);
@@ -48,6 +48,35 @@ test.describe('Portal example cover themes', () => {
         await expect.poll(() => url(cover)).toContain(BASE);
         await expect(item).toHaveAttribute('data-cover-identity-probe','retained');
         await expect(item).toHaveClass(/neo-selected/)
+    });
+
+    test('a legacy catalog record keeps its base image across a theme change', async ({page, context}) => {
+        await page.setViewportSize({width:1440, height:900});
+        await page.addInitScript(() => localStorage.setItem('portalTheme', 'neo-theme-neo-dark'));
+        // The dedicated App worker's request can be fulfilled with an older catalog in this browser context.
+        await context.route('**/apps/portal/neo-config.json*', async route => {
+            const response = await route.fetch();
+            await route.fulfill({response, json: {...await response.json(), useSharedWorkers: false}})
+        });
+        // Old catalog data carries the image path without a light-cover marker.
+        await context.route('**/resources/data/examples/board.json*', async route => {
+            const response = await route.fetch(), rows = await response.json();
+            const board    = rows.find(row => row.id === 'board-basic');
+            delete board.hasLightCover;
+            await route.fulfill({response, json: rows})
+        });
+        const requests = await interceptPair(page, 'board-basic-14');
+        await page.goto(`${PORTAL}#/examples/board`);
+        const item  = page.locator(`${PAGE} .neo-list-item`).filter({has: page.locator('[data-record-id="board-basic"]')}),
+              cover = image(item);
+        await expect(item).toBeVisible();
+        await expect(item).not.toHaveClass(/portal-example-paired-cover/);
+        await expect.poll(() => url(cover)).toContain('board-basic-14.jpg');
+        await switchTheme(page);
+        await expect(page.locator(`.neo-viewport.${LIGHT}`)).toBeVisible();
+        await expect.poll(() => url(cover)).toContain('board-basic-14.jpg');
+        expect(requests).toContain('board-basic-14.jpg');
+        expect(requests).not.toContain('board-basic-14-light.jpg')
     });
 
     test('restored light uses only its active cover; search switches both a paired tile and a full example', async ({page}) => {
