@@ -110,6 +110,12 @@ test.describe('Planning & Timeline ThemeSwitcher', () => {
                 await page.setViewportSize({width, height});
                 await page.goto(`/examples/${path}/index.html${query}`);
 
+                if (path === 'scheduler/eventEditor' || path === 'gantt/taskEditor') {
+                    const editor = page.locator('.neo-timeline-event-editor');
+                    await editor.getByRole('button', {name: 'Cancel', exact: true}).click();
+                    await expect(editor).toBeHidden()
+                }
+
                 const switcher = page.locator('.neo-theme-switcher').first();
                 await expect(switcher, `${path} @ ${width}x${height}`).toBeVisible();
 
