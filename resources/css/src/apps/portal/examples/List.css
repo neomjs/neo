@@ -65,18 +65,8 @@
             grid-column: span 2;
             grid-row   : span 2;
 
-            .content {
-                --portal-example-cover-aspect: auto;
-                --portal-example-cover-height: 100%;
-
-                grid-template-rows: minmax(0, 1fr) auto;
-            }
-
-            .preview-image-wrap {
-                aspect-ratio: auto;
-                height      : 100%;
-            }
-
+            /* The cover keeps the 16:9 it was captured at: stretched into the two rows, it lost its right edge beside two
+               cards and shrank to a strip beside one. The caption below it takes the rest of the height. */
             .neo-title {
                 font-size: 20px;
             }
