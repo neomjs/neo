@@ -96,7 +96,7 @@
         "family": "grid-table",
         "order": 130,
         "component": "Grid",
-        "feature": "217 economies from a World Bank dataset shipped with the example, with flags, formatted figures and growth tinted by value",
+        "feature": "217 World Bank economies with flags, formatted figures and growth tinted by value",
         "lookFor": "Sort by any figure: growth turns green or red, rank and country stay in place, and the arrow keys move the selection.",
         "scope": "Shows the World Bank's latest indicators (CC BY 4.0) as retrieved on 17 Nov 2026; the flags load from an outside image host."
     },

@@ -5,7 +5,7 @@
         "alsoIn": ["drag-drop"],
         "order": 1490,
         "component": "Tree List",
-        "feature": "A project's folders and files: a file moves into another folder by drag and renames in place, and the filter keeps the folders around a match",
+        "feature": "Drag files between folders, rename in place, and filter while keeping matched paths.",
         "lookFor": "Drag a file onto another folder, double-click a name to rename it, type into the filter, then open logs: its 365 files load when it first opens.",
         "featured": false,
         "image": "devmode/file-explorer-14.jpg",
