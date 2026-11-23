@@ -52,7 +52,7 @@
 
 *Here for the AI maintainers? Jump to [An agent institution](#an-agent-institution).*
 
-The engine is complete and batteries-included: `503` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, with the component library in the box.
+The engine is complete and batteries-included: `513` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, with the component library in the box.
 
 What ships in the box, each group with live examples:
 
@@ -61,7 +61,7 @@ What ships in the box, each group with live examples:
 - **Planning** — [Calendar](https://neomjs.com/#/examples/calendar), [Scheduler](https://neomjs.com/#/examples/scheduler), [Gantt](https://neomjs.com/#/examples/gantt), [Task Board](https://neomjs.com/#/examples/board)
 - **Layout** — [Dashboard & Docking](https://neomjs.com/#/examples/dashboard) (a `42`-class multi-window dock system), [Tabs](https://neomjs.com/#/examples/tabs), [Containers & Layouts](https://neomjs.com/#/examples/layouts) (`8` layouts), [Dialogs & Overlays](https://neomjs.com/#/examples/dialogs)
 - **Components** — [Forms & Fields](https://neomjs.com/#/examples/forms) (`26` field types with nested forms), [Buttons, Menus & Toolbars](https://neomjs.com/#/examples/buttons), [more components](https://neomjs.com/#/examples/components)
-- **Platform** — [Multi-Window](https://neomjs.com/#/examples/multi-window), [Workers & Platform](https://neomjs.com/#/examples/platform) (`39` main-thread addons), [State & Data](https://neomjs.com/#/examples/state) (data stores, state providers, routing), [Functional Components](https://neomjs.com/#/examples/functional), [Drag & Drop](https://neomjs.com/#/examples/drag-drop)
+- **Platform** — [Multi-Window](https://neomjs.com/#/examples/multi-window), [Workers & Platform](https://neomjs.com/#/examples/platform) (`40` main-thread addons), [State & Data](https://neomjs.com/#/examples/state) (data stores, state providers, routing), [Functional Components](https://neomjs.com/#/examples/functional), [Drag & Drop](https://neomjs.com/#/examples/drag-drop)
 
 ### Quickstart
 
@@ -87,7 +87,7 @@ Its multi-threaded runtime (Off-Main-Thread architecture; App Worker / VDom Work
 - **Data Worker** — data processing isolation
 - **Canvas Worker** — 60fps offscreen rendering for high-frequency surfaces (grids, charts, visualizers)
 - **SharedWorker & Multi-Window Dock Layouts** — one engine instance spanning many browser windows, with live cross-window component tear-out, re-docking, and workspace perspectives ([Dock Layouts](./learn/guides/uibuildingblocks/DockLayouts.md))
-- **Main Thread** — restricted to surgical DOM patching (`DeltaUpdates` & `DomApiRenderer`) and 39 main-thread addons; the neurosurgeon thread
+- **Main Thread** — restricted to surgical DOM patching (`DeltaUpdates` & `DomApiRenderer`) and 40 main-thread addons; the neurosurgeon thread
 
 Components are persistent objects (Lego Technic), not transient DOM snapshots (melted plastic). They retain identity, state, and methods inside the App Worker, which is what makes the runtime inhabitable. And because **LLMs excel at JSON** and **Neo.mjs has been JSON-first since its November 2019 GA** ([`JSONFirstUIs.md`](./learn/benefits/body/JSONFirstUIs.md)), coding agents read and write Neo.mjs blueprints natively while the engine handles multi-threading behind the scenes.
 
@@ -228,7 +228,7 @@ Neo.mjs is built for three audiences across its two hemispheres:
 - **Engineering Teams & AI Architects** deploying coding agents or standing multi-agent teams with persistent memory, cross-family peer review, and live runtime inspection & hot-patching of running apps — start with the **[Neural Link](./learn/agentos/NeuralLink.md)**, [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain), and [`neo-agent-institution`](https://github.com/neomjs/neo-agent-institution).
 - **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [What Is Neo.mjs?](./learn/benefits/Introduction.md), [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137), and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
 
-The same hero paragraph reads differently to each audience because each group enters through a different door — a complete `503`-class web application platform, a live possession interface for coding agents, or a standing AI engineering institution.
+The same hero paragraph reads differently to each audience because each group enters through a different door — a complete `513`-class web application platform, a live possession interface for coding agents, or a standing AI engineering institution.
 
 </br></br>
 ## Read Next
