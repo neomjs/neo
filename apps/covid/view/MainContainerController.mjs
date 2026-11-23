@@ -295,12 +295,12 @@ class MainContainerController extends ComponentController {
             activeView.store.data = me.data;
         }
 
-        if (ntype === 'mapboxgl' && me.data) {
-            if (me.mapboxStyle) {
-                activeView.mapboxStyle = activeView[me.mapboxStyle];
-                delete me.mapboxStyle
-            }
+        if (ntype === 'mapboxgl' && me.mapboxStyle) {
+            activeView.mapboxStyle = activeView[me.mapboxStyle];
+            delete me.mapboxStyle
+        }
 
+        if (ntype === 'mapboxgl' && me.data) {
             if (!me.mapboxglMapHasData) {
                 activeView.chartData = me.data;
                 me.mapboxglMapHasData = true

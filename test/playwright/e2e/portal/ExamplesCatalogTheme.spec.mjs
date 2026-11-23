@@ -200,6 +200,17 @@ async function stubExternalCovidAssets(page) {
     }));
     await page.context().route('https://buttons.github.io/**', route => route.fulfill({
         body: '', contentType: 'application/javascript', status: 200
+    }));
+    await page.context().route('https://api.mapbox.com/mapbox-gl-js/**/*.css', route => route.fulfill({
+        body: '', contentType: 'text/css', status: 200
+    }));
+    await page.context().route('https://api.mapbox.com/mapbox-gl-js/**/*.js', route => route.fulfill({
+        body       : 'window.mapboxgl={accessToken:"",Map:class{on(){}once(){}resize(){}remove(){}setFilter(){}setLayoutProperty(){}setPaintProperty(){}setZoom(){}getSource(){return null}getStyle(){return{layers:[]}}}};',
+        contentType: 'application/javascript',
+        status     : 200
+    }));
+    await page.context().route('https://api.mapbox.com/styles/**', route => route.fulfill({
+        json: {layers: []}
     }))
 }
 
@@ -302,16 +313,18 @@ const CUSTOM_TOGGLE_EXAMPLES = [{
 }, {
     appName      : 'Covid',
     darkTheme    : 'neo-theme-dark',
-    hash         : '#mainview=table',
+    hash         : '#mainview=mapboxglmap',
     lightTheme   : 'neo-theme-light',
     name         : 'apps/covid',
     url          : '/apps/covid/index.html',
     assertControl: async (page, app, expectedTheme) => {
         const isLight = expectedTheme === 'neo-theme-light',
-              btn     = await queryProps(app, {reference: 'theme-button'}, ['iconCls', 'text']);
+              btn     = await queryProps(app, {reference: 'theme-button'}, ['iconCls', 'text']),
+              map     = await queryProps(app, {reference: 'mapboxglmap'}, ['mapboxStyle', 'mapboxStyleDark', 'mapboxStyleLight']);
 
         expect(btn.text).toBe(isLight ? 'Theme Dark' : 'Theme Light');
         expect(btn.iconCls).toBe(isLight ? 'fa fa-moon' : 'fa fa-sun');
+        expect(map.mapboxStyle).toBe(isLight ? map.mapboxStyleLight : map.mapboxStyleDark);
         await expect(page.locator('.covid-header-container img')).toHaveAttribute(
             'src',
             new RegExp(isLight ? 'covid_logo_light\\.jpg$' : 'covid_logo_dark\\.jpg$')
