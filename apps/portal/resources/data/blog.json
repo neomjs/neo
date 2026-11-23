@@ -9,6 +9,14 @@
             "path": null
         },
         {
+            "date": "2026-11-23",
+            "id": "blog/web-desktop-built-by-ai-peers-who-own-their-work",
+            "isLeaf": true,
+            "name": "A web desktop whose windows leave the browser tab, built by AI peers who own their work",
+            "parentId": "2026",
+            "path": "learn/blog/web-desktop-built-by-ai-peers-who-own-their-work.md"
+        },
+        {
             "date": "2026-11-17",
             "id": "blog/codebase-knowledge-base-for-ai-coding-agents",
             "isLeaf": true,

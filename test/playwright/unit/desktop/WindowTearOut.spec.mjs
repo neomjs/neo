@@ -21,16 +21,17 @@ const
 
 test.describe('Desktop window tear-out admission and restoration', () => {
     let apps, host, manager, nativeClosed, nativeCloseAllowed, opened, original, owner,
-        physicallyClosed, popups, probed, focused, lost, released, semanticClosed, tasks;
+        physicallyClosed, popups, probed, focused, lost, refusals, released, semanticClosed, tasks;
 
     test.beforeEach(async () => {
-        original       = {apps: Neo.apps, currentWorker: Neo.currentWorker, Main: Neo.Main, windowConfigs: Neo.windowConfigs};
+        original       = {apps: Neo.apps, currentWorker: Neo.currentWorker, Main: Neo.Main, toast: Neo.toast, windowConfigs: Neo.windowConfigs};
         focused        = [];
         lost           = [];
         nativeClosed   = [];
         opened         = [];
         popups         = new Map();
         probed         = [];
+        refusals       = [];
         released       = [];
         semanticClosed = [];
         nativeCloseAllowed = true;
@@ -38,6 +39,7 @@ test.describe('Desktop window tear-out admission and restoration', () => {
 
         Neo.apps          = {...Neo.apps, source: {...Neo.apps[1]}};
         Neo.currentWorker = {...Neo.currentWorker, isSharedWorker: true};
+        Neo.toast         = config => refusals.push(config);
         Neo.windowConfigs = {source: {url: {href: 'https://example.test/desktop/index.html?theme=light'}}};
         Neo.Main = {...Neo.Main,
             windowClose              : async data => {semanticClosed.push(data); return true},
@@ -55,6 +57,7 @@ test.describe('Desktop window tear-out admission and restoration', () => {
             taskStore   : tasks,
             windowClass : AppWindow,
             windowConfig: record => ({
+                appName      : Neo.apps.source.name,
                 draggable    : false,
                 items        : [{module: Component, text: 'edited note'}],
                 record,
@@ -219,14 +222,67 @@ test.describe('Desktop window tear-out admission and restoration', () => {
         expect(owner.getItem('bodyContainer')).toBe(body)
     });
 
-    test('refusal leaves the original live body reachable', async () => {
+    test('a refused popup reports once and leaves the original live body reachable', async () => {
         Neo.Main.windowOpen = async () => false;
         const body = owner.getItem('bodyContainer');
         expect(await host.open({rect})).toBeNull();
+        expect(refusals).toEqual([expect.objectContaining({
+            appName: 'WindowTearOutTest', msg: expect.stringMatching(/allow pop-ups/i), role: 'status', windowId: 'source'
+        })]);
         expect(host.commit()).toBe(false);
         expect(owner.getItem('bodyContainer')).toBe(body);
         expect(nativeClosed).toEqual([]);
         expect(semanticClosed).toEqual([])
+    });
+
+    test('invalid geometry, transport failure and an indeterminate response never report a browser refusal', async () => {
+        Neo.Main.windowOpen = async data => {
+            opened.push(data);
+            throw new Error('opener disconnected')
+        };
+        expect(await host.open({rect: {...rect, width: 0}})).toBeNull();
+        expect(opened).toHaveLength(0);
+        expect(await host.open({rect})).toBeNull();
+        expect(opened).toHaveLength(1);
+        Neo.Main.windowOpen = async () => undefined;
+        expect(await host.open({rect})).toBeNull();
+        expect(refusals).toEqual([]);
+        expect(tasks.getCount()).toBe(1)
+    });
+
+    for (const [action, end] of Object.entries({
+        hide : () => owner.hide(false),
+        close: () => manager.close('notes')
+    })) {
+        test(`a late browser refusal stays silent after ${action}`, async () => {
+            const admission = Promise.withResolvers();
+            Neo.Main.windowOpen = () => admission.promise;
+            const opening = host.open({gestureId: 1, rect});
+
+            end();
+            admission.resolve(false);
+            expect(await opening).toBeNull();
+            expect(refusals).toEqual([])
+        })
+    }
+
+    test('a canceled admission cannot report its refusal on the successor gesture', async () => {
+        const admission = Promise.withResolvers(), body = owner.getItem('bodyContainer');
+        Neo.Main.windowOpen = async data => {
+            opened.push(data);
+            return opened.length === 1 ? admission.promise : true
+        };
+        const first      = host.open({gestureId: 1, rect}),
+              retirement = host.returnToDesktop(),
+              second     = host.open({gestureId: 2, rect});
+
+        admission.resolve(false);
+        expect(await first).toBeNull();
+        await retirement;
+        const {popupName} = await second;
+        expect(connect(popupName).items).toEqual([body]);
+        expect(opened).toHaveLength(2);
+        expect(refusals).toEqual([])
     });
 
     test('a refused native close restores the source and retries the same exact route', async () => {

@@ -353,6 +353,63 @@ test.describe('Portal examples overview and group pages', () => {
         expect(view.getGroupButton().badgeText).toBeFalsy()
     });
 
+    test('the side nav is one Tab stop, its walk asks for the route, and ArrowRight asks for the open page\'s cards', async () => {
+        const view                   = createView(),
+              controller             = view.getController(),
+              index                  = view.getGroupIndex(),
+              sheet                  = view.getSheet(),
+              [first, second, third] = index.store.items.slice(-3),
+              linkId                 = family => `${index.id}__${family}`,
+              tabStops               = component => component.vdom.cn.flatMap(node => node.tag === 'a' ? [node] :
+                  (node.tag === 'section' ? node.cn[1].cn : node.tag === 'ul' ? node.cn : []).map(item => item.cn[0])
+              ).filter(link => link.tabIndex !== -1).map(link => link.href),
+              originalMain           = Neo.Main,
+              cards                  = [],
+              routes                 = [];
+
+        // A walk step: the key goes down on one link and comes up on the link focus rests on
+        const step = (from, to, key='ArrowDown') => {
+            index.onKeyDown({key, target: {id: linkId(from)}});
+            index.onKeyUp(  {key, target: {id: linkId(to)}})
+        };
+
+        Neo.Main = {...originalMain, setRoute: data => routes.push(data)};
+        controller.focusCards = () => cards.push(controller.getOpenRoute());
+
+        try {
+            expect(tabStops(index)).toEqual(['#/examples']);
+            await controller.onExamplesRoute({itemId: first.route.slice('/examples/'.length)});
+            expect(tabStops(index)).toEqual(['#' + first.route]);
+            expect(tabStops(sheet)).toHaveLength(sheet.store.getCount() + 1);
+
+            step(first.family, first.family, 'ArrowUp');
+            expect(routes, 'a key that moved nothing takes no step').toEqual([]);
+
+            step(first.family, second.family);
+            step(second.family, third.family, 'End');
+            expect(routes).toEqual([
+                {replace: false, value: second.route, windowId: 1},
+                {replace: true,  value: third.route,  windowId: 1}
+            ]);
+
+            index.onFocusLeave({});
+            step(first.family, second.family);
+            expect(routes.at(-1).replace, 'focus leaving the index ends the walk').toBe(false);
+
+            index.onKeyDown({key: 'ArrowRight', target: {id: linkId(first.family)}});
+            expect(cards).toEqual([first.route]);
+
+            index.onKeyDown({key: 'ArrowRight', target: {id: linkId(third.family)}});
+            expect(routes.at(-1)).toEqual({replace: true, value: third.route, windowId: 1});
+            expect(cards, 'a page the route has not opened yet takes no focus').toEqual([first.route]);
+
+            await controller.onExamplesRoute({itemId: third.route.slice('/examples/'.length)});
+            expect(cards).toEqual([first.route, third.route])
+        } finally {
+            Neo.Main = originalMain
+        }
+    });
+
     test('resolves group routes and all legacy modes', async () => {
         // without its form layout tile, Containers & Layouts is a defined group with no card or tile
         const view       = createView(catalog.filter(record => record.family !== 'layouts')),
@@ -1169,21 +1226,23 @@ test.describe('Portal examples canonical catalog', () => {
         })
     });
 
-    test('lists the issues showcase once with its real cover in every mode', () => {
+    test('publishes the Issues Grid and COVID dashboard with paired opening covers in every mode', () => {
         const {store} = createList(),
-              issues  = store.items.filter(record => record.sourceUrl === 'examples/grid/issues');
+              recipes = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../../../../../../buildScripts/docs/captureExamples.json', import.meta.url)), 'utf8')).recipes;
 
-        expect(issues).toHaveLength(1);
-        expect(issues[0].id).toBe('grid-issues');
-        expect(issues[0].image).toBe('devmode/grid-issues-14.jpg');
-        const recipes = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../../../../../../buildScripts/docs/captureExamples.json', import.meta.url)), 'utf8')).recipes;
-        expect(recipes.filter(recipe => recipe.id === issues[0].id)).toHaveLength(1);
+        for (const [id, sourceUrl] of [['grid-issues', 'examples/grid/issues'], ['covid-dashboard', 'apps/covid']]) {
+            const matches  = store.items.filter(record => record.sourceUrl === sourceUrl),
+                  [record] = matches;
 
-        modes.forEach(mode => {
-            list.catalogMode = mode;
-            expect(list.isHiddenItem(issues[0]), mode).toBe(false);
-            expect(list.createLink(issues[0]).href, mode).toBe(list.baseUrl + issues[0].urls[mode])
-        })
+            expect(matches, id).toHaveLength(1);
+            expect(record).toMatchObject({id, image: `devmode/${id}-14.jpg`, hasLightCover: true});
+            expect(recipes.some(recipe => recipe.id === id), id).toBe(false);
+            modes.forEach(mode => {
+                list.catalogMode = mode;
+                expect(list.isHiddenItem(record), mode).toBe(false);
+                expect(list.createLink(record).href, mode).toBe(list.baseUrl + record.urls[mode])
+            })
+        }
     });
 
     test('renders two-zone cover + stationary footer, prunes browsers, and isolates Mobile vs Multi-window metadata', () => {
@@ -1328,7 +1387,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(intro.vdom.cn[2].text).toBe(overview.lead)
     });
 
-    test('pairs the Button and hosted-button tiles and gives published records visitor-facing names', () => {
+    test('pairs the Button, hosted-button and Web Desktop tiles and gives published records visitor-facing names', () => {
         const {store}     = createList(),
               dottedNames = store.items
                   .filter(record => modes.some(mode => Example.publishes(record, mode)) && /^[a-z][a-zA-Z0-9]*\.[A-Z]/.test(record.name || ''))
@@ -1336,6 +1395,7 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.get('button-base').hasLightCover).toBe(true);
         expect(store.get('functional-host-component').hasLightCover).toBe(true);
+        expect(store.get('webdesktop')).toMatchObject({hasLightCover: true, image: 'devmode/webdesktop-14-0.jpg'});
         expect(store.get('toast').name).toBe('Toast Notifications');
         expect(store.get('popover').name).toBe('Popover');
         expect(dottedNames).toEqual([])

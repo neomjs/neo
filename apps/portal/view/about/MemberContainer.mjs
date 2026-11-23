@@ -13,10 +13,12 @@ class MemberContainer extends Container {
          */
         className: 'Portal.view.about.MemberContainer',
         /**
-         * @member {String[]} cls=['portal-about-member-container', 'portal-content-box']
+         * The shared glass card chrome, so #/about-us keeps the card surface once .portal-content-box
+         * drops its legacy chrome.
+         * @member {String[]} cls=['portal-about-member-container', 'portal-content-box', 'portal-glass-card']
          * @reactive
          */
-        cls: ['portal-about-member-container', 'portal-content-box'],
+        cls: ['portal-about-member-container', 'portal-content-box', 'portal-glass-card'],
         /**
          * @member {String|null} location_=null
          * @reactive

@@ -3,7 +3,8 @@ import Example   from '../../model/Example.mjs';
 
 /**
  * @summary Routes the overview and the group pages, publishes the groups of the selected build, and shares one build
- * selection. The route is the one writer of the open group: no view writes the hash.
+ * selection. The route is the one writer of the open group: no view writes the hash. The side nav's keys ask, and this
+ * controller writes the route a walk rests on and moves focus between the side nav and the cards.
  * @class Portal.view.examples.MainContainerController
  * @extends Neo.controller.Component
  */
@@ -23,6 +24,12 @@ class MainContainerController extends Component {
         }
     }
 
+    /**
+     * The route whose page takes focus into its cards once the route shows it: ArrowRight on a side nav link whose page
+     * is not open yet.
+     * @member {String|null} cardsRoute=null
+     */
+    cardsRoute = null
     /**
      * Shares the in-flight catalog read across concurrent routes.
      * @member {Promise|null} catalogLoadPromise=null
@@ -116,6 +123,33 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary Hands focus to the cards of the page the stage shows: its selected card, or else its first in reading
+     * order. A page without a card leaves focus where it is.
+     * @returns {Promise<void>}
+     */
+    async focusCards() {
+        const page = this.component.getActivePage();
+
+        // A page the route has just shown paints before a card can take focus
+        await page.promiseUpdate();
+
+        if (!page.isDestroyed) {
+            const lists = page.getLists().filter(list => list.selectionModel.getNavigableRecords().length);
+
+            (lists.find(list => list.selectionModel.hasSelection()) || lists[0])?.selectionModel.enter()
+        }
+    }
+
+    /**
+     * @returns {String} The route of the open page: its group's route, or `/examples`
+     */
+    getOpenRoute() {
+        const {openFamily} = this;
+
+        return openFamily && this.component.familyDefinitions.find(definition => definition.family === openFamily)?.route || '/examples'
+    }
+
+    /**
      * @summary Clears active filtering when clicking the SearchResults Clear button.
      */
     onClearFind() {
@@ -171,12 +205,74 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary ArrowRight on a side nav link moves focus into the cards of its page, and opens the page first when the
+     * walk has not opened it yet. Under a filter the stage shows the matches, and they take focus.
+     * @param {Object}  data
+     * @param {Boolean} data.replace True during a walk: opening the page replaces the walk's history entry
+     * @param {String}  data.route
+     */
+    onIndexEnterCards({replace, route}) {
+        const me = this;
+
+        if (me.component.findQuery || route === me.getOpenRoute()) {
+            me.focusCards()
+        } else {
+            me.cardsRoute = route;
+            me.openRoute(route, replace)
+        }
+    }
+
+    /**
+     * @summary A side nav walk opens the group it rests on, as a click on its link would. Its first step adds one history
+     * entry and its later steps replace it, so Back returns to where the walk started.
+     * @param {Object}  data
+     * @param {Boolean} data.replace
+     * @param {String}  data.route
+     */
+    onIndexWalk({replace, route}) {
+        this.openRoute(route, replace)
+    }
+
+    /**
+     * @summary ArrowLeft on a list's first card returns focus to the side nav's current link while the side nav shows,
+     * and the card keeps its selection for ArrowRight to come back to. Without the side nav (phones) focus stays.
+     * @returns {Promise<void>}
+     */
+    async onListLeaveStart() {
+        const view  = this.component,
+              index = view.getGroupIndex();
+
+        if (index?.mounted) {
+            const rect = await Neo.main.DomAccess.getBoundingClientRect({id: index.id, windowId: view.windowId});
+
+            rect?.width && !index.isDestroyed && index.focusTabStop()
+        }
+    }
+
+    /**
      * @summary Updates every page and the overview through the section's shared build state.
      * @param {Object} record Selected native menu record.
      */
     onSelectBuild(record) {
         if (this.component.buildModes.some(mode => mode.id === record.id)) {
             this.getStateProvider().setData({catalogMode: record.id})
+        }
+    }
+
+    /**
+     * @summary Writes a route the side nav asks for, and the route handler opens its page. Asking for the open page under
+     * a filter exits the filter, as following its link does.
+     * @param {String}  route
+     * @param {Boolean} [replace=false] True to replace the current history entry instead of adding one
+     */
+    openRoute(route, replace=false) {
+        const me   = this,
+              view = me.component;
+
+        if (route !== me.getOpenRoute()) {
+            Neo.Main.setRoute({replace, value: route, windowId: view.windowId})
+        } else if (view.findQuery) {
+            me.clearFind()
         }
     }
 
@@ -229,15 +325,22 @@ class MainContainerController extends Component {
 
     /**
      * @summary Shows the open group's page in the stage, or `"Start here"` (`Overview`), and syncs hoisted navigation.
+     * A page that ArrowRight asked for before it opened takes focus into its cards.
      */
     showOpenGroup() {
-        const view  = this.component,
+        const me    = this,
+              view  = me.component,
               stage = view.getStage(),
-              page  = this.openFamily && view.getGroupPage(this.openFamily);
+              page  = me.openFamily && view.getGroupPage(me.openFamily);
 
         view.sheetOpen = false;
         view.syncNavigation(page?.group || null);
-        stage.layout.activeIndex = page ? stage.indexOf(page) : 0
+        stage.layout.activeIndex = page ? stage.indexOf(page) : 0;
+
+        if (me.cardsRoute) {
+            me.cardsRoute === me.getOpenRoute() && me.focusCards();
+            me.cardsRoute = null
+        }
     }
 }
 

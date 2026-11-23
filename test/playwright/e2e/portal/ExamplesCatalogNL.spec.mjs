@@ -379,7 +379,8 @@ test.describe('Portal examples section', () => {
         const app = await neuralLink.connectToApp('Portal');
 
         const headline   = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
-              counts     = page.locator(`${SIDEBAR} .portal-examples-group-index-count`),
+              counts     = page.locator(`${SIDEBAR} li .portal-examples-group-index-count`),
+              allCount   = page.locator(`${SIDEBAR} .portal-examples-group-index-all .portal-examples-group-index-count`),
               note       = page.locator(`${SIDEBAR} .portal-examples-group-index-note`),
               components = counts.nth(GROUPS.indexOf('More components')),
               apps       = counts.nth(GROUPS.indexOf('Apps')),
@@ -396,6 +397,7 @@ test.describe('Portal examples section', () => {
 
         // the line gives the headline's total; a borrowed example counts in every group that shows it, so the list adds up to more
         await expect(headline).toHaveText(headlineOf(published));
+        await expect(allCount).toHaveText(String(published));
         expect(published).toBeGreaterThan(0);
         expect((await counts.allTextContents()).every(text => /^\d+$/.test(text)), 'every group shows a number').toBe(true);
         expect(await sum()).toBeGreaterThan(published);
@@ -406,9 +408,12 @@ test.describe('Portal examples section', () => {
         await selectBuild(page, 'Dev mode');
         await expect(headline).toHaveText(headlineOf(published - 1));
         await expect(note).toHaveText(noteOf(published - 1));
+        await expect(allCount).toHaveText(String(published - 1));
         await expect(page.locator(SIDEBAR).getByRole('link', {name: `More components, ${componentCount - 1} live examples`})).toHaveCount(1);
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText(headlineOf(published));
+
+        await expect(allCount).toHaveText(String(published));
 
         // a planning group's number is its page's cards; it is read, so an examples PR edits no line here
         for (const name of ['Scheduler', 'Gantt', 'Task Board']) {
@@ -438,7 +443,7 @@ test.describe('Portal examples section', () => {
         }).toBe(appsCount)
     });
 
-    test('the index is a navigation landmark of links: Tab reaches every entry, Enter opens it, no entry claims to be a tab', async ({page, neuralLink}) => {
+    test('the index is a navigation landmark of links: one Tab stop, Enter opens an entry, no entry claims to be a tab', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples`);
         await neuralLink.connectToApp('Portal');
 
@@ -446,14 +451,11 @@ test.describe('Portal examples section', () => {
               links = nav.getByRole('link');
 
         await expect(links).toHaveCount(GROUPS.length + 1);
-        await expect(nav.locator('[aria-current="page"]')).toHaveText('All examples');
+        await expect(nav.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
         await expect(nav.locator('[role="tab"], [aria-selected]')).toHaveCount(0);
 
-        await links.first().focus();
-        for (let index = 1; index <= GROUPS.length; index++) {
-            await page.keyboard.press('Tab');
-            await expect(links.nth(index)).toBeFocused()
-        }
+        // The open destination's link is the one Tab stop; the arrow keys walk the rest (side nav keys, below)
+        await expect(nav.locator('a[href]:not([tabindex="-1"])')).toHaveCount(1);
 
         await links.nth(GROUPS.indexOf('Calendar') + 1).focus();
         await page.keyboard.press('Enter');
@@ -473,7 +475,7 @@ test.describe('Portal examples section', () => {
         await expect(button).toHaveText(`All ${GROUPS.length} groups`);
         await button.click();
         await expect(sheet).toBeVisible();
-        await expect(sheet.locator('[aria-current="page"]')).toHaveText('All examples');
+        await expect(sheet.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
         await sheet.getByRole('link', {name: /^Grid & Table, /}).click();
         await expectOpenPage(page, 'Grid & Table');
         await expect(button).toHaveText('Grid & Table');
@@ -744,7 +746,7 @@ test.describe('Portal examples section', () => {
 
             const sidebar = page.locator(SIDEBAR),
                   trees   = sidebar.getByRole('link', {name: /^Trees, /}),
-                  current = sidebar.getByRole('link', {name: 'All examples', exact: true}),
+                  current = sidebar.getByRole('link', {name: /^All examples, \d+ live examples?$/}),
                   paint   = link => link.evaluate(node => {
                       const style = getComputedStyle(node);
                       return {background: style.backgroundColor, marker: style.boxShadow}
@@ -776,7 +778,7 @@ test.describe('Portal examples section', () => {
             expect(await paint(current)).toEqual(selected);
 
             await sidebar.getByRole('link', {name: /^Grid & Table, /}).focus();
-            await page.keyboard.press('Tab');
+            await page.keyboard.press('ArrowDown');
             await expect(trees).toBeFocused();
             await expect(trees).toHaveCSS('outline-style', 'solid')
         });
@@ -828,7 +830,7 @@ test.describe('Portal examples section', () => {
                 const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
                 await expect(issues.locator('.portal-example-feature')).toHaveText('Searchable issue snapshot with wrapped rows');
                 expect(await issues.locator('.preview-image').evaluate(node => getComputedStyle(node).backgroundImage))
-                    .toContain('grid-issues-14.jpg');
+                    .toContain(theme === 'neo-theme-neo-light' ? 'grid-issues-14-light.jpg' : 'grid-issues-14.jpg');
 
                 const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');
@@ -1294,4 +1296,193 @@ test.describe('Portal examples section', () => {
         await page.keyboard.press('ArrowDown');
         await expect(featCards.nth(3)).toHaveClass(/neo-selected/)
     })
+});
+
+const MATCHES = '.portal-examples-search-groups:visible .neo-list-item';
+
+/**
+ * @summary A group's link in the desktop side nav, by the title its accessible name starts with.
+ * @param {Object} page
+ * @param {String} name
+ * @returns {Object} The locator
+ */
+const groupLink = (page, name) => page.locator(SIDEBAR).getByRole('link', {name: new RegExp(`^${name}, `)});
+
+/**
+ * @param {Object} page
+ * @returns {Object} The side nav's `"All examples"` link
+ */
+const allLink = page => page.locator(SIDEBAR).getByRole('link', {name: /^All examples\b/});
+
+/**
+ * @param {Object} page
+ * @returns {Promise<Number>} The browser history's length
+ */
+const historyLength = page => page.evaluate(() => history.length);
+
+test.describe('Portal examples side nav keys (#22061)', () => {
+    test.use({viewport: {width: 1440, height: 900}});
+
+    test('the arrow keys walk the side nav, the page follows the link focus rests on, and one Back returns to where the walk started', async ({page}) => {
+        await page.goto(`${PORTAL}#/examples/scheduler`);
+
+        const nav       = page.locator(SIDEBAR),
+              scheduler = groupLink(page, 'Scheduler'),
+              bands     = nav.locator('section'),
+              last      = nav.getByRole('link').last();
+
+        await expect(scheduler).toHaveAttribute('aria-current', 'page');
+
+        const before = await historyLength(page);
+
+        await scheduler.focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(groupLink(page, 'Gantt')).toBeFocused();
+        await expectOpenPage(page, 'Gantt');
+        await expect(groupLink(page, 'Gantt')).toHaveAttribute('aria-current', 'page');
+        await expect(nav, 'focus moves to real links, so the landmark names no active descendant').not.toHaveAttribute('aria-activedescendant');
+
+        await page.keyboard.press('ArrowUp');
+        await expect(scheduler).toBeFocused();
+        await expectOpenPage(page, 'Scheduler');
+
+        // A band heading takes no stop: the last link of a band steps to the first link of the next
+        await bands.nth(0).getByRole('link').last().focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(bands.nth(1).getByRole('link').first()).toBeFocused();
+
+        await page.keyboard.press('End');
+        await expect(last).toBeFocused();
+        await expect(page).toHaveURL(new RegExp(`${await last.getAttribute('href')}$`));
+        await page.keyboard.press('ArrowDown');
+        await expect(last, 'the walk does not wrap').toBeFocused();
+
+        await page.keyboard.press('Home');
+        await expect(allLink(page)).toBeFocused();
+        await expect(page.locator(`${FEATURED} .neo-list-item`).first()).toBeVisible();
+        await expect(page).toHaveURL(/#\/examples$/);
+
+        expect(await historyLength(page), 'one history entry for the whole walk').toBe(before + 1);
+        await page.evaluate(() => history.back());
+        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expectOpenPage(page, 'Scheduler')
+    });
+
+    test('a held arrow opens only the group focus rests on', async ({page}) => {
+        await page.goto(`${PORTAL}#/examples/scheduler`);
+
+        const scheduler = groupLink(page, 'Scheduler');
+
+        await expect(scheduler).toHaveAttribute('aria-current', 'page');
+
+        const before = await historyLength(page);
+
+        await scheduler.focus();
+        for (let press = 0; press < 3; press++) {
+            await page.keyboard.down('ArrowDown')
+        }
+
+        await expect(groupLink(page, 'Dashboard & Docking')).toBeFocused();
+        await expect(page, 'nothing opens while the key is held').toHaveURL(/#\/examples\/scheduler$/);
+
+        await page.keyboard.up('ArrowDown');
+        await expectOpenPage(page, 'Dashboard & Docking');
+        expect(await historyLength(page)).toBe(before + 1)
+    });
+
+    test('the side nav is one Tab stop, the open group\'s link: Tab leaves for the content and Shift+Tab comes back', async ({page}) => {
+        await page.goto(`${PORTAL}#/examples/scheduler`);
+
+        const nav       = page.locator(SIDEBAR),
+              scheduler = groupLink(page, 'Scheduler');
+
+        await expect(scheduler).toHaveAttribute('aria-current', 'page');
+        await expect(nav.locator('a[href]:not([tabindex="-1"])')).toHaveCount(1);
+
+        await scheduler.focus();
+        await page.keyboard.press('Tab');
+        await expect(nav.locator(':focus')).toHaveCount(0);
+        await expect(page.locator(`${PAGE} :focus`)).toHaveCount(1);
+
+        await page.keyboard.press('Shift+Tab');
+        await expect(scheduler).toBeFocused()
+    });
+
+    test('ArrowRight enters the cards at the selected card, or else the first, and ArrowLeft on the first card returns to the side nav', async ({page}) => {
+        await page.goto(`${PORTAL}#/examples/scheduler`);
+
+        const scheduler = groupLink(page, 'Scheduler'),
+              cards     = page.locator(`${CARDS} .neo-list-item`);
+
+        await expect(scheduler).toHaveAttribute('aria-current', 'page');
+
+        await scheduler.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.first()).toBeFocused();
+        await expect(cards.first()).toHaveClass(/\bneo-selected\b/);
+
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.nth(1)).toBeFocused();
+        await page.keyboard.press('ArrowLeft');
+        await expect(cards.first(), 'ArrowLeft on another card steps back one card').toBeFocused();
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(scheduler).toBeFocused();
+        await expect(cards.first(), 'the card keeps its selection').toHaveClass(/\bneo-selected\b/);
+        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.first()).toBeFocused();
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.nth(1)).toHaveClass(/\bneo-selected\b/);
+
+        await scheduler.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.nth(1), 'the selected card is the way back in').toBeFocused()
+    });
+
+    test('on All examples and under a filter ArrowRight enters what the stage shows, and Tab into the side nav keeps the filter', async ({page}) => {
+        await page.goto(`${PORTAL}#/examples`);
+
+        const all  = allLink(page),
+              find = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples');
+
+        await expect(all).toHaveAttribute('aria-current', 'page');
+        await all.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(page.locator(`${FEATURED} .neo-list-item`).first()).toBeFocused();
+
+        await find.fill('grid');
+        await expect(page.locator(MATCHES).first()).toBeVisible();
+        await page.keyboard.press('Tab');
+        await expect(all).toBeFocused();
+        await expect(find, 'focus arriving by Tab opens nothing').toHaveValue('grid');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page.locator(MATCHES).first()).toBeFocused();
+        await page.keyboard.press('ArrowLeft');
+        await expect(all).toBeFocused();
+
+        // A walk opens the group it rests on, as a click on its link does, and that ends the filter
+        await page.keyboard.press('ArrowDown');
+        await expect(find).toHaveValue('');
+        await expectOpenPage(page, 'Apps')
+    });
+});
+
+test.describe('Portal examples phone index keys (#22061)', () => {
+    test.use({viewport: {width: 390, height: 844}});
+
+    test('390 × 844: the overview index and the sheet keep every link in the tab order', async ({page}) => {
+        await page.goto(`${PORTAL}#/examples`);
+
+        await expect(page.locator(MOBILE_IX).getByRole('link').first()).toBeVisible();
+        await expect(page.locator(`${MOBILE_IX} a[tabindex="-1"]`)).toHaveCount(0);
+
+        await page.goto(`${PORTAL}#/examples/scheduler`);
+        await page.locator(`${CRUMB} .portal-examples-group-button`).click();
+        await expect(page.locator(SHEET)).toBeVisible();
+        await expect(page.locator(`${SHEET} a`).first()).toBeVisible();
+        await expect(page.locator(`${SHEET} a[tabindex="-1"]`)).toHaveCount(0)
+    });
 });

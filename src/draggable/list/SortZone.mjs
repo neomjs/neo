@@ -34,6 +34,12 @@ class SortZone extends DragZone {
          */
         alwaysFireDragMove: true,
         /**
+         * Reject gaps, headers, and other groups, and recheck the hit at release. A source placeholder retains the
+         * slot it previews. Lists that accept the last preview inside the list keep the default.
+         * @member {Boolean} requireDropTarget=false
+         */
+        requireDropTarget: false,
+        /**
          * The axis whose halves put the dragged record before or after an item: `'horizontal'` for rows and
          * row-major grids, `'vertical'` for columns
          * @member {String} sortDirection='vertical'
@@ -77,8 +83,8 @@ class SortZone extends DragZone {
      * @param {Number}   data.clientX
      * @param {Number}   data.clientY
      * @param {Object[]} [data.targetPath=[]] The nodes under the pointer, innermost first, each with its `rect`
-     * @returns {Object|null|undefined} `{before, target}`; `null` once the pointer left the list; `undefined` over
-     * anything that is no slot (a gap, a header, another parent's item or the source itself), which keeps the slot
+     * @returns {Object|null|undefined} `{before, target}`; `null` for a rejected hit; `undefined` on the source
+     * placeholder. By default gaps, headers and other parents' items also keep the last preview (`undefined`).
      */
     getSlot({clientX, clientY, targetPath=[]}) {
         let me      = this,
@@ -93,8 +99,12 @@ class SortZone extends DragZone {
         node   = targetPath.find(item => item.cls?.includes(owner.itemCls) && item.id?.startsWith(owner.id + '__'));
         target = node && owner.store.get(owner.getItemRecordId(node.id));
 
-        if (!target || target === source || target.isHeader || target.parentId !== source.parentId) {
+        if (target === source) {
             return undefined
+        }
+
+        if (!target || target.isHeader || target.parentId !== source.parentId) {
+            return me.requireDropTarget ? null : undefined
         }
 
         rect = node.rect;
@@ -152,8 +162,8 @@ class SortZone extends DragZone {
 
     /**
      * Commits the slot, or renders the store's order back when there is none, then lands the proxy: on the
-     * source's new place, or back on its start. The store may change during the drag, so a slot whose source or
-     * target the list no longer shows commits nothing.
+     * source's new place, or back on its start. Strict drops recheck the terminal hit. A slot whose source or target
+     * the list no longer shows commits nothing.
      * @param {Object} data
      */
     async onDragEnd(data) {
@@ -161,11 +171,16 @@ class SortZone extends DragZone {
             {owner} = me,
             {store} = owner,
             source  = me.#source,
-            slot    = me.#slot;
+            slot;
 
         // One release arrives twice: through the owner's delegated DOM listener and through manager.DomEvent
         if (!source) {
             return
+        }
+
+        slot = me.requireDropTarget ? me.getSlot(data) : undefined;
+        if (slot === undefined) {
+            slot = me.#slot
         }
 
         me.#source = me.#slot = null;
@@ -181,6 +196,7 @@ class SortZone extends DragZone {
     }
 
     /**
+     * Shows the current slot. Strict drops also mark a rejected hit on the proxy for host styling.
      * @param {Object} data The `drag:move` data, with the main thread's `targetPath`
      */
     onDragMove(data) {
@@ -189,6 +205,14 @@ class SortZone extends DragZone {
 
         if (me.#source) {
             slot = me.getSlot(data);
+
+            if (me.requireDropTarget && me.dragProxy) {
+                const proxy = me.dragProxy, cls = 'neo-sort-drop-rejected', rejected = slot === null;
+
+                if (rejected !== proxy.cls.includes(cls)) {
+                    rejected ? proxy.addCls(cls) : proxy.removeCls(cls)
+                }
+            }
 
             if (slot !== undefined && (slot?.target !== me.#slot?.target || slot?.before !== me.#slot?.before)) {
                 me.#slot = slot;
@@ -240,7 +264,8 @@ class SortZone extends DragZone {
 
     /**
      * Shows the slot. The visible siblings' item nodes take the order a drop would write, and the source's node
-     * is the placeholder. Only the owner's vdom changes, the store keeps its order.
+     * is the placeholder. A strict drop marks the slot only if the source moves in the visible order. Only the
+     * owner's vdom changes, the store keeps its order.
      * @protected
      */
     preview() {
@@ -262,6 +287,12 @@ class SortZone extends DragZone {
             });
 
             NeoArray.add(placeholder.cls = placeholder.cls || [], 'neo-sort-source');
+
+            if (me.requireDropTarget) {
+                const moved = ordered.indexOf(source) !== siblings.indexOf(source);
+
+                NeoArray[moved ? 'add' : 'remove'](placeholder.cls, 'neo-sort-placement')
+            }
 
             owner.update()
         }

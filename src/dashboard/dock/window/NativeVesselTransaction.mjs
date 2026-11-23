@@ -190,6 +190,16 @@ class NativeVesselTransaction extends Base {
     }
 
     /**
+     * @summary Opens the native movement and resize stream for one participating window, including its initial geometry.
+     * @param {String} windowId The participant's own Main realm.
+     * @returns {Promise<void>}
+     */
+    static async observeWindowGeometry(windowId) {
+        const addon = await Neo.currentWorker.getAddon('WindowPosition', windowId);
+        return addon.setConfigs({observeMovement: true, observeResize: true, windowId})
+    }
+
+    /**
      * @summary Focuses the exact currently bound vessel or returns focus from that vessel to its opener.
      * @param {Object} data
      * @param {String} data.ownerWindowId

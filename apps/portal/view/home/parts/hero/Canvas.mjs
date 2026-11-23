@@ -27,6 +27,7 @@ class CanvasComponent extends RoundTableCanvas {
          * @member {Object} look
          */
         look: {
+            measures: {standaloneFallbackSquare: [2, 1]},
             palettes: {
                 dark: {
                     card  : 'rgba(13, 18, 36, 0.94)',

@@ -377,7 +377,8 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        if (oldValue !== undefined) {
+        // Provider bindings run during `super.construct` before `createContent` populates the week rows
+        if (oldValue !== undefined && this.isConstructed) {
             let me     = this,
                 {vdom} = me,
                 i, item;
@@ -869,8 +870,14 @@ class Component extends BaseComponent {
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
-        let me     = this,
-            date   = me.currentDate, // cloned
+        let me = this;
+
+        // Provider bindings run during `super.construct` before `construct` invokes `updateHeader(true)`
+        if (!create && !me.isConstructed) {
+            return
+        }
+
+        let date = me.currentDate, // cloned
             {vdom} = me,
             header = vdom.cn[0].cn[0],
             i      = 1,

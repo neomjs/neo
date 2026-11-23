@@ -57,7 +57,8 @@ class RoundTable extends Base {
          * the strip takes for that room's sake (`floor`), the font stack and the sizes of names (`label`) and of
          * the strip's words (`small`), the room between the statement and anything drawn (`margin`), a seat's
          * radius (`seat`), and the strip's square sizes to try, largest first (`squares`, each with the gap it
-         * keeps).
+         * keeps). A host may set `standaloneFallbackSquare` to a [size, gap] pair for a strip that otherwise
+         * cannot fit, after all configured sizes have been tried with and without a ring.
          * @member {Object} measures
          */
         measures: {
@@ -376,14 +377,14 @@ class RoundTable extends Base {
             tryRing = mergeAt >= 0 && ringRx >= 160 && cx - ringRx < (blocks.length ? Math.min(...blocks.map(b => b.x)) : cx) - margin ? ringRx : 0,
             room    = height - bottom - margin / 2,
             // a strip under a ring leaves the merge seat its row; where that does not fit, the strip stands alone
-            fit     = ringed => {
+            fit     = (ringed, squares = measures.squares) => {
                 const
                     stripW = ringed ? tryRing * 2 : Math.min(width - 32, 1180),
                     dayGap = stripW < 600 ? 8 : measures.dayGap,
                     dayW   = (stripW - (days - 1) * dayGap) / days,
                     words  = stripW >= 600 ? measures.small + 7 : 0, // the day names' row
                     // every size that stands, largest first, with the room it leaves below
-                    stands = days > 0 ? measures.squares.map(([size, gap]) => {
+                    stands = days > 0 ? squares.map(([size, gap]) => {
                         const
                             pitch   = size + gap,
                             columns = Math.max(1, (dayW + gap) / pitch | 0),
@@ -409,6 +410,10 @@ class RoundTable extends Base {
             };
 
         place.strip = tryRing && fit(true) || fit(false);
+
+        if (!place.strip && measures.standaloneFallbackSquare) {
+            place.strip = fit(false, [measures.standaloneFallbackSquare])
+        }
 
         if (!place.strip) {
             return place
