@@ -112,6 +112,8 @@ class Pipeline extends Base {
         cacheTTL: 0,
         /**
          * The connection configuration or instance (e.g., Fetch, WebSocket, Rpc).
+         * For Data-worker execution, custom classes require className and a scoped .mjs modulePath;
+         * built-in Neo.data classes need only className. modulePath is consumed before stage construction.
          * @member {Object|Neo.data.connection.Base|null} connection_=null
          * @reactive
          */
@@ -142,12 +144,16 @@ class Pipeline extends Base {
         logTelemetry: false,
         /**
          * The normalizer configuration or instance.
+         * For Data-worker execution, custom classes require className and a scoped .mjs modulePath;
+         * built-in Neo.data classes need only className. modulePath is consumed before stage construction.
          * @member {Object|Neo.data.normalizer.Base|null} normalizer_=null
          * @reactive
          */
         normalizer_: null,
         /**
          * The parser configuration or instance.
+         * For Data-worker execution, custom classes require className and a scoped .mjs modulePath;
+         * built-in Neo.data classes need only className. modulePath is consumed before stage construction.
          * @member {Object|Neo.data.parser.Base|null} parser_=null
          * @reactive
          */
@@ -498,6 +504,10 @@ class Pipeline extends Base {
 
     /**
      * @summary Performs one shared counterpart attempt, retaining failures for configured callers.
+     * Validates every stage modulePath before any worker call. Custom stages use the scoped module
+     * loader; built-ins without modulePath retain the data loader. Loader metadata is removed from
+     * construction configs. A refused preload retains its class and reason in remoteInitializationError,
+     * which remote operations reject before dispatching to an absent counterpart.
      * @returns {Promise<void>}
      * @protected
      */
@@ -516,18 +526,37 @@ class Pipeline extends Base {
                 normalizer: me.serializeConfig(me._normalizer), parser: me.serializeConfig(me._parser),
                 telemetry : me.telemetry, workerExecution: 'app'
             };
-            // Pre-load required modules in the Data Worker using strictly scoped imports
-            const modulesToLoad = [];
+            // Admit every descriptor before starting any IPC, including otherwise valid earlier stages.
+            const stages = [];
+            for (const name of ['connection', 'normalizer', 'parser']) {
+                const config = remoteConfig[name];
+                if (!config) continue;
+                const {className, modulePath} = config;
+                if (modulePath !== undefined) {
+                    InterceptorChain.validateModulePath(modulePath, `${name} (${className}).modulePath`);
+                    if (typeof className !== 'string' || !className) {
+                        throw new TypeError(`${name}.modulePath requires a className`)
+                    }
+                }
+                if (className) {
+                    if (modulePath === undefined && (typeof className !== 'string' || !className.startsWith('Neo.data.'))) {
+                        throw new TypeError(`${className} requires modulePath for Data-worker execution`)
+                    }
+                    stages.push({className, modulePath})
+                }
+                delete config.modulePath
+            }
 
-            if (remoteConfig.connection?.className) {
-                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.connection.className}))
-            }
-            if (remoteConfig.normalizer?.className) {
-                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.normalizer.className}))
-            }
-            if (remoteConfig.parser?.className) {
-                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.parser.className}))
-            }
+            const modulesToLoad = stages.map(async ({className, modulePath}) => {
+                try {
+                    const result = await (modulePath === undefined
+                        ? Neo.worker.Data.loadDataModule({className})
+                        : Neo.worker.Data.loadModule({path: modulePath, className}));
+                    if (!result?.success) throw new Error(result?.error ?? 'No successful loader result')
+                } catch (error) {
+                    throw new Error(`Failed to load ${className}: ${error?.message ?? error}`)
+                }
+            });
             if (remoteConfig.interceptors) {
                 modulesToLoad.push(Pipeline.preloadInterceptors(remoteConfig.interceptors))
             }
@@ -611,7 +640,7 @@ class Pipeline extends Base {
             }
 
             if (me.isDestroyed) return null;
-            if (me.interceptors != null && !me.remoteId && me.remoteInitializationError) {
+            if (!me.remoteId && me.remoteInitializationError) {
                 throw me.remoteInitializationError
             }
 
