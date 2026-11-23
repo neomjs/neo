@@ -87,6 +87,7 @@
         "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
         "lookFor": "The page opens streaming: headings, lists, code, a table and a quote render as the text arrives. Its last lines show a script tag and a javascript: link rendered as plain text.",
         "image": "devmode/markdown-14.jpg",
+        "hasLightCover": true,
         "name": "Markdown VDOM",
         "sourceUrl": "examples/component/markdown",
         "urls": {

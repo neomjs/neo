@@ -7,6 +7,7 @@
             "Mobile"
         ],
         "image": "devmode/grid-big-data-14.jpg",
+        "hasLightCover": true,
         "name": "Data Grid: 100k Rows & 200 Columns",
         "sourceUrl": "examples/grid/bigData",
         "urls": {
@@ -40,6 +41,7 @@
             "Mobile"
         ],
         "image": "devmode/grid-tree-big-data-14.jpg",
+        "hasLightCover": true,
         "name": "TreeGrid - Big Data",
         "sourceUrl": "examples/grid/treeBigData",
         "urls": {
