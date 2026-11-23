@@ -47,6 +47,7 @@
         "lookFor": "Hover the pie segments and legend entries to compare each country's share.",
         "scope": "Loads amCharts 4 from cdn.amcharts.com; the country values are static demonstration data.",
         "image": "devmode/am-charts-14.jpg",
+        "hasLightCover": true,
         "name": "amCharts Pie",
         "sourceUrl": "examples/charts",
         "urls": {
@@ -66,6 +67,7 @@
         "lookFor": "Watch the lines move, then turn the pulse and the smooth updates off, stop the feed and press Restart.",
         "scope": "The readings are simulated in the browser from fixed seeds.",
         "image": "devmode/sparklines-14.jpg",
+        "hasLightCover": true,
         "name": "Sparklines",
         "sourceUrl": "examples/component/sparkline",
         "urls": {
@@ -85,6 +87,7 @@
         "lookFor": "Edit the source on the left, load each preset, and turn the dark theme on.",
         "scope": "Mermaid ships with the engine and loads on first use.",
         "image": "devmode/mermaid-14.jpg",
+        "hasLightCover": true,
         "name": "Mermaid Diagrams",
         "sourceUrl": "examples/component/wrapper/mermaid",
         "urls": {

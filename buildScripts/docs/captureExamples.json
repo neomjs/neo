@@ -112,27 +112,6 @@
       "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
-      "id": "grid-countries",
-      "viewport": {"width": 640, "height": 360},
-      "theme": "dark",
-      "state": "Dark-theme World Bank economies with the largest populations first and China's row selected, showing flags, formatted figures and population growth tinted green or red.",
-      "dependencies": ["https://hatscripts.github.io/circle-flags/flags/in.svg"],
-      "ready": [
-        {"selector": ".neo-grid-cell[data-field='country']", "text": "India"},
-        {"selector": ".neo-viewport.neo-theme-neo-dark"}
-      ],
-      "steps": [
-        {"kind": "click", "selector": ".neo-grid-cell[data-field='population']", "nth": 1}
-      ],
-      "after": [
-        {"selector": ".neo-viewport.neo-theme-neo-dark"},
-        {"selector": ".countries-toolbar .neo-button", "text": "Light theme"},
-        {"selector": ".neo-grid-row.neo-selected .neo-grid-cell[data-field='country']", "text": "China", "inRegion": true},
-        {"selector": ".neo-grid-cell.countries-down", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "grid-filtering",
       "viewport": {"width": 640, "height": 360},
       "theme": "dark",
@@ -169,22 +148,6 @@
       "region": {"selector": ".export-body", "anchor": "top-left", "offsetX": 110, "offsetY": 0, "width": 640, "height": 360}
     },
     {
-      "id": "grid-header-groups",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "Month sorting under quarter headers, with Region locked at the start.",
-      "ready": [{"selector": ".neo-grid-cell[data-field='region']"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-grid-header-button", "text": "Jan"}
-      ],
-      "after": [
-        {"selector": ".header-groups-toolbar .neo-button", "text": "Light theme"},
-        {"selector": "[role='columnheader'][aria-sort]", "text": "Jan"},
-        {"selector": ".neo-grid-cell[data-field='region']"}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
-    },
-    {
       "id": "grid-locked-columns",
       "viewport": {"width":640,"height":360},
       "theme": "dark",
@@ -203,29 +166,6 @@
         {"selector":".neo-grid-cell[data-field='total']","inRegion":true}
       ],
       "region": {"x":0,"y":0,"width":640,"height":360}
-    },
-    {
-      "id": "grid-cell-types",
-      "viewport": {"width": 1280, "height": 720},
-      "theme": "dark",
-      "state": "Dark-theme maintainer directory from its seeded opening state showing index, GitHub user avatars, country flags, and 8-year sparklines.",
-      "ready": [
-        {"selector": ".neo-grid-cell[data-field='login']", "text": "tobiu"},
-        {"selector": ".neo-sparkline-wrapper[data-drawn='true']"},
-        {"selector": ".neo-viewport.neo-theme-neo-dark"}
-      ],
-      "steps": [
-        {"kind": "click", "selector": ".cell-types-reset-button", "text": "Reset"},
-        {"kind": "click", "selector": ".cell-types-feed-button", "text": "Pause feed"}
-      ],
-      "after": [
-        {"selector": ".cell-types-theme-button", "text": "Light theme"},
-        {"selector": ".cell-types-title", "text": "Built-in cell types"},
-        {"selector": ".neo-grid-cell[data-field='login']", "text": "tobiu", "inRegion": true},
-        {"selector": ".neo-grid-cell[data-field='countryCode'] img.neo-country-flag", "inRegion": true},
-        {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "grid-nested-record-fields",
@@ -277,21 +217,6 @@
       "steps": [{"kind": "click", "selector": ".neo-grid-row:has(.neo-grid-cell[data-field='name']:has-text('Runtime Engine')) .neo-tree-toggle"}],
       "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-grid-cell[data-field='name']", "text": "V8 Worker Pool", "inRegion": true}, {"selector": ".neo-grid-cell[data-field='name']", "text": "Virtual DOM Diffing", "inRegion": true}],
       "region": "viewport"
-    },
-    {
-      "id": "grid-server-side",
-      "viewport": {"width": 640, "height": 600},
-      "theme": "dark",
-      "state": "Dark-theme first page of seeded orders, country filter off; the request line identifies the simulated server's completed read.",
-      "ready": [{"selector": ".server-side-request", "text": "50 of 100,000 rows"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
-      "steps": [
-        {"kind": "wait", "selector": ".neo-grid-cell[data-field='customer']:text-is('Granite Co')"}
-      ],
-      "after": [
-        {"selector": ".neo-grid-cell[data-field='customer']", "text": "Granite Co", "inRegion": true},
-        {"selector": ".server-side-scope", "text": "Simulated server", "inRegion": true}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "grid-value-banding",
@@ -413,27 +338,6 @@
       ],
       "after": [{"selector": "[role='columnheader'][aria-sort]", "text": "#"}, {"selector": ".neo-grid-cell[data-field='summary']"}],
       "region": {"x": 8, "y": 8, "width": 640, "height": 360}
-    },
-    {
-      "id": "table-filtering",
-      "viewport": {"width": 640, "height": 720},
-      "theme": "dark",
-      "state": "Dark-theme business-customer table filtered by \"Avery\" in the Customer field, showing 8 of 80 rows and neutral header-filter operator buttons.",
-      "ready": [
-        {"selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-table-header-button", "text": "Customer"},
-        {"selector": "#myTableFilterContainer .neo-table-body tr"},
-        {"selector": ".neo-viewport.neo-theme-neo-dark"}
-      ],
-      "steps": [
-        {"kind": "fill", "selector": "#myTableFilterContainer .neo-table-header-toolbar .neo-textfield input", "nth": 0, "value": "Avery"}
-      ],
-      "after": [
-        {"selector": ".neo-viewport.neo-theme-neo-dark"},
-        {"selector": ".neo-button", "text": "Light theme"},
-        {"selector": "#myTableFilterContainer .neo-table-body tr", "count": 8},
-        {"selector": "#myTableFilterContainer .neo-table-body .neo-table-cell[id$='__customer']", "text": "Avery"}
-      ],
-      "region": {"x": 0, "y": 0, "width": 640, "height": 360}
     },
     {
       "id": "calendar",
@@ -743,48 +647,6 @@
       "steps": [],
       "after": [{"selector": ".graph-scene-stats", "text": "drag orbits"}, {"selector": "canvas[data-drawn='true']"}],
       "region": {"selector": "canvas", "anchor": "center", "width": 640, "height": 360}
-    },
-    {
-      "id": "sparklines",
-      "viewport": {"width": 960, "height": 540},
-      "theme": "dark",
-      "state": "The six metric cards on the dark theme at their opening readings, the feed stopped, the pulse and the smooth updates off.",
-      "ready": [{"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-switchfield", "text": "Live feed"},
-        {"kind": "click", "selector": ".neo-switchfield", "text": "Pulse"},
-        {"kind": "click", "selector": ".neo-switchfield", "text": "Smooth updates"},
-        {"kind": "click", "selector": ".neo-button", "text": "Restart"}
-      ],
-      "after": [
-        {"selector": ".neo-viewport.neo-theme-neo-dark"},
-        {"selector": ".neo-examples-sparkline-value", "text": "1,354 req/s"},
-        {"selector": ".neo-sparkline-wrapper[data-drawn='true']", "count": 6}
-      ],
-      "region": {"selector": ".neo-examples-sparkline-cards", "anchor": "top-left", "width": 640, "height": 360}
-    },
-    {
-      "id": "mermaid",
-      "viewport": {"width": 1120, "height": 443},
-      "theme": "dark",
-      "state": "The sequence preset as Mermaid draws it from its source in its dark theme, fitted to the diagram's box.",
-      "ready": [{"selector": ".neo-mermaid[data-processed] svg"}, {"selector": ".neo-viewport.neo-theme-neo-dark"}],
-      "steps": [
-        {"kind": "click", "selector": ".neo-button", "text": "Sequence"}
-      ],
-      "after": [{"selector": ".neo-viewport.neo-theme-neo-dark"}, {"selector": ".neo-mermaid svg", "text": "Confirmation email"}],
-      "region": {"selector": ".neo-mermaid", "anchor": "center", "width": 640, "height": 360}
-    },
-    {
-      "id": "am-charts",
-      "viewport": {"width": 740, "height": 460},
-      "theme": "default",
-      "state": "The nine countries' shares as amCharts draws the pie from its static data, with its labels and legend.",
-      "dependencies": ["https://cdn.amcharts.com/lib/4/"],
-      "ready": [{"selector": "[data-drawn='true']", "count": 1}],
-      "steps": [],
-      "after": [{"selector": "svg text", "text": "Lithuania: 30.5%"}],
-      "region": {"selector": "[data-drawn='true']", "anchor": "top-left", "width": 640, "height": 360}
     },
     {
       "id": "layout-cube",
