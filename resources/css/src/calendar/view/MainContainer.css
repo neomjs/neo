@@ -5,6 +5,62 @@
         &.neo-left {
             padding-right: 0;
         }
+
+        .neo-button {
+            flex-shrink: 0;
+        }
+
+        .neo-calendar-settings-button {
+            margin-left: 10px;
+        }
+    }
+
+    .neo-calendar-header-period {
+        color        : var(--sem-color-text-neutral-default, var(--button-text-color));
+        font-size    : 14px;
+        font-weight  : 600;
+        margin       : 0 8px 0 6px;
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        user-select  : none;
+        white-space  : nowrap;
+    }
+
+    .neo-calendar-period-short {
+        display: none;
+    }
+
+    @media (max-width: 680px) {
+        .neo-calendar-header.neo-flex-container {
+            flex-wrap: wrap;
+        }
+
+        .neo-calendar-header-toolbar {
+            flex : 1 0 100%;
+            width: 100% !important;
+
+            &.neo-left {
+                padding-right: var(--toolbar-padding);
+            }
+
+            .neo-calendar-settings-button {
+                margin-left: 4px;
+            }
+        }
+
+        .neo-calendar-header-period {
+            font-size: 13px;
+            margin   : 0 6px 0 2px;
+        }
+
+        .neo-calendar-period-full {
+            display: none;
+        }
+
+        .neo-calendar-period-short {
+            display: inline;
+        }
     }
 
     .neo-calendar-sidebar {

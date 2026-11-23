@@ -382,7 +382,7 @@ class Component extends BaseComponent {
                 {vdom} = me,
                 i, item;
 
-            vdom.cn[1].cn.forEach(row => {
+            vdom?.cn?.[1]?.cn?.forEach(row => {
                 if (row.flag) {
                     for (i=0; i < 7; i++) {
                         item = row.cn[i];
@@ -872,9 +872,13 @@ class Component extends BaseComponent {
         let me     = this,
             date   = me.currentDate, // cloned
             {vdom} = me,
-            header = vdom.cn[0].cn[0],
+            header = vdom?.cn?.[0]?.cn?.[0],
             i      = 1,
             day, node;
+
+        if (!header || !date) {
+            return
+        }
 
         header.cn[0].text = me.intlFormat_month.format(date);
         header.cn[1].text = ` ${date.getFullYear()}`;

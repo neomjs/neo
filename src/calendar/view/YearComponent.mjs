@@ -374,7 +374,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
             let me     = this,
                 {vdom} = me,
                 i      = 0,
@@ -411,7 +411,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetShowWeekNumbers(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
             let me = this,
                 i  = 0,
                 itemCn, j, len;
@@ -436,7 +436,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetSixWeeksPerMonth(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
             let me   = this,
                 date = me.currentDate, // cloned
                 i    = 0;
@@ -846,7 +846,7 @@ class YearComponent extends Component {
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
             let date   = me.currentDate, // cloned
                 {vdom} = me,
                 i      = 1,
@@ -894,7 +894,7 @@ class YearComponent extends Component {
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
 
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.vdom?.cn?.[0]?.cn?.[1]?.cn?.length > 0) {
             let {currentDate, vdom} = me,
                 i                   = 0;
 

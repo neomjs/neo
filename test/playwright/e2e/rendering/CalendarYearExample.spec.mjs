@@ -38,19 +38,77 @@ test.describe('Calendar year example', () => {
         }
     });
 
-    test('a click on a day opens that day in the day view', async ({page}) => {
+    test('a click on a day opens that day in the day view and updates the header period across views', async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(URL);
 
-        const day = page.locator(cellOf('07', '22'));
+        const period  = page.locator('.neo-calendar-header-period'),
+              day     = page.locator(cellOf('07', '22')),
+              jul22   = new Date(Date.UTC(year, 6, 22)),
+              jul23   = new Date(Date.UTC(year, 6, 23)),
+              fullFmt = new Intl.DateTimeFormat('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
 
+        await expect(period).toHaveCount(0);
         await expect(day).toBeVisible();
         await day.click();
 
         await expect(page.locator(YEAR_VIEW)).toBeHidden();
         await expect(page.locator(DAY_VIEW).first()).toBeVisible();
         await expect(page.locator(`${DAY_VIEW} .neo-allday-event`, {hasText: 'Vacation: hiking'}).first()).toBeVisible();
-        await expect(page.getByRole('button', {name: 'Day', exact: true})).toHaveClass(/\bpressed\b/)
+        await expect(page.getByRole('button', {name: 'Day', exact: true})).toHaveClass(/\bpressed\b/);
+        await expect.poll(() => period.innerText()).toBe(fullFmt.format(jul22));
+
+        await page.locator('.neo-calendar-header-toolbar.neo-left .fa-chevron-right').click();
+        await expect.poll(() => period.innerText()).toBe(fullFmt.format(jul23));
+
+        await page.locator('.neo-calendar-header-toolbar.neo-left .fa-chevron-left').click();
+        await expect.poll(() => period.innerText()).toBe(fullFmt.format(jul22));
+
+        await page.getByRole('button', {name: 'Month', exact: true}).click();
+        await expect.poll(() => period.innerText()).toBe(`July ${year}`);
+
+        await page.getByRole('button', {name: 'Year', exact: true}).click();
+        await expect(period).toHaveCount(0)
+    });
+
+    test('at 390 × 844 the short period label fits across Day, Week and Month without wrapping the view buttons', async ({page}) => {
+        await page.setViewportSize({width: 390, height: 844});
+        await page.goto(URL);
+
+        const day = page.locator(cellOf('07', '22'));
+        await day.scrollIntoViewIfNeeded();
+        await day.click();
+
+        const period = page.locator('.neo-calendar-header-period');
+        await expect(period).toBeVisible();
+        await expect.poll(() => period.innerText()).toBe(`Jul 22, ${year}`);
+
+        for (const view of ['Day', 'Week', 'Month']) {
+            if (view !== 'Day') {
+                await page.getByRole('button', {name: view, exact: true}).click()
+            }
+
+            await expect.poll(async () => {
+                const layout = await page.evaluate(() => {
+                    const main    = document.querySelector('.neo-calendar-maincontainer'),
+                          label   = main.querySelector('.neo-calendar-header-period'),
+                          viewRow = main.querySelectorAll('.neo-calendar-header-toolbar')[1],
+                          buttons = [...viewRow.querySelectorAll('.neo-button')].map(b => b.getBoundingClientRect());
+
+                    const tops = buttons.map(r => r.top);
+
+                    return {
+                        allInsideViewport: buttons.every(r => r.width > 0 && r.right <= 390.5),
+                        periodText       : label?.innerText.trim() || '',
+                        periodWidth      : label?.getBoundingClientRect().width || 0,
+                        scrollWidth      : main.scrollWidth,
+                        topSpread        : Math.max(...tops) - Math.min(...tops)
+                    }
+                });
+
+                return layout.allInsideViewport && layout.periodText.length > 0 && layout.periodWidth > 20 && layout.scrollWidth <= 390 && layout.topSpread <= 1
+            }, {message: `${view} header geometry at 390 × 844`}).toBe(true)
+        }
     });
 
     test('a phone opens the year on the month of today', async ({page}) => {
