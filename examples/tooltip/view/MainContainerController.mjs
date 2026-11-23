@@ -16,6 +16,8 @@ class MainContainerController extends Controller {
         className: 'Neo.examples.tooltip.view.MainContainerController'
     }
 
+    #openingCompanion = false
+
     /**
      * @summary The tooltips the delay fields tune
      * @returns {Neo.tooltip.Base[]}
@@ -33,6 +35,41 @@ class MainContainerController extends Controller {
      */
     onHideDelayChange({value}) {
         this.getTooltips().forEach(tooltip => {tooltip.hideDelay = Neo.isNumber(value) ? value : null})
+    }
+
+    /**
+     * @summary Opens the same board in a second window, or focuses the existing companion without reloading it.
+     * @returns {Promise<void>}
+     */
+    async onOpenSecondWindowClick() {
+        if (this.#openingCompanion) return;
+
+        const {component} = this,
+              {windowId}  = component,
+              windowName  = 'NeoTooltipCompanion';
+
+        this.#openingCompanion = true;
+
+        try {
+            const closed = await Neo.Main.getByPath({
+                path: ['Neo', 'Main', 'openWindows', windowName, 'win', 'closed'], windowId
+            });
+
+            if (this.isDestroyed) return;
+
+            if (closed === false) {
+                await Neo.Main.windowFocus({windowId, windowName});
+                return
+            }
+
+            const url = new URL(Neo.windowConfigs[windowId].url.href);
+            url.searchParams.set('companion', '1');
+            url.searchParams.set('theme', component.getTheme());
+
+            await Neo.Main.windowOpen({url: url.href, windowFeatures: 'popup=yes,width=640,height=620', windowId, windowName})
+        } finally {
+            this.#openingCompanion = false
+        }
     }
 
     /**

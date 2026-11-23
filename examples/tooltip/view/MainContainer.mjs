@@ -28,6 +28,11 @@ class MainContainer extends Viewport {
          */
         cls: ['neo-tooltip-example'],
         /**
+         * @summary Whether this board opens in the companion browser window.
+         * @member {Boolean} companion=false
+         */
+        companion: false,
+        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
@@ -45,7 +50,7 @@ class MainContainer extends Viewport {
             cls   : ['neo-tooltip-example-header'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center'},
-            items : [{module: Label, flex: 1, text: 'Sprint 14'}, {module: ThemeSwitcher}]
+            items : [{module: Label, flex: 1, reference: 'boardTitle', text: 'Sprint 14'}, {module: ThemeSwitcher}]
         }, {
             module: Label,
             cls   : ['neo-tooltip-example-hint'],
@@ -93,6 +98,13 @@ class MainContainer extends Viewport {
                 reference: 'archive',
                 text     : 'Archive',
                 tooltip  : 'Move the finished tickets to the archive'
+            }, {
+                module   : Button,
+                handler  : 'onOpenSecondWindowClick',
+                iconCls  : 'fa fa-up-right-from-square',
+                reference: 'openSecondWindow',
+                text     : 'Open second window',
+                tooltip  : 'Try the board’s tooltips in another browser window'
             }]
         }, {
             module: TicketList,
@@ -125,8 +137,7 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @summary The board opens with the last toolbar button's hint showing, in the gap below the toolbar: focus on the
-     * button shows it, as the keyboard does.
+     * @summary The primary board opens with the Archive hint visible. The companion leaves focus to the visitor.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -134,7 +145,17 @@ class MainContainer extends Viewport {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        value && this.down({reference: 'archive'}).focus()
+        if (value && !this.companion) this.down({reference: 'archive'}).focus()
+    }
+
+    /**
+     * @summary Identifies the companion board and offers its launcher on the primary SharedWorker board.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        if (this.companion) this.down({reference: 'boardTitle'}).text = 'Sprint 14 · Second window';
+        this.down({reference: 'openSecondWindow'}).hidden = this.companion || !Neo.currentWorker.isSharedWorker
     }
 }
 
