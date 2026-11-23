@@ -455,6 +455,98 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         expect(Object.values(reduced.motions).every(duration => duration === 0)).toBe(true)
     });
 
+    for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+        test(`${theme}: Features and AI Toolchain cards carry the glass card and light in place without moving (#22063)`, async ({page, neuralLink}) => {
+            await page.setViewportSize({width: 1440, height: 900});
+            await page.addInitScript(theme => localStorage.setItem('portalTheme', theme), theme);
+            await page.goto(HOME_URL);
+
+            const app = await neuralLink.connectToApp('Portal');
+            await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
+            await expect(page.locator('.portal-home-parts-audiencedoors').getByRole('heading', {level: 2})).toHaveText('Who Neo.mjs Is For');
+
+            const home = await queryOne(app, {className: 'Portal.view.home.MainContainer'});
+
+            const featureCards   = page.locator('.portal-home-features a.portal-content-box');
+            const toolchainCards = page.locator('.portal-home-parts-aitoolchain .card-container a.portal-content-box');
+
+            await expect(featureCards).toHaveCount(6);
+            await expect(toolchainCards).toHaveCount(6);
+
+            // Every lower card now carries the shared glass chrome
+            for (const cards of [featureCards, toolchainCards]) {
+                for (const card of await cards.all()) {
+                    await expect(card).toHaveClass(/(^|\s)portal-glass-card(\s|$)/)
+                }
+            }
+
+            for (const cards of [featureCards, toolchainCards]) {
+                const card = cards.first();
+                await card.scrollIntoViewIfNeeded();
+                await waitForScrollSettled(page, home.id);
+
+                // A clipped border hit-tests to the ancestor that clips it, not to the card
+                const read = () => card.evaluate(async node => {
+                    await Promise.all(node.getAnimations().map(animation => animation.finished));
+
+                    const rect = node.getBoundingClientRect();
+
+                    return {
+                        border      : getComputedStyle(node).borderTopColor,
+                        light       : getComputedStyle(node, '::after').opacity,
+                        motions     : Object.fromEntries(node.getAnimations({subtree: true}).filter(a => a.animationName?.startsWith('portal-glass-card-')).map(a => [a.animationName, a.effect.getComputedTiming().duration])),
+                        position    : {left: rect.left, top: rect.top},
+                        topBorderHit: node.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + 0.5)),
+                        transform   : getComputedStyle(node).transform
+                    }
+                });
+
+                await page.mouse.move(5, 895);
+                const rest = await read();
+                expect(rest.light).toBe('0');
+                expect(rest.transform).toBe('none');
+                expect(rest.topBorderHit).toBe(true);
+
+                const box = await card.boundingBox();
+                await page.mouse.move(box.x + box.width / 2, box.y + box.height - 12);
+
+                const hovered = await read();
+                expect(hovered.position, 'a hovered card stays where it was').toEqual(rest.position);
+                expect(hovered.transform, 'a hovered card does not lift').toBe('none');
+                expect(hovered.topBorderHit, 'its whole top border stays visible').toBe(true);
+                expect(hovered.border).not.toBe(rest.border);
+                expect(hovered.light).toBe('1');
+                expect(Object.keys(hovered.motions).sort(), 'a glint crosses the glass and a lap runs the border').toEqual(['portal-glass-card-glint', 'portal-glass-card-sweep']);
+                expect(Object.values(hovered.motions).every(duration => duration > 0)).toBe(true);
+
+                // Keyboard focus on the card root itself gets the same treatment
+                await page.mouse.move(5, 895);
+                await expect.poll(async () => (await read()).light).toBe('0');
+                await page.keyboard.press('Tab');
+                await card.evaluate(node => node.focus());
+                await expect(card).toBeFocused();
+
+                const focused = await read();
+                expect(focused.position).toEqual(rest.position);
+                expect(focused.transform).toBe('none');
+                expect(focused.border).toBe(hovered.border);
+                expect(focused.light).toBe('1');
+                expect(Object.keys(focused.motions).sort(), 'focus runs the same glint and lap').toEqual(['portal-glass-card-glint', 'portal-glass-card-sweep']);
+
+                // Reduced motion keeps the static light and skips the glint and the lap
+                await card.evaluate(node => node.blur());
+                await page.emulateMedia({reducedMotion: 'reduce'});
+                await page.mouse.move(box.x + box.width / 2, box.y + box.height - 12);
+
+                const reduced = await read();
+                expect(reduced.light).toBe('1');
+                expect(reduced.transform).toBe('none');
+                expect(Object.values(reduced.motions).every(duration => duration === 0)).toBe(true);
+                await page.emulateMedia({reducedMotion: null})
+            }
+        })
+    }
+
     test('exposes crawler and agent DOM snapshot parity across root entry and #/home', async ({page, neuralLink}) => {
         for (const entryUrl of ['/apps/portal/index.html', HOME_URL]) {
             if (page.url() !== 'about:blank') {
