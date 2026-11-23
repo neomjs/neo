@@ -828,7 +828,7 @@ test.describe('Portal examples section', () => {
                 const issues = overview.locator('.neo-list-item').filter({hasText: 'GitHub Issues Grid'});
                 await expect(issues.locator('.portal-example-feature')).toHaveText('Searchable issue snapshot with wrapped rows');
                 expect(await issues.locator('.preview-image').evaluate(node => getComputedStyle(node).backgroundImage))
-                    .toContain('grid-issues-14.jpg');
+                    .toContain(theme === 'neo-theme-neo-light' ? 'grid-issues-14-light.jpg' : 'grid-issues-14.jpg');
 
                 const geometry = await expectCardLayout(overview, viewport.width);
                 await expectCaptionContrast(covered.nth(2), testInfo, 'issues-caption-contrast');

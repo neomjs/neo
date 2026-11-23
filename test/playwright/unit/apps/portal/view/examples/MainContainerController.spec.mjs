@@ -1169,21 +1169,23 @@ test.describe('Portal examples canonical catalog', () => {
         })
     });
 
-    test('lists the issues showcase once with its real cover in every mode', () => {
+    test('publishes the Issues Grid and COVID dashboard with paired opening covers in every mode', () => {
         const {store} = createList(),
-              issues  = store.items.filter(record => record.sourceUrl === 'examples/grid/issues');
+              recipes = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../../../../../../buildScripts/docs/captureExamples.json', import.meta.url)), 'utf8')).recipes;
 
-        expect(issues).toHaveLength(1);
-        expect(issues[0].id).toBe('grid-issues');
-        expect(issues[0].image).toBe('devmode/grid-issues-14.jpg');
-        const recipes = JSON.parse(fs.readFileSync(fileURLToPath(new URL('../../../../../../../buildScripts/docs/captureExamples.json', import.meta.url)), 'utf8')).recipes;
-        expect(recipes.filter(recipe => recipe.id === issues[0].id)).toHaveLength(1);
+        for (const [id, sourceUrl] of [['grid-issues', 'examples/grid/issues'], ['covid-dashboard', 'apps/covid']]) {
+            const matches  = store.items.filter(record => record.sourceUrl === sourceUrl),
+                  [record] = matches;
 
-        modes.forEach(mode => {
-            list.catalogMode = mode;
-            expect(list.isHiddenItem(issues[0]), mode).toBe(false);
-            expect(list.createLink(issues[0]).href, mode).toBe(list.baseUrl + issues[0].urls[mode])
-        })
+            expect(matches, id).toHaveLength(1);
+            expect(record).toMatchObject({id, image: `devmode/${id}-14.jpg`, hasLightCover: true});
+            expect(recipes.some(recipe => recipe.id === id), id).toBe(false);
+            modes.forEach(mode => {
+                list.catalogMode = mode;
+                expect(list.isHiddenItem(record), mode).toBe(false);
+                expect(list.createLink(record).href, mode).toBe(list.baseUrl + record.urls[mode])
+            })
+        }
     });
 
     test('renders two-zone cover + stationary footer, prunes browsers, and isolates Mobile vs Multi-window metadata', () => {
