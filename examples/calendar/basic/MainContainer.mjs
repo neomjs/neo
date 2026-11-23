@@ -6,8 +6,9 @@ import Viewport                  from '../../../src/container/Viewport.mjs';
 import {calendars, createEvents} from './teamWeek.mjs';
 
 /**
- * @summary The calendar on a team's week around today, with a line that says how to move and resize an event. At a
- * phone's width the controller swaps in the day view and folds the side panel away.
+ * @summary The calendar on a team's week around today, from 8 AM to 7 PM so that the week's meetings are in view when it
+ * opens, with a line that says how to move and resize an event. At a phone's width the controller swaps in the day view
+ * and folds the side panel away.
  * @class Neo.examples.calendar.basic.MainContainer
  * @extends Neo.container.Viewport
  */
@@ -61,7 +62,8 @@ class MainContainer extends Viewport {
             reference: 'calendar',
 
             calendarStoreConfig: {data: calendars},
-            eventStoreConfig   : {data: createEvents()}
+            eventStoreConfig   : {data: createEvents()},
+            modelData          : {endTime: '19:00', startTime: '08:00'}
         }]
     }
 }

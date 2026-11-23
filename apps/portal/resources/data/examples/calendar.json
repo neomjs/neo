@@ -3,6 +3,7 @@
         "id": "calendar",
         "featured": true,
         "image": "devmode/calendar-14.jpg",
+        "hasLightCover": true,
         "name": "Calendar",
         "sourceUrl": "src/calendar",
         "urls": {

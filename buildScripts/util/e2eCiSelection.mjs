@@ -59,6 +59,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/portal',
     'test/playwright/e2e/realworld',
     'test/playwright/e2e/rendering/ButtonBaseNL.spec.mjs',
+    'test/playwright/e2e/rendering/CalendarBasicExample.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthEventDrag.spec.mjs',
     'test/playwright/e2e/rendering/CalendarMonthRollover.spec.mjs',
     'test/playwright/e2e/rendering/CalendarPhoneAndFold.spec.mjs',
