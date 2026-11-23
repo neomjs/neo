@@ -14,7 +14,7 @@ const
  * @param {import('@playwright/test').Page} page
  * @param {Object} neuralLink
  * @param {Object} viewport `{width, height}`
- * @returns {Promise<{read: Function}>}
+ * @returns {Promise<{read: Function, setRecord: Function}>}
  */
 async function openHero(page, neuralLink, viewport) {
     await page.setViewportSize(viewport);
@@ -31,7 +31,10 @@ async function openHero(page, neuralLink, viewport) {
         return (id = (Array.isArray(hit) ? hit[0] : hit)?.id) ?? null
     }, {timeout: 20000}).not.toBeNull();
 
-    return {read: () => app.callMethod(id, 'readStats', [])}
+    return {
+        read     : () => app.callMethod(id, 'readStats', []),
+        setRecord: record => app.callMethod(id, 'set', [{record}])
+    }
 }
 
 /**
@@ -101,6 +104,25 @@ test.describe('Portal home hero: the round table stands around the statement (Ne
             }
         })
     }
+
+    test('a dense day still draws below the phone statement', async ({neuralLink, page}) => {
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        const {read, setRecord} = await openHero(page, neuralLink, {height: 844, width: 390});
+        await expect.poll(async () => (await read())?.record).toBe(true);
+        await page.evaluate(() => document.fonts.ready);
+
+        const items = Array.from({length: 100}, (_, i) => [i + 1, 'Example item', 0, null, i, i + 1, []]);
+        await setRecord({
+            caption: 'Dense test week', from: '2020-01-01T00:00:00Z', groups: [], items,
+            seats  : [{id: 'test', kind: 'seat', name: 'Test'}], to: '2020-01-08T00:00:00Z', version: 1
+        });
+
+        let stats;
+        await expect.poll(async () => (stats = await read())?.items).toBe(items.length);
+        expect(stats).toMatchObject({landed: items.length, mode: 'strip', seats: null, still: true});
+        expect(await touching(page, stats)).toEqual([]);
+        expect(stats.strip[1] + stats.strip[3]).toBeLessThanOrEqual(stats.size.height)
+    });
 
     test.describe('at a pixel ratio of 2', () => {
         test.use({deviceScaleFactor: 2});
