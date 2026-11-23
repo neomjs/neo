@@ -78,10 +78,11 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.mwc.TextField` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
         let me = this;
 
-        return Neo.create({
+        return {
             module      : MwcTextField,
             helper      : 'Helper Text',
             icon        : 'event',
@@ -98,7 +99,7 @@ class MainContainer extends ConfigurationViewport {
                     }
                 }
             }
-        })
+        }
     }
 }
 

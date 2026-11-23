@@ -59,13 +59,14 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.Chip` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module : Chip,
             iconCls: 'fa fa-home',
             height : 30,
             text   : 'Hello World'
-        })
+        }
     }
 }
 

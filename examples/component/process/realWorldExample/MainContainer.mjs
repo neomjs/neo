@@ -46,21 +46,12 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the EV trip-evaluation `Neo.container.Base` config with multi-step `Neo.component.Process` forms. @returns {Object} */
     createExampleComponent() {
         const me            = this,
-              onRangeChange = me.onRangeChange.bind(me),
-              // Wetterdaten von Berlin Tiergarten
-              weatherUrl    = 'https://api.open-meteo.com/v1/forecast?latitude=52.51239766781255&longitude=13.35733940978727&current_weather=true';
+              onRangeChange = me.onRangeChange.bind(me);
 
-        let weather = fetch(weatherUrl).then(async (response) => {
-            let result        = await response.json(),
-                temperature   = Math.ceil(result.current_weather.temperature),
-                temperatureEl = me.down({flag: 'temperature'})
-
-            temperatureEl.value = temperature
-        });
-
-        return Neo.create({
+        return {
             module      : Container,
             maxWidth    : 450,
             maxHeight   : '100%',
@@ -231,7 +222,7 @@ class MainContainer extends ConfigurationViewport {
                 }],
                 listeners   : {fieldChange: onRangeChange}
             }]
-        })
+        }
     }
 
     /**
@@ -244,6 +235,27 @@ class MainContainer extends ConfigurationViewport {
         processes.forEach(process => {
             process[config] = opts.value
         })
+    }
+
+    /**
+     * @summary Populates the outdoor temperature field once the example container is constructed.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        // Wetterdaten von Berlin Tiergarten
+        const me         = this,
+              weatherUrl = 'https://api.open-meteo.com/v1/forecast?latitude=52.51239766781255&longitude=13.35733940978727&current_weather=true';
+
+        fetch(weatherUrl).then(async response => {
+            let result        = await response.json(),
+                temperature   = Math.ceil(result.current_weather.temperature),
+                temperatureEl = !me.isDestroyed && me.down({flag: 'temperature'});
+
+            if (temperatureEl) {
+                temperatureEl.value = temperature
+            }
+        }).catch(() => {})
     }
 
     /**
@@ -323,10 +335,10 @@ class MainContainer extends ConfigurationViewport {
 
         Neo.toast({
             appName: this.appName,
-            ui     : ui,
-            iconCls: iconCls,
-            title  : title,
-            msg    : msg
+            iconCls,
+            msg,
+            title,
+            ui
         })
     }
 }

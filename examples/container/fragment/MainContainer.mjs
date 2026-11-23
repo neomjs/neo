@@ -69,12 +69,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.form.Container}
+     * @summary Returns the shipping `Neo.form.Container` config grouping address fields inside a `Neo.container.Fragment`.
+     * @returns {Object}
      */
     createExampleComponent() {
         const field = (labelText, name, value) => ({module: TextField, labelPosition: 'top', labelText, name, value});
 
-        return Neo.create({
+        return {
             module: FormContainer,
             cls   : ['fragment-form'],
             layout: 'base',
@@ -95,7 +96,7 @@ class MainContainer extends ConfigurationViewport {
                 },
                 field('Phone', 'phone', '+351 912 345 678')
             ]
-        })
+        }
     }
 
     /**

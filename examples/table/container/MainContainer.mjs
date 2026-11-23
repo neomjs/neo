@@ -97,15 +97,16 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @summary Creates the `Neo.table.Container` bound to `MainStore`.
-     * @returns {Neo.table.Container}
+     * @summary Returns the `Neo.table.Container` config bound to `MainStore`.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create(TableContainer, {
+        return {
+            module : TableContainer,
             id     : 'myTableStoreContainer',
             columns: this.createColumns(),
             store  : MainStore
-        })
+        }
     }
 
     /**

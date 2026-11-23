@@ -129,12 +129,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @returns {Neo.tree.List}
+     * @summary Returns the `Neo.tree.List` config over `LibraryStore` with playlist drag-and-drop configured.
+     * @returns {Object}
      */
     createExampleComponent() {
         let me = this;
 
-        return Neo.create({
+        return {
             module                    : TreeList,
             cls                       : ['tree-library'],
             draggable                 : true,
@@ -147,7 +148,7 @@ class MainContainer extends ConfigurationViewport {
                 dropZoneIdentifier: {cls: ['tree-playlist-drop']},
                 listeners         : {drop: me.onPlaylistDrop, scope: me}
             }
-        })
+        }
     }
 
     /**

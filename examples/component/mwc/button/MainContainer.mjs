@@ -65,13 +65,14 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.mwc.Button` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module  : MwcButton,
             icon    : 'event',
             label   : 'Hello World',
             outlined: true
-        })
+        }
     }
 }
 

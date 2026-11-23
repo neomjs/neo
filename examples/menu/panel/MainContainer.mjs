@@ -51,8 +51,9 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.menu.Panel` config with nested cascading sub-items. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: Menu,
 
             listConfig: {
@@ -119,7 +120,7 @@ class MainContainer extends ConfigurationViewport {
                     }]
                 }]
             }]
-        })
+        }
     }
 }
 

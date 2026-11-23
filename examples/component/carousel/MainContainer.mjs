@@ -40,8 +40,10 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /** @summary Returns the `Neo.component.Carousel` config with portrait store and template. @returns {Object} */
     createExampleComponent() {
-        return Neo.create(Carousel, {
+        return {
+            module: Carousel,
             // 320 px wide, so the carousel fits its stage on a phone as well
             height: 400,
             width : 320,
@@ -76,7 +78,7 @@ class MainContainer extends ConfigurationViewport {
                 cls : 'example-carousel-caption',
                 text: `${data.firstname} ${data.lastname}`
             }]
-        })
+        }
     }
 }
 

@@ -70,18 +70,18 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @summary Creates the `Neo.component.Video` instance displayed on the workbench stage.
-     * @returns {Neo.component.Video}
+     * @summary Returns the `Neo.component.Video` config displayed on the workbench stage.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module  : Video,
             autoPlay: true,
             height  : 180,
             // Big Buck Bunny Trailer — (c) 2008 Blender Foundation / www.bigbuckbunny.org (CC BY 3.0)
             url  : 'https://cdn.jsdelivr.net/gh/neomjs/pages@main/resources_pub/video/big-buck-bunny-trailer.mp4#t=3.9',
             width: 320
-        })
+        }
     }
 }
 

@@ -116,8 +116,9 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /** @summary Returns the `Neo.button.Split` config with action menu items. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module : SplitButton,
             iconCls: 'fa fa-floppy-disk',
             text   : 'Save',
@@ -140,7 +141,7 @@ class MainContainer extends ConfigurationViewport {
                 iconCls: 'fa fa-print',
                 text   : 'Print'
             }]
-        })
+        }
     }
 }
 

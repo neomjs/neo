@@ -181,12 +181,13 @@ class MainContainer extends ConfigurationViewport {
         }]
     }
 
+    /** @summary Returns the `Neo.component.StatusBadge` config for the workbench stage. @returns {Object} */
     createExampleComponent() {
-        return Neo.create({
+        return {
             module: StatusBadge,
             height: 30,
-            state: 'info'
-        })
+            state : 'info'
+        }
     }
 }
 

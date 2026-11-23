@@ -39,11 +39,12 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @summary Shows the Portal's learning and examples routes as two navigable groups.
-     * @returns {Neo.sitemap.Component}
+     * @summary Returns the `Neo.sitemap.Component` config showing the Portal's learning and examples routes.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create(SiteMapComponent, {
+        return {
+            module: SiteMapComponent,
             height: 200,
             width : 460,
             store : {
@@ -56,7 +57,7 @@ class MainContainer extends ConfigurationViewport {
                     {id: 6, column: 1, name: 'Big Data',     level: 1, action: `${portal}/examples/grid/bigData/index.html`, actionType: 'url'}
                 ]
             }
-        })
+        }
     }
 }
 

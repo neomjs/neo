@@ -80,12 +80,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     * @summary Creates the `layout-form` container with differing outer label widths and a nested `layout-form` fieldset.
-     * @returns {Neo.form.Container}
+     * @summary Returns the `layout-form` container config with differing outer label widths and a nested `layout-form` fieldset.
+     * @returns {Object}
      */
     createExampleComponent() {
-        return Neo.create(Form, {
-            layout      : {
+        return {
+            module: Form,
+            layout: {
                 ntype: 'layout-form',
                 gap  : '0 .5rem'
             },
@@ -124,7 +125,7 @@ class MainContainer extends ConfigurationViewport {
                     name     : 4
                 }]
             }]
-        })
+        }
     }
 
     /**
