@@ -106,13 +106,17 @@ class MainContainerController extends ComponentController {
         }
 
         else if (reference === 'mapboxglmap') {
-            me.getReference('mapboxglmap').chartData = data;
-            me.mapboxglMapHasData = true
+            if (activeTab) {
+                activeTab.chartData   = data;
+                me.mapboxglMapHasData = true
+            }
         }
 
         else if (reference === 'worldmap') {
-            activeTab.loadData(data);
-            me.worldMapHasData = true
+            if (activeTab) {
+                activeTab.loadData(data);
+                me.worldMapHasData = true
+            }
         }
     }
 

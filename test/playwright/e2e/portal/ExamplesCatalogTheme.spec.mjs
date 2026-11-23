@@ -205,7 +205,7 @@ async function stubExternalCovidAssets(page) {
         body: '', contentType: 'text/css', status: 200
     }));
     await page.context().route('https://api.mapbox.com/mapbox-gl-js/**/*.js', route => route.fulfill({
-        body       : 'window.mapboxgl={accessToken:"",Map:class{on(){}once(){}resize(){}remove(){}setFilter(){}setLayoutProperty(){}setPaintProperty(){}setZoom(){}getSource(){return null}getStyle(){return{layers:[]}}}};',
+        body       : 'window.mapboxgl={accessToken:"",Map:class{addLayer(){}addSource(){}flyTo(){}getSource(){return null}getStyle(){return{layers:[]}}loaded(){return true}on(){}once(){}remove(){}resize(){}setCenter(){}setFilter(){}setLayoutProperty(){}setPaintProperty(){}setZoom(){}}};',
         contentType: 'application/javascript',
         status     : 200
     }));
