@@ -1,4 +1,5 @@
 import Base                    from '../core/Base.mjs';
+import NativeReturnTarget      from './NativeReturnTarget.mjs';
 import NativeVesselTransaction from '../dashboard/dock/window/NativeVesselTransaction.mjs';
 import VesselEmbodiment        from '../dashboard/dock/window/VesselEmbodiment.mjs';
 import {generateUUID}          from '../util/UUID.mjs';
@@ -213,7 +214,24 @@ class WindowTearOut extends Base {
                 return
             }
 
-            view.setReturnHandler?.(() => me.returnToDesktop({focus: true}))
+            view.setReturnHandler?.(() => me.returnToDesktop({focus: true}));
+            const workspace = Neo.getComponent(owner.boundaryContainerId);
+            if (workspace) {
+                const route = entry.route;
+                entry.nativeReturn = Neo.create(NativeReturnTarget, {
+                    canReturn: () => me.#entry === entry && entry.route === route && entry.target === target &&
+                        entry.committed && !entry.retiring && !owner.isDestroyed && !workspace.isDestroyed && !owner.dragZone?.gesture,
+                    owner,
+                    returnWindow: () => me.returnToDesktop({focus: true}),
+                    route,
+                    workspace
+                });
+                entry.nativeReturn.arm().catch(error => {
+                    if (me.#entry === entry && entry.target === target && !entry.retiring) {
+                        console.warn('Desktop native return geometry unavailable', error)
+                    }
+                })
+            }
         } catch {
             if (entry.target === target) me.#failedAdmission(entry)
         }
@@ -264,6 +282,7 @@ class WindowTearOut extends Base {
     /** @summary Detaches the live body before its old renderer can destroy it. @param {Object} entry */
     #detachTarget(entry) {
         this.#embodiment.detach({itemId: this.owner.id, windowId: entry.route.targetWindowId});
+        this.#releaseNativeReturn(entry);
         this.#unhookTarget(entry);
         entry.target = entry.view = null
     }
@@ -299,6 +318,12 @@ class WindowTearOut extends Base {
         this.owner.onTearOutDisconnect?.({committed: false})
     }
 
+    /** @summary Stops admitting native frame movement when the popup releases its live body. @param {Object} entry */
+    #releaseNativeReturn(entry) {
+        entry.nativeReturn?.destroy();
+        entry.nativeReturn = null
+    }
+
     /** @summary Removes only bindings owned by this child renderer. @param {Object} entry */
     #unhookTarget({target, view, keyListener}) {
         if (target && !target.isDestroyed && keyListener) target.removeDomListeners(keyListener);
@@ -311,6 +336,7 @@ class WindowTearOut extends Base {
 
         if (windowId && !this.#embodiment.restore({itemId, windowId})) return false;
 
+        this.#releaseNativeReturn(entry);
         if (windowId && !entry.body.isDestroyed) entry.body.theme = entry.bodyTheme;
         if (entry.target && !entry.target.isDestroyed) entry.target.parentComponent = null;
         owner.setTearOutSourceVisible?.(true);
