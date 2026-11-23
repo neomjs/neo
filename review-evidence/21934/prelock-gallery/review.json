@@ -1,0 +1,108 @@
+{
+  "engine": {
+    "before": "24e82335fe0c0a17250cb67d9ff07a410f0b3c55",
+    "after": "8257d659160afaff9534fe9bbc81429035c76848"
+  },
+  "pages": {
+    "before": "bd278afc76e907cf179acaa414bff6fb6b1c15b6",
+    "after": "a5760c2164efae35c76ccd16696b6380053a2781"
+  },
+  "viewports": [
+    "1440x900",
+    "390x844"
+  ],
+  "scope": "Actual local Portal, normal header theme switch and scroll admission, all four Engine/viewport combinations. Only the candidate's fourteen changed JPEG URLs were routed to Pages PR 203. Baseline, unchanged controls and other group covers used normal public requests. The candidate JPEG reads precede deployment.",
+  "build": "Each plain Engine archive compiled 971 development stylesheets and its browser JavaScript bundles.",
+  "checks": {
+    "fullCardDimensions": [
+      1280,
+      720
+    ],
+    "workbenchTileDimensions": [
+      536,
+      402
+    ],
+    "groupVisits": 28,
+    "verifiedImageReads": 72,
+    "fullGroupScreenshots": 48,
+    "changedCardReads": 56,
+    "unchangedControlReads": 16,
+    "decodeFailures": 0,
+    "pageErrors": 0
+  },
+  "files": {
+    "grid-big-data": {
+      "dark": "devmode/grid-big-data-14.jpg",
+      "light": "devmode/grid-big-data-14-light.jpg"
+    },
+    "grid-tree-big-data": {
+      "dark": "devmode/grid-tree-big-data-14.jpg",
+      "light": "devmode/grid-tree-big-data-14-light.jpg"
+    },
+    "graph-scene": {
+      "dark": "devmode/graph-scene-14.jpg",
+      "light": "devmode/graph-scene-14-light.jpg"
+    },
+    "list-animate": {
+      "dark": "devmode/list-animate-14.jpg",
+      "light": "devmode/list-animate-14-light.jpg"
+    },
+    "markdown": {
+      "dark": "devmode/markdown-14.jpg",
+      "light": "devmode/markdown-14-light.jpg"
+    },
+    "dock-cross-window": {
+      "dark": "devmode/dock-cross-window-14.jpg",
+      "light": "devmode/dock-cross-window-14-light.jpg"
+    },
+    "breadcrumb": {
+      "dark": "devmode/breadcrumb-14.jpg",
+      "light": "devmode/breadcrumb-14-light.jpg"
+    }
+  },
+  "unchangedControls": {
+    "grid-tree": {
+      "dark": "devmode/grid-tree-14.jpg",
+      "light": "devmode/grid-tree-14-light.jpg"
+    },
+    "date-field": {
+      "dark": "devmode/tiles/form-field-date-14.jpg",
+      "light": "devmode/tiles/form-field-date-14-light.jpg"
+    }
+  },
+  "lazyAdmission": {
+    "before-desktop": [
+      "grid-tree",
+      "date-field"
+    ],
+    "before-phone": [
+      "grid-tree",
+      "date-field"
+    ],
+    "after-desktop": [
+      "grid-tree",
+      "date-field"
+    ],
+    "after-phone": [
+      "grid-tree",
+      "date-field"
+    ]
+  },
+  "screenshots": {
+    "groups": [
+      "grid",
+      "buttons",
+      "charts",
+      "lists",
+      "components",
+      "dashboard"
+    ],
+    "path": "proof/fixture/{before|after}/{desktop|phone}/{group}-{dark|light}-group.png",
+    "dimensions": "Full-group shots kept the original width and expanded the browser's height until all cards fit and every visible cover decoded. Regular-size visitor checks preceded them. The screenshots await Chromium's theme transition completion."
+  },
+  "afterDeployment": {
+    "rerun": "python3 run-portal.py public",
+    "requests": "Starts fresh candidate Portal archives with zero image routes. The two unchanged Workbench control images passed through that same mode. All seven candidate pairs remain subject to the live public check after deployment.",
+    "reports": "proof/public/after/{desktop|phone}/{group}.json"
+  }
+}
