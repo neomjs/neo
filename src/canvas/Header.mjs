@@ -116,6 +116,12 @@ class Header extends Base {
      */
     shockwaves = []
     /**
+     * Scratch output owned by the strand loop; ordinary getStreamOffset callers still receive independent results.
+     * @member {Object} streamOffset
+     * @protected
+     */
+    streamOffset = {offsetY: 0, intensity: 0, isIconZone: 0}
+    /**
      * @member {Number} targetTimeScale=1
      */
     targetTimeScale = 1
@@ -315,9 +321,10 @@ class Header extends Base {
     /**
      * Calculates the points for the two energy strands based on physics and interaction.
      *
-     * **Zero-Allocation Contract:**
+     * **Geometry Storage:**
      * This method writes directly to the pre-allocated `this.waveBuffers` `Float32Array`s.
-     * It does **not** allocate new arrays or objects, ensuring zero GC pressure.
+     * The stream-offset result reuses `this.streamOffset` across samples and frames;
+     * the returned metadata is allocated once per frame.
      *
      * @param {Number} width
      * @param {Number} height
@@ -351,8 +358,8 @@ class Header extends Base {
             shimmerB = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2 + Math.PI / 3) * 0.25);
 
         for (let i = 0; i < count; i++) {
-            let x = i * step,
-                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height, width);
+            let x                                = i * step,
+                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height, width, me.streamOffset);
 
             // FREQUENCY MODULATION:
             let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
@@ -837,9 +844,10 @@ class Header extends Base {
      * @param {Number} x
      * @param {Number} height (Canvas height)
      * @param {Number} width (Canvas width)
+     * @param {Object} [result={}] Output storage; omitted for an independent, retainable result.
      * @returns {Object} {offsetY, intensity, isIconZone}
      */
-    getStreamOffset(x, height, width) {
+    getStreamOffset(x, height, width, result = {}) {
         let me        = this,
             offsetY   = 0,
             intensity = 0, // 0 to 1 (Hover magnitude)
@@ -913,7 +921,10 @@ class Header extends Base {
         // Baseline Separation
         // By returning offsetY=0 in empty space, the strands will naturally cross (Helix effect)
         // driven by the sine wave logic in calculateStrandPoints.
-        return {offsetY, intensity, isIconZone};
+        result.offsetY    = offsetY;
+        result.intensity  = intensity;
+        result.isIconZone = isIconZone;
+        return result;
     }
 
     /**
