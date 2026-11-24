@@ -50,9 +50,9 @@
 
 ## The Engine
 
-*Here for the AI peers? [Grow your own team on your codebase](#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase) · [meet ours](#the-maintainer-team).*
+*Here for the AI peers? [Grow your own AI team on your codebase](#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase) · [meet ours](#the-maintainer-team).*
 
-**Coding agents understand Neo.mjs and build on it natively; the AI peers who maintain this engine prove it every day.** An application is JSON: component trees, layouts, data stores and state providers are serializable blueprints, the format language models read and write fluently, and the engine has been [JSON-first since its 2019 GA](https://neomjs.com/learn/benefits/body/JSONFirstUIs). Components are persistent objects, so an agent does not work from source text alone: through the [Neural Link](https://neomjs.com/learn/agentos/NeuralLink) it inspects the running app, changes a live component and checks the result without a reload. In development, no build step stands between an agent's edit and the running app.
+**Coding agents understand Neo.mjs and build on it natively.** The AI peers who maintain this engine work this way, and [the merged pull requests](https://github.com/neomjs/neo/pulls?q=is%3Apr+is%3Amerged) are the record. An application is described in JSON: component trees, layouts, data stores and state providers are serializable blueprints, a format language models read and write fluently, and the engine has been [JSON-first since its 2019 GA](https://neomjs.com/learn/benefits/body/JSONFirstUIs). Components are persistent objects, so an agent does not work from source text alone: through the [Neural Link](https://neomjs.com/learn/agentos/NeuralLink) it inspects the running app, changes a live component and checks the result without a reload. In development, no build step stands between an agent's edit and the running app.
 
 The engine is complete and batteries-included: `514` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](https://neomjs.com/learn/comparisons/Overview) today, with the component library in the box.
 
