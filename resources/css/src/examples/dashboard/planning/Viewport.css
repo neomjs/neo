@@ -71,12 +71,13 @@
 
 .planning-board.neo-board {
     --neo-board-gap: 8px;
-    display: grid;
     gap: var(--neo-board-gap);
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     padding: 10px;
 
+    /* The board pins each column at an inline `flex: none` so it scrolls (Neo.board.Container#createColumnConfig). This
+       pane fits its board instead: open columns share the row, and a collapsed one keeps the pin and its narrow width. */
     .neo-board-column:not(.neo-board-column-collapsed) {
+        flex: 1 1 0 !important;
         min-width: 0;
         width: auto;
     }
@@ -116,14 +117,17 @@
 @media (max-width: 650px) {
     .planning-board.neo-board {
         align-content: start;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-auto-rows: max-content;
         overflow-x: hidden;
         overflow-y: auto;
 
+        /* One class past the hbox's own `.neo-flex-wrap-nowrap` */
+        &.neo-flex-container {
+            flex-wrap: wrap;
+        }
+
+        /* Two open columns per row */
         .neo-board-column:not(.neo-board-column-collapsed) {
-            width: auto;
+            flex: 1 1 calc(50% - var(--neo-board-gap)) !important;
         }
 
         .neo-board-column-body { min-height: 0; }
