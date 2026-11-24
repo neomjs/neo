@@ -15,6 +15,38 @@ const
     STATUSES   = Object.keys(COUNTS),
     asArray    = value => Array.isArray(value) ? value : value ? [value] : [],
     firstId    = async (app, className) => asArray(await app.findInstances({className}, ['id']))[0]?.id,
+    // Keep the original nodes so a replacement cannot satisfy the motion witness.
+    recordColumnFrames = (page, ids) => page.evaluateHandle(columnIds => {
+        const columns = columnIds.map(id => {
+                  const element = document.getElementById(id);
+                  return [element, element.querySelector('.neo-board-column-header'), element.querySelector('.neo-board-card')]
+              }),
+              witness = {ending: false, frames: []};
+        let frameId;
+
+        const sample = () => {
+            witness.frames.push({
+                ending : witness.ending,
+                columns: columns.map(([element, header, card]) => ({
+                    x        : element.getBoundingClientRect().x,
+                    headerX  : header.getBoundingClientRect().x,
+                    cardX    : card.getBoundingClientRect().x,
+                    connected: element.isConnected && header.isConnected && card.isConnected,
+                    visible  : getComputedStyle(element).visibility === 'visible'
+                }))
+            });
+            frameId = requestAnimationFrame(sample)
+        };
+
+        witness.finish = async () => {
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            cancelAnimationFrame(frameId);
+            return witness.frames
+        };
+
+        sample();
+        return witness
+    }, ids),
     seedSliced = async (app, boardId, storeId, perColumn, budget) => {
         const records = STATUSES.flatMap(status => Array.from({length: perColumn}, (_, i) => ({
             id         : `${status}-${i}`,
@@ -174,17 +206,41 @@ test.describe('Board, basic example: one store, two views', () => {
             expect((await proxy.boundingBox()).width, 'the proxy is as wide as the slot').toBe(slot.width);
             expect((await proxy.locator('.neo-board-column').boundingBox()).width, 'and the carried column fills it').toBe(slot.width);
 
+            const neighbor = column('in-progress'),
+                  witness  = await recordColumnFrames(page, [`${boardId}__col__in-progress`, `${boardId}__col__ready`]);
+
+            await expect(neighbor).toHaveCSS('position', 'absolute');
             await page.mouse.move(to.x + to.width / 2 + 24, y, {steps: 16});
+            await expect.poll(async () => (await neighbor.boundingBox()).x, {message: 'the neighbor settles into the preview slot'})
+                .toBeCloseTo(slot.x, 0);
             expect((await proxy.boundingBox()).y, 'a level pointer keeps the column level with its slot').toBe(slot.y);
 
             const frame = testInfo.outputPath(`board-column-drag-${theme}.png`);
             await page.screenshot({path: frame});
             await testInfo.attach(`board-column-drag-${theme}`, {path: frame, contentType: 'image/png'});
+            await witness.evaluate(trace => {trace.ending = true});
             await page.mouse.up();
 
             await expect.poll(order, {message: 'one move: Ready lands after In Progress'}).toEqual(['backlog', 'in-progress', 'ready', 'review', 'done']);
             await expect(column('ready')).not.toHaveCSS('visibility', 'hidden');
             await expect(proxy).toHaveCount(0);
+            const frames       = await witness.evaluate(trace => trace.finish()),
+                  initial      = frames[0].columns[0],
+                  movingFrames = frames.filter(sample => !sample.ending)
+                      .map(sample => sample.columns[0]).filter(({x}) => x > slot.x + 1 && x < to.x - 1),
+                  visibleDrop  = frames.filter(sample => sample.ending && sample.columns[1].visible);
+
+            await witness.dispose();
+            expect(movingFrames.length, 'the neighbor paints intermediate positions between its original and preview slots').toBeGreaterThan(0);
+            for (const sample of movingFrames) {
+                expect(sample.connected, 'the original column, header and card are still mounted').toBe(true);
+                expect(sample.headerX - sample.x).toBeCloseTo(initial.headerX - initial.x, 0);
+                expect(sample.cardX - sample.x).toBeCloseTo(initial.cardX - initial.x, 0)
+            }
+            expect(visibleDrop.length, 'the trace includes the restored column').toBeGreaterThan(0);
+            for (const {columns: [, ready]} of visibleDrop) {
+                expect(ready.x, 'the restored column appears only in the committed slot').toBeCloseTo(to.x, 0)
+            }
             expect(await page.evaluate(id => Neo.main.addon.DragDrop.zoneRegistrations[id] ?? null, `${boardId}__col__ready`),
                 'the zone registry stays keyed on headers, so card drags inside the column keep their zone').toBeNull();
             expect(await domOrder('ready'), 'the moved column keeps its cards').toEqual(cards);
@@ -204,6 +260,60 @@ test.describe('Board, basic example: one store, two views', () => {
                 {message: 'a card dragged out of the moved column lands in Review'}).toBe(true)
         })
     }
+
+    test('reduced column drag motion snaps around a locked column and Escape restores the slots', async ({page, neuralLink}) => {
+        await page.emulateMedia({reducedMotion: 'reduce'});
+
+        const {app, boardId, column, domOrder} = await open(page, neuralLink),
+              locked                           = column('in-progress'),
+              review                           = column('review'),
+              ready                            = column('ready'),
+              header                           = ready.locator('.neo-board-column-header'),
+              proxy                            = page.locator('.neo-dragproxy');
+
+        await app.setProperties(`${boardId}__col__in-progress`, {locked: true});
+        await expect(locked.locator('.neo-board-column-header')).toHaveAttribute('aria-disabled', 'true');
+
+        const from    = await header.boundingBox(),
+              to      = await review.boundingBox(),
+              start   = await ready.boundingBox(),
+              lockedX = (await locked.boundingBox()).x,
+              cards   = await domOrder('ready'),
+              y       = from.y + from.height / 2;
+
+        await page.mouse.move(from.x + 24, y);
+        await page.mouse.down();
+        await page.mouse.move(from.x + 44, y, {steps: 4});
+        await expect(proxy.locator('.neo-board-column-header')).toHaveCount(1);
+        await expect(ready).toHaveCSS('visibility', 'hidden');
+
+        const witness = await recordColumnFrames(page, ['review', 'in-progress', 'ready'].map(status => `${boardId}__col__${status}`));
+
+        await page.mouse.move(to.x + to.width / 2 + 24, y, {steps: 16});
+        await expect.poll(async () => (await review.boundingBox()).x, {message: 'Review snaps into the preview slot'})
+            .toBeCloseTo(start.x, 0);
+        await expect(review).toHaveCSS('transition-duration', '0s');
+
+        await witness.evaluate(trace => {trace.ending = true});
+        await page.keyboard.press('Escape');
+        await page.mouse.up();
+        await expect(proxy).toHaveCount(0);
+        await expect(ready).toHaveCSS('visibility', 'visible');
+        await expect.poll(async () => (await review.boundingBox()).x).toBeCloseTo(to.x, 0);
+
+        const frames        = await witness.evaluate(trace => trace.finish()),
+              visibleCancel = frames.filter(({ending, columns}) => ending && columns[2].visible);
+
+        await witness.dispose();
+        expect(frames.some(({ending, columns}) => !ending && Math.abs(columns[0].x - start.x) < 1), 'the snapped slot was sampled').toBe(true);
+        expect(frames.every(({columns}) => Math.abs(columns[1].x - lockedX) < 1), 'the locked column keeps its position').toBe(true);
+        expect(frames.filter(({ending}) => !ending).every(({columns}) =>
+            Math.abs(columns[0].x - to.x) < 1 || Math.abs(columns[0].x - start.x) < 1), 'no intermediate positions under reduced motion').toBe(true);
+        expect(visibleCancel.length, 'the trace includes the restored column').toBeGreaterThan(0);
+        expect(visibleCancel.every(({columns}) => Math.abs(columns[2].x - start.x) < 1),
+            'the cancelled column appears only at its starting slot').toBe(true);
+        expect(await domOrder('ready')).toEqual(cards)
+    });
 
     test('a column dragged diagonally past the board\'s corner stays inside the board', async ({page, neuralLink}) => {
         const {boardId, domOrder} = await open(page, neuralLink),
