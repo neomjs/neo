@@ -164,6 +164,31 @@ test.describe('Portal.view.examples.ListModel', () => {
         }
     });
 
+    test('builds root-relative cover URLs on GitHub Pages in every environment, raw-host URLs elsewhere', async () => {
+        const {environment, isGitHubPages} = Neo.config,
+              record                       = {image: 'devmode/grid.jpg', hasLightCover: true},
+              raw                          = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples';
+
+        try {
+            const {list} = await createMountedList();
+
+            Neo.config.isGitHubPages = true;
+
+            for (const env of ['development', 'dist/esm', 'dist/production']) {
+                Neo.config.environment = env;
+                expect(list.getBackgroundImageStyle(record)).toEqual({
+                    '--portal-example-cover'      : "url('/resources_pub/website/examples/devmode/grid.jpg')",
+                    '--portal-example-cover-light': "url('/resources_pub/website/examples/devmode/grid-light.jpg')"
+                })
+            }
+
+            Neo.config.isGitHubPages = false;
+            expect(list.getBackgroundImageStyle(record)['--portal-example-cover']).toBe(`url('${raw}/devmode/grid.jpg')`)
+        } finally {
+            Object.assign(Neo.config, {environment, isGitHubPages})
+        }
+    });
+
     test('ArrowLeft on the first card hands the step to the list\'s owner and keeps the selection; enter() returns to it, or else to the first card', async () => {
         const {focusedIds, list, model, store} = await createMountedList(),
               itemId                           = id => list.getItemId(list.getRecordId(store.get(id))),
