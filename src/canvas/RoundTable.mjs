@@ -646,6 +646,7 @@ class RoundTable extends Base {
     clearGraph() {
         const me = this;
 
+        me.cancelFrame();
         super.clearGraph();
         me.calm     = [];
         me.clock    = 0;
@@ -658,6 +659,24 @@ class RoundTable extends Base {
         me.record   = null;
         me.still    = true;
         me.glows.clear()
+    }
+
+    /**
+     * @summary Releases the one pending callback without resetting the replay clock between frames.
+     * @protected
+     */
+    cancelFrame() {
+        if (this.animationId != null) {
+            hasRaf ? cancelAnimationFrame(this.animationId) : clearTimeout(this.animationId);
+            this.animationId = null
+        }
+    }
+
+    /** @summary Suspends the replay, including a callback queued before the pause. */
+    pause() {
+        this.cancelFrame();
+        this.lastTime = 0;
+        super.pause()
     }
 
     /**
@@ -1304,17 +1323,18 @@ class RoundTable extends Base {
     refresh() {
         const me = this;
 
-        (me.still || !me.animationId) && me.render()
+        (me.still || me.animationId == null) && me.render()
     }
 
     /**
      * @summary One frame: a moving scene with a record steps its clock by the time since the last one, draws, and
-     * schedules the next; any other draws and stops.
+     * schedules the next; any other draws and stops. A direct repaint also retires its pending callback,
+     * so every entry owns at most one successor.
      */
     render() {
         const me = this;
 
-        me.animationId = null;
+        me.cancelFrame();
 
         if (!me.canRender || !me.canvasSize) {
             return
@@ -1393,6 +1413,7 @@ class RoundTable extends Base {
         const me = this, next = still !== false;
 
         if (next !== me.still) {
+            me.cancelFrame();
             me.still    = next;
             me.lastTime = 0;
             me.refresh()
