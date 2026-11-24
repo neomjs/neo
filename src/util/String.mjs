@@ -89,6 +89,29 @@ class StringUtil extends Base {
     }
 
     /**
+     * @summary Formats an internal route string as an anchor `href` for the active `Neo.config.routerMode`.
+     *
+     * Keeps `'hash'` mode (`'#...'`) unchanged for standalone and `file://` builds, and emits a clean root-relative
+     * path prefixed by `Neo.config.routerBasePath` when `Neo.config.routerMode === 'pathname'` so `<base href>` never
+     * hijacks hover URLs, clipboard copies, or modified new-tab clicks.
+     * @param {String} route
+     * @returns {String}
+     */
+    static toRouteHref(route) {
+        if (!Neo.isString(route) || !route) {
+            return route
+        }
+
+        if (Neo.config.routerMode !== 'pathname') {
+            return route.startsWith('#') ? route : '#' + route
+        }
+
+        let path = route.startsWith('#') ? route.substring(1) : route;
+
+        return (Neo.config.routerBasePath || '') + (path.startsWith('/') ? path : '/' + path)
+    }
+
+    /**
      * Unescape HTML special characters
      * @param {String} value
      */

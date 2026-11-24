@@ -1,5 +1,6 @@
-import Markdown from '../../component/Markdown.mjs';
-import {marked} from '../../../dist/marked.mjs';
+import Markdown   from '../../component/Markdown.mjs';
+import StringUtil from '../../util/String.mjs';
+import {marked}   from '../../../dist/marked.mjs';
 
 /**
  * @summary Displays interactive content (Markdown) within the Portal application.
@@ -376,9 +377,10 @@ class Component extends Markdown {
      */
     rewriteLinks(html) {
         let me             = this,
-            {contentRoute} = me;
+            {contentRoute} = me,
+            routePrefix    = contentRoute?.startsWith('#/') ? StringUtil.toRouteHref(contentRoute) : contentRoute;
 
-        if (!contentRoute || !me.record?.id) {
+        if (!routePrefix || !me.record?.id) {
             return html
         }
 
@@ -408,7 +410,7 @@ class Component extends Markdown {
                 return match
             }
 
-            return `${prefix}${contentRoute}${id}${fragment ? `#${fragment}` : ''}${quote}`
+            return `${prefix}${routePrefix}${id}${fragment ? `#${fragment}` : ''}${quote}`
         })
     }
 

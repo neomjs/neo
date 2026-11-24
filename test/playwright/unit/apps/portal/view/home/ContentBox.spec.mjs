@@ -282,7 +282,7 @@ test.describe('Portal.view.home.ContentBox', () => {
 
             expect(ViewportController.config.routes['/']).toBe('onHomeRoute');
             expect(ViewportController.config.routes['/home']).toBe('onHomeRoute');
-            expect(ViewportController.config.defaultHash).toBe('/home');
+            expect(ViewportController.config.defaultHash).toBe('/');
         } finally {
             globalThis.fetch = originalFetch;
             toolbar.destroy()

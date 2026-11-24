@@ -116,6 +116,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'portal/HomeAudienceDoorsNL.spec.mjs',
     'portal/HomeComponentPreviews.spec.mjs',
     'portal/HomeHeroRoundTableNL.spec.mjs',
+    'portal/PathnameRoutingNL.spec.mjs',
     'portal/StandaloneExamplesThemeSwitcher.spec.mjs',
     'portal/VideosNL.spec.mjs',
     'realworld/EmailMultiWindowNL.spec.mjs',

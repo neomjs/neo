@@ -3,6 +3,7 @@ import Container    from '../../../../src/container/Base.mjs';
 import Example      from '../../model/Example.mjs';
 import ExampleStore from '../../store/Examples.mjs';
 import List         from './List.mjs';
+import StringUtil   from '../../../../src/util/String.mjs';
 
 /**
  * @summary Cross-group search results view inside `.portal-examples-stage`: renders live catalog matches grouped under
@@ -231,7 +232,7 @@ class SearchResults extends Container {
                             tag: 'h2',
                             cn : [{
                                 tag : 'a',
-                                href: '#' + definition.route,
+                                href: StringUtil.toRouteHref(definition.route),
                                 cn  : [
                                     {tag: 'i', cls: [...definition.iconCls.split(' '), 'portal-examples-search-group-icon'], 'aria-hidden': true},
                                     {tag: 'span', text: definition.title}

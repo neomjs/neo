@@ -1,3 +1,5 @@
+import StringUtil from '../../src/util/String.mjs';
+
 const
     // Kept in step with Neo.app.content.Component#rewriteLinks, which runs first: a scheme, an anchor or hash
     // route, or a root-absolute path is navigable as authored.
@@ -75,7 +77,7 @@ function resolveRepoLink(href, filePath) {
     if (/^learn\/.+\.md$/i.test(path)) {
         const id = path.slice('learn/'.length, -'.md'.length);
 
-        return (id.startsWith('blog/') ? `#/news/${id}` : `#/learn/${id}`) + hash
+        return StringUtil.toRouteHref(id.startsWith('blog/') ? `/news/${id}` : `/learn/${id}`) + hash
     }
 
     return repoRoots.has(segments[0]) ? getGitHubUrl(target.endsWith('/') ? 'tree' : 'blob', 'dev', path) + hash : null
@@ -109,6 +111,6 @@ export function rewriteRepoLinks(html, filePath=null) {
         tag = tag.replace(regexHref, (match, attribute, quote) => attribute + quote + url + quote);
 
         // GitHub is outside the app. An authored target wins.
-        return url.startsWith('#') || /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
+        return url.startsWith('#') || (Neo.config.routerMode === 'pathname' && url.startsWith('/')) || /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
     })
 }

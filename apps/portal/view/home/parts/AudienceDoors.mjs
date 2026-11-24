@@ -1,5 +1,6 @@
 import BaseContainer from './BaseContainer.mjs';
 import Button        from '../../../../../src/button/Base.mjs';
+import StringUtil    from '../../../../../src/util/String.mjs';
 import                    '../../../../../src/layout/Grid.mjs';
 
 /**
@@ -300,17 +301,26 @@ class AudienceDoors extends BaseContainer {
     }
 
     /**
-     * @summary Syncs the runtime-resolved example proof link with the active Neo.config once child items exist.
+     * @summary Syncs the runtime-resolved proof links with the active Neo.config once child items exist.
      */
     onConstructed() {
         super.onConstructed();
 
         const
-            buildBody = this.getItem('door-build-body'),
-            proofLink = buildBody?.vdom?.cn?.[4]?.cn?.[0];
+            buildProof  = this.getItem('door-build-body')?.vdom?.cn?.[4]?.cn?.[0],
+            agentsProof = this.getItem('door-agents-body')?.vdom?.cn?.[4]?.cn?.[0],
+            studyProof  = this.getItem('door-study-body')?.vdom?.cn?.[4]?.cn?.[0];
 
-        if (proofLink) {
-            proofLink.href = AudienceDoors.resolveBigDataExampleUrl()
+        if (buildProof) {
+            buildProof.href = AudienceDoors.resolveBigDataExampleUrl()
+        }
+
+        if (agentsProof) {
+            agentsProof.href = StringUtil.toRouteHref('/news/pulls/15123')
+        }
+
+        if (studyProof) {
+            studyProof.href = StringUtil.toRouteHref('/learn/benefits/Introduction')
         }
     }
 

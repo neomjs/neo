@@ -1,5 +1,6 @@
-import Canvas    from './Canvas.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Canvas     from './Canvas.mjs';
+import Container  from '../../../../src/container/Base.mjs';
+import StringUtil from '../../../../src/util/String.mjs';
 
 /**
  * @summary Connects visitors with Neo's public tools, setup guides, development community and maintainers.
@@ -77,9 +78,10 @@ class ServicesContainer extends Container {
                     tag  : 'h2',
                     text : 'Build an application'
                 }, {
-                    ntype: 'component',
-                    cls  : ['portal-content-box-content'],
-                    vdom : {cn: [
+                    ntype    : 'component',
+                    cls      : ['portal-content-box-content'],
+                    reference: 'connect-build-body',
+                    vdom     : {cn: [
                         {tag: 'p', text: 'Start with the open-source Neo.mjs engine. Explore a working example, or create an app and work with its source, conventions and runtime tools alongside your coding agent.'},
                         {tag: 'p', cls: ['portal-connect-links'], cn: [{
                             tag : 'a', href: 'https://github.com/neomjs/create-app',
@@ -160,6 +162,19 @@ class ServicesContainer extends Container {
                 }]
             }]
         }]
+    }
+
+    /**
+     * @summary Syncs the internal Examples link href with the active `Neo.config.routerMode`.
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        const examplesLink = this.getItem('connect-build-body')?.vdom?.cn?.[1]?.cn?.[1];
+
+        if (examplesLink) {
+            examplesLink.href = StringUtil.toRouteHref('/examples')
+        }
     }
 
     /**

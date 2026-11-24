@@ -126,10 +126,11 @@ class MainContainerController extends Controller {
         // through means an exact-lookup miss and a blank page — the id has to be separated from the
         // in-page anchor here. Route params are the app's to interpret; widening the shared router's
         // wildcard would change capture semantics for every routed app.
-        const request              = ++this.#learnRouteRequest,
-              [recordId, fragment] = itemId.split('#', 2),
-              route                = value?.hashString || `/learn/${recordId}`,
-              navigationId         = value?.hashString
+        const request                  = ++this.#learnRouteRequest,
+              [recordId, itemFragment] = itemId.split('#', 2),
+              fragment                 = itemFragment || value?.fragment,
+              route                    = value?.hashString || `/learn/${recordId}`,
+              navigationId             = value?.hashString
                   ? SeoService.registerNavigation({route: value.hashString, windowId: this.windowId})
                   : undefined;
 

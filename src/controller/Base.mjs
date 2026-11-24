@@ -214,6 +214,8 @@ class Controller extends Base {
             if (me.defaultRoute) {
                 value.capturedRoute = me.defaultRoute;
                 me[me.defaultRoute]?.(value, oldValue)
+            } else if (Neo.config.routerMode === 'pathname' && value.hashString === '/' && me.defaultHash && me.defaultHash !== '/') {
+                Neo.Main.setRoute({replace: true, value: me.defaultHash, windowId: me.windowId})
             } else {
                 value.capturedRoute = null;
                 me.onNoRouteFound(value, oldValue)

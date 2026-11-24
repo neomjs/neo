@@ -587,4 +587,36 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         split.destroy();
         button.destroy()
     });
+
+    test('route buttons render clean path hrefs in pathname routerMode and hash hrefs in hash routerMode', async () => {
+        const previous = {
+            routerBasePath: Neo.config.routerBasePath,
+            routerMode    : Neo.config.routerMode
+        };
+
+        try {
+            Object.assign(Neo.config, {routerBasePath: '', routerMode: 'pathname'});
+
+            const logoButton  = Neo.create(Button, {appName, route: '/', text: 'Neo.mjs'}),
+                  learnButton = Neo.create(Button, {appName, route: '#/learn/Intro', text: 'Learn'}),
+                  logoVnode   = (await logoButton.initVnode()).vnode,
+                  learnVnode  = (await learnButton.initVnode()).vnode;
+
+            expect(logoVnode.nodeName).toBe('a');
+            expect(logoVnode.attributes.href).toBe('/');
+            expect(logoVnode.attributes.target).toBeUndefined();
+            expect(learnVnode.attributes.href).toBe('/learn/Intro');
+
+            logoButton.mounted = true;
+            Object.assign(Neo.config, {routerBasePath: '/docs', routerMode: 'pathname'});
+            logoButton.updateTag();
+            await logoButton.promiseUpdate();
+            expect(logoButton.vnode.attributes.href).toBe('/docs/');
+
+            logoButton.destroy();
+            learnButton.destroy()
+        } finally {
+            Object.assign(Neo.config, previous)
+        }
+    });
 });

@@ -68,5 +68,35 @@ test.describe('Neo.util.String', () => {
         expect(StringUtil.escapeRegExp(null)).toBeNull();
         expect(StringUtil.escapeRegExp(undefined)).toBeUndefined();
         expect(StringUtil.escapeRegExp(123)).toBe(123)
+    });
+
+    test('toRouteHref keeps hash prefixes in hash mode and formats clean base-prefixed paths in pathname mode', () => {
+        const previous = {
+            routerBasePath: Neo.config.routerBasePath,
+            routerMode    : Neo.config.routerMode
+        };
+
+        try {
+            Object.assign(Neo.config, {routerBasePath: '', routerMode: 'hash'});
+            expect(StringUtil.toRouteHref('/')).toBe('#/');
+            expect(StringUtil.toRouteHref('/learn')).toBe('#/learn');
+            expect(StringUtil.toRouteHref('#/examples/grid')).toBe('#/examples/grid');
+            expect(StringUtil.toRouteHref('')).toBe('');
+            expect(StringUtil.toRouteHref(null)).toBeNull();
+
+            Object.assign(Neo.config, {routerBasePath: '', routerMode: 'pathname'});
+            expect(StringUtil.toRouteHref('/')).toBe('/');
+            expect(StringUtil.toRouteHref('#/')).toBe('/');
+            expect(StringUtil.toRouteHref('/learn')).toBe('/learn');
+            expect(StringUtil.toRouteHref('#/examples/grid')).toBe('/examples/grid');
+            expect(StringUtil.toRouteHref('#/news/tickets/')).toBe('/news/tickets/');
+
+            Object.assign(Neo.config, {routerBasePath: '/docs', routerMode: 'pathname'});
+            expect(StringUtil.toRouteHref('/')).toBe('/docs/');
+            expect(StringUtil.toRouteHref('/learn/Intro')).toBe('/docs/learn/Intro');
+            expect(StringUtil.toRouteHref('#/learn/Intro#section')).toBe('/docs/learn/Intro#section')
+        } finally {
+            Object.assign(Neo.config, previous)
+        }
     })
 });

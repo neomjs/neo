@@ -40,9 +40,9 @@ class ViewportController extends Controller {
          */
         activeIndex_: null,
         /**
-         * @member {String|null} defaultHash='/home'
+         * @member {String|null} defaultHash='/'
          */
-        defaultHash: '/home',
+        defaultHash: '/',
         /**
          * @member {String} mainContentLayout_='card'
          * @reactive

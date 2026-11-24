@@ -6,6 +6,11 @@
     "mainPath"                    : "./Main.mjs",
     "releaseNotesBasePath"        : ".github/RELEASE_NOTES/",
     "remotesApiUrl"               : "remotes-api.json",
+    "routerIgnorePaths"           : [
+        "^/(?:dist|raw|resources|resources_pub|badges|node_modules|apps)(?:/|$)",
+        "^/examples/[^/]+/.+",
+        "^/docs/"
+    ],
     "themes"                      : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
     "useAiClient"                 : true,
     "useCanvasWorker"             : true,

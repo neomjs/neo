@@ -1,6 +1,7 @@
 import Component   from './Base.mjs';
 import HighlightJs from '../util/HighlightJs.mjs';
 import IdGenerator from '../core/IdGenerator.mjs';
+import StringUtil  from '../util/String.mjs';
 import {marked}    from '../../dist/marked.mjs';
 
 const
@@ -392,8 +393,9 @@ class Markdown extends Component {
             // 4. Perform ticket replacement
             content = content.replace(regexTicketId, (match, prefix, id) => {
                 const
-                    isInternal = me.issuesUrl.startsWith('#'),
-                    url        = me.issuesUrl + id,
+                    issuesUrl  = me.issuesUrl.startsWith('#/') ? StringUtil.toRouteHref(me.issuesUrl) : me.issuesUrl,
+                    isInternal = issuesUrl.startsWith('#') || (Neo.config.routerMode === 'pathname' && issuesUrl.startsWith('/')),
+                    url        = issuesUrl + id,
                     target     = isInternal ? '' : ' target="_blank"';
 
                 return `${prefix}<a href="${url}"${target}>#${id}</a>`
