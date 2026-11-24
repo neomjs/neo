@@ -1277,5 +1277,57 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
 
         expect(sent.map(data => data.type)).toEqual(['drag:end', 'drop']);
         expect(finishCalls).toBe(1)
+    });
+
+    test('setDragProxyElement syncs a mid-gesture mounted proxy to the latest clamped pointer coordinates (#22153)', () => {
+        const
+            originalDoc  = globalThis.document,
+            originalSend = DomEvents.sendMessageToApp,
+            proxyEl      = {
+                getBoundingClientRect: () => ({height: 360, width: 200}),
+                style                : {left: '100px', top: '80px'}
+            },
+            addon        = {
+                allowOverdrag         : false,
+                alwaysFireDragMove    : true,
+                boundaryContainerRect : {bottom: 460, left: 90, right: 900, top: 70},
+                clientX               : 120,
+                clientY               : 95,
+                dragCancelled         : false,
+                dragProxyElement      : null,
+                dragProxyRect         : {height: 360, left: 100, top: 80, width: 200},
+                dragResize            : null,
+                dragZoneId            : 'zone-col',
+                getEventData          : () => ({}),
+                isWindowDragging      : false,
+                lastClientX           : 120,
+                lastClientY           : 95,
+                moveHorizontal        : true,
+                moveVertical          : false,
+                offsetX               : 20,
+                offsetY               : 15,
+                scrollContainerElement: null
+            };
+
+        globalThis.document        = {getElementById: id => id === 'proxy-1' ? proxyEl : null};
+        DomEvents.sendMessageToApp = () => {};
+
+        try {
+            DragDrop.prototype.onDragMove.call(addon, {
+                detail: {clientX: 460, clientY: 40, originalEvent: {screenX: 460, screenY: 40}}
+            });
+
+            expect(addon.clientX, 'scrollContainer baseline stays untouched').toBe(120);
+            expect(addon.lastClientX).toBe(460);
+            expect(proxyEl.style.left, 'proxy not mounted yet').toBe('100px');
+
+            DragDrop.prototype.setDragProxyElement.call(addon, {id: 'proxy-1'});
+
+            expect(proxyEl.style.left).toBe('440px');
+            expect(proxyEl.style.top, 'moveVertical: false keeps initial slot top').toBe('80px')
+        } finally {
+            globalThis.document        = originalDoc;
+            DomEvents.sendMessageToApp = originalSend
+        }
     })
 });

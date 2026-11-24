@@ -446,6 +446,8 @@ class DragDrop extends Base {
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
             isWindowDragging      : false,
+            lastClientX           : null,
+            lastClientY           : null,
             moveHorizontal        : true,
             moveVertical          : true,
             popupHeight           : null,
@@ -460,6 +462,61 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Places `dragProxyElement` at the clamped coordinate for `clientX`/`clientY`.
+     * @param {Number} clientX
+     * @param {Number} clientY
+     * @param {Number|null} [resizedSize=null]
+     * @param {Boolean} [resizeLocally=false]
+     * @returns {{left: Number, top: Number}}
+     * @protected
+     */
+    applyProxyPosition(clientX, clientY, resizedSize=null, resizeLocally=false) {
+        let me        = this,
+            proxyRect = me.dragProxyRect,
+            rect      = me.boundaryContainerRect,
+            left      = clientX - (me.offsetX || 0),
+            top       = clientY - (me.offsetY || 0);
+
+        if (resizeLocally && Number.isFinite(resizedSize) && me.dragResize?.state) {
+            const
+                resizeState = me.dragResize.state,
+                resizeDelta = resizeState.resizeNext
+                    ? resizeState.startSize - resizedSize
+                    : resizedSize - resizeState.startSize;
+
+            if (resizeState.axis === 'width') {
+                left = resizeState.startCoordinate + resizeDelta - me.offsetX
+            } else if (resizeState.axis === 'height') {
+                top = resizeState.startCoordinate + resizeDelta - me.offsetY
+            }
+        }
+
+        if (rect && !me.allowOverdrag && proxyRect) {
+            if (left < rect.left) {
+                left = rect.left
+            } else if (left > rect.right - proxyRect.width) {
+                left = rect.right - proxyRect.width
+            }
+
+            if (top < rect.top) {
+                top = rect.top
+            } else if (top > rect.bottom - proxyRect.height) {
+                top = rect.bottom - proxyRect.height
+            }
+        }
+
+        if (me.moveHorizontal) {
+            me.dragProxyElement.style.left = `${left}px`
+        }
+
+        if (me.moveVertical) {
+            me.dragProxyElement.style.top = `${top}px`
+        }
+
+        return {left, top}
+    }
+
+    /**
      * @summary Moves the proxy or the popup window, and forwards the frame to the App Worker. The screen
      * point is the sensor's when it states one (its pixel rounding), otherwise the event's own.
      * @param {Event} event
@@ -469,7 +526,6 @@ class DragDrop extends Base {
             {detail}        = event,
             {originalEvent} = detail,
             proxyRect       = me.dragProxyRect,
-            rect            = me.boundaryContainerRect,
             screenX         = detail.screenX ?? originalEvent?.screenX,
             screenY         = detail.screenY ?? originalEvent?.screenY,
             data, left, resizeLocally, top;
@@ -510,49 +566,16 @@ class DragDrop extends Base {
             event.detail.clientY = data.clientY;
         }
 
+        if (Number.isFinite(event.detail.clientX) && Number.isFinite(event.detail.clientY)) {
+            me.lastClientX = event.detail.clientX;
+            me.lastClientY = event.detail.clientY
+        }
+
         resizeLocally = Boolean(me.dragResize?.active);
         const resizedSize = resizeLocally ? me.dragResize.apply(event.detail) : null;
 
         if (me.dragProxyElement) {
-            left = event.detail.clientX - me.offsetX;
-            top  = event.detail.clientY - me.offsetY;
-
-            if (resizeLocally && Number.isFinite(resizedSize) && me.dragResize.state) {
-                const
-                    resizeState = me.dragResize.state,
-                    resizeDelta = resizeState.resizeNext
-                        ? resizeState.startSize - resizedSize
-                        : resizedSize - resizeState.startSize;
-
-                if (resizeState.axis === 'width') {
-                    left = resizeState.startCoordinate + resizeDelta - me.offsetX
-                } else if (resizeState.axis === 'height') {
-                    top = resizeState.startCoordinate + resizeDelta - me.offsetY
-                }
-            }
-
-            if (rect && !me.allowOverdrag) {
-                if (left < rect.left) {
-                    left = rect.left
-                } else if (left > rect.right - proxyRect.width) {
-                    left = rect.right - proxyRect.width
-                }
-
-                if (top < rect.top) {
-                    top = rect.top
-                } else if (top > rect.bottom - proxyRect.height) {
-                    top = rect.bottom - proxyRect.height
-                }
-            }
-
-            if (me.moveHorizontal) {
-                me.dragProxyElement.style.left = `${left}px`
-            }
-
-
-            if (me.moveVertical) {
-                me.dragProxyElement.style.top = `${top}px`
-            }
+            ({left, top} = DragDrop.prototype.applyProxyPosition.call(me, event.detail.clientX, event.detail.clientY, resizedSize, resizeLocally))
         }
 
         if ((!me.dragProxyElement && !resizeLocally) || me.alwaysFireDragMove) {
@@ -598,6 +621,8 @@ class DragDrop extends Base {
             dragCancelled: false,
             dragProxyRect: rect,
             gestureId    : ++nextGestureId,
+            lastClientX  : Number.isFinite(event.detail?.clientX) ? event.detail.clientX : null,
+            lastClientY  : Number.isFinite(event.detail?.clientY) ? event.detail.clientY : null,
             offsetX      : event.detail.clientX - rect.left,
             offsetY      : event.detail.clientY - rect.top
         });
@@ -959,11 +984,18 @@ class DragDrop extends Base {
     }
 
     /**
+     * @summary Binds the mounted proxy DOM element and syncs its position to any pointer move received during setup.
      * @param {Object} data
      * @param {String} data.id
      */
     setDragProxyElement(data) {
-        this.dragProxyElement = document.getElementById(data.id)
+        let me = this;
+
+        me.dragProxyElement = globalThis.document?.getElementById(data.id) || null;
+
+        if (me.dragProxyElement && !me.dragCancelled && !me.isWindowDragging && Number.isFinite(me.lastClientX) && Number.isFinite(me.lastClientY)) {
+            DragDrop.prototype.applyProxyPosition.call(me, me.lastClientX, me.lastClientY)
+        }
     }
 
     /**

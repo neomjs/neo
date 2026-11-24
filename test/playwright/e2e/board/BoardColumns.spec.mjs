@@ -159,6 +159,63 @@ test.describe('Board column arrangement example (#21632)', () => {
         expect(errors).toEqual([])
     });
 
+    test('locks column proxy vertically, reorders on fast pre-delay sweeps, and ignores collapse-button drags (#22153)', async ({page}) => {
+        const errors = [];
+
+        await page.route('**/favicon.ico', route => route.fulfill({status: 204, body: ''}));
+        page.on('console', msg => msg.type() === 'error' && errors.push(msg.text()));
+        page.on('pageerror', err => errors.push(err.message));
+
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+
+        const
+            enquiryCol = page.locator('.neo-board-column[id$="__col__enquiry"]'),
+            quoteCol   = page.locator('.neo-board-column[id$="__col__quote"]'),
+            orderValue = page.locator('.studio-order-value'),
+            proxy      = page.locator('.neo-dragproxy');
+
+        await expect(enquiryCol).toBeVisible();
+        await expect(quoteCol).toBeVisible();
+
+        // 1. Dragging the collapse toggle button must never start a column drag
+        const
+            collapseBox = await enquiryCol.locator('.neo-board-column-collapse').boundingBox(),
+            quoteBox    = await quoteCol.boundingBox();
+
+        await page.mouse.move(collapseBox.x + collapseBox.width / 2, collapseBox.y + collapseBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(quoteBox.x + quoteBox.width * 0.75, collapseBox.y + collapseBox.height / 2, {steps: 8});
+        await expect(proxy).toHaveCount(0);
+        await page.mouse.up();
+        await expect(orderValue).toHaveText('Enquiry → Quote → In work → Review → Archive → Delivered');
+
+        // 2. Fast pre-delay sweep into Quote followed by a still hold + diagonal vertical deflection keeps proxy.y locked and reorders
+        const
+            enquirySlot   = await enquiryCol.boundingBox(),
+            enquiryHeader = await enquiryCol.locator('.neo-board-column-header').boundingBox(),
+            startX        = enquiryHeader.x + 24,
+            startY        = enquiryHeader.y + enquiryHeader.height / 2,
+            targetX       = quoteBox.x + quoteBox.width / 2 + 24;
+
+        await page.mouse.move(startX, startY);
+        await page.mouse.down();
+        await page.mouse.move(targetX, startY - 40, {steps: 3});
+
+        await expect(proxy).toBeVisible();
+
+        const proxyBoxUp = await proxy.boundingBox();
+        expect(proxyBoxUp.y, 'diagonal upward motion stays locked horizontally to slot y').toBe(enquirySlot.y);
+        expect(proxyBoxUp.x, 'mid-setup pointer sweep places proxy under the live cursor').toBeGreaterThan(enquirySlot.x + 100);
+
+        await page.mouse.move(targetX, startY + 50, {steps: 4});
+        expect((await proxy.boundingBox()).y, 'diagonal downward motion stays locked horizontally to slot y').toBe(enquirySlot.y);
+
+        await page.mouse.up();
+        await expect(orderValue).toHaveText('Quote → Enquiry → In work → Review → Archive → Delivered');
+        expect(errors).toEqual([])
+    });
+
     test('renders cleanly across all five configured themes at 1440x900 and 390x844 with styled reset button', async ({page}) => {
         const errors = [];
 
