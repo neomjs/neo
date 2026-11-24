@@ -1288,9 +1288,9 @@ test.describe('Portal examples section', () => {
         await expect(card0.locator('.preview-image')).toHaveCSS('background-position', '0% 0%');
         await expect(card1.locator('.preview-image')).toHaveCSS('background-position', '0% 0%');
 
-        // AC-4: zero browser lists anywhere; Grid Big Data shows Mobile without Multi-window
+        // AC-4: zero browser lists anywhere; Grid Big Data shows Desktop · Mobile without Multi-window
         await expect(page.locator(CARDS).filter({hasText: 'Chrome, Edge, Firefox, Safari'})).toHaveCount(0);
-        await expect(card0.locator('.portal-example-mobile')).toHaveText('Mobile');
+        await expect(card0.locator('.portal-example-mobile')).toHaveText('Desktop · Mobile');
         await expect(card0.locator('.neo-multi-window')).toHaveCount(0);
 
         // AC-1: the pointer light and the persistent selection ring combine independently.
@@ -1654,5 +1654,114 @@ test.describe('Portal examples phone index keys (#22061)', () => {
         await expect(page.locator(SHEET)).toBeVisible();
         await expect(page.locator(`${SHEET} a`).first()).toBeVisible();
         await expect(page.locator(`${SHEET} a[tabindex="-1"]`)).toHaveCount(0)
+    });
+});
+
+test.describe('Portal examples Desktop · Mobile qualification (#22128)', () => {
+    const mobilePublished = mode => fs.readdirSync(CATALOG)
+        .filter(file => file.endsWith('.json') && file !== 'index.json')
+        .flatMap(file => JSON.parse(fs.readFileSync(new URL(file, CATALOG), 'utf8')))
+        .filter(record => record.environments?.includes('Mobile') &&
+            !!record.image && !record.hidden && !record.hiddenIn?.includes(mode) && !!record.urls?.[mode]);
+
+    test('selected dual-surface cards keep Desktop · Mobile on one unwrapped pill line at 1440×900 and 390×844 while desktop-only cards omit .portal-example-meta, and find matches mobile', async ({page, neuralLink}) => {
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples/grid`);
+        const app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Grid & Table');
+        await page.evaluate(() => document.fonts.ready);
+
+        const readPill = card => card.evaluate(node => {
+            const meta  = node.querySelector('.portal-example-meta'),
+                  pill  = node.querySelector('.portal-example-mobile'),
+                  scope = node.querySelector('.portal-example-scope'),
+                  inner = node.querySelector('.portal-example-more-inner');
+
+            if (!meta || !pill) {
+                return {hasMeta: Boolean(meta), hasPill: Boolean(pill)}
+            }
+
+            const pillRect  = pill.getBoundingClientRect(),
+                  innerRect = inner.getBoundingClientRect(),
+                  style     = getComputedStyle(pill);
+
+            return {
+                hasMeta   : true,
+                hasPill   : true,
+                hasScope  : Boolean(scope && scope.offsetHeight > 0),
+                lineBoxes : pill.getClientRects().length,
+                text      : pill.textContent,
+                transform : style.textTransform,
+                whiteSpace: style.whiteSpace,
+                fitsX     : pillRect.left >= innerRect.left - 1 && pillRect.right <= innerRect.right + 1,
+                fitsY     : pillRect.top >= innerRect.top - 1 && pillRect.bottom <= innerRect.bottom + 1
+            }
+        });
+
+        for (const viewport of [{width: 1440, height: 900}, {width: 390, height: 844}]) {
+            await page.setViewportSize(viewport);
+            const countriesCard = page.locator(`${CARDS} .neo-list-item`).filter({
+                has: page.getByRole('link', {name: 'Country Statistics Grid', exact: true})
+            });
+
+            await countriesCard.scrollIntoViewIfNeeded();
+            await countriesCard.locator('.preview-image-wrap').click({position: {x: 24, y: 20}});
+            await expect(countriesCard).toHaveClass(/\bneo-selected\b/);
+            expect(await readPill(countriesCard), `${viewport.width}×${viewport.height} Country Statistics Grid`).toEqual({
+                hasMeta   : true,
+                hasPill   : true,
+                hasScope  : true,
+                lineBoxes : 1,
+                text      : 'Desktop · Mobile',
+                transform : 'uppercase',
+                whiteSpace: 'nowrap',
+                fitsX     : true,
+                fitsY     : true
+            })
+        }
+
+        await page.setViewportSize({width: 1440, height: 900});
+        await openGroup(page, 'Multi-Window');
+        const workstationCard = page.locator(`${CARDS} .neo-list-item`).filter({
+            has: page.getByRole('link', {name: 'Workstation', exact: true})
+        });
+        await workstationCard.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await expect(workstationCard).toHaveClass(/\bneo-selected\b/);
+        expect(await readPill(workstationCard)).toEqual({hasMeta: false, hasPill: false});
+
+        const planningCard = page.locator(`${CARDS} .neo-list-item`).filter({
+            has: page.getByRole('link', {name: 'One plan, three windows', exact: true})
+        });
+        await planningCard.scrollIntoViewIfNeeded();
+        await planningCard.locator('.preview-image-wrap').click({position: {x: 24, y: 20}});
+        await expect(planningCard).toHaveClass(/\bneo-selected\b/);
+        expect(await readPill(planningCard)).toEqual({
+            hasMeta   : true,
+            hasPill   : true,
+            hasScope  : true,
+            lineBoxes : 1,
+            text      : 'Desktop · Mobile',
+            transform : 'uppercase',
+            whiteSpace: 'nowrap',
+            fitsX     : true,
+            fitsY     : true
+        });
+
+        const [mainState]     = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['catalogMode']),
+              expectedRecords = mobilePublished(mainState.properties.catalogMode),
+              sidebarInput    = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input'),
+              results         = page.locator('.portal-examples-search-results:visible');
+
+        const expectedGroups = new Set(expectedRecords.map(record => record.family)).size;
+        expect(expectedRecords.length).toBeGreaterThan(0);
+        await sidebarInput.fill('mobile');
+        await expect(results.getByRole('heading', {level: 1})).toHaveText(`${expectedRecords.length} matching examples in ${expectedGroups} groups`);
+        await expect(results.locator('.portal-examples-search-cards .neo-list-item')).toHaveCount(expectedRecords.length);
+        await expect(results.locator('.portal-examples-tiles .neo-list-item')).toHaveCount(0);
+        await expect(results.getByRole('link', {name: 'Workstation', exact: true})).toHaveCount(0);
+
+        await sidebarInput.press('Escape');
+        await expectOpenPage(page, 'Multi-Window')
     });
 });

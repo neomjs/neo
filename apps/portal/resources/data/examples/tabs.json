@@ -30,6 +30,7 @@
         "name": "Browser-Style Tabs",
         "family": "tabs",
         "order": 200,
+        "environments": ["Desktop", "Mobile"],
         "alsoIn": ["drag-drop"],
         "component": "Tab container",
         "feature": "Thirty tabs in one strip close, open, reorder by drag and overflow into a menu",

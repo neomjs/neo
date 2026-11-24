@@ -29,6 +29,7 @@
         "order": 1270,
         "alsoIn": ["drag-drop"],
         "component": "Dock Workspace",
+        "environments": ["Desktop"],
         "feature": "Ten docked panes are views of one data set: a selection and an edit cross them",
         "lookFor": "Pick an agent in Swarm, switch its state in the Inspector, then drag a tab into another zone or switch to Review: the selection and the counts follow.",
         "scope": "This layout example runs in one window; saved snapshots stay in this browser.",
@@ -52,6 +53,7 @@
             "multi-window"
         ],
         "component": "Dock Workspace",
+        "environments": ["Desktop"],
         "feature": "A live workbench travels between windows without restarting its counter",
         "lookFor": "Press Tour and follow Workbench into the popup and home again as its counter keeps running.",
         "scope": "Allow popups for the cross-window part of the tour.",
@@ -75,6 +77,7 @@
             "multi-window"
         ],
         "component": "Dock Workspace",
+        "environments": ["Desktop"],
         "feature": "A Notes pane keeps its draft when it moves to a separate window",
         "lookFor": "Type a draft in Notes, use its pop-out action, then close the popup and find the draft back in Notes.",
         "scope": "Allow popups. The pane returns when its window closes.",
@@ -98,6 +101,7 @@
             "drag-drop"
         ],
         "component": "Dashboard",
+        "environments": ["Desktop", "Mobile"],
         "feature": "Live key-figure tiles reorder by drag and open in a window of their own, still live",
         "lookFor": "Drag a tile by its title down the board, then press its window button or drag it out of the window, and bring it back.",
         "scope": "Allow popups. A tile returns when its window closes.",

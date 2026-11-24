@@ -14,6 +14,7 @@
         },
         "hiddenIn": [],
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 80,
         "component": "Gantt",
         "feature": "A project plan with linked, editable tasks",
@@ -41,6 +42,7 @@
         },
         "hiddenIn": [],
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 1050,
         "component": "Gantt",
         "feature": "A seeded building programme: 2,000 tasks in phases and zones, linked by 1,972 dependencies",
@@ -67,6 +69,7 @@
             "dist_prod": "dist/production/examples/gantt/zoom/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 1140,
         "component": "Gantt",
         "feature": "The same linked plan at more than one scale, its links re-drawn at each",
@@ -85,6 +88,7 @@
             "dist_prod": "dist/production/examples/gantt/workingTime/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 1150,
         "component": "Gantt",
         "feature": "Tasks that skip weekends and holidays when they compute their end",
@@ -103,6 +107,7 @@
             "dist_prod": "dist/production/examples/gantt/dependencies/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 1160,
         "alsoIn": ["drag-drop"],
         "component": "Gantt",
@@ -122,6 +127,7 @@
             "dist_prod": "dist/production/examples/gantt/taskEditor/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 1170,
         "component": "Gantt",
         "feature": "A task's editor: title, start, end and percent done, and a plan that follows the change",
@@ -140,6 +146,7 @@
             "dist_prod": "dist/production/examples/gantt/taskColumns/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop"],
         "order": 1180,
         "component": "Gantt",
         "feature": "Seven task columns: outline number, tree, owner, dates, days and a progress bar",
@@ -158,6 +165,7 @@
             "dist_prod": "dist/production/examples/gantt/cascade/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "order": 1185,
         "alsoIn": ["drag-drop"],
         "component": "Gantt",
@@ -177,6 +185,7 @@
             "dist_prod": "dist/production/examples/gantt/milestones/index.html?theme=neo-theme-neo-dark"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "component": "Gantt",
         "feature": "Six diamond milestones mark the phase gates of a launch, linked task to gate to task",
         "lookFor": "Press 'Slip DSP firmware +3 days', or drag its bar: Gates 3–6 shift together while Gates 1–2 stay put. Drag any diamond gate directly, or press Reset.",
@@ -195,6 +204,7 @@
             "dist_prod": "dist/production/examples/gantt/taskTree/index.html"
         },
         "family": "gantt",
+        "environments": ["Desktop", "Mobile"],
         "component": "Gantt",
         "feature": "Each phase takes its dates and progress from its tasks.",
         "lookFor": "Delay the lighting and watch the gallery phase grow. Fold it to keep its span and completion in view.",

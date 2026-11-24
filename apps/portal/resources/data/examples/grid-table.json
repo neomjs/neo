@@ -2,10 +2,6 @@
     {
         "id": "grid-big-data",
         "featured": true,
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
         "image": "devmode/grid-big-data-14.jpg",
         "hasLightCover": true,
         "name": "Data Grid: 100k Rows & 200 Columns",
@@ -18,6 +14,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 20,
         "component": "Grid",
         "feature": "Opens at 20,000 × 50 and scales to 100,000 × 200, row-buffered, data in a Web Worker",
@@ -36,10 +33,6 @@
         "alsoIn": [
             "tree"
         ],
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
         "image": "devmode/grid-tree-big-data-14.jpg",
         "hasLightCover": true,
         "name": "TreeGrid - Big Data",
@@ -52,6 +45,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 30,
         "component": "Grid",
         "feature": "An organization of 20,000 people and units as a tree grid, up to 100,000 rows, 200 columns and 20 levels",
@@ -60,10 +54,6 @@
     {
         "id": "grid-issues",
         "featured": true,
-        "environments": [
-            "Desktop",
-            "Mobile"
-        ],
         "image": "devmode/grid-issues-14.jpg",
         "hasLightCover": true,
         "name": "GitHub Issues Grid",
@@ -76,6 +66,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 60,
         "component": "Grid",
         "feature": "Searchable issue snapshot with wrapped rows",
@@ -97,6 +88,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 130,
         "component": "Grid",
         "feature": "217 World Bank economies with flags, formatted figures and growth tinted by value",
@@ -118,6 +110,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 540,
         "component": "Table",
         "feature": "Typed header filters",
@@ -136,6 +129,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 600,
         "component": "Grid",
         "feature": "Animated sorting and filtering",
@@ -154,6 +148,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 610,
         "component": "Grid",
         "feature": "An order sheet with typed editors, a refused quantity and a calculated line total",
@@ -172,6 +167,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 620,
         "component": "Grid",
         "feature": "Cell, row, column and crosshair selection modes",
@@ -191,6 +187,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 630,
         "component": "Grid",
         "feature": "Wrapped content with locked columns",
@@ -209,6 +206,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 640,
         "component": "Grid",
         "feature": "Five typed filters in the column headers: text, ComboBox, amount, date and status",
@@ -227,6 +225,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 650,
         "component": "Grid",
         "feature": "CSV export of the filtered and sorted rows with toCsv() and exportCsv()",
@@ -246,6 +245,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 660,
         "alsoIn": [
             "buttons",
@@ -270,6 +270,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 670,
         "component": "Grid",
         "feature": "Quarter and month column headers",
@@ -294,6 +295,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 680,
         "component": "Grid",
         "feature": "Columns pinned with locked: product and region at the start, the total at the end",
@@ -321,6 +323,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 690,
         "component": "Grid",
         "feature": "Fourteen built-in column types on one maintainer directory",
@@ -340,6 +343,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 700,
         "component": "Grid",
         "feature": "Modal form editing on a grid row",
@@ -358,6 +362,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 710,
         "alsoIn": [
             "state"
@@ -381,6 +386,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 720,
         "alsoIn": [
             "tree"
@@ -402,6 +408,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 730,
         "component": "Grid",
         "feature": "Country and department value banding",
@@ -420,6 +427,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 740,
         "component": "Table",
         "feature": "Content-sized columns, sticky headers and wrapping cells on local data",
@@ -439,6 +447,7 @@
         },
         "hiddenIn": [],
         "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
         "order": 1260,
         "alsoIn": [
             "scheduler"

@@ -570,6 +570,7 @@
     },
     {
         "id": "form-validation",
+        "environments": ["Desktop", "Mobile"],
         "image": "devmode/form-validation-14.jpg",
         "name": "Sign-up validation",
         "sourceUrl": "examples/form/validation",
@@ -588,6 +589,7 @@
     },
     {
         "id": "field-with-prefix",
+        "environments": ["Desktop", "Mobile"],
         "image": "devmode/field-with-prefix-14.jpg",
         "name": "Input masks",
         "sourceUrl": "examples/fieldWithPrefix",
@@ -606,6 +608,7 @@
     },
     {
         "id": "form-checkout",
+        "environments": ["Desktop", "Mobile"],
         "image": "devmode/form-checkout-14.jpg",
         "hasLightCover": true,
         "name": "Address and payment",
