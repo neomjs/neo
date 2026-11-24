@@ -84,6 +84,7 @@
         "family": "components",
         "order": 350,
         "component": "Markdown VDOM",
+        "environments": ["Desktop", "Mobile"],
         "feature": "Markdown is parsed into VDOM subtrees and supports incremental streaming updates.",
         "lookFor": "The page opens streaming: headings, lists, code, a table and a quote render as the text arrives. Its last lines show a script tag and a javascript: link rendered as plain text.",
         "image": "devmode/markdown-14.jpg",
@@ -106,6 +107,7 @@
             "functional"
         ],
         "component": "Live Preview",
+        "environments": ["Desktop", "Mobile"],
         "feature": "The engine's code editor runs the function component it holds, and runs it again after every edit.",
         "lookFor": "Open Preview and press the counter, then change its text in Source: Preview shows the edited component, and only that one.",
         "image": "devmode/live-preview-14.jpg",
@@ -284,6 +286,7 @@
         "id": "liquid-glass",
         "family": "components",
         "order": 590,
+        "environments": ["Desktop"],
         "feature": "A liquid glass panel that bends the photo beneath it as it drifts",
         "lookFor": "Watch the glass panel cross the room photo and distort what lies under it.",
         "scope": "External demo.",

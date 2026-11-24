@@ -188,7 +188,7 @@
     "test/playwright/e2e/portal/DocsClassRoutes.spec.mjs": 14.6,
     "test/playwright/e2e/portal/DocsMixinsNL.spec.mjs": 11.7,
     "test/playwright/e2e/portal/DocsNavigationSearch.spec.mjs": 1.4,
-    "test/playwright/e2e/portal/ExamplesCatalogNL.spec.mjs": 237,
+    "test/playwright/e2e/portal/ExamplesCatalogNL.spec.mjs": 305,
     "test/playwright/e2e/portal/ExamplesCatalogTheme.spec.mjs": 103.8,
     "test/playwright/e2e/portal/ExamplesCoverTheme.spec.mjs": 25.4,
     "test/playwright/e2e/portal/HeaderToolbarPhoneNL.spec.mjs": 20.6,

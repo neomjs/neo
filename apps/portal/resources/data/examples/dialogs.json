@@ -6,6 +6,7 @@
         "alsoIn": [
             "drag-drop"
         ],
+        "environments": ["Desktop", "Mobile"],
         "feature": "Edit contacts in dialogs you can move, resize, or open together.",
         "lookFor": "Save a name back to the list, drag the editor by its title bar, or open another contact.",
         "featured": false,
@@ -26,6 +27,7 @@
         "family": "dialogs",
         "order": 420,
         "component": "Toast",
+        "environments": ["Desktop", "Mobile"],
         "feature": "A live form previews toast configuration and launches a temporary notification.",
         "lookFor": "Enter a message and watch the code preview follow each field, choose a position and a ui, then press create toast.",
         "image": "devmode/toast-14.jpg",
@@ -44,6 +46,7 @@
         "family": "dialogs",
         "order": 430,
         "component": "Popover",
+        "environments": ["Desktop", "Mobile"],
         "feature": "A popover opens beside its button on the chosen side and flips when space runs out.",
         "lookFor": "Press Click Me, then pick another align value in the inspector and press the button again.",
         "image": "devmode/popover-14.jpg",

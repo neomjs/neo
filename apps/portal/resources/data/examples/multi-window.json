@@ -42,6 +42,7 @@
             "apps"
         ],
         "component": "Shared Views",
+        "environments": ["Desktop"],
         "feature": "A historical country-data chart can move into its own window",
         "lookFor": "Maximise Historical Data, inspect its chart in the popup, then close the popup to return it beside the table.",
         "scope": "Allow popups. Country data depends on the example's external data source.",
@@ -90,6 +91,7 @@
         "family": "multi-window",
         "order": 150,
         "component": "Gallery",
+        "environments": ["Desktop"],
         "feature": "Gallery controls move into a second window while still controlling the gallery",
         "lookFor": "Maximise Gallery Controls, change Translate X in the popup, then close it to return the controls.",
         "scope": "Allow popups. Reads the World Bank file the country grid ships with.",
@@ -110,6 +112,7 @@
         "id": "shared-offscreen-canvas",
         "family": "multi-window",
         "order": 170,
+        "environments": ["Desktop"],
         "alsoIn": [
             "platform"
         ],
@@ -133,6 +136,7 @@
         "id": "colors-dashboard",
         "family": "multi-window",
         "order": 230,
+        "environments": ["Desktop"],
         "alsoIn": [
             "apps",
             "dashboard"

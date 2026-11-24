@@ -14,6 +14,7 @@
         },
         "hiddenIn": [],
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 90,
         "alsoIn": ["drag-drop"],
         "component": "Board",
@@ -42,6 +43,7 @@
         },
         "hiddenIn": [],
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1030,
         "component": "Board",
         "feature": "One row per team over the same five columns, each with its card count",
@@ -66,6 +68,7 @@
             "dist_prod": "dist/production/examples/board/bigData/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1190,
         "component": "Board",
         "feature": "10,000 seeded tickets in five columns, about 100 rendered per column",
@@ -84,6 +87,7 @@
             "dist_prod": "dist/production/examples/board/wipLimits/index.html"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1200,
         "component": "Board",
         "feature": "Columns with a limit: the header counts against it, and an overloaded stage stands out",
@@ -102,6 +106,7 @@
             "dist_prod": "dist/production/examples/board/cardDesigns/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1210,
         "component": "Board",
         "feature": "The same articles as compact, standard and detailed cards, built from five card items",
@@ -119,6 +124,7 @@
             "dist_prod": "dist/production/examples/board/cardEditor/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1220,
         "component": "Board",
         "feature": "A card's title edited in place, its stage, tags and owner in the card editor",
@@ -136,6 +142,7 @@
             "dist_prod": "dist/production/examples/board/multiSelect/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1230,
         "component": "Board",
         "feature": "Cards selected by click, Shift and a modifier key, dragged together into another column",
@@ -154,6 +161,7 @@
             "dist_prod": "dist/production/examples/board/columns/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "order": 1240,
         "alsoIn": ["drag-drop"],
         "component": "Board",
@@ -173,6 +181,7 @@
             "dist_prod": "dist/production/examples/board/salesPipeline/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "component": "Board",
         "feature": "Each sales stage totals the value of its deals",
         "lookFor": "Advance Harbor Museum. Its $18,000 leaves Proposal and appears in Negotiation. Drag another deal, or reset the pipeline.",
@@ -191,6 +200,7 @@
             "dist_prod": "dist/production/examples/board/dueDates/index.html?theme=neo-theme-neo-dark"
         },
         "family": "board",
+        "environments": ["Desktop", "Mobile"],
         "component": "Board",
         "feature": "Twenty release deliverables carry deadlines relative to today, with overdue badges and a one-click late filter",
         "lookFor": "Click ⋯ on any card to change its due date in the card editor, or press 'Late only' to narrow the four columns to overdue work.",

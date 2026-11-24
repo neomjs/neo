@@ -2,6 +2,7 @@
     {
         "id": "calendar",
         "featured": true,
+        "environments": ["Desktop", "Mobile"],
         "image": "devmode/calendar-14.jpg",
         "hasLightCover": true,
         "name": "Calendar",

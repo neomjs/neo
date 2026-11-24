@@ -158,7 +158,7 @@ class Example extends Model {
 
     /**
      * @summary Whether a record matches every normalized search term across its title, captions, component,
-     * group titles (`family` + `alsoIn`) and `keywords`.
+     * group titles (`family` + `alsoIn`), `keywords` and mobile environment qualification.
      * @param {Object} record A catalog record or its raw row
      * @param {String[]} queryTerms Lower-cased normalized search terms (see {@link #tokenizeSearchText})
      * @param {Object} [groupTitles={}] Map from group `family` id to display title
@@ -176,7 +176,8 @@ class Example extends Model {
             record.component,
             groupTitles[record.family],
             ...(record.alsoIn || []).map(family => groupTitles[family]),
-            ...(record.keywords || [])
+            ...(record.keywords || []),
+            ...(record.environments?.includes('Mobile') ? ['mobile'] : [])
         ].flatMap(value => Example.tokenizeSearchText(value));
 
         return queryTerms.every(term => tokens.some(token => token.startsWith(term)))

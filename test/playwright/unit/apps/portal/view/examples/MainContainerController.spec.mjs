@@ -1306,7 +1306,7 @@ test.describe('Portal examples canonical catalog', () => {
         expect(wsMobile.removeDom).toBe(true);
         expect(bdMultiWin.removeDom).toBe(true);
         expect(bdMobile.removeDom).toBe(false);
-        expect(byCls(bdMobile, 'portal-example-mobile').text).toBe('Mobile');
+        expect(byCls(bdMobile, 'portal-example-mobile').text).toBe('Desktop · Mobile');
 
         list.set({groupTitles: {'multi-window': 'Multi-Window'}, showGroup: true});
         const badged    = list.createItemContent(store.get('workstation'), 0)[0],

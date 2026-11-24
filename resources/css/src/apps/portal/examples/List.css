@@ -525,6 +525,7 @@
         opacity       : 0.9;
         padding       : 2px 8px;
         text-transform: uppercase;
+        white-space   : nowrap;
     }
 
     @media (hover: hover) {

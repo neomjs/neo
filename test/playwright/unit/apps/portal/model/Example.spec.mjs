@@ -74,3 +74,24 @@ test.describe('Portal.model.Example href', () => {
         expect(Example.href({}, 'devmode')).toBeNull()
     })
 });
+
+test.describe('Portal.model.Example matchesQuery', () => {
+    test('matches mobile-qualified records on the mobile search term without tagging desktop-only records', () => {
+        const mobileQualified = examples.filter(rec => rec.kind !== 'component' && rec.environments?.includes('Mobile'));
+
+        expect(mobileQualified.length).toBeGreaterThan(0);
+
+        for (const rec of mobileQualified) {
+            expect(Example.matchesQuery(rec, ['mobile']), rec.id).toBe(true);
+            expect(Example.matchesQuery(rec, ['mob']), rec.id).toBe(true)
+        }
+
+        expect(Example.matchesQuery({
+            id          : 'desktop-only-probe',
+            name        : 'Workstation',
+            feature     : 'Multi-window workspace',
+            lookFor     : 'Drag panels to a second display',
+            environments: ['Desktop']
+        }, ['mobile'])).toBe(false)
+    })
+});

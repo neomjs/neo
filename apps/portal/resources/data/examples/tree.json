@@ -4,6 +4,7 @@
         "family": "tree",
         "alsoIn": ["drag-drop"],
         "order": 1490,
+        "environments": ["Desktop", "Mobile"],
         "component": "Tree List",
         "feature": "Drag files between folders, rename in place, and filter while keeping matched paths.",
         "lookFor": "Drag a file onto another folder, double-click a name to rename it, type into the filter, then open logs: its 365 files load when it first opens.",

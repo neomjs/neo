@@ -3,6 +3,7 @@
         "id": "offscreen-canvas",
         "family": "platform",
         "order": 160,
+        "environments": ["Desktop", "Mobile"],
         "alsoIn": [
             "charts"
         ],
@@ -25,6 +26,7 @@
         "id": "task-worker",
         "family": "platform",
         "order": 165,
+        "environments": ["Desktop", "Mobile"],
         "feature": "The same prime count in two workers shows when the interface can keep responding.",
         "lookFor": "Type while the Task Worker runs, then run the App Worker and compare the heartbeat and results.",
         "featured": false,
@@ -44,6 +46,7 @@
         "id": "asset-preloading",
         "family": "platform",
         "order": 166,
+        "environments": ["Desktop", "Mobile"],
         "feature": "The Service Worker preloads the next portrait before its tab opens.",
         "lookFor": "Hover over Alice’s tab or use Preload next tab. Turn on Cache-only mode, open her tab, and watch Cache opens increase.",
         "scope": "Cache-only mode applies to this demo’s portraits.",
@@ -63,6 +66,7 @@
         "id": "video-move",
         "family": "platform",
         "order": 510,
+        "environments": ["Desktop", "Mobile"],
         "component": "Video",
         "feature": "A mounted video component moves between two containers without being recreated.",
         "lookFor": "Press Move Video and watch the same player switch panels while the readout tracks its continuing playback.",

@@ -14,6 +14,7 @@
         },
         "hiddenIn": [],
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 70,
         "component": "Scheduler",
         "feature": "Resource bookings on an editable timeline",
@@ -41,6 +42,7 @@
         },
         "hiddenIn": [],
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1040,
         "component": "Scheduler",
         "feature": "300 people and 15,600 seeded bookings across a 52-week timeline",
@@ -67,6 +69,7 @@
             "dist_prod": "dist/production/examples/scheduler/dragAndResize/index.html"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1060,
         "alsoIn": ["drag-drop"],
         "component": "Scheduler",
@@ -86,6 +89,7 @@
             "dist_prod": "dist/production/examples/scheduler/nonWorkingTime/index.html"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1070,
         "component": "Scheduler",
         "feature": "Non-working days and dates shaded across the timeline and its header",
@@ -104,6 +108,7 @@
             "dist_prod": "dist/production/examples/scheduler/barRenderer/index.html"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1080,
         "component": "Scheduler",
         "feature": "Progress inside each bar, and a renderer that colours by status and adds a second line",
@@ -122,6 +127,7 @@
             "dist_prod": "dist/production/examples/scheduler/eventEditor/index.html?theme=neo-theme-neo-dark"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1090,
         "component": "Scheduler",
         "feature": "A booking's editor: title, room, start and end, with a minimum length",
@@ -140,6 +146,7 @@
             "dist_prod": "dist/production/examples/scheduler/zoom/index.html?theme=neo-theme-neo-dark"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1100,
         "component": "Scheduler",
         "feature": "Three zoom levels over the same bookings, each with its own time axis and snap",
@@ -158,6 +165,7 @@
             "dist_prod": "dist/production/examples/scheduler/resourceColumns/index.html?theme=neo-theme-neo-dark"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1110,
         "component": "Scheduler",
         "feature": "Four locked resource columns: name, skill, region and booked hours, each sortable",
@@ -176,6 +184,7 @@
             "dist_prod": "dist/production/examples/scheduler/timeZones/index.html?theme=neo-theme-neo-dark"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1120,
         "component": "Scheduler",
         "feature": "The same shifts read in Berlin, New York or Tokyo time",
@@ -193,6 +202,7 @@
             "dist_prod": "dist/production/examples/scheduler/liveUpdates/index.html?theme=neo-theme-neo-dark"
         },
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1130,
         "component": "Scheduler",
         "feature": "Flights arrive, slip and leave on a simulated feed while you scroll and drag",
@@ -202,6 +212,7 @@
         "id": "meridian-observatory",
         "name": "Meridian Observatory",
         "family": "scheduler",
+        "environments": ["Desktop", "Mobile"],
         "order": 1250,
         "alsoIn": ["gantt", "board"],
         "component": "Scheduler, Gantt and Task Board",
