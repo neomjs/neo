@@ -1,4 +1,5 @@
-import Base from '../../../../src/component/Base.mjs';
+import Base       from '../../../../src/component/Base.mjs';
+import StringUtil from '../../../../src/util/String.mjs';
 
 /**
  * @class Portal.view.home.ContentBox
@@ -84,11 +85,11 @@ class ContentBox extends Base {
     afterSetRoute(value, oldValue) {
         let {vdom} = this;
 
-        vdom.href = value;
-
         if (value?.startsWith('http')) {
+            vdom.href   = value;
             vdom.target = '_blank'
         } else {
+            vdom.href = value ? StringUtil.toRouteHref(value) : value;
             delete vdom.target
         }
 

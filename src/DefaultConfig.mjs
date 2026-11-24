@@ -245,6 +245,17 @@ const DefaultConfig = {
      */
     routerBasePath: '',
     /**
+     * Path prefixes or regular-expression strings (starting with `'^'`) excluded from client-side link interception
+     * when `Neo.config.routerMode === 'pathname'`. Matched against the path after `Neo.config.routerBasePath` so
+     * standalone apps, static asset trees, or server-rendered endpoints under the same origin keep native browser
+     * navigation. Ignored in `'hash'` mode.
+     * @default []
+     * @memberOf! module:Neo
+     * @name config.routerIgnorePaths
+     * @type String[]
+     */
+    routerIgnorePaths: [],
+    /**
      * Where a window keeps its route. `'hash'` uses `location.hash`. `'pathname'` uses the path after `routerBasePath`
      * and moves it with the History API, so a route is a clean URL. The server then has to answer every route path
      * with the app, and routes have to be paths (`/learn/Intro`). The App worker receives the same `hashChange`

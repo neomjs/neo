@@ -1,4 +1,5 @@
 import ContentComponent   from '../../../../src/app/content/Component.mjs';
+import StringUtil         from '../../../../src/util/String.mjs';
 import {rewriteRepoLinks} from '../../Util.mjs';
 
 /**
@@ -42,9 +43,10 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     rewriteLinks(html) {
-        let me    = this,
-            path  = me.getContentPath(me.record),
-            store = me.getStateProvider()?.getStore('tree');
+        let me          = this,
+            path        = me.getContentPath(me.record),
+            routePrefix = StringUtil.toRouteHref(me.contentRoute),
+            store       = me.getStateProvider()?.getStore('tree');
 
         // Less the base path, the fetch path is the file's path in the repository
         html = rewriteRepoLinks(super.rewriteLinks(html), path.slice(Neo.config.basePath.length));
@@ -59,7 +61,7 @@ class Component extends ContentComponent {
             const [, attr, quote, itemId, fragment = ''] = match;
 
             if (store?.get(itemId)) {
-                return tag.replace(match[0], `${attr}${quote}${me.contentRoute}${itemId}${fragment}${quote}`)
+                return tag.replace(match[0], `${attr}${quote}${routePrefix}${itemId}${fragment}${quote}`)
             }
 
             return /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')

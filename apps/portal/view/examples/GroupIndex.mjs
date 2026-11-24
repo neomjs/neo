@@ -3,6 +3,7 @@ import Component       from '../../../../src/component/Base.mjs';
 import ExampleGroup    from '../../model/ExampleGroup.mjs';
 import NeoArray        from '../../../../src/util/Array.mjs';
 import Store           from '../../../../src/data/Store.mjs';
+import StringUtil      from '../../../../src/util/String.mjs';
 
 const walkKeys = new Set(['ArrowDown', 'ArrowUp', 'End', 'Home']);
 
@@ -229,7 +230,7 @@ class GroupIndex extends Component {
                 cls           : ['portal-examples-group-index-all'],
                 'aria-current': !me.matchCounts && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null,
                 'aria-label'  : `All examples, ${ExampleGroup.countLabel({count: published, crossCount: 0})}`,
-                href          : '#/examples',
+                href          : StringUtil.toRouteHref('/examples'),
                 removeDom     : me.presentation === 'overview',
                 tabIndex      : me.getTabIndex(null),
                 cn            : [
@@ -282,7 +283,7 @@ class GroupIndex extends Component {
             id            : me.id + '__' + group.family,
             'aria-current': !me.matchCounts && group.family === me.activeFamily ? 'page' : null,
             'aria-label'  : ariaLabel,
-            href          : '#' + group.route,
+            href          : StringUtil.toRouteHref(group.route),
             tabIndex      : me.getTabIndex(group.family),
             cn            : [
                 {tag: 'i',    cls: [...group.iconCls.split(' '), 'portal-examples-group-index-icon'], 'aria-hidden': true},

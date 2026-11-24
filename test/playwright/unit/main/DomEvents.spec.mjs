@@ -625,16 +625,21 @@ test.describe('Neo.main.DomEvents', () => {
      * The stub history moves the stub location the way a browser does.
      * @param {Object} options
      * @param {String} [options.base='']
+     * @param {String[]} [options.ignore=[]]
      * @param {String} options.mode
      * @param {String} options.url
      * @param {Function} fn
      */
-    function withRouter({base='', mode, url}, fn) {
-        const manager  = Neo.worker.Manager,
-              config   = {routerBasePath: Neo.config.routerBasePath, routerMode: Neo.config.routerMode},
+    function withRouter({base='', ignore=[], mode, url}, fn) {
+        const manager = Neo.worker.Manager,
+              config  = {
+                  routerBasePath   : Neo.config.routerBasePath,
+                  routerIgnorePaths: Neo.config.routerIgnorePaths,
+                  routerMode       : Neo.config.routerMode
+              },
               globals  = {history: globalThis.history, location: globalThis.location},
               send     = manager.sendMessage,
-              location = {pathname: '/', search: ''},
+              location = {origin: 'https://neomjs.com', pathname: '/', search: ''},
               calls    = [],
               sent     = [],
               go       = href => {
@@ -645,7 +650,7 @@ test.describe('Neo.main.DomEvents', () => {
         let owner;
 
         go(url);
-        Object.assign(Neo.config, {routerBasePath: base, routerMode: mode});
+        Object.assign(Neo.config, {routerBasePath: base, routerIgnorePaths: ignore, routerMode: mode});
         globalThis.location = location;
         globalThis.history  = {
             state       : null,
@@ -653,7 +658,11 @@ test.describe('Neo.main.DomEvents', () => {
             replaceState: (state, title, href) => {calls.push(['replace', href]); go(href)}
         };
         globalThis.window   = new EventTarget();
-        manager.sendMessage = (dest, msg) => sent.push(msg.data.hashString);
+        manager.sendMessage = (dest, msg) => {
+            if (msg.action === 'hashChange') {
+                sent.push(msg.data.hashString)
+            }
+        };
 
         try {
             owner = Neo.create(WindowDomEvents);
@@ -670,7 +679,8 @@ test.describe('Neo.main.DomEvents', () => {
 
     test('the router defaults to hash mode without a base path', () => {
         expect(Neo.config.routerMode).toBe('hash');
-        expect(Neo.config.routerBasePath).toBe('')
+        expect(Neo.config.routerBasePath).toBe('');
+        expect(Neo.config.routerIgnorePaths).toEqual([])
     });
 
     test('hash mode keeps the route in location.hash and forwards every hash change, as before', () => {
@@ -690,34 +700,134 @@ test.describe('Neo.main.DomEvents', () => {
         })
     });
 
-    test('pathname mode reads the path after routerBasePath, never its search; the base path alone is no route', () => {
+    test('pathname mode reads the path after routerBasePath, never its search, and normalizes the base path root to \'/\'', () => {
         withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro?deck=training'}, ({go, owner}) => {
             expect(owner.getRoute(), 'the page search stays out of the route, as in hash mode').toBe('/learn/Intro');
             expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/learn/Intro', windowId: 1});
 
-            for (const href of ['/docs', '/docs/', '/docs?theme=dark']) {
+            for (const href of ['/docs', '/docs/', '/docs/index.html', '/docs?theme=dark']) {
                 go(href);
-                expect(owner.getRoute(), href).toBe('')
+                expect(owner.getRoute(), href).toBe('/')
             }
 
-            expect(owner.getRouteConfig(1)).toBeNull();
+            expect(owner.getRouteConfig(1)).toMatchObject({hashString: '/', windowId: 1});
+
+            go('/docs/examples/grid/');
+            expect(owner.getRoute(), 'trailing slashes on non-root routes normalize cleanly').toBe('/examples/grid');
 
             go('/docsearch/Intro');
             expect(owner.getRoute(), 'a sibling of the base path is not under it').toBe('/docsearch/Intro')
         })
     });
 
-    test('pathname mode pushes a changed route under the base path once, whether it is written bare or canonical', () => {
+    test('pathname mode pushes a changed route under the base path once, whether written bare, canonical, or root', () => {
         withRouter({base: '/docs', mode: 'pathname', url: '/docs/learn/Intro'}, ({calls, owner, sent}) => {
             owner.setRoute('/news/blog');
             owner.setRoute('news/blog');
+            owner.setRoute('/news/blog/');
             owner.setRoute('home');
             owner.setRoute('/home');
             owner.setRoute('');
             owner.setRoute('/');
 
             expect(calls).toEqual([['push', '/docs/news/blog'], ['push', '/docs/home'], ['push', '/docs/']]);
-            expect(sent).toEqual(['/news/blog', '/home', ''])
+            expect(sent).toEqual(['/news/blog', '/home', '/'])
+        })
+    });
+
+    test('pathname mode intercepts unmodified primary clicks on internal links while leaving modified, target, external, asset, and ignored links to the browser', () => {
+        const ignore = [
+            '^/(?:dist|raw|resources)(?:/|$)',
+            '^/examples/[^/]+/.+',
+            '^/docs/'
+        ];
+
+        withRouter({ignore, mode: 'pathname', url: '/learn'}, ({calls, location, owner, sent}) => {
+            const baseUri = 'https://neomjs.com/dist/production/apps/portal/';
+
+            const clickAnchor = (rawHref, attrs={}, eventOverrides={}) => {
+                const anchor = {
+                    attributes  : [],
+                    classList   : Object.assign([], {contains: () => false}),
+                    dataset     : {},
+                    getAttribute: name => name === 'href' ? rawHref : (attrs[name] ?? null),
+                    hasAttribute: name => name === 'href' ? rawHref !== null : Object.hasOwn(attrs, name),
+                    href        : new URL(rawHref, baseUri).href,
+                    id          : 'link-1',
+                    tagName     : 'A',
+                    target      : attrs.target || ''
+                };
+                const event = {
+                    altKey          : false,
+                    button          : 0,
+                    buttons         : 1,
+                    clientX         : 12,
+                    clientY         : 18,
+                    composedPath    : () => [anchor, documentRef.body],
+                    ctrlKey         : false,
+                    defaultPrevented: false,
+                    metaKey         : false,
+                    preventDefault() { this.defaultPrevented = true },
+                    shiftKey : false,
+                    target   : anchor,
+                    timeStamp: 1,
+                    type     : 'click',
+                    ...eventOverrides
+                };
+
+                owner.onClick(event);
+                return event.defaultPrevented
+            };
+
+            // Root logo click ('/') from '/learn' pushes '/' and emits '/' to the App Worker
+            expect(clickAnchor('/')).toBe(true);
+            expect(calls.at(-1)).toEqual(['push', '/']);
+            expect(sent.at(-1)).toBe('/');
+
+            // Root-relative '/examples/grid' and canonical same-origin URL in Markdown
+            expect(clickAnchor('/examples/grid')).toBe(true);
+            expect(calls.at(-1)).toEqual(['push', '/examples/grid']);
+            expect(sent.at(-1)).toBe('/examples/grid');
+
+            expect(clickAnchor('https://neomjs.com/learn/benefits/Introduction#the-problem')).toBe(true);
+            expect(calls.at(-1)).toEqual(['push', '/learn/benefits/Introduction#the-problem']);
+            expect(sent.at(-1)).toBe('/learn/benefits/Introduction');
+            expect(location.hash).toBe('#the-problem');
+
+            // Legacy '#/services' link routes cleanly into '/services'
+            expect(clickAnchor('#/services')).toBe(true);
+            expect(calls.at(-1)).toEqual(['push', '/services']);
+            expect(sent.at(-1)).toBe('/services');
+
+            // In-page '#heading' under <base href="/dist/production/apps/portal/"> prevents cross-path reload
+            const callCountBeforeHash = calls.length;
+            expect(clickAnchor('#heading')).toBe(true);
+            expect(location.hash).toBe('#heading');
+            expect(calls).toHaveLength(callCountBeforeHash);
+
+            // Modified clicks, middle-click, target="_blank", download, rel="external" are NOT intercepted
+            expect(clickAnchor('/learn', {}, {metaKey: true})).toBe(false);
+            expect(clickAnchor('/learn', {}, {ctrlKey: true})).toBe(false);
+            expect(clickAnchor('/learn', {}, {shiftKey: true})).toBe(false);
+            expect(clickAnchor('/learn', {}, {altKey: true})).toBe(false);
+            expect(clickAnchor('/learn', {}, {button: 1})).toBe(false);
+            expect(clickAnchor('/learn', {target: '_blank'})).toBe(false);
+            expect(clickAnchor('/learn', {download: ''})).toBe(false);
+            expect(clickAnchor('/learn', {rel: 'noopener external'})).toBe(false);
+
+            // External origins, non-HTTP schemes, static extensions, and routerIgnorePaths fall through
+            expect(clickAnchor('https://github.com/neomjs/neo')).toBe(false);
+            expect(clickAnchor('mailto:team@neomjs.com')).toBe(false);
+            expect(clickAnchor('/llms.txt')).toBe(false);
+            expect(clickAnchor('/examples/grid/bigData/index.html')).toBe(false);
+            expect(clickAnchor('https://neomjs.com/examples/grid/bigData/')).toBe(false);
+            expect(clickAnchor('/docs/')).toBe(false);
+            expect(clickAnchor('/raw/learn/benefits/Introduction.md')).toBe(false);
+
+            // '/docs' (without trailing slash) IS Portal's API Docs SPA route, not ignored '^/docs/'
+            expect(clickAnchor('/docs')).toBe(true);
+            expect(sent.at(-1)).toBe('/docs');
+            expect(calls).toHaveLength(callCountBeforeHash + 1)
         })
     });
 

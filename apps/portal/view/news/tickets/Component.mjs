@@ -1,4 +1,5 @@
 import ContentComponent from '../../content/Component.mjs';
+import StringUtil       from '../../../../../src/util/String.mjs';
 import {marked}         from '../../../../../dist/marked.mjs';
 
 const
@@ -77,9 +78,11 @@ class Component extends ContentComponent {
             let renderedValue;
 
             if (key === 'subIssues' && Array.isArray(value)) {
+                const ticketHref = StringUtil.toRouteHref('/news/tickets/');
+
                 renderedValue = value.map(issue => {
                     return `<div class="neo-sub-issue">${issue
-                        .replace(regexTicketLink, '<a href="#/news/tickets/$1">$1</a>')
+                        .replace(regexTicketLink, `<a href="${ticketHref}$1">$1</a>`)
                         .replace('[x]', '<i class="fa-solid fa-circle-check"></i>')
                         .replace('[ ]', '<i class="fa-regular fa-circle"></i>')}</div>`
                 }).join('')
@@ -221,7 +224,7 @@ class Component extends ContentComponent {
 
             if (parentId && parentId !== 'Backlog') {
                 badgesHtml += `
-                    <a class="neo-badge neo-release-badge" href="#/news/releases/${parentId.substring(1)}">
+                    <a class="neo-badge neo-release-badge" href="${StringUtil.toRouteHref('/news/releases/' + parentId.substring(1))}">
                         <i class="fa-solid fa-code-branch"></i> ${parentId}
                     </a>`
             }

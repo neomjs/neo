@@ -434,9 +434,9 @@ class DomEvents extends Base {
 
     /**
      * @summary The current route: the hash in `'hash'` mode. In `'pathname'` mode, the path after
-     * `Neo.config.routerBasePath`. The page's search stays out of the route in both modes, so a campaign query
-     * leaves a controller's route match alone.
-     * @returns {String} '' without a route
+     * `Neo.config.routerBasePath`, with the root normalized to `'/'`. The page's search stays out of the route in
+     * both modes, so a campaign query leaves a controller's route match alone.
+     * @returns {String}
      */
     getRoute() {
         let {routerBasePath, routerMode} = Neo.config,
@@ -451,7 +451,11 @@ class DomEvents extends Base {
             pathname.substring(routerBasePath.length) :
             pathname;
 
-        return path && path !== '/' ? path : ''
+        if (!path || path === '/' || path === '/index.html') {
+            return '/'
+        }
+
+        return path.replace(/\/+$/, '') || '/'
     }
 
     /**
@@ -460,9 +464,16 @@ class DomEvents extends Base {
      * @returns {Object|null} null without a route
      */
     getRouteConfig(windowId) {
-        let hashString = this.getRoute();
+        let hashString = this.getRoute(),
+            fragment   = Neo.config.routerMode === 'pathname' && location.hash?.length > 1 ?
+                location.hash.substring(1) : undefined;
 
-        return hashString ? {hash: this.parseHash(hashString), hashString, windowId} : null
+        return hashString ? {
+            ...(fragment ? {fragment} : {}),
+            hash: this.parseHash(hashString),
+            hashString,
+            windowId
+        } : null
     }
 
     /**
@@ -538,6 +549,126 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Intercepts unmodified primary clicks on internal links in `'pathname'` mode so routes move through the
+     * History API without reloading the document or workers, while preserving modified clicks, `target`, `download`,
+     * static assets, and `Neo.config.routerIgnorePaths`.
+     * @param {MouseEvent} event
+     * @returns {Boolean} true when the click was handled and its default browser navigation must be prevented
+     */
+    handlePathnameLinkClick(event) {
+        if (
+            Neo.config.routerMode !== 'pathname' ||
+            event.defaultPrevented ||
+            (event.button ?? 0) !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+        ) {
+            return false
+        }
+
+        let me      = this,
+            path    = event.composedPath?.() || event.path || me.getPathFromElement(event.target),
+            anchor  = path.find(node => node?.tagName?.toUpperCase?.() === 'A' && node.hasAttribute?.('href')),
+            rawHref = anchor?.getAttribute('href'),
+            rel, target, url;
+
+        if (!anchor || !rawHref || anchor.hasAttribute('download')) {
+            return false
+        }
+
+        target = anchor.getAttribute('target') || anchor.target;
+        rel    = anchor.getAttribute('rel');
+
+        if (target && target.toLowerCase() !== '_self' || rel && /\bexternal\b/i.test(rel)) {
+            return false
+        }
+
+        if (rawHref.startsWith('#/')) {
+            me.setRoute(rawHref);
+            return true
+        }
+
+        let origin = location.origin || 'https://neomjs.com',
+            base   = globalThis.document?.baseURI || `${origin}${location.pathname}${location.search || ''}`;
+
+        try {
+            url = new URL(anchor.href || rawHref, base)
+        } catch {
+            return false
+        }
+
+        if (rawHref.startsWith('#')) {
+            if (url.pathname !== location.pathname || url.search !== (location.search || '')) {
+                if (rawHref.length > 1 && location.hash !== rawHref) {
+                    location.hash = rawHref
+                }
+
+                if (rawHref.length > 1) {
+                    try {
+                        globalThis.document?.getElementById?.(decodeURIComponent(rawHref.substring(1)))?.scrollIntoView?.()
+                    } catch {
+                        // Malformed URI component in fragment stays non-fatal
+                    }
+                }
+
+                return true
+            }
+
+            return false
+        }
+
+        if (url.protocol !== 'http:' && url.protocol !== 'https:' || url.origin !== origin) {
+            return false
+        }
+
+        if (!me.isManagedRoutePath(url.pathname)) {
+            return false
+        }
+
+        let routePath = Neo.config.routerBasePath ?
+            url.pathname.substring(Neo.config.routerBasePath.length) || '/' :
+            url.pathname || '/';
+
+        if (routePath === '/index.html') {
+            routePath = '/'
+        }
+
+        me.setRoute(routePath + url.search + url.hash);
+        return true
+    }
+
+    /**
+     * @summary Checks whether a same-origin URL pathname belongs to the `'pathname'` router rather than a static file
+     * or an excluded prefix/pattern in `Neo.config.routerIgnorePaths`.
+     * @param {String} pathname
+     * @returns {Boolean}
+     */
+    isManagedRoutePath(pathname) {
+        let {routerBasePath = '', routerIgnorePaths = []} = Neo.config,
+            routePath;
+
+        if (routerBasePath) {
+            if (pathname !== routerBasePath && !pathname.startsWith(routerBasePath + '/')) {
+                return false
+            }
+
+            routePath = pathname.substring(routerBasePath.length) || '/'
+        } else {
+            routePath = pathname || '/'
+        }
+
+        if (routePath !== '/index.html' && /\.[a-z0-9]+$/i.test(routePath)) {
+            return false
+        }
+
+        return !routerIgnorePaths.some(pattern =>
+            pattern.startsWith('^') ? new RegExp(pattern).test(routePath) : routePath.startsWith(pattern)
+        )
+    }
+
+    /**
      * Only in use if Neo.config.useSharedWorkers = true. Disconnects each app this window knows of; a window that knows
      * none yet — it unloads before its first `registerAppName` arrives, while the workers already hold its port —
      * disconnects as a whole.
@@ -589,7 +720,9 @@ class DomEvents extends Base {
         me.flushPendingMouseMove();
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        me.testPathInclusion(event, preventClickTargets) && event.preventDefault()
+        if (me.testPathInclusion(event, preventClickTargets) || me.handlePathnameLinkClick(event)) {
+            event.preventDefault()
+        }
     }
 
     /**
@@ -1192,7 +1325,9 @@ class DomEvents extends Base {
     sendRoute() {
         let me         = this,
             {Manager}  = Neo.worker,
-            hashString = me.getRoute();
+            hashString = me.getRoute(),
+            fragment   = Neo.config.routerMode === 'pathname' && location.hash?.length > 1 ?
+                location.hash.substring(1) : undefined;
 
         if (Neo.config.routerMode === 'pathname') {
             if (hashString === me.#lastRoute) {
@@ -1206,6 +1341,7 @@ class DomEvents extends Base {
             action: 'hashChange',
             data  : {
                 appNames: Manager.appNames,
+                ...(fragment ? {fragment} : {}),
                 hash    : me.parseHash(hashString),
                 hashString,
                 windowId: Manager.windowId
@@ -1238,11 +1374,17 @@ class DomEvents extends Base {
             return
         }
 
-        // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
-        route = '/' + route.replace(/^\/+/, '');
+        let [, path = '', query = '', anchor = ''] = route.replace(/^#/, '').match(/^([^?#]*)(?:\?([^#]*))?(#.*)?$/) || [],
+            currentKey, nextKey, nextUrl;
 
-        if (route !== (me.getRoute() || '/') + (route.includes('?') ? location.search : '')) {
-            history[replace ? 'replaceState' : 'pushState'](replace ? history.state : null, '', Neo.config.routerBasePath + route);
+        // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
+        path       = ('/' + path.replace(/^\/+/, '')).replace(/\/+$/, '') || '/';
+        currentKey = me.getRoute() + (query ? location.search || '' : '') + (anchor ? location.hash || '' : '');
+        nextKey    = path + (query ? `?${query}` : '') + anchor;
+        nextUrl    = Neo.config.routerBasePath + nextKey;
+
+        if (nextKey !== currentKey) {
+            history[replace ? 'replaceState' : 'pushState'](replace ? history.state : null, '', nextUrl);
             me.sendRoute()
         }
     }
@@ -1319,6 +1461,7 @@ class DomEvents extends Base {
             return false
         }
 
+        route = route.replace(/\/+$/, '') || '/';
         query = [query, keepSearch ? search.substring(1) : ''].filter(Boolean).join('&');
 
         history.replaceState(history.state, '', Neo.config.routerBasePath + route + (query && `?${query}`) + anchor);

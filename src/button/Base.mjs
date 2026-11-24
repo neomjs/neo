@@ -1,5 +1,6 @@
 import Component      from '../component/Base.mjs';
 import NeoArray       from '../util/Array.mjs';
+import StringUtil     from '../util/String.mjs';
 import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
@@ -881,12 +882,8 @@ class Button extends Component {
     updateTag() {
         let me                      = this,
             {editRoute, route, url} = me,
-            link                    = !editRoute && route || url,
+            link                    = !editRoute && route ? StringUtil.toRouteHref(route) : url,
             vdomRoot                = me.getVdomRoot();
-
-        if (!editRoute && route?.startsWith('#') === false) {
-            link = '#' + link
-        }
 
         if (link) {
             vdomRoot.href = link;
