@@ -51,7 +51,7 @@
     grid-auto-rows       : max-content;
     /* 340 px minimum fits two columns from 704 px of list content width and three once the stage crosses 1100 px. */
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    padding              : 16px 16px 0;
+    padding              : 16px;
     transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
 
     &:not(.portal-examples-tiles) {
@@ -611,7 +611,7 @@
 
     @media (max-width: 600px) {
         gap    : 12px;
-        padding: 8px 8px 0;
+        padding: 8px;
 
         .neo-list-item {
             border-radius: 12px;
