@@ -117,22 +117,14 @@ class List extends BaseList {
     }
 
     /**
+     * @summary Root of the catalog's cover images: on GitHub Pages the site's own `/resources_pub`, root-relative
+     * because every Portal build there shares it; the `neomjs/pages` raw host everywhere else.
      * @member {String} imageBasePath
      */
     get imageBasePath() {
-        let basePath;
-
-        if (Neo.config.isGitHubPages) {
-            basePath = '../../../../resources_pub/website/examples';
-
-            if (Neo.config.environment !== 'development') {
-                basePath = '../../' + basePath
-            }
-        } else {
-            basePath = 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples'
-        }
-
-        return basePath
+        return Neo.config.isGitHubPages
+            ? '/resources_pub/website/examples'
+            : 'https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples'
     }
 
     /**
