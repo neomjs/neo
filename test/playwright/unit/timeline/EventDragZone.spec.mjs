@@ -276,6 +276,34 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
         axis.destroy();
     });
 
+    test('an edge resize keeps its row and locks the perpendicular axis; a whole-bar move does not', () => {
+        const axis     = Neo.create(TimeAxis, {start: '2026-11-09T00:00Z', end: '2026-11-10T00:00Z', pxPerMinute: 1});
+        const zone     = Neo.create(EventDragZone, {axis, owner: {cls: []}});
+        const otherRow = {resourceId: 'res-b'};
+
+        zone.resolveTarget   = () => otherRow;
+        zone.initialSnapshot = {startDate: new Date('2026-11-09T02:00Z'), endDate: new Date('2026-11-09T03:00Z'), resourceId: 'res-a'};
+
+        try {
+            for (const edge of ['start', 'end']) {
+                zone.resizeEdge = edge;
+                expect(zone.datesFor(60, otherRow).resourceId).toBe('res-a');
+                zone.dragMove({axisOffset: 240});
+                expect(zone.pendingDrop.resourceId).toBe('res-a');
+                expect(zone.getMainThreadConfigs()).toMatchObject({moveHorizontal: true, moveVertical: false})
+            }
+
+            zone.orientation = 'vertical';
+            expect(zone.getMainThreadConfigs()).toMatchObject({moveHorizontal: false, moveVertical: true});
+
+            zone.orientation = 'horizontal';
+            zone.resizeEdge  = null;
+            zone.dragMove({axisOffset: 240});
+            expect(zone.pendingDrop.resourceId).toBe('res-b');
+            expect(zone.getMainThreadConfigs()).toMatchObject({moveHorizontal: true, moveVertical: true})
+        } finally { zone.destroy(); axis.destroy() }
+    });
+
     test('preserves exact duration on moves (5-min, milestone, axis-spanning) and honors minimumDuration on axis-end start flip', async () => {
         const axis = Neo.create(TimeAxis, {
             start      : new Date(2026, 10, 9, 8, 0, 0, 0),
