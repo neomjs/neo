@@ -80,14 +80,18 @@ class SchedulerEventDragZone extends EventDragZone {
 
     /**
      * @summary Positions a floating preview in viewport coordinates while preserving snapped width.
+     * An edge resize pins the preview to its own row; whole-bar moves follow the pointer.
      * @param {Object} next Candidate dates and resource.
      * @param {Object} data Pointer event data.
      * @returns {Object} Style delta for the drag proxy.
      */
     getDragProxyStyle(next, data) {
-        const style = super.getDragProxyStyle(next, data);
-        return {...style, left: `${(this.trackOrigin || 0) + parseFloat(style.left)}px`,
-            top: `${(data.clientY ?? 0) - (this.offsetY || 0)}px`}
+        const
+            me    = this,
+            style = super.getDragProxyStyle(next, data),
+            top   = me.resizeEdge && me.dragElementRect ? me.dragElementRect.top : (data.clientY ?? 0) - (me.offsetY || 0);
+
+        return {...style, left: `${(me.trackOrigin || 0) + parseFloat(style.left)}px`, top: `${top}px`}
     }
 
     /**
