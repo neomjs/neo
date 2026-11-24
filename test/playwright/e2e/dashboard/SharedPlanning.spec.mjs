@@ -215,4 +215,65 @@ test.describe('One plan in three windows', () => {
             await expect(page.locator('.neo-toolbar-action:has(.fa-window-restore):visible')).toHaveCount(0)
         })
     }
+
+    /** @summary Reads the Task Board's content-box right edge and each column's horizontal extent. */
+    function readBoard(page) {
+        return page.locator('.planning-board').evaluate(node => {
+            const box   = node.getBoundingClientRect(),
+                  style = getComputedStyle(node);
+
+            return {
+                contentRight: box.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight),
+                columns     : [...node.querySelectorAll('.neo-board-column')].map(column => {
+                    const {left, right, width} = column.getBoundingClientRect();
+                    return {left, right, width}
+                })
+            }
+        })
+    }
+
+    test('collapsing a Task Board column gives its width to the open columns (#22136)', async ({page}) => {
+        await page.setViewportSize({width: 1600, height: 1000});
+        await page.goto(`${URL}?theme=neo-theme-neo-dark`);
+        const columns = page.locator('.planning-board .neo-board-column'),
+              ready   = columns.nth(0);
+        await expect(columns).toHaveCount(3);
+        const open = await readBoard(page);
+
+        await ready.locator('.neo-board-column-collapse').click();
+        await expect(ready).toHaveClass(/neo-board-column-collapsed/);
+        await expect.poll(async () => (await readBoard(page)).columns[1].left, 'Active moves into the freed width')
+            .toBeLessThan(open.columns[1].left - 100);
+
+        const collapsed              = await readBoard(page),
+              [narrow, active, done] = collapsed.columns,
+              freed                  = open.columns[0].width - narrow.width;
+
+        expect(narrow.width, 'Ready narrows to the collapsed width').toBeLessThan(60);
+        expect(active.width + done.width, 'Active and Done take the freed width')
+            .toBeGreaterThan(open.columns[1].width + open.columns[2].width + freed - 2);
+        expect(Math.abs(active.width - done.width), 'the open columns share it equally').toBeLessThan(2);
+        expect(Math.abs(done.right - collapsed.contentRight), 'Done keeps the board edge').toBeLessThan(2);
+
+        await ready.locator('.neo-board-column-collapse').click();
+        await expect(ready).not.toHaveClass(/neo-board-column-collapsed/);
+        await expect.poll(async () => {
+            const widths = (await readBoard(page)).columns.map(column => column.width);
+            return Math.max(...widths) - Math.min(...widths)
+        }, 'expanding restores equal widths').toBeLessThan(2)
+    });
+
+    test('on a phone, a collapsed Task Board column widens its row neighbour (#22136)', async ({page}) => {
+        await page.setViewportSize({width: 390, height: 844});
+        await page.goto(`${URL}?theme=neo-theme-neo-dark`);
+        await expect(page.getByRole('tab', {name: 'Task Board', exact: true})).toHaveAttribute('aria-selected', 'true');
+        const ready = page.locator('.planning-board .neo-board-column').nth(0);
+        await expect(ready).toBeVisible();
+        const open = await readBoard(page);
+
+        await ready.locator('.neo-board-column-collapse').click();
+        await expect(ready).toHaveClass(/neo-board-column-collapsed/);
+        await expect.poll(async () => (await readBoard(page)).columns[1].width, 'Active takes the freed width in its row')
+            .toBeGreaterThan(open.columns[1].width + 100)
+    })
 });
