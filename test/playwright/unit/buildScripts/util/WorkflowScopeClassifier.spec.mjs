@@ -1,9 +1,10 @@
-import { test, expect }  from '@playwright/test';
-import { execFileSync, spawnSync } from 'node:child_process';
-import fs                from 'node:fs';
-import path              from 'node:path';
-import { fileURLToPath } from 'node:url';
-import * as yaml         from 'js-yaml';
+import { test, expect }                              from '@playwright/test';
+import { execFileSync, spawnSync }                   from 'node:child_process';
+import fs                                            from 'node:fs';
+import path                                          from 'node:path';
+import { fileURLToPath }                             from 'node:url';
+import * as yaml                                     from 'js-yaml';
+import { FULL_SHARDS, selectSpecs, selectionOutput } from '../../../../../buildScripts/util/e2eCiSelection.mjs';
 
 /**
  * The scope classifier decides whether this repository's test suites run at all.
@@ -60,13 +61,15 @@ const readWorkflow = name => yaml.load(fs.readFileSync(path.join(workflowsDir, n
 /**
  * @summary A minimal `package-lock.json` (v3 shape) whose root depends on the given packages.
  * @param {Object} deps Package name to resolved version.
+ * @param {String} [rootVersion] Optional root package version stamp (`lock.version` and `packages[''].version`).
  * @returns {Object}
  */
-const lockWith = deps => ({
+const lockWith = (deps, rootVersion) => ({
     name           : 'neo.mjs',
+    ...(rootVersion ? {version: rootVersion} : {}),
     lockfileVersion: 3,
     packages       : {
-        ''   : {name: 'neo.mjs', devDependencies: {...deps}},
+        ''   : {name: 'neo.mjs', ...(rootVersion ? {version: rootVersion} : {}), devDependencies: {...deps}},
         ...Object.fromEntries(Object.entries(deps).map(([name, version]) => [`node_modules/${name}`, {
             version,
             resolved : `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
@@ -74,6 +77,20 @@ const lockWith = deps => ({
         }]))
     }
 });
+
+const committedDefaultConfig = fs.readFileSync(path.join(repoRoot, 'src/DefaultConfig.mjs'), 'utf8');
+
+/**
+ * @summary Produces `src/DefaultConfig.mjs` text stamped to `version` on both `@default` and `version:`.
+ * @param {String} version
+ * @param {Object} [options={}]
+ * @param {String} [options.defaultTagVersion=version] Overrides `@default` independently to test mismatched stamps.
+ * @returns {String}
+ */
+const defaultConfigWith = (version, {defaultTagVersion = version} = {}) => committedDefaultConfig.replace(
+    /(\/\*\*(?:(?!\*\/)[\s\S])*?\*\s+@default\s+')([^'\r\n]+)('(?:(?!\*\/)[\s\S])*?\*\s+@name\s+config\.version\b(?:(?!\*\/)[\s\S])*?\*\/\r?\n[ \t]*version:\s*')([^'\r\n]+)(')/,
+    `$1${defaultTagVersion}$3${version}$5`
+);
 
 /**
  * The reusable workflow that owns the predicate. Named once so an arm asserting the classifier's
@@ -122,21 +139,23 @@ const scopeScript = () =>
  * @returns {Object} `{calls, context, core, github, info, outputs}`
  */
 const createRuntime = ({
-    files           = ['package.json'],
-    basePkg         = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
-    headPkg         = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a', 'ai:new-script': 'b'}},
-    headPkgRaw      = null,
-    baseLock        = lockWith({'neo-agent-skills': '0.1.86', leftpad: '1.0.0'}),
-    headLock        = baseLock,
-    baseSha         = 'base-sha',
-    getContentError = null,
-    forkOwner       = null,
-    forkUnreadable  = false,
-    liveHead        = 'head-sha',
-    eventName       = 'pull_request',
+    files             = ['package.json'],
+    basePkg           = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
+    headPkg           = {dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a', 'ai:new-script': 'b'}},
+    headPkgRaw        = null,
+    baseLock          = lockWith({'neo-agent-skills': '0.1.86', leftpad: '1.0.0'}),
+    headLock          = baseLock,
+    baseDefaultConfig = defaultConfigWith('13.4.0'),
+    headDefaultConfig = defaultConfigWith('14.0.0'),
+    baseSha           = 'base-sha',
+    getContentError   = null,
+    forkOwner         = null,
+    forkUnreadable    = false,
+    liveHead          = 'head-sha',
+    eventName         = 'pull_request',
     // This workflow's completed push runs, newest first, as `listWorkflowRuns` returns them
-    runs            = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
-    runsError       = null
+    runs              = [{ id: 1, conclusion: 'success', head_sha: 'before-sha' }],
+    runsError         = null
 } = {}) => {
     const records = files.map(file => typeof file === 'string' ? {filename: file} : file),
           outputs = new Map(),
@@ -181,20 +200,22 @@ const createRuntime = ({
                           return { data: { files: records } };
                       },
                       getContent                : async({ owner, repo, path: filePath, ref }) => {
-                          const isLock = filePath === 'package-lock.json';
+                          const isLock          = filePath === 'package-lock.json',
+                                isDefaultConfig = filePath === 'src/DefaultConfig.mjs',
+                                suffix          = isLock ? ':lock' : isDefaultConfig ? ':default-config' : '';
 
                           calls.getContent++;
-                          calls.contentCalls.push(`${owner}/${repo}@${ref}${isLock ? ':lock' : ''}`);
+                          calls.contentCalls.push(`${owner}/${repo}@${ref}${suffix}`);
                           if (getContentError) throw new Error(getContentError);
                           if (ref === baseSha) {
-                              const raw = JSON.stringify(isLock ? baseLock : basePkg);
+                              const raw = isDefaultConfig ? baseDefaultConfig : JSON.stringify(isLock ? baseLock : basePkg);
                               return { data: { content: Buffer.from(raw).toString('base64') } };
                           }
                           // A fork head SHA is absent from the base repo; a deleted or private
                           // fork refuses the read even at its own coordinates.
                           if (forkOwner && owner !== forkOwner) throw new Error(`Not Found: ${ref}`);
                           if (forkUnreadable) throw new Error(`Not Found: ${owner}/${repo}`);
-                          const raw = isLock ? JSON.stringify(headLock) : headPkgRaw ?? JSON.stringify(headPkg);
+                          const raw = isDefaultConfig ? headDefaultConfig : isLock ? JSON.stringify(headLock) : headPkgRaw ?? JSON.stringify(headPkg);
                           return { data: { content: Buffer.from(raw).toString('base64') } };
                       }
                   }
@@ -1198,6 +1219,9 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
                   .trim().split('\n')
                   .filter(file => file.endsWith('.mjs') && (file.startsWith('test/playwright/component/apps/') ||
                       (!file.startsWith('test/playwright/unit/') && !file.startsWith('test/playwright/component/')))),
+              componentSpecs = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'test/playwright/component'], {cwd: repoRoot, encoding: 'utf8'})
+                  .trim().split('\n')
+                  .filter(file => file.endsWith('.mjs')),
               portalCode = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', 'apps/portal'], {cwd: repoRoot, encoding: 'utf8'})
                   .trim().split('\n')
                   .filter(file => file.endsWith('.mjs')),
@@ -1205,13 +1229,15 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
               stripComments = source => source.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''),
               opensBlog     = e2eCode.filter(file => /#\/news\/blog/.test(read(file))),
               reachesSeoData = [...portalCode, ...e2eCode].filter(file => /\b(?:seo|ssg-archive-routes)\.json\b/.test(stripComments(read(file)))),
-              reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file)));
+              reachesScript = e2eCode.filter(file => reachesExcludedBuildScript(read(file))),
+              reachesVersion = [...new Set([...e2eCode, ...componentSpecs])].filter(file => /\bconfig\.version\b/.test(stripComments(read(file))));
 
         expect(e2eCode.length, 'the scan found the e2e tree').toBeGreaterThan(100);
         expect(portalCode.length, 'the scan found the portal app tree').toBeGreaterThan(20);
         expect(opensBlog, 'an e2e spec opens the portal news/blog route: blog.json is reachable, admit it').toEqual([]);
         expect(reachesSeoData, 'browser Portal or e2e code references seo.json / ssg-archive-routes.json: admit it').toEqual([]);
         expect(reachesScript, 'e2e code reaches an excluded buildScripts directory: admit it').toEqual([]);
+        expect(reachesVersion, 'browser test code reads Neo.config.version: revisit DefaultConfig version-stamp exclusion').toEqual([]);
     });
 
     test('a baseline-pin-only change does NOT run the tier', async () => {
@@ -1291,6 +1317,179 @@ test.describe('Tests scope classifier — the e2e engine tier predicate', () => 
 
         await executeScript(scopeScript(), unrelated);
         expect(outputsOf(unrelated), 'an unrelated script').toMatchObject({ run_components: 'false', run_e2e: 'false' });
+    });
+
+});
+
+test.describe('Tests scope classifier — version-only release stamps vs foundation and lockfile changes', () => {
+
+    const v14ReleaseFiles = [
+        '.github/RELEASE_NOTES/v13.4.0.md',
+        '.github/RELEASE_NOTES/v14.0.0.md',
+        'ServiceWorker.mjs',
+        'apps/portal/resources/data/labels.json',
+        'apps/portal/resources/data/releases.json',
+        'apps/portal/resources/data/seo.json',
+        'apps/portal/view/home/FooterContainer.mjs',
+        'package-lock.json',
+        'package.json',
+        'src/DefaultConfig.mjs',
+        'test/playwright/unit/buildScripts/docs/RebuildContentIndexesAndSeo.spec.mjs'
+    ];
+
+    test('replaying the v14 release PR keeps Portal E2E selection on its reachable shards instead of all 18, logs per-file decisions, and preserves unit and build rules', async () => {
+        const runtime = createRuntime({
+            files            : v14ReleaseFiles,
+            basePkg          : {name: 'neo.mjs', version: '13.4.0', dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
+            headPkg          : {name: 'neo.mjs', version: '14.0.0', dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
+            baseLock         : lockWith({'neo-agent-skills': '2.4.0', leftpad: '1.0.0'}, '13.4.0'),
+            headLock         : lockWith({'neo-agent-skills': '2.4.0', leftpad: '1.0.0'}, '14.0.0'),
+            baseDefaultConfig: defaultConfigWith('13.4.0'),
+            headDefaultConfig: defaultConfigWith('14.0.0')
+        });
+
+        await executeScript(scopeScript(), runtime);
+
+        const outputs  = outputsOf(runtime),
+              e2eFiles = JSON.parse(outputs.e2e_files);
+
+        expect(e2eFiles).toEqual([
+            'apps/portal/resources/data/labels.json',
+            'apps/portal/resources/data/releases.json',
+            'apps/portal/view/home/FooterContainer.mjs'
+        ]);
+        expect(outputs).toMatchObject({
+            run_components : 'false',
+            run_e2e        : 'true',
+            run_red_on_base: 'true',
+            run_unit       : 'true'
+        });
+
+        // Feed the classifier's admitted e2e_files straight into the selector step (`e2eCiSelection.mjs --select`)
+        const selected  = selectSpecs({changed: e2eFiles, exampleCss: JSON.parse(outputs.e2e_example_css), root: repoRoot}),
+              selectOut = selectionOutput({changed: e2eFiles, exampleCss: JSON.parse(outputs.e2e_example_css), root: repoRoot});
+
+        expect(selected.full).toBe(false);
+        expect(selected.reasons).toEqual([]);
+        expect(selectOut).toContain('e2e_selection=selected\n');
+        expect(selectOut).toContain('run_e2e=true\n');
+        expect(selectOut).toContain('e2e_engine_shards=[4]\n');
+        expect(selectOut).not.toContain(`e2e_engine_shards=[${FULL_SHARDS.engine}]`);
+
+        const selectedPaths = (/^e2e_engine_paths=(.+)$/m.exec(selectOut)?.[1] || '').split(' ').filter(Boolean);
+        expect(selectedPaths.length).toBeGreaterThanOrEqual(29);
+        expect(selectedPaths.every(spec => spec.startsWith('test/playwright/e2e/portal/') || spec.startsWith('test/playwright/e2e/'))).toBe(true);
+
+        // Verify the required `e2e-engine` gate job reports the selected shard result faithfully
+        const gateStep = readWorkflow('test.yml').jobs['e2e-engine-gate'].steps[0],
+              gateExit = shardsResult => spawnSync('bash', ['-e', '-c', gateStep.run], {
+                  env: {...process.env, CLASSIFIER: 'success', RUN_E2E: 'true', SHARDS: shardsResult, REASON: outputs.skip_reason, GITHUB_STEP_SUMMARY: '/dev/null'}
+              }).status;
+
+        expect(gateExit('success')).toBe(0);
+        expect(gateExit('failure')).toBe(1);
+
+        // Every one of the 11 files has its decision logged into `core.info` for the CI log
+        const logText = runtime.info.join('\n');
+        expect(logText).toContain('package-lock.json change beyond root version stamp and browser-unreachable packages: false');
+        expect(logText).toContain('src/DefaultConfig.mjs change beyond version stamp: false');
+        expect(logText).toContain([
+            'E2E boundary decisions:',
+            '.github/RELEASE_NOTES/v13.4.0.md: out (docs or content)',
+            '.github/RELEASE_NOTES/v14.0.0.md: out (docs or content)',
+            'ServiceWorker.mjs: out (no e2e rule matches)',
+            'apps/portal/resources/data/labels.json: in',
+            'apps/portal/resources/data/releases.json: in',
+            'apps/portal/resources/data/seo.json: out (portal SSR/SSG SEO metadata, never fetched by the browser SPA)',
+            'apps/portal/view/home/FooterContainer.mjs: in',
+            'package-lock.json: out (root version stamp only)',
+            'package.json: out (no dependency-kind or invoked-script change)',
+            'src/DefaultConfig.mjs: out (DefaultConfig version stamp only)',
+            'test/playwright/unit/buildScripts/docs/RebuildContentIndexesAndSeo.spec.mjs: out (no e2e rule matches)'
+        ].join('\n'));
+
+        // Release-build coverage (`build.yml` + `consumer-runtime-build.yml`) continues on its existing PR triggers
+        const buildWorkflow = readWorkflow('build.yml'),
+              buildTriggers = buildWorkflow.on ?? buildWorkflow[true];
+        expect(buildTriggers.pull_request.branches).toContain('dev');
+    });
+
+    test('real dependency or integrity mutations, other DefaultConfig edits, mismatched @default stamps, unreadable bases, and mixed foundation diffs retain full coverage', async () => {
+        const baseLock = lockWith({'neo-agent-skills': '2.4.0', leftpad: '1.0.0'}, '13.4.0');
+
+        // 1. Lockfile integrity change alongside a release version stamp
+        const tamperedIntegrityLock = structuredClone(lockWith({'neo-agent-skills': '2.4.0', leftpad: '1.0.0'}, '14.0.0'));
+        tamperedIntegrityLock.packages['node_modules/leftpad'].integrity = 'sha512-different-integrity';
+
+        const integrityRuntime = createRuntime({
+            files   : ['package-lock.json'],
+            baseLock,
+            headLock: tamperedIntegrityLock
+        });
+        await executeScript(scopeScript(), integrityRuntime);
+        expect(outputsOf(integrityRuntime)).toMatchObject({run_components: 'true', run_e2e: 'true'});
+        expect(selectSpecs({changed: JSON.parse(outputsOf(integrityRuntime).e2e_files), root: repoRoot})).toMatchObject({
+            full   : true,
+            reasons: ['package-lock.json: unmapped']
+        });
+
+        // 2. Edit to another DefaultConfig setting alongside a release version stamp
+        const configSettingRuntime = createRuntime({
+            files            : ['src/DefaultConfig.mjs', 'apps/portal/view/home/FooterContainer.mjs'],
+            baseDefaultConfig: defaultConfigWith('13.4.0'),
+            headDefaultConfig: defaultConfigWith('14.0.0').replace('useVdomWorker: true,', 'useVdomWorker: false,')
+        });
+        await executeScript(scopeScript(), configSettingRuntime);
+        expect(outputsOf(configSettingRuntime)).toMatchObject({run_components: 'true', run_e2e: 'true'});
+        expect(selectSpecs({changed: JSON.parse(outputsOf(configSettingRuntime).e2e_files), root: repoRoot})).toMatchObject({
+            full   : true,
+            reasons: ['src/DefaultConfig.mjs: foundation']
+        });
+
+        // 3. Mismatched DefaultConfig @default vs version property
+        const mismatchedStampRuntime = createRuntime({
+            files            : ['src/DefaultConfig.mjs'],
+            baseDefaultConfig: defaultConfigWith('13.4.0'),
+            headDefaultConfig: defaultConfigWith('14.0.0', {defaultTagVersion: '13.4.0'})
+        });
+        await executeScript(scopeScript(), mismatchedStampRuntime);
+        expect(outputsOf(mismatchedStampRuntime)).toMatchObject({run_components: 'true', run_e2e: 'true'});
+        expect(selectSpecs({changed: JSON.parse(outputsOf(mismatchedStampRuntime).e2e_files), root: repoRoot}).full).toBe(true);
+
+        // 4. Unreadable base ref fails toward full coverage on both stamp files
+        for (const failure of [{baseSha: '0'.repeat(40)}, {getContentError: 'HTTP 502'}]) {
+            const unreadableRuntime = createRuntime({
+                files: v14ReleaseFiles,
+                ...failure
+            });
+            await executeScript(scopeScript(), unreadableRuntime);
+            const unreadableOutputs = outputsOf(unreadableRuntime),
+                  unreadableSelect  = selectSpecs({changed: JSON.parse(unreadableOutputs.e2e_files), root: repoRoot});
+
+            expect(unreadableOutputs).toMatchObject({run_components: 'true', run_e2e: 'true', run_unit: 'true'});
+            expect(unreadableSelect.full).toBe(true);
+            expect(unreadableSelect.reasons).toEqual(expect.arrayContaining([
+                'package-lock.json: unmapped',
+                'src/DefaultConfig.mjs: foundation'
+            ]));
+        }
+
+        // 5. Mixed diff (release stamps + Portal files + foundation engine module) retains strongest (full) coverage
+        const mixedFoundationRuntime = createRuntime({
+            files            : [...v14ReleaseFiles, 'src/Neo.mjs'],
+            basePkg          : {version: '13.4.0'},
+            headPkg          : {version: '14.0.0'},
+            baseLock,
+            headLock         : lockWith({'neo-agent-skills': '2.4.0', leftpad: '1.0.0'}, '14.0.0'),
+            baseDefaultConfig: defaultConfigWith('13.4.0'),
+            headDefaultConfig: defaultConfigWith('14.0.0')
+        });
+        await executeScript(scopeScript(), mixedFoundationRuntime);
+        expect(outputsOf(mixedFoundationRuntime)).toMatchObject({run_components: 'true', run_e2e: 'true', run_unit: 'true'});
+        expect(selectSpecs({changed: JSON.parse(outputsOf(mixedFoundationRuntime).e2e_files), root: repoRoot})).toMatchObject({
+            full   : true,
+            reasons: ['src/Neo.mjs: foundation']
+        });
     });
 
 });

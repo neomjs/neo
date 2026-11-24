@@ -244,11 +244,11 @@ jobs:
             // Named rather than inferred, so an unlisted package fails toward running.
             const browserUnreachablePackages = ['neo-agent-skills'];
 
-            // One committed JSON file at both refs. Fork PRs: the head SHA exists only in the fork
-            // repo, so the head read follows the fork's coordinates and the base read stays on the PR
-            // target repo. Throws on an undeterminable ref or a failed read or parse; every caller
-            // turns that into running.
-            async function readAtBothRefs(filePath) {
+            // One committed file at both refs as UTF-8 text. Fork PRs: the head SHA exists only in the
+            // fork repo, so the head read follows the fork's coordinates and the base read stays on the
+            // PR target repo. Throws on an undeterminable ref or a failed read; every caller turns that
+            // into running.
+            async function readTextAtBothRefs(filePath) {
               const baseRef = eventName === 'pull_request' ? context.payload.pull_request.base.sha : pushBase;
               const headRef = eventName === 'pull_request' ? context.payload.pull_request.head.sha : context.payload.after;
 
@@ -265,10 +265,18 @@ jobs:
               const read = async (ref, {owner, repo}) => {
                 const res = await github.rest.repos.getContent({owner, repo, path: filePath, ref});
 
-                return JSON.parse(Buffer.from(res.data.content, 'base64').toString('utf8'));
+                if (typeof res.data?.content !== 'string') {
+                  throw new Error(`missing file content for ${filePath} at ${ref}`);
+                }
+
+                return Buffer.from(res.data.content, 'base64').toString('utf8');
               };
 
               return Promise.all([read(baseRef, {owner: context.repo.owner, repo: context.repo.repo}), read(headRef, headRepo)]);
+            }
+
+            async function readAtBothRefs(filePath) {
+              return (await readTextAtBothRefs(filePath)).map(text => JSON.parse(text));
             }
 
             async function packageJsonRelevance() {
@@ -331,35 +339,134 @@ jobs:
             }
 
             // The lockfile half of the dependency facet, so its path alone no longer admits both browser
-            // tiers. Compared without the unreachable packages' own entries and the root's specifiers
-            // for them: an unchanged remainder admits nothing, and a shared dependency such a bump
-            // moves stays in it.
+            // tiers. Compared without the root's own package version stamp, the unreachable packages' own
+            // entries, and the root's specifiers for them: an unchanged remainder admits nothing, while
+            // any dependency, resolved URL, integrity, or root metadata change stays in it.
+            let packageLockOutRule = 'out (unchanged beyond browser-unreachable packages)';
+
             async function packageLockRelevance() {
               if (!normalizedFiles.includes('package-lock.json')) {
                 return false;
               }
 
+              const record = fileRecords.find(file => normalizePath(file.filename) === 'package-lock.json');
+
+              if (record?.status && record.status !== 'modified' || record?.previous_filename) {
+                core.info(`package-lock.json file status is ${record.status}; failing toward running.`);
+                return true;
+              }
+
               const specifierFields   = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'],
                     unreachable       = key => browserUnreachablePackages.some(name =>
                       key === `node_modules/${name}` || key.startsWith(`node_modules/${name}/`)),
-                    withoutSpecifiers = root => Object.fromEntries(Object.entries(root).map(([field, value]) =>
-                      [field, specifierFields.includes(field)
-                        ? Object.fromEntries(Object.entries(value).filter(([name]) => !browserUnreachablePackages.includes(name)))
-                        : value])),
-                    remainder = lock => JSON.stringify({
-                      ...lock,
-                      packages: Object.fromEntries(Object.entries(lock.packages ?? {})
-                        .filter(([key]) => !unreachable(key))
-                        .map(([key, entry]) => [key, key === '' ? withoutSpecifiers(entry) : entry]))
-                    });
+                    withoutSpecifiers = (root, dropVersion) => {
+                      const next = Object.fromEntries(Object.entries(root).map(([field, value]) =>
+                        [field, specifierFields.includes(field) && value && typeof value === 'object'
+                          ? Object.fromEntries(Object.entries(value).filter(([name]) => !browserUnreachablePackages.includes(name)))
+                          : value]));
+
+                      if (dropVersion) {
+                        delete next.version;
+                      }
+
+                      return next;
+                    },
+                    remainder = (lock, {dropUnreachable = true, dropVersion = true} = {}) => {
+                      const next = {
+                        ...lock,
+                        packages: Object.fromEntries(Object.entries(lock.packages)
+                          .filter(([key]) => !dropUnreachable || !unreachable(key))
+                          .map(([key, entry]) => [key, key === ''
+                            ? (dropUnreachable ? withoutSpecifiers(entry, dropVersion) : (() => {
+                                const root = {...entry};
+                                if (dropVersion) delete root.version;
+                                return root;
+                              })())
+                            : entry]))
+                      };
+
+                      if (dropVersion) {
+                        delete next.version;
+                      }
+
+                      return JSON.stringify(next);
+                    };
 
               try {
-                const [base, head] = (await readAtBothRefs('package-lock.json')).map(remainder);
+                const [baseLock, headLock] = await readAtBothRefs('package-lock.json');
 
-                core.info(`package-lock.json change beyond browser-unreachable packages: ${base !== head}`);
-                return base !== head;
+                if (
+                  !baseLock || typeof baseLock !== 'object' || !baseLock.packages?.[''] || typeof baseLock.packages[''] !== 'object' ||
+                  !headLock || typeof headLock !== 'object' || !headLock.packages?.[''] || typeof headLock.packages[''] !== 'object'
+                ) {
+                  throw new Error('missing v3 root package entry');
+                }
+
+                const changed           = remainder(baseLock) !== remainder(headLock),
+                      versionStamped    = baseLock.version !== headLock.version || baseLock.packages[''].version !== headLock.packages[''].version,
+                      unreachableMoved  = remainder(baseLock, {dropUnreachable: false, dropVersion: true}) !==
+                                          remainder(headLock, {dropUnreachable: false, dropVersion: true});
+
+                if (!changed) {
+                  packageLockOutRule = versionStamped && unreachableMoved
+                    ? 'out (unchanged beyond root version stamp and browser-unreachable packages)'
+                    : versionStamped
+                      ? 'out (root version stamp only)'
+                      : 'out (unchanged beyond browser-unreachable packages)';
+                }
+
+                core.info(`package-lock.json change beyond root version stamp and browser-unreachable packages: ${changed}`);
+                return changed;
               } catch (error) {
                 core.info(`package-lock.json relevance undeterminable (${error.message}); failing toward running.`);
+                return true;
+              }
+            }
+
+            // `prepare.mjs` stamps `src/DefaultConfig.mjs` with the release version on `config.version`
+            // and its matching `@default` tag. Comparing the file at both refs after normalizing that
+            // single paired stamp keeps a mechanical version bump from forcing all 18 E2E shards as a
+            // foundation change, while any edit to another DefaultConfig setting, a mismatched `@default`,
+            // or an unreadable ref still retains full coverage.
+            async function defaultConfigRelevance() {
+              if (!normalizedFiles.includes('src/DefaultConfig.mjs')) {
+                return false;
+              }
+
+              const record = fileRecords.find(file => normalizePath(file.filename) === 'src/DefaultConfig.mjs');
+
+              if (record?.status && record.status !== 'modified' || record?.previous_filename) {
+                core.info(`src/DefaultConfig.mjs file status is ${record.status}; failing toward running.`);
+                return true;
+              }
+
+              const semverStamp  = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
+                    versionBlock = /(\/\*\*(?:(?!\*\/)[\s\S])*?\*\s+@default\s+')([^'\r\n]+)('(?:(?!\*\/)[\s\S])*?\*\s+@name\s+config\.version\b(?:(?!\*\/)[\s\S])*?\*\/\r?\n[ \t]*version:\s*')([^'\r\n]+)(')/g,
+                    stripStamp   = source => {
+                      const matches = [...source.matchAll(versionBlock)];
+
+                      if (matches.length !== 1) {
+                        return null;
+                      }
+
+                      const [, prefix, defaultVer, middle, propVer, suffix] = matches[0];
+
+                      if (defaultVer !== propVer || !semverStamp.test(propVer)) {
+                        return null;
+                      }
+
+                      return source.replace(versionBlock, `${prefix}<VERSION>${middle}<VERSION>${suffix}`);
+                    };
+
+              try {
+                const [baseText, headText]     = await readTextAtBothRefs('src/DefaultConfig.mjs'),
+                      [baseStripped, headStripped] = [stripStamp(baseText), stripStamp(headText)],
+                      changed                  = !baseStripped || !headStripped || baseStripped !== headStripped;
+
+                core.info(`src/DefaultConfig.mjs change beyond version stamp: ${changed}`);
+                return changed;
+              } catch (error) {
+                core.info(`src/DefaultConfig.mjs relevance undeterminable (${error.message}); failing toward running.`);
                 return true;
               }
             }
@@ -367,7 +474,8 @@ jobs:
             const packageJsonChange           = await packageJsonRelevance(),
                   packageJsonDependencyChange = packageJsonChange.dependencyKind,
                   packageJsonE2eScriptChange  = packageJsonChange.e2eScripts,
-                  packageLockChange           = await packageLockRelevance();
+                  packageLockChange           = await packageLockRelevance(),
+                  defaultConfigChange         = await defaultConfigRelevance();
 
             // Keep explicit unit/component statuses on docs-only PRs instead of
             // workflow-level paths-ignore. Missing checks can block protected branches.
@@ -396,7 +504,7 @@ jobs:
             // both are named — extracting the predicate must not make editing the predicate
             // invisible to the suites it decides for.
             const isComponentsRelevantPath = file =>
-              file.startsWith('src/') ||
+              (file.startsWith('src/') && (file !== 'src/DefaultConfig.mjs' || defaultConfigChange)) ||
               file.startsWith('resources/css/') ||
               file.startsWith('test/playwright/component/') ||
               file === 'test/playwright/playwright.config.component.mjs' ||
@@ -462,7 +570,7 @@ jobs:
               );
 
             const isE2eRelevantPath = file =>
-              file.startsWith('src/') ||
+              (file.startsWith('src/') && (file !== 'src/DefaultConfig.mjs' || defaultConfigChange)) ||
               file.startsWith('examples/') ||
               (file.startsWith('apps/') && !isPortalBlogRegistry(file) && !isPortalServerOnlySeoData(file)) ||
               file.startsWith('resources/css/') ||
@@ -473,17 +581,18 @@ jobs:
               file === '.github/workflows/test.yml' ||
               file === '.github/workflows/classify-test-scope.yml';
 
-            // Each changed file against the boundary, for the skip summary to print: a misclassified
-            // path then shows the rule that left it out on the pull request that carries it.
+            // Each changed file against the boundary, for the CI log and skip summary to print: a
+            // misclassified path shows the exact rule that admitted or excluded it on every run.
             const e2eBoundaryRule = file =>
               isE2eRelevantPath(file)         ? 'in' :
+              file === 'src/DefaultConfig.mjs'? 'out (DefaultConfig version stamp only)' :
               isPortalBlogRegistry(file)      ? 'out (portal blog registry, read only on the news route)' :
               isPortalServerOnlySeoData(file) ? 'out (portal SSR/SSG SEO metadata, never fetched by the browser SPA)' :
               isOutsideE2eLaunchChain(file)   ? 'out (buildScripts outside the e2e launch chain)' :
-              file === 'package-lock.json'  ? 'out (unchanged beyond browser-unreachable packages)' :
-              file === 'package.json'       ? 'out (no dependency-kind or invoked-script change)' :
-              isDocsOnlyPath(file)          ? 'out (docs or content)' :
-                                              'out (no e2e rule matches)';
+              file === 'package-lock.json'    ? packageLockOutRule :
+              file === 'package.json'         ? 'out (no dependency-kind or invoked-script change)' :
+              isDocsOnlyPath(file)            ? 'out (docs or content)' :
+                                                'out (no e2e rule matches)';
 
             // Moving a stylesheet out of the boundary still removes a theme input at its old path.
             const previousCssFiles = new Set(fileRecords
@@ -521,6 +630,7 @@ jobs:
             const boundaryReport = e2ePaths.map(file => `${file}: ${e2eBoundaryRule(file)}`).join('\n');
             const skipReason     = 'change does not touch relevant paths for this suite (docs/content/config or unrelated test suite)';
 
+            core.info(`E2E boundary decisions:\n${boundaryReport}`);
             core.setOutput('e2e_boundary_report', boundaryReport);
             core.setOutput('skip_reason', skipReason);
             // What a selection may narrow: the files that admitted the e2e tier
