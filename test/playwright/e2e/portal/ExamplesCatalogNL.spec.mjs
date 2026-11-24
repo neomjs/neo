@@ -641,6 +641,107 @@ test.describe('Portal examples section', () => {
         })
     }
 
+    for (const theme of ['neo-theme-neo-dark', 'neo-theme-neo-light']) {
+        test(`${theme}: a compact tile's crop takes the pointer's reflection and one glint, in place (#22122)`, async ({page, neuralLink}) => {
+            await page.setViewportSize({width: 1440, height: 900});
+            await page.addInitScript(theme => localStorage.setItem('portalTheme', theme), theme);
+            await page.goto(`${PORTAL}#/examples/forms`);
+
+            await expect(page.locator(`.neo-viewport.${theme}`)).toBeVisible();
+            const app = await neuralLink.connectToApp('Portal');
+
+            const read = tile => tile.locator('.preview-image').evaluate(node => {
+                const rect = node.getBoundingClientRect();
+
+                return {
+                    light      : getComputedStyle(node, '::before').backgroundImage,
+                    motions    : Object.fromEntries(node.getAnimations({subtree: true}).filter(a => a.animationName).map(a => [a.animationName, a.effect.getComputedTiming().duration])),
+                    opacity    : getComputedStyle(node, '::after').opacity,
+                    ratio      : rect.width / rect.height,
+                    selectLight: getComputedStyle(node).getPropertyValue('--portal-examples-list-light-select').trim()
+                }
+            });
+
+            // Checkbox on Forms: hover gives the crop the pointer's reflection and one glint
+            let tiles = page.locator(`${TILES} .neo-list-item`);
+            await expect(tiles.first()).toBeVisible();
+            await expect(tiles.first().locator('.neo-title')).toHaveText('Checkbox');
+
+            const tile = tiles.first(),
+                  cue  = tile.locator('.portal-example-open-cue');
+
+            await tile.scrollIntoViewIfNeeded();
+
+            const captionBox = await tile.locator('.portal-example-title-row').boundingBox();
+            const cueBox     = await cue.boundingBox();
+
+            await page.mouse.move(5, 895);
+            const rest = await read(tile);
+            expect(rest.opacity).toBe('0');
+            expect(rest.motions['portal-examples-list-glint']).toBeUndefined();
+            expect(rest.selectLight).toBe('rgba(0, 0, 0, 0)');
+
+            await tile.hover();
+
+            await expect.poll(async () => (await read(tile)).opacity, 'the glint rests on the crop while hovered').toBe('1');
+            const hovered = await read(tile);
+            expect(hovered.light, 'the pointer light falls onto the crop').toContain('radial-gradient');
+            expect(hovered.motions['portal-examples-list-glint'], 'one glint crosses the crop').toBeGreaterThan(0);
+            expect(Math.abs(hovered.ratio - 4 / 3), 'the crop keeps its 4:3').toBeLessThan(0.02);
+
+            // The caption and the launch target stay where they were
+            expect(await tile.locator('.portal-example-title-row').boundingBox()).toEqual(captionBox);
+            expect(await cue.boundingBox()).toEqual(cueBox);
+
+            // Selection and pointer cues stay distinguishable on a hovered, selected tile
+            await page.mouse.move(5, 895);
+            await tile.locator('.content').click();
+            await expect(tile).toHaveClass(/neo-selected/);
+            await tile.hover();
+            await expect.poll(async () => (await read(tile)).opacity).toBe('1');
+            const selectedHovered = await read(tile);
+            expect(selectedHovered.selectLight, 'the selection light still rises from the details').not.toBe('rgba(0, 0, 0, 0)');
+            await page.mouse.move(5, 895);
+            await tile.locator('.content').click();
+
+            // A compact tile of another group (More components) behaves the same
+            await openGroup(page, 'More components');
+            tiles = page.locator(`${TILES} .neo-list-item`);
+            await expect(tiles.first()).toBeVisible();
+
+            const other = tiles.first();
+            await other.hover();
+
+            await expect.poll(async () => (await read(other)).opacity).toBe('1');
+            const otherHovered = await read(other);
+            expect(otherHovered.light).toContain('radial-gradient');
+            expect(otherHovered.motions['portal-examples-list-glint']).toBeGreaterThan(0);
+            await page.mouse.move(5, 895);
+
+            // Reduced motion keeps the static cue and skips the glint; the first tap still opens the example
+            await openGroup(page, 'Forms & Fields');
+            await expect(tiles.first()).toBeVisible();
+            await page.emulateMedia({reducedMotion: 'reduce'});
+            await tile.hover();
+
+            const reduced = await read(tile);
+            expect(reduced.opacity).toBe('1');
+            expect(reduced.light).toContain('radial-gradient');
+            expect(reduced.motions['portal-examples-list-glint'] ?? 0, 'no motion under reduce').toBe(0);
+
+            const portalUrl = page.url(),
+                  [popup]   = await Promise.all([
+                      page.context().waitForEvent('page', {timeout: 15000}).then(p => p).catch(() => null),
+                      page.waitForURL(url => url.toString() !== portalUrl, {timeout: 15000}).then(() => null).catch(() => null),
+                      cue.click()
+                  ]);
+
+            expect((popup || page).url()).toContain('/examples/');
+            await popup?.close();
+            await page.emulateMedia({reducedMotion: null})
+        })
+    }
+
     test('a page that holds both kinds heads each: More components shows Demonstrations, then Components', async ({page, neuralLink}) => {
         await page.goto(`${PORTAL}#/examples/components`);
         const app   = await neuralLink.connectToApp('Portal'),

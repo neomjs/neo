@@ -7,11 +7,16 @@ setup({
 });
 
 import {test, expect}    from '@playwright/test';
+import fs                from 'node:fs';
+import path              from 'node:path';
+import {fileURLToPath}   from 'node:url';
 import Neo               from '../../../../../../../src/Neo.mjs';
 import * as core         from '../../../../../../../src/core/_export.mjs';
 import ExamplesList      from '../../../../../../../apps/portal/view/examples/List.mjs';
 import ExamplesListModel from '../../../../../../../apps/portal/view/examples/ListModel.mjs';
 import ExamplesStore     from '../../../../../../../apps/portal/store/Examples.mjs';
+
+const listCssPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../../../resources/css/src/apps/portal/examples/List.css');
 
 const sampleRecords = [
     {id: 'workstation',   name: 'Workstation',      family: 'multi-window', image: 'devmode/ws.jpg',     feature: 'Web desktop',  lookFor: 'Drag windows', urls: {devmode: 'apps/workstation/index.html',                 dist_prod: 'dist/production/apps/workstation/index.html'},                 sourceUrl: 'apps/workstation',           sharedWorkers: true,  environments: ['Desktop']},
@@ -63,6 +68,34 @@ test.afterEach(() => {
 });
 
 test.describe('Portal.view.examples.ListModel', () => {
+    test('a compact tile keeps its direct 4:3 crop while the cover reflection and glint extend to tiles (#22122)', async () => {
+        const {list} = await createMountedList();
+
+        // The tile renderer is untouched: one direct .preview-image crop, no wrap, caption and launch icon below
+        await list.set({tiles: true});
+        const [tile] = list.createItemContent(store.get('grid-big-data'), 0);
+
+        expect(tile.cls).toEqual(['content', 'portal-example-tile']);
+        expect(tile.cn[0].cls).toEqual(['preview-image']);
+        expect(tile.cn[1].cls).toEqual(['portal-example-title-row']);
+
+        await list.set({tiles: false});
+
+        const css = fs.readFileSync(listCssPath, 'utf8');
+
+        // One shared rule carries the reflection and the glint for the card wrap and the tile crop
+        expect(css).toMatch(/\.preview-image-wrap,\s*&\.portal-examples-tiles \.neo-list-item \.preview-image \{/);
+        expect(css).toMatch(/\.neo-list-item:hover \.preview-image-wrap::after,\s*&\.portal-examples-tiles \.neo-list-item:hover \.preview-image::after \{/);
+        expect(css).toContain('animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards');
+
+        // The tile crop keeps its 4:3 and blends into its own stacking context, never the page behind
+        const tileBranch = css.match(/&\.portal-examples-tiles \{[\s\S]*?\n    \}$/m)?.[0] ?? '',
+              tileImage  = tileBranch.match(/\.preview-image \{([\s\S]*?)\n            \}/)?.[1] ?? '';
+
+        expect(tileImage).toContain('aspect-ratio       : 4 / 3');
+        expect(tileImage).toContain('isolation          : isolate')
+    });
+
     test('configures selectOnFocus: false and delegates all four arrow keys via navigator.workerKeys', async () => {
         const {list, model} = await createMountedList();
 

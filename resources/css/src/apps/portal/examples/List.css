@@ -238,6 +238,43 @@
         }
     }
 
+    /* The cover's reflection and glint, shared by the card wrap and a compact tile's 4:3 crop: the pointer's
+       light falls from the upper right, the selection's rises from the details, and one glint crosses on entry.
+       Where neither light reaches, the cover shows as captured. */
+    .preview-image-wrap,
+    &.portal-examples-tiles .neo-list-item .preview-image {
+        &::before,
+        &::after {
+            content       : '';
+            inset         : 0;
+            pointer-events: none;
+            position      : absolute;
+        }
+
+        &::before {
+            background    : radial-gradient(84% 124% at 100% 0%, var(--portal-examples-list-light-hover), color-mix(in srgb, var(--portal-examples-list-light-hover) 42%, transparent) 36%, transparent 72%),
+                            linear-gradient(0deg, var(--portal-examples-list-light-select), transparent var(--portal-examples-list-light-select-reach, 52%));
+            mix-blend-mode: hard-light;
+            z-index       : 1;
+        }
+
+        /* The glint: one pass across the glass on entry, as on the Portal's glass cards */
+        &::after {
+            background: linear-gradient(115deg, transparent 38%, var(--portal-examples-list-glint-edge) 45%, var(--portal-examples-list-glint-core) 50%, var(--portal-examples-list-glint-edge) 55%, transparent 62%) 120% 0 / 250% 100% no-repeat;
+            opacity   : 0;
+            transition: opacity var(--motion-fast) var(--ease-out-soft);
+            z-index   : 2;
+        }
+    }
+
+    @media (hover: hover) {
+        .neo-list-item:hover .preview-image-wrap::after,
+        &.portal-examples-tiles .neo-list-item:hover .preview-image::after {
+            animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
+            opacity  : 1;
+        }
+    }
+
     &:not(.portal-examples-tiles) {
         .content {
             container-type       : inline-size;
@@ -259,38 +296,6 @@
             overflow     : hidden;
             position     : relative;
             width        : 100%;
-
-            &::before,
-            &::after {
-                content       : '';
-                inset         : 0;
-                pointer-events: none;
-                position      : absolute;
-            }
-
-            /* The two lights mix into the cover: the pointer's falls from the upper right, the selection's rises from
-               the details. Where neither reaches, the cover shows as captured. */
-            &::before {
-                background    : radial-gradient(84% 124% at 100% 0%, var(--portal-examples-list-light-hover), color-mix(in srgb, var(--portal-examples-list-light-hover) 42%, transparent) 36%, transparent 72%),
-                                linear-gradient(0deg, var(--portal-examples-list-light-select), transparent var(--portal-examples-list-light-select-reach, 52%));
-                mix-blend-mode: hard-light;
-                z-index       : 1;
-            }
-
-            /* The glint: one pass across the glass on entry, as on the Portal's glass cards */
-            &::after {
-                background: linear-gradient(115deg, transparent 38%, var(--portal-examples-list-glint-edge) 45%, var(--portal-examples-list-glint-core) 50%, var(--portal-examples-list-glint-edge) 55%, transparent 62%) 120% 0 / 250% 100% no-repeat;
-                opacity   : 0;
-                transition: opacity var(--motion-fast) var(--ease-out-soft);
-                z-index   : 2;
-            }
-        }
-
-        @media (hover: hover) {
-            .neo-list-item:hover .preview-image-wrap::after {
-                animation: portal-examples-list-glint calc(var(--motion-stage) * 1.5) var(--ease-out-soft) forwards;
-                opacity  : 1;
-            }
         }
 
         .preview-image {
@@ -683,6 +688,8 @@
                 background-size    : cover;
                 height             : auto;
                 inset              : auto;
+                /* Its own stacking context: the reflection blends into the crop, never into the page behind */
+                isolation          : isolate;
                 position           : relative;
                 width              : 100%;
             }
