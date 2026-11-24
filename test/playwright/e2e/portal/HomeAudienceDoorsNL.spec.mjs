@@ -480,6 +480,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
                 }
             }
 
+            await waitForHomeStylesAndFonts(page);
+
             for (const cards of [featureCards, toolchainCards]) {
                 const card = cards.first();
                 await card.scrollIntoViewIfNeeded();
@@ -522,8 +524,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
                 // Keyboard focus on the card root itself gets the same treatment
                 await page.mouse.move(5, 895);
                 await expect.poll(async () => (await read()).light).toBe('0');
-                await page.keyboard.press('Tab');
-                await card.evaluate(node => node.focus());
+                await cards.nth(1).evaluate(node => node.focus({preventScroll: true}));
+                await page.keyboard.press('Shift+Tab');
                 await expect(card).toBeFocused();
 
                 const focused = await read();
