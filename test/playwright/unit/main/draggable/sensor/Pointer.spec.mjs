@@ -667,6 +667,34 @@ test.describe('Neo.main.draggable.sensor.Pointer — touch', () => {
         }
     });
 
+    test('a mouse pointer that moves past minDistance inside delay and pauses emits drag:start then catch-up drag:move (#22153)', async () => {
+        const seen   = record('drag:start', 'drag:move', 'drag:end'),
+              sensor = createSensor({delay: 15, minDistance: 5});
+
+        sensor.attach();
+
+        const press = pointerDown({...at(20, 30)}),
+              sweep = pointerMove(180, 30);
+
+        documentRef.dispatchEvent(press);
+        documentRef.dispatchEvent(sweep);
+
+        expect(seen['drag:start']).toHaveLength(0);
+        expect(seen['drag:move']).toHaveLength(0);
+
+        await expect.poll(() => seen['drag:move'].length).toBe(1);
+
+        expect(seen['drag:start']).toHaveLength(1);
+        expect(seen['drag:start'][0]).toMatchObject({clientX: 20, clientY: 30, originalEvent: press});
+        expect(seen['drag:move'][0]).toMatchObject({clientX: 180, clientY: 30, originalEvent: sweep});
+
+        documentRef.dispatchEvent(pointerUp(180, 30));
+        expect(seen['drag:end']).toHaveLength(1);
+        expectIdle(sensor);
+
+        sensor.detach()
+    });
+
     test('on a touch device, the scroll lock cancels touchmove only while a touch drag is engaged', () => {
         const hasTouchEvents = Neo.config.hasTouchEvents,
               sensor         = createSensor(),
