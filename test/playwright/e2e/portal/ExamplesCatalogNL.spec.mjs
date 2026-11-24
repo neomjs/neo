@@ -177,8 +177,6 @@ async function expectCardLayout(list, width) {
               feature = node.querySelector('.portal-example-feature'),
               more    = node.querySelector('.portal-example-more'),
               isLead  = leadCard && columns === 3 && index === 0,
-              // A full-row final card (3n + 1 cards) sets its caption beside the cover, not below it
-              wide    = columns === 3 && card.width > node.parentElement.getBoundingClientRect().width * 0.9,
               shown   = [
                   node.querySelector('.portal-example-group-badge'),
                   node.querySelector('.neo-title'),
@@ -190,12 +188,12 @@ async function expectCardLayout(list, width) {
 
         return {
             title     : node.querySelector('.neo-title').textContent,
+            left      : card.left,
+            width     : card.width,
             top       : card.top,
             bottom    : card.bottom,
             height    : card.height,
             isLead,
-            wide,
-            beside    : copy.left >= wrap.right - 1.5 && Math.abs(copy.right - card.right) < 1.5,
             coverRatio: wrap.width / wrap.height,
             clearCover: (copy.top - wrap.top) / wrap.height,
             coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - wrap[side]) < 1.5),
@@ -216,9 +214,9 @@ async function expectCardLayout(list, width) {
     // Covers are captured at 16:9, so any other frame ratio crops them; the 2 × 2 lead is no exception
     expect(cards.filter(card => !(card.coverFills && Math.abs(card.coverRatio - 16 / 9) < 0.025)).map(card => `${card.title} ${card.coverRatio.toFixed(3)}`),
         'every card, the lead included, has an unoccluded 16:9 cover frame').toEqual([]);
-    expect(cards.filter(card => !((card.wide ? card.beside : card.docked) && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
-        'title, source icon, cue and proof line fit the stationary footer below (or, on a full-row card, beside) the cover; details stay closed at rest').toEqual([]);
-    expect(cards.every(card => card.wide ? card.beside : card.clearCover >= 0.99),
+    expect(cards.filter(card => !(card.docked && card.fits && card.textFits && card.closed && card.opaque && card.noInlineSize)),
+        'title, source icon, cue and proof line fit the stationary footer below the cover; details stay closed at rest').toEqual([]);
+    expect(cards.every(card => card.clearCover >= 0.99),
         '100 % of the cover frame is unoccluded at rest').toBe(true);
 
     if (gridInfo.leadCard && gridInfo.columns === 3 && cards.length >= 3) {
@@ -607,6 +605,77 @@ test.describe('Portal examples section', () => {
             expect(cards.length, `${group} demonstrations`).toBe(count);
             expect(cards[0].isLead, `${group} leads with its first card`).toBe(true)
         }
+    });
+
+    test('1440×900 and 1366×768: trailing 3n + 4 cards stay 1 × 1 in column 1 and ArrowDown reaches the final card (#22127)', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples/apps`);
+        const app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Apps');
+        // Matching environment hides Portal App (11 -> 10 cards), reproducing live neomjs.com's 3n + 4 row on On Air at Eight
+        await selectBuild(page, 'Dev mode');
+        await page.evaluate(() => document.fonts.ready);
+
+        const list  = page.locator(CARDS),
+              cards = await expectCardLayout(list, 1440),
+              last  = cards.at(-1);
+
+        expect(cards.length).toBe(10);
+        expect(last.title).toBe('On Air at Eight');
+        expect(Math.abs(last.left - cards[0].left), 'trailing card aligns to column 1').toBeLessThan(1.5);
+        expect(Math.abs(last.width - cards[1].width), 'trailing card keeps single-column 1×1 width').toBeLessThan(1.5);
+
+        // ArrowDown from column 1 above (Multi-Step Account Form, visible index 6) selects and focuses On Air at Eight (visible index 9)
+        const items = list.locator('.neo-list-item:visible');
+        await expect(items.nth(6).locator('.neo-title')).toHaveText('Multi-Step Account Form');
+        await expect(items.nth(9).locator('.neo-title')).toHaveText('On Air at Eight');
+        await items.nth(6).locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+        await items.nth(6).locator('.neo-title').focus();
+        await expect(items.nth(6)).toHaveClass(/\bneo-selected\b/);
+        await page.keyboard.press('ArrowDown');
+        await expect(items.nth(9)).toHaveClass(/\bneo-selected\b/);
+        await expect.poll(() => items.nth(9).evaluate(node => node.contains(document.activeElement))).toBe(true);
+        const listState = await readList(app, 'apps');
+        expect(listState.properties.catalogMode).toBe('devmode');
+
+        const more = await items.nth(9).evaluate(node => {
+            const wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+                  footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
+                  band   = node.querySelector('.portal-example-more').getBoundingClientRect();
+            return {bandBottom: band.bottom, footerTop: footer.top, height: band.height, ratio: band.height / wrap.height, wrapBottom: wrap.bottom}
+        });
+        expect(more.height).toBeGreaterThan(20);
+        expect(more.ratio, 'selection details stay <= 40% of the 16:9 cover').toBeLessThanOrEqual(0.41);
+        expect(more.bandBottom, '.portal-example-more stays inside .preview-image-wrap').toBeLessThanOrEqual(more.wrapBottom + 1);
+        expect(more.bandBottom, '.portal-example-more never overlaps .portal-example-footer').toBeLessThanOrEqual(more.footerTop + 1);
+
+        // Return to resting state before checking all 3n + 4 groups at 1440×900 and 1366×768 (1054 px list width -> 2 columns)
+        await page.keyboard.press('Escape');
+        await expect(list.locator('.neo-list-item.neo-selected')).toHaveCount(0);
+
+        for (const [group, count] of [
+            ['Forms & Fields', 4],
+            ['Dialogs & Overlays', 4],
+            ['Buttons, Menus & Toolbars', 4],
+            ['Lists & Galleries', 7],
+            ['Scheduler', 13],
+            ['Apps', 10]
+        ]) {
+            await openGroup(page, group);
+            const threeCol = await expectCardLayout(list, 1440),
+                  tail     = threeCol.at(-1);
+
+            expect(threeCol.length, `${group} 3n + 4 count`).toBe(count);
+            expect(Math.abs(tail.left - threeCol[0].left), `${group} trailing card aligns to column 1`).toBeLessThan(1.5);
+            expect(Math.abs(tail.width - threeCol[1].width), `${group} trailing card keeps 1×1 width`).toBeLessThan(1.5)
+        }
+
+        await page.setViewportSize({width: 1366, height: 768});
+        const twoCol = await expectCardLayout(list, 1366);
+        expect(twoCol.length).toBe(10);
+        expect(twoCol[0].width, '1366×768 keeps two >= 340 px columns on GroupPage').toBeGreaterThanOrEqual(340);
+        expect(Math.abs(twoCol[8].top - twoCol[9].top), 'cards 9 and 10 share row 5 in two-column mode').toBeLessThan(1.5);
+        expect(Math.abs(twoCol[8].width - twoCol[9].width), 'cards 9 and 10 share equal two-column width').toBeLessThan(1.5)
     });
 
     for (const [width, height, perRow] of [[1440, 900, 6], [390, 844, 2]]) {
