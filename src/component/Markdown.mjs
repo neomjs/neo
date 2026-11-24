@@ -394,7 +394,7 @@ class Markdown extends Component {
             content = content.replace(regexTicketId, (match, prefix, id) => {
                 const
                     issuesUrl  = me.issuesUrl.startsWith('#/') ? StringUtil.toRouteHref(me.issuesUrl) : me.issuesUrl,
-                    isInternal = issuesUrl.startsWith('#') || issuesUrl.startsWith('/'),
+                    isInternal = issuesUrl.startsWith('#') || (Neo.config.routerMode === 'pathname' && issuesUrl.startsWith('/')),
                     url        = issuesUrl + id,
                     target     = isInternal ? '' : ' target="_blank"';
 

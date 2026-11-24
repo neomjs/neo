@@ -90,13 +90,15 @@ test.describe('Neo.controller.Base root and defaultHash routing', () => {
         }
     });
 
-    test('replaces an unmatched \'/\' root route with defaultHash when no \'/\' handler or defaultRoute exists', async () => {
+    test('replaces an unmatched \'/\' root route with defaultHash in pathname mode when no \'/\' handler or defaultRoute exists', async () => {
         const setRouteCalls = [],
               origHash      = Neo.config.hash,
+              origMode      = Neo.config.routerMode,
               origSetRoute  = Neo.Main.setRoute;
 
-        Neo.config.hash   = {hash: {'/': ''}, hashString: '/', windowId: 2};
-        Neo.Main.setRoute = data => setRouteCalls.push(data);
+        Neo.config.hash       = {hash: {'/': ''}, hashString: '/', windowId: 2};
+        Neo.config.routerMode = 'pathname';
+        Neo.Main.setRoute     = data => setRouteCalls.push(data);
 
         const controller = Neo.create(DefaultHashFallbackController, {windowId: 2});
         await controller.ready();
@@ -112,7 +114,34 @@ test.describe('Neo.controller.Base root and defaultHash routing', () => {
         } finally {
             controller.destroy();
             origHash === undefined ? delete Neo.config.hash : Neo.config.hash = origHash;
-            Neo.Main.setRoute = origSetRoute
+            Neo.config.routerMode = origMode;
+            Neo.Main.setRoute     = origSetRoute
+        }
+    });
+
+    test('calls onNoRouteFound without redirecting in hash mode at \'/\' when defaultHash is \'/home\' and no \'/\' handler exists', async () => {
+        const setRouteCalls = [],
+              origHash      = Neo.config.hash,
+              origMode      = Neo.config.routerMode,
+              origSetRoute  = Neo.Main.setRoute;
+
+        Neo.config.hash       = {hash: {'/': ''}, hashString: '/', windowId: 3};
+        Neo.config.routerMode = 'hash';
+        Neo.Main.setRoute     = data => setRouteCalls.push(data);
+
+        const controller = Neo.create(DefaultHashFallbackController, {windowId: 3});
+        await controller.ready();
+
+        try {
+            await controller.onHashChange({hash: {'/': ''}, hashString: '/', windowId: 3}, null);
+
+            expect(controller.unmatched).toEqual(['/']);
+            expect(setRouteCalls).toEqual([])
+        } finally {
+            controller.destroy();
+            origHash === undefined ? delete Neo.config.hash : Neo.config.hash = origHash;
+            Neo.config.routerMode = origMode;
+            Neo.Main.setRoute     = origSetRoute
         }
     })
 });

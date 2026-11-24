@@ -111,6 +111,6 @@ export function rewriteRepoLinks(html, filePath=null) {
         tag = tag.replace(regexHref, (match, attribute, quote) => attribute + quote + url + quote);
 
         // GitHub is outside the app. An authored target wins.
-        return url.startsWith('#') || url.startsWith('/') || /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
+        return url.startsWith('#') || (Neo.config.routerMode === 'pathname' && url.startsWith('/')) || /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
     })
 }

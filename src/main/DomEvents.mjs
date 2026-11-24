@@ -551,7 +551,7 @@ class DomEvents extends Base {
     /**
      * @summary Intercepts unmodified primary clicks on internal links in `'pathname'` mode so routes move through the
      * History API without reloading the document or workers, while preserving modified clicks, `target`, `download`,
-     * static assets, and `Neo.config.routerIgnorePaths`.
+     * static assets, and `Neo.config.routerIgnorePaths`. For managed anchors, the anchor's `href` is the route.
      * @param {MouseEvent} event
      * @returns {Boolean} true when the click was handled and its default browser navigation must be prevented
      */
@@ -569,8 +569,8 @@ class DomEvents extends Base {
         }
 
         let me      = this,
-            path    = event.composedPath?.() || event.path || me.getPathFromElement(event.target),
-            anchor  = path.find(node => node?.tagName?.toUpperCase?.() === 'A' && node.hasAttribute?.('href')),
+            path    = event.composedPath ? event.composedPath() : me.getPathFromElement(event.target),
+            anchor  = path.find(node => node?.tagName === 'A' && node.hasAttribute('href')),
             rawHref = anchor?.getAttribute('href'),
             rel, target, url;
 
@@ -590,8 +590,8 @@ class DomEvents extends Base {
             return true
         }
 
-        let origin = location.origin || 'https://neomjs.com',
-            base   = globalThis.document?.baseURI || `${origin}${location.pathname}${location.search || ''}`;
+        let {origin} = location,
+            base     = document.baseURI || `${origin}${location.pathname}${location.search}`;
 
         try {
             url = new URL(anchor.href || rawHref, base)
@@ -600,14 +600,14 @@ class DomEvents extends Base {
         }
 
         if (rawHref.startsWith('#')) {
-            if (url.pathname !== location.pathname || url.search !== (location.search || '')) {
+            if (url.pathname !== location.pathname || url.search !== location.search) {
                 if (rawHref.length > 1 && location.hash !== rawHref) {
                     location.hash = rawHref
                 }
 
                 if (rawHref.length > 1) {
                     try {
-                        globalThis.document?.getElementById?.(decodeURIComponent(rawHref.substring(1)))?.scrollIntoView?.()
+                        document.getElementById(decodeURIComponent(rawHref.substring(1)))?.scrollIntoView()
                     } catch {
                         // Malformed URI component in fragment stays non-fatal
                     }

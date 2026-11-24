@@ -630,7 +630,7 @@ test.describe('Neo.main.DomEvents', () => {
      * @param {String} options.url
      * @param {Function} fn
      */
-    function withRouter({base='', ignore=[], mode, url}, fn) {
+    function withRouter({base='', ignore=[], mode, origin='https://neomjs.com', url}, fn) {
         const manager = Neo.worker.Manager,
               config  = {
                   routerBasePath   : Neo.config.routerBasePath,
@@ -639,11 +639,11 @@ test.describe('Neo.main.DomEvents', () => {
               },
               globals  = {history: globalThis.history, location: globalThis.location},
               send     = manager.sendMessage,
-              location = {origin: 'https://neomjs.com', pathname: '/', search: ''},
+              location = {origin, pathname: '/', search: ''},
               calls    = [],
               sent     = [],
               go       = href => {
-                  const next = new URL(href, `https://neomjs.com${location.pathname}${location.search}`);
+                  const next = new URL(href, `${origin}${location.pathname}${location.search}`);
                   Object.assign(location, {hash: next.hash, pathname: next.pathname, search: next.search})
               };
 
@@ -828,6 +828,41 @@ test.describe('Neo.main.DomEvents', () => {
             expect(clickAnchor('/docs')).toBe(true);
             expect(sent.at(-1)).toBe('/docs');
             expect(calls).toHaveLength(callCountBeforeHash + 1)
+        });
+
+        withRouter({mode: 'pathname', origin: 'https://app.example.test', url: '/'}, ({calls, owner, sent}) => {
+            const anchor = {
+                attributes  : [],
+                classList   : Object.assign([], {contains: () => false}),
+                dataset     : {},
+                getAttribute: name => name === 'href' ? 'https://app.example.test/dashboard' : null,
+                hasAttribute: name => name === 'href',
+                href        : 'https://app.example.test/dashboard',
+                id          : 'link-custom-origin',
+                tagName     : 'A',
+                target      : ''
+            };
+            const event = {
+                altKey          : false,
+                button          : 0,
+                buttons         : 1,
+                clientX         : 10,
+                clientY         : 10,
+                composedPath    : () => [anchor, documentRef.body],
+                ctrlKey         : false,
+                defaultPrevented: false,
+                metaKey         : false,
+                preventDefault() { this.defaultPrevented = true },
+                shiftKey : false,
+                target   : anchor,
+                timeStamp: 1,
+                type     : 'click'
+            };
+
+            owner.onClick(event);
+            expect(event.defaultPrevented).toBe(true);
+            expect(calls).toEqual([['push', '/dashboard']]);
+            expect(sent).toEqual(['/dashboard'])
         })
     });
 
