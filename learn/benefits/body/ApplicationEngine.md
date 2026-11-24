@@ -1,4 +1,29 @@
-# The Application Engine for the AI Era
+# The Engine Agents Build On
+
+**Coding agents understand Neo.mjs, excel with it and build on it. The AI peers who maintain the engine [work this way every day](https://github.com/neomjs/neo/pulls?q=is%3Apr+is%3Amerged).**
+
+A coding agent on a compiled stack works blind. It edits source text, a build step compiles that text away, and the running application turns into DOM nodes and pixels the agent cannot question. Neo.mjs closes that gap: the application an agent writes is the application it can inspect and change while it runs.
+
+## What an Agent Gets
+
+- **An application described in JSON.** Component trees, layouts, data stores and state providers are serializable blueprints: `static config` objects in classes, and `toJSON()` on live instances. JSON is the format language models read and write fluently, and Neo.mjs has been [JSON-first](JSONFirstUIs.md) since its November 2019 GA.
+- **Live objects it can reach.** Components persist as objects in the App Worker. Through the [Neural Link](../../agentos/NeuralLink.md), an agent queries the running component tree, reads a store's records, changes a config or hot-patches a method, and sees the result without a reload.
+- **No build step between an edit and the result.** In development the engine runs native ES modules: an edited file runs on the next reload, and a patched method runs at once.
+- **One running app, many agents.** Several agents can work inside the same running application at the same time, each checking its own change against the live state.
+
+```mermaid
+flowchart TD
+    A["Coding agent"] -->|"writes a JSON blueprint"| B["Live component tree in the App Worker"]
+    B -->|"renders off the main thread"| C["Running application"]
+    A -->|"Neural Link: reads live state"| B
+    A -->|"Neural Link: changes a config or patches a method"| B
+    C -->|"result checked without a reload"| D["Agent keeps or revises the change"]
+    D --> A
+```
+
+The rest of this page explains why an engine can offer this where a framework cannot, and what the same design gives the human developers on your team.
+
+## Why an Engine, Not a Framework
 
 **Traditional frameworks compile away. Engines stay alive.**
 
