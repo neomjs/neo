@@ -575,7 +575,7 @@ class DragDrop extends Base {
         const resizedSize = resizeLocally ? me.dragResize.apply(event.detail) : null;
 
         if (me.dragProxyElement) {
-            ({left, top} = DragDrop.prototype.applyProxyPosition.call(me, event.detail.clientX, event.detail.clientY, resizedSize, resizeLocally))
+            ({left, top} = me.applyProxyPosition(event.detail.clientX, event.detail.clientY, resizedSize, resizeLocally))
         }
 
         if ((!me.dragProxyElement && !resizeLocally) || me.alwaysFireDragMove) {
@@ -991,10 +991,10 @@ class DragDrop extends Base {
     setDragProxyElement(data) {
         let me = this;
 
-        me.dragProxyElement = globalThis.document?.getElementById(data.id) || null;
+        me.dragProxyElement = document.getElementById(data.id) || null;
 
         if (me.dragProxyElement && !me.dragCancelled && !me.isWindowDragging && Number.isFinite(me.lastClientX) && Number.isFinite(me.lastClientY)) {
-            DragDrop.prototype.applyProxyPosition.call(me, me.lastClientX, me.lastClientY)
+            me.applyProxyPosition(me.lastClientX, me.lastClientY)
         }
     }
 

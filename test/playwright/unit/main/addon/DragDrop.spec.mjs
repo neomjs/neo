@@ -41,7 +41,8 @@ delete Neo.main.addon.DragDrop;
 const {default: DomEvents} = await import('../../../../../src/main/DomEvents.mjs'),
       {default: DomAccess} = await import('../../../../../src/main/DomAccess.mjs'),
       {default: Resize}    = await import('../../../../../src/main/draggable/Resize.mjs'),
-      {default: DragDrop}  = await import('../../../../../src/main/addon/DragDrop.mjs');
+      {default: DragDrop}  = await import('../../../../../src/main/addon/DragDrop.mjs'),
+      createAddonContext   = (fields={}) => Object.assign(Object.create(DragDrop.prototype), fields);
 
 // Every describe shares these imported singletons and their browser fixtures.
 test.beforeEach(() => {
@@ -94,13 +95,13 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
 
         const moved = [],
               sent  = [],
-              addon = {
+              addon = createAddonContext({
                   dragCancelled: false,
                   dragZoneId   : 'zone-a',
                   getEventData : () => ({clientX: 10, clientY: 20}),
                   offsetX      : 20,
                   offsetY      : 10
-              };
+              });
 
         Neo.Main.windowMoveTo      = async data => {moved.push(data); return true};
         DomEvents.sendMessageToApp = data => sent.push(data);
@@ -147,13 +148,13 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
                   await new Promise(resolve => setImmediate(resolve));
                   await new Promise(resolve => setTimeout(resolve, 0))
               },
-              addon    = {
+              addon    = createAddonContext({
                   dragCancelled: false,
                   dragZoneId   : 'zone-a',
                   getEventData : () => ({clientX: 10, clientY: 20}),
                   offsetX      : 20,
                   offsetY      : 10
-              };
+              });
 
         Neo.Main.windowMoveTo      = async () => {throw new Error('SecurityError: the popup navigated away')};
         DomEvents.sendMessageToApp = data => sent.push(data);
@@ -184,7 +185,7 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
         // Deterministic pin for the full-suite ordering failure: resetDragState must no-op its
         // class-list side effect when globalThis.document is entirely ABSENT — a bare
         // `document` root reference throws ReferenceError before any optional chain engages.
-        const addon         = {},
+        const addon         = createAddonContext(),
               savedDocument = globalThis.document,
               hadDocument   = 'document' in globalThis;
 
@@ -280,7 +281,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
             }
         };
 
-        const addon = {
+        const addon = createAddonContext({
             alwaysFireDragMove    : false,
             boundaryContainerRect : null,
             dragCancelled         : false,
@@ -290,10 +291,8 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
             getEventData          : () => ({}),
             isWindowDragging      : false,
             resolveDragZoneId     : () => 'splitter-zone',
-            resolvePressedElement : DragDrop.prototype.resolvePressedElement,
-            resolveSensorPath     : DragDrop.prototype.resolveSensorPath,
             scrollContainerElement: null
-        };
+        });
 
         Neo.main.addon.DockFlip = {
             landFromPath(path) {
@@ -358,13 +357,11 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
                 const
                     starts = [],
                     target = {getBoundingClientRect: () => ({height: 6, left: 0, top: 0, width: 6})},
-                    addon  = {
-                        dragResize           : {start: (...args) => starts.push(args)},
-                        getEventData         : () => ({}),
-                        resolveDragZoneId    : () => 'splitter-zone',
-                        resolvePressedElement: DragDrop.prototype.resolvePressedElement,
-                        resolveSensorPath    : DragDrop.prototype.resolveSensorPath
-                    };
+                    addon  = createAddonContext({
+                        dragResize       : {start: (...args) => starts.push(args)},
+                        getEventData     : () => ({}),
+                        resolveDragZoneId: () => 'splitter-zone'
+                    });
 
                 dockFlip === undefined
                     ? delete Neo.main.addon.DockFlip
@@ -475,7 +472,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         test(`a stale handshake recovers a recreated root and never ${action} the active resize`, () => {
             const {resize, style} = createState(),
                   active          = resize.state,
-                  addon           = {dragResize: resize, gestureId: 2, offsetX: 12, zoneRegistrations: {}},
+                  addon           = createAddonContext({dragResize: resize, gestureId: 2, offsetX: 12, zoneRegistrations: {}}),
                   path            = [{id: 'recreated-root'}];
 
             resize.gesture = {dragZoneId: 'splitter-zone', clientX: 100, clientY: 0};
@@ -495,7 +492,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
     }
 
     test('a cancelled handshake cannot displace the newer owner of a reused root', () => {
-        const addon = {dragCancelled: true, gestureId: 2, zoneRegistrations: {'reused-root': 'new-zone'}};
+        const addon = createAddonContext({dragCancelled: true, gestureId: 2, zoneRegistrations: {'reused-root': 'new-zone'}});
         DragDrop.prototype.setConfigs.call(addon, {dragElementRootId: 'reused-root', dragZoneId: 'old-zone', gestureId: 2});
         expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'reused-root'}])).toBe('new-zone')
     });
@@ -683,7 +680,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
                   getBoundingClientRect: () => ({height: 400, width: 10}),
                   style                : {}
               },
-              addon    = {
+              addon    = createAddonContext({
                   allowOverdrag         : false,
                   alwaysFireDragMove    : false,
                   boundaryContainerRect : {bottom: 400, left: 0, right: 600, top: 0},
@@ -697,7 +694,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
                   offsetX               : 5,
                   offsetY               : 0,
                   scrollContainerElement: null
-              };
+              });
 
         Object.assign(resize.state, {
             maxSize        : 420,
@@ -734,7 +731,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
 
     test('cancel restores exact inline authority and a live move emits no App-Worker frame', () => {
         const {resize, style} = createState(),
-              addon           = {dragResize: resize},
+              addon           = createAddonContext({dragResize: resize}),
               sent            = [],
               originalSend    = DomEvents.sendMessageToApp;
 
@@ -772,7 +769,7 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
 
 test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract', () => {
     test('unregisterZone removes by root key AND sweeps by zone id — a wrong root key cannot strand entries', () => {
-        const addon = {zoneRegistrations: {}};
+        const addon = createAddonContext({zoneRegistrations: {}});
 
         DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-a', dragZoneId: 'zone-a'});
         DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-b', dragZoneId: 'zone-a'});
@@ -786,7 +783,7 @@ test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract',
     });
 
     test('registerZone guards partial data; unregisterZone by root key removes just that registration', () => {
-        const addon = {zoneRegistrations: {}};
+        const addon = createAddonContext({zoneRegistrations: {}});
 
         DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-a', dragZoneId: 'zone-a'});
         DragDrop.prototype.registerZone.call(addon, {dragElementRootId: 'root-b'}); // partial: no zone id — ignored
@@ -796,7 +793,7 @@ test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract',
     });
 
     test('resolveDragZoneId walks the event path to the first registered root', () => {
-        const addon = {zoneRegistrations: {'root-outer': 'zone-outer', 'root-inner': 'zone-inner'}};
+        const addon = createAddonContext({zoneRegistrations: {'root-outer': 'zone-outer', 'root-inner': 'zone-inner'}});
 
         expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'leaf'}, {id: 'root-inner'}, {id: 'root-outer'}])).toBe('zone-inner');
         expect(DragDrop.prototype.resolveDragZoneId.call(addon, [{id: 'unregistered'}])).toBeNull();
@@ -804,7 +801,7 @@ test.describe('Neo.main.addon.DragDrop — the zone registry teardown contract',
     });
 
     test('resize registration resolves by the same root and is swept by zone identity', () => {
-        const addon = {dragResize: new Resize(), zoneRegistrations: {}};
+        const addon = createAddonContext({dragResize: new Resize(), zoneRegistrations: {}});
 
         DragDrop.prototype.registerZone.call(addon, {
             dragElementRootId: 'splitter-root',
@@ -833,7 +830,7 @@ test.describe('Neo.main.addon.DragDrop — dock sort-first boundary motion (#179
         const originalSend = DomEvents.sendMessageToApp,
               sent         = [];
 
-        const createAddon = boundaryContainerRect => ({
+        const createAddon = boundaryContainerRect => createAddonContext({
             allowOverdrag       : false,
             alwaysFireDragMove  : true,
             boundaryContainerRect,
@@ -912,7 +909,7 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
     test('Escape in a window without its own gesture asks the App Worker once to cancel a cross-window one', () => {
         let prevented = false;
 
-        const addon = {dragCancelled: false, dragZoneId: null};
+        const addon = createAddonContext({dragCancelled: false, dragZoneId: null});
 
         DragDrop.prototype.onKeyDown.call(addon, {key: 'Escape', preventDefault: () => {prevented = true}});
         DragDrop.prototype.onKeyDown.call(addon, {key: 'Enter',  preventDefault: () => {prevented = true}});
@@ -925,7 +922,7 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
         let prevented = 0;
 
         const
-            addon = {cancelDrag: DragDrop.prototype.cancelDrag, dragCancelled: false, dragZoneId: 'zone-a'},
+            addon = createAddonContext({dragCancelled: false, dragZoneId: 'zone-a'}),
             event = {key: 'Escape', preventDefault: () => prevented++};
 
         DragDrop.prototype.onKeyDown.call(addon, event);
@@ -940,8 +937,8 @@ test.describe('Neo.main.addon.DragDrop — Escape across windows', () => {
         let resizeCancels = 0;
 
         const
-            owner = {dragCancelled: false, dragResize: {cancel: () => resizeCancels++}, dragZoneId: 'zone-a'},
-            idle  = {dragCancelled: false, dragZoneId: null};
+            owner = createAddonContext({dragCancelled: false, dragResize: {cancel: () => resizeCancels++}, dragZoneId: 'zone-a'}),
+            idle  = createAddonContext({dragCancelled: false, dragZoneId: null});
 
         DragDrop.prototype.cancelDrag.call(owner);
         DragDrop.prototype.cancelDrag.call(owner);
@@ -966,15 +963,11 @@ test('a popup Escape from a retired gesture cannot cancel a newer source drag', 
  */
 test.describe('Neo.main.addon.DragDrop — a drag start whose pressed node a re-render replaced', () => {
     const
-        rectOf  = (left, top, width, height) => () => ({height, left, top, width}),
-        toolbar = {id: 'neo-tab-header-toolbar-4'},
-        createAddon = () => ({
-            dragResize           : null,
-            getEventData         : DragDrop.prototype.getEventData,
-            resolveDragZoneId    : DragDrop.prototype.resolveDragZoneId,
-            resolvePressedElement: DragDrop.prototype.resolvePressedElement,
-            resolveSensorPath    : DragDrop.prototype.resolveSensorPath,
-            zoneRegistrations    : {'neo-tab-header-toolbar-4': 'neo-dock-tab-sortzone-4'}
+        rectOf      = (left, top, width, height) => () => ({height, left, top, width}),
+        toolbar     = {id: 'neo-tab-header-toolbar-4'},
+        createAddon = () => createAddonContext({
+            dragResize       : null,
+            zoneRegistrations: {'neo-tab-header-toolbar-4': 'neo-dock-tab-sortzone-4'}
         }),
         start = (addon, event) => {
             const
@@ -1095,8 +1088,8 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
     });
 
     test('a captured move is serialized with the hit-test target and path the sensor states', () => {
-        const addon = {resolveSensorPath: DragDrop.prototype.resolveSensorPath},
-              data  = DragDrop.prototype.getEventData.call(addon, sensorEvent('pointermove', [hit, parent, windowRef]));
+        const addon = createAddonContext(),
+              data  = addon.getEventData(sensorEvent('pointermove', [hit, parent, windowRef]));
 
         expect(data.target.id).toBe('hit');
         expect(data.targetPath.map(node => node.id)).toEqual(['hit', 'hit-parent', undefined]);
@@ -1105,8 +1098,8 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
     });
 
     test('an uncaptured move keeps the event\'s own target and path', () => {
-        const addon = {resolveSensorPath: DragDrop.prototype.resolveSensorPath},
-              data  = DragDrop.prototype.getEventData.call(addon, sensorEvent('pointermove'));
+        const addon = createAddonContext(),
+              data  = addon.getEventData(sensorEvent('pointermove'));
 
         expect(data.target.id).toBe('root');
         expect(data.targetPath.map(node => node.id)).toEqual(['root', undefined, undefined])
@@ -1118,14 +1111,14 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
             originalSend   = DomEvents.sendMessageToApp,
             moved          = [],
             sent           = [],
-            addon          = {dragCancelled: false, dragZoneId: 'zone-a', getEventData: () => ({}), offsetX: 20, offsetY: 10};
+            addon          = createAddonContext({dragCancelled: false, dragZoneId: 'zone-a', getEventData: () => ({}), offsetX: 20, offsetY: 10});
 
         Neo.Main.windowMoveTo      = async data => {moved.push(data); return true};
         DomEvents.sendMessageToApp = data => sent.push(data);
 
         try {
-            DragDrop.prototype.startWindowDrag.call(addon, {popupHeight: 240, popupName: 'tearout', popupWidth: 320});
-            DragDrop.prototype.onDragMove.call(addon, {
+            addon.startWindowDrag({popupHeight: 240, popupName: 'tearout', popupWidth: 320});
+            addon.onDragMove({
                 detail: {originalEvent: {screenX: 500.93, screenY: 300.4}, screenX: 500, screenY: 300}
             })
         } finally {
@@ -1141,24 +1134,21 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
         const
             originalSend = DomEvents.sendMessageToApp,
             sent         = [],
-            addon        = {
-                bodyCursorStyle     : null,
-                dragCancelled       : false,
-                dragResize          : null,
-                dragZoneId          : 'zone-1',
-                dropZoneIdentifier  : {cls: ['drop-zone']},
-                getEventData        : DragDrop.prototype.getEventData,
-                offsetX             : 0,
-                offsetY             : 0,
-                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
-                resetDragState      : () => {},
-                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
-            };
+            addon        = createAddonContext({
+                bodyCursorStyle   : null,
+                dragCancelled     : false,
+                dragResize        : null,
+                dragZoneId        : 'zone-1',
+                dropZoneIdentifier: {cls: ['drop-zone']},
+                offsetX           : 0,
+                offsetY           : 0,
+                resetDragState    : () => {}
+            });
 
         DomEvents.sendMessageToApp = data => sent.push(data);
 
         try {
-            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointerup', [hit, parent, windowRef]))
+            addon.onDragEnd(sensorEvent('pointerup', [hit, parent, windowRef]))
         } finally {
             DomEvents.sendMessageToApp = originalSend
         }
@@ -1178,25 +1168,21 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
         const
             originalSend = DomEvents.sendMessageToApp,
             sent         = [],
-            addon        = {
-                bodyCursorStyle     : null,
-                cancelDrag          : DragDrop.prototype.cancelDrag,
-                dragCancelled       : false,
-                dragResize          : {cancel: () => cancelCalls++, finish: () => {finishCalls++; return {axis: 'width', generation: 1, size: 320, targetId: 'pane-1'}}},
-                dragZoneId          : 'zone-1',
-                dropZoneIdentifier  : {cls: ['drop-zone']},
-                getEventData        : DragDrop.prototype.getEventData,
-                offsetX             : 0,
-                offsetY             : 0,
-                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
-                resetDragState      : () => {resetCalls++},
-                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
-            };
+            addon        = createAddonContext({
+                bodyCursorStyle   : null,
+                dragCancelled     : false,
+                dragResize        : {cancel: () => cancelCalls++, finish: () => {finishCalls++; return {axis: 'width', generation: 1, size: 320, targetId: 'pane-1'}}},
+                dragZoneId        : 'zone-1',
+                dropZoneIdentifier: {cls: ['drop-zone']},
+                offsetX           : 0,
+                offsetY           : 0,
+                resetDragState    : () => {resetCalls++}
+            });
 
         DomEvents.sendMessageToApp = data => sent.push(data);
 
         try {
-            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointercancel', [hit, parent, windowRef]))
+            addon.onDragEnd(sensorEvent('pointercancel', [hit, parent, windowRef]))
         } finally {
             DomEvents.sendMessageToApp = originalSend
         }
@@ -1217,25 +1203,21 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
         const
             originalSend = DomEvents.sendMessageToApp,
             sent         = [],
-            addon        = {
-                bodyCursorStyle     : null,
-                cancelDrag          : DragDrop.prototype.cancelDrag,
-                dragCancelled       : false,
-                dragResize          : {cancel: () => cancelCalls++, finish: () => {finishCalls++; return null}},
-                dragZoneId          : null,
-                dropZoneIdentifier  : {cls: ['drop-zone']},
-                getEventData        : DragDrop.prototype.getEventData,
-                offsetX             : 0,
-                offsetY             : 0,
-                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
-                resetDragState      : () => {},
-                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
-            };
+            addon        = createAddonContext({
+                bodyCursorStyle   : null,
+                dragCancelled     : false,
+                dragResize        : {cancel: () => cancelCalls++, finish: () => {finishCalls++; return null}},
+                dragZoneId        : null,
+                dropZoneIdentifier: {cls: ['drop-zone']},
+                offsetX           : 0,
+                offsetY           : 0,
+                resetDragState    : () => {}
+            });
 
         DomEvents.sendMessageToApp = data => sent.push(data);
 
         try {
-            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointercancel', [hit, parent, windowRef]))
+            addon.onDragEnd(sensorEvent('pointercancel', [hit, parent, windowRef]))
         } finally {
             DomEvents.sendMessageToApp = originalSend
         }
@@ -1252,25 +1234,21 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
         const
             originalSend = DomEvents.sendMessageToApp,
             sent         = [],
-            addon        = {
-                bodyCursorStyle     : null,
-                cancelDrag          : DragDrop.prototype.cancelDrag,
-                dragCancelled       : false,
-                dragResize          : {cancel: () => {}, finish: () => {finishCalls++; return null}},
-                dragZoneId          : 'zone-1',
-                dropZoneIdentifier  : {cls: ['drop-zone']},
-                getEventData        : DragDrop.prototype.getEventData,
-                offsetX             : 0,
-                offsetY             : 0,
-                pathIncludesDropZone: DragDrop.prototype.pathIncludesDropZone,
-                resetDragState      : () => {},
-                resolveSensorPath   : DragDrop.prototype.resolveSensorPath
-            };
+            addon        = createAddonContext({
+                bodyCursorStyle   : null,
+                dragCancelled     : false,
+                dragResize        : {cancel: () => {}, finish: () => {finishCalls++; return null}},
+                dragZoneId        : 'zone-1',
+                dropZoneIdentifier: {cls: ['drop-zone']},
+                offsetX           : 0,
+                offsetY           : 0,
+                resetDragState    : () => {}
+            });
 
         DomEvents.sendMessageToApp = data => sent.push(data);
 
         try {
-            DragDrop.prototype.onDragEnd.call(addon, sensorEvent('pointermove', [hit, parent, windowRef]))
+            addon.onDragEnd(sensorEvent('pointermove', [hit, parent, windowRef]))
         } finally {
             DomEvents.sendMessageToApp = originalSend
         }
@@ -1281,13 +1259,12 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
 
     test('setDragProxyElement syncs a mid-gesture mounted proxy to the latest clamped pointer coordinates (#22153)', () => {
         const
-            originalDoc  = globalThis.document,
             originalSend = DomEvents.sendMessageToApp,
             proxyEl      = {
                 getBoundingClientRect: () => ({height: 360, width: 200}),
                 style                : {left: '100px', top: '80px'}
             },
-            addon        = {
+            addon        = createAddonContext({
                 allowOverdrag         : false,
                 alwaysFireDragMove    : true,
                 boundaryContainerRect : {bottom: 460, left: 90, right: 900, top: 70},
@@ -1307,13 +1284,13 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
                 offsetX               : 20,
                 offsetY               : 15,
                 scrollContainerElement: null
-            };
+            });
 
-        globalThis.document        = {getElementById: id => id === 'proxy-1' ? proxyEl : null};
+        documentRef.getElementById = id => id === 'proxy-1' ? proxyEl : null;
         DomEvents.sendMessageToApp = () => {};
 
         try {
-            DragDrop.prototype.onDragMove.call(addon, {
+            addon.onDragMove({
                 detail: {clientX: 460, clientY: 40, originalEvent: {screenX: 460, screenY: 40}}
             });
 
@@ -1321,12 +1298,72 @@ test.describe('Neo.main.addon.DragDrop — the Pointer sensor surface', () => {
             expect(addon.lastClientX).toBe(460);
             expect(proxyEl.style.left, 'proxy not mounted yet').toBe('100px');
 
-            DragDrop.prototype.setDragProxyElement.call(addon, {id: 'proxy-1'});
+            addon.setDragProxyElement({id: 'proxy-1'});
 
             expect(proxyEl.style.left).toBe('440px');
             expect(proxyEl.style.top, 'moveVertical: false keeps initial slot top').toBe('80px')
         } finally {
-            globalThis.document        = originalDoc;
+            delete documentRef.getElementById;
+            DomEvents.sendMessageToApp = originalSend
+        }
+    });
+
+    test('onDragMove and setDragProxyElement dispatch applyProxyPosition polymorphically on subclass instances', () => {
+        class CustomDragDrop extends DragDrop {
+            static config = {
+                className: 'Test.Unit.Main.Addon.DragDrop.CustomDragDrop'
+            }
+
+            applyProxyPosition(clientX, clientY, resizedSize, resizeLocally) {
+                calls.push({clientX, clientY, resizeLocally, resizedSize});
+                return super.applyProxyPosition(clientX, clientY, resizedSize, resizeLocally)
+            }
+        }
+        CustomDragDrop = Neo.setupClass(CustomDragDrop);
+
+        const
+            calls        = [],
+            originalSend = DomEvents.sendMessageToApp,
+            proxyEl      = {
+                getBoundingClientRect: () => ({height: 40, width: 120}),
+                style                : {left: '10px', top: '20px'}
+            },
+            addon        = Object.assign(Object.create(CustomDragDrop.prototype), {
+                allowOverdrag         : true,
+                alwaysFireDragMove    : true,
+                boundaryContainerRect : null,
+                dragCancelled         : false,
+                dragProxyElement      : null,
+                dragProxyRect         : {height: 40, left: 10, top: 20, width: 120},
+                dragResize            : null,
+                dragZoneId            : 'zone-sub',
+                getEventData          : () => ({}),
+                isWindowDragging      : false,
+                lastClientX           : 80,
+                lastClientY           : 60,
+                moveHorizontal        : true,
+                moveVertical          : true,
+                offsetX               : 10,
+                offsetY               : 5,
+                scrollContainerElement: null
+            });
+
+        documentRef.getElementById = id => id === 'proxy-sub' ? proxyEl : null;
+        DomEvents.sendMessageToApp = () => {};
+
+        try {
+            addon.setDragProxyElement({id: 'proxy-sub'});
+            addon.onDragMove({
+                detail: {clientX: 150, clientY: 90, originalEvent: {screenX: 150, screenY: 90}}
+            });
+
+            expect(calls).toEqual([
+                {clientX: 80,  clientY: 60, resizeLocally: undefined, resizedSize: undefined},
+                {clientX: 150, clientY: 90, resizeLocally: false,     resizedSize: null}
+            ]);
+            expect([proxyEl.style.left, proxyEl.style.top]).toEqual(['140px', '85px'])
+        } finally {
+            delete documentRef.getElementById;
             DomEvents.sendMessageToApp = originalSend
         }
     })
