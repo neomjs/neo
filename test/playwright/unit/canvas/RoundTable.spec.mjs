@@ -351,7 +351,6 @@ test.describe('Neo.canvas.RoundTable — the scene and its inputs', () => {
         expect(renderer.getStats().still).toBe(false);
         expect(renderer.animationId, 'the loop runs').not.toBeNull();
 
-        stopLoop();
         renderer.setMotion({still: true});
 
         expect(renderer.animationId).toBeNull();
