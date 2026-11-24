@@ -141,6 +141,22 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary The lists of the page that holds a list, in reading order: the nearest ancestor with `getLists()`, a group
+     * page or the search results. A list outside such a page has no siblings.
+     * @param {String} listId
+     * @returns {Portal.view.examples.List[]}
+     */
+    getPageLists(listId) {
+        let page = Neo.getComponent(listId)?.parent;
+
+        while (page && !page.getLists) {
+            page = page.parent
+        }
+
+        return page ? page.getLists() : []
+    }
+
+    /**
      * @returns {String} The route of the open page: its group's route, or `/examples`
      */
     getOpenRoute() {
@@ -247,6 +263,35 @@ class MainContainerController extends Component {
 
             rect?.width && !index.isDestroyed && index.focusTabStop()
         }
+    }
+
+    /**
+     * @summary ArrowDown past a list's last row, or ArrowUp past its first, enters the page's next list with cards in
+     * that direction, on the row facing the leaving card. At the outer edge of the page the card keeps its place.
+     * @param {Object} data
+     * @param {Number} data.direction `1` down, `-1` up
+     * @param {Number} data.left The leaving card's left edge
+     * @param {Number} data.right The leaving card's right edge
+     * @param {String} data.source The leaving list's id
+     * @returns {Promise<void>}
+     */
+    async onListLeaveRow({direction, left, right, source}) {
+        const lists = this.getPageLists(source).filter(list => list.selectionModel.getNavigableRecords().length),
+              index = lists.findIndex(list => list.id === source);
+
+        index !== -1 && await lists[index + direction]?.selectionModel.enterRow(direction, {left, right})
+    }
+
+    /**
+     * @summary Keeps one selected card on a page: a selection in one of its lists, by key or by pointer, clears the
+     * others.
+     * @param {Object} data
+     * @param {String} data.source The selecting list's id
+     */
+    onListSelect({source}) {
+        this.getPageLists(source).forEach(list => {
+            list.id !== source && list.selectionModel.hasSelection() && list.selectionModel.deselectAll()
+        })
     }
 
     /**

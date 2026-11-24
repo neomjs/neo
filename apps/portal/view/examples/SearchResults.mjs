@@ -131,7 +131,7 @@ class SearchResults extends Container {
             bind     : {catalogMode: data => data.catalogMode, exampleTheme: data => data.theme},
             flex     : 'none',
             leadCard : false,
-            listeners: {leaveStart: 'onListLeaveStart'},
+            listeners: {leaveRow: 'onListLeaveRow', leaveStart: 'onListLeaveStart', select: 'onListSelect'},
             ...(tiles ? {tiles: true} : {}),
             useWrapperNode: false,
             wrapperCls    : [

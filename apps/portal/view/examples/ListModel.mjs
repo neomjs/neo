@@ -9,7 +9,9 @@ import BaseListModel from '../../../../src/selection/ListModel.mjs';
  * selection, `ArrowLeft` / `ArrowRight` step linearly across visible cards (`ArrowLeft` on the first card hands the step
  * to the list's owner as `leaveStart`, and {@link #enter} is the way back in), and `ArrowUp` / `ArrowDown` traverse
  * visual grid rows via {@link Neo.component.Base#getDomRect} — handling uniform multi-column grids, `2×2` `leadCard`
- * hero layouts, and single-column narrow containers while keeping DOM focus and `.neo-selected` on the same card.
+ * hero layouts, and single-column narrow containers while keeping DOM focus and `.neo-selected` on the same card. Past
+ * the first or last row the card stays and the list hands the step to its owner as `leaveRow`, so a page that stacks
+ * lists can carry it into the next one through {@link #enterRow}.
  *
  * @class Portal.view.examples.ListModel
  * @extends Neo.selection.ListModel
@@ -35,6 +37,65 @@ class ListModel extends BaseListModel {
      * @private
      */
     #rowNavigationRequest = null
+
+    /**
+     * @summary Picks the card of one visual row that lies nearest a horizontal span: the row whose edge is first in the
+     * step's direction, then the cards overlapping the span, then the smallest center distance (leftmost on a tie).
+     * @param {Object[]} boxes Card boxes: `{bottom, centerX, index, left, right, top}`
+     * @param {Number} direction `1` picks from the topmost row, `-1` from the bottommost
+     * @param {Number} left The span's left edge
+     * @param {Number} right The span's right edge
+     * @returns {Number} The picked card's record index
+     * @private
+     */
+    #nearestInRow(boxes, direction, left, right) {
+        const centerX       = (left + right) / 2,
+              rowEdge       = direction > 0 ? Math.min(...boxes.map(b => b.top)) : Math.max(...boxes.map(b => b.bottom)),
+              rowCandidates = boxes.filter(b => Math.abs((direction > 0 ? b.top : b.bottom) - rowEdge) <= 12),
+              overlapping   = rowCandidates.filter(b => Math.min(b.right, right) - Math.max(b.left, left) > 2),
+              pool          = overlapping.length ? overlapping : rowCandidates;
+
+        pool.sort((a, b) => {
+            const distDiff = Math.abs(a.centerX - centerX) - Math.abs(b.centerX - centerX);
+            return Math.abs(distDiff) > 1 ? distDiff : a.left - b.left
+        });
+
+        return pool[0].index
+    }
+
+    /**
+     * @summary Measures the visible cards. Resolves `null` without a mounted view, and `false` when a newer navigation
+     * request replaced this one while the measurement was in flight.
+     * @param {Object[]} records The visible records
+     * @param {Symbol} request The navigation request this measurement belongs to
+     * @returns {Promise<Object[]|null|false>} One box per record, `null` for an unmeasurable card
+     * @private
+     */
+    async #measure(records, request) {
+        const me     = this,
+              {view} = me;
+
+        if (!view.mounted || typeof view.getDomRect !== 'function') {
+            return null
+        }
+
+        const rects = await view.getDomRect(records.map(record => view.getItemId(view.getRecordId(record))));
+
+        if (me.#rowNavigationRequest !== request || me.view !== view || !view.mounted) {
+            return false
+        }
+
+        return rects.map((rect, index) => {
+            if (!rect || !(rect.width > 0 && rect.height > 0)) {
+                return null
+            }
+
+            const left = rect.left ?? rect.x,
+                  top  = rect.top  ?? rect.y;
+
+            return {bottom: rect.bottom ?? (top + rect.height), centerX: left + rect.width / 2, index, left, right: rect.right ?? (left + rect.width), top}
+        })
+    }
 
     /**
      * @summary Selects and focuses the selected card, or else the first visible one: the way into the cards from outside
@@ -267,7 +328,6 @@ class ListModel extends BaseListModel {
      */
     async stepRow(data, direction) {
         const me      = this,
-              {view}  = me,
               records = me.getNavigableRecords(),
               request = Symbol();
 
@@ -284,64 +344,71 @@ class ListModel extends BaseListModel {
             return
         }
 
-        let rects = null;
+        const boxes = await me.#measure(records, request);
 
-        if (view.mounted && typeof view.getDomRect === 'function') {
-            rects = await view.getDomRect(records.map(record => view.getItemId(view.getRecordId(record))));
-
-            if (me.#rowNavigationRequest !== request || me.view !== view || !view.mounted) {
-                return
-            }
+        if (boxes === false) {
+            return
         }
 
-        const current = rects?.[currentIndex];
+        const current = boxes?.[currentIndex];
 
-        if (!current || !(current.width > 0 && current.height > 0)) {
+        if (!current) {
             me.stepLinear(data, direction);
             return
         }
 
-        const currentLeft    = current.left ?? current.x,
-              currentRight   = current.right ?? (currentLeft + current.width),
-              currentTop     = current.top ?? current.y,
-              currentBottom  = current.bottom ?? (currentTop + current.height),
-              currentCenterX = currentLeft + current.width / 2,
-              candidates     = [];
-
-        rects.forEach((rect, index) => {
-            if (!rect || index === currentIndex || !(rect.width > 0 && rect.height > 0)) {
-                return
-            }
-
-            const left   = rect.left ?? rect.x,
-                  right  = rect.right ?? (left + rect.width),
-                  top    = rect.top ?? rect.y,
-                  bottom = rect.bottom ?? (top + rect.height);
-
-            if (direction > 0 ? top >= currentBottom - 4 : bottom <= currentTop + 4) {
-                candidates.push({bottom, centerX: left + rect.width / 2, index, left, right, top})
-            }
-        });
+        const candidates = boxes.filter(box => box && box.index !== currentIndex &&
+            (direction > 0 ? box.top >= current.bottom - 4 : box.bottom <= current.top + 4));
 
         if (!candidates.length) {
-            // Stay on the boundary row when already at the top or bottom row
+            // The boundary row keeps the card, and the owner may carry the step into a list below or above
             me.selectAndFocus(records[currentIndex]);
+
+            /**
+             * @event leaveRow
+             * @param {Number} direction `1` past the last row, `-1` past the first
+             * @param {Number} left The card's left edge
+             * @param {Number} right The card's right edge
+             */
+            me.view.fire('leaveRow', {direction, left: current.left, right: current.right});
             return
         }
 
-        const rowEdge = direction > 0
-                  ? Math.min(...candidates.map(c => c.top))
-                  : Math.max(...candidates.map(c => c.bottom)),
-              rowCandidates = candidates.filter(c => Math.abs((direction > 0 ? c.top : c.bottom) - rowEdge) <= 12),
-              overlapping   = rowCandidates.filter(c => Math.min(c.right, currentRight) - Math.max(c.left, currentLeft) > 2),
-              pool          = overlapping.length ? overlapping : rowCandidates;
+        me.selectAndFocus(records[me.#nearestInRow(candidates, direction, current.left, current.right)])
+    }
 
-        pool.sort((a, b) => {
-            const distDiff = Math.abs(a.centerX - currentCenterX) - Math.abs(b.centerX - currentCenterX);
-            return Math.abs(distDiff) > 1 ? distDiff : a.left - b.left
-        });
+    /**
+     * @summary Enters the cards from a neighbouring list on the same page: selects and focuses the card of the first
+     * visual row (`direction: 1`, coming from above) or the last (`-1`, coming from below) nearest the leaving card's
+     * span. Without a measurable layout it takes the first or last card in reading order.
+     * @param {Number} direction `1` enters the first row, `-1` the last
+     * @param {Object} span The leaving card's horizontal span
+     * @param {Number} span.left
+     * @param {Number} span.right
+     * @returns {Promise<void>}
+     */
+    async enterRow(direction, {left, right}) {
+        const me      = this,
+              records = me.getNavigableRecords(),
+              request = Symbol();
 
-        me.selectAndFocus(records[pool[0].index])
+        me.#rowNavigationRequest = request;
+
+        if (!records.length) {
+            return
+        }
+
+        const boxes = await me.#measure(records, request);
+
+        if (boxes === false) {
+            return
+        }
+
+        const measured = boxes?.filter(Boolean);
+
+        me.selectAndFocus(records[measured?.length
+            ? me.#nearestInRow(measured, direction, left, right)
+            : (direction > 0 ? 0 : records.length - 1)])
     }
 }
 

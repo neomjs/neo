@@ -1716,6 +1716,114 @@ test.describe('Portal examples side nav keys (#22061)', () => {
     });
 });
 
+/**
+ * @summary The id of the list that holds the focused card or tile, or null.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<String|null>}
+ */
+const focusedListId = page => page.evaluate(() => document.activeElement?.closest('.portal-examples-list')?.id || null);
+
+/**
+ * @summary Presses a key and waits until focus moves. A row step lands after a worker round trip; at an edge nothing
+ * moves, so the wait ends quietly after a second.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} key
+ */
+async function pressAndSettle(page, key) {
+    const focusedId = () => page.evaluate(() => document.activeElement?.id || null),
+          before    = await focusedId();
+
+    await page.keyboard.press(key);
+    await expect.poll(focusedId, {timeout: 1000}).not.toBe(before).catch(() => {})
+}
+
+/**
+ * @summary Steps down row by row while focus stays in the given list, at most `max` presses: rows differ per layout, so
+ * the walk reads the page instead of counting presses. Resolves the list that holds focus at the end.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} listId
+ * @param {Number} [max=12]
+ * @returns {Promise<String|null>}
+ */
+async function walkDownOutOf(page, listId, max=12) {
+    for (let press = 0; press < max && await focusedListId(page) === listId; press++) {
+        await pressAndSettle(page, 'ArrowDown')
+    }
+
+    return focusedListId(page)
+}
+
+test.describe('Portal examples gallery rows across cards and tiles (#22121)', () => {
+    for (const {width, height, family, name} of [
+        {width: 1440, height: 900, family: 'forms',   name: 'Forms & Fields'},
+        {width: 1440, height: 900, family: 'buttons', name: 'Buttons, Menus & Toolbars'},
+        {width: 900,  height: 800, family: 'forms',   name: 'Forms & Fields'}
+    ]) {
+        test(`${width}×${height} ${family}: ArrowDown leaves the last demonstration row for the tiles, ArrowUp comes back, and one card stays selected`, async ({page}) => {
+            await page.setViewportSize({width, height});
+            await page.goto(`${PORTAL}#/examples/${family}`);
+
+            const link  = groupLink(page, name),
+                  cards = page.locator(`${CARDS} .neo-list-item`),
+                  tiles = page.locator(`${TILES} .neo-list-item`),
+                  rings = page.locator(`${PAGE} .neo-list-item.neo-selected`);
+
+            await expect(link).toHaveAttribute('aria-current', 'page');
+            await expect(tiles.first()).toBeVisible();
+
+            await link.focus();
+            await page.keyboard.press('ArrowRight');
+            await expect(cards.first()).toBeFocused();
+
+            // ArrowUp on the first row has nowhere to go: the gallery's top edge
+            await pressAndSettle(page, 'ArrowUp');
+            await expect(cards.first(), 'the top edge keeps the card').toBeFocused();
+
+            const cardsList = await focusedListId(page);
+
+            expect(await walkDownOutOf(page, cardsList), 'ArrowDown past the last demonstration row enters the tiles').not.toBe(cardsList);
+            await expect(page.locator(`${TILES} .neo-list-item:focus`)).toHaveClass(/\bneo-selected\b/);
+            await expect(rings, 'focus and selection move together: one ring').toHaveCount(1);
+
+            await pressAndSettle(page, 'ArrowUp');
+            expect(await focusedListId(page), 'ArrowUp past the first tile row returns to the demonstrations').toBe(cardsList);
+            await expect(page.locator(`${CARDS} .neo-list-item:focus`)).toHaveClass(/\bneo-selected\b/);
+            await expect(rings).toHaveCount(1);
+
+            // A pointer selection in the other kind clears the ring here too
+            await cards.first().locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+            await expect(cards.first()).toHaveClass(/\bneo-selected\b/);
+            await expect(rings).toHaveCount(1);
+            await tiles.first().locator('.preview-image').click({position: {x: 16, y: 16}});
+            await expect(tiles.first()).toHaveClass(/\bneo-selected\b/);
+            await expect(rings).toHaveCount(1)
+        })
+    }
+
+    test('1440×900 search results: ArrowDown walks from one result list into the next, keeping one ring', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples`);
+
+        const find    = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples'),
+              matches = page.locator(MATCHES),
+              rings   = page.locator('.portal-examples-search-groups:visible .neo-list-item.neo-selected');
+
+        await find.fill('field');
+        await expect(matches.first()).toBeVisible();
+
+        await allLink(page).focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(matches.first()).toBeFocused();
+
+        const firstList = await focusedListId(page),
+              lists     = await page.locator('.portal-examples-search-groups:visible .portal-examples-list').count();
+
+        expect(lists, 'the query must yield more than one result list for a crossing').toBeGreaterThan(1);
+        expect(await walkDownOutOf(page, firstList), 'ArrowDown past the first result list\'s last row enters the next').not.toBe(firstList);
+        await expect(rings).toHaveCount(1)
+    })
+});
+
 test.describe('Portal examples phone index keys (#22061)', () => {
     test.use({viewport: {width: 390, height: 844}});
 
