@@ -165,11 +165,9 @@ class StandardComponent extends Component {
 }
 ```
 
-**How `this.update()` works:**
-1.  Sends the component's entire VDom tree to the VDom worker.
-2.  VDom worker compares with previous state (diffing).
-3.  Worker calculates minimal deltas needed.
-4.  Deltas are sent to Main thread for efficient DOM updates.
+**How `this.update()` works:** it sends the component's vdom, expanded to its `updateDepth`, through the VDOM engine.
+The VDom worker diffs it against the current vnode, and the Main thread writes the resulting deltas in its next frame.
+[The VDOM Engine](../vdomengine/Overview.md) covers each step.
 
 **Use `this.update()` when:**
 * Making standard component updates.
@@ -199,21 +197,22 @@ class AdvancedComponent extends Component {
       id : me.getItemId('my-item-id-2'),
       cls: {add: ['highlight'], remove: ['normal']}
     }, {
-      id  : me.getItemId('my-text-node-id'),
-      text: 'Updated text via direct delta'
+      id         : me.getItemId('my-text-node-id'),
+      textContent: 'Updated text via direct delta'
     }];
 
-    // Apply deltas directly to the Main Thread.
+    // Apply deltas directly to the Main Thread of this component's window.
     // This bypasses the VDom worker's diffing process and worker roundtrip.
-    Neo.applyDeltas(me.appName, deltas)
+    Neo.applyDeltas(me.windowId, deltas)
   }
 }
 ```
 
 **How `Neo.applyDeltas()` works:**
 1.  You explicitly construct an array of delta objects (e.g., specific changes to style, classes, or text for targeted VDom nodes).
-2.  These pre-calculated deltas are sent directly from the App Worker to the Main Thread.
-3.  The Main Thread immediately applies these changes to the DOM, without any prior diffing or processing by the VDom worker.
+2.  These pre-calculated deltas are sent directly from the App Worker to the Main Thread of the window you name.
+3.  The Main Thread applies these changes in its next frame, without any diffing, and the returned promise resolves
+    once they are written.
 
 **When to use `Neo.applyDeltas()` (Primary use cases):**
 * **Extreme Transient Animations**: For highly frequent, localized visual updates (e.g., continuous animations of 300-600 items' transforms, reaching ~40,000 real DOM updates per second via mousewheel events). Here, the benefit of bypassing diffing and worker roundtrips is paramount.
