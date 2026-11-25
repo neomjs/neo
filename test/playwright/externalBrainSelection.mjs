@@ -47,6 +47,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'dashboard/DemoBKeyboardDetachNL.spec.mjs',
     'dashboard/DemoBPerspectivesNL.spec.mjs',
     'dashboard/DemoBPopOutCloseNL.spec.mjs',
+    'dashboard/DemoBPopOutTwoThreadNL.spec.mjs',
     'dashboard/DemoBThirdClaimantStageNL.spec.mjs',
     'dashboard/DockAutoHideRevealNL.spec.mjs',
     'dashboard/DockCrossWindowWitnessNL.spec.mjs',
