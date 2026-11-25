@@ -214,22 +214,24 @@ class Container extends Component {
 
     /**
      * Triggered after the needsVdomUpdate config got changed. A cleared flag passes into the items an update covers:
-     * all of them for `depth: -1`, none for `depth: 1` (the container alone), one level less per level down. An item
-     * beyond the depth keeps its flag, so an update it still owes, and every promise merged into it, runs.
+     * all of them for `depth: -1`, none for `depth: 1` (the container alone), one level less per level down, and only
+     * expanded allowlist items when the update is sparse (`mergedChildIds`). An item beyond the depth or pruned as a
+     * reference keeps its flag, so an update it still owes, and every promise merged into it, runs.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @param {Number} [depth=-1] The depth the update that cleared the flag rendered
+     * @param {Set<String>|null} [mergedChildIds=null] Allowlist when the clearing payload is sparse
      * @protected
      */
-    afterSetNeedsVdomUpdate(value, oldValue, depth=-1) {
+    afterSetNeedsVdomUpdate(value, oldValue, depth=-1, mergedChildIds=null) {
         if (!value && depth !== 1) {
             this.items?.forEach(item => {
                 // check for e.g. Toolbar items like '->'
-                if (typeof item !== 'string') {
+                if (typeof item !== 'string' && (!mergedChildIds || mergedChildIds.has(item.id) || !item.vnode)) {
                     // we can not set the config directly => it could already be false,
                     // and we still want to pass it further into subtrees
                     item._needsVdomUpdate = false;
-                    item.afterSetNeedsVdomUpdate?.(false, true, depth === -1 ? -1 : depth - 1)
+                    item.afterSetNeedsVdomUpdate?.(false, true, depth === -1 ? -1 : depth - 1, mergedChildIds)
                 }
             })
         }

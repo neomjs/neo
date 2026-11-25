@@ -296,7 +296,10 @@ class VdomLifecycle extends Base {
                               children = VDomUpdate.mergedCallbackMap.get(ownerId)?.children;
 
                         collected.delete(id);
-                        if (entry && children?.get(id) === entry) children.delete(id)
+                        if (entry && children?.get(id) === entry) {
+                            children.delete(id);
+                            children.size === 0 && VDomUpdate.removeMergedOwner(ownerId)
+                        }
                     }
                 }
             }
@@ -381,7 +384,78 @@ class VdomLifecycle extends Base {
 
             let absorbedMeta, sparseScopes, absorbedScopes, foreignWindowChildren;
 
-            const collectScopes = (componentId) => {
+            const getRenderedDistance = (child, ancestorId) => {
+                let cur      = child,
+                    distance = 0;
+
+                while (cur && cur.id !== ancestorId) {
+                    if (cur.vdom?.removeDom) return -1;
+
+                    const parent = Neo.getComponent(cur.parentId);
+                    if (!parent || parent.isDestroyed || parent.windowId !== me.windowId) return -1;
+
+                    const renderedInParent = Array.isArray(parent.items)
+                        ? parent.items.includes(cur)
+                        : Boolean(parent.vdom && VDomUtil.find(parent.vdom, cur.vdom?.id || cur.id));
+
+                    if (!renderedInParent) return -1;
+
+                    distance++;
+                    cur = parent
+                }
+
+                return cur?.id === ancestorId && distance > 0 ? distance : -1
+            };
+
+            const claimUnmountedOwner = (owner, carrierId, distance) => {
+                const ownerId    = owner.id,
+                      mergedItem = VDomUpdate.mergedCallbackMap.get(ownerId);
+
+                processed.add(ownerId);
+
+                if (mergedItem) {
+                    for (const childId of [...mergedItem.children.keys()]) {
+                        const child = Neo.getComponent(childId);
+
+                        if (child && !child.isDestroyed && child.windowId !== me.windowId) {
+                            mergedItem.children.delete(childId);
+                            (foreignWindowChildren ||= new Set()).add(child)
+                        }
+                    }
+
+                    if (mergedItem.children.size === 0) {
+                        VDomUpdate.removeMergedOwner(ownerId)
+                    }
+                }
+
+                const childIds  = VDomUpdate.getMergedChildIds(ownerId),
+                      collected = componentMergedChildren.get(carrierId) || new Map();
+
+                componentMergedChildren.set(carrierId, collected);
+
+                const transferToCarrier = (targetId, targetDepth, targetDistance) => {
+                    VDomUpdate.registerMerged(carrierId, targetId, targetDepth, targetDistance);
+                    const entry = VDomUpdate.mergedCallbackMap.get(carrierId).children.get(targetId);
+                    entry.collected = true;
+                    collected.set(targetId, entry);
+                    VDomUpdate.claimPromiseCallbacks(targetId)
+                };
+
+                transferToCarrier(ownerId, owner.updateDepth, distance);
+
+                if (childIds) {
+                    for (const childId of childIds) {
+                        const child = Neo.getComponent(childId);
+                        if (child && !child.isDestroyed && child.windowId === me.windowId) {
+                            transferToCarrier(childId, child.updateDepth, distance + 1)
+                        }
+                    }
+                }
+
+                VDomUpdate.removeMergedOwner(ownerId)
+            };
+
+            const collectScopes = (componentId, parentCarrierId=null, parentDistance=1) => {
                 if (processed.has(componentId)) return;
                 processed.add(componentId);
 
@@ -389,8 +463,14 @@ class VdomLifecycle extends Base {
                 if (!component || component.isDestroyed) return;
 
                 // Skip unmounted components. They will be expanded by the Parent's TreeBuilder
-                // and handled via the Parent's resolveVdomUpdate -> syncVnodeTree.
-                if (!component.vnode) return;
+                // and handled via the Parent's resolveVdomUpdate -> syncVnodeTree; if the unmounted
+                // child itself owns transitive merged children, transfer them onto the carrying parent.
+                if (!component.vnode) {
+                    if (parentCarrierId && component.windowId === me.windowId && VDomUpdate.mergedCallbackMap.get(componentId)) {
+                        claimUnmountedOwner(component, parentCarrierId, parentDistance)
+                    }
+                    return
+                }
 
                 // IMPORTANT: In a multi-window SharedWorker environment, we must NOT batch
                 // updates from components that have moved to a different window.
@@ -412,15 +492,16 @@ class VdomLifecycle extends Base {
                     }
 
                     if (mergedItem.children.size === 0) {
-                        VDomUpdate.mergedCallbackMap.remove(componentId)
+                        VDomUpdate.removeMergedOwner(componentId)
                     }
                 }
 
                 // For every component, we check its own merged children
-                const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);
+                const mergedChildIds = VDomUpdate.getMergedChildIds(componentId),
+                      componentDepth = component.updateDepth;
 
                 // Track depth for collision filtering
-                depths.set(componentId, component.updateDepth);
+                depths.set(componentId, componentDepth);
 
                 // Snapshot the merged children we are about to process.
                 // This prevents race conditions where a child merges *after* collection but *before* resolution,
@@ -446,10 +527,10 @@ class VdomLifecycle extends Base {
                 // - Depth > 1 (Hybrid): Pass ids=mergedChildIds to enable Sparse Tree generation (pruning clean siblings).
                 //   Note: Depth -1 (Full Tree) ignores ids and is always Dense.
                 // - `denseUpdate`: the owner changed descendants silently, so nothing within its depth is clean.
-                const ids = component.updateDepth !== 1 && !component.denseUpdate ? mergedChildIds : null;
+                const ids = componentDepth !== 1 && !component.denseUpdate ? mergedChildIds : null;
 
                 // Capture the actual sparse scope before payload creation resets depth and denseUpdate.
-                if (ids && component.updateDepth !== -1) {
+                if (ids && componentDepth !== -1) {
                     (sparseScopes ||= new Map()).set(componentId, ids)
                 }
 
@@ -458,7 +539,47 @@ class VdomLifecycle extends Base {
                 // Recursively collect merged children
                 if (mergedChildIds) {
                     for (const childId of mergedChildIds) {
-                        collectScopes(childId)
+                        collectScopes(childId, componentId, 1)
+                    }
+                }
+
+                // Collect parked merge owners whose render subtree this component's payload expands, so clearing their
+                // `needsVdomUpdate` flag never strands callbacks merged into a silent or pre-mount container.
+                if (componentDepth !== 1) {
+                    const parkedOwners = VDomUpdate.getParkedOwnersUnder(componentId);
+
+                    if (parkedOwners) {
+                        for (const ownerId of [...parkedOwners]) {
+                            if (processed.has(ownerId)) continue;
+
+                            const owner = Neo.getComponent(ownerId);
+
+                            if (
+                                !owner || owner.isDestroyed
+                                || owner.windowId !== me.windowId
+                                || owner.isVdomUpdating
+                                || VDomUpdate.isAwaitingCollection(ownerId)
+                            ) {
+                                continue
+                            }
+
+                            const distance = getRenderedDistance(owner, componentId);
+                            if (distance < 1) continue;
+
+                            const covered = componentDepth === -1
+                                ? true
+                                : ids
+                                    ? (ids.has(ownerId) || !owner.vnode)
+                                    : distance < componentDepth || !owner.vnode;
+
+                            if (!covered) continue;
+
+                            if (!owner.vnode) {
+                                claimUnmountedOwner(owner, componentId, distance)
+                            } else {
+                                collectScopes(ownerId, componentId, distance)
+                            }
+                        }
                     }
                 }
             };
@@ -528,7 +649,10 @@ class VdomLifecycle extends Base {
                 for (const [childId, entry] of collected) {
                     if (childId !== ownerId && inFlightScopes.has(childId)) {
                         collected.delete(childId);
-                        if (entry && children?.get(childId) === entry) children.delete(childId)
+                        if (entry && children?.get(childId) === entry) {
+                            children.delete(childId);
+                            children.size === 0 && VDomUpdate.removeMergedOwner(ownerId)
+                        }
                     }
                 }
             }
@@ -753,7 +877,7 @@ class VdomLifecycle extends Base {
         // Only what this payload carries is up to date: descendants within its depth, and the merged children it
         // expands at their own depth. A deeper descendant keeps its flag, the wake of an update still owed to it
         me._needsVdomUpdate = false;
-        me.afterSetNeedsVdomUpdate?.(false, true, updateDepth);
+        me.afterSetNeedsVdomUpdate?.(false, true, updateDepth, updateDepth !== -1 && !me.denseUpdate ? mergedChildIds : null);
 
         mergedChildIds?.forEach(childId => {
             const child = Neo.getComponent(childId);

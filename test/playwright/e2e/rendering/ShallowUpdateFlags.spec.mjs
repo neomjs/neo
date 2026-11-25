@@ -16,11 +16,13 @@ async function runInAppWorker(page, source) {
 }
 
 /**
- * @summary A depth-1 update of an ancestor renders the ancestor alone, so it leaves a descendant's owed update standing.
- * The descendant wakes on its own flag, as `Neo.layout.Base#set` wakes a container after its silent window, and an
- * update merged into it reaches the DOM and settles its promise.
+ * @summary Ancestor updates must preserve or settle descendant merge callbacks according to whether the ancestor's
+ * payload actually renders the staged intermediate container:
+ * - Depth 1 or a sparse update that prunes the intermediate leaves its `needsVdomUpdate` flag standing for its own flight.
+ * - A covering ancestor flight (e.g. `depth: -1`) that expands the intermediate and merged host collects and settles
+ *   the host's `promiseUpdate()` callback when its batch lands.
  */
-test.describe('A shallow ancestor update leaves an owed descendant update standing', () => {
+test.describe('Ancestor updates preserve unrendered descendant flags and settle carried merge callbacks', () => {
     test('after a depth-1 update of the root, a host change merged into a staged container renders and settles once the container wakes', async ({page}) => {
         await page.goto('/examples/container/base/index.html');
         await expect(page.locator('.neo-button').first()).toBeVisible();
@@ -45,9 +47,8 @@ test.describe('A shallow ancestor update leaves an owed descendant update standi
             const intermediate = Neo.getComponent('owed-intermediate'),
                   host         = Neo.getComponent('owed-host');
 
-            intermediate.silentVdomUpdate = true;
-            intermediate.updateDepth      = -1;
-            intermediate.update();
+            intermediate.setSilent({cls: ['owed-staged']});
+            intermediate.updateDepth = -1;
 
             host.text = 'after';
             const hostUpdate = host.promiseUpdate();
@@ -56,7 +57,6 @@ test.describe('A shallow ancestor update leaves an owed descendant update standi
             root.updateDepth = 1;
             await root.promiseUpdate();
 
-            intermediate.silentVdomUpdate = false;
             intermediate.needsVdomUpdate && intermediate.update();
 
             await Promise.race([
@@ -66,5 +66,100 @@ test.describe('A shallow ancestor update leaves an owed descendant update standi
         `);
 
         await expect(page.locator('#owed-host')).toHaveText('after')
+    });
+
+    test('a deep update of the root that renders a staged container collects and settles the host callback merged into it', async ({page}) => {
+        await page.goto('/examples/container/base/index.html');
+        await expect(page.locator('.neo-button').first()).toBeVisible();
+
+        await runInAppWorker(page, `
+            const main = Object.values(Neo.apps).find(app => app.name === 'Neo.examples.container.base').mainView,
+                  root = main.add({
+                      module: Neo.container.Base,
+                      id    : 'carried-root',
+                      items : [{
+                          module: Neo.container.Base,
+                          id    : 'carried-intermediate',
+                          items : [{module: Neo.component.Base, id: 'carried-host', text: 'before'}]
+                      }]
+                  }, true);
+
+            main.updateDepth = -1;
+            await main.promiseUpdate();
+            await root.promiseUpdate();
+
+            const intermediate = Neo.getComponent('carried-intermediate'),
+                  host         = Neo.getComponent('carried-host');
+
+            intermediate.setSilent({cls: ['carried-staged']});
+            intermediate.updateDepth = -1;
+
+            host.text = 'after';
+            const hostUpdate = host.promiseUpdate();
+
+            // A full-depth ancestor flight renders both intermediate and host and clears intermediate.needsVdomUpdate,
+            // so it must claim and settle the host callback parked on intermediate's merge entry.
+            root.updateDepth = -1;
+            await root.promiseUpdate();
+
+            await Promise.race([
+                hostUpdate,
+                new Promise((resolve, reject) => setTimeout(() => reject(new Error('carried host promiseUpdate never settled')), 2000))
+            ]);
+        `);
+
+        await expect(page.locator('#carried-host')).toHaveText('after')
+    });
+
+    test('a sparse depth-2 update of the root leaves a pruned staged container dirty so its merged host settles when woken', async ({page}) => {
+        await page.goto('/examples/container/base/index.html');
+        await expect(page.locator('.neo-button').first()).toBeVisible();
+
+        await runInAppWorker(page, `
+            const main = Object.values(Neo.apps).find(app => app.name === 'Neo.examples.container.base').mainView,
+                  root = main.add({
+                      module: Neo.container.Base,
+                      id    : 'sparse-root',
+                      items : [{
+                          module: Neo.container.Base,
+                          id    : 'sparse-intermediate',
+                          items : [{module: Neo.component.Base, id: 'sparse-host', text: 'before'}]
+                      }, {
+                          module: Neo.component.Base,
+                          id    : 'sparse-sibling',
+                          text  : 'sibling-before'
+                      }]
+                  }, true);
+
+            main.updateDepth = -1;
+            await main.promiseUpdate();
+            await root.promiseUpdate();
+
+            const intermediate = Neo.getComponent('sparse-intermediate'),
+                  host         = Neo.getComponent('sparse-host'),
+                  sibling      = Neo.getComponent('sparse-sibling');
+
+            intermediate.setSilent({cls: ['sparse-staged']});
+            intermediate.updateDepth = -1;
+
+            host.text = 'after';
+            const hostUpdate = host.promiseUpdate();
+
+            // Merge only the sibling into root so root's depth-2 payload prunes sparse-intermediate as a reference
+            root.setSilent({cls: ['sparse-root-staged']});
+            root.updateDepth = 2;
+            sibling.text = 'sibling-after';
+            await root.promiseUpdate();
+
+            intermediate.needsVdomUpdate && intermediate.update();
+
+            await Promise.race([
+                hostUpdate,
+                new Promise((resolve, reject) => setTimeout(() => reject(new Error('pruned staged container lost its owed host flight')), 2000))
+            ]);
+        `);
+
+        await expect(page.locator('#sparse-host')).toHaveText('after');
+        await expect(page.locator('#sparse-sibling')).toHaveText('sibling-after')
     })
 });
