@@ -352,5 +352,108 @@ test.describe('Two-thread VDOM pipeline parity (#20780)', () => {
         const settled = await flight;
         expect(settled).toEqual({outcome: 'rejected', err: Neo.isDestroyed});
         expect(events).toEqual(['applyDeltas:called'])
+    });
+
+    test('initVnode(true) awaits Neo.applyDeltas before adopting vnodes, mounting children, or firing app mounted, and adopts nothing on rejection', async () => {
+        const {default: Container} = await import('../../../../src/container/Base.mjs'),
+              timeline             = [];
+
+        class MountOrderChild extends Component {
+            static config = {
+                className: 'Test.Unit.Vdom.TwoThreadPipeline.MountOrderChild',
+                _vdom    : {tag: 'span', text: 'child'}
+            }
+            afterSetMounted(value, oldValue) {
+                super.afterSetMounted(value, oldValue);
+                if (oldValue !== undefined) {
+                    timeline.push(`child.mounted:${value}`)
+                }
+            }
+        }
+        MountOrderChild = Neo.setupClass(MountOrderChild);
+
+        let releaseInsert, rejectInsert;
+        Neo.applyDeltas = async (windowId, deltas) => {
+            timeline.push(`applyDeltas:${deltas[0]?.action}`);
+            await new Promise((resolve, reject) => {
+                releaseInsert = resolve;
+                rejectInsert  = reject
+            });
+            timeline.push('applyDeltas:settled')
+        };
+
+        const root = Neo.create(Container, {
+                  appName,
+                  id      : 'mount-order-root',
+                  items   : [{module: MountOrderChild, id: 'mount-order-child'}],
+                  parentId: 'document.body',
+                  windowId: 1
+              }),
+              child = root.items[0],
+              app   = root.app;
+
+        const prevAppMounted = app.mounted,
+              prevAppFire    = app.fire;
+        app.mounted = false;
+        app.fire    = event => {
+            if (event === 'mounted') {
+                timeline.push('app.mounted')
+            }
+            prevAppFire?.call(app, event)
+        };
+
+        try {
+            const mountPromise = root.initVnode(true);
+            await expect.poll(() => timeline.includes('applyDeltas:insertNode')).toBe(true);
+
+            expect(root.vnode,  'root vnode not adopted before Main acknowledges insert').toBe(null);
+            expect(child.vnode, 'child vnode not adopted before Main acknowledges insert').toBe(null);
+            expect(root.mounted).toBe(false);
+            expect(child.mounted).toBe(false);
+            expect(app.mounted).toBe(false);
+            expect(timeline).toEqual(['applyDeltas:insertNode']);
+
+            releaseInsert();
+            await mountPromise;
+
+            expect(root.vnode?.id).toBe('mount-order-root');
+            expect(child.vnode?.id).toBe('mount-order-child');
+            expect(root.mounted).toBe(true);
+            expect(child.mounted).toBe(true);
+            expect(app.mounted).toBe(true);
+            expect(timeline).toEqual([
+                'applyDeltas:insertNode',
+                'applyDeltas:settled',
+                'child.mounted:true',
+                'app.mounted'
+            ]);
+
+            // Rejected insert leaves vnodes and mounted flags unset
+            const failedRoot = Neo.create(Container, {
+                appName,
+                id      : 'mount-order-failed-root',
+                items   : [{module: MountOrderChild, id: 'mount-order-failed-child'}],
+                parentId: 'document.body',
+                windowId: 1
+            });
+            const failedChild = failedRoot.items[0];
+
+            timeline.length = 0;
+            const failedMount = failedRoot.initVnode(true);
+            await expect.poll(() => timeline.includes('applyDeltas:insertNode')).toBe(true);
+            rejectInsert(new Error('insert rejected'));
+
+            await expect(failedMount).rejects.toThrow('insert rejected');
+            expect(failedRoot.vnode).toBe(null);
+            expect(failedChild.vnode).toBe(null);
+            expect(failedRoot.mounted).toBe(false);
+            expect(failedChild.mounted).toBe(false);
+
+            failedRoot.destroy()
+        } finally {
+            app.fire    = prevAppFire;
+            app.mounted = prevAppMounted;
+            root.destroy()
+        }
     })
 });

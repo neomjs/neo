@@ -82,6 +82,11 @@ class App extends Base {
      */
     themeMapFetchStarted = false
     /**
+     * @member {Promise|null} vdomHelperPromise=null
+     * @protected
+     */
+    vdomHelperPromise = null
+    /**
      * @member {String} workerId='app'
      * @protected
      */
@@ -736,7 +741,7 @@ class App extends Base {
             appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
         }
 
-        return me.importApp(appPath).then(module => {
+        return Promise.all([me.importApp(appPath), me.vdomHelperPromise]).then(([module]) => {
             Neo.bootingWindowId = windowId;
             module.onStart();
             delete Neo.bootingWindowId;
@@ -856,7 +861,9 @@ class App extends Base {
             })
         }
 
-        !config.useVdomWorker && import('../vdom/Helper.mjs')
+        if ((!config.useVdomWorker || data?.useVdomWorker === false) && !me.vdomHelperPromise) {
+            me.vdomHelperPromise = import('../vdom/Helper.mjs')
+        }
     }
 
     /**

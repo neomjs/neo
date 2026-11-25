@@ -41,10 +41,16 @@ test.describe('Workstation vessel — closing during its first render (Neural Li
                 },
                 set(handler) {
                     set.call(this, handler && function(event) {
-                        // The reply carrying the vessel's first render never reaches the main thread
-                        if (holding && event.data?.action === 'reply' && event.data.data?.autoMount) {
+                        const {data}        = event,
+                              isWorkerMount = data?.action === 'reply' && data.data?.autoMount,
+                              isDirectMount = data?.action === 'updateVdom' && data.deltas?.[0]?.action === 'insertNode';
+
+                        // The message carrying the vessel's first render never completes on the main thread
+                        if (holding && (isWorkerMount || isDirectMount)) {
                             holding = false;
-                            globalThis.__neoVesselFirstRenderHeld(event.data.data.vnode?.id ?? null);
+                            globalThis.__neoVesselFirstRenderHeld(
+                                (isWorkerMount ? data.data.vnode?.id : data.deltas[0].id) ?? null
+                            );
                             return
                         }
 

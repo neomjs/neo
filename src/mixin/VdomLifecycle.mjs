@@ -163,7 +163,8 @@ class VdomLifecycle extends Base {
     afterVnodeSync(deltas) {}
 
     /**
-     * @summary Creates a VNode tree via `Neo.vdom.Helper.create` and dispatches `insertNode` when `autoMount` runs without a VDom worker.
+     * @summary Creates a VNode tree via `Neo.vdom.Helper.create` and, when `autoMount` runs without a VDom worker,
+     * awaits `insertNode` on Main before invoking `afterCreate` so vnode adoption never runs ahead of the DOM.
      * @param {Object} config
      * @param {String} [config.appName=this.appName]
      * @param {Boolean} [config.autoMount]
@@ -171,10 +172,14 @@ class VdomLifecycle extends Base {
      * @param {Number} [config.parentIndex]
      * @param {Object} config.vdom
      * @param {Number|String} [config.windowId=this.windowId]
-     * @param {Function} [afterCreate] Invoked with `data` right after `Helper.create` resolves and before local `insertNode` dispatch
+     * @param {Function} [afterCreate] Invoked with `data` after DOM insertion is acknowledged (or after `Helper.create` when `!autoMount`)
      * @returns {Promise<Object>}
      */
     async createVnodeTree(config, afterCreate) {
+        if (!Neo.config.useVdomWorker && Neo.currentWorker?.vdomHelperPromise) {
+            await Neo.currentWorker.vdomHelperPromise
+        }
+
         const me         = this,
               windowId   = config.windowId ?? me.windowId,
               createOpts = {
@@ -183,8 +188,6 @@ class VdomLifecycle extends Base {
                   windowId
               },
               data       = await Promise.resolve(Neo.vdom.Helper.create(createOpts));
-
-        afterCreate?.(data);
 
         if (createOpts.autoMount && !Neo.config.useVdomWorker) {
             const deltas = [{
@@ -199,6 +202,10 @@ class VdomLifecycle extends Base {
             data.deltas = deltas;
 
             await Neo.applyDeltas(windowId, deltas)
+        }
+
+        if (!me.isDestroyed) {
+            afterCreate?.(data)
         }
 
         return data
@@ -900,10 +907,10 @@ class VdomLifecycle extends Base {
      * @returns {Promise<any>} If getting there, we return the data from vdom.Helper: create(), containing the vnode.
      */
     async initVnode(mount) {
-        let me                                                     = this,
-            autoMount                                              = mount || me.autoMount,
-            {app, id}                                              = me,
-            {allowVdomUpdatesInTests, unitTestMode, useVdomWorker} = Neo.config;
+        let me                                      = this,
+            autoMount                               = mount || me.autoMount,
+            {app, id}                               = me,
+            {allowVdomUpdatesInTests, unitTestMode} = Neo.config;
 
         if (unitTestMode && !allowVdomUpdatesInTests) return;
 
@@ -960,12 +967,8 @@ class VdomLifecycle extends Base {
                     vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
                     windowId   : me.windowId
                 }, ({vnode}) => {
-                    me.onInitVnode(vnode, useVdomWorker ? autoMount : false)
+                    me.onInitVnode(vnode, autoMount)
                 });
-
-                if (autoMount && !useVdomWorker) {
-                    me.mounted = true
-                }
 
                 if (!data.deltas) {
                     data.deltas = []
