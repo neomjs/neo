@@ -112,5 +112,88 @@ test.describe('dialog.Base: the animation target decides the window only when it
 
         expect(dialog.windowId).toBe(9);
         expect(dialog.appName).toBe('DialogAnimateTargetOther')
+    });
+
+    test('animateShow and animateHide hold neo-animating while in flight and clear it on settle', async () => {
+        const deltas = [],
+              dialog = create({animateTargetId: 'launcher-item-mail'});
+        let   clsAtMount;
+
+        Neo.applyDeltas  = async (windowId, delta) => {deltas.push(delta)};
+        dialog.initVnode = () => {
+            clsAtMount      = [...dialog.vdom.cls];
+            dialog._mounted = true;
+            dialog._vnode   = {className: [...dialog.vdom.cls], id: dialog.id};
+            return Promise.resolve()
+        };
+
+        await dialog.animateShow();
+
+        expect(clsAtMount, 'mounted with pointer hits suppressed').toContain('neo-animating');
+        expect(dialog.cls).not.toContain('neo-animating');
+        expect(dialog.vdom.cls).not.toContain('neo-animating');
+        expect(dialog.vnode.className).not.toContain('neo-animating');
+        expect(deltas.at(-1).cls?.remove, 'landing delta clears both animation classes')
+            .toEqual(['animated-hiding-showing', 'neo-animating']);
+
+        deltas.length = 0;
+
+        await dialog.animateHide();
+
+        expect(deltas[0].cls?.add, 'hide flight suppresses pointer hits at start').toEqual(['neo-animating']);
+        expect(dialog.cls, 'kept dialog clears neo-animating for the next open').not.toContain('neo-animating');
+        expect(dialog.vdom.cls).not.toContain('neo-animating')
+    });
+
+    test('a hide() mid-animateShow exits before expanding and cleans up neo-animating; overlapping hide/show serialize', async () => {
+        const deltas = [],
+              dialog = create({animateTargetId: 'launcher-item-mail'});
+
+        Neo.applyDeltas  = async (windowId, delta) => {deltas.push(delta)};
+        dialog.initVnode = () => {
+            dialog._mounted = true;
+            dialog._vnode   = {className: [...dialog.vdom.cls], id: dialog.id};
+            dialog.hide();
+            return Promise.resolve()
+        };
+
+        dialog.show();
+        await dialog.mountFlight;
+
+        expect(deltas.some(delta => delta.cls?.add?.includes('animated-hiding-showing')),
+            'cancelled show skips the 200ms expansion').toBe(false);
+        expect(dialog.cls).not.toContain('neo-animating');
+        expect(dialog.vdom.cls).not.toContain('neo-animating');
+        expect(dialog.hidden).toBe(true);
+
+        // Reopen cleanly, then verify duplicate hide() runs one animateHide() and show() mid-hide reopens on settle
+        dialog.initVnode = () => {dialog._mounted = true; return Promise.resolve()};
+        dialog.show();
+        await dialog.mountFlight;
+        expect(dialog.hidden).toBe(false);
+
+        let hideRuns = 0, releaseHide, showRuns = 0;
+        dialog.animateHide = () => {
+            hideRuns++;
+            return new Promise(resolve => {releaseHide = () => {dialog.closeOrHide(false); resolve()}})
+        };
+        dialog.animateShow = () => {
+            showRuns++;
+            dialog._mounted = true;
+            return Promise.resolve()
+        };
+
+        dialog.hide();
+        dialog.hide();
+        expect(hideRuns, 'second hide() starts no second hide flight').toBe(1);
+
+        dialog.show();
+        expect(showRuns, 'show() waits for the active hide flight to unmount first').toBe(0);
+
+        releaseHide();
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(showRuns, 'hide flight reopens once settled').toBe(1);
+        expect(dialog.hidden).toBe(false)
     })
 });

@@ -195,6 +195,16 @@ class Dialog extends Panel {
      * @member {Object|null} #boundarySize=null
      */
     #boundarySize = null
+    /**
+     * Active {@link #animateHide} flight, preventing duplicate hide animations and sequencing an overlapping {@link #show}
+     * @member {Promise|null} #hideFlight=null
+     */
+    #hideFlight = null
+    /**
+     * Pending {@link #show} request that arrived while {@link #hideFlight} was unmounting the dialog
+     * @member {Object|null} #reopenAfterHide=null
+     */
+    #reopenAfterHide = null
 
     /**
      * The geometry a move or a resize writes into `style`: a boundary check measured before one of them landed must
@@ -463,14 +473,14 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * @summary Shrinks the dialog onto {@link #animateTargetId} while suppressing pointer hits, then closes or hides it.
+     * @returns {Promise<void>}
      */
     async animateHide() {
         let me                  = this,
             {animateTarget, id} = me,
             rects, windowId;
 
-        // Assuming that we want to show the dialog inside the same browser window as the animation target
         if (animateTarget) {
             me.windowId = animateTarget.windowId;
             me.appName  = animateTarget.appName
@@ -478,35 +488,40 @@ class Dialog extends Panel {
 
         windowId = me.windowId;
 
-        rects = await me.getDomRect([id, me.animateTargetId])
+        me.#setAnimating(true);
 
-        await Neo.applyDeltas(windowId, {
-            id,
-            style: {
-                height   : `${rects[0].height}px`,
-                left     : `${rects[0].left  }px`,
-                top      : `${rects[0].top   }px`,
-                transform: 'none',
-                width    : `${rects[0].width }px`
-            }
-        });
+        try {
+            rects = await me.getDomRect([id, me.animateTargetId]);
 
-        await me.timeout(30);
+            await Neo.applyDeltas(windowId, {
+                id,
+                cls  : {add: ['neo-animating']},
+                style: {
+                    height   : `${rects[0].height}px`,
+                    left     : `${rects[0].left  }px`,
+                    top      : `${rects[0].top   }px`,
+                    transform: 'none',
+                    width    : `${rects[0].width }px`
+                }
+            });
 
-        await Neo.applyDeltas(windowId, {
-            id,
-            cls: {
-                add: ['animated-hiding-showing']
-            },
-            style: {
-                height: `${rects[1].height}px`,
-                left  : `${rects[1].left  }px`,
-                top   : `${rects[1].top   }px`,
-                width : `${rects[1].width }px`
-            }
-        });
+            await me.timeout(30);
 
-        await me.timeout(250);
+            await Neo.applyDeltas(windowId, {
+                id,
+                cls  : {add: ['animated-hiding-showing']},
+                style: {
+                    height: `${rects[1].height}px`,
+                    left  : `${rects[1].left  }px`,
+                    top   : `${rects[1].top   }px`,
+                    width : `${rects[1].width }px`
+                }
+            });
+
+            await me.timeout(250)
+        } finally {
+            me.#setAnimating(false)
+        }
 
         me.closeOrHide(false);
 
@@ -516,14 +531,14 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * @summary Mounts and expands the dialog from {@link #animateTargetId}, suppressing pointer hits until settled.
+     * @returns {Promise<void>}
      */
     async animateShow() {
         let me                         = this,
             {animateTarget, id, style} = me,
             rect;
 
-        // Assuming that we want to show the dialog inside the same browser window as the animation target
         if (animateTarget) {
             me.windowId = animateTarget.windowId;
             me.appName  = animateTarget.appName
@@ -544,53 +559,69 @@ class Dialog extends Panel {
             me._style = style = tempStyle
         }
 
-        // rendered outside the visible area
-        await me.initVnode(true);
+        me.#setAnimating(true);
 
-        let [dialogRect, bodyRect] = await me.waitForDomRect({id: [me.id, 'document.body']});
+        try {
+            // rendered outside the visible area
+            await me.initVnode(true);
 
-        // Move to cover the animation target
-        await Neo.applyDeltas(me.windowId, {
-            id,
-            style: {
-                height: `${rect.height}px`,
-                left  : `${rect.left  }px`,
-                top   : `${rect.top   }px`,
-                width : `${rect.width }px`
+            if (me.mountFlight && me._hidden) return;
+
+            let [dialogRect, bodyRect] = await me.waitForDomRect({id: [me.id, 'document.body']});
+
+            if (me.mountFlight && me._hidden) return;
+
+            // Move to cover the animation target
+            await Neo.applyDeltas(me.windowId, {
+                id,
+                style: {
+                    height: `${rect.height}px`,
+                    left  : `${rect.left  }px`,
+                    top   : `${rect.top   }px`,
+                    width : `${rect.width }px`
+                }
+            });
+
+            // Wait for the element to achieve its initial rectangle
+            await me.timeout(50);
+
+            if (me.mountFlight && me._hidden) return;
+
+            // Expand to final state
+            await Neo.applyDeltas(me.windowId, {
+                id,
+                cls: {
+                    add: ['animated-hiding-showing']
+                },
+                style: {
+                    height: style?.height || `${dialogRect.height}px`,
+                    left  : style?.left   || `${Math.round(bodyRect.width  / 2 - dialogRect.width  / 2)}px`,
+                    top   : style?.top    || `${Math.round(bodyRect.height / 2 - dialogRect.height / 2)}px`,
+                    width : style?.width  || `${dialogRect.width}px`
+                }
+            });
+
+            await me.timeout(200);
+
+            if (me.mountFlight && me._hidden) return;
+
+            me.#setAnimating(false);
+
+            // Remove the animation classes. The measured height was only its end point: a dialog whose height nothing
+            // declares follows its content again, so a message its form shows below a field has room.
+            await Neo.applyDeltas(me.windowId, {
+                id,
+                cls: {remove: ['animated-hiding-showing', 'neo-animating']},
+                ...!(me.height || style?.height || me.wrapperStyle?.height) && {style: {height: null}}
+            });
+
+            // show() holds this as a mount flight, which lands on the latest hidden: a hide() during the animation wins
+            if (!me._hidden) {
+                me.fire('show');
+                me.syncModalMask()
             }
-        });
-
-        // Wait for the element to achieve its initial rectangle
-        await me.timeout(50);
-
-        // Expand to final state
-        await Neo.applyDeltas(me.windowId, {
-            id,
-            cls: {
-                add: ['animated-hiding-showing']
-            },
-            style: {
-                height: style?.height || `${dialogRect.height}px`,
-                left  : style?.left   || `${Math.round(bodyRect.width  / 2 - dialogRect.width  / 2)}px`,
-                top   : style?.top    || `${Math.round(bodyRect.height / 2 - dialogRect.height / 2)}px`,
-                width : style?.width  || `${dialogRect.width}px`
-            }
-        });
-
-        await me.timeout(200);
-
-        // Remove the animation class. The measured height was only its end point: a dialog whose height nothing
-        // declares follows its content again, so a message its form shows below a field has room.
-        await Neo.applyDeltas(me.windowId, {
-            id,
-            cls: {remove: ['animated-hiding-showing']},
-            ...!(me.height || style?.height || me.wrapperStyle?.height) && {style: {height: null}}
-        });
-
-        // show() holds this as a mount flight, which lands on the latest hidden: a hide() during the animation wins
-        if (!me._hidden) {
-            me.fire('show');
-            me.syncModalMask()
+        } finally {
+            me.#setAnimating(false)
         }
     }
 
@@ -613,7 +644,7 @@ class Dialog extends Panel {
         me.revertFocus();
 
         if (animate) {
-            me.#afterAnimation(me.animateHide())
+            me.#hideFlight ??= me.#afterAnimation(me.animateHide()).finally(() => {me.#hideFlight = null})
         } else {
             // destroy() takes the mask along and retires the instance and its timers
             me.fire('close');
@@ -844,15 +875,26 @@ class Dialog extends Panel {
     }
 
     /**
-     * Hides the dialog and writes `hidden`. A landed dialog can animate out. Otherwise component.Base#hide
-     * removes it, and leaves a dialog still in its mount flight to the flight.
+     * Hides the dialog and writes `hidden`. A landed dialog animates out in one flight at a time, and re-enters
+     * {@link #show} if shown again before the flight settles. Otherwise component.Base#hide removes it, and leaves a
+     * dialog still in its mount flight to the flight.
      * @param {Boolean} animate=!!this.animateTargetId
      */
     async hide(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (animate && me.mounted && !me.mountFlight) {
-            me.#afterAnimation(me.animateHide())
+        if (me.#hideFlight && animate) {
+            me.#reopenAfterHide = null;
+            me._hidden          = true
+        } else if (animate && me.mounted && !me.mountFlight) {
+            me.#reopenAfterHide = null;
+            me._hidden          = true;
+            me.#hideFlight      = me.#afterAnimation(me.animateHide()).finally(() => {
+                const reopen = me.#reopenAfterHide;
+                me.#hideFlight      = null;
+                me.#reopenAfterHide = null;
+                reopen && !me.isDestroyed && me.show(reopen.animate)
+            })
         } else {
             super.hide();
             me.fire('hide')
@@ -1152,12 +1194,19 @@ class Dialog extends Panel {
     }
 
     /**
-     * Shows the dialog and writes `hidden`. An animated show is a mount flight of its own, one at a time.
+     * Shows the dialog and writes `hidden`. An animated show is a mount flight of its own, one at a time; a show
+     * arriving during {@link #animateHide} flips `hidden` back so the hide flight reopens on settle.
      * A dialog that is mounted or in flight goes through component.Base#show, which does not mount it again.
      * @param {Boolean} animate=!!this.animateTargetId
      */
     show(animate=!!this.animateTargetId) {
         let me = this;
+
+        if (me.#hideFlight) {
+            me.#reopenAfterHide = {animate};
+            me._hidden          = false;
+            return
+        }
 
         if (animate && !me.mounted && !me.mountFlight) {
             me._hidden = false;
@@ -1168,6 +1217,18 @@ class Dialog extends Panel {
         }
 
         me.syncModalMask()
+    }
+
+    /**
+     * @param {Boolean} animating
+     */
+    #setAnimating(animating) {
+        let me   = this,
+            name = 'neo-animating';
+
+        NeoArray.toggle(me._cls,     name, animating);
+        NeoArray.toggle(me.vdom.cls, name, animating);
+        me.vnode?.className && NeoArray.toggle(me.vnode.className, name, animating)
     }
 
     /**
