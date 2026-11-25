@@ -27,9 +27,7 @@
     "examples/functional/defineComponent", "examples/functional/hostComponent",
     {"path": "examples/functional/nestedTemplateComponent", "width": 240, "height": 150},
     {"path": "examples/sitemap", "width": 300, "height": 160},
-    {"path": "examples/tab/container", "width": 264, "height": 176},
-    {"path": "examples/tree", "width": 300, "height": 350},
-    {"path": "examples/treeAccordion", "width": 300, "height": 270}
+    {"path": "examples/tab/container", "width": 264, "height": 176}
   ],
   "recipes": [
     {

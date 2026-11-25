@@ -336,6 +336,12 @@ test('the committed tile list names workbench entries that exist', async () => {
     expect(selectTiles(valid, 'examples/component/video')).toEqual([
         {id: 'component-video', path: 'examples/component/video', url: 'examples/component/video/index.html'}
     ]);
+    expect(selectTiles(valid, 'examples/tree')).toEqual([
+        {id: 'tree', path: 'examples/tree', url: 'examples/tree/index.html'}
+    ]);
+    expect(selectTiles(valid, 'examples/treeAccordion')).toEqual([
+        {id: 'treeAccordion', path: 'examples/treeAccordion', url: 'examples/treeAccordion/index.html'}
+    ]);
     for (const tile of valid.tiles) {
         const source = fs.readFileSync(new URL(`../../../../../${tile.path}/MainContainer.mjs`, import.meta.url), 'utf8');
         // A field entry extends the workbench through its states template

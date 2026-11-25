@@ -89,5 +89,34 @@ test.describe('Tree tiles', () => {
 
         await expect(panel).toContainText('Quiet hours');
         await expect(item('Quiet hours')).toHaveClass(/neo-selected/)
+    });
+
+    test('both examples fit their 390 × 844 stage without horizontal overflow', async ({page}) => {
+        const errors = [];
+        page.on('pageerror', err => errors.push(err.message));
+        await page.setViewportSize({width: 390, height: 844});
+
+        for (const [url, readySelector] of [
+            ['/examples/tree/index.html',          '.tree-playlist .neo-list-item'],
+            ['/examples/treeAccordion/index.html', '.tree-settings-selection']
+        ]) {
+            await page.goto(url);
+            await expect(page.locator(readySelector).first()).toBeVisible();
+
+            const fit = await page.locator('.neo-example-container').first().evaluate(stage => {
+                const sb = stage.getBoundingClientRect();
+                return {
+                    overflowX    : stage.scrollWidth - stage.clientWidth,
+                    childrenInBox: [...stage.children].every(el => {
+                        const b = el.getBoundingClientRect();
+                        return b.left >= sb.left - 1 && b.right <= sb.right + 1
+                    })
+                }
+            });
+
+            expect(fit, url).toEqual({overflowX: 0, childrenInBox: true})
+        }
+
+        expect(errors).toEqual([])
     })
 });
