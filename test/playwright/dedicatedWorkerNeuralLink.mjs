@@ -634,9 +634,10 @@ export function createDedicatedWorkerAppConnection({getLogs = () => [], getWorke
  * @param {Function} use
  * @param {Object}   [options]
  * @param {Function} [options.assertUnnavigated]
+ * @param {Object}   [options.runConfig={}] Config keys set before a spec's own edits, as the Brain path sets them
  * @returns {Promise<void>}
  */
-export async function runDedicatedWorkerNeuralLink({browser, context, page}, use, {assertUnnavigated} = {}) {
+export async function runDedicatedWorkerNeuralLink({browser, context, page}, use, {assertUnnavigated, runConfig = {}} = {}) {
     const writerPair  = mintTestWriterPair(),
           seenWorkers = new Set(),
           bindings    = new Map();
@@ -648,7 +649,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
             return route.fulfill({response})
         }
 
-        await route.fulfill({response, json: {...mutate(await response.json()), allowAiClientInTests: true}})
+        await route.fulfill({response, json: {...mutate({...await response.json(), ...runConfig}), allowAiClientInTests: true}})
     });
 
     await routeConfig(context);

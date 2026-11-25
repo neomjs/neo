@@ -180,6 +180,13 @@ export function assertUnnavigatedBeforeNeuralLinkRoute(page) {
 const MIRRORED_WORKER_ERROR = /^[A-Za-z]+ Worker: /;
 
 /**
+ * Config keys a measurement run sets for every Neural Link page (`NEO_E2E_NEO_CONFIG`, JSON, from the e2e dispatch's
+ * `neoConfig` input). They apply before a spec's own edits, so a spec that pins a key keeps it.
+ * @type {Object}
+ */
+const RUN_CONFIG = JSON.parse(process.env.NEO_E2E_NEO_CONFIG || '{}');
+
+/**
  * An App Worker id, which `connectToApp` binds exactly, as opposed to an app's name.
  * @type {RegExp}
  */
@@ -343,7 +350,8 @@ export const test = base.extend({
     neuralLink: async ({ browser, context, page }, use) => {
         if (!hasBrainRuntimeRoot()) {
             return runDedicatedWorkerNeuralLink({ browser, context, page }, use, {
-                assertUnnavigated: assertUnnavigatedBeforeNeuralLinkRoute
+                assertUnnavigated: assertUnnavigatedBeforeNeuralLinkRoute,
+                runConfig        : RUN_CONFIG
             })
         }
 
@@ -377,7 +385,7 @@ export const test = base.extend({
                 return route.fulfill({response})
             }
 
-            await route.fulfill({response, json: {...mutate(await response.json()), neuralLinkUrl: `ws://127.0.0.1:${aiConfig.port}`}})
+            await route.fulfill({response, json: {...mutate({...await response.json(), ...RUN_CONFIG}), neuralLinkUrl: `ws://127.0.0.1:${aiConfig.port}`}})
         });
 
         await routeConfig(context);
