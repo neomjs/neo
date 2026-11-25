@@ -661,7 +661,7 @@ class VdomLifecycle extends Base {
                 ? new Error('VDOM batch canceled by a destroyed component') : err;
 
             // Rejection releases every root without acknowledging a vnode it did not receive.
-            (failedScopes.length === 0 && err === Neo.isDestroyed) || err?.name === 'PortDisconnectedError'
+            (failedScopes.length === 0 && err === Neo.isDestroyed) || Neo.currentWorker?.isDeparture?.(err)
                 || failedScopes.some(([id]) => VDomUpdate.hasPromiseCallbacks(id))
                 || console.error('vdom update failed', me.id, failureReason);
 
