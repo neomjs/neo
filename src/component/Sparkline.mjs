@@ -133,6 +133,25 @@ class Sparkline extends Canvas {
     }
 
     /**
+     * @summary Unregisters the prior window's sparkline entry when `windowId` changes while still registered.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let me = this;
+
+        if (oldValue && me.offscreenRegistered) {
+            me.renderer?.unregister({
+                canvasId: me.id,
+                windowId: oldValue
+            })
+        }
+
+        super.afterSetWindowId(value, oldValue)
+    }
+
+    /**
      * @param {Number[]|null} value
      * @param {Number[]|null} oldValue
      */

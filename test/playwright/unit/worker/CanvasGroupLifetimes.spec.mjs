@@ -313,5 +313,36 @@ test.describe('Neo.worker.App canvas group lifetimes', () => {
         expect(report.twoGroups).toMatchObject({code: 'NEO_UNROUTABLE', settled: 'rejected'});
         expect(report.scalar).toBe('dark');
         expect(report.object).toBe('light')
+    });
+
+    test('a departing member window sends releaseWindowCanvases over a surviving group channel, and not once the group retires', async () => {
+        const report = await runCase(`
+            const opener = mainPort('port-opener', 'W-opener'),
+                  popup  = mainPort('port-popup', 'W-popup'),
+                  A      = canvasChannel();
+
+            app.onRegisterCanvasGroup({group: 'g', windowId: 'W-opener'});
+            app.onRegisterCanvasGroup({group: 'g', windowId: 'W-popup'});
+            relay('g', A);
+            register(A);
+            await tick();
+
+            app.removePort(popup);
+            await tick();
+
+            report.afterPopupClose = A.received
+                .filter(({action}) => action === 'releaseWindowCanvases')
+                .map(({windowId}) => windowId);
+
+            app.removePort(opener);
+            await tick();
+
+            report.afterLastWindowClose = A.received
+                .filter(({action}) => action === 'releaseWindowCanvases')
+                .map(({windowId}) => windowId)
+        `);
+
+        expect(report.afterPopupClose).toEqual(['W-popup']);
+        expect(report.afterLastWindowClose).toEqual(['W-popup'])
     })
 });

@@ -150,21 +150,27 @@ class Sparkline extends Base {
     }
 
     /**
-     * Registers a new offscreen canvas for rendering.
+     * @summary Registers an offscreen canvas for rendering under its owning window.
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Number} [data.devicePixelRatio=1]
      * @param {String} [data.theme='light']
      * @param {Boolean} [data.usePulse=true]
      * @param {Boolean} [data.useTransition=true]
-     * @param {String} data.windowId
+     * @param {String} [data.windowId]
      */
     register(data) {
-        let me         = this,
-            {canvasId} = data,
-            canvas     = Neo.worker.Canvas.map[canvasId];
+        let me                   = this,
+            {canvasId, windowId} = data,
+            canvasWorker         = Neo.worker.Canvas,
+            byWindow             = canvasWorker.canvasWindowMap?.[canvasId],
+            canvas               = (windowId && byWindow) ? byWindow[windowId] : canvasWorker.map[canvasId];
 
         if (canvas) {
+            let previous = me.items.get(canvasId);
+
+            previous && me.activeItems.delete(previous);
+
             me.items.set(canvasId, {
                 canvas,
                 ctx             : canvas.getContext('2d'),
@@ -177,7 +183,8 @@ class Sparkline extends Base {
                 theme           : data.theme || 'light',
                 usePulse        : data.usePulse !== false,
                 useTransition   : data.useTransition !== false,
-                width           : canvas.width
+                width           : canvas.width,
+                windowId        : windowId ?? null
             });
 
             if (!me.animationId) {
@@ -187,17 +194,51 @@ class Sparkline extends Base {
     }
 
     /**
-     * Unregisters a canvas.
+     * @summary Unregisters a canvas without evicting a newer window's live surface for the same id.
      * @param {Object} data
+     * @param {OffscreenCanvas} [data.canvas]
      * @param {String} data.canvasId
+     * @param {String} [data.windowId]
      */
     unregister(data) {
-        let me   = this,
-            item = me.items.get(data.canvasId);
+        if (!data?.canvasId) {
+            return
+        }
+
+        let me                           = this,
+            {canvas, canvasId, windowId} = data,
+            item                         = me.items.get(canvasId);
 
         if (item) {
+            if (canvas && item.canvas !== canvas) {
+                return
+            }
+
+            if (windowId && item.windowId && item.windowId !== windowId) {
+                return
+            }
+
             me.activeItems.delete(item);
-            me.items.delete(data.canvasId)
+            me.items.delete(canvasId)
+        }
+    }
+
+    /**
+     * @summary Releases every sparkline item still owned by a departed window.
+     * @param {String} windowId
+     */
+    unregisterWindow(windowId) {
+        if (!windowId) {
+            return
+        }
+
+        let me = this;
+
+        for (const [canvasId, item] of me.items.entries()) {
+            if (item.windowId === windowId) {
+                me.activeItems.delete(item);
+                me.items.delete(canvasId)
+            }
         }
     }
 

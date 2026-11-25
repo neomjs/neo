@@ -87,4 +87,62 @@ test.describe('Neo.grid.Row forwards windowId to its cell components', () => {
             workers.Canvas       = originalCanvas
         }
     });
+
+    test('a mounted canvas cell re-registers after a silent cross-window move even when the destination DOM node lands late', async () => {
+        const transfers      = [],
+              unregisters    = [],
+              mainThread     = Neo.main ??= {},
+              workers        = Neo.worker ??= {},
+              originalAccess = mainThread.DomAccess,
+              originalCanvas = workers.Canvas;
+        let domReady = false;
+
+        mainThread.DomAccess = {
+            transferCanvasToWorker(opts) {
+                transfers.push({...opts, domReady});
+
+                if (!domReady) {
+                    domReady = true;
+                    return {transferred: false, reason: 'missing-node'}
+                }
+
+                Neo.getComponent(opts.componentId)?.registerCanvasCallbacks?.[opts.nodeId]?.();
+                return {transferred: true}
+            }
+        };
+        workers.Canvas = {
+            unregisterCanvas(opts) {
+                unregisters.push(opts)
+            }
+        };
+
+        try {
+            row  = Neo.create(Row,    {appName: APP, windowId: 'w1'});
+            cell = Neo.create(Canvas, {appName: APP, windowId: 'w1', monitorSize: false, offscreenRegistered: true, parentComponent: row});
+
+            // Simulate an already-mounted cell inside a container whose cross-window move sets only the ancestor's
+            // `_mounted = false` silently while forwarding `windowId` down to pooled row cells.
+            cell._mounted = true;
+            row.components = {live: cell};
+
+            row.windowId = 'w2';
+
+            expect(unregisters).toEqual([{nodeId: cell.getCanvasId(), windowId: 'w1'}]);
+            expect(cell.offscreenRegistered).toBe(false);
+
+            await expect.poll(() => cell.offscreenRegistered, {
+                message: 'retries past the missing-node window and completes registration in w2'
+            }).toBe(true);
+
+            expect(transfers).toEqual([
+                {componentId: cell.id, nodeId: cell.getCanvasId(), windowId: 'w2', domReady: false},
+                {componentId: cell.id, nodeId: cell.getCanvasId(), windowId: 'w2', domReady: true}
+            ])
+        } finally {
+            cell?.destroy?.();
+            cell = null;
+            mainThread.DomAccess = originalAccess;
+            workers.Canvas       = originalCanvas
+        }
+    });
 });
