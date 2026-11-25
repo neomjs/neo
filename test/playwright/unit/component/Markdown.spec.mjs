@@ -36,7 +36,7 @@ class DeferredMarkdown extends Markdown {
 Neo.setupClass(DeferredMarkdown);
 
 test.describe('Neo.component.Markdown', () => {
-    const markdown = Object.create(Markdown.prototype);
+    const markdown = Object.create(Markdown.prototype, {windowId: {value: null}});
 
     test('wrapMarkdownTables wraps rendered Markdown tables', () => {
         const html = '<p>Intro</p><table><thead><tr><th>Name</th></tr></thead><tbody><tr><td>Neo</td></tr></tbody></table>';
@@ -64,7 +64,7 @@ test.describe('Neo.component.Markdown', () => {
         // code span for a token, then restores it with `content.replace(token, value)` — and as a
         // STRING replacement, the restored "`$`" reads as `$` + backtick, which is JS's "insert
         // everything before the match" pattern. The whole preceding document is spliced back in.
-        const component = Object.create(Markdown.prototype);
+        const component = Object.create(Markdown.prototype, {windowId: {value: null}});
 
         Object.assign(component, {
             issuesUrl        : 'https://example.com/issues/',
@@ -83,7 +83,7 @@ test.describe('Neo.component.Markdown', () => {
     test('a ticket id inside a Markdown link stays part of that link, and a bare one still becomes a ticket link', () => {
         // A blog post's link to a Discussion, whose text names the Discussion's number, rendered as two links, and
         // the second one opened the tickets view for that number
-        const component = Object.create(Markdown.prototype);
+        const component = Object.create(Markdown.prototype, {windowId: {value: null}});
 
         Object.assign(component, {
             issuesUrl        : '#/news/tickets/',
@@ -101,7 +101,7 @@ test.describe('Neo.component.Markdown', () => {
     test('a code span inside a Markdown link stays part of that link', () => {
         // Blog posts link code names, `[`openapi.yaml`](url)`, and rendered the link text as a bold
         // NEO_INLINE_CODE_n placeholder: the link's token held the code span's token
-        const component = Object.create(Markdown.prototype);
+        const component = Object.create(Markdown.prototype, {windowId: {value: null}});
 
         Object.assign(component, {
             issuesUrl        : '#/news/tickets/',
@@ -125,7 +125,7 @@ test.describe('Neo.component.Markdown', () => {
     });
 
     test('excludes head-only SEO frontmatter keys (seoTitle, seoDescription, robots) without rendering an empty Frontmatter details block (#20917)', () => {
-        const component = Object.create(Markdown.prototype);
+        const component = Object.create(Markdown.prototype, {windowId: {value: null}});
 
         Object.assign(component, {
             renderFrontmatter    : true,
@@ -263,5 +263,75 @@ test.describe('Neo.component.Markdown render order', () => {
 
         await expect(render).resolves.toEqual({});
         expect(Neo.get(orphanId)).toBeFalsy()
+    });
+
+    test('windowId change preserves embedded components across same-config windows and re-renders links on hash -> pathname transition (#22170)', async () => {
+        const prevWindowConfigs = Neo.windowConfigs,
+              widgetId          = 'markdown-window-move-widget';
+
+        Neo.windowConfigs = {
+            ...prevWindowConfigs,
+            'win-hash-a': {routerMode: 'hash',     routerBasePath: ''},
+            'win-hash-b': {routerMode: 'hash',     routerBasePath: ''},
+            'win-path'  : {routerMode: 'pathname', routerBasePath: '/alpha'}
+        };
+
+        try {
+            markdown.set({
+                issuesUrl       : '#/news/tickets/',
+                replaceTicketIds: true,
+                windowId        : 'win-hash-a'
+            });
+            markdown.contentRoute = '#/learn/';
+
+            markdown.value = [
+                '# Routing article',
+                '',
+                'See #42.',
+                '',
+                '```json neo-component',
+                JSON.stringify({id: widgetId, html: widgetId}),
+                '```'
+            ].join('\n');
+
+            highlights[0]();
+            await flush();
+            mountDelays[0]();
+            await flush();
+
+            const [initialEmbedded] = markdown.activeComponents;
+
+            expect(initialEmbedded.id).toBe(widgetId);
+            expect(initialEmbedded.isDestroyed).toBeFalsy();
+            expect(markdown.html).toContain('href="#/news/tickets/42"');
+            expect(highlights).toHaveLength(1);
+
+            // Moving between two windows with identical router config keeps the live child instance intact
+            markdown.windowId = 'win-hash-b';
+            await flush();
+
+            expect(markdown.activeComponents).toEqual([initialEmbedded]);
+            expect(initialEmbedded.isDestroyed).toBeFalsy();
+            expect(initialEmbedded.windowId).toBe('win-hash-b');
+            expect(highlights, 'same-config windowId move must not re-render').toHaveLength(1);
+
+            // Moving from a hash window to a pathname window re-renders internal route links
+            markdown.windowId = 'win-path';
+            await flush();
+
+            expect(highlights, 'hash -> pathname move triggers a fresh render').toHaveLength(2);
+            highlights[1]();
+            await flush();
+            mountDelays[1]();
+            await flush();
+
+            expect(markdown.html).toContain('href="/alpha/news/tickets/42"');
+            expect(markdown.html).not.toContain('target="_blank"');
+            expect(markdown.activeComponents[0].id).toBe(widgetId);
+            expect(markdown.activeComponents[0].windowId).toBe('win-path')
+        } finally {
+            Neo.windowConfigs = prevWindowConfigs;
+            Neo.get(widgetId)?.destroy()
+        }
     });
 });

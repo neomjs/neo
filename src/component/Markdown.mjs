@@ -154,17 +154,30 @@ class Markdown extends Component {
     }
 
     /**
-     * Triggered after the windowId config got changed
+     * Triggered after the windowId config got changed.
+     * Re-renders Markdown HTML only when the new window resolves internal `#/` ticket or content links
+     * to a different href target (`routerMode` or `routerBasePath` change), preserving live embedded
+     * components across same-config window moves and initial `windowId` assignment.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
     async afterSetWindowId(value, oldValue) {
-        super.afterSetWindowId(value, oldValue);
-        this.activeComponents.forEach(component => component.windowId = value);
+        let me = this;
 
-        if (value != null && this.value && ((this.replaceTicketIds && this.issuesUrl?.startsWith('#/')) || this.contentRoute?.startsWith('#/'))) {
-            await this.afterSetValue(this.value, this.value)
+        super.afterSetWindowId(value, oldValue);
+        me.activeComponents.forEach(component => component.windowId = value);
+
+        if (value != null && me.value) {
+            const
+                issuesChanged = me.replaceTicketIds && me.issuesUrl?.startsWith('#/') &&
+                    StringUtil.toRouteHref(me.issuesUrl, oldValue) !== StringUtil.toRouteHref(me.issuesUrl, value),
+                contentChanged = me.contentRoute?.startsWith('#/') &&
+                    StringUtil.toRouteHref(me.contentRoute, oldValue) !== StringUtil.toRouteHref(me.contentRoute, value);
+
+            if (issuesChanged || contentChanged) {
+                await me.afterSetValue(me.value, me.value)
+            }
         }
     }
 
@@ -396,7 +409,7 @@ class Markdown extends Component {
 
             // 4. Perform ticket replacement
             const
-                windowId     = Object.hasOwn(me, 'windowId') || Symbol.for('configSymbol') in me ? me.windowId : null,
+                {windowId}   = me,
                 windowConfig = (windowId != null && Neo.windowConfigs?.[windowId]) || Neo.config;
 
             content = content.replace(regexTicketId, (match, prefix, id) => {

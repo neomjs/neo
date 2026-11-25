@@ -131,7 +131,7 @@ test.describe('Neo.code.LivePreview — Mermaid source', () => {
     });
 
     test('a Markdown Mermaid live-preview fence is extracted as editable source before static diagrams', () => {
-        const markdown = Object.create(Markdown.prototype), map = {}, staticMap = {},
+        const markdown = Object.create(Markdown.prototype, {windowId: {value: null}}), map = {}, staticMap = {},
               source   = '```mermaid live-preview\ngraph TD\nA --> B\n```\n\n```mermaid\ngraph LR\nC --> D\n```',
               editable = markdown.processLivePreviewBlocks(source, map),
               rendered = markdown.processMermaidBlocks(editable, staticMap);
@@ -142,7 +142,7 @@ test.describe('Neo.code.LivePreview — Mermaid source', () => {
     });
 
     test('the JavaScript live-preview fence remains on the existing execution path', () => {
-        const markdown = Object.create(Markdown.prototype), map = {};
+        const markdown = Object.create(Markdown.prototype, {windowId: {value: null}}), map = {};
 
         markdown.processLivePreviewBlocks('```javascript live-preview\nexport default Neo.component.Base\n```', map);
 

@@ -228,6 +228,9 @@ test.describe('Portal.view.news.discussions.Component - Discussion markdown pars
             repoUserUrl: {
                 value: 'https://github.com/'
             },
+            windowId: {
+                value: null
+            },
             updateSectionsStore: {
                 value: false
             },

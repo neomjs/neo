@@ -376,10 +376,9 @@ class Component extends Markdown {
      * @returns {String}
      */
     rewriteLinks(html) {
-        let me             = this,
-            {contentRoute} = me,
-            windowId       = Object.hasOwn(me, 'windowId') || Symbol.for('configSymbol') in me ? me.windowId : null,
-            routePrefix    = contentRoute?.startsWith('#/') ? StringUtil.toRouteHref(contentRoute, windowId) : contentRoute;
+        let me                       = this,
+            {contentRoute, windowId} = me,
+            routePrefix              = contentRoute?.startsWith('#/') ? StringUtil.toRouteHref(contentRoute, windowId) : contentRoute;
 
         if (!routePrefix || !me.record?.id) {
             return html
