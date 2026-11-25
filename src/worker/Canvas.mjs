@@ -125,17 +125,37 @@ class Canvas extends Base {
     }
 
     /**
-     * Overrides worker/Base to handle specific messages like registerCanvasDirect
+     * @summary Overrides worker/Base to handle direct main-thread canvas transfers while preserving `sourcePort`.
      * @param {MessageEvent} e
+     * @param {Object} [sourcePort]
      */
-    onMessage(e) {
+    onMessage(e, sourcePort) {
         let msg = e.data;
 
         if (msg.action === 'registerCanvasDirect') {
             this.registerCanvasDirect(msg)
         } else {
-            super.onMessage(e)
+            super.onMessage(e, sourcePort)
         }
+    }
+
+    /**
+     * @summary Releases every canvas surface bound to a window whose last App Worker port retired.
+     * @param {Object} msg
+     * @param {String} msg.windowId
+     */
+    onReleaseWindowCanvases({windowId}) {
+        if (!windowId) {
+            return
+        }
+
+        const {departedWindowIds} = this;
+
+        departedWindowIds.delete(windowId);
+        departedWindowIds.add(windowId);
+        departedWindowIds.size > 16 && departedWindowIds.delete(departedWindowIds.values().next().value);
+
+        this.releaseWindowCanvases(windowId)
     }
 
     /**
@@ -189,14 +209,57 @@ class Canvas extends Base {
      * @protected
      */
     registerCanvasDirect(msg) {
+        if (msg.windowId && this.isWindowDeparted(msg.windowId)) {
+            return
+        }
+
         this.registerCanvas(msg);
 
         // Ping App worker that canvas was received from main.
         this.sendMessage('app', {
             action     : 'canvasRegistered',
             componentId: msg.componentId,
-            nodeId     : msg.nodeId
+            nodeId     : msg.nodeId,
+            windowId   : msg.windowId
         })
+    }
+
+    /**
+     * @summary Releases all `OffscreenCanvas` surfaces and renderer bindings owned by a departed window.
+     * @param {String} windowId
+     */
+    releaseWindowCanvases(windowId) {
+        if (!windowId) {
+            return
+        }
+
+        let me = this;
+
+        for (const [nodeId, byWindow] of Object.entries(me.canvasWindowMap)) {
+            if (byWindow && Object.hasOwn(byWindow, windowId)) {
+                me.unregisterCanvas({nodeId, windowId})
+            }
+        }
+
+        Neo.canvas?.Sparkline?.unregisterWindow?.(windowId);
+        Neo.canvas?.Base?.releaseWindow?.(windowId)
+    }
+
+    /**
+     * @summary Retires a SharedWorker port and releases the window's canvas bindings once its last port leaves.
+     * @param {Object} portEntry
+     * @returns {Boolean}
+     */
+    removePort(portEntry) {
+        let me         = this,
+            removed    = super.removePort(portEntry),
+            {windowId} = portEntry;
+
+        if (removed && windowId && !me.ports.some(entry => entry.windowId === windowId)) {
+            me.releaseWindowCanvases(windowId)
+        }
+
+        return removed
     }
 
     /**
@@ -218,18 +281,53 @@ class Canvas extends Base {
     }
 
     /**
+     * @summary Releases a canvas registration, scoped to `data.windowId` when supplied so a departed popup never
+     * evicts a surviving window's live surface for the same node id.
      * @param {Object} data
      * @param {String} data.nodeId
+     * @param {String} [data.windowId]
      */
     unregisterCanvas(data) {
-        let me = this;
+        if (!data?.nodeId) {
+            return
+        }
 
-        delete me.map[data.nodeId];
+        let me                 = this,
+            {nodeId, windowId} = data,
+            byWindow           = me.canvasWindowMap[nodeId],
+            removed;
 
-        // We could also cleanup canvasWindowMap, but it might be overkill since
-        // windowIds are reused. However, for correctness:
-        if (me.canvasWindowMap[data.nodeId]) {
-            delete me.canvasWindowMap[data.nodeId]
+        if (windowId) {
+            if (!byWindow) {
+                removed = me.map[nodeId];
+                delete me.map[nodeId]
+            } else if (Object.hasOwn(byWindow, windowId)) {
+                removed = byWindow[windowId];
+                delete byWindow[windowId];
+
+                let remaining = Object.keys(byWindow);
+
+                if (remaining.length) {
+                    if (me.map[nodeId] === removed) {
+                        me.map[nodeId] = byWindow[remaining.at(-1)]
+                    }
+                } else {
+                    delete me.canvasWindowMap[nodeId];
+
+                    if (me.map[nodeId] === removed) {
+                        delete me.map[nodeId]
+                    }
+                }
+            }
+        } else {
+            removed = me.map[nodeId];
+            delete me.map[nodeId];
+            delete me.canvasWindowMap[nodeId]
+        }
+
+        if (removed || !windowId) {
+            Neo.canvas?.Sparkline?.unregister?.({canvas: removed, canvasId: nodeId, windowId});
+            Neo.canvas?.Base?.releaseCanvas?.(nodeId, removed, windowId)
         }
     }
 }

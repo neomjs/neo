@@ -287,5 +287,208 @@ test.describe('Workstation pop-out — sparkline cells follow the grid into the 
         expect(await popup.evaluate(() => ({x: scrollX, y: scrollY})), 'pixel reads do not auto-scroll the popup').toEqual(scrollBefore);
         expect(blanks, 'fully visible recycled canvases paint the Living signal line').toEqual([]);
         await popup.close({runBeforeUnload: true})
+    });
+
+    /**
+     * @summary Reads Canvas SharedWorker registry state (`map`, `canvasWindowMap`, and `Neo.canvas.Sparkline.items`)
+     * for the page's own `neo-canvas-group` SharedWorker via CDP.
+     */
+    async function readCanvasWorkerRegistry(browser, page) {
+        const pageCdp = await page.context().newCDPSession(page);
+        let   browserContextId;
+        try {
+            ({targetInfo: {browserContextId}} = await pageCdp.send('Target.getTargetInfo'))
+        } finally {
+            await pageCdp.detach().catch(() => {})
+        }
+
+        const group = await page.evaluate(() => sessionStorage.getItem('neo-canvas-group')),
+              cdp   = await browser.newBrowserCDPSession();
+
+        try {
+            const {targetInfos} = await cdp.send('Target.getTargets'),
+                  target        = targetInfos.find(info =>
+                      info.type === 'shared_worker' &&
+                      info.browserContextId === browserContextId &&
+                      info.url.includes('worker/Canvas') &&
+                      (!group || !info.title || info.title.endsWith(group))
+                  );
+
+            expect(target, `Canvas SharedWorker target for group ${group} exists`).toBeTruthy();
+
+            const {sessionId} = await cdp.send('Target.attachToTarget', {targetId: target.targetId, flatten: false}),
+                  evalResult  = await new Promise((resolve, reject) => {
+                      const msgId     = 1;
+                      const onMessage = ({message, sessionId: from}) => {
+                          if (from !== sessionId) return;
+                          const parsed = JSON.parse(message);
+                          if (parsed.id !== msgId) return;
+                          cdp.off('Target.receivedMessageFromTarget', onMessage);
+                          parsed.error ? reject(new Error(parsed.error.message)) : resolve(parsed.result)
+                      };
+                      cdp.on('Target.receivedMessageFromTarget', onMessage);
+                      cdp.send('Target.sendMessageToTarget', {
+                          sessionId,
+                          message: JSON.stringify({
+                              id    : msgId,
+                              method: 'Runtime.evaluate',
+                              params: {
+                                  awaitPromise : true,
+                                  returnByValue: true,
+                                  expression   : `(() => {
+                                      const cw              = globalThis.Neo.worker.Canvas,
+                                            mapKeys         = Object.keys(cw.map),
+                                            windowBindings  = {},
+                                            sparklineOwners = [];
+
+                                      for (const [nodeId, byWin] of Object.entries(cw.canvasWindowMap)) {
+                                          windowBindings[nodeId] = Object.keys(byWin || {});
+                                      }
+
+                                      const spItems = globalThis.Neo.canvas?.Sparkline?.items;
+                                      if (spItems) {
+                                          for (const [canvasId, item] of spItems.entries()) {
+                                              const matchingWins = Object.entries(cw.canvasWindowMap[canvasId] || {})
+                                                  .filter(([, surface]) => surface === item.canvas)
+                                                  .map(([winId]) => winId);
+                                              sparklineOwners.push({
+                                                  canvasId,
+                                                  inLatestMap: cw.map[canvasId] === item.canvas,
+                                                  windowId   : item.windowId ?? null,
+                                                  matchingWins
+                                              });
+                                          }
+                                      }
+
+                                      return {mapCount: mapKeys.length, mapKeys, windowBindings, sparklineCount: sparklineOwners.length, sparklineOwners};
+                                  })()`
+                              }
+                          })
+                      }).catch(err => {
+                          cdp.off('Target.receivedMessageFromTarget', onMessage);
+                          reject(err)
+                      })
+                  });
+
+            await cdp.send('Target.detachFromTarget', {sessionId}).catch(() => {});
+            if (evalResult.exceptionDetails) {
+                throw new Error(evalResult.exceptionDetails.exception?.description || evalResult.exceptionDetails.text)
+            }
+            return evalResult.result.value
+        } finally {
+            await cdp.detach().catch(() => {})
+        }
+    }
+
+    async function runPopupReturnCycleArm({browser, page, context, neuralLink}, closeMode) {
+        await page.goto('/apps/workstation/index.html');
+        await page.waitForSelector('.workstation-dock-host',            {timeout: 60000});
+        await page.waitForSelector('.neo-tab-header-button.neo-draggable', {timeout: 60000});
+
+        const app      = await neuralLink.connectToApp('Workstation'),
+              openerId = await page.evaluate(() => Neo.worker.Manager.windowId);
+
+        await focusPane(page, FEED_TITLE);
+        await expect(page.locator('.workstation-feed-pane')).toBeVisible({timeout: 15000});
+
+        const feedCanvasIdSet = new Set(await page.locator('.workstation-feed-pane canvas').evaluateAll(canvases => canvases.map(canvas => canvas.id)));
+        expect(feedCanvasIdSet.size, `${closeMode}: FeedPane renders sparkline canvases`).toBeGreaterThan(0);
+
+        await expect.poll(async () => (await readSparklines(app)).filter(c => feedCanvasIdSet.has(c.id) && c.windowId === openerId && c.mounted && c.offscreenRegistered).length,
+            {message: `${closeMode}: Feed sparklines settle in opener`, timeout: 15000}).toBe(feedCanvasIdSet.size);
+
+        await expect.poll(async () => (await readSparklines(app)).filter(c => !feedCanvasIdSet.has(c.id) && c.windowId === openerId && c.mounted && c.offscreenRegistered).length,
+            {message: `${closeMode}: ScalePane sparklines settle in opener before baseline census`, timeout: 15000}).toBeGreaterThan(0);
+
+        const initialSparklineIds = [...feedCanvasIdSet],
+              baselineRegistry    = await readCanvasWorkerRegistry(browser, page),
+              departedPopupIds    = [];
+
+        for (let cycle = 1; cycle <= 3; cycle++) {
+            const header        = await focusPane(page, FEED_TITLE),
+                  popOut        = header.locator(`${ACTION}:has(span[class*="${POP_OUT}"])`).first(),
+                  vesselPromise = context.waitForEvent('page', {timeout: 45000});
+
+            await expect(popOut).toBeVisible({timeout: 10000});
+            await popOut.click();
+
+            const vessel = await vesselPromise;
+            await vessel.waitForLoadState('domcontentloaded');
+            await vessel.waitForSelector('canvas', {state: 'attached', timeout: 45000});
+            await vessel.setViewportSize({width: 1200, height: 800});
+
+            const popupId = await vessel.evaluate(() => Neo.worker.Manager.windowId);
+            departedPopupIds.push(popupId);
+
+            await expect.poll(async () => {
+                const popupCells = (await readSparklines(app)).filter(c => initialSparklineIds.includes(c.id));
+                return popupCells.length === initialSparklineIds.length &&
+                    popupCells.every(c => c.windowId === popupId && c.mounted && c.offscreenRegistered)
+            }, {message: `${closeMode} cycle ${cycle}: Feed sparklines register in popup`, timeout: 15000}).toBe(true);
+
+            await expect.poll(async () => {
+                const {unlike} = countPixelsUnlikeDominant(await vessel.locator(`#${initialSparklineIds[0]}`).screenshot());
+                return unlike >= MIN_DRAWN_PIXELS
+            }, {message: `${closeMode} cycle ${cycle}: Feed sparkline paints in popup`, timeout: 15000}).toBe(true);
+
+            const closedPromise = vessel.waitForEvent('close', {timeout: 30000});
+            if (closeMode === 'native-close') {
+                await vessel.close({runBeforeUnload: true})
+            } else {
+                const undoBtn = page.locator('.workstation-topologybar button').filter({hasText: 'Undo'}).first();
+                await expect(undoBtn).toBeEnabled({timeout: 10000});
+                await undoBtn.click()
+            }
+            await closedPromise;
+
+            await expect.poll(async () => {
+                const homeCells = (await readSparklines(app)).filter(c => initialSparklineIds.includes(c.id));
+                return homeCells.length === initialSparklineIds.length &&
+                    homeCells.every(c => c.windowId === openerId && c.mounted && c.offscreenRegistered)
+            }, {message: `${closeMode} cycle ${cycle}: same sparkline instances return and register in opener`, timeout: 20000}).toBe(true);
+
+            await expect.poll(async () => {
+                const blank = [];
+                for (const id of initialSparklineIds) {
+                    const {unlike} = countPixelsUnlikeDominant(await page.locator(`#${id}`).screenshot());
+                    unlike < MIN_DRAWN_PIXELS && blank.push(`${id}:${unlike}`)
+                }
+                return blank
+            }, {message: `${closeMode} cycle ${cycle}: returned sparklines paint in opener`, timeout: 15000}).toEqual([]);
+        }
+
+        if (closeMode === 'group-undo') {
+            const redoBtn = page.locator('.workstation-topologybar button').filter({hasText: 'Redo'}).first();
+            await expect(redoBtn, 'Group Undo preserves Redo history').toBeEnabled({timeout: 10000})
+        }
+
+        await expect.poll(async () => {
+            const after         = await readCanvasWorkerRegistry(browser, page),
+                  staleBindings = Object.entries(after.windowBindings).flatMap(([nodeId, wins]) =>
+                      wins.filter(w => departedPopupIds.includes(w)).map(w => `${nodeId}@${w}`)
+                  ),
+                  staleSparklines  = after.sparklineOwners.filter(item =>
+                      !item.inLatestMap ||
+                      (item.windowId && departedPopupIds.includes(item.windowId)) ||
+                      item.matchingWins.some(w => departedPopupIds.includes(w))
+                  );
+            return {
+                mapDelta       : after.mapCount - baselineRegistry.mapCount,
+                sparklineDelta : after.sparklineCount - baselineRegistry.sparklineCount,
+                staleBindings  : staleBindings.length,
+                staleSparklines: staleSparklines.length
+            }
+        }, {message: `${closeMode}: Canvas SharedWorker releases all departed popup surfaces and window bindings`, timeout: 5000})
+            .toEqual({mapDelta: 0, sparklineDelta: 0, staleBindings: 0, staleSparklines: 0})
+    }
+
+    test('native popup close releases departed OffscreenCanvas bindings across three pop-out cycles while surviving sparklines keep painting', async ({browser, page, context, neuralLink}) => {
+        test.setTimeout(180000);
+        await runPopupReturnCycleArm({browser, page, context, neuralLink}, 'native-close')
+    });
+
+    test('Group Undo return releases departed OffscreenCanvas bindings and preserves component identity and history', async ({browser, page, context, neuralLink}) => {
+        test.setTimeout(180000);
+        await runPopupReturnCycleArm({browser, page, context, neuralLink}, 'group-undo')
     })
 });

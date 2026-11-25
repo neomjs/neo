@@ -742,7 +742,7 @@ class Helix extends Component {
     }
 
     /**
-     * Moves a clone of an item to the top left corner
+     * @summary Clones and mounts an expanded Helix item into the items root, then animates it into the foreground.
      * @param {String} itemId
      */
     expandItem(itemId) {
@@ -776,7 +776,7 @@ class Helix extends Component {
                 })
             }
 
-            Neo.vdom.Helper.create({
+            me.createVnodeTree({
                 appName,
                 autoMount  : true,
                 parentId   : group.id,

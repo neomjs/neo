@@ -82,6 +82,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/TooltipExampleMultiWindow.spec.mjs',
     'test/playwright/e2e/rendering/TooltipMountFlightNL.spec.mjs',
     'test/playwright/e2e/rendering/TooltipWindowSequenceNL.spec.mjs',
+    'test/playwright/e2e/rendering/TwoThreadPipelineNL.spec.mjs',
     'test/playwright/e2e/rendering/ViewTransitionReveal.spec.mjs',
     'test/playwright/e2e/rendering/WorkerCanvas.spec.mjs',
     'test/playwright/e2e/rendering/YieldedMoveCoalescingNL.spec.mjs',

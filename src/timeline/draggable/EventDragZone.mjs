@@ -183,7 +183,8 @@ class EventDragZone extends DragZone {
             origEndMs   = snap.endDate.getTime(),
             durationMs  = Math.max(0, origEndMs - origStartMs),
             pointerMs   = axis.snap(axis.offsetToDate(offset)).getTime(),
-            resourceId  = target?.resourceId !== undefined ? target.resourceId : snap.resourceId;
+            // An edge resize changes only the duration, never the row
+            resourceId  = !me.resizeEdge && target?.resourceId !== undefined ? target.resourceId : snap.resourceId;
 
         let startMs, endMs;
 
@@ -295,7 +296,7 @@ class EventDragZone extends DragZone {
         }
 
         const
-            target = me.resolveTarget(data),
+            target = me.resizeEdge ? null : me.resolveTarget(data),
             offset = me.pointerOffset(data),
             next   = me.datesFor(offset, target);
 
@@ -437,6 +438,7 @@ class EventDragZone extends DragZone {
 
     /**
      * @summary Returns the main-thread `DragDrop.setConfigs` handshake descriptor for this timeline drag zone.
+     * An edge resize locks the axis perpendicular to `orientation`; whole-bar moves stay free on both axes.
      * @returns {Object}
      * @protected
      */
@@ -447,8 +449,8 @@ class EventDragZone extends DragZone {
             ...super.getMainThreadConfigs(),
             alwaysFireDragMove: me.alwaysFireDragMove,
             dragElementRootId : me.getRegistrationRootId(),
-            moveHorizontal    : true,
-            moveVertical      : true
+            moveHorizontal    : me.orientation === 'horizontal' || !me.resizeEdge,
+            moveVertical      : me.orientation === 'vertical'   || !me.resizeEdge
         }
     }
 

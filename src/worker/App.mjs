@@ -119,16 +119,24 @@ class App extends Base {
     }
 
     /**
-     * @param {String} windowId
-     * @param {Array|Object} deltas
+     * @summary Sends DOM deltas and optional component update metadata to a target window's Main thread.
+     * @param {Number|String} windowId
+     * @param {Object|Object[]} deltas
+     * @param {Object} [meta]
      * @returns {Promise<*>}
      */
-    applyDeltas(windowId, deltas) {
+    applyDeltas(windowId, deltas, meta) {
         if (!Array.isArray(deltas)) {
             deltas = [deltas]
         }
 
-        return this.promiseMessage(windowId, {action: 'updateVdom', deltas})
+        const message = {action: 'updateVdom', deltas};
+
+        if (meta) {
+            message.meta = meta
+        }
+
+        return this.promiseMessage(windowId, message)
     }
 
     /**
@@ -576,14 +584,17 @@ class App extends Base {
      * @param {Object} msg
      * @param {String} msg.componentId
      * @param {String} msg.nodeId
+     * @param {String} [msg.windowId]
      * @protected
      */
-    onCanvasRegistered({componentId, nodeId}) {
+    onCanvasRegistered({componentId, nodeId, windowId}) {
         let instance = Neo.get(componentId);
 
         if (instance?.registerCanvasCallbacks?.[nodeId]) {
-            instance.registerCanvasCallbacks[nodeId]();
-            delete instance.registerCanvasCallbacks[nodeId]
+            if (!windowId || !instance.windowId || instance.windowId === windowId) {
+                instance.registerCanvasCallbacks[nodeId]();
+                delete instance.registerCanvasCallbacks[nodeId]
+            }
         }
     }
 
@@ -993,7 +1004,14 @@ class App extends Base {
             me.canvasGroups.retirePort(portEntry);
 
             if (windowId && !me.ports.some(entry => entry.windowId === windowId)) {
+                let group = me.canvasGroups.windows.get(windowId);
+
                 me.canvasGroups.removeWindow(windowId);
+                group && me.canvasGroups.has(group) && me.sendMessage('canvas', {
+                    action     : 'releaseWindowCanvases',
+                    canvasGroup: group,
+                    windowId
+                });
                 FocusManager.removeWindow(windowId)
             }
         }

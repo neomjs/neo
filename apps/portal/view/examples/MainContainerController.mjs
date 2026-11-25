@@ -61,7 +61,7 @@ class MainContainerController extends Component {
 
         if (terms.length === 0) {
             searchResults.clearResults();
-            me.getStateProvider().setData({matchCounts: null});
+            me.getStateProvider().setData({featuredMatches: null, matchCounts: null});
             me.showOpenGroup();
             return
         }
@@ -70,6 +70,7 @@ class MainContainerController extends Component {
               groupTitles                      = Object.fromEntries(familyDefinitions.map(definition => [definition.family, definition.title])),
               published                        = view.getCatalogStore().items.filter(record => Example.publishes(record, catalogMode)),
               matched                          = published.filter(record => Example.matchesQuery(record, terms, groupTitles)),
+              featuredMatches                  = matched.filter(record => record.featured).length,
               matchCounts                      = new Map(),
               resultGroups                     = [];
 
@@ -92,7 +93,7 @@ class MainContainerController extends Component {
             }
         });
 
-        me.getStateProvider().setData({matchCounts});
+        me.getStateProvider().setData({featuredMatches, matchCounts});
         searchResults.showResults({
             query       : query.trim(),
             groups      : resultGroups,
@@ -115,8 +116,9 @@ class MainContainerController extends Component {
         const me = this;
 
         me.getStateProvider().setData({
-            findQuery  : '',
-            matchCounts: null
+            featuredMatches: null,
+            findQuery      : '',
+            matchCounts    : null
         });
 
         restoreFocus && me.component.restoreFocusAfterFind(sourceFieldId)
@@ -138,6 +140,22 @@ class MainContainerController extends Component {
 
             (lists.find(list => list.selectionModel.hasSelection()) || lists[0])?.selectionModel.enter()
         }
+    }
+
+    /**
+     * @summary The lists of the page that holds a list, in reading order: the nearest ancestor with `getLists()`, a group
+     * page or the search results. A list outside such a page has no siblings.
+     * @param {String} listId
+     * @returns {Portal.view.examples.List[]}
+     */
+    getPageLists(listId) {
+        let page = Neo.getComponent(listId)?.parent;
+
+        while (page && !page.getLists) {
+            page = page.parent
+        }
+
+        return page ? page.getLists() : []
     }
 
     /**
@@ -250,6 +268,35 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary ArrowDown past a list's last row, or ArrowUp past its first, enters the page's next list with cards in
+     * that direction, on the row facing the leaving card. At the outer edge of the page the card keeps its place.
+     * @param {Object} data
+     * @param {Number} data.direction `1` down, `-1` up
+     * @param {Number} data.left The leaving card's left edge
+     * @param {Number} data.right The leaving card's right edge
+     * @param {String} data.source The leaving list's id
+     * @returns {Promise<void>}
+     */
+    async onListLeaveRow({direction, left, right, source}) {
+        const lists = this.getPageLists(source).filter(list => list.selectionModel.getNavigableRecords().length),
+              index = lists.findIndex(list => list.id === source);
+
+        index !== -1 && await lists[index + direction]?.selectionModel.enterRow(direction, {left, right})
+    }
+
+    /**
+     * @summary Keeps one selected card on a page: a selection in one of its lists, by key or by pointer, clears the
+     * others.
+     * @param {Object} data
+     * @param {String} data.source The selecting list's id
+     */
+    onListSelect({source}) {
+        this.getPageLists(source).forEach(list => {
+            list.id !== source && list.selectionModel.hasSelection() && list.selectionModel.deselectAll()
+        })
+    }
+
+    /**
      * @summary Updates every page and the overview through the section's shared build state.
      * @param {Object} record Selected native menu record.
      */
@@ -305,6 +352,10 @@ class MainContainerController extends Component {
         });
 
         groupStore.data = groups;
+        this.getStateProvider().setData({
+            featuredCount : published.filter(record => record.featured).length,
+            publishedCount: published.length
+        });
 
         view.getGroupPages().forEach(page => {
             const group = groupStore.get(page.family);

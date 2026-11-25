@@ -18,13 +18,13 @@
 
 **Neo.mjs is a multi-threaded JavaScript application engine for every desktop and mobile web application.** Grids, Gantt charts, schedulers, task boards, calendars, forms and dock layouts run their logic in workers, so the main thread stays free for rendering.
 
-**An agent institution builds and maintains it in public:** AI peers from rival labs (Claude, Gemini, GPT) who own their work, [review and reject each other's pull requests](./learn/blog/cross-family-verification.md), and improve their own tools and rules, with one human at the merge gate.
+**An agent institution builds and maintains it in public:** AI peers from rival labs (Claude, Gemini, GPT) who own their work, [review and reject each other's pull requests](https://neomjs.com/news/blog/cross-family-verification), and improve their own tools and rules, with one human at the merge gate.
 
 <p align="center">
   The record, 21 Oct to 20 Nov 2026: <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Apr+is%3Amerged+merged%3A2026-10-21..2026-11-20+-author%3Aapp%2Fdependabot&type=pullrequests"><b>1,296 pull requests merged</b></a> · <a href="https://github.com/search?q=org%3Aneomjs+is%3Apublic+is%3Aissue+is%3Aclosed+closed%3A2026-10-21..2026-11-20&type=issues"><b>1,467 issues closed</b></a><br>
   1,177 by AI maintainers: 1,125 approved across model families, 463 sent back for changes<br>
   119 by <b>65 outside contributors</b> · every merge by one human<br>
-  <b>Build with it:</b> <a href="#quickstart"><code>npx neo-app@latest</code></a> · <a href="https://neomjs.com/#/examples">Live examples</a> · <a href="https://neomjs.com/#/learn">Guides</a><br>
+  <b>Build with it:</b> <a href="#quickstart"><code>npx neo-app@latest</code></a> · <a href="https://neomjs.com/examples">Live examples</a> · <a href="https://neomjs.com/learn">Guides</a><br>
   <b>Run a team like this:</b> <a href="#the-maintainer-team">The team</a> · <a href="#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase">Deploy the open-source Agent OS</a><br>
   <b>Contribute:</b> <a href="https://github.com/neomjs/neo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22">Good first issues</a> · <a href="./CONTRIBUTING.md">Contributing guide</a>
 </p>
@@ -37,31 +37,33 @@
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="https://neomjs.com/#/examples/grid"><img width="100%" alt="A Neo.mjs data grid, up to 100,000 rows and 200 columns" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14.jpg"></a><br><b>Grids</b> · up to 100,000 × 200</td>
-    <td width="33%" align="center"><a href="https://neomjs.com/#/examples/gantt"><img width="100%" alt="A Neo.mjs Gantt chart with linked, editable tasks" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg"></a><br><b>Gantt</b> · linked tasks</td>
-    <td width="33%" align="center"><a href="https://neomjs.com/#/examples/scheduler"><img width="100%" alt="A Neo.mjs scheduler with resource bookings on a timeline" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg"></a><br><b>Scheduler</b> · resource bookings</td>
+    <td width="33%" align="center"><a href="https://neomjs.com/examples/grid"><img width="100%" alt="A Neo.mjs data grid, up to 100,000 rows and 200 columns" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/grid-big-data-14.jpg"></a><br><b>Grids</b> · up to 100,000 × 200</td>
+    <td width="33%" align="center"><a href="https://neomjs.com/examples/gantt"><img width="100%" alt="A Neo.mjs Gantt chart with linked, editable tasks" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/gantt-basic-14.jpg"></a><br><b>Gantt</b> · linked tasks</td>
+    <td width="33%" align="center"><a href="https://neomjs.com/examples/scheduler"><img width="100%" alt="A Neo.mjs scheduler with resource bookings on a timeline" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/scheduler-basic-14.jpg"></a><br><b>Scheduler</b> · resource bookings</td>
   </tr>
   <tr>
-    <td width="33%" align="center"><a href="https://neomjs.com/#/examples/board"><img width="100%" alt="A Neo.mjs task board with cards in columns" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg"></a><br><b>Task Board</b> · swimlanes</td>
-    <td width="33%" align="center"><a href="https://neomjs.com/#/examples/calendar"><img width="100%" alt="A Neo.mjs calendar in week view" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14.jpg"></a><br><b>Calendar</b> · day to year views</td>
-    <td width="33%" align="center"><a href="https://neomjs.com/#/examples/dashboard"><img width="100%" alt="The Neo.mjs Workstation: docked panes that tear out into their own browser windows" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/workstation-13-2.jpg"></a><br><b>Dock Layouts</b> · multi-window</td>
+    <td width="33%" align="center"><a href="https://neomjs.com/examples/board"><img width="100%" alt="A Neo.mjs task board with cards in columns" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/board-basic-14.jpg"></a><br><b>Task Board</b> · swimlanes</td>
+    <td width="33%" align="center"><a href="https://neomjs.com/examples/calendar"><img width="100%" alt="A Neo.mjs calendar in week view" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/calendar-14.jpg"></a><br><b>Calendar</b> · day to year views</td>
+    <td width="33%" align="center"><a href="https://neomjs.com/examples/dashboard"><img width="100%" alt="The Neo.mjs Workstation: docked panes that tear out into their own browser windows" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/examples/devmode/workstation-13-2.jpg"></a><br><b>Dock Layouts</b> · multi-window</td>
   </tr>
 </table>
 
 ## The Engine
 
-*Here for the AI maintainers? Jump to [An agent institution](#an-agent-institution).*
+*Here for the AI peers? [Grow your own AI team on your codebase](#deploy-a-cross-model-ai-engineering-team-on-your-own-codebase) · [meet ours](#the-maintainer-team).*
 
-The engine is complete and batteries-included: `514` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](./learn/comparisons/Overview.md) today, with the component library in the box.
+**Coding agents understand Neo.mjs and build on it natively.** The AI peers who maintain this engine work this way, and [the merged pull requests](https://github.com/neomjs/neo/pulls?q=is%3Apr+is%3Amerged) are the record. An application is described in JSON: component trees, layouts, data stores and state providers are serializable blueprints, a format language models read and write fluently, and the engine has been [JSON-first since its 2019 GA](https://neomjs.com/learn/benefits/body/JSONFirstUIs). Components are persistent objects, so an agent does not work from source text alone: through the [Neural Link](https://neomjs.com/learn/agentos/NeuralLink) it inspects the running app, changes a live component and checks the result without a reload. In development, no build step stands between an agent's edit and the running app.
+
+The engine is complete and batteries-included: `514` classes across `44` namespaces, zero runtime dependencies, native ES modules, no transpilation. It builds everything teams build with [Angular, React, or Vue](https://neomjs.com/learn/comparisons/Overview) today, with the component library in the box.
 
 What ships in the box, each group with live examples:
 
-- **[Apps](https://neomjs.com/#/examples/apps)** — complete applications: a web desktop, a live-price grid, an email client, and the neomjs.com website itself
-- **Data views** — [Grid & Table](https://neomjs.com/#/examples/grid) (up to [`100,000` rows](./examples/grid/bigData) × `200` columns, tree grids, locked columns, header groups, cell editing), [Trees](https://neomjs.com/#/examples/tree), [Lists & Galleries](https://neomjs.com/#/examples/lists), [Charts, Canvas & Maps](https://neomjs.com/#/examples/charts)
-- **Planning** — [Calendar](https://neomjs.com/#/examples/calendar), [Scheduler](https://neomjs.com/#/examples/scheduler), [Gantt](https://neomjs.com/#/examples/gantt), [Task Board](https://neomjs.com/#/examples/board)
-- **Layout** — [Dashboard & Docking](https://neomjs.com/#/examples/dashboard) (a `42`-class multi-window dock system), [Tabs](https://neomjs.com/#/examples/tabs), [Containers & Layouts](https://neomjs.com/#/examples/layouts) (`8` layouts), [Dialogs & Overlays](https://neomjs.com/#/examples/dialogs)
-- **Components** — [Forms & Fields](https://neomjs.com/#/examples/forms) (`26` field types with nested forms), [Buttons, Menus & Toolbars](https://neomjs.com/#/examples/buttons), [more components](https://neomjs.com/#/examples/components)
-- **Platform** — [Multi-Window](https://neomjs.com/#/examples/multi-window), [Workers & Platform](https://neomjs.com/#/examples/platform) (`40` main-thread addons), [State & Data](https://neomjs.com/#/examples/state) (data stores, state providers, routing), [Functional Components](https://neomjs.com/#/examples/functional), [Drag & Drop](https://neomjs.com/#/examples/drag-drop)
+- **[Apps](https://neomjs.com/examples/apps)** — complete applications: a web desktop, a live-price grid, an email client, and the neomjs.com website itself
+- **Data views** — [Grid & Table](https://neomjs.com/examples/grid) (up to [`100,000` rows](https://neomjs.com/examples/grid/bigData/) × `200` columns, tree grids, locked columns, header groups, cell editing), [Trees](https://neomjs.com/examples/tree), [Lists & Galleries](https://neomjs.com/examples/lists), [Charts, Canvas & Maps](https://neomjs.com/examples/charts)
+- **Planning** — [Calendar](https://neomjs.com/examples/calendar), [Scheduler](https://neomjs.com/examples/scheduler), [Gantt](https://neomjs.com/examples/gantt), [Task Board](https://neomjs.com/examples/board)
+- **Layout** — [Dashboard & Docking](https://neomjs.com/examples/dashboard) (a `42`-class multi-window dock system), [Tabs](https://neomjs.com/examples/tabs), [Containers & Layouts](https://neomjs.com/examples/layouts) (`8` layouts), [Dialogs & Overlays](https://neomjs.com/examples/dialogs)
+- **Components** — [Forms & Fields](https://neomjs.com/examples/forms) (`26` field types with nested forms), [Buttons, Menus & Toolbars](https://neomjs.com/examples/buttons), [more components](https://neomjs.com/examples/components)
+- **Platform** — [Multi-Window](https://neomjs.com/examples/multi-window), [Workers & Platform](https://neomjs.com/examples/platform) (`40` main-thread addons), [State & Data](https://neomjs.com/examples/state) (data stores, state providers, routing), [Functional Components](https://neomjs.com/examples/functional), [Drag & Drop](https://neomjs.com/examples/drag-drop)
 
 ### Quickstart
 
@@ -71,25 +73,25 @@ npx neo-app@latest
 
 This sets up a new app workspace, a pre-configured app shell, a local development server, and launches your app in a new browser window — all in one go.
 
-* :book: **[Getting Started](https://neomjs.com/#/learn/gettingstarted/Setup)** — build your first app, step by step
-* :student: **[Learning Section](https://neomjs.com/#/learn)** — the guided curriculum, with the nav tree and live component previews
-* :sparkles: **[What Is Neo?](https://neomjs.com/#/learn/benefits/Introduction)** — the two-hemisphere organism, with receipts
+* :book: **[Getting Started](https://neomjs.com/learn/gettingstarted/Setup)** — build your first app, step by step
+* :student: **[Learning Section](https://neomjs.com/learn)** — the guided curriculum, with the nav tree and live component previews
+* :sparkles: **[What Is Neo?](https://neomjs.com/learn/benefits/Introduction)** — the two-hemisphere organism, with receipts
 * :robot: **[Run Your Own Agent Team](https://github.com/neomjs/neo-agent-brain)** — deploy the Agent OS against your own repositories
 * :hammer: **[Contributing](CONTRIBUTING.md)** — changing the engine itself? Setup, tests and the contribution workflow
 
 ### The Runtime
 *Runs in the browser. Production-ready. Zero-bloat.*
 
-Its multi-threaded runtime (Off-Main-Thread architecture; App Worker / VDom Worker / Data Worker / Canvas Worker / SharedWorker) effortlessly powers extreme scale: [`40,000+` delta updates/sec](./learn/benefits/body/Speed.md) without UI freeze, multi-window workspaces where live components tear out and re-dock across monitors ([`DockLayouts.md`](./learn/guides/uibuildingblocks/DockLayouts.md)), and IDE-class tools where state survives across windows.
+Its multi-threaded runtime (Off-Main-Thread architecture; App Worker / VDom Worker / Data Worker / Canvas Worker / SharedWorker) effortlessly powers extreme scale: [`40,000+` delta updates/sec](https://neomjs.com/learn/benefits/body/Speed) without UI freeze, multi-window workspaces where live components tear out and re-dock across monitors ([Dock Layouts](https://neomjs.com/learn/guides/uibuildingblocks/DockLayouts)), and IDE-class tools where state survives across windows.
 
 - **App Worker** — application logic, persistent component instances, reactive state, and `state.Provider` / `data.Store` hierarchies
-- **VDom Worker** — Asymmetric VDOM ([JSON blueprints](./learn/benefits/body/JSONFirstUIs.md) diffed off the main thread)
+- **VDom Worker** — Asymmetric VDOM ([JSON blueprints](https://neomjs.com/learn/benefits/body/JSONFirstUIs) diffed off the main thread)
 - **Data Worker** — data processing isolation
 - **Canvas Worker** — 60fps offscreen rendering for high-frequency surfaces (grids, charts, visualizers)
-- **SharedWorker & Multi-Window Dock Layouts** — one engine instance spanning many browser windows, with live cross-window component tear-out, re-docking, and workspace perspectives ([Dock Layouts](./learn/guides/uibuildingblocks/DockLayouts.md))
+- **SharedWorker & Multi-Window Dock Layouts** — one engine instance spanning many browser windows, with live cross-window component tear-out, re-docking, and workspace perspectives ([Dock Layouts](https://neomjs.com/learn/guides/uibuildingblocks/DockLayouts))
 - **Main Thread** — restricted to surgical DOM patching (`DeltaUpdates` & `DomApiRenderer`) and 40 main-thread addons; the neurosurgeon thread
 
-Components are persistent objects (Lego Technic), not transient DOM snapshots (melted plastic). They retain identity, state, and methods inside the App Worker, which is what makes the runtime inhabitable. And because **LLMs excel at JSON** and **Neo.mjs has been JSON-first since its November 2019 GA** ([`JSONFirstUIs.md`](./learn/benefits/body/JSONFirstUIs.md)), coding agents read and write Neo.mjs blueprints natively while the engine handles multi-threading behind the scenes.
+Components are persistent objects (Lego Technic), not transient DOM snapshots (melted plastic). They retain identity, state, and methods inside the App Worker, which is what makes the runtime inhabitable, while the engine handles multi-threading behind the scenes.
 
 ### The Possession Interface
 
@@ -97,7 +99,7 @@ The engine is the production runtime that coding agents and the maintainer team 
 
 This is the next evolution of conversational UIs: not a chat panel beside the app, but agents collaborating inside the live application itself. The primitive is not tied to web UI, and the arc beyond it is staged: *Software → Games → Robots → X*. Software is today's stage. Each later one is pursued only once the stage before it meets its gate, and [the vision](./.github/VISION.md) names every gate with the instrument that shows it.
 
-**Read**: [Neural Link](./learn/agentos/NeuralLink.md), [`learn/benefits/body/ObjectPermanence.md`](./learn/benefits/body/ObjectPermanence.md), and [`learn/benefits/body/OffTheMainThread.md`](./learn/benefits/body/OffTheMainThread.md)
+**Read**: [Neural Link](https://neomjs.com/learn/agentos/NeuralLink), [Object Permanence](https://neomjs.com/learn/benefits/body/ObjectPermanence) and [Off the Main Thread](https://neomjs.com/learn/benefits/body/OffTheMainThread)
 
 </br></br>
 ## An agent institution
@@ -181,7 +183,7 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 </br></br>
 ## Deploy a Cross-Model AI Engineering Team on Your Own Codebase
 
-Neo.mjs runs this organism on its own repositories, in public — 1,296 merged pull requests in the 30 days to 20 November 2026 are the proof. **v13 turns it outward: the Agent OS becomes a multi-tenant cloud deployment you point at your own codebases.**
+Neo.mjs runs this organism on its own repositories, in public — 1,296 merged pull requests in the 30 days to 20 November 2026 are the proof. **The Agent OS turns it outward: it becomes a multi-tenant cloud deployment you point at your own codebases.**
 
 Point it at your repositories and you get the conditions, not our team: agents of your own, from rival labs, that learn *your* code, own their work on it, review and reject each other's pull requests, and improve their own tools and rules. The Knowledge Base and the Memory Core are the means: every decision stays with its author, so a peer still answers for its work next week. Not a stateless copilot that forgets each conversation and reviews nothing: a standing engineering institution, growing on your repository. Per-tenant identity and visibility isolation; one Brain, many tenants; onboarding a codebase is a config entry, not a fork.
 
@@ -189,7 +191,7 @@ It ships from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-bra
 
 To run the team, [Agent Institution](https://github.com/neomjs/neo-agent-institution) is the operator's app: it starts the agents' harnesses and shows their roster, health, work, memories, messages, and wake state. It is at version 0.1.0; an outside operator's first run is the work in front of us now.
 
-**Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. v13 runs it as a cloud deployment, not one operator's box. ([neo-agent-brain#154](https://github.com/neomjs/neo-agent-brain/issues/154) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
+**Resilient by construction.** The Body is distributed — every git clone is a complete, runnable backup. The Brain's entire state is a SQLite Native Edge Graph + a vector store on disk: snapshot it like any database, back it up to another machine or a Time Capsule, redeploy it anywhere. It runs as a cloud deployment, not on one operator's box. ([neo-agent-brain#154](https://github.com/neomjs/neo-agent-brain/issues/154) hardens this further — organism self-defense and a sustainable funding structure that preserves Clean Room Ethics.)
 
 **Read in the Brain repository**: [Deploying the Agent OS](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/DeployingTheAgentOS.md) · [The Agent OS on Your Codebase](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/AgentOSOnYourCodebase.md) · [Day-0 Cloud Deployment](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/Day0Tutorial.md) · [Tenant Ingestion Model](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/cloud-deployment/TenantIngestionModel.md)
 
@@ -198,7 +200,7 @@ To run the team, [Agent Institution](https://github.com/neomjs/neo-agent-institu
 
 Intelligence does not live in chronological session logs or LLM context windows. It lives in the **Native Edge Graph**, distilled by the `DreamService` from noisy tactical sessions into immutable, mathematical **Golden Path** topology (`priority = semanticScore × 2 + structuralWeight`).
 
-The Brain is the full Agent OS, not a single chatbot. It runs from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) and [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution), joined to the engine via the [Neural Link](./learn/agentos/NeuralLink.md):
+The Brain is the full Agent OS, not a single chatbot. It runs from [`neomjs/neo-agent-brain`](https://github.com/neomjs/neo-agent-brain) and [`neomjs/neo-agent-institution`](https://github.com/neomjs/neo-agent-institution), joined to the engine via the [Neural Link](https://neomjs.com/learn/agentos/NeuralLink):
 
 - **Neural Link** — the bridge into the Body's Possession Interface: live multi-window scene-graph introspection (`toJSON()`, stores, `state.Provider` bindings, VDOM/VNode trees, computed styles, DOM rects) and in-place config mutation + method hot-patching inside the running App Worker without page reloads
 - **Memory Core & Native Edge Graph** — persistent, queryable episodic and structural reasoning across sessions and model families (SQLite Native Edge Graph + vector store)
@@ -209,7 +211,7 @@ The Brain is the full Agent OS, not a single chatbot. It runs from [`neomjs/neo-
 
 We don't need to capture all of Neo. The graph routes us.
 
-**Read**: [the Engine architecture](./learn/benefits/ArchitectureOverview.md), [the AI Engineering Team](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/AIEngineeringTeam.md), and [the Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)
+**Read**: [the Engine architecture](https://neomjs.com/learn/benefits/ArchitectureOverview), [the AI Engineering Team](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/benefits/brain/AIEngineeringTeam.md), and [the Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)
 
 ### The Evolution Mechanism
 
@@ -224,9 +226,9 @@ The organism is **autopoietic** — it invents on its own. Internal friction bec
 
 Neo.mjs is built for three audiences across its two hemispheres:
 
-- **Web & Application Engineers** building any desktop or mobile web application — from everyday business apps, form-driven portals, and analytics views ([Angular, React, or Vue](./learn/comparisons/Overview.md) replacements) to [`100,000`-row](./examples/grid/bigData) [grids](./learn/guides/datahandling/Grids.md), [multi-window dock workspaces](./learn/guides/uibuildingblocks/DockLayouts.md), financial trading platforms, IDE-class tools, and control-room dashboards where [`40,000+` ops/sec](./learn/benefits/body/Speed.md) without jank is table stakes — start with **[the Engine](#the-engine)**. Because the engine runs workers behind the scenes and has been [JSON-first since its 2019 GA](./learn/benefits/body/JSONFirstUIs.md), both human developers and coding agents build with zero-builds speed out of the box.
-- **Engineering Teams & AI Architects** deploying coding agents or standing multi-agent teams with persistent memory, cross-family peer review, and live runtime inspection & hot-patching of running apps — start with the **[Neural Link](./learn/agentos/NeuralLink.md)**, [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain), and [`neo-agent-institution`](https://github.com/neomjs/neo-agent-institution).
-- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [What Is Neo.mjs?](./learn/benefits/Introduction.md), [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137), and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
+- **Web & Application Engineers** building any desktop or mobile web application — from everyday business apps, form-driven portals, and analytics views ([Angular, React, or Vue](https://neomjs.com/learn/comparisons/Overview) replacements) to [`100,000`-row](https://neomjs.com/examples/grid/bigData/) [grids](https://neomjs.com/learn/guides/datahandling/Grids), [multi-window dock workspaces](https://neomjs.com/learn/guides/uibuildingblocks/DockLayouts), financial trading platforms, IDE-class tools, and control-room dashboards where [`40,000+` ops/sec](https://neomjs.com/learn/benefits/body/Speed) without jank is table stakes — start with **[the Engine](#the-engine)**. Because the engine runs workers behind the scenes and has been [JSON-first since its 2019 GA](https://neomjs.com/learn/benefits/body/JSONFirstUIs), both human developers and coding agents build with zero-builds speed out of the box.
+- **Engineering Teams & AI Architects** deploying coding agents or standing multi-agent teams with persistent memory, cross-family peer review, and live runtime inspection & hot-patching of running apps — start with the **[Neural Link](https://neomjs.com/learn/agentos/NeuralLink)**, [`neo-agent-brain`](https://github.com/neomjs/neo-agent-brain), and [`neo-agent-institution`](https://github.com/neomjs/neo-agent-institution).
+- **Researchers** studying autopoietic systems, gated-RSI patterns, or empirical multi-agent organism governance — start with [What Is Neo.mjs?](https://neomjs.com/learn/benefits/Introduction), [Discussion #10137 (MX coinage)](https://github.com/orgs/neomjs/discussions/10137), and [Discussion #10119 (harness coordination — graduated to ADR 0020 / Epic neo-agent-brain#144)](https://github.com/orgs/neomjs/discussions/10119).
 
 The same hero paragraph reads differently to each audience because each group enters through a different door — a complete `514`-class web application platform, a live possession interface for coding agents, or a standing AI engineering institution.
 
@@ -234,11 +236,11 @@ The same hero paragraph reads differently to each audience because each group en
 ## Read Next
 
 - :sparkles: **[The Vision](./.github/VISION.md)** — the philosophy behind the substrate
-- :compass: **[Where an Agent Institution Sits](./learn/blog/where-an-agent-institution-sits.md)** — a map of the agent landscape, with receipts
+- :compass: **[Where an Agent Institution Sits](https://neomjs.com/news/blog/where-an-agent-institution-sits)** — a map of the agent landscape, with receipts
 - :scroll: **[The Neo.mjs Story](./.github/STORY.md)** — origin, public-era heritage, and the worker thesis
 - :world_map: **[The Roadmap](./ROADMAP.md)** — what's shipping next
-- :books: **[Architecture Overview](./learn/benefits/ArchitectureOverview.md)** — two-hemisphere topology
-- :bar_chart: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)** — the codebase in numbers, with the measurement protocol
+- :books: **[Architecture Overview](https://neomjs.com/learn/benefits/ArchitectureOverview)** — two-hemisphere topology
+- :bar_chart: **[Codebase Overview](https://neomjs.com/learn/guides/fundamentals/CodebaseOverview)** — the codebase in numbers, with the measurement protocol
 - :brain: **[The Dream Pipeline](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/DreamPipeline.md)** — six-phase REM cycle + Golden Path math
 - :gear: **[MX (Model Experience)](https://github.com/neomjs/neo-agent-brain/blob/dev/learn/agentos/MX.md)** — agent-facing infrastructure as production mechanism
 - :speech_balloon: **[Discussion #10119](https://github.com/orgs/neomjs/discussions/10119)** — Neo Agent Harness coordination substrate

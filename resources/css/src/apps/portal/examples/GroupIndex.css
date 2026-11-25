@@ -50,6 +50,7 @@
         }
     }
 
+    a.portal-examples-group-index-zero,
     .portal-examples-group-index-zero a {
         color  : var(--portal-examples-text-muted);
         opacity: 0.45;

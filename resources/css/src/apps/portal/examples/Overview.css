@@ -67,10 +67,14 @@
         }
     }
 
-    .portal-examples-overview-cards.portal-examples-list.neo-list {
+    .portal-examples-overview-cards {
         margin-top: 14px;
         overflow  : visible;
-        padding   : 0;
+
+        > .portal-examples-list.neo-list {
+            overflow: visible;
+            padding : 0;
+        }
     }
 
     /* A phone shows the build control under the featured cards, so the first card moves up its first screen */

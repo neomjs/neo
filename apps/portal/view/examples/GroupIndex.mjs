@@ -17,7 +17,7 @@ const walkKeys = new Set(['ArrowDown', 'ArrowUp', 'End', 'Home']);
  * publishes in the selected build appears in each.
  *
  * A component, not a list: the entries are links with no selection, and the open destination's link (or
- * `"All examples"` when on `/examples`) carries `aria-current="page"`. `list` is one Tab stop, that link (`"All examples"`
+ * `"Start here"` when on `/examples`) carries `aria-current="page"`. `list` is one Tab stop, that link (`"Start here"`
  * under a filter), and the arrow keys, Home and End walk the links through `Neo.main.addon.Navigator`. The link a walk
  * rests on asks to open (`walk`), ArrowRight asks for the cards (`enterCards`), and the controller does both.
  * @class Portal.view.examples.GroupIndex
@@ -57,9 +57,23 @@ class GroupIndex extends Component {
          * @member {Object} bind
          */
         bind: {
-            matchCounts: data => data.matchCounts,
-            store      : 'stores.groups'
+            featuredCount  : data => data.featuredCount,
+            featuredMatches: data => data.featuredMatches,
+            matchCounts    : data => data.matchCounts,
+            store          : 'stores.groups'
         },
+        /**
+         * Number of curated `featured: true` items published in the selected build (`"Start here"` on `/examples`).
+         * @member {Number} featuredCount_=0
+         * @reactive
+         */
+        featuredCount_: 0,
+        /**
+         * Number of curated `featured: true` items matching the active find query, or null at rest.
+         * @member {Number|null} featuredMatches_=null
+         * @reactive
+         */
+        featuredMatches_: null,
         /**
          * Optional per-group match counts (`Map<family, {home, cross, total}>`) active while filtering.
          * Null restores normal published counts across every group.
@@ -130,6 +144,26 @@ class GroupIndex extends Component {
      * @protected
      */
     afterSetActiveFamily(value, oldValue) {
+        this.store && this.createEntries()
+    }
+
+    /**
+     * @summary Updates the `"Start here"` resting count when the selected build changes.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetFeaturedCount(value, oldValue) {
+        this.store && this.createEntries()
+    }
+
+    /**
+     * @summary Updates the `"Start here"` match count when the find filter changes.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @protected
+     */
+    afterSetFeaturedMatches(value, oldValue) {
         this.store && this.createEntries()
     }
 
@@ -223,20 +257,27 @@ class GroupIndex extends Component {
             }
         });
 
+        const isFiltering = Boolean(me.matchCounts),
+              startCount  = isFiltering ? (me.featuredMatches ?? 0) : me.featuredCount,
+              startAria   = isFiltering
+                  ? `Start here, ${startCount === 1 ? '1 matching example' : `${startCount} matching examples`}`
+                  : `Start here, ${ExampleGroup.countLabel({count: startCount, crossCount: 0})}`,
+              startCls    = ['portal-examples-group-index-all', ...(isFiltering && startCount === 0 ? ['portal-examples-group-index-zero'] : [])];
+
         me.vdom.cn = [
             {
                 tag           : 'a',
                 id            : me.id + '__all',
-                cls           : ['portal-examples-group-index-all'],
-                'aria-current': !me.matchCounts && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null,
-                'aria-label'  : `All examples, ${ExampleGroup.countLabel({count: published, crossCount: 0})}`,
+                cls           : startCls,
+                'aria-current': !isFiltering && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null,
+                'aria-label'  : startAria,
                 href          : StringUtil.toRouteHref('/examples'),
                 removeDom     : me.presentation === 'overview',
                 tabIndex      : me.getTabIndex(null),
                 cn            : [
                     {tag: 'i',    cls: ['fa', 'fa-table-cells-large'], 'aria-hidden': true},
-                    {tag: 'span', text: 'All examples'},
-                    {tag: 'span', cls: ['portal-examples-group-index-count'], text: String(published)}
+                    {tag: 'span', text: 'Start here'},
+                    {tag: 'span', cls: ['portal-examples-group-index-count'], text: String(startCount)}
                 ]
             },
             {tag: 'ul', cls: ['portal-examples-group-index-top'], removeDom: unbanded.length === 0, cn: unbanded.map(group => me.createEntry(group))},
@@ -322,7 +363,7 @@ class GroupIndex extends Component {
 
     /**
      * @summary -1 takes a `list` link out of the tab order unless it holds the Tab stop.
-     * @param {String|null} family null for `"All examples"`
+     * @param {String|null} family null for `"Start here"`
      * @returns {Number|null}
      */
     getTabIndex(family) {
@@ -330,7 +371,7 @@ class GroupIndex extends Component {
     }
 
     /**
-     * @returns {String|null} The open group, whose link holds the Tab stop, or null for `"All examples"`
+     * @returns {String|null} The open group, whose link holds the Tab stop, or null for `"Start here"`
      */
     getTabStop() {
         let me = this;

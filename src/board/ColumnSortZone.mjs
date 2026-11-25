@@ -45,6 +45,10 @@ class ColumnSortZone extends SortZone {
          */
         ignoreDragSelector: '.neo-board-column-collapse',
         /**
+         * @member {Boolean} moveVertical=false
+         */
+        moveVertical: false,
+        /**
          * @member {Boolean} positionOwnerRelative=true
          */
         positionOwnerRelative: true,
@@ -215,25 +219,24 @@ class ColumnSortZone extends SortZone {
     }
 
     /**
-     * @summary Ignores `drag:end` events from card drags when no column drag is active and duplicate `drag:end`
+     * @summary Ignores `drag:end` events from card drags when no column drag is active or starting, and duplicate
      * deliveries while {@link #processDragEnd} is already in flight.
      * @param {Object} data
      */
     async onDragEnd(data) {
-        if (!this.dragComponent || this.dragEndActive) {
+        if ((!this.dragComponent && !this.dragStarting) || this.dragEndActive) {
             return
         }
 
-        await super.onDragEnd(data);
-        this.dragComponent = null
+        await super.onDragEnd(data)
     }
 
     /**
-     * @summary Runs the horizontal sort only while a column drag is active.
+     * @summary Runs the horizontal sort while a column drag is active or queued to start.
      * @param {Object} data
      */
     async onDragMove(data) {
-        if (!this.dragComponent || !this.isResortable()) {
+        if ((!this.dragComponent && !this.dragStartPending) || !this.isResortable()) {
             return
         }
 

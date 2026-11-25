@@ -422,5 +422,64 @@ test.describe('Neo.board.ColumnSortZone & Column#locked', () => {
         expect(statuses(board)).toEqual(['in-progress', 'backlog', 'review', 'done']);
         expect(moves).toHaveLength(1);
         expect(zone.dragComponent).toBeNull()
+    });
+
+    test('locks vertical movement off, honors targetPath ignoreDragSelector, and preserves queued back-to-back drags (#22153)', async () => {
+        store = createStore();
+
+        let held = null;
+        const
+            zone  = await startBoard({
+                columnSortZoneConfig: {
+                    module : ColumnSortZone,
+                    timeout: () => new Promise(resolve => held ? held.push(resolve) : resolve())
+                }
+            }),
+            moves = [];
+
+        board.on('columnMove', data => moves.push(data));
+
+        expect(zone.moveVertical).toBe(false);
+
+        const backlog = board.getColumn('backlog');
+        await zone.onDragStart({
+            clientX   : 20,
+            clientY   : 20,
+            path      : headerPath('backlog').slice(1),
+            targetPath: collapsePath('backlog')
+        });
+        expect(zone.dragComponent ?? null).toBeNull();
+
+        await zone.startDrag({clientX: 10, clientY: 20, path: headerPath('backlog')});
+        await zone.onDragMove({clientX: 200, clientY: 20});
+
+        held = [];
+        const firstEnd    = zone.onDragEnd({});
+        const secondStart = zone.startDrag({clientX: 10, clientY: 20, path: headerPath('in-progress')});
+        await zone.onDragMove({clientX: 200, clientY: 20});
+
+        expect(zone.pendingDragMove).toEqual({clientX: 200, clientY: 20});
+
+        const flushHeld = async () => {
+            for (let i = 0; i < 6; i++) {
+                await Promise.resolve();
+                while (held?.length) {
+                    held.shift()()
+                }
+            }
+        };
+
+        await flushHeld();
+        held = null;
+        await Promise.all([firstEnd, secondStart]);
+
+        expect(zone.dragComponent).toBe(board.getColumn('in-progress'));
+        expect(zone.currentIndex).toBe(1);
+
+        await zone.onDragEnd({});
+
+        expect(statuses(board)).toEqual(['backlog', 'in-progress', 'review', 'done']);
+        expect(moves).toHaveLength(2);
+        expect(zone.dragComponent).toBeNull()
     })
 });

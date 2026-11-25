@@ -612,6 +612,11 @@ test.describe('Portal examples overview and group pages', () => {
 
         await controller.onExamplesRoute({itemId: 'multi-window'});
         expect(openCard(view)).toBe('multi-window');
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getMobileFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getGroupIndex().vdom.cn[0]['aria-label']).toBe(`Start here, ${startHereIds.length} live examples`);
+        expect(view.getGroupIndex().vdom.cn[0].cn[1].text).toBe('Start here');
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe(String(startHereIds.length));
 
         // Dev mode removes More components, a page created before Multi-Window
         controller.onSelectBuild({id: 'devmode'});
@@ -634,6 +639,11 @@ test.describe('Portal examples overview and group pages', () => {
 
         await controller.onExamplesRoute({itemId: 'multi-window'});
         expect(openCard(view)).toBe('multi-window');
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getMobileFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getGroupIndex().vdom.cn[0]['aria-label']).toBe(`Start here, ${startHereIds.length} live examples`);
+        expect(view.getGroupIndex().vdom.cn[0].cn[1].text).toBe('Start here');
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe(String(startHereIds.length));
 
         controller.onFindFieldChange({value: 'drag'});
         expect(stage.items[stage.layout.activeIndex]).toBe(searchResults);
@@ -661,9 +671,13 @@ test.describe('Portal examples overview and group pages', () => {
 
         const indexVdom = view.getGroupIndex().vdom,
               findEntry = (node, id) => node.id === id ? node : (node.cn || []).map(c => findEntry(c, id)).find(Boolean),
+              startRow  = indexVdom.cn[0],
+              dragStart = expectedMatches('drag').filter(record => record.featured).length,
               dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
               calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
 
+        expect(startRow['aria-label']).toBe(`Start here, ${dragStart === 1 ? '1 matching example' : `${dragStart} matching examples`}`);
+        expect(startRow.cn[2].text).toBe(String(dragStart));
         expect(dragEntry['aria-label']).toBe(label('Drag & Drop', 'drag-drop'));
         expect(dragEntry.cn[2].text).toBe(String(drag.get('drag-drop').total));
         expect(calEntry['aria-label']).toBe(label('Calendar', 'calendar'));
@@ -688,15 +702,21 @@ test.describe('Portal examples overview and group pages', () => {
 
         controller.onFindFieldChange({value: 'liquid'});
         expect(matchedIds()).toEqual(['liquid-glass']);
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe('0');
+        expect(view.getGroupIndex().vdom.cn[0].cls).toContain('portal-examples-group-index-zero');
         controller.onSelectBuild({id: 'devmode'});
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount - 1} examples…  /`);
         expect(matchedIds()).toEqual([]);
         expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
         controller.onSelectBuild({id: 'dist_prod'});
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
         expect(matchedIds()).toEqual(['liquid-glass']);
 
         controller.onClearFind();
         expect(view.findQuery).toBe('');
         expect(view.getStateProvider().getData('matchCounts')).toBeNull();
+        expect(view.getStateProvider().getData('featuredMatches')).toBeNull();
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe(String(startHereIds.length));
         expect(searchResults.getGroupsContainer().items).toHaveLength(0);
         expect(openCard(view)).toBe('multi-window');
         expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))
@@ -759,6 +779,47 @@ test.describe('Portal examples overview and group pages', () => {
         } finally {
             Neo.main = originalMain
         }
+    });
+
+    test('a row step past a list\'s edge enters the page\'s next list, and one selection holds across a page\'s lists', async () => {
+        const view           = createView(),
+              controller     = view.getController(),
+              page           = view.getGroupPage('forms'),
+              [cards, tiles] = page.getLists(),
+              selected       = list => list.selectionModel.items,
+              itemOf         = (list, record) => list.getItemId(list.getRecordId(record)),
+              firstOf        = list => itemOf(list, list.store.items[0]),
+              lastOf         = list => itemOf(list, list.store.items.at(-1));
+
+        // the step needs both kinds on the page
+        expect(cards.store.getCount()).toBeGreaterThan(0);
+        expect(tiles.store.getCount()).toBeGreaterThan(0);
+        expect(controller.getPageLists(tiles.id)).toEqual([cards, tiles]);
+
+        // no layout to measure here, so an entered list takes its first or last card in reading order
+        [cards, tiles].forEach(list => {list.focus = () => {}});
+        cards.selectionModel.select(lastOf(cards));
+
+        // ArrowDown past the last demonstration row enters the tiles, and the card gives up its selection
+        await controller.onListLeaveRow({direction: 1, left: 0, right: 320, source: cards.id});
+        expect(selected(tiles)).toEqual([firstOf(tiles)]);
+        expect(selected(cards)).toEqual([]);
+
+        // ArrowUp past the first tile row returns to the demonstrations' last row
+        await controller.onListLeaveRow({direction: -1, left: 0, right: 320, source: tiles.id});
+        expect(selected(cards)).toEqual([lastOf(cards)]);
+        expect(selected(tiles)).toEqual([]);
+
+        // at the page's outer edges nothing moves
+        await controller.onListLeaveRow({direction: -1, left: 0, right: 320, source: cards.id});
+        expect(selected(cards)).toEqual([lastOf(cards)]);
+        await controller.onListLeaveRow({direction: 1, left: 0, right: 320, source: tiles.id});
+        expect(selected(tiles)).toEqual([]);
+
+        // a pointer selection in the other list clears this one too
+        tiles.selectionModel.select(lastOf(tiles));
+        expect(selected(cards)).toEqual([]);
+        expect(selected(tiles)).toEqual([lastOf(tiles)])
     });
 });
 
