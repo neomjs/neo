@@ -89,18 +89,22 @@ class HashHistory extends Base {
     }
 
     /**
+     * @summary Pushes a route entry onto the window's history stack unless both `hashString` and `search` match top-of-stack.
      * @param {Object} data
-     * @param {String} data.appName
+     * @param {String} [data.appName]
      * @param {Object} data.hash
      * @param {String} data.hashString
-     * @param {Number} data.windowId
+     * @param {Object} [data.query]
+     * @param {String} [data.search]
+     * @param {Number|String} data.windowId
      */
     push(data) {
         let me         = this,
             {windowId} = data,
-            stack      = me.getStack(windowId);
+            stack      = me.getStack(windowId),
+            top        = stack[0];
 
-        if (stack[0]?.hashString !== data.hashString) {
+        if (!top || top.hashString !== data.hashString || (top.search ?? '') !== (data.search ?? '')) {
             delete data[windowId];
             stack.unshift(data);
 

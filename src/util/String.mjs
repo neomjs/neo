@@ -89,26 +89,30 @@ class StringUtil extends Base {
     }
 
     /**
-     * @summary Formats an internal route string as an anchor `href` for the active `Neo.config.routerMode`.
+     * @summary Formats an internal route string as an anchor `href` for the target window's `routerMode`.
      *
      * Keeps `'hash'` mode (`'#...'`) unchanged for standalone and `file://` builds, and emits a clean root-relative
-     * path prefixed by `Neo.config.routerBasePath` when `Neo.config.routerMode === 'pathname'` so `<base href>` never
-     * hijacks hover URLs, clipboard copies, or modified new-tab clicks.
+     * path prefixed by `routerBasePath` when `routerMode === 'pathname'` so `<base href>` never hijacks hover URLs,
+     * clipboard copies, or modified new-tab clicks. Resolves per-window config from `Neo.windowConfigs[windowId]`
+     * in `SharedWorker` mode, falling back to `Neo.config` when `windowId` is omitted or unregistered.
      * @param {String} route
+     * @param {Number|String} [windowId]
      * @returns {String}
      */
-    static toRouteHref(route) {
+    static toRouteHref(route, windowId) {
         if (!Neo.isString(route) || !route) {
             return route
         }
 
-        if (Neo.config.routerMode !== 'pathname') {
+        const config = (windowId != null && Neo.windowConfigs?.[windowId]) || Neo.config;
+
+        if (config.routerMode !== 'pathname') {
             return route.startsWith('#') ? route : '#' + route
         }
 
         let path = route.startsWith('#') ? route.substring(1) : route;
 
-        return (Neo.config.routerBasePath || '') + (path.startsWith('/') ? path : '/' + path)
+        return (config.routerBasePath || '') + (path.startsWith('/') ? path : '/' + path)
     }
 
     /**

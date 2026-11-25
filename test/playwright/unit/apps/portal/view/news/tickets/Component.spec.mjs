@@ -62,6 +62,9 @@ function createTicketComponent(overrides = {}) {
         useFrontmatterDetails: {
             value: true
         },
+        windowId: {
+            value: null
+        },
         ...overrides
     });
 

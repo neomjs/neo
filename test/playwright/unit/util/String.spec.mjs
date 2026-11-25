@@ -98,5 +98,27 @@ test.describe('Neo.util.String', () => {
         } finally {
             Object.assign(Neo.config, previous)
         }
+    });
+
+    test('toRouteHref resolves per-window routerMode and routerBasePath from Neo.windowConfigs[windowId]', () => {
+        const previousConfig        = {routerBasePath: Neo.config.routerBasePath, routerMode: Neo.config.routerMode},
+              previousWindowConfigs = Neo.windowConfigs;
+
+        try {
+            Object.assign(Neo.config, {routerBasePath: '', routerMode: 'hash'});
+            Neo.windowConfigs = {
+                'win-path': {routerBasePath: '/alpha', routerMode: 'pathname'},
+                'win-hash': {routerBasePath: '', routerMode: 'hash'}
+            };
+
+            expect(StringUtil.toRouteHref('/learn', 'win-path')).toBe('/alpha/learn');
+            expect(StringUtil.toRouteHref('/', 'win-path')).toBe('/alpha/');
+            expect(StringUtil.toRouteHref('/learn', 'win-hash')).toBe('#/learn');
+            expect(StringUtil.toRouteHref('/learn', 'unknown-win')).toBe('#/learn');
+            expect(StringUtil.toRouteHref('/learn')).toBe('#/learn')
+        } finally {
+            Object.assign(Neo.config, previousConfig);
+            previousWindowConfigs === undefined ? delete Neo.windowConfigs : Neo.windowConfigs = previousWindowConfigs
+        }
     })
 });

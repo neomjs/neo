@@ -1,6 +1,7 @@
 import Neo                   from './Neo.mjs';
 import * as core             from './core/_export.mjs';
-import {generateUUID}       from './util/UUID.mjs';
+import {parseQueryParams}    from './util/Route.mjs';
+import {generateUUID}        from './util/UUID.mjs';
 import ClassHierarchyManager from './manager/ClassHierarchy.mjs';
 import DomAccess             from './main/DomAccess.mjs'; // has to get imported before DeltaUpdates
 import DeltaUpdates          from './main/DeltaUpdates.mjs';
@@ -263,10 +264,41 @@ class Main extends core.Base {
     }
 
     /**
-     * @summary Edits the key-value pairs of the route; a value of null removes its key.
+     * @summary Edits the key-value pairs of the active route (`#key=val` in `'hash'` mode, `?key=val` in `'pathname'` mode); `null` removes its key.
      * @param {Object|String} data
      */
     editRoute(data) {
+        if (Neo.config.routerMode === 'pathname') {
+            const
+                params  = new URLSearchParams(location.search),
+                updates = typeof data === 'string' ? parseQueryParams(data) : (data || {});
+
+            Object.entries(updates).forEach(([key, value]) => {
+                if (key === 'windowId' || key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                    return
+                }
+
+                params.delete(key);
+
+                if (value !== null && value !== undefined) {
+                    if (Array.isArray(value)) {
+                        value.forEach(item => {
+                            if (item !== null && item !== undefined) {
+                                params.append(key, String(item))
+                            }
+                        })
+                    } else {
+                        params.set(key, String(value))
+                    }
+                }
+            });
+
+            const nextSearch = params.toString();
+
+            DomEvents.setRoute(DomEvents.getRoute() + (nextSearch ? `?${nextSearch}` : '') + (location.hash || ''));
+            return
+        }
+
         let hashObj = DomEvents.parseHash(DomEvents.getRoute()),
             hashArr = [];
 

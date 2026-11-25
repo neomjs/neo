@@ -625,6 +625,8 @@ class Button extends Component {
         if (menuList) {
             menuList.windowId = value
         }
+
+        !this.editRoute && this.route && this.updateTag()
     }
 
     /**
@@ -882,7 +884,7 @@ class Button extends Component {
     updateTag() {
         let me                      = this,
             {editRoute, route, url} = me,
-            link                    = !editRoute && route ? StringUtil.toRouteHref(route) : url,
+            link                    = !editRoute && route ? StringUtil.toRouteHref(route, me.windowId) : url,
             vdomRoot                = me.getVdomRoot();
 
         if (link) {
