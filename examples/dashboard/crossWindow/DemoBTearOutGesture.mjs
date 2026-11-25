@@ -165,7 +165,7 @@ class DemoBTearOutGesture extends Base {
                 // distinguishes a geometry miss (false → boundary never crossed) from an admission miss
                 // (true → the host's openVessel/windowOpen failed); the boundary + out target expose the
                 // geometry; itemRects confirms the onDragMove gate cleared.
-                let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} enableProxyToPopup=${Boolean(sortZone.enableProxyToPopup)} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'}`,
+                let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} enableProxyToPopup=${Boolean(sortZone.enableProxyToPopup)} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'} proxyMounted=${Boolean(sortZone.dragProxy?.mounted)}`,
                     cancellation = await me.cancelTearOutGesture(button, release);
 
                 return {
@@ -323,11 +323,9 @@ class DemoBTearOutGesture extends Base {
     }
 
     /**
-     * @summary Polls until the base drag has ARMED — a live proxy AND the async main-thread
-     * `boundaryContainerRect` are both present, the two facts
-     * {@link Neo.draggable.container.SortZone#checkWindowBoundary} needs before it will sample a
-     * boundary exit. {@link Neo.draggable.DragZone#onDragStart} sets the boundary through a main
-     * round-trip, so the outward fling must wait for it or the exit silently never fires.
+     * @summary Polls until the base drag has ARMED — setup has settled (`!dragStartPending`), a mounted
+     * proxy exists (`dragProxy.mounted`, so main holds `dragProxyElement` and emits `proxyRect`), and
+     * `boundaryContainerRect` plus `itemRects` are present before any outward boundary sample.
      * @param {Neo.draggable.container.SortZone} sortZone
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=120]
@@ -336,10 +334,13 @@ class DemoBTearOutGesture extends Base {
      * @protected
      */
     async waitForTearOutDragArmed(sortZone, {attempts = 120, delay = 16} = {}) {
-        let me = this,
-            // dragProxy + boundaryContainerRect + itemRects are exactly the three facts
-            // container/SortZone.onDragMove needs before it reaches checkWindowBoundary.
-            armed = () => Boolean(sortZone?.dragProxy && sortZone?.boundaryContainerRect && sortZone?.itemRects);
+        let me    = this,
+            armed = () => Boolean(
+                !sortZone?.dragStartPending &&
+                sortZone?.dragProxy?.mounted &&
+                sortZone?.boundaryContainerRect &&
+                sortZone?.itemRects
+            );
 
         return me.waitFor(armed, {attempts, delay})
     }

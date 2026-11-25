@@ -1412,9 +1412,9 @@ class GestureDriver extends Base {
     }
 
     /**
-     * @summary Polls until the base drag has ARMED — a live proxy AND the async main-thread
-     * `boundaryContainerRect` AND measured `itemRects` are all present: exactly the facts
-     * the sort zone needs before it will sample a boundary exit.
+     * @summary Polls until the base drag has ARMED — setup has settled (`!dragStartPending`), a mounted
+     * proxy exists (`dragProxy.mounted`, so main holds `dragProxyElement` and emits `proxyRect`), and
+     * `boundaryContainerRect` plus `itemRects` are present before any outward boundary sample.
      * @param {Neo.draggable.container.SortZone} sortZone
      * @param {Object} [options={}]
      * @param {Number} [options.attempts=120]
@@ -1423,7 +1423,12 @@ class GestureDriver extends Base {
      * @protected
      */
     async waitForTearOutDragArmed(sortZone, {attempts=120, delay=16}={}) {
-        let armed = () => Boolean(sortZone?.dragProxy && sortZone?.boundaryContainerRect && sortZone?.itemRects);
+        let armed = () => Boolean(
+            !sortZone?.dragStartPending &&
+            sortZone?.dragProxy?.mounted &&
+            sortZone?.boundaryContainerRect &&
+            sortZone?.itemRects
+        );
 
         return this.waitFor(armed, {attempts, delay})
     }

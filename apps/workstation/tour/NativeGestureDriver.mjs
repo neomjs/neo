@@ -708,29 +708,26 @@ class NativeGestureDriver extends GestureDriver {
                     options: opt(startX + 24, startY, startSX + 24, startSY, 1)
                 }]}));
 
-                let armed = false;
-
-                for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
-                    armed = Boolean(sortZone.stackDragActive && sortZone.dragProxy && sortZone.dragCoordinator);
-
-                    if (armed) break;
-
-                    attempt < 120 && await driver.trap(driver.timeout(16))
-                }
+                let armed = !me.isDestroyed && await driver.trap(driver.waitFor(
+                    () => Boolean(!me.isDestroyed && !sortZone.dragStartPending && sortZone.stackDragActive && sortZone.dragProxy?.mounted && sortZone.dragCoordinator),
+                    {attempts: 120, delay: 16}
+                ));
 
                 if (!armed) {
                     release = {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY};
 
                     let sourceArm = {
-                        buttonId       : button.id,
-                        dockGroupNodeId: sortZone.dockGroupNodeId,
-                        dragComponent  : sortZone.dragComponent?.id ?? null,
-                        dragEndActive  : sortZone.dragEndActive,
-                        dragProxyReady : Boolean(sortZone.dragProxy),
+                        buttonId        : button.id,
+                        dockGroupNodeId : sortZone.dockGroupNodeId,
+                        dragComponent   : sortZone.dragComponent?.id ?? null,
+                        dragEndActive   : sortZone.dragEndActive,
+                        dragProxyMounted: Boolean(sortZone.dragProxy?.mounted),
+                        dragProxyReady  : Boolean(sortZone.dragProxy),
+                        dragStartPending: Boolean(sortZone.dragStartPending),
                         handleId,
                         handleRect,
-                        stackDragActive: sortZone.stackDragActive === true,
-                        startIndex     : sortZone.startIndex
+                        stackDragActive : sortZone.stackDragActive === true,
+                        startIndex      : sortZone.startIndex
                     }, cancellation = await driver.cancelTearOutGesture(run, button, release, {sortZone, targetId: handleId});
 
                     return {
@@ -1055,7 +1052,7 @@ class NativeGestureDriver extends GestureDriver {
                 tabs.un('dockTearOutEntry', preBirthEntryProbe);
 
                 if (!born) {
-                    let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} preBirthBoundaryEntries=${preBirthBoundaryEntries} preBirthEntries=${preBirthEntries} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'}`,
+                    let diag         = `exitFired=${Boolean(sortZone.isWindowDragging)} vesselOpen=${JSON.stringify(me.lastVesselOpen ?? null)} preBirthBoundaryEntries=${preBirthBoundaryEntries} preBirthEntries=${preBirthEntries} lastRatio=${sortZone.lastIntersectionRatio} boundary=${JSON.stringify(b)} out=(${outX},${outY}) itemRects=${sortZone.itemRects?.length ?? 'null'} proxyMounted=${Boolean(sortZone.dragProxy?.mounted)}`,
                         cancellation = await driver.cancelTearOutGesture(run, button, release);
 
                     return {

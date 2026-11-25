@@ -1577,3 +1577,131 @@ test.describe('the vessel-resize beat grows a committed window through its owner
         }
     })
 });
+
+test.describe('tear-out and stack-return arming waits for a mounted proxy and settled dragStart (#22114)', () => {
+    test('GestureDriver#waitForTearOutDragArmed holds while dragProxy is unmounted or dragStartPending is true', async () => {
+        const driver   = Neo.create(GestureDriver, {workspace: {isDestroyed: false}}),
+              sortZone = {
+                  boundaryContainerRect: {x: 0, y: 0, width: 1280, height: 800},
+                  dragProxy            : {id: 'proxy-1', mounted: false},
+                  dragStartPending     : true,
+                  itemRects            : [{left: 0, width: 80}]
+              };
+
+        try {
+            await expect(driver.waitForTearOutDragArmed(sortZone, {attempts: 2, delay: 0})).resolves.toBe(false);
+
+            sortZone.dragStartPending = false;
+            await expect(driver.waitForTearOutDragArmed(sortZone, {attempts: 2, delay: 0})).resolves.toBe(false);
+
+            sortZone.dragStartPending  = true;
+            sortZone.dragProxy.mounted = true;
+            await expect(driver.waitForTearOutDragArmed(sortZone, {attempts: 2, delay: 0})).resolves.toBe(false);
+
+            let polls = 0;
+            driver.timeout = async () => {
+                if (++polls === 2) {
+                    sortZone.dragStartPending = false
+                }
+            };
+            await expect(driver.waitForTearOutDragArmed(sortZone, {attempts: 4, delay: 1})).resolves.toBe(true);
+            expect(polls).toBe(2)
+        } finally {
+            driver.destroy()
+        }
+    });
+
+    test('DemoBTearOutGesture#waitForTearOutDragArmed enforces the same mounted-proxy and dragStartPending gate', async () => {
+        const {default: DemoBTearOutGesture} = await import('../../../../../examples/dashboard/crossWindow/DemoBTearOutGesture.mjs');
+        const host                           = {
+                  waitFor: GestureDriver.prototype.waitFor,
+                  timeout: async () => {}
+              },
+              sortZone = {
+                  boundaryContainerRect: {x: 0, y: 0, width: 800, height: 600},
+                  dragProxy            : {id: 'demo-proxy', mounted: false},
+                  dragStartPending     : false,
+                  itemRects            : [{left: 0, width: 80}]
+              };
+
+        await expect(DemoBTearOutGesture.prototype.waitForTearOutDragArmed.call(host, sortZone, {attempts: 1, delay: 0}))
+            .resolves.toBe(false);
+
+        sortZone.dragProxy.mounted = true;
+        sortZone.dragStartPending  = true;
+        await expect(DemoBTearOutGesture.prototype.waitForTearOutDragArmed.call(host, sortZone, {attempts: 1, delay: 0}))
+            .resolves.toBe(false);
+
+        sortZone.dragStartPending = false;
+        await expect(DemoBTearOutGesture.prototype.waitForTearOutDragArmed.call(host, sortZone, {attempts: 1, delay: 0}))
+            .resolves.toBe(true)
+    });
+
+    test('NativeGestureDriver#executeTearOutStep holds outward moves until dragProxy mounts and records proxyMounted in diag', async () => {
+        const {default: NativeGestureDriver} = await import('../../../../../apps/workstation/tour/NativeGestureDriver.mjs');
+        const {default: WindowManager}       = await import('../../../../../src/manager/Window.mjs');
+        const windowId                       = 'gesture-proxy-mount-window',
+              moveProxyMountedStates         = [],
+              sortZone                       = {
+                  on() {},
+                  un() {},
+                  boundaryContainerRect: {x: 0, y: 0, width: 500, height: 400},
+                  dragProxy            : {id: 'proxy-unmounted', mounted: false},
+                  dragStartPending     : true,
+                  isWindowDragging     : false,
+                  itemRects            : [{}, {}],
+                  lastIntersectionRatio: 1
+              },
+              button    = {id: 'proxy-mount-tab', windowId, getDomRect: async () => [{x: 100, y: 100, width: 40, height: 20}]},
+              workspace = {
+                  id              : 'proxy-mount-workspace',
+                  isDestroyed     : false,
+                  dockModel       : {items: {metrics: {}}, nodes: {source: {type: 'tabs', items: ['metrics']}}},
+                  paneCache       : {metrics: {}},
+                  refreshPromise  : null,
+                  getDockHost     : () => ({down: () => ({on() {}, un() {}, getTabAtIndex: () => button, getTabBar: () => ({sortZone})})}),
+                  nativeWindows   : {clearConnection() {}},
+                  tearOutVesselKey: itemId => `workstation-vessel:${itemId}`
+              },
+              driver = Neo.create(NativeGestureDriver, {workspace});
+
+        WindowManager.register({id: windowId, windowId, innerRect: {x: 0, y: 0, width: 1200, height: 800}});
+        let   armTicks    = 0;
+        const origWaitFor = driver.waitFor.bind(driver);
+        driver.waitFor = async (predicate, opts) => origWaitFor(() => {
+            if (++armTicks === 3) {
+                sortZone.dragStartPending  = false;
+                sortZone.dragProxy.mounted = true
+            }
+            return predicate()
+        }, {...opts, delay: 0});
+        driver.waitForTearOutVessel = async () => false;
+        driver.interactionService.simulateEvent = async ({events}) => {
+            for (const event of events) {
+                if (event.type === 'mousemove' && event.options.clientX > 200) {
+                    moveProxyMountedStates.push({
+                        dragStartPending: sortZone.dragStartPending,
+                        proxyMounted    : sortZone.dragProxy.mounted
+                    })
+                }
+            }
+            return true
+        };
+        driver.interactionService.dispatch = async () => true;
+
+        try {
+            const receipt = await driver.executeTearOutStep(
+                {itemId: 'metrics', sourceNodeId: 'source'},
+                {birthAttempts: 0, moveDelay: 0, moveSteps: 4}
+            );
+
+            expect(moveProxyMountedStates).toHaveLength(4);
+            expect(moveProxyMountedStates.every(s => s.proxyMounted === true && s.dragStartPending === false)).toBe(true);
+            expect(receipt.applied).toBe(false);
+            expect(receipt.proof.diag).toContain('proxyMounted=true')
+        } finally {
+            driver.destroy();
+            WindowManager.unregister(windowId)
+        }
+    })
+});
