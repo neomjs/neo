@@ -161,7 +161,11 @@ class Markdown extends Component {
      */
     async afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
-        this.activeComponents.forEach(component => component.windowId = value)
+        this.activeComponents.forEach(component => component.windowId = value);
+
+        if (value != null && this.value && ((this.replaceTicketIds && this.issuesUrl?.startsWith('#/')) || this.contentRoute?.startsWith('#/'))) {
+            await this.afterSetValue(this.value, this.value)
+        }
     }
 
     /**
@@ -391,10 +395,14 @@ class Markdown extends Component {
             });
 
             // 4. Perform ticket replacement
+            const
+                windowId     = Object.hasOwn(me, 'windowId') || Symbol.for('configSymbol') in me ? me.windowId : null,
+                windowConfig = (windowId != null && Neo.windowConfigs?.[windowId]) || Neo.config;
+
             content = content.replace(regexTicketId, (match, prefix, id) => {
                 const
-                    issuesUrl  = me.issuesUrl.startsWith('#/') ? StringUtil.toRouteHref(me.issuesUrl) : me.issuesUrl,
-                    isInternal = issuesUrl.startsWith('#') || (Neo.config.routerMode === 'pathname' && issuesUrl.startsWith('/')),
+                    issuesUrl  = me.issuesUrl.startsWith('#/') ? StringUtil.toRouteHref(me.issuesUrl, windowId) : me.issuesUrl,
+                    isInternal = issuesUrl.startsWith('#') || (windowConfig.routerMode === 'pathname' && issuesUrl.startsWith('/')),
                     url        = issuesUrl + id,
                     target     = isInternal ? '' : ' target="_blank"';
 

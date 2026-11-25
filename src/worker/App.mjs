@@ -721,31 +721,44 @@ class App extends Base {
     }
 
     /**
-     * The starting point for apps
+     * @summary Boots an application in `windowId` and seeds its initial per-window route unless a live route arrived first.
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me        = this,
-            {config}  = Neo,
-            windowId  = data.windowId,
-            appConfig = Neo.windowConfigs[windowId] || config,
-            appPath   = appConfig.appPath;
+        let me              = this,
+            {config}        = Neo,
+            windowId        = data?.windowId ?? config.windowId,
+            hasWindowConfig = Boolean(windowId != null && Neo.windowConfigs?.[windowId]),
+            appConfig       = hasWindowConfig ? Neo.windowConfigs[windowId] : config,
+            appPath         = appConfig.appPath;
 
         if (appConfig.environment !== 'development') {
             appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
         }
 
-        me.importApp(appPath).then(module => {
+        return me.importApp(appPath).then(module => {
             Neo.bootingWindowId = windowId;
             module.onStart();
             delete Neo.bootingWindowId;
 
+            const initialHash = appConfig.hash;
+
             // short delay to ensure Component Controllers are ready
-            config.hash && me.timeout(5).then(() => {
-                HashHistory.push(config.hash);
-                // apps which will get created later must not use outdated hash values
-                delete config.hash
-            })
+            if (initialHash) {
+                return me.timeout(5).then(() => {
+                    const windowStillLive = (!hasWindowConfig || Boolean(Neo.windowConfigs?.[windowId])) && !me.isWindowDeparted?.(windowId);
+
+                    if (windowStillLive && !HashHistory.getCount(windowId)) {
+                        HashHistory.push(initialHash)
+                    }
+
+                    delete appConfig.hash;
+
+                    if (!hasWindowConfig || config.windowId === windowId) {
+                        delete config.hash
+                    }
+                })
+            }
         })
     }
 

@@ -61,6 +61,14 @@ class Controller extends Base {
     }
 
     /**
+     * Tracks the latest history entry already dispatched to this controller so `initAsync()` never replays
+     * an entry that arrived via the `HashHistory` `'change'` listener while `super.initAsync()` was pending.
+     * @member {Object|null} #lastDispatchedHash=null
+     * @private
+     */
+    #lastDispatchedHash = null
+
+    /**
      * Creates a new Controller instance and registers its `onHashChange` method
      * to listen for changes in the browser's URL hash.
      * @param {Object} config
@@ -119,33 +127,38 @@ class Controller extends Base {
 
         let me                      = this,
             {defaultHash, windowId} = me,
-            currentHash             = HashHistory.first(windowId);
+            currentHash             = HashHistory.first(windowId),
+            hasWindowConfig         = Boolean(windowId != null && Neo.windowConfigs?.[windowId]),
+            windowConfig            = hasWindowConfig ? Neo.windowConfigs[windowId] : Neo.config;
 
         if (currentHash) {
-            if (currentHash.windowId === windowId) {
+            if (currentHash.windowId === windowId && currentHash !== me.#lastDispatchedHash) {
                 await me.onHashChange(currentHash, null)
             }
         } else {
             /*
-             * worker.App: onLoadApplication() will push config.hash into the HashHistory with a 5ms delay.
+             * worker.App: onLoadApplication() will push windowConfig.hash into the HashHistory with a 5ms delay.
              * We only want to set a default route, in case the HashHistory is empty and there is no initial
              * value that will get consumed.
              */
-            !Neo.config.hash && defaultHash && Neo.Main.setRoute({value: defaultHash, windowId})
+            !windowConfig.hash && defaultHash && Neo.Main.setRoute({value: defaultHash, windowId})
         }
     }
 
     /**
-     * Handles changes in the browser's URL hash. It identifies the most specific matching route
-     * and dispatches the corresponding handler, optionally executing a preHandler first.
-     * @param {Object} value    The new hash history entry.
-     * @param {Object} oldValue The previous hash history entry.
+     * @summary Dispatches the most specific matching route handler for `'hash'` or `'pathname'` history entries.
+     * In `'pathname'` mode, `value.hashString` holds the clean path while `?search` parameters populate `value.hash`,
+     * `value.query`, and `value.search`.
+     * @param {Object} value    The new route history entry.
+     * @param {Object} oldValue The previous route history entry.
      */
     async onHashChange(value, oldValue) {
         // We only want to trigger hash changes for the same browser window (SharedWorker context)
         if (value.windowId !== this.windowId) {
             return
         }
+
+        this.#lastDispatchedHash = value;
 
         let me                     = this,
             {handleRoutes, routes} = me,
@@ -211,10 +224,14 @@ class Controller extends Base {
                 await me[handler]?.call(me, bestMatchParams, value, oldValue)
             }
         } else {
+            const
+                hasWindowConfig = Boolean(me.windowId != null && Neo.windowConfigs?.[me.windowId]),
+                windowConfig    = hasWindowConfig ? Neo.windowConfigs[me.windowId] : Neo.config;
+
             if (me.defaultRoute) {
                 value.capturedRoute = me.defaultRoute;
                 me[me.defaultRoute]?.(value, oldValue)
-            } else if (Neo.config.routerMode === 'pathname' && value.hashString === '/' && me.defaultHash && me.defaultHash !== '/') {
+            } else if (windowConfig.routerMode === 'pathname' && value.hashString === '/' && me.defaultHash && me.defaultHash !== '/') {
                 Neo.Main.setRoute({replace: true, value: me.defaultHash, windowId: me.windowId})
             } else {
                 value.capturedRoute = null;

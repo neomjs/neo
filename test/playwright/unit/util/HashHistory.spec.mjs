@@ -155,4 +155,24 @@ test.describe('Neo.util.HashHistory', () => {
         expect(entry.windowId).toBe('w1');
         expect(entry).not.toHaveProperty('w1')
     });
+
+    test('deduplicates on both hashString and search so same-path query transitions fire change once each', () => {
+        const events   = [],
+              onChange = (...args) => events.push(args);
+
+        HashHistory.on('change', onChange);
+
+        try {
+            HashHistory.push({hash: {view: 'full'}, hashString: '/examples/grid', query: {view: 'full'}, search: 'view=full', windowId: 'w1'});
+            HashHistory.push({hash: {view: 'full'}, hashString: '/examples/grid', query: {view: 'full'}, search: 'view=full', windowId: 'w1'});
+            HashHistory.push({hash: {view: 'compact'}, hashString: '/examples/grid', query: {view: 'compact'}, search: 'view=compact', windowId: 'w1'});
+            HashHistory.push({hash: {}, hashString: '/examples/grid', query: {}, search: '', windowId: 'w1'});
+            HashHistory.push({hash: {}, hashString: '/examples/grid', windowId: 'w1'});
+
+            expect(HashHistory.getCount('w1')).toBe(3);
+            expect(events.map(([curr]) => curr.search)).toEqual(['view=full', 'view=compact', ''])
+        } finally {
+            HashHistory.un('change', onChange)
+        }
+    });
 });

@@ -972,4 +972,249 @@ test.describe('Neo.main.DomEvents', () => {
             })
         })
     });
+
+    test('pathname mode supports Main#editRoute, repeated query keys, last-key null removal, Back/Forward popstate, and #anchor suppression', async () => {
+        const {execFile}      = await import('node:child_process'),
+              path            = await import('node:path'),
+              {promisify}     = await import('node:util'),
+              {fileURLToPath} = await import('node:url'),
+              repoRoot        = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'),
+              execFileAsync   = promisify(execFile);
+
+        const script = `
+            import Neo from './src/Neo.mjs';
+            import * as core from './src/core/_export.mjs';
+            import {setup} from './test/playwright/setup.mjs';
+
+            setup({
+                mockMain : false,
+                neoConfig: {
+                    routerBasePath: '',
+                    routerMode    : 'pathname',
+                    unitTestMode  : true
+                }
+            });
+
+            const origin     = 'https://neomjs.com',
+                  windowBus  = new EventTarget(),
+                  docBus     = new EventTarget(),
+                  historyLog = [],
+                  entries    = [{href: '/examples/grid', state: null}],
+                  dispatched = [];
+            let cursor = 0;
+
+            const syncLocation = href => {
+                const next = new URL(href, origin + (globalThis.location?.pathname || '/') + (globalThis.location?.search || ''));
+                Object.assign(globalThis.location, {
+                    hash    : next.hash,
+                    href    : next.href,
+                    pathname: next.pathname,
+                    search  : next.search
+                })
+            };
+
+            globalThis.location = {hash: '', href: origin + '/examples/grid', origin, pathname: '/examples/grid', search: ''};
+            globalThis.history  = {
+                state: null,
+                pushState(state, title, href) {
+                    historyLog.push(['push', href]);
+                    entries.splice(cursor + 1);
+                    entries.push({href, state});
+                    cursor = entries.length - 1;
+                    this.state = state;
+                    syncLocation(href)
+                },
+                replaceState(state, title, href) {
+                    historyLog.push(['replace', href]);
+                    entries[cursor] = {href, state};
+                    this.state = state;
+                    syncLocation(href)
+                },
+                back() {
+                    if (cursor > 0) {
+                        cursor--;
+                        this.state = entries[cursor].state;
+                        syncLocation(entries[cursor].href);
+                        windowBus.dispatchEvent(new Event('popstate'))
+                    }
+                },
+                forward() {
+                    if (cursor < entries.length - 1) {
+                        cursor++;
+                        this.state = entries[cursor].state;
+                        syncLocation(entries[cursor].href);
+                        windowBus.dispatchEvent(new Event('popstate'))
+                    }
+                }
+            };
+
+            docBus.body            = Object.assign(new EventTarget(), {classList: {add() {}, remove() {}}});
+            docBus.createElement   = () => ({addEventListener() {}, classList: {add() {}, remove() {}}});
+            docBus.documentElement = {classList: {add() {}, remove() {}}};
+            docBus.getElementById  = () => null;
+            docBus.querySelector   = () => null;
+            docBus.readyState      = 'complete';
+            docBus.visibilityState = 'visible';
+
+            globalThis.document     = docBus;
+            globalThis.window       = windowBus;
+            globalThis.screen       = {orientation: {}};
+            globalThis.matchMedia   = () => ({matches: false, addEventListener() {}, removeEventListener() {}});
+            globalThis.Worker       = class {postMessage() {} addEventListener() {}};
+            globalThis.SharedWorker = class {port = {start() {}, postMessage() {}, addEventListener() {}}};
+            windowBus.Worker        = globalThis.Worker;
+            windowBus.SharedWorker  = globalThis.SharedWorker;
+
+            Neo.insideWorker = true;
+            delete Neo.main.DomAccess;
+            delete Neo.worker.Manager;
+
+            const {default: HashHistory} = await import('./src/util/HashHistory.mjs');
+            const {default: Main}        = await import('./src/Main.mjs');
+            const {default: DomEvents}   = await import('./src/main/DomEvents.mjs');
+
+            Neo.worker.Manager.appNames    = ['Portal'];
+            Neo.worker.Manager.windowId    = 1;
+            Neo.worker.Manager.sendMessage = (dest, msg) => {
+                if (msg.action === 'hashChange') {
+                    dispatched.push(msg.data);
+                    HashHistory.push({...msg.data})
+                }
+            };
+
+            // 1. Main#editRoute({view: 'compact'}) on '/examples/grid' -> '/examples/grid?view=compact'
+            Main.editRoute({view: 'compact'});
+            const step1Url = globalThis.location.pathname + globalThis.location.search + globalThis.location.hash;
+
+            // 2. Same-path transition from ?view=full -> setRoute('/examples/grid?view=compact&tag=a&tag=b#details')
+            DomEvents.setRoute('/examples/grid?view=full');
+            DomEvents.setRoute('/examples/grid?view=compact&tag=a&tag=b#details');
+            const step2Payload = dispatched.at(-1);
+
+            // 3. In-page #anchor-only hop on same pathname + search stays suppressed
+            const countBeforeAnchor = dispatched.length;
+            syncLocation('/examples/grid?view=compact&tag=a&tag=b#other-section');
+            windowBus.dispatchEvent(new Event('popstate'));
+            const countAfterAnchor = dispatched.length;
+
+            // Restore #details and remove non-view keys first so ?view=compact#details is isolated
+            DomEvents.setRoute('/examples/grid?view=compact#details');
+            const countBeforeNull = dispatched.length;
+            const historyBeforeNull = historyLog.length;
+
+            // 4. editRoute({view: null}) from '/examples/grid?view=compact#details' -> '/examples/grid#details', dispatches once with search: ''
+            Main.editRoute({view: null});
+            const afterFirstNull = {
+                count  : dispatched.length - countBeforeNull,
+                history: historyLog.slice(historyBeforeNull),
+                payload: dispatched.at(-1),
+                url    : globalThis.location.pathname + globalThis.location.search + globalThis.location.hash
+            };
+
+            // Repeat editRoute({view: null}) is idempotent (zero History writes, zero worker dispatches)
+            Main.editRoute({view: null});
+            const afterSecondNull = {
+                count  : dispatched.length - countBeforeNull,
+                history: historyLog.slice(historyBeforeNull)
+            };
+
+            // 5. Back/Forward recovers both states (?view=compact#details <-> #details)
+            globalThis.history.back();
+            const afterBack = {
+                payload: dispatched.at(-1),
+                top    : HashHistory.first(1),
+                url    : globalThis.location.pathname + globalThis.location.search + globalThis.location.hash
+            };
+
+            globalThis.history.forward();
+            const afterForward = {
+                payload: dispatched.at(-1),
+                top    : HashHistory.first(1),
+                url    : globalThis.location.pathname + globalThis.location.search + globalThis.location.hash
+            };
+
+            console.log('PROBE ' + JSON.stringify({
+                afterBack,
+                afterFirstNull,
+                afterForward,
+                afterSecondNull,
+                anchorSuppressed: countAfterAnchor === countBeforeAnchor,
+                step1Dispatch   : dispatched[0],
+                step1Url,
+                step2Payload
+            }));
+            process.exit(0);
+        `;
+
+        const {stdout} = await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd: repoRoot, encoding: 'utf8', timeout: 15000
+        });
+        const result = JSON.parse(stdout.split('\n').find(line => line.startsWith('PROBE ')).slice(6));
+
+        expect(result.step1Url).toBe('/examples/grid?view=compact');
+        expect(result.step1Dispatch).toMatchObject({
+            hash      : {view: 'compact'},
+            hashString: '/examples/grid',
+            query     : {view: 'compact'},
+            search    : 'view=compact',
+            windowId  : 1
+        });
+
+        expect(result.step2Payload).toMatchObject({
+            fragment  : 'details',
+            hash      : {tag: ['a', 'b'], view: 'compact'},
+            hashString: '/examples/grid',
+            query     : {tag: ['a', 'b'], view: 'compact'},
+            search    : 'view=compact&tag=a&tag=b',
+            windowId  : 1
+        });
+
+        expect(result.anchorSuppressed).toBe(true);
+
+        expect(result.afterFirstNull).toEqual({
+            count  : 1,
+            history: [['push', '/examples/grid#details']],
+            payload: {
+                appNames  : ['Portal'],
+                fragment  : 'details',
+                hash      : {},
+                hashString: '/examples/grid',
+                query     : {},
+                search    : '',
+                windowId  : 1
+            },
+            url: '/examples/grid#details'
+        });
+
+        expect(result.afterSecondNull).toEqual({
+            count  : 1,
+            history: [['push', '/examples/grid#details']]
+        });
+
+        expect(result.afterBack.url).toBe('/examples/grid?view=compact#details');
+        expect(result.afterBack.payload).toMatchObject({
+            fragment  : 'details',
+            hash      : {view: 'compact'},
+            hashString: '/examples/grid',
+            query     : {view: 'compact'},
+            search    : 'view=compact'
+        });
+        expect(result.afterBack.top).toMatchObject({
+            hashString: '/examples/grid',
+            search    : 'view=compact'
+        });
+
+        expect(result.afterForward.url).toBe('/examples/grid#details');
+        expect(result.afterForward.payload).toMatchObject({
+            fragment  : 'details',
+            hash      : {},
+            hashString: '/examples/grid',
+            query     : {},
+            search    : ''
+        });
+        expect(result.afterForward.top).toMatchObject({
+            hashString: '/examples/grid',
+            search    : ''
+        })
+    });
 });

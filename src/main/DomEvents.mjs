@@ -1,7 +1,8 @@
-import Base           from '../core/Base.mjs';
-import Observable     from '../core/Observable.mjs';
-import StringUtil     from '../util/String.mjs';
-import TouchDomEvents from './mixin/TouchDomEvents.mjs';
+import Base                                                           from '../core/Base.mjs';
+import Observable                                                     from '../core/Observable.mjs';
+import {isManagedRoutePath, normalizeRoutePathname, parseQueryParams} from '../util/Route.mjs';
+import StringUtil                                                     from '../util/String.mjs';
+import TouchDomEvents                                                 from './mixin/TouchDomEvents.mjs';
 
 const globalDomEvents = [
     {name: 'change',      handler: 'onChange'},
@@ -172,7 +173,7 @@ class DomEvents extends Base {
         if (Neo.config.routerMode === 'pathname') {
             window.addEventListener('popstate', me.sendRoute.bind(me));
             me.upgradeHashRoute(true);
-            me.#lastRoute = me.getRoute()
+            me.#lastRoute = me.getRouteKey()
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -439,41 +440,59 @@ class DomEvents extends Base {
      * @returns {String}
      */
     getRoute() {
-        let {routerBasePath, routerMode} = Neo.config,
-            {hash, pathname}             = location,
-            path;
+        let {routerBasePath, routerMode} = Neo.config;
 
         if (routerMode !== 'pathname') {
-            return hash.substring(1)
+            return location.hash.substring(1)
         }
 
-        path = pathname === routerBasePath || pathname.startsWith(routerBasePath + '/') ?
-            pathname.substring(routerBasePath.length) :
-            pathname;
-
-        if (!path || path === '/' || path === '/index.html') {
-            return '/'
-        }
-
-        return path.replace(/\/+$/, '') || '/'
+        return normalizeRoutePathname(location.pathname, routerBasePath)
     }
 
     /**
      * @summary The current route in the shape a worker receives as `Neo.config.hash`.
-     * @param {Number} windowId
+     * @param {Number|String} windowId
      * @returns {Object|null} null without a route
      */
     getRouteConfig(windowId) {
-        let hashString = this.getRoute(),
-            fragment   = Neo.config.routerMode === 'pathname' && location.hash?.length > 1 ?
-                location.hash.substring(1) : undefined;
+        let me         = this,
+            hashString = me.getRoute();
 
-        return hashString ? {
+        if (!hashString) {
+            return null
+        }
+
+        if (Neo.config.routerMode !== 'pathname') {
+            return {
+                hash: me.parseHash(hashString),
+                hashString,
+                windowId
+            }
+        }
+
+        const
+            fragment = location.hash?.length > 1 ? location.hash.substring(1) : undefined,
+            search   = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || ''),
+            query    = parseQueryParams(search);
+
+        return {
             ...(fragment ? {fragment} : {}),
-            hash: this.parseHash(hashString),
+            hash: me.parseQueryValues(query),
             hashString,
+            query,
+            search,
             windowId
-        } : null
+        }
+    }
+
+    /**
+     * @summary Returns the deduplication key (`pathname + '?' + search`) for `'pathname'` mode transitions.
+     * @returns {String}
+     */
+    getRouteKey() {
+        const search = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || '');
+
+        return `${this.getRoute()}?${search}`
     }
 
     /**
@@ -627,13 +646,7 @@ class DomEvents extends Base {
             return false
         }
 
-        let routePath = Neo.config.routerBasePath ?
-            url.pathname.substring(Neo.config.routerBasePath.length) || '/' :
-            url.pathname || '/';
-
-        if (routePath === '/index.html') {
-            routePath = '/'
-        }
+        const routePath = normalizeRoutePathname(url.pathname, Neo.config.routerBasePath);
 
         me.setRoute(routePath + url.search + url.hash);
         return true
@@ -646,26 +659,9 @@ class DomEvents extends Base {
      * @returns {Boolean}
      */
     isManagedRoutePath(pathname) {
-        let {routerBasePath = '', routerIgnorePaths = []} = Neo.config,
-            routePath;
+        let {routerBasePath = '', routerIgnorePaths = []} = Neo.config;
 
-        if (routerBasePath) {
-            if (pathname !== routerBasePath && !pathname.startsWith(routerBasePath + '/')) {
-                return false
-            }
-
-            routePath = pathname.substring(routerBasePath.length) || '/'
-        } else {
-            routePath = pathname || '/'
-        }
-
-        if (routePath !== '/index.html' && /\.[a-z0-9]+$/i.test(routePath)) {
-            return false
-        }
-
-        return !routerIgnorePaths.some(pattern =>
-            pattern.startsWith('^') ? new RegExp(pattern).test(routePath) : routePath.startsWith(pattern)
-        )
+        return isManagedRoutePath(pathname, routerIgnorePaths, routerBasePath)
     }
 
     /**
@@ -1240,6 +1236,24 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Converts parsed query string entries into typed scalar or array values matching `parseHash`.
+     * @param {Object} query
+     * @returns {Object}
+     * @protected
+     */
+    parseQueryValues(query) {
+        const result = {};
+
+        for (const [key, value] of Object.entries(query)) {
+            result[key] = Array.isArray(value)
+                ? value.map(item => this.parseValue(item))
+                : this.parseValue(value)
+        }
+
+        return result
+    }
+
+    /**
      * used by parseHash to convert tokens into boolean or number types if needed
      * @param {String} value
      * @returns {Boolean|Number|String}
@@ -1319,29 +1333,47 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Sends the current route to the App worker. In `'pathname'` mode an unchanged route is not sent:
-     * following an in-page anchor pops a history entry of the same path.
+     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates on `pathname + '?' + search`
+     * so same-path query edits dispatch while in-page `#anchor`-only hops stay suppressed.
      */
     sendRoute() {
         let me         = this,
             {Manager}  = Neo.worker,
-            hashString = me.getRoute(),
-            fragment   = Neo.config.routerMode === 'pathname' && location.hash?.length > 1 ?
-                location.hash.substring(1) : undefined;
+            hashString = me.getRoute();
 
         if (Neo.config.routerMode === 'pathname') {
-            if (hashString === me.#lastRoute) {
+            const routeKey = me.getRouteKey();
+
+            if (routeKey === me.#lastRoute) {
                 return
             }
 
-            me.#lastRoute = hashString
+            me.#lastRoute = routeKey;
+
+            const
+                fragment = location.hash?.length > 1 ? location.hash.substring(1) : undefined,
+                search   = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || ''),
+                query    = parseQueryParams(search);
+
+            Manager.sendMessage('app', {
+                action: 'hashChange',
+                data  : {
+                    appNames: Manager.appNames,
+                    ...(fragment ? {fragment} : {}),
+                    hash    : me.parseQueryValues(query),
+                    hashString,
+                    query,
+                    search,
+                    windowId: Manager.windowId
+                }
+            });
+            return
         }
 
         Manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
                 appNames: Manager.appNames,
-                ...(fragment ? {fragment} : {}),
                 hash    : me.parseHash(hashString),
                 hashString,
                 windowId: Manager.windowId
@@ -1375,11 +1407,12 @@ class DomEvents extends Base {
         }
 
         let [, path = '', query = '', anchor = ''] = route.replace(/^#/, '').match(/^([^?#]*)(?:\?([^#]*))?(#.*)?$/) || [],
+            currentSearch = location.search && location.search !== '?' ? location.search : '',
             currentKey, nextKey, nextUrl;
 
         // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
         path       = ('/' + path.replace(/^\/+/, '')).replace(/\/+$/, '') || '/';
-        currentKey = me.getRoute() + (query ? location.search || '' : '') + (anchor ? location.hash || '' : '');
+        currentKey = me.getRoute() + currentSearch + (anchor ? location.hash || '' : '');
         nextKey    = path + (query ? `?${query}` : '') + anchor;
         nextUrl    = Neo.config.routerBasePath + nextKey;
 

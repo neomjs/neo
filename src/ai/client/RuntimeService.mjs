@@ -229,6 +229,7 @@ class RuntimeService extends Service {
     }
 
     /**
+     * @summary Returns the route history stack for `windowId` (including additive `search` and `query` fields in `'pathname'` mode).
      * @param {Object} params
      * @param {String} [params.windowId]
      * @returns {Object}
@@ -665,8 +666,9 @@ class RuntimeService extends Service {
     }
 
     /**
+     * @summary Navigates `windowId` to a route (`'#...'` / `'...'` in `'hash'` mode, or `'/path?query#fragment'` in `'pathname'` mode).
      * @param {Object} params
-     * @param {String} params.hash
+     * @param {String} params.hash Route value or pathname (e.g. `'/learn'`).
      * @param {String} [params.windowId]
      * @returns {Object}
      */
