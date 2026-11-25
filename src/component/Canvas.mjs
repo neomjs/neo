@@ -70,11 +70,31 @@ class Canvas extends Component {
     }
 
     /**
+     * Worker-lifetime counter ensuring transfer tokens stay unique even if a destroyed Canvas ID is recreated.
+     * @member {Number} #nextTransferId=0
+     * @private
+     * @static
+     */
+    static #nextTransferId = 0
+    /**
+     * Transfer token of the currently confirmed offscreen surface, used to fence delayed `unregisterCanvas` calls.
+     * @member {String|null} #activeTransferId=null
+     * @private
+     */
+    #activeTransferId = null
+    /**
      * Monotonic token invalidating in-flight offscreen transfer attempts across unmount, window move, or destroy.
      * @member {Number} #mountGeneration=0
      * @private
      */
     #mountGeneration = 0
+
+    /**
+     * @returns {String|null}
+     */
+    get activeTransferId() {
+        return this.#activeTransferId
+    }
 
     /**
      * @summary Lets a worker-backed subclass refuse transfer while retaining the ordinary component mount lifecycle.
@@ -118,22 +138,26 @@ class Canvas extends Component {
             }
 
             let {windowId} = me,
-                outcome, promise;
+                transferId = `${me.id}:${++Canvas.#nextTransferId}`,
+                callback, outcome, promise;
 
             promise = new Promise(resolve => {
-                me.registerCanvasCallbacks[id] = confirmed => {
-                    if (me.registerCanvasCallbacks?.[id]) {
+                callback = confirmed => {
+                    if (me.registerCanvasCallbacks?.[id] === callback) {
                         delete me.registerCanvasCallbacks[id]
                     }
 
                     resolve(confirmed !== false)
-                }
+                };
+                callback.transferId            = transferId;
+                me.registerCanvasCallbacks[id] = callback
             });
 
             try {
                 outcome = await Neo.main.DomAccess.transferCanvasToWorker({
                     componentId: me.id,
                     nodeId     : id,
+                    transferId,
                     windowId
                 })
             } catch {
@@ -153,6 +177,7 @@ class Canvas extends Component {
             }
 
             if (await promise && !me.isDestroyed && me.mounted && generation === me.#mountGeneration && me.windowId === windowId) {
+                me.#activeTransferId   = transferId;
                 me.offscreenRegistered = true
             }
 
@@ -216,9 +241,13 @@ class Canvas extends Component {
             me.drawn = false;
 
             if (offscreen) {
+                let transferId = me.#activeTransferId;
+                me.#activeTransferId = null;
+
                 if (me.offscreenRegistered) {
                     Neo.worker.Canvas.unregisterCanvas({
                         nodeId  : id,
+                        ...(transferId ? {transferId} : {}),
                         windowId: me.windowId
                     })
                 }
@@ -246,9 +275,13 @@ class Canvas extends Component {
         me.#cancelPendingRegistration(id);
 
         if (oldValue) {
+            let transferId = me.#activeTransferId;
+            me.#activeTransferId = null;
+
             if (me.offscreen && me.offscreenRegistered) {
                 Neo.worker.Canvas.unregisterCanvas({
                     nodeId  : id,
+                    ...(transferId ? {transferId} : {}),
                     windowId: oldValue
                 })
             }
@@ -270,15 +303,18 @@ class Canvas extends Component {
      * @param {...*} args
      */
     destroy(...args) {
-        let me = this,
-            id = me.getCanvasId();
+        let me         = this,
+            id         = me.getCanvasId(),
+            transferId = me.#activeTransferId;
 
+        me.#activeTransferId = null;
         me.#mountGeneration++;
         me.#cancelPendingRegistration(id);
 
         if (me.offscreenRegistered) {
             Neo.worker.Canvas.unregisterCanvas({
                 nodeId  : id,
+                ...(transferId ? {transferId} : {}),
                 windowId: me.windowId
             })
         }

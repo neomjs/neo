@@ -397,11 +397,28 @@ test.describe('Workstation pop-out — sparkline cells follow the grid into the 
         await expect.poll(async () => (await readSparklines(app)).filter(c => feedCanvasIdSet.has(c.id) && c.windowId === openerId && c.mounted && c.offscreenRegistered).length,
             {message: `${closeMode}: Feed sparklines settle in opener`, timeout: 15000}).toBe(feedCanvasIdSet.size);
 
-        await expect.poll(async () => (await readSparklines(app)).filter(c => !feedCanvasIdSet.has(c.id) && c.windowId === openerId && c.mounted && c.offscreenRegistered).length,
-            {message: `${closeMode}: ScalePane sparklines settle in opener before baseline census`, timeout: 15000}).toBeGreaterThan(0);
+        let baselineRegistry = null;
+
+        await expect.poll(async () => {
+            const openerMounted = (await readSparklines(app)).filter(c => c.windowId === openerId && c.mounted),
+                  scaleMounted  = openerMounted.filter(c => !feedCanvasIdSet.has(c.id));
+
+            if (scaleMounted.length === 0 || !openerMounted.every(c => c.offscreenRegistered)) {
+                return false
+            }
+
+            const registry = await readCanvasWorkerRegistry(browser, page),
+                  settled  = registry.mapCount === openerMounted.length &&
+                             registry.sparklineCount === openerMounted.length;
+
+            if (settled) {
+                baselineRegistry = registry
+            }
+
+            return settled
+        }, {message: `${closeMode}: all mounted opener sparklines settle in App and Canvas workers before baseline census`, timeout: 15000}).toBe(true);
 
         const initialSparklineIds = [...feedCanvasIdSet],
-              baselineRegistry    = await readCanvasWorkerRegistry(browser, page),
               departedPopupIds    = [];
 
         for (let cycle = 1; cycle <= 3; cycle++) {
