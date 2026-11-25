@@ -61,7 +61,7 @@ class MainContainerController extends Component {
 
         if (terms.length === 0) {
             searchResults.clearResults();
-            me.getStateProvider().setData({matchCounts: null});
+            me.getStateProvider().setData({featuredMatches: null, matchCounts: null});
             me.showOpenGroup();
             return
         }
@@ -70,6 +70,7 @@ class MainContainerController extends Component {
               groupTitles                      = Object.fromEntries(familyDefinitions.map(definition => [definition.family, definition.title])),
               published                        = view.getCatalogStore().items.filter(record => Example.publishes(record, catalogMode)),
               matched                          = published.filter(record => Example.matchesQuery(record, terms, groupTitles)),
+              featuredMatches                  = matched.filter(record => record.featured).length,
               matchCounts                      = new Map(),
               resultGroups                     = [];
 
@@ -92,7 +93,7 @@ class MainContainerController extends Component {
             }
         });
 
-        me.getStateProvider().setData({matchCounts});
+        me.getStateProvider().setData({featuredMatches, matchCounts});
         searchResults.showResults({
             query       : query.trim(),
             groups      : resultGroups,
@@ -115,8 +116,9 @@ class MainContainerController extends Component {
         const me = this;
 
         me.getStateProvider().setData({
-            findQuery  : '',
-            matchCounts: null
+            featuredMatches: null,
+            findQuery      : '',
+            matchCounts    : null
         });
 
         restoreFocus && me.component.restoreFocusAfterFind(sourceFieldId)
@@ -305,6 +307,10 @@ class MainContainerController extends Component {
         });
 
         groupStore.data = groups;
+        this.getStateProvider().setData({
+            featuredCount : published.filter(record => record.featured).length,
+            publishedCount: published.length
+        });
 
         view.getGroupPages().forEach(page => {
             const group = groupStore.get(page.family);
