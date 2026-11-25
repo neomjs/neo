@@ -225,6 +225,7 @@ class WindowTearOut extends Base {
                 return
             }
 
+            view.setAppRecord?.(owner.record);
             view.setReturnHandler?.(() => me.returnToDesktop({focus: true}));
             const workspace = Neo.getComponent(owner.boundaryContainerId);
             if (workspace) {
@@ -341,7 +342,10 @@ class WindowTearOut extends Base {
         entry.stopThemeSync?.();
         entry.stopThemeSync = null;
         if (target && !target.isDestroyed && keyListener) target.removeDomListeners(keyListener);
-        if (view && !view.isDestroyed) view.setReturnHandler?.(null)
+        if (view && !view.isDestroyed) {
+            view.setAppRecord?.(null);
+            view.setReturnHandler?.(null)
+        }
     }
 
     /** @summary Restores through the shared placeholder only while the original pane is still staged. @param {Object} entry */
@@ -409,6 +413,7 @@ class WindowTearOut extends Base {
             if (!result) NativeVesselTransaction.releaseClosedVessel(entry.route).catch(() => {});
             if (focus && !owner.isDestroyed) owner.focus(owner.id, true)
         } else if (entry.target && !this.isDestroyed) {
+            entry.view.setAppRecord?.(owner.record);
             entry.view.setReturnHandler?.(() => this.returnToDesktop({focus: true}))
         }
         return closed

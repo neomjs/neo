@@ -20,21 +20,6 @@
         border-bottom: 1px solid var(--desktop-app-window-border-color);
     }
 
-    /* The app's glyph on a tile of its color, before the title */
-    .neo-desktop-app-window-icon {
-        align-items     : center;
-        background-color: var(--desktop-app-color);
-        border-radius   : 7px;
-        color           : #fff;
-        display         : inline-flex;
-        flex            : none;
-        font-size       : 12px;
-        height          : 24px;
-        justify-content : center;
-        margin-right    : 8px;
-        width           : 24px;
-    }
-
     /* Maximized fills the workspace, the area above the 60px taskbar (`Taskbar.css`), not the dialog's 98% of the
        viewport. A window is `position: fixed` on the body, so the percentages read the viewport. */
     &.neo-maximized {
@@ -44,6 +29,22 @@
         top          : 0 !important;
         width        : 100% !important;
     }
+}
+
+/* The app's glyph on a tile of its color, shared by AppWindow and PopupViewport. Compounded with `.neo-icon` so
+   `color` and `font-size` outrank `component/Icon.css` when `Icon.css` links after `AppWindow.css`. */
+.neo-icon.neo-desktop-app-window-icon {
+    align-items     : center;
+    background-color: var(--desktop-app-color);
+    border-radius   : 7px;
+    color           : #fff;
+    display         : inline-flex;
+    flex            : none;
+    font-size       : 12px;
+    height          : 24px;
+    justify-content : center;
+    margin-right    : 8px;
+    width           : 24px;
 }
 
 /* A phone has no room for a floating window: every window fills the area above the 60px taskbar, as a maximized one

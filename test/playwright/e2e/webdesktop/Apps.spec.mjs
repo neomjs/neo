@@ -438,6 +438,122 @@ test.describe('web desktop apps', () => {
         await bin.getByRole('button', {name: 'close'}).click();
         await page.locator(ICON).filter({hasText: 'Documents'}).dblclick();
         await expect(windowOf(page, 'Documents').getByText('Old logo.png')).toBeVisible()
+    });
+
+    test('a popped-out app window keeps the desktop glass surface, app header identity, and transparent containers across theme switches', async ({page}) => {
+        await signIn(page);
+
+        await page.locator(ICON).filter({hasText: 'Reports'}).dblclick();
+        const reports = windowOf(page, 'Reports');
+        await expect(reports.locator('.webdesktop-reports')).toBeVisible();
+
+        const readWindowTone = element => {
+            const style     = getComputedStyle(element),
+                  icon      = element.querySelector('.neo-desktop-app-window-icon'),
+                  iconStyle = icon && getComputedStyle(icon),
+                  header    = element.querySelector('.neo-grid-header-toolbar'),
+                  probe     = document.body.appendChild(document.createElement('h2')),
+                  h2Font    = getComputedStyle(probe).fontFamily;
+            probe.remove();
+            return {
+                color       : style.color,
+                gridHeaderBg: header && getComputedStyle(header).backgroundColor,
+                h2Font,
+                iconColor   : iconStyle?.color,
+                iconFontSize: iconStyle?.fontSize,
+                winBgVar    : style.getPropertyValue('--desktop-app-window-background-color').trim()
+            }
+        };
+        const darkDesktopTone = await reports.evaluate(readWindowTone);
+        expect(darkDesktopTone).toEqual(expect.objectContaining({
+            iconColor   : 'rgb(255, 255, 255)',
+            iconFontSize: '12px'
+        }));
+
+        const [popup] = await Promise.all([
+            page.waitForEvent('popup'),
+            reports.getByRole('button', {name: 'Pop out window'}).click()
+        ]);
+        await expect(popup.locator('.webdesktop-reports')).toBeVisible();
+        await expect(popup.locator('.neo-desktop-popup-title')).toHaveText('Reports');
+        await expect(popup.locator('.neo-desktop-app-window-icon')).toBeVisible();
+
+        const readPopupSurface = () => popup.evaluate(() => {
+            const vp       = document.querySelector('.neo-viewport.neo-desktop-popup-viewport'),
+                  tb       = vp?.querySelector('.neo-desktop-popup-toolbar'),
+                  icon     = tb?.querySelector('.neo-desktop-app-window-icon'),
+                  header   = vp?.querySelector('.neo-grid-header-toolbar'),
+                  bodyWrap = vp?.children[1],
+                  probe    = vp?.appendChild(document.createElement('h2')),
+                  h2Font   = probe && getComputedStyle(probe).fontFamily,
+                  vs       = vp && getComputedStyle(vp),
+                  ts       = tb && getComputedStyle(tb),
+                  is       = icon && getComputedStyle(icon),
+                  hs       = header && getComputedStyle(header),
+                  bs       = bodyWrap && getComputedStyle(bodyWrap);
+            probe?.remove();
+            return vp ? {
+                bgImage     : vs.backgroundImage,
+                bodyWrapBg  : bs.backgroundColor,
+                color       : vs.color,
+                gridHeaderBg: hs?.backgroundColor,
+                h2Font,
+                iconColor   : is?.color,
+                iconFontSize: is?.fontSize,
+                iconRadius  : is?.borderRadius,
+                iconWidth   : is?.width,
+                tbBg        : ts.backgroundColor,
+                tbBorder    : ts.borderBottomStyle,
+                wallpaper   : vs.getPropertyValue('--desktop-wallpaper').trim(),
+                winBgVar    : vs.getPropertyValue('--desktop-app-window-background-color').trim()
+            } : null
+        });
+
+        await expect.poll(readPopupSurface).toEqual(expect.objectContaining({
+            bgImage     : expect.stringContaining('radial-gradient'),
+            bodyWrapBg  : 'rgba(0, 0, 0, 0)',
+            color       : darkDesktopTone.color,
+            gridHeaderBg: darkDesktopTone.gridHeaderBg,
+            h2Font      : darkDesktopTone.h2Font,
+            iconColor   : 'rgb(255, 255, 255)',
+            iconFontSize: '12px',
+            iconRadius  : '7px',
+            iconWidth   : '24px',
+            tbBg        : 'rgba(0, 0, 0, 0)',
+            tbBorder    : 'solid',
+            wallpaper   : expect.stringContaining('radial-gradient'),
+            winBgVar    : darkDesktopTone.winBgVar
+        }));
+
+        await page.getByRole('button', {name: 'Switch theme'}).click();
+        await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-light/);
+        await expect.poll(readPopupSurface).toEqual(expect.objectContaining({
+            bgImage     : expect.stringContaining('rgba(255, 255, 255, 0.78)'),
+            bodyWrapBg  : 'rgba(0, 0, 0, 0)',
+            color       : 'rgb(15, 23, 42)',
+            gridHeaderBg: 'rgb(255, 255, 255)',
+            iconColor   : 'rgb(255, 255, 255)',
+            iconFontSize: '12px',
+            iconRadius  : '7px',
+            iconWidth   : '24px',
+            tbBg        : 'rgba(0, 0, 0, 0)',
+            tbBorder    : 'solid',
+            wallpaper   : expect.stringContaining('radial-gradient')
+        }));
+
+        await page.getByRole('button', {name: 'Switch theme'}).click();
+        await expect(popup.locator('body')).toHaveClass(/neo-theme-neo-dark/);
+        await expect.poll(readPopupSurface).toEqual(expect.objectContaining({
+            bodyWrapBg: 'rgba(0, 0, 0, 0)',
+            color     : darkDesktopTone.color,
+            tbBg      : 'rgba(0, 0, 0, 0)'
+        }));
+
+        await Promise.all([
+            popup.waitForEvent('close'),
+            popup.getByRole('button', {name: 'Back to desktop', exact: true}).click()
+        ]);
+        await expect(reports.locator('.webdesktop-reports')).toBeVisible()
     })
 });
 
