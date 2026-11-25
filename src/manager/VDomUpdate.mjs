@@ -181,6 +181,10 @@ class VDomUpdate extends Collection {
      * @param {Function} [reject]  Settles the promise when the flight it is parked on fails.
      */
     addPromiseCallback(ownerId, resolve, reject) {
+        const trace = globalThis.__workstationBootTrace;
+        if (trace && ownerId === trace.hostId) {
+            trace.write('callback registered', {ownerId, count: (this.promiseCallbackMap.get(ownerId)?.length ?? 0) + 1})
+        }
         let me = this;
 
         if (!me.promiseCallbackMap.has(ownerId)) {
@@ -198,6 +202,10 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId The `id` of the component whose payload was collected.
      */
     claimPromiseCallbacks(ownerId) {
+        const trace = globalThis.__workstationBootTrace;
+        if (trace && ownerId === trace.hostId) {
+            trace.write('callback claimed', {ownerId, count: this.promiseCallbackMap.get(ownerId)?.length ?? 0})
+        }
         this.promiseCallbackMap.get(ownerId)?.forEach(entry => {
             entry.claimed = true
         })
@@ -220,6 +228,13 @@ class VDomUpdate extends Collection {
      * @param {Set<String>|null} [processedChildIds] IDs of children actually included in this update.
      */
     executeCallbacks(ownerId, data, processedChildIds) {
+        const trace = globalThis.__workstationBootTrace;
+        if (trace && (ownerId === trace.hostId || processedChildIds?.has(trace.hostId))) {
+            const callbacks = this.promiseCallbackMap.get(trace.hostId) ?? [];
+            trace.write('callback execution', {
+                ownerId, count: callbacks.length, claimed: callbacks.filter(entry => entry.claimed).length
+            });
+        }
         const me        = this,
               item      = me.mergedCallbackMap.get(ownerId),
               callbacks = [];
@@ -367,6 +382,8 @@ class VDomUpdate extends Collection {
      * @param {*}       error   The error to reject the parked promises with.
      */
     rejectCallbacks(ownerId, error) {
+        const trace = globalThis.__workstationBootTrace;
+        if (trace && ownerId === trace.hostId) trace.write('callback rejected', {ownerId, reason: String(error)});
         let me   = this,
             item = me.mergedCallbackMap.get(ownerId);
 
@@ -652,6 +669,10 @@ class VDomUpdate extends Collection {
      * @param {Number} distance         The component tree distance (number of levels) between the parent and child.
      */
     registerMerged(ownerId, childId, childUpdateDepth, distance) {
+        const trace = globalThis.__workstationBootTrace;
+        if (trace && childId === trace.hostId) {
+            trace.write('host merged', {ownerId, childId, childUpdateDepth, distance})
+        }
         let me   = this,
             item = me.mergedCallbackMap.get(ownerId);
 

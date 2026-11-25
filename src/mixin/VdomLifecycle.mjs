@@ -525,7 +525,43 @@ class VdomLifecycle extends Base {
                 inFlightScopes.get(id)?.beforeExecuteVdomUpdate?.()
             }
 
+            const trace = globalThis.__workstationBootTrace;
+            const host  = trace && Neo.getComponent(trace.hostId);
+            let observedBatch;
+
+            if (host) {
+                const ancestors = new Set();
+                for (let node = host; node; node = node.parent) ancestors.add(node.id);
+
+                const hits = [];
+                for (const [rootId, entry] of Object.entries(updates)) {
+                    const pending = [entry.vdom];
+                    while (pending.length) {
+                        const node = pending.pop();
+                        const id   = typeof node === 'string' ? node : node?.id ?? node?.componentId;
+                        if (ancestors.has(id)) {
+                            const kind = typeof node === 'string' ? 'reference' : node.neoIgnore ? 'pruned' : 'expanded';
+                            hits.push({rootId, id, kind});
+                        }
+                        if (Array.isArray(node?.cn)) pending.push(...node.cn);
+                    }
+                }
+
+                if (hits.length || [...scopes.keys()].some(id => ancestors.has(id))) {
+                    observedBatch = trace.next;
+                    trace.write('batch sent', {
+                        batch: observedBatch, windowId: me.windowId, hostWindowId: host.windowId, hits,
+                        roots: emittedRoots.map(id => ({id, depth: depths.get(id)})), collected: [...scopes.keys()]
+                    });
+                }
+            }
+
             const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batchData));
+            if (observedBatch !== undefined) {
+                trace.write('batch acknowledged', {
+                    batch: observedBatch, roots: Object.keys(response.vnodes ?? {}), deltas: response.deltas?.length
+                });
+            }
 
             if (me.isDestroyed) throw Neo.isDestroyed;
 

@@ -212,9 +212,19 @@ const readProjectionState = async (browser, page) => {
                       });
 
             return {
-                hostId    : id,
-                hostUpdate: host ? {updating: Boolean(host.isVdomUpdating), needsUpdate: Boolean(host.needsVdomUpdate)} : null,
+                hostId         : id,
+                hostUpdate     : host ? {updating: Boolean(host.isVdomUpdating), needsUpdate: Boolean(host.needsVdomUpdate)} : null,
                 overflow,
+                bootTrace      : globalThis.__workstationBootTrace ?? null,
+                hostState      : host ? {mounted: host.mounted, hasVnode: Boolean(host.vnode), windowId: host.windowId, depth: host.updateDepth} : null,
+                hostCallbacks  : Neo.manager.VDomUpdate.promiseCallbackMap.get(id)?.map(entry => ({claimed: Boolean(entry.claimed)})) ?? [],
+                hostMergeOwners: Neo.manager.VDomUpdate.mergedCallbackMap.items
+                    .filter(row => row.children.has(id))
+                    .map(row => {
+                        const owner = Neo.getComponent(row.ownerId);
+                        return {ownerId: row.ownerId, child: row.children.get(id), windowId: owner?.windowId,
+                            needs: owner?.needsVdomUpdate, updating: owner?.isVdomUpdating, depth: owner?.updateDepth};
+                    }),
                 workspace : workspace.id,
                 cycle     : workspace.projectionCycle?.timing ?? null,
                 // The refresh the newest cycle waits on: its last stamp is the phase it never left
@@ -391,7 +401,7 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
 
             probe = await attachPageSharedAppWorker({browser, page: cold});
 
-            await probe.evaluate(async id => {
+            const bootTrace = await probe.evaluate(async id => {
                 const {Neo} = globalThis,
                       api   = Neo.main.DomAccess,
                       read  = api.getLayoutRect,
@@ -431,8 +441,11 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
                     held.release?.()
                 };
 
-                workspace.projectDockZoneDocument(workspace.dockModel).catch(() => {})
+                workspace.projectDockZoneDocument(workspace.dockModel).catch(() => {});
+                return globalThis.__workstationBootTrace ?? null
             }, hostId).catch(error => failWithProjectionState(browser, cold, error));
+
+            await fs.writeFile(test.info().outputPath('workstation-boot-trace.json'), JSON.stringify(bootTrace, null, 2));
 
             await expect.poll(() => probe.evaluate(() => typeof globalThis.__heldOverflowRead.release === 'function'),
                 {message: 'the older projection waits on its overflow read', timeout: 10000}).toBe(true);

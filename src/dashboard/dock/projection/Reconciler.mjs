@@ -598,9 +598,32 @@ class Reconciler extends Base {
 
             await settle(onProjectionStaged?.({currentTabs, nextShell, oldShell, plans}), 'reconcileStaged');
 
+            let trace;
+
+            if (host.cls?.includes('workstation-dock-host')) {
+                trace = globalThis.__workstationBootTrace ??= {
+                    events : [],
+                    next   : 0,
+                    dropped: 0,
+                    write(stage, fields) {
+                        if (this.events.length < 120) {
+                            this.events.push({sequence: this.next++, at: performance.now(), stage, ...fields})
+                        } else {
+                            this.dropped++
+                        }
+                    }
+                };
+                trace.hostId = host.id;
+                trace.write('shell update requested', {
+                    hostId : host.id, windowId: host.windowId, shellId: nextShell.id, initialProjection,
+                    mounted: host.mounted, updating: host.isVdomUpdating, needs: host.needsVdomUpdate
+                });
+            }
+
             host.updateDepth = -1;
             host.update();
-            await settle(host.promiseUpdate(), 'reconcileShellStaged')
+            await settle(host.promiseUpdate(), 'reconcileShellStaged');
+            trace?.write('shell promise resolved', {hostId: host.id, shellId: nextShell.id})
         } catch (error) {
             // The destroy sentinel is a Symbol; annotating it throws, and a destroyed host has nothing to repair into.
             if (!initialProjection || error === Neo.isDestroyed) {
