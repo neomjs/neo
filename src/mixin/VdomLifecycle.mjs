@@ -275,6 +275,8 @@ class VdomLifecycle extends Base {
      * 4. **Flight Ownership:** Protect emitted and sparse-absorbed roots at their captured depths until
      *    all returned trees are adopted. Each protected root owns its settlement; a dead carrier cancels live
      *    co-roots with an error, never their destroy sentinel. Outcomes release deferred updates.
+     * 5. **Window Routing:** The deltas go to the window the payload was collected in, even when the
+     *    component moves windows before they are sent.
      *
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -541,7 +543,8 @@ class VdomLifecycle extends Base {
                 }
             }
 
-            const batchData = {updates};
+            const {windowId} = me,
+                  batchData  = {updates};
 
             if (absorbedMeta) {
                 batchData.meta = absorbedMeta
@@ -555,7 +558,7 @@ class VdomLifecycle extends Base {
             // causing cross-window operations (like dragging a component to a new window) to fail silently.
             if (currentWorker?.isSharedWorker) {
                 batchData.appName  = me.appName;
-                batchData.windowId = me.windowId
+                batchData.windowId = windowId
             }
 
             /**
@@ -582,7 +585,7 @@ class VdomLifecycle extends Base {
             const hasMeta = Object.keys(response.meta || {}).length > 0;
 
             if (!Neo.config.useVdomWorker && me.id && !me.isDestroyed && (response.deltas?.length > 0 || hasMeta)) {
-                await Neo.applyDeltas(me.windowId, response.deltas || [], hasMeta ? response.meta : undefined);
+                await Neo.applyDeltas(windowId, response.deltas || [], hasMeta ? response.meta : undefined);
 
                 if (me.isDestroyed) throw Neo.isDestroyed;
 
