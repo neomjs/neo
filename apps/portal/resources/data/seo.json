@@ -101,8 +101,8 @@
         "lastmod": "2026-11-22"
     },
     "/learn/benefits/body/ApplicationEngine": {
-        "title": "The Application Engine for the AI Era - Neo.mjs",
-        "description": "Traditional frameworks compile away. Engines stay alive.",
+        "title": "The Engine Agents Build On — Multi-Threaded JavaScript Application Engine | Neo.mjs",
+        "description": "Coding agents understand Neo.mjs, excel with it and build on it. The AI peers who maintain the engine work this way every day.",
         "schemaType": "TechArticle",
         "lastmod": "2026-11-23"
     },
@@ -351,6 +351,11 @@
         "lastmod": "2026-10-19",
         "robots": "noindex, follow"
     },
+    "/learn/agentos/decisions/0043-vdom-diff-placement": {
+        "title": "ADR 0043: The App worker diffs; the VDom worker retires - Neo.mjs",
+        "description": "Today stage 3 runs in the VDom worker. The App worker clones each payload's vdom and old vnode and sends them over a channel. The worker diffs and replies...",
+        "schemaType": "TechArticle"
+    },
     "/learn/guides/fundamentals/CodebaseOverview": {
         "title": "Codebase Overview: Neo.mjs - The AI-Native Web Platform",
         "description": "Neo.mjs is not a library. It's a comprehensive web platform. Methodology: sloc source-only for code (excludes blanks + comments), comments tracked as a...",
@@ -458,6 +463,26 @@
         "description": "To power an engine capable of processing 40,000 VDOM delta updates per second across multiple worker threads, the sophisticated core engine we've explored...",
         "schemaType": "TechArticle",
         "lastmod": "2026-03-18"
+    },
+    "/learn/guides/vdomengine/Overview": {
+        "title": "The VDOM Engine — Neo.mjs Developer Guide",
+        "description": "Every visible change in a Neo application takes one path. A component edits its vdom in the App worker. The engine computes the smallest set of DOM...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/vdomengine/AppWorker": {
+        "title": "VDOM Engine: App Worker - Neo.mjs",
+        "description": "The App worker runs stages 1, 2 and 5 of the VDOM engine. It owns every component's two trees: vdom, what the component should render, and vnode, what the...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/vdomengine/VdomWorker": {
+        "title": "VDOM Engine: VDom Worker - Neo.mjs",
+        "description": "The VDom worker runs stage 3 of the VDOM engine, the diff: each payload becomes deltas and a new vnode. The diff runs in the VDom worker by default, and...",
+        "schemaType": "TechArticle"
+    },
+    "/learn/guides/vdomengine/MainThread": {
+        "title": "VDOM Engine: Main Thread - Neo.mjs",
+        "description": "The Main thread runs stage 4 of the VDOM engine: it writes deltas to the DOM and decides when the App worker hears about it. It keeps no vdom and no vnode...",
+        "schemaType": "TechArticle"
     },
     "/learn/guides/uibuildingblocks/ComponentsAndContainers": {
         "title": "Component and Container Basics — Neo.mjs Developer Guide",
@@ -1173,7 +1198,7 @@
     },
     "/examples/multi-window": {
         "title": "Multi-Window JavaScript App Examples — SharedWorker State | Neo.mjs",
-        "description": "Explore 12 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
+        "description": "Explore 13 live multi-window JavaScript app examples: A living-data workspace whose panes can leave the browser window.",
         "schemaType": "CollectionPage",
         "lastmod": "2026-11-23"
     },
@@ -1262,8 +1287,8 @@
         "lastmod": "2026-11-05"
     },
     "/apps/webdesktop/index.html": {
-        "title": "Web Desktop — Multi-Threaded JavaScript App | Neo.mjs",
-        "description": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter. Sign in as two accounts and compare the apps...",
+        "title": "Web Desktop — Multi-Window JavaScript Demo | Neo.mjs",
+        "description": "A desktop whose icons, menus and windows follow the signed-in account's permissions through one store filter. Sign in as two accounts to compare their apps...",
         "schemaType": "WebPage",
         "lastmod": "2026-11-23"
     },
