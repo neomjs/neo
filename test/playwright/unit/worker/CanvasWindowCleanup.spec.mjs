@@ -334,12 +334,13 @@ test.describe('Neo.worker.Canvas departed-window cleanup', () => {
             };
 
             const makeNode = label => ({getContext: () => ({}), height: 45, label, width: 139});
+            const labels   = ['old', 'new', 'dispose-old', 'dispose-new'];
             let seq = 0;
 
             Neo.main = {
                 DomAccess: {
                     transferCanvasToWorker(opts) {
-                        const label = ++seq === 1 ? 'old' : 'new';
+                        const label = labels[seq++] ?? ('xfer-' + seq);
                         mainToCanvas.push({
                             action     : 'registerCanvasDirect',
                             componentId: opts.componentId,
@@ -421,6 +422,58 @@ test.describe('Neo.worker.Canvas departed-window cleanup', () => {
             };
 
             cmp.destroy();
+            appToCanvas.length = 0;
+            canvasToApp.length = 0;
+
+            // Arm C: Destroy-and-recreate two distinct Canvas instances with the exact same explicit id and windowId
+            const disposedCmp = Neo.create({
+                module     : CanvasCmp,
+                id         : 'same-key-dispose',
+                monitorSize: false,
+                windowId   : 'win-opener'
+            });
+            disposedCmp.timeout = () => Promise.resolve();
+            disposedCmp.mounted = true;
+            await Promise.resolve();
+            await Promise.resolve();
+
+            const firstDisposeTransferId = mainToCanvas[0]?.transferId;
+            canvasWorker.registerCanvasDirect(mainToCanvas.shift()); // queues canvasRegistered for disposedCmp
+            disposedCmp.destroy();
+
+            const recreatedCmp = Neo.create({
+                module     : CanvasCmp,
+                id         : 'same-key-dispose',
+                monitorSize: false,
+                windowId   : 'win-opener'
+            });
+            recreatedCmp.timeout = () => Promise.resolve();
+            recreatedCmp.mounted = true;
+            await Promise.resolve();
+            await Promise.resolve();
+
+            const secondDisposeTransferId = mainToCanvas[0]?.transferId;
+            report.distinctTokensAcrossRecreate = Boolean(firstDisposeTransferId && secondDisposeTransferId && firstDisposeTransferId !== secondDisposeTransferId);
+
+            // Stale ack from destroyed instance arrives before recreated instance's transfer reaches Canvas
+            app.onCanvasRegistered(canvasToApp.shift());
+            report.recreatedNotPrematurelyConfirmed = !recreatedCmp.offscreenRegistered && Boolean(recreatedCmp.registerCanvasCallbacks['same-key-dispose']);
+
+            // Recreated instance's surface reaches Canvas BEFORE destroyed instance's delayed cleanup arrives
+            canvasWorker.registerCanvasDirect(mainToCanvas.shift());
+            canvasWorker.unregisterCanvas(appToCanvas.shift());
+            report.recreatedSurvivedDelayedCleanup = {
+                mapLabel   : canvasWorker.map['same-key-dispose']?.label ?? null,
+                windowLabel: canvasWorker.canvasWindowMap['same-key-dispose']?.['win-opener']?.label ?? null
+            };
+
+            // Recreated instance's own ack confirms it
+            app.onCanvasRegistered(canvasToApp.shift());
+            await Promise.resolve();
+            await Promise.resolve();
+            report.recreatedConfirmed = recreatedCmp.offscreenRegistered;
+
+            recreatedCmp.destroy();
             console.log(JSON.stringify(report));
             process.exit(0)
         `;
@@ -437,6 +490,10 @@ test.describe('Neo.worker.Canvas departed-window cleanup', () => {
             beforeDelayedCleanup            : 'new',
             cleanupQueuedForOldTransfer     : true,
             directReplacementSurvived       : {mapLabel: 'direct-new', windowLabel: 'direct-new'},
+            distinctTokensAcrossRecreate    : true,
+            recreatedConfirmed              : true,
+            recreatedNotPrematurelyConfirmed: true,
+            recreatedSurvivedDelayedCleanup : {mapLabel: 'dispose-new', windowLabel: 'dispose-new'},
             replacementConfirmed            : true,
             staleAckDidNotConfirmReplacement: true,
             transfer2QueuedBeforeStaleAck   : true

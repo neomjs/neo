@@ -70,6 +70,13 @@ class Canvas extends Component {
     }
 
     /**
+     * Worker-lifetime counter ensuring transfer tokens stay unique even if a destroyed Canvas ID is recreated.
+     * @member {Number} #nextTransferId=0
+     * @private
+     * @static
+     */
+    static #nextTransferId = 0
+    /**
      * Transfer token of the currently confirmed offscreen surface, used to fence delayed `unregisterCanvas` calls.
      * @member {String|null} #activeTransferId=null
      * @private
@@ -131,7 +138,7 @@ class Canvas extends Component {
             }
 
             let {windowId} = me,
-                transferId = `${me.id}:${generation}:${attempt}`,
+                transferId = `${me.id}:${++Canvas.#nextTransferId}`,
                 callback, outcome, promise;
 
             promise = new Promise(resolve => {
