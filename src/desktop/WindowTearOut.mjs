@@ -225,7 +225,7 @@ class WindowTearOut extends Base {
                 return
             }
 
-            view.setReturnHandler?.(() => me.returnToDesktop({focus: true}));
+            view.setReturnHandler?.(() => me.returnToDesktop({focus: true}), owner.record);
             const workspace = Neo.getComponent(owner.boundaryContainerId);
             if (workspace) {
                 const route = entry.route;
@@ -409,7 +409,7 @@ class WindowTearOut extends Base {
             if (!result) NativeVesselTransaction.releaseClosedVessel(entry.route).catch(() => {});
             if (focus && !owner.isDestroyed) owner.focus(owner.id, true)
         } else if (entry.target && !this.isDestroyed) {
-            entry.view.setReturnHandler?.(() => this.returnToDesktop({focus: true}))
+            entry.view.setReturnHandler?.(() => this.returnToDesktop({focus: true}), owner.record)
         }
         return closed
     }

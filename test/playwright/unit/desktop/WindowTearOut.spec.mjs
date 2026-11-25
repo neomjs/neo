@@ -50,7 +50,7 @@ test.describe('Desktop window tear-out admission and restoration', () => {
             windowOpen               : async data => {opened.push(data); return true}
         };
 
-        apps    = Neo.create(Apps, {data: [{id: 'notes', text: 'Notes'}]});
+        apps    = Neo.create(Apps, {data: [{id: 'notes', text: 'Notes', iconCls: 'fas fa-note-sticky', color: '#eab308'}]});
         tasks   = Neo.create(Tasks);
         manager = Neo.create(WindowManager, {
             appStore    : apps,
@@ -351,4 +351,32 @@ test.describe('Desktop window tear-out admission and restoration', () => {
             expect(tasks.get('notes')).toBe(task)
         })
     }
+
+    test('PopupViewport declares desktop glass theme dependencies and mirrors the app header identity until return', async () => {
+        const {popupName} = await host.open({rect});
+
+        connect(popupName);
+
+        const view    = popups.get('child'),
+              toolbar = view.getReference('desktopPopupToolbar'),
+              icon    = toolbar.getReference('desktopPopupIcon'),
+              title   = toolbar.getReference('desktopPopupTitle'),
+              spacer  = toolbar.getReference('desktopPopupSpacer');
+
+        expect(view.cls).toContain('neo-desktop-popup-viewport');
+        expect(view.additionalThemeFiles).toEqual(['Neo.desktop.AppWindow', 'Neo.desktop.Container']);
+        await expect.poll(() => toolbar.hidden).toBe(false);
+        expect(icon.hidden).toBe(false);
+        expect(icon.cellIconCls).toEqual(['fas', 'fa-note-sticky']);
+        expect(icon.style).toEqual({'--desktop-app-color': '#eab308'});
+        expect(title.hidden).toBe(false);
+        expect(title.text).toBe('Notes');
+        expect(spacer.hidden).toBe(false);
+
+        expect(await host.returnToDesktop()).toBe(true);
+        expect(toolbar.hidden).toBe(true);
+        expect(icon.hidden).toBe(true);
+        expect(title.hidden).toBe(true);
+        expect(spacer.hidden).toBe(true)
+    });
 });

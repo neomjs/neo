@@ -231,6 +231,13 @@ test.describe('desktop window tear-out', () => {
 
             const back = popup.getByRole('button', {name: 'Back to desktop', exact: true});
             await expect(back).toBeVisible();
+            await expect(popup.locator('.neo-desktop-popup-title')).toHaveText('Notes');
+            await expect.poll(() => popup.evaluate(() => {
+                const vp = document.querySelector('.neo-viewport.neo-desktop-popup-viewport'),
+                      vs = vp && getComputedStyle(vp),
+                      bs = vp?.children[1] && getComputedStyle(vp.children[1]);
+                return vp ? {bodyBg: bs.backgroundColor, hasWallpaper: Boolean(vs.getPropertyValue('--desktop-wallpaper').trim())} : null
+            })).toEqual({bodyBg: 'rgba(0, 0, 0, 0)', hasWallpaper: true});
             const closing = popup.waitForEvent('close', {timeout: 10000});
 
             await back.press('Enter');
