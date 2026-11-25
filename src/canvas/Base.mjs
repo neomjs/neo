@@ -65,6 +65,40 @@ class Base extends NeoBase {
         theme_: 'light'
     }
 
+    static instances = new Set()
+
+    /**
+     * @summary Clears any active renderer bound to a released canvas surface or departed window.
+     * @param {String} canvasId
+     * @param {OffscreenCanvas} [canvas]
+     * @param {String} [windowId]
+     */
+    static releaseCanvas(canvasId, canvas, windowId) {
+        this.instances.forEach(instance => {
+            if (canvas ? (instance.canvas === canvas || instance.context?.canvas === canvas) : instance.canvasId === canvasId) {
+                instance.clearGraph({canvasId, windowId})
+            } else if (!instance.context && instance.canvasId === canvasId && (!windowId || instance.windowId === windowId)) {
+                instance.clearGraph({canvasId, windowId})
+            }
+        })
+    }
+
+    /**
+     * @summary Clears any active renderer still owned by a departed window.
+     * @param {String} windowId
+     */
+    static releaseWindow(windowId) {
+        if (!windowId) {
+            return
+        }
+
+        this.instances.forEach(instance => {
+            if (instance.windowId === windowId) {
+                instance.clearGraph({windowId})
+            }
+        })
+    }
+
     /**
      * Maps a DOM `MouseEvent.button` index to its `MouseEvent.buttons` bitmask (`0` for out-of-range values).
      * @param {Number} button
@@ -89,6 +123,10 @@ class Base extends NeoBase {
      */
     animationId = null
     /**
+     * @member {OffscreenCanvas|null} canvas=null
+     */
+    canvas = null
+    /**
      * @member {String|null} canvasId=null
      */
     canvasId = null
@@ -96,6 +134,15 @@ class Base extends NeoBase {
      * @member {Object|null} canvasSize=null
      */
     canvasSize = null
+    /**
+     * @member {String|null} windowId=null
+     */
+    windowId = null
+    /**
+     * Monotonic token cancelling pending `waitForCanvas` polls on `clearGraph` or re-initialization.
+     * @member {Number} #waitGeneration=0
+     */
+    #waitGeneration = 0
     /**
      * The context `waitForCanvas` acquired for `contextType`, or `null` before the canvas arrives and after a
      * `getContext()` that returned nothing.
@@ -155,14 +202,46 @@ class Base extends NeoBase {
     }
 
     /**
-     * Clears the graph state and stops the render loop.
-     * Use this to cleanup resources when the component is destroyed or unmounted.
+     * @summary Registers this renderer instance for departed-window cleanup.
+     * @param {Object} config
      */
-    clearGraph() {
+    construct(config) {
+        super.construct(config);
+        Base.instances.add(this)
+    }
+
+    /**
+     * @summary Removes this renderer instance from departed-window tracking before destruction.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        Base.instances.delete(this);
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Clears the graph state and stops the render loop unless a newer canvas or window already owns it.
+     * @param {Object} [data]
+     * @param {String} [data.canvasId]
+     * @param {String} [data.windowId]
+     */
+    clearGraph(data) {
         let me = this;
+
+        if (data?.canvasId && me.canvasId && me.canvasId !== data.canvasId) {
+            return
+        }
+
+        if (data?.windowId && me.windowId && me.windowId !== data.windowId) {
+            return
+        }
+
+        me.#waitGeneration++;
+        me.canvas      = null;
         me.context     = null;
         me.canvasId    = null;
         me.canvasSize  = null;
+        me.windowId    = null;
         me.animationId = null;
         me.isPaused    = false;
         me.gradients   = {};
@@ -171,17 +250,19 @@ class Base extends NeoBase {
     }
 
     /**
-     * Initializes the canvas context.
-     * Starts the polling mechanism to wait for the OffscreenCanvas transfer from the Main Thread.
+     * @summary Initializes the canvas context for `(canvasId, windowId)` and polls until transfer completes.
      * @param {Object} opts
      * @param {String} opts.canvasId
-     * @param {String} opts.windowId
+     * @param {String} [opts.windowId]
      */
     initGraph({canvasId, windowId}) {
         let me        = this,
-            hasChange = me.canvasId !== canvasId;
+            hasChange = me.canvasId !== canvasId || me.windowId !== (windowId ?? null);
 
+        me.#waitGeneration++;
+        me.canvas   = null;
         me.canvasId = canvasId;
+        me.windowId = windowId ?? null;
 
         me.waitForCanvas(canvasId, windowId, hasChange)
     }
@@ -366,14 +447,20 @@ class Base extends NeoBase {
      * @param {Boolean} hasChange
      * @protected
      */
-    waitForCanvas(canvasId, windowId, hasChange) {
-        if (this.isDestroyed) return;
+    waitForCanvas(canvasId, windowId, hasChange, generation=this.#waitGeneration) {
+        let me = this;
 
-        let me                               = this,
-            canvas                           = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId],
+        if (me.isDestroyed || generation !== me.#waitGeneration) return;
+        if (windowId && Neo.currentWorker?.isWindowDeparted?.(windowId)) {
+            me.clearGraph({canvasId, windowId});
+            return
+        }
+
+        let canvas                           = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId],
             {contextAttributes, contextType} = me;
 
         if (canvas) {
+            me.canvas  = canvas;
             me.context = contextAttributes ? canvas.getContext(contextType, contextAttributes) : canvas.getContext(contextType);
 
             if (!me.context) {
@@ -391,7 +478,7 @@ class Base extends NeoBase {
                 me.renderLoop()
             }
         } else {
-            me.timeout(50).then(() => me.waitForCanvas(canvasId, windowId, hasChange))
+            me.timeout(50).then(() => me.waitForCanvas(canvasId, windowId, hasChange, generation))
         }
     }
 }

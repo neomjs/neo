@@ -1001,7 +1001,14 @@ class App extends Base {
             me.canvasGroups.retirePort(portEntry);
 
             if (windowId && !me.ports.some(entry => entry.windowId === windowId)) {
+                let group = me.canvasGroups.windows.get(windowId);
+
                 me.canvasGroups.removeWindow(windowId);
+                group && me.canvasGroups.has(group) && me.sendMessage('canvas', {
+                    action     : 'releaseWindowCanvases',
+                    canvasGroup: group,
+                    windowId
+                });
                 FocusManager.removeWindow(windowId)
             }
         }

@@ -154,7 +154,7 @@ class Canvas extends Component {
 
 
     /**
-     * Triggered after the windowId config got changed
+     * @summary Releases any prior window's offscreen registration when `windowId` moves to a new window.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -164,6 +164,13 @@ class Canvas extends Component {
 
         if (oldValue) {
             let me = this;
+
+            if (me.offscreen && me.offscreenRegistered) {
+                Neo.worker.Canvas.unregisterCanvas({
+                    nodeId  : me.getCanvasId(),
+                    windowId: oldValue
+                })
+            }
 
             me.drawn               = false;
             me.offscreenRegistered = false
