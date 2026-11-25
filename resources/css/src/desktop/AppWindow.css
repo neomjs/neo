@@ -31,8 +31,9 @@
     }
 }
 
-/* The app's glyph on a tile of its color, before the title (shared by AppWindow and PopupViewport) */
-.neo-desktop-app-window-icon {
+/* The app's glyph on a tile of its color, shared by AppWindow and PopupViewport. Compounded with `.neo-icon` so
+   `color` and `font-size` outrank `component/Icon.css` when `Icon.css` links after `AppWindow.css`. */
+.neo-icon.neo-desktop-app-window-icon {
     align-items     : center;
     background-color: var(--desktop-app-color);
     border-radius   : 7px;

@@ -448,19 +448,27 @@ test.describe('web desktop apps', () => {
         await expect(reports.locator('.webdesktop-reports')).toBeVisible();
 
         const readWindowTone = element => {
-            const style  = getComputedStyle(element),
-                  header = element.querySelector('.neo-grid-header-toolbar'),
-                  probe  = document.body.appendChild(document.createElement('h2')),
-                  h2Font = getComputedStyle(probe).fontFamily;
+            const style     = getComputedStyle(element),
+                  icon      = element.querySelector('.neo-desktop-app-window-icon'),
+                  iconStyle = icon && getComputedStyle(icon),
+                  header    = element.querySelector('.neo-grid-header-toolbar'),
+                  probe     = document.body.appendChild(document.createElement('h2')),
+                  h2Font    = getComputedStyle(probe).fontFamily;
             probe.remove();
             return {
                 color       : style.color,
                 gridHeaderBg: header && getComputedStyle(header).backgroundColor,
                 h2Font,
+                iconColor   : iconStyle?.color,
+                iconFontSize: iconStyle?.fontSize,
                 winBgVar    : style.getPropertyValue('--desktop-app-window-background-color').trim()
             }
         };
         const darkDesktopTone = await reports.evaluate(readWindowTone);
+        expect(darkDesktopTone).toEqual(expect.objectContaining({
+            iconColor   : 'rgb(255, 255, 255)',
+            iconFontSize: '12px'
+        }));
 
         const [popup] = await Promise.all([
             page.waitForEvent('popup'),
@@ -490,6 +498,8 @@ test.describe('web desktop apps', () => {
                 color       : vs.color,
                 gridHeaderBg: hs?.backgroundColor,
                 h2Font,
+                iconColor   : is?.color,
+                iconFontSize: is?.fontSize,
                 iconRadius  : is?.borderRadius,
                 iconWidth   : is?.width,
                 tbBg        : ts.backgroundColor,
@@ -505,6 +515,8 @@ test.describe('web desktop apps', () => {
             color       : darkDesktopTone.color,
             gridHeaderBg: darkDesktopTone.gridHeaderBg,
             h2Font      : darkDesktopTone.h2Font,
+            iconColor   : 'rgb(255, 255, 255)',
+            iconFontSize: '12px',
             iconRadius  : '7px',
             iconWidth   : '24px',
             tbBg        : 'rgba(0, 0, 0, 0)',
@@ -520,6 +532,8 @@ test.describe('web desktop apps', () => {
             bodyWrapBg  : 'rgba(0, 0, 0, 0)',
             color       : 'rgb(15, 23, 42)',
             gridHeaderBg: 'rgb(255, 255, 255)',
+            iconColor   : 'rgb(255, 255, 255)',
+            iconFontSize: '12px',
             iconRadius  : '7px',
             iconWidth   : '24px',
             tbBg        : 'rgba(0, 0, 0, 0)',
