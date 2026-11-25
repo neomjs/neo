@@ -259,8 +259,9 @@ class List extends BaseList {
      * `.portal-example-open-cue`, and `.portal-example-feature`), keeping every launch hitbox stationary across hover
      * and selection. The selection ring and neutral keyboard focus ring are independent. Progressive details
      * (`lookFor`, `scope`, and positive `Desktop · Mobile` qualification) sit in
-     * `.portal-example-more` with zero focusable descendants — opening in-frame (`<= 40%` height) in multi-column
-     * lists (`@container examples-list (min-width: 704px)`) and in-flow below the footer in single-column lists.
+     * `.portal-example-more` with zero focusable descendants — docked permanently below `.portal-example-footer` on
+     * `2 × 2` lead cards (`@container examples-list (min-width: 1100px)`), opening in-frame (`<= 40%` height) on `1 × 1`
+     * multi-column cards (`>= 704px`), and expanding in-flow below the footer in single-column lists.
      *
      * @param {Object} record
      * @param {Number} index

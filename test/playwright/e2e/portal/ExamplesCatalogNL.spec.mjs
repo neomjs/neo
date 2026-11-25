@@ -167,30 +167,40 @@ async function readDesktopPage(page) {
 async function expectCardLayout(list, width) {
     await list.page().mouse.move(0, 0);
     await list.page().evaluate(() => document.activeElement?.blur());
-    await expect.poll(() => list.locator('.portal-example-more').evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height < 1))).toBe(true);
+    await expect.poll(() => list.evaluate(ul => {
+        const leadCard  = ul.classList.contains('portal-examples-list-lead') && ul.clientWidth >= 1100,
+              listItems = [...ul.querySelectorAll('.neo-list-item')].filter(node => node.offsetWidth);
+
+        return listItems.every((node, index) => {
+            const h = node.querySelector('.portal-example-more')?.getBoundingClientRect().height || 0;
+            return leadCard && index === 0 ? h > 20 : h < 1
+        })
+    })).toBe(true);
 
     const gridInfo = await list.evaluate(node => ({
-        columns : getComputedStyle(node).gridTemplateColumns.split(' ').length,
-        leadCard: node.classList.contains('portal-examples-list-lead')
+        columns  : getComputedStyle(node).gridTemplateColumns.split(' ').length,
+        leadCard : node.classList.contains('portal-examples-list-lead'),
+        listWidth: node.clientWidth
     }));
 
-    const cards = await list.locator('.neo-list-item').evaluateAll((nodes, {columns, leadCard}) => nodes.filter(node => node.offsetWidth).map((node, index) => {
-        const card    = node.getBoundingClientRect(),
-              wrap    = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
-              caption = node.querySelector('.portal-example-footer'),
-              copy    = caption.getBoundingClientRect(),
-              image   = node.querySelector('.preview-image').getBoundingClientRect(),
-              feature = node.querySelector('.portal-example-feature'),
-              more    = node.querySelector('.portal-example-more'),
-              isLead  = leadCard && columns === 3 && index === 0,
-              shown   = [
+    const cards = await list.locator('.neo-list-item').evaluateAll((nodes, {columns, leadCard, listWidth}) => nodes.filter(node => node.offsetWidth).map((node, index) => {
+        const card     = node.getBoundingClientRect(),
+              wrap     = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+              caption  = node.querySelector('.portal-example-footer'),
+              copy     = caption.getBoundingClientRect(),
+              image    = node.querySelector('.preview-image').getBoundingClientRect(),
+              feature  = node.querySelector('.portal-example-feature'),
+              more     = node.querySelector('.portal-example-more'),
+              moreRect = more?.getBoundingClientRect(),
+              isLead   = leadCard && listWidth >= 1100 && index === 0,
+              shown    = [
                   node.querySelector('.portal-example-group-badge'),
                   node.querySelector('.neo-title'),
                   node.querySelector('.neo-github-image'),
                   node.querySelector('.portal-example-open-cue'),
                   node.querySelector('.portal-example-feature')
               ].filter(el => el && el.offsetWidth > 0),
-              texts   = [...caption.querySelectorAll('*')];
+              texts    = [...caption.querySelectorAll('*')];
 
         return {
             title     : node.querySelector('.neo-title').textContent,
@@ -201,16 +211,23 @@ async function expectCardLayout(list, width) {
             height    : card.height,
             isLead,
             coverRatio: wrap.width / wrap.height,
-            clearCover: (copy.top - wrap.top) / wrap.height,
+            clearCover: ((isLead && moreRect ? Math.min(copy.top, moreRect.top) : copy.top) - wrap.top) / wrap.height,
             coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - wrap[side]) < 1.5),
-            docked    : Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 && Math.abs(copy.bottom - card.bottom) < 1.5 && copy.top >= wrap.bottom - 1.5,
-            fits      : caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1,
+            docked    : isLead
+                ? Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 &&
+                  copy.top >= wrap.bottom - 1.5 && moreRect && Math.abs(moreRect.left - card.left) < 1.5 &&
+                  Math.abs(moreRect.right - card.right) < 1.5 && moreRect.top >= copy.bottom - 1.5 &&
+                  Math.abs(moreRect.bottom - card.bottom) < 1.5
+                : Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 &&
+                  Math.abs(copy.bottom - card.bottom) < 1.5 && copy.top >= wrap.bottom - 1.5,
+            fits      : caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1 &&
+                        (!isLead || !more || (more.scrollHeight <= more.clientHeight + 1 && more.scrollWidth <= more.clientWidth + 1)),
             textFits  : shown.every(text => {
                 const rect = text.getBoundingClientRect();
                 return rect.left >= copy.left - 1 && rect.right <= copy.right + 1 && rect.top >= copy.top - 1 && rect.bottom <= copy.bottom + 1
             }),
-            closed      : !more || more.getBoundingClientRect().height < 1,
-            opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
+            closed      : isLead ? Boolean(moreRect && moreRect.height > 20) : (!more || moreRect.height < 1),
+            opaque      : [node, caption, ...(isLead && more ? [more] : []), ...texts].every(text => getComputedStyle(text).opacity === '1'),
             noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio,
             featureWhole: !feature || feature.scrollHeight <= feature.clientHeight + 1
         }
@@ -1384,17 +1401,18 @@ test.describe('Portal examples section', () => {
             expect(Math.abs(afterSelectRow[key].y - beforeHover[key].y), `${key}.y on select`).toBe(0)
         }
 
-        // AC-3: In multi-column (>= 704 px), .portal-example-more anchors inside .preview-image-wrap (<= 40 % height) and never overlaps .portal-example-footer
-        const bandBounds = await card0.evaluate(node => {
-            const wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+        // AC-3: On the 2x2 lead card, .portal-example-more stays docked below .portal-example-footer leaving 100 % of .preview-image-wrap clear; on 1x1 multi-column cards, it opens <= 40 % inside .preview-image-wrap
+        const leadBounds = await card0.evaluate(node => {
+            const card   = node.getBoundingClientRect(),
+                  wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
                   footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
                   more   = node.querySelector('.portal-example-more').getBoundingClientRect();
-            return {footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, wrapBottom: wrap.bottom, wrapHeight: wrap.height}
+            return {cardBottom: card.bottom, footerBottom: footer.bottom, footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, moreTop: more.top, wrapBottom: wrap.bottom}
         });
-        expect(bandBounds.moreHeight).toBeGreaterThan(20);
-        expect(bandBounds.moreHeight).toBeLessThanOrEqual(bandBounds.wrapHeight * 0.40 + 1);
-        expect(bandBounds.moreBottom, '.portal-example-more stays inside .preview-image-wrap').toBeLessThanOrEqual(bandBounds.wrapBottom + 1);
-        expect(bandBounds.moreBottom, '.portal-example-more never overlaps .portal-example-footer').toBeLessThanOrEqual(bandBounds.footerTop + 1);
+        expect(leadBounds.moreHeight).toBeGreaterThan(20);
+        expect(leadBounds.footerTop, '2x2 lead cover stays 100 % unoccluded').toBeGreaterThanOrEqual(leadBounds.wrapBottom - 1.5);
+        expect(leadBounds.moreTop, '2x2 lead details dock below .portal-example-footer').toBeGreaterThanOrEqual(leadBounds.footerBottom - 1.5);
+        expect(Math.abs(leadBounds.moreBottom - leadBounds.cardBottom), '2x2 lead details fill to card bottom').toBeLessThan(1.5);
 
         // Neighbor hit-owner control: 25 px into row 2 card3's cover belongs to card3, never card0's disclosure band
         const hitOwnerMatchesRow2 = await card3.evaluate(node => {
@@ -1404,12 +1422,23 @@ test.describe('Portal examples section', () => {
         });
         expect(hitOwnerMatchesRow2, 'point 25 px into row 2 cover hits row 2 card').toBe(true);
 
-        // Cross-row selection transfer (card0 -> card3) keeps card3's Open live ↗ at 0.0 px displacement
+        // Cross-row selection transfer (card0 -> card3) keeps card3's Open live ↗ at 0.0 px displacement and opens card3's <= 40 % in-cover band
         await card3.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
         await expect(card3).toHaveClass(/neo-selected/);
         await expect(card0).not.toHaveClass(/neo-selected/);
         const afterCrossRow = await measureRects();
         expect(Math.abs(afterCrossRow.card3Cue.y - beforeHover.card3Cue.y)).toBe(0);
+
+        const bandBounds = await card3.evaluate(node => {
+            const wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+                  footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
+                  more   = node.querySelector('.portal-example-more').getBoundingClientRect();
+            return {footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, wrapBottom: wrap.bottom, wrapHeight: wrap.height}
+        });
+        expect(bandBounds.moreHeight).toBeGreaterThan(20);
+        expect(bandBounds.moreHeight).toBeLessThanOrEqual(bandBounds.wrapHeight * 0.40 + 1);
+        expect(bandBounds.moreBottom, '.portal-example-more stays inside .preview-image-wrap').toBeLessThanOrEqual(bandBounds.wrapBottom + 1);
+        expect(bandBounds.moreBottom, '.portal-example-more never overlaps .portal-example-footer').toBeLessThanOrEqual(bandBounds.footerTop + 1);
 
         const readPill = locator => locator.evaluate(node => {
             const meta  = node.querySelector('.portal-example-meta'),
