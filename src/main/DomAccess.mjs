@@ -1692,9 +1692,10 @@ class DomAccess extends Base {
      * @param {Object} data
      * @param {String} data.componentId
      * @param {String} data.nodeId
+     * @param {String} [data.transferId]
      * @returns {{reason: (String|undefined), transferred: Boolean}}
      */
-    transferCanvasToWorker({componentId, nodeId}) {
+    transferCanvasToWorker({componentId, nodeId, transferId}) {
         let me   = this,
             node = me.getElement(nodeId);
 
@@ -1713,7 +1714,8 @@ class DomAccess extends Base {
                 action: 'registerCanvasDirect',
                 componentId,
                 node  : offscreen,
-                nodeId
+                nodeId,
+                ...(transferId !== undefined ? {transferId} : {})
             }, [offscreen]);
 
             return {transferred: true}

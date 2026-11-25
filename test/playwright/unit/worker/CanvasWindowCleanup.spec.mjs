@@ -292,5 +292,154 @@ test.describe('Neo.worker.Canvas departed-window cleanup', () => {
             popupCallbackSurvivedStalePing: true,
             popupConfirmedOnMatchingPing  : true
         })
+    });
+
+    test('delayed orphan cleanup and stale acknowledgements cannot evict or prematurely confirm a same-key replacement (#22186)', async () => {
+        const script = `
+            import Neo       from './src/Neo.mjs';
+            import * as core from './src/core/_export.mjs';
+            import {setup}   from './test/playwright/setup.mjs';
+
+            setup({mockMain: false, neoConfig: {unitTestMode: true}});
+            globalThis.postMessage = () => {};
+            delete Neo.worker.App;
+            delete Neo.worker.Canvas;
+
+            const
+                {default: canvasWorker} = await import('./src/worker/Canvas.mjs'),
+                {default: app}          = await import('./src/worker/App.mjs'),
+                {default: CanvasCmp}    = await import('./src/component/Canvas.mjs'),
+                mainToCanvas            = [],
+                canvasToApp             = [],
+                appToCanvas             = [],
+                report                  = {};
+
+            Object.assign(canvasWorker, {
+                canvasWindowMap: {},
+                isSharedWorker : true,
+                map            : {},
+                ports          : [],
+                promises       : {}
+            });
+
+            canvasWorker.sendMessage = (dest, msg) => {
+                if (dest === 'app' && msg.action === 'canvasRegistered') {
+                    canvasToApp.push(msg)
+                }
+            };
+            Neo.worker.Canvas = {
+                unregisterCanvas: async data => {
+                    appToCanvas.push(data)
+                }
+            };
+
+            const makeNode = label => ({getContext: () => ({}), height: 45, label, width: 139});
+            let seq = 0;
+
+            Neo.main = {
+                DomAccess: {
+                    transferCanvasToWorker(opts) {
+                        const label = ++seq === 1 ? 'old' : 'new';
+                        mainToCanvas.push({
+                            action     : 'registerCanvasDirect',
+                            componentId: opts.componentId,
+                            node       : makeNode(label),
+                            nodeId     : opts.nodeId,
+                            transferId : opts.transferId,
+                            windowId   : opts.windowId
+                        });
+                        return {transferred: true}
+                    }
+                }
+            };
+
+            // Arm A: Component-driven remount on same (nodeId, windowId)
+            const cmp = Neo.create({
+                module     : CanvasCmp,
+                id         : 'cell-reuse',
+                monitorSize: false,
+                windowId   : 'win-opener'
+            });
+            cmp.timeout = () => Promise.resolve();
+
+            cmp.mounted = true;
+            await Promise.resolve();
+            await Promise.resolve();
+
+            // Deliver Transfer 1 ('old') to Canvas -> queues canvasRegistered #1 on canvasToApp
+            canvasWorker.registerCanvasDirect(mainToCanvas.shift());
+
+            // Unmount and remount on same (nodeId, windowId) before canvasRegistered #1 reaches App
+            cmp.mounted = false;
+            cmp.mounted = true;
+            await Promise.resolve();
+            await Promise.resolve();
+
+            // Transfer 2 ('new') is now pending on cmp (callback parked) and queued in mainToCanvas
+            report.transfer2QueuedBeforeStaleAck = mainToCanvas.length === 1 && !cmp.offscreenRegistered;
+
+            // Deliver stale canvasRegistered #1 to App while Transfer 2 awaits its own ack
+            app.onCanvasRegistered(canvasToApp.shift());
+            report.staleAckDidNotConfirmReplacement = !cmp.offscreenRegistered && Boolean(cmp.registerCanvasCallbacks['cell-reuse']);
+            report.cleanupQueuedForOldTransfer      = appToCanvas.length === 1;
+
+            // Replacement reaches Canvas BEFORE delayed cleanup from App arrives
+            canvasWorker.registerCanvasDirect(mainToCanvas.shift());
+            report.beforeDelayedCleanup = canvasWorker.map['cell-reuse']?.label ?? null;
+
+            // Deliver delayed cleanup for Transfer 1 -> must NOT evict 'new'
+            canvasWorker.unregisterCanvas(appToCanvas.shift());
+            report.afterDelayedCleanup = {
+                mapLabel   : canvasWorker.map['cell-reuse']?.label ?? null,
+                windowLabel: canvasWorker.canvasWindowMap['cell-reuse']?.['win-opener']?.label ?? null
+            };
+
+            // Deliver Transfer 2's own canvasRegistered -> confirms replacement
+            app.onCanvasRegistered(canvasToApp.shift());
+            await Promise.resolve();
+            await Promise.resolve();
+            report.replacementConfirmed = cmp.offscreenRegistered;
+
+            // Arm B: Direct registerCanvasDirect without pre-stamped transferId (receiver-minted token)
+            canvasWorker.registerCanvasDirect({
+                componentId: 'retired-direct',
+                node       : makeNode('direct-old'),
+                nodeId     : 'cell-direct',
+                windowId   : 'win-opener'
+            });
+            app.onCanvasRegistered(canvasToApp.shift()); // queues cleanup with receiver-minted transferId
+            canvasWorker.registerCanvasDirect({
+                componentId: 'live-direct',
+                node       : makeNode('direct-new'),
+                nodeId     : 'cell-direct',
+                windowId   : 'win-opener'
+            });
+            canvasWorker.unregisterCanvas(appToCanvas.shift());
+            report.directReplacementSurvived = {
+                mapLabel   : canvasWorker.map['cell-direct']?.label ?? null,
+                windowLabel: canvasWorker.canvasWindowMap['cell-direct']?.['win-opener']?.label ?? null
+            };
+
+            cmp.destroy();
+            console.log(JSON.stringify(report));
+            process.exit(0)
+        `;
+
+        const {stdout} = await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd     : REPO_ROOT,
+            encoding: 'utf8',
+            timeout : 15_000
+        });
+        const report = JSON.parse(stdout.trim().split('\n').at(-1));
+
+        expect(report).toEqual({
+            afterDelayedCleanup             : {mapLabel: 'new', windowLabel: 'new'},
+            beforeDelayedCleanup            : 'new',
+            cleanupQueuedForOldTransfer     : true,
+            directReplacementSurvived       : {mapLabel: 'direct-new', windowLabel: 'direct-new'},
+            replacementConfirmed            : true,
+            staleAckDidNotConfirmReplacement: true,
+            transfer2QueuedBeforeStaleAck   : true
+        })
     })
 });

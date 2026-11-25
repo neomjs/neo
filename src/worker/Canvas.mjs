@@ -51,6 +51,9 @@ class Canvas extends Base {
      * @protected
      */
     workerId = 'canvas'
+    #mapTransferIds = {}
+    #transferSeq = 0
+    #windowTransferIds = {}
 
     /**
      * @summary Opens a direct channel to the app worker and registers it under this worker's canvas group, which
@@ -184,18 +187,23 @@ class Canvas extends Base {
 
     /**
      * @param {Object} data
+     * @returns {String}
      */
     registerCanvas(data) {
-        let me = this;
+        let me         = this,
+            transferId = data.transferId ?? `canvas-xfer-${++me.#transferSeq}`;
 
         if (data.windowId) {
             me.canvasWindowMap[data.nodeId] ??= {};
-            me.canvasWindowMap[data.nodeId][data.windowId] = data.node
+            me.canvasWindowMap[data.nodeId][data.windowId] = data.node;
+            me.#windowTransferIds[data.nodeId] ??= {};
+            me.#windowTransferIds[data.nodeId][data.windowId] = transferId
         }
 
-        me.map[data.nodeId] = data.node;
+        me.map[data.nodeId]             = data.node;
+        me.#mapTransferIds[data.nodeId] = transferId;
 
-        return true
+        return transferId
     }
 
     /**
@@ -213,13 +221,14 @@ class Canvas extends Base {
             return
         }
 
-        this.registerCanvas(msg);
+        let transferId = this.registerCanvas(msg);
 
         // Ping App worker that canvas was received from main.
         this.sendMessage('app', {
             action     : 'canvasRegistered',
             componentId: msg.componentId,
             nodeId     : msg.nodeId,
+            transferId,
             windowId   : msg.windowId
         })
     }
@@ -274,17 +283,19 @@ class Canvas extends Base {
             canvas = me.canvasWindowMap[data.nodeId]?.[data.windowId];
 
         if (canvas) {
-            me.map[data.nodeId] = canvas
+            me.map[data.nodeId]             = canvas;
+            me.#mapTransferIds[data.nodeId] = me.#windowTransferIds[data.nodeId]?.[data.windowId]
         }
 
         return {hasCanvas: !!canvas}
     }
 
     /**
-     * @summary Releases a canvas registration, scoped to `data.windowId` when supplied so a departed popup never
-     * evicts a surviving window's live surface for the same node id.
+     * @summary Releases a canvas registration, scoped to `data.windowId` and `data.transferId` when supplied so neither a
+     * departed popup nor a delayed cleanup from an earlier transfer can evict a live replacement surface.
      * @param {Object} data
      * @param {String} data.nodeId
+     * @param {String} [data.transferId]
      * @param {String} [data.windowId]
      */
     unregisterCanvas(data) {
@@ -292,37 +303,60 @@ class Canvas extends Base {
             return
         }
 
-        let me                 = this,
-            {nodeId, windowId} = data,
-            byWindow           = me.canvasWindowMap[nodeId],
+        let me                             = this,
+            {nodeId, transferId, windowId} = data,
+            byWindow                       = me.canvasWindowMap[nodeId],
+            windowTransfers                = me.#windowTransferIds[nodeId],
             removed;
 
         if (windowId) {
             if (!byWindow) {
+                if (transferId && me.#mapTransferIds[nodeId] !== transferId) {
+                    return
+                }
+
                 removed = me.map[nodeId];
-                delete me.map[nodeId]
+                delete me.map[nodeId];
+                delete me.#mapTransferIds[nodeId]
             } else if (Object.hasOwn(byWindow, windowId)) {
+                if (transferId && windowTransfers?.[windowId] !== transferId) {
+                    return
+                }
+
                 removed = byWindow[windowId];
                 delete byWindow[windowId];
+                delete windowTransfers?.[windowId];
 
                 let remaining = Object.keys(byWindow);
 
                 if (remaining.length) {
                     if (me.map[nodeId] === removed) {
-                        me.map[nodeId] = byWindow[remaining.at(-1)]
+                        let fallbackWindowId = remaining.at(-1);
+                        me.map[nodeId]             = byWindow[fallbackWindowId];
+                        me.#mapTransferIds[nodeId] = windowTransfers?.[fallbackWindowId]
                     }
                 } else {
                     delete me.canvasWindowMap[nodeId];
+                    delete me.#windowTransferIds[nodeId];
 
                     if (me.map[nodeId] === removed) {
-                        delete me.map[nodeId]
+                        delete me.map[nodeId];
+                        delete me.#mapTransferIds[nodeId]
                     }
                 }
+            } else if (transferId) {
+                return
             }
         } else {
+            if (transferId && me.#mapTransferIds[nodeId] !== transferId) {
+                return
+            }
+
             removed = me.map[nodeId];
             delete me.map[nodeId];
-            delete me.canvasWindowMap[nodeId]
+            delete me.#mapTransferIds[nodeId];
+            delete me.canvasWindowMap[nodeId];
+            delete me.#windowTransferIds[nodeId]
         }
 
         if (removed || !windowId) {

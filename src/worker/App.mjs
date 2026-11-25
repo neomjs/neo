@@ -574,23 +574,24 @@ class App extends Base {
     }
 
     /**
-     * @summary Confirms a direct `OffscreenCanvas` transfer when its owning `Canvas` component still awaits it, or
-     * evicts the orphaned surface in `Neo.worker.Canvas` if the component unmounted, moved windows, or was destroyed
-     * while `canvasRegistered` was in flight.
+     * @summary Confirms a direct `OffscreenCanvas` transfer when its owning `Canvas` component still awaits that exact
+     * transfer, or evicts that specific transfer in `Neo.worker.Canvas` if superseded, unmounted, moved, or destroyed.
      *
      * @param {Object} msg
      * @param {String} msg.componentId
      * @param {String} msg.nodeId
+     * @param {String} [msg.transferId]
      * @param {String} [msg.windowId]
      * @protected
      */
-    onCanvasRegistered({componentId, nodeId, windowId}) {
-        let instance       = Neo.get(componentId),
-            callback       = instance?.registerCanvasCallbacks?.[nodeId],
-            matchesWindow  = !windowId || !instance?.windowId || instance.windowId === windowId,
-            targetWindowId = windowId || instance?.windowId;
+    onCanvasRegistered({componentId, nodeId, transferId, windowId}) {
+        let instance        = Neo.get(componentId),
+            callback        = instance?.registerCanvasCallbacks?.[nodeId],
+            matchesWindow   = !windowId || !instance?.windowId || instance.windowId === windowId,
+            matchesTransfer = callback?.transferId === undefined || callback.transferId === transferId,
+            targetWindowId  = windowId || instance?.windowId;
 
-        if (callback && !instance.isDestroyed && instance.mounted && matchesWindow) {
+        if (callback && !instance.isDestroyed && instance.mounted && matchesWindow && matchesTransfer) {
             delete instance.registerCanvasCallbacks[nodeId];
             callback();
             return
@@ -602,12 +603,14 @@ class App extends Base {
             instance.mounted &&
             instance.offscreenRegistered &&
             instance.getCanvasId?.() === nodeId &&
-            matchesWindow
+            matchesWindow &&
+            (!transferId || !instance.activeTransferId || instance.activeTransferId === transferId)
         );
 
         if (!activeSameBinding && nodeId) {
             Neo.worker.Canvas?.unregisterCanvas?.({
                 nodeId,
+                ...(transferId     ? {transferId}             : {}),
                 ...(targetWindowId ? {windowId: targetWindowId} : {})
             })?.catch?.(() => {})
         }

@@ -135,8 +135,8 @@ test.describe('Neo.grid.Row forwards windowId to its cell components', () => {
             }).toBe(true);
 
             expect(transfers).toEqual([
-                {componentId: cell.id, nodeId: cell.getCanvasId(), windowId: 'w2', domReady: false},
-                {componentId: cell.id, nodeId: cell.getCanvasId(), windowId: 'w2', domReady: true}
+                {componentId: cell.id, nodeId: cell.getCanvasId(), transferId: `${cell.id}:3:0`, windowId: 'w2', domReady: false},
+                {componentId: cell.id, nodeId: cell.getCanvasId(), transferId: `${cell.id}:3:1`, windowId: 'w2', domReady: true}
             ])
         } finally {
             cell?.destroy?.();
