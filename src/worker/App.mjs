@@ -584,14 +584,17 @@ class App extends Base {
      * @param {Object} msg
      * @param {String} msg.componentId
      * @param {String} msg.nodeId
+     * @param {String} [msg.windowId]
      * @protected
      */
-    onCanvasRegistered({componentId, nodeId}) {
+    onCanvasRegistered({componentId, nodeId, windowId}) {
         let instance = Neo.get(componentId);
 
         if (instance?.registerCanvasCallbacks?.[nodeId]) {
-            instance.registerCanvasCallbacks[nodeId]();
-            delete instance.registerCanvasCallbacks[nodeId]
+            if (!windowId || !instance.windowId || instance.windowId === windowId) {
+                instance.registerCanvasCallbacks[nodeId]();
+                delete instance.registerCanvasCallbacks[nodeId]
+            }
         }
     }
 

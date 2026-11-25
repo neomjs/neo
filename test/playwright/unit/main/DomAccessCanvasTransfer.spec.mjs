@@ -117,8 +117,8 @@ test.describe('Neo.main.DomAccess.transferCanvasToWorker worker admission', () =
         elements.set(coldCanvas.id, coldCanvas);
         elements.set(warmCanvas.id, warmCanvas);
 
-        DomAccess.transferCanvasToWorker({componentId: 'cold-sparkline', nodeId: coldCanvas.id});
-        DomAccess.transferCanvasToWorker({componentId: 'warm-sparkline', nodeId: warmCanvas.id});
+        expect(DomAccess.transferCanvasToWorker({componentId: 'cold-sparkline', nodeId: coldCanvas.id})).toEqual({transferred: true});
+        expect(DomAccess.transferCanvasToWorker({componentId: 'warm-sparkline', nodeId: warmCanvas.id})).toEqual({transferred: true});
 
         expect(events).toEqual([
             'start:canvas:cold', 'transfer:cold-canvas', 'send:canvas:cold-canvas',
@@ -144,7 +144,8 @@ test.describe('Neo.main.DomAccess.transferCanvasToWorker worker admission', () =
         const canvas = createCanvas('refused-canvas');
 
         elements.set(canvas.id, canvas);
-        DomAccess.transferCanvasToWorker({componentId: 'refused-sparkline', nodeId: canvas.id});
+        expect(DomAccess.transferCanvasToWorker({componentId: 'refused-sparkline', nodeId: canvas.id}))
+            .toEqual({transferred: false, reason: 'worker-unavailable'});
 
         expect(startCalls).toEqual([{name: 'canvas', wasConnected: false}]);
         expect(events).toEqual(['start:canvas:cold']);
@@ -159,13 +160,15 @@ test.describe('Neo.main.DomAccess.transferCanvasToWorker worker admission', () =
 
         elements.set(canvas.id, canvas);
         manager.startWorker = () => {throw new Error('worker construction refused')};
-        expect(() => DomAccess.transferCanvasToWorker({componentId: 'unavailable-sparkline', nodeId: canvas.id})).not.toThrow();
+        expect(DomAccess.transferCanvasToWorker({componentId: 'unavailable-sparkline', nodeId: canvas.id}))
+            .toEqual({transferred: false, reason: 'transfer-failed'});
         expect(canvas.transferCount).toBe(0);
         expect(sends).toEqual([])
     });
 
     test('a missing DOM node does not start a worker or dispatch registration', () => {
-        DomAccess.transferCanvasToWorker({componentId: 'missing-sparkline', nodeId: 'missing-canvas'});
+        expect(DomAccess.transferCanvasToWorker({componentId: 'missing-sparkline', nodeId: 'missing-canvas'}))
+            .toEqual({transferred: false, reason: 'missing-node'});
 
         expect(startCalls).toEqual([]);
         expect(events).toEqual([]);

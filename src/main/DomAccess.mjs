@@ -1692,26 +1692,34 @@ class DomAccess extends Base {
      * @param {Object} data
      * @param {String} data.componentId
      * @param {String} data.nodeId
+     * @returns {{reason: (String|undefined), transferred: Boolean}}
      */
     transferCanvasToWorker({componentId, nodeId}) {
         let me   = this,
             node = me.getElement(nodeId);
 
-        if (node) {
-            try {
-                if (!Neo.worker.Manager.startWorker({name: 'canvas'})) return;
+        if (!node) {
+            return {transferred: false, reason: 'missing-node'}
+        }
 
-                let offscreen = node.transferControlToOffscreen();
-
-                Neo.worker.Manager.sendMessage('canvas', {
-                    action: 'registerCanvasDirect',
-                    componentId,
-                    node  : offscreen,
-                    nodeId
-                }, [offscreen])
-            } catch (e) {
-                // Keep the best-effort path for unavailable worker startup or canvas transfer.
+        try {
+            if (!Neo.worker.Manager.startWorker({name: 'canvas'})) {
+                return {transferred: false, reason: 'worker-unavailable'}
             }
+
+            let offscreen = node.transferControlToOffscreen();
+
+            Neo.worker.Manager.sendMessage('canvas', {
+                action: 'registerCanvasDirect',
+                componentId,
+                node  : offscreen,
+                nodeId
+            }, [offscreen]);
+
+            return {transferred: true}
+        } catch (e) {
+            // Keep the best-effort path for unavailable worker startup or canvas transfer.
+            return {transferred: false, reason: 'transfer-failed'}
         }
     }
 

@@ -219,7 +219,8 @@ class Canvas extends Base {
         this.sendMessage('app', {
             action     : 'canvasRegistered',
             componentId: msg.componentId,
-            nodeId     : msg.nodeId
+            nodeId     : msg.nodeId,
+            windowId   : msg.windowId
         })
     }
 

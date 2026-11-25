@@ -70,12 +70,94 @@ class Canvas extends Component {
     }
 
     /**
+     * Monotonic token invalidating in-flight offscreen transfer attempts across unmount, window move, or destroy.
+     * @member {Number} #mountGeneration=0
+     * @private
+     */
+    #mountGeneration = 0
+
+    /**
      * @summary Lets a worker-backed subclass refuse transfer while retaining the ordinary component mount lifecycle.
      * @returns {Boolean}
      * @protected
      */
     get canTransferOffscreenCanvas() {
         return true
+    }
+
+    /**
+     * @summary Settles any parked transfer callback as cancelled so a superseded mount attempt cannot hang.
+     * @param {String} [id=this.getCanvasId()]
+     * @private
+     */
+    #cancelPendingRegistration(id=this.getCanvasId()) {
+        const callback = this.registerCanvasCallbacks?.[id];
+
+        if (callback) {
+            delete this.registerCanvasCallbacks[id];
+            callback(false)
+        }
+    }
+
+    /**
+     * @summary Transfers the mounted `<canvas>` element in `this.windowId` to the Canvas Worker, retrying briefly if
+     * the destination window's DOM delta has not landed yet.
+     * @param {String} id
+     * @param {Number} generation
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #transferOffscreenCanvas(id, generation) {
+        let me = this;
+
+        me.registerCanvasCallbacks ??= {};
+
+        for (let attempt = 0; attempt < 60; attempt++) {
+            if (me.isDestroyed || !me.mounted || generation !== me.#mountGeneration) {
+                return
+            }
+
+            let {windowId} = me,
+                outcome, promise;
+
+            promise = new Promise(resolve => {
+                me.registerCanvasCallbacks[id] = confirmed => {
+                    if (me.registerCanvasCallbacks?.[id]) {
+                        delete me.registerCanvasCallbacks[id]
+                    }
+
+                    resolve(confirmed !== false)
+                }
+            });
+
+            try {
+                outcome = await Neo.main.DomAccess.transferCanvasToWorker({
+                    componentId: me.id,
+                    nodeId     : id,
+                    windowId
+                })
+            } catch {
+                me.#cancelPendingRegistration(id);
+                return
+            }
+
+            if (outcome?.transferred === false) {
+                me.#cancelPendingRegistration(id);
+
+                if (outcome.reason === 'missing-node') {
+                    await me.timeout(30);
+                    continue
+                }
+
+                return
+            }
+
+            if (await promise && !me.isDestroyed && me.mounted && generation === me.#mountGeneration && me.windowId === windowId) {
+                me.offscreenRegistered = true
+            }
+
+            return
+        }
     }
 
     /**
@@ -102,14 +184,21 @@ class Canvas extends Component {
     async afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me                    = this,
-            id                    = me.getCanvasId(),
-            {offscreen, windowId} = me;
+        let me          = this,
+            generation  = ++me.#mountGeneration,
+            id          = me.getCanvasId(),
+            {offscreen} = me;
+
+        me.#cancelPendingRegistration(id);
 
         if (value) {
             if (offscreen && !me.canTransferOffscreenCanvas) return;
 
             await me.timeout(30); // next rAF tick
+
+            if (me.isDestroyed || !me.mounted || generation !== me.#mountGeneration) {
+                return
+            }
 
             if (me.monitorSize) {
                 me.addDomListeners([{
@@ -120,20 +209,7 @@ class Canvas extends Component {
             }
 
             if (offscreen && me.canTransferOffscreenCanvas) {
-                me.registerCanvasCallbacks ??= {};
-
-                let promise = new Promise(resolve => {
-                    me.registerCanvasCallbacks[id] = resolve;
-                });
-
-                Neo.main.DomAccess.transferCanvasToWorker({
-                    componentId: me.id,
-                    nodeId     : id,
-                    windowId
-                });
-
-                await promise;
-                me.offscreenRegistered = true;
+                await me.#transferOffscreenCanvas(id, generation)
             }
         } else {
             // an unmounted canvas shows nothing
@@ -154,7 +230,8 @@ class Canvas extends Component {
 
 
     /**
-     * @summary Releases any prior window's offscreen registration when `windowId` moves to a new window.
+     * @summary Releases any prior window's offscreen registration when `windowId` moves to a new window, and schedules
+     * re-registration when a cross-window container move left the descendant mounted.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -162,12 +239,16 @@ class Canvas extends Component {
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
 
-        if (oldValue) {
-            let me = this;
+        let me         = this,
+            generation = ++me.#mountGeneration,
+            id         = me.getCanvasId();
 
+        me.#cancelPendingRegistration(id);
+
+        if (oldValue) {
             if (me.offscreen && me.offscreenRegistered) {
                 Neo.worker.Canvas.unregisterCanvas({
-                    nodeId  : me.getCanvasId(),
+                    nodeId  : id,
                     windowId: oldValue
                 })
             }
@@ -175,16 +256,30 @@ class Canvas extends Component {
             me.drawn               = false;
             me.offscreenRegistered = false
         }
+
+        if (value && oldValue && value !== oldValue && me.mounted && me.offscreen && me.canTransferOffscreenCanvas) {
+            me.timeout(30).then(() => {
+                if (!me.isDestroyed && me.mounted && generation === me.#mountGeneration && me.windowId === value) {
+                    return me.#transferOffscreenCanvas(id, generation)
+                }
+            })
+        }
     }
 
     /**
      * @param {...*} args
      */
     destroy(...args) {
-        if (this.offscreenRegistered) {
+        let me = this,
+            id = me.getCanvasId();
+
+        me.#mountGeneration++;
+        me.#cancelPendingRegistration(id);
+
+        if (me.offscreenRegistered) {
             Neo.worker.Canvas.unregisterCanvas({
-                nodeId  : this.getCanvasId(),
-                windowId: this.windowId
+                nodeId  : id,
+                windowId: me.windowId
             })
         }
 
