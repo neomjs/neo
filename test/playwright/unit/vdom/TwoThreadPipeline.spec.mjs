@@ -1005,5 +1005,67 @@ test.describe('Two-thread VDOM pipeline parity (#20780)', () => {
                 'app.mounted'
             ]
         })
+    });
+
+    test('WorkerManager#createWorkers spawns no vdom worker under DefaultConfig and still honors useVdomWorker: true opt-back-in', async () => {
+        const probeWorkers = async extraConfig => {
+            const script = `
+                const spawned = [];
+                globalThis.Neo = {config: ${JSON.stringify(extraConfig)}};
+                globalThis.DOMRect = class {};
+                globalThis.window = globalThis;
+                globalThis.addEventListener ??= () => {};
+                globalThis.document = {
+                    baseURI         : 'http://localhost/',
+                    body            : {addEventListener: () => {}, classList: {add: () => {}, contains: () => false, remove: () => {}}},
+                    documentElement : {classList: {add: () => {}}, style: {setProperty: () => {}}},
+                    head            : {appendChild: () => {}},
+                    addEventListener: () => {},
+                    createElement   : () => ({style: {}})
+                };
+                globalThis.location = {hash: '', href: 'http://localhost/', search: ''};
+                if (!globalThis.navigator) {
+                    Object.defineProperty(globalThis, 'navigator', {configurable: true, value: {}});
+                }
+                globalThis.matchMedia = () => ({matches: false, addEventListener: () => {}});
+                globalThis.Worker = class {
+                    constructor(url, opts) {
+                        spawned.push(opts.name);
+                        this.postMessage = () => {}
+                    }
+                    addEventListener() {}
+                };
+
+                await import('./src/Neo.mjs');
+                await import('./src/core/_export.mjs');
+                const {default: WorkerManager} = await import('./src/worker/Manager.mjs');
+
+                // In Node.js Neo.insideWorker defaults to true, skipping createWorkers() at construct;
+                // invoke createWorkers() directly to observe which Worker instances the config starts.
+                spawned.length = 0;
+                WorkerManager.createWorkers();
+
+                console.log(JSON.stringify({
+                    hasVdomWorker: Boolean(WorkerManager.getWorker('vdom')),
+                    spawned
+                }));
+            `;
+            const {stdout} = await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+                cwd     : repoRoot,
+                encoding: 'utf8',
+                timeout : 15000
+            });
+            return JSON.parse(stdout.trim().split('\n').at(-1))
+        };
+
+        expect(await probeWorkers({})).toEqual({
+            hasVdomWorker: false,
+            spawned      : ['neomjs-appworker-worker', 'neomjs-dataworker-worker']
+        });
+
+        expect(await probeWorkers({useVdomWorker: true})).toEqual({
+            hasVdomWorker: true,
+            spawned      : ['neomjs-appworker-worker', 'neomjs-dataworker-worker', 'neomjs-vdomworker-worker']
+        })
     })
 });

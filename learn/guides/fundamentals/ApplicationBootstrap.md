@@ -82,7 +82,7 @@ of all available configuration options, you can refer to the `src/DefaultConfig.
     "useServiceWorker": false,
     "useSharedWorkers": false,
     "useTaskWorker"   : false,
-    "useVdomWorker"   : true,
+    "useVdomWorker"   : false,
     "workerBasePath"  : "../../src/worker/"
 }
 ```
@@ -227,7 +227,7 @@ class Manager extends core.Base {
 ### 6. App Worker: Loading the Application
 
 The App worker receives the 'loadApplication' message and loads the application. It's important to note that an "App"
-in Neo.mjs is an instance of Neo.controller.Application, which is not common in other frameworks like React, Angular,
+in Neo.mjs is an instance of Neo.controller.Application, which is not common in UI libraries like React, Angular,
 or Vue (which typically just use a tag):
 
 ```javascript readonly
@@ -328,7 +328,7 @@ Once the component tree is built:
 
 1. Each component generates its virtual DOM structure
 2. The engine builds a complete virtual DOM tree
-3. The VDom Worker calculates the initial DOM structure
+3. `Neo.vdom.Helper` calculates the initial VNode and DOM structure (inside the App Worker by default, or in the VDom Worker when `useVdomWorker` is `true`)
 4. Relevant CSS files will get lazy-loaded before the DOM is touched to avoid reflows
 5. The Main Thread creates the actual DOM elements
 6. The event system is activated
@@ -340,13 +340,12 @@ The Neo.mjs application bootstrap process follows these key steps:
 1. **index.html** loads the MicroLoader
 2. **MicroLoader.mjs** fetches the configuration and imports Neo.Main
 3. **Neo.Main** initializes the main thread and creates the Neo.worker.Manager
-4. **Neo.worker.Manager** creates the workers (Neo.worker.App, VDom, Data, etc.)
+4. **Neo.worker.Manager** creates the configured workers (`Neo.worker.App` by default, plus optional `VDom`, `Data`, `Canvas`, and `Task` workers)
 5. When all workers are constructed, Neo.worker.Manager sends a 'loadApplication' message to the Neo.worker.App worker
 6. **Neo.worker.App** receives the message and dynamically imports the application module
 7. **app.mjs** is executed, and its onStart function creates the application
 8. **Component Tree** is constructed in the Neo.worker.App worker
-9. **VDom Generation and Rendering** processes vdom changes: App Worker sends vdom to VDom Worker, which calculates deltas,
-  and Main Thread applies these deltas to the DOM
+9. **VDom Generation and Rendering** processes vdom changes: the App Worker calculates deltas locally by default (or via the VDom Worker when `useVdomWorker` is `true`), and the Main Thread applies these deltas to the DOM
 
 This multi-threaded architecture allows your application code to run in either a dedicated or shared Neo.worker.App worker,
 completely separate from DOM manipulation, providing better performance and responsiveness.

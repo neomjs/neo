@@ -1,10 +1,10 @@
 # VDOM Engine: VDom Worker
 
-The VDom worker runs stage 3 of [the VDOM engine](./Overview.md), the diff: each payload becomes deltas and a new
-vnode. The diff runs in the VDom worker by default, and inside the App worker with `useVdomWorker: false`
-([default][config-vdom-worker], [VDom worker][vdom-import], [App worker][app-import-helper]). Nothing on this page
-depends on that placement: the diff reads only its payload and keeps no tree state between calls. Every line reference
-points at `dev` commit `73e6207999`.
+Stage 3 of [the VDOM engine](./Overview.md) is the diff: each payload becomes deltas and a new vnode. By default
+(`useVdomWorker: false`), the diff runs inside the App worker; setting `useVdomWorker: true` runs this same module in
+the VDom worker ([default][config-vdom-worker], [App worker][app-import-helper], [VDom worker][vdom-import]). Nothing
+on this page depends on that placement: the diff reads only its payload and keeps no tree state between calls. Every
+line reference points at `dev` commit `73e6207999`.
 
 ```mermaid
 flowchart TD

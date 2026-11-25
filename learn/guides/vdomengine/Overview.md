@@ -13,14 +13,15 @@ reference in this set points at `dev` commit `73e6207999`.
 |---|---|---|
 | 1. Collection | A change becomes a pending update, joins an ancestor's pending update, or waits behind an overlapping one | App worker |
 | 2. Batching | One update snapshots its own scope and every update that joined it, as payloads that share no node | App worker |
-| 3. Diff | Each payload's `vdom` is compared with its `vnode`, producing deltas and a new `vnode` | VDom worker |
+| 3. Diff | Each payload's `vdom` is compared with its `vnode`, producing deltas and a new `vnode` | App worker |
 | 4. Apply | The deltas are written to the DOM in the next frame | Main thread |
 | 5. Sync back | The new vnodes are adopted, promises settle, and the updates that waited start | App worker |
 
 The stages are the design; the threads are placement. Stage 3 reads nothing but its payload and the configured
-renderer, because the VDom worker keeps no tree state between calls ([`Helper#update`][helper-update]). With `useVdomWorker: false`, the same
-diff already runs inside the App worker ([import][app-import-helper], [default][config-vdom-worker]). The stages,
-payloads and deltas stay the same, and only the transport changes.
+renderer, because the diff keeps no tree state between calls ([`Helper#update`][helper-update]). By default
+(`useVdomWorker: false`), it runs inside the App worker ([default][config-vdom-worker], [import][app-import-helper]);
+setting `useVdomWorker: true` places the same diff in a dedicated VDom worker. The stages, payloads and deltas stay the
+same, and only the transport changes.
 
 ## The triangle
 
@@ -53,13 +54,13 @@ flowchart TD
 The deltas reach the DOM one hop earlier than a round trip through the App worker would allow, and the App worker
 never adopts a vnode for DOM that was not written.
 
-Without the VDom worker, the triangle becomes a line. The App worker diffs locally, sends only the deltas to the Main
-thread with `Neo.applyDeltas()`, and the Main thread acknowledges the write ([send][vl-two-thread],
+Without the VDom worker (the default), the triangle becomes a line. The App worker diffs locally, sends only the deltas
+to the Main thread with `Neo.applyDeltas()`, and the Main thread acknowledges the write ([send][vl-two-thread],
 [framing][app-apply-deltas], [receive][mgr-update-action]). The vnodes never leave the App worker.
 
-The default path has no App worker → Main thread deltas edge. Deltas from the App worker straight to the Main thread are
-either the line above or manual `Neo.applyDeltas()` calls, which skip stages 1–3 and 5. The
-[App worker](./AppWorker.md) page covers them under *Writing the DOM directly*.
+With `useVdomWorker: true`, normal updates take the triangle above rather than the App worker → Main thread deltas edge;
+deltas sent from the App worker straight to the Main thread are manual `Neo.applyDeltas()` calls, which skip stages 1–3
+and 5. The [App worker](./AppWorker.md) page covers manual `Neo.applyDeltas()` calls under *Writing the DOM directly*.
 
 ## Read next
 

@@ -34,7 +34,7 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
             }
         });
 
-        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
+        await neuralLink.routeConfig(page, config => ({...config, useAiClient: true, useVdomWorker: true}));
         await page.goto('/examples/container/base/index.html');
 
         const nlApp = await neuralLink.connectToApp('Neo.examples.container.base');
@@ -204,7 +204,7 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
             });
 
             await neuralLink.routeConfig(page, config => ({
-                ...config, useAiClient: true, useDeltaCoherenceRegistry: true
+                ...config, useAiClient: true, useDeltaCoherenceRegistry: true, useVdomWorker: true
             }));
             await page.goto('/examples/container/base/index.html');
 
