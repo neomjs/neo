@@ -36,6 +36,11 @@ class MainContainerController extends Component {
      */
     catalogLoadPromise = null
     /**
+     * Routes requested by the side nav (`walk` or `enterCards`) still awaiting settlement.
+     * @member {String[]} indexRoutes=[]
+     */
+    indexRoutes = []
+    /**
      * The group the route names, or null for the overview. A group that does not publish in the selected build shows
      * the overview, and its page while it publishes again.
      * @member {String|null} openFamily=null
@@ -215,10 +220,20 @@ class MainContainerController extends Component {
 
         me.openFamily = route && view.familyDefinitions.find(definition => definition.route === route)?.family || null;
 
-        if (view.findQuery) {
-            me.clearFind()
+        const indexPosition = me.indexRoutes.indexOf(me.getOpenRoute()),
+              fromIndex     = indexPosition !== -1;
+
+        if (fromIndex) {
+            me.indexRoutes.splice(0, indexPosition + 1)
         } else {
-            me.showOpenGroup()
+            me.indexRoutes.length = 0
+        }
+
+        if (view.findQuery) {
+            me.clearFind();
+            !fromIndex && !me.cardsRoute && view.getGroupIndex().syncFocus()
+        } else {
+            me.showOpenGroup(fromIndex)
         }
     }
 
@@ -317,6 +332,7 @@ class MainContainerController extends Component {
               view = me.component;
 
         if (route !== me.getOpenRoute()) {
+            me.indexRoutes.push(route);
             Neo.Main.setRoute({replace, value: route, windowId: view.windowId})
         } else if (view.findQuery) {
             me.clearFind()
@@ -376,9 +392,11 @@ class MainContainerController extends Component {
 
     /**
      * @summary Shows the open group's page in the stage, or `"Start here"` (`Overview`), and syncs hoisted navigation.
-     * A page that ArrowRight asked for before it opened takes focus into its cards.
+     * A page that ArrowRight asked for before it opened takes focus into its cards; an external or history route
+     * realigns a focused side-nav link to the new Tab stop.
+     * @param {Boolean} [fromIndex=true] False when the route was not initiated by the side nav
      */
-    showOpenGroup() {
+    showOpenGroup(fromIndex=true) {
         const me    = this,
               view  = me.component,
               stage = view.getStage(),
@@ -391,6 +409,8 @@ class MainContainerController extends Component {
         if (me.cardsRoute) {
             me.cardsRoute === me.getOpenRoute() && me.focusCards();
             me.cardsRoute = null
+        } else if (!fromIndex) {
+            view.getGroupIndex().syncFocus()
         }
     }
 }

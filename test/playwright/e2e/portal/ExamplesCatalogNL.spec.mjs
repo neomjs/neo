@@ -1759,6 +1759,53 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(find).toHaveValue('');
         await expectOpenPage(page, 'Apps')
     });
+
+    test('after Back, the side nav focuses the open destination\'s link, while Back outside the side nav leaves focus where it was (#22120)', async ({page, neuralLink}) => {
+        await page.goto(`${PORTAL}#/examples/scheduler`);
+        const app = await neuralLink.connectToApp('Portal');
+
+        const scheduler = groupLink(page, 'Scheduler'),
+              gantt     = groupLink(page, 'Gantt'),
+              cards     = page.locator(`${CARDS} .neo-list-item`),
+              find      = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples');
+
+        await expect(scheduler).toHaveAttribute('aria-current', 'page');
+
+        await scheduler.focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(gantt).toBeFocused();
+        await expectOpenPage(page, 'Gantt');
+
+        await page.goBack();
+        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expectOpenPage(page, 'Scheduler');
+        await expect(scheduler).toHaveAttribute('aria-current', 'page');
+
+        const indices   = await app.queryComponent({className: 'Portal.view.examples.GroupIndex'}, ['activeFamily', 'presentation']),
+              listIndex = indices.find(match => match.properties.presentation === 'list');
+        expect(listIndex.properties.activeFamily).toBe('scheduler');
+
+        await page.keyboard.press('ArrowRight');
+        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expect(cards.first()).toBeFocused();
+        await expect(cards.first().locator('.neo-title')).toHaveText('Studio Bookings');
+
+        await page.keyboard.press('ArrowLeft');
+        await expect(scheduler).toBeFocused();
+
+        // A subsequent walk after Back pushes a fresh history entry rather than replacing Scheduler's entry
+        await page.keyboard.press('ArrowDown');
+        await expect(gantt).toBeFocused();
+        await expectOpenPage(page, 'Gantt');
+
+        // AC-2: Back while focus sits outside the side nav returns to Scheduler and leaves focus where it was
+        await find.focus();
+        await expect(find).toBeFocused();
+        await page.goBack();
+        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expectOpenPage(page, 'Scheduler');
+        await expect(find).toBeFocused()
+    });
 });
 
 /**

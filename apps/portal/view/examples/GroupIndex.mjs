@@ -436,6 +436,29 @@ class GroupIndex extends Component {
     }
 
     /**
+     * @summary Moves focus to the open destination's Tab stop after a route change the index did not initiate, leaving
+     * focus outside the index or an active key press untouched.
+     */
+    syncFocus() {
+        let me = this;
+
+        if (me.presentation !== 'list' || me.walkFrom) {
+            return
+        }
+
+        me.walking = false;
+
+        if (me.containsFocus && me.navigator) {
+            Neo.main.addon.Navigator?.navigateTo({
+                data      : me.navigator,
+                fromTarget: me.id,
+                target    : `${me.id}__${me.getTabStop() || 'all'}`,
+                windowId  : me.windowId
+            })
+        }
+    }
+
+    /**
      * @summary Subscribes the links to `Neo.main.addon.Navigator`, which only moves focus: the links render their own
      * Tab stop.
      * @param {Boolean} active

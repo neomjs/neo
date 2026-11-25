@@ -410,6 +410,64 @@ test.describe('Portal examples overview and group pages', () => {
         }
     });
 
+    test('history Back moves focus to the open destination link when focus rests in the side nav, and leaves outside focus untouched (#22120)', async () => {
+        const view              = createView(),
+              controller        = view.getController(),
+              index             = view.getGroupIndex(),
+              [first, second]   = index.store.items.slice(-2),
+              linkId            = family => `${index.id}__${family}`,
+              originalMain      = Neo.Main,
+              originalNavigator = Neo.main?.addon?.Navigator,
+              navigated         = [],
+              routes            = [];
+
+        Neo.ns('Neo.main.addon', true);
+        Neo.Main                 = {...originalMain, setRoute: data => routes.push(data)};
+        Neo.main.addon.Navigator = {
+            navigateTo : data => navigated.push(data),
+            subscribe  : () => {},
+            unsubscribe: () => {}
+        };
+
+        try {
+            index.mounted = true;
+            await controller.onExamplesRoute({itemId: first.route.slice('/examples/'.length)});
+            navigated.length = 0;
+
+            index.containsFocus = true;
+            index.onKeyDown({key: 'ArrowDown', target: {id: linkId(first.family)}});
+            index.onKeyUp(  {key: 'ArrowDown', target: {id: linkId(second.family)}});
+            expect(index.walking).toBe(true);
+            expect(routes).toEqual([{replace: false, value: second.route, windowId: 1}]);
+
+            await controller.onExamplesRoute({itemId: second.route.slice('/examples/'.length)});
+            expect(navigated, 'a route the walk itself asked for does not overwrite live walk focus').toEqual([]);
+            expect(index.walking).toBe(true);
+
+            // History Back returns to `first` without `walk`: focus realigns to `first`'s link and ends the prior walk
+            await controller.onExamplesRoute({itemId: first.route.slice('/examples/'.length)});
+            expect(index.walking).toBe(false);
+            expect(navigated).toEqual([{
+                data      : index.navigator,
+                fromTarget: index.id,
+                target    : linkId(first.family),
+                windowId  : 1
+            }]);
+
+            // History Back / Forward while focus sits outside the side nav leaves focus untouched
+            index.containsFocus = false;
+            await controller.onExamplesRoute({itemId: second.route.slice('/examples/'.length)});
+            expect(navigated).toHaveLength(1)
+        } finally {
+            Neo.Main = originalMain;
+            if (originalNavigator) {
+                Neo.main.addon.Navigator = originalNavigator
+            } else {
+                delete Neo.main.addon.Navigator
+            }
+        }
+    });
+
     test('resolves group routes and all legacy modes', async () => {
         // without its form layout tile, Containers & Layouts is a defined group with no card or tile
         const view       = createView(catalog.filter(record => record.family !== 'layouts')),
