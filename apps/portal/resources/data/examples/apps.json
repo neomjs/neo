@@ -41,7 +41,7 @@
             "popout",
             "tear-out"
         ],
-        "scope": "Allow popups; demo accounts only.",
+        "scope": "Allow popups; hiding UI is not authorization.",
         "featured": true,
         "sharedWorkers": true,
         "environments": [
