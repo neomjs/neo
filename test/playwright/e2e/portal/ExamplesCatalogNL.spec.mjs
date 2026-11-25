@@ -167,21 +167,29 @@ async function readDesktopPage(page) {
 async function expectCardLayout(list, width) {
     await list.page().mouse.move(0, 0);
     await list.page().evaluate(() => document.activeElement?.blur());
-    await expect.poll(() => list.evaluate(ul => {
-        const leadCard  = ul.classList.contains('portal-examples-list-lead') && ul.clientWidth >= 1100,
-              listItems = [...ul.querySelectorAll('.neo-list-item')].filter(node => node.offsetWidth);
+    await expect.poll(() => list.evaluate(node => {
+        const ul        = node.matches('.portal-examples-list') ? node : node.querySelector('.portal-examples-list'),
+              style     = getComputedStyle(ul),
+              listWidth = ul.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+              leadCard  = ul.classList.contains('portal-examples-list-lead') && listWidth >= 1100,
+              listItems = [...ul.querySelectorAll('.neo-list-item')].filter(item => item.offsetWidth);
 
-        return listItems.every((node, index) => {
-            const h = node.querySelector('.portal-example-more')?.getBoundingClientRect().height || 0;
+        return listItems.every((item, index) => {
+            const h = item.querySelector('.portal-example-more')?.getBoundingClientRect().height || 0;
             return leadCard && index === 0 ? h > 20 : h < 1
         })
     })).toBe(true);
 
-    const gridInfo = await list.evaluate(node => ({
-        columns  : getComputedStyle(node).gridTemplateColumns.split(' ').length,
-        leadCard : node.classList.contains('portal-examples-list-lead'),
-        listWidth: node.clientWidth
-    }));
+    const gridInfo = await list.evaluate(node => {
+        const ul    = node.matches('.portal-examples-list') ? node : node.querySelector('.portal-examples-list'),
+              style = getComputedStyle(ul);
+
+        return {
+            columns  : style.gridTemplateColumns.split(' ').length,
+            leadCard : ul.classList.contains('portal-examples-list-lead'),
+            listWidth: ul.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+        }
+    });
 
     const cards = await list.locator('.neo-list-item').evaluateAll((nodes, {columns, leadCard, listWidth}) => nodes.filter(node => node.offsetWidth).map((node, index) => {
         const card     = node.getBoundingClientRect(),
@@ -1848,7 +1856,7 @@ test.describe('Portal examples gallery rows across cards and tiles (#22121)', ()
         await find.fill('field');
         await expect(matches.first()).toBeVisible();
 
-        await allLink(page).focus();
+        await startLink(page).focus();
         await page.keyboard.press('ArrowRight');
         await expect(matches.first()).toBeFocused();
 
