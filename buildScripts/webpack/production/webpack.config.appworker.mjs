@@ -1,10 +1,11 @@
-import fs                                        from 'fs-extra';
-import path                                      from 'path';
-import {spawnSync}                               from 'child_process';
-import {copyDistAppAssets, excludedResourcesFor} from '../../util/distAppAssets.mjs';
-import {minifyHtml}                              from '../../util/minifyHtml.mjs';
-import * as Terser                               from 'terser';
-import workerContextRebasePlugin                 from '../workerContextRebasePlugin.mjs';
+import fs                                           from 'fs-extra';
+import path                                         from 'path';
+import {spawnSync}                                  from 'child_process';
+import {copyDistAppAssets, excludedResourcesFor}    from '../../util/distAppAssets.mjs';
+import {minifyHtml}                                 from '../../util/minifyHtml.mjs';
+import * as Terser                                  from 'terser';
+import workerContextRebasePlugin                    from '../workerContextRebasePlugin.mjs';
+import {rewritePathnameConfig, rewritePathnameHtml} from '../../util/esmDistTransforms.mjs';
 
 const
     cwd            = process.cwd(),
@@ -91,6 +92,8 @@ export default async function(env) {
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'neo-config.json');
 
         content = requireJson(inputPath);
+        const appConfig = content, outputDirectory = path.join(buildTarget.folder, folder, lAppName);
+        rewritePathnameConfig(appConfig, outputDirectory);
         delete content.environment;
 
         // Strip parent-dir (`..`) path segments — complete by construction (no substring-replace
@@ -117,7 +120,7 @@ export default async function(env) {
         // index.html
         inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
-        content    = await minifyHtml(fs.readFileSync(inputPath, 'utf-8'));
+        content    = await minifyHtml(rewritePathnameHtml(fs.readFileSync(inputPath, 'utf-8'), appConfig, outputDirectory));
 
         fs.writeFileSync(outputPath, content);
 

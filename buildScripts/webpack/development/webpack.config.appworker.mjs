@@ -1,8 +1,9 @@
-import fs                                        from 'fs-extra';
-import path                                      from 'path';
-import {spawnSync}                               from 'child_process';
-import {copyDistAppAssets, excludedResourcesFor} from '../../util/distAppAssets.mjs';
-import workerContextRebasePlugin                 from '../workerContextRebasePlugin.mjs';
+import fs                                           from 'fs-extra';
+import path                                         from 'path';
+import {spawnSync}                                  from 'child_process';
+import {copyDistAppAssets, excludedResourcesFor}    from '../../util/distAppAssets.mjs';
+import workerContextRebasePlugin                    from '../workerContextRebasePlugin.mjs';
+import {rewritePathnameConfig, rewritePathnameHtml} from '../../util/esmDistTransforms.mjs';
 
 const cwd                   = process.cwd(),
       cpOpts                = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
@@ -73,6 +74,8 @@ export default env => {
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'neo-config.json');
 
         content = requireJson(inputPath);
+        const appConfig = content, outputDirectory = path.join(buildTarget.folder, folder, lAppName);
+        rewritePathnameConfig(appConfig, outputDirectory);
 
         // Strip parent-dir (`..`) path segments — complete by construction (no substring-replace
         // can re-form a segment) and identical to the old `../`-strip for every real appPath.
@@ -99,7 +102,8 @@ export default env => {
         inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
 
-        content = fs.readFileSync(inputPath).toString().replace(regexIndexNodeModules, '../../node_modules');
+        content = rewritePathnameHtml(fs.readFileSync(inputPath).toString(), appConfig, outputDirectory)
+            .replace(regexIndexNodeModules, '../../node_modules');
 
         fs.writeFileSync(outputPath, content);
 

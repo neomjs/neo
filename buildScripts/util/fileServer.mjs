@@ -1,13 +1,14 @@
-import {spawn}                           from 'node:child_process';
-import fs                                from 'node:fs';
-import http                              from 'node:http';
-import net                               from 'node:net';
-import path                              from 'node:path';
-import {pipeline}                        from 'node:stream';
-import {Command}                         from 'commander';
-import {getEngineReleaseNotesRoot}       from './contentRoot.mjs';
-import {createDevelopmentThemeFreshness} from './developmentThemeFreshness.mjs';
-import isEntryModule                     from './isEntryModule.mjs';
+import {spawn}                                                               from 'node:child_process';
+import fs                                                                    from 'node:fs';
+import http                                                                  from 'node:http';
+import net                                                                   from 'node:net';
+import path                                                                  from 'node:path';
+import {pipeline}                                                            from 'node:stream';
+import {Command}                                                             from 'commander';
+import {getEngineReleaseNotesRoot}                                           from './contentRoot.mjs';
+import {createDevelopmentThemeFreshness}                                     from './developmentThemeFreshness.mjs';
+import isEntryModule                                                         from './isEntryModule.mjs';
+import {isManagedRoutePath, normalizeRoutePathname, STATIC_ASSET_EXTENSIONS} from '../../src/util/Route.mjs';
 
 /**
  * @module buildScripts/util/fileServer
@@ -18,6 +19,9 @@ import isEntryModule                     from './isEntryModule.mjs';
  * `index.html` or else a listing, and the engine's release notes are served at their own dot-path
  * while every other dot-path stays closed (`.git`, `.env`). The development-theme freshness check
  * warns when served CSS trails its sources.
+ * Pathname apps opt into shell fallback through their on-disk neo-config.json. An optional
+ * package.json neo.spaRoot mounts an app at '/', with --spa-root and --no-spa-root overriding it.
+ * Static files and missing asset requests keep their normal file-server behavior; HTML is never rewritten.
  *
  * It listens on every interface, so a phone on the LAN reaches it by IP, and answers only a `Host`
  * that is an IP literal, `localhost` or a `*.localhost` name, as the webpack dev server's
@@ -197,10 +201,25 @@ async function sendListing(response, directory, pathname) {
  * @summary Creates the file server for a root. It is not listening yet: see {@link listen}.
  * @param {Object} [options]
  * @param {String} [options.root] The served directory.
+ * @param {String|Boolean} [options.spaRoot] Overrides package.json neo.spaRoot; false disables the root mount.
  * @param {Object} [options.freshness] The development-theme check, `{onListening, onRequest}`.
  * @returns {http.Server}
  */
-export function createFileServer({root = process.cwd(), freshness = createDevelopmentThemeFreshness({root})} = {}) {
+export function createFileServer({root = process.cwd(), freshness = createDevelopmentThemeFreshness({root}), spaRoot} = {}) {
+    root = path.resolve(root);
+    if (spaRoot === undefined) {
+        const manifest = path.join(root, 'package.json');
+        if (fs.existsSync(manifest)) spaRoot = JSON.parse(fs.readFileSync(manifest, 'utf8')).neo?.spaRoot
+    }
+    if (spaRoot !== undefined && spaRoot !== false && (typeof spaRoot !== 'string' || !spaRoot ||
+        path.isAbsolute(spaRoot) || spaRoot.includes('\\') || spaRoot.split('/').some(part => part.startsWith('.')))) {
+        throw new Error('neo.spaRoot must be a directory relative to the served root')
+    }
+    const rootMount   = spaRoot ? '/' + spaRoot.replace(/\/+$/, '') : null,
+          configCache = new Map();
+    if (rootMount && !fs.statSync(path.join(root, spaRoot, 'index.html')).isFile()) {
+        throw new Error('neo.spaRoot must contain index.html')
+    }
     const releaseNotesRoot = getEngineReleaseNotesRoot(root),
           releaseNotesPath = fs.existsSync(releaseNotesRoot) ? '/' + path.relative(root, releaseNotesRoot).split(path.sep).join('/') : null;
 
@@ -223,6 +242,41 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
     }
 
     /**
+     * @summary Reads a candidate mount's config only when its mtime or size changes. Discovery follows the
+     * requested path's ancestors, so unrelated apps and installed packages are never recursively scanned.
+     * @param {String} directory
+     * @returns {Promise<Object|null>}
+     */
+    async function readConfig(directory) {
+        const file = path.join(directory, 'neo-config.json');
+        let stat;
+        try {stat = await fs.promises.stat(file)} catch (error) {
+            if (['ENOENT', 'ENOTDIR'].includes(error.code)) {configCache.delete(file); return null}
+            throw error
+        }
+        const cached = configCache.get(file);
+        if (cached?.mtime === stat.mtimeMs && cached.size === stat.size) return cached.value;
+        const value = JSON.parse(await fs.promises.readFile(file, 'utf8'));
+        configCache.set(file, {mtime: stat.mtimeMs, size: stat.size, value});
+        return value
+    }
+
+    /**
+     * @summary Finds the nearest on-disk app boundary, including hash apps so the root SPA cannot capture them.
+     * @param {String} decoded
+     * @returns {Promise<Object|null>}
+     */
+    async function findMount(decoded) {
+        let mount = decoded.replace(/\/+$/, '') || '/';
+        while (true) {
+            const directory = resolveFile(mount), config = directory && await readConfig(directory);
+            if (config) return {mount: mount === '/' ? '' : mount, directory, config};
+            if (mount === '/') return null;
+            mount = path.posix.dirname(mount)
+        }
+    }
+
+    /**
      * @param {http.IncomingMessage} request
      * @param {http.ServerResponse} response
      */
@@ -238,15 +292,43 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
 
         const url = new URL(request.url, 'http://localhost');
 
-        let file = null,
+        let file = null, decoded,
             stat;
 
         freshness.onRequest(url.pathname);
 
         try {
-            file = resolveFile(decodeURIComponent(url.pathname));
+            decoded = decodeURIComponent(url.pathname);
+            file = resolveFile(decoded);
             stat = file && await fs.promises.stat(file)
         } catch {}
+
+        if (!file) return send(response, 404, 'Not Found');
+
+        const rootAlias = rootMount && [rootMount, rootMount + '/', rootMount + '/index.html'].includes(decoded),
+              redirect  = pathname => {
+                  response.setHeader('Location', pathname + url.search);
+                  return send(response, 301, 'Moved Permanently')
+              };
+
+        // Physical files win, except the root app's own shell alias, which must canonicalize to '/'.
+        if (!rootAlias && stat?.isFile()) return sendFile(request, response, file, stat);
+        if (!rootAlias && STATIC_ASSET_EXTENSIONS.has(path.posix.extname(decoded).slice(1).toLowerCase())) {
+            return send(response, 404, 'Not Found')
+        }
+        if (rootAlias) return redirect('/');
+
+        let app = await findMount(decoded);
+        if (!app && rootMount) {
+            const directory = resolveFile(rootMount), config = await readConfig(directory);
+            if (config) app = {mount: '', directory, config}
+        }
+        if (app?.config.routerMode === 'pathname' && isManagedRoutePath(url.pathname, app.config.routerIgnorePaths, app.mount)) {
+            const route = normalizeRoutePathname(url.pathname, app.mount), canonical = app.mount + (route === '/' && app.mount ? '' : route);
+            if (canonical !== url.pathname) return redirect(canonical);
+            const index = path.join(app.directory, 'index.html'), indexStat = await fs.promises.stat(index).catch(() => null);
+            return indexStat?.isFile() ? sendFile(request, response, index, indexStat) : send(response, 404, 'Not Found')
+        }
 
         if (stat?.isDirectory()) {
             if (!url.pathname.endsWith('/')) {
@@ -267,7 +349,10 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
         serve(request, response).catch(() => response.headersSent ? response.destroy() : send(response, 500, 'Internal Server Error'))
     });
 
-    server.on('listening', () => freshness.onListening());
+    server.on('listening', () => {
+        freshness.onListening();
+        if (rootMount) console.log(`[file-server] spaRoot ${spaRoot} mounted at /`)
+    });
 
     return server
 }
@@ -327,13 +412,15 @@ export function openBrowser(url, {platform = process.platform, run = spawn} = {}
  * winning, so `npm run server-start -- --no-open` overrides the script's own `--open`.
  * @param {String[]} [argv]
  * @param {Object} [env]
- * @returns {{open: (Boolean|String|undefined), port: Number, strict: Boolean}}
+ * @returns {{open: (Boolean|String|undefined), port: Number, strict: Boolean, spaRoot?: String|Boolean}}
  */
 export function parseOptions(argv = process.argv, env = process.env) {
     const options = new Command()
               .option('-p, --port <port>', 'the port to listen on; a taken port fails')
               .option('-o, --open [path]', 'open the browser on a path under the served root')
               .option('--no-open', 'do not open the browser')
+              .option('--spa-root <dir>', 'mount an app directory at / instead of listing the root')
+              .option('--no-spa-root', 'disable the package.json root app mount')
               .parse(argv)
               .opts(),
           explicit = options.port ?? (env.PORT || undefined),
@@ -343,7 +430,8 @@ export function parseOptions(argv = process.argv, env = process.env) {
         throw new Error(`invalid port: ${explicit}`)
     }
 
-    return {open: options.open, port, strict: explicit !== undefined}
+    return {open: options.open, port, strict: explicit !== undefined,
+        ...(options.spaRoot === undefined ? {} : {spaRoot: options.spaRoot})}
 }
 
 /**
@@ -356,9 +444,9 @@ export function parseOptions(argv = process.argv, env = process.env) {
  * @returns {Promise<http.Server>} The listening server.
  */
 export async function main({argv = process.argv, env = process.env, root = process.cwd(), opener = openBrowser} = {}) {
-    const {open, port, strict} = parseOptions(argv, env),
-          server               = createFileServer({root}),
-          url                  = `http://localhost:${await listen(server, {port, strict})}/`;
+    const {open, port, strict, spaRoot} = parseOptions(argv, env),
+          server                        = createFileServer({root, spaRoot}),
+          url                           = `http://localhost:${await listen(server, {port, strict})}/`;
 
     console.log(`[file-server] serving ${root} at ${url}`);
 

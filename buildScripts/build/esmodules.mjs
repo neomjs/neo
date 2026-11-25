@@ -15,7 +15,8 @@ import {
     relativeSpecifiers,
     resolveSourceRoots,
     rewriteEsmImports,
-    rewriteNeoConfig
+    rewriteNeoConfig,
+    rewritePathnameHtml
 } from '../util/esmDistTransforms.mjs';
 
 const
@@ -80,11 +81,16 @@ async function minifyFile(content, outputPath, sourcePath, type) {
         if (outputPath.endsWith('.json')) {
             const jsonContent = JSON.parse(content);
             if (type !== 'json-data' && outputPath.endsWith('neo-config.json')) {
-                rewriteNeoConfig(jsonContent, {insideNeo})
+                rewriteNeoConfig(jsonContent, {insideNeo,
+                    appSubPath: path.relative(path.join(root, esmOutputRoot), path.dirname(outputPath)).split(path.sep).join('/')})
             }
             fs.writeFileSync(outputPath, JSON.stringify(jsonContent));
             console.log(`Minified JSON: ${outputPath}`)
         } else if (outputPath.endsWith('.html')) {
+            const configPath = path.join(path.dirname(sourcePath), 'neo-config.json');
+            if (path.basename(sourcePath) === 'index.html' && fs.existsSync(configPath)) {
+                content = rewritePathnameHtml(content, requireJson(configPath), path.relative(root, path.dirname(outputPath)))
+            }
             const minifiedContent = await minifyHtml(content);
             fs.writeFileSync(outputPath, minifiedContent);
             console.log(`Minified HTML: ${outputPath}`)
