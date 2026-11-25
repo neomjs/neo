@@ -105,6 +105,7 @@ test.describe('examples/dialog: a closed dialog takes its mask along and hands f
     test('Cancel while the dialog is still growing out of its button waits until the show settles', async ({page}) => {
         const dialog = await openFrom(page, opener, 'pointer', false);
 
+        await expect.poll(async () => (await dialog.boundingBox()).x).toBeGreaterThanOrEqual(0);
         expect(await dialog.evaluate(el => getComputedStyle(el).pointerEvents),
             'a dialog still growing out of its opener accepts no pointer hit').toBe('none');
 
