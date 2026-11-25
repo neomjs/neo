@@ -463,7 +463,8 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * @summary Shrinks the dialog onto {@link #animateTargetId} while suppressing pointer hits, then closes or hides it.
+     * @returns {Promise<void>}
      */
     async animateHide() {
         let me                  = this,
@@ -478,10 +479,13 @@ class Dialog extends Panel {
 
         windowId = me.windowId;
 
-        rects = await me.getDomRect([id, me.animateTargetId])
+        rects = await me.getDomRect([id, me.animateTargetId]);
 
         await Neo.applyDeltas(windowId, {
             id,
+            cls: {
+                add: ['neo-animating']
+            },
             style: {
                 height   : `${rects[0].height}px`,
                 left     : `${rects[0].left  }px`,
@@ -516,7 +520,8 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * @summary Mounts and expands the dialog from {@link #animateTargetId}, suppressing pointer hits until settled.
+     * @returns {Promise<void>}
      */
     async animateShow() {
         let me                         = this,
@@ -552,6 +557,9 @@ class Dialog extends Panel {
         // Move to cover the animation target
         await Neo.applyDeltas(me.windowId, {
             id,
+            cls: {
+                add: ['neo-animating']
+            },
             style: {
                 height: `${rect.height}px`,
                 left  : `${rect.left  }px`,
@@ -579,11 +587,11 @@ class Dialog extends Panel {
 
         await me.timeout(200);
 
-        // Remove the animation class. The measured height was only its end point: a dialog whose height nothing
+        // Remove the animation classes. The measured height was only its end point: a dialog whose height nothing
         // declares follows its content again, so a message its form shows below a field has room.
         await Neo.applyDeltas(me.windowId, {
             id,
-            cls: {remove: ['animated-hiding-showing']},
+            cls: {remove: ['animated-hiding-showing', 'neo-animating']},
             ...!(me.height || style?.height || me.wrapperStyle?.height) && {style: {height: null}}
         });
 

@@ -112,5 +112,27 @@ test.describe('dialog.Base: the animation target decides the window only when it
 
         expect(dialog.windowId).toBe(9);
         expect(dialog.appName).toBe('DialogAnimateTargetOther')
+    });
+
+    test('animateShow and animateHide carry neo-animating through direct deltas without mutating vdom or vnode', async () => {
+        const deltas = [],
+              dialog = create({animateTargetId: 'launcher-item-mail'});
+
+        Neo.applyDeltas = async (windowId, delta) => {deltas.push(delta)};
+
+        await dialog.animateShow();
+
+        expect(deltas[0].cls?.add, 'move-to-target delta suppresses pointer hits on screen').toEqual(['neo-animating']);
+        expect(deltas[1].cls?.add, 'expansion delta adds the transition').toEqual(['animated-hiding-showing']);
+        expect(deltas[2].cls?.remove, 'landing delta clears both transient classes')
+            .toEqual(['animated-hiding-showing', 'neo-animating']);
+        expect(dialog.cls).not.toContain('neo-animating');
+        expect(dialog.vdom.cls).not.toContain('neo-animating');
+
+        deltas.length = 0;
+
+        await dialog.animateHide();
+
+        expect(deltas[0].cls?.add, 'hide flight suppresses pointer hits at start').toEqual(['neo-animating'])
     })
 });

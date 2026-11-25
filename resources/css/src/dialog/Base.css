@@ -40,6 +40,10 @@
         transition-timing-function: ease-out;
     }
 
+    &.neo-animating {
+        pointer-events: none;
+    }
+
     &.neo-dragproxy {
         > * {
             height: fit-content;
