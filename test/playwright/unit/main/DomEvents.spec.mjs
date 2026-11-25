@@ -868,11 +868,28 @@ test.describe('Neo.main.DomEvents', () => {
 
     test('pathname mode moves a #/… link into the path as a whole route, and an in-page anchor changes nothing', () => {
         withRouter({mode: 'pathname', url: '/learn/Intro?deck=training'}, ({calls, go, location, owner, sent}) => {
+            const fragments = [],
+                  origSend  = Neo.worker.Manager.sendMessage;
+
+            Neo.worker.Manager.sendMessage = (dest, msg) => {
+                if (msg.action === 'fragmentChange') {
+                    fragments.push(msg.data)
+                }
+                origSend(dest, msg)
+            };
+
             go('#section');
             owner.onHashChange();
             expect(calls).toEqual([]);
             expect(sent).toEqual([]);
+            expect(fragments).toEqual([{appNames: undefined, fragment: 'section', hashString: '/learn/Intro', windowId: undefined}]);
 
+            owner.setRoute('/learn/Intro?deck=training');
+            expect(calls).toEqual([['push', '/learn/Intro?deck=training']]);
+            expect(sent).toEqual([]);
+            expect(fragments.at(-1)).toEqual({appNames: undefined, hashString: '/learn/Intro', windowId: undefined});
+
+            calls.length = 0;
             go('#/news/blog');
             owner.onHashChange();
             expect(calls).toEqual([['replace', '/news/blog']]);

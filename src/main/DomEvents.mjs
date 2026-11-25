@@ -141,6 +141,10 @@ class DomEvents extends Base {
      */
     #fontEvents = null
     /**
+     * @member {String} #lastFragment=''
+     */
+    #lastFragment = ''
+    /**
      * The route the App worker last received, in `'pathname'` mode
      * @member {String|null} #lastRoute=null
      */
@@ -173,7 +177,8 @@ class DomEvents extends Base {
         if (Neo.config.routerMode === 'pathname') {
             window.addEventListener('popstate', me.sendRoute.bind(me));
             me.upgradeHashRoute(true);
-            me.#lastRoute = me.getRouteKey()
+            me.#lastRoute    = me.getRouteKey();
+            me.#lastFragment = location.hash?.length > 1 ? location.hash.substring(1) : ''
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -486,15 +491,13 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Returns the deduplication key (`pathname + '?' + search + '#' + fragment`) for `'pathname'` mode transitions.
+     * @summary Returns the deduplication key (`pathname + '?' + search`) for `'pathname'` mode transitions.
      * @returns {String}
      */
     getRouteKey() {
-        const
-            fragment = location.hash?.length > 1 ? location.hash.substring(1) : '',
-            search   = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || '');
+        const search = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || '');
 
-        return `${this.getRoute()}?${search}#${fragment}`
+        return `${this.getRoute()}?${search}`
     }
 
     /**
@@ -1335,8 +1338,8 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates on
-     * `pathname + '?' + search + '#' + fragment` so same-path query and section-fragment transitions dispatch once each.
+     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates routes on
+     * `pathname + '?' + search` and emits `fragmentChange` when only `#fragment` changes on the same route.
      */
     sendRoute() {
         let me         = this,
@@ -1344,18 +1347,34 @@ class DomEvents extends Base {
             hashString = me.getRoute();
 
         if (Neo.config.routerMode === 'pathname') {
-            const routeKey = me.getRouteKey();
+            const
+                currentFragment = location.hash?.length > 1 ? location.hash.substring(1) : '',
+                fragment        = currentFragment || undefined,
+                routeKey        = me.getRouteKey();
 
             if (routeKey === me.#lastRoute) {
+                if (currentFragment !== me.#lastFragment) {
+                    me.#lastFragment = currentFragment;
+
+                    Manager.sendMessage('app', {
+                        action: 'fragmentChange',
+                        data  : {
+                            appNames: Manager.appNames,
+                            ...(fragment ? {fragment} : {}),
+                            hashString,
+                            windowId: Manager.windowId
+                        }
+                    })
+                }
                 return
             }
 
-            me.#lastRoute = routeKey;
+            me.#lastRoute    = routeKey;
+            me.#lastFragment = currentFragment;
 
             const
-                fragment = location.hash?.length > 1 ? location.hash.substring(1) : undefined,
-                search   = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || ''),
-                query    = parseQueryParams(search);
+                search = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || ''),
+                query  = parseQueryParams(search);
 
             Manager.sendMessage('app', {
                 action: 'hashChange',

@@ -175,24 +175,4 @@ test.describe('Neo.util.HashHistory', () => {
             HashHistory.un('change', onChange)
         }
     });
-
-    test('deduplicates on fragment too so same-path section transitions and fragment clearing fire change once each', () => {
-        const events   = [],
-              onChange = (...args) => events.push(args);
-
-        HashHistory.on('change', onChange);
-
-        try {
-            HashHistory.push({fragment: 'decision-3', hash: {}, hashString: '/learn/DockLayouts', query: {}, search: '', windowId: 'w1'});
-            HashHistory.push({fragment: 'decision-3', hash: {}, hashString: '/learn/DockLayouts', query: {}, search: '', windowId: 'w1'});
-            HashHistory.push({fragment: 'unknown',    hash: {}, hashString: '/learn/DockLayouts', query: {}, search: '', windowId: 'w1'});
-            HashHistory.push({hash: {}, hashString: '/learn/DockLayouts', query: {}, search: '', windowId: 'w1'});
-            HashHistory.push({hash: {}, hashString: '/learn/DockLayouts', query: {}, search: '', windowId: 'w1'});
-
-            expect(HashHistory.getCount('w1')).toBe(3);
-            expect(events.map(([curr]) => curr.fragment ?? null)).toEqual(['decision-3', 'unknown', null])
-        } finally {
-            HashHistory.un('change', onChange)
-        }
-    });
 });

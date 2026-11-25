@@ -713,6 +713,14 @@ class App extends Base {
     }
 
     /**
+     * @summary Broadcasts same-route `#fragment` transitions in `'pathname'` mode without mutating `HashHistory`.
+     * @param {Object} data
+     */
+    onFragmentChange(data) {
+        this.fire('fragmentChange', data.data)
+    }
+
+    /**
      * Every URL hash-change will create a post message in main and end up here first.
      * @param {Object} data parsed key-value pairs for each hash value
      */
