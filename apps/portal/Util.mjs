@@ -42,9 +42,10 @@ function getGitHubUrl(kind, ref, path) {
  * @summary Resolves one relative href to a Portal route or a GitHub URL.
  * @param {String} href
  * @param {String|null} filePath see rewriteRepoLinks()
+ * @param {Number|String|null} [windowId=null] Target window identifier for per-window `routerMode` resolution
  * @returns {String|null} null leaves the link as authored
  */
-function resolveRepoLink(href, filePath) {
+export function resolveRepoLink(href, filePath, windowId=null) {
     if (regexExternal.test(href)) {
         return null
     }
@@ -77,7 +78,7 @@ function resolveRepoLink(href, filePath) {
     if (/^learn\/.+\.md$/i.test(path)) {
         const id = path.slice('learn/'.length, -'.md'.length);
 
-        return StringUtil.toRouteHref(id.startsWith('blog/') ? `/news/${id}` : `/learn/${id}`) + hash
+        return StringUtil.toRouteHref(id.startsWith('blog/') ? `/news/${id}` : `/learn/${id}`, windowId) + hash
     }
 
     return repoRoots.has(segments[0]) ? getGitHubUrl(target.endsWith('/') ? 'tree' : 'blob', 'dev', path) + hash : null
@@ -96,12 +97,15 @@ function resolveRepoLink(href, filePath) {
  * @param {String|null} [filePath=null] The repository path of the Markdown file, e.g. `learn/benefits/Introduction.md`.
  * `null` for text written on GitHub (issue, pull request and discussion bodies), where a relative path names a
  * repository file from the root and `../blob/<ref>/<path>` is GitHub's own link to one.
+ * @param {Number|String|null} [windowId=null] Target window identifier for per-window `routerMode` resolution.
  * @returns {String}
  */
-export function rewriteRepoLinks(html, filePath=null) {
+export function rewriteRepoLinks(html, filePath=null, windowId=null) {
+    const config = (windowId != null && Neo.windowConfigs?.[windowId]) || Neo.config;
+
     return html.replace(/<a\b[^>]*>/gi, tag => {
         const href = tag.match(regexHref)?.[3],
-              url  = href && resolveRepoLink(href, filePath);
+              url  = href && resolveRepoLink(href, filePath, windowId);
 
         if (!url) {
             return tag
@@ -111,6 +115,6 @@ export function rewriteRepoLinks(html, filePath=null) {
         tag = tag.replace(regexHref, (match, attribute, quote) => attribute + quote + url + quote);
 
         // GitHub is outside the app. An authored target wins.
-        return url.startsWith('#') || (Neo.config.routerMode === 'pathname' && url.startsWith('/')) || /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
+        return url.startsWith('#') || (config.routerMode === 'pathname' && url.startsWith('/')) || /\starget\s*=/i.test(tag) ? tag : tag.replace(/>$/, ' target="_blank">')
     })
 }

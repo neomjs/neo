@@ -54,7 +54,7 @@ test.describe('Portal section tab bars on a portrait phone', () => {
         await expect.poll(() => reachableTabs(page)).toEqual(TABS);
 
         await page.locator(MENU, {hasText: 'Videos'}).click();
-        await expect(page).toHaveURL(/#\/news\/videos$/);
+        await expect(page).toHaveURL(/\/news\/videos$/);
         await expect(page.locator('.portal-videos-list')).toBeVisible()
     });
 

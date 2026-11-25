@@ -128,7 +128,7 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     rewriteLinks(html) {
-        return rewriteRepoLinks(super.rewriteLinks(html))
+        return rewriteRepoLinks(super.rewriteLinks(html), null, this.windowId)
     }
 
     /**

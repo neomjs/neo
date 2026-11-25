@@ -37,6 +37,10 @@ test.describe('fileServer pathname mounts', () => {
         }
         write('apps/hash/neo-config.json', {routerMode: 'hash'});
         write('apps/hash/index.html', '<title>hash</title>');
+        write('docs/neo-config.json', {appPath: 'docs/app.mjs'});
+        write('docs/index.html', '<title>standalone-docs</title>');
+        write('examples/charts/neo-config.json', {appPath: 'examples/charts/app.mjs'});
+        write('examples/charts/index.html', '<title>standalone-charts</title>');
         write('apps/route/data.json', '{"real":true}');
         write('apps/route/license', 'physical extensionless file');
         write('examples/tree/item.txt', 'tree');
@@ -82,11 +86,31 @@ test.describe('fileServer pathname mounts', () => {
     });
 
     test('classifies the raw path before trimming slashes and keeps ignored directories static', async () => {
-        const ignored   = await fetch(`${base}/examples/tree/`),
-              managed   = await fetch(`${base}/examples/tree`, {redirect: 'manual'}),
-              canonical = await fetch(`${base}/apps/route/users/42/?x=1`, {redirect: 'manual'});
+        write('apps/portal/neo-config.json', {routerMode: 'pathname', routerIgnorePaths: ['^/examples/[^/]+/', '^/docs/']});
+        const later = new Date(Date.now() + 500);
+        fs.utimesSync(path.join(root, 'apps/portal/neo-config.json'), later, later);
+
+        const ignored          = await fetch(`${base}/examples/tree/`),
+              managed          = await fetch(`${base}/examples/tree`, {redirect: 'manual'}),
+              portalCharts     = await fetch(`${base}/examples/charts`, {redirect: 'manual'}),
+              standaloneCharts = await fetch(`${base}/examples/charts/`, {redirect: 'manual'}),
+              missingCharts    = await fetch(`${base}/examples/charts/missing`),
+              portalDocs       = await fetch(`${base}/docs`, {redirect: 'manual'}),
+              standaloneDocs   = await fetch(`${base}/docs/`, {redirect: 'manual'}),
+              missingDocs      = await fetch(`${base}/docs/missing`),
+              canonical        = await fetch(`${base}/apps/route/users/42/?x=1`, {redirect: 'manual'});
         expect(await ignored.text()).toContain('item.txt');
         expect(await managed.text()).toContain('<title>apps/portal</title>');
+        expect(portalCharts.status).toBe(200);
+        expect(await portalCharts.text()).toContain('<title>apps/portal</title>');
+        expect(standaloneCharts.status).toBe(200);
+        expect(await standaloneCharts.text()).toContain('<title>standalone-charts</title>');
+        expect(missingCharts.status).toBe(404);
+        expect(portalDocs.status).toBe(200);
+        expect(await portalDocs.text()).toContain('<title>apps/portal</title>');
+        expect(standaloneDocs.status).toBe(200);
+        expect(await standaloneDocs.text()).toContain('<title>standalone-docs</title>');
+        expect(missingDocs.status).toBe(404);
         expect(canonical.status).toBe(301);
         expect(canonical.headers.get('location')).toBe('/apps/route/users/42?x=1')
     });

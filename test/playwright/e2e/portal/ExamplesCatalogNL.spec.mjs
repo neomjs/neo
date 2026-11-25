@@ -186,7 +186,7 @@ test.describe('Portal examples section', () => {
 
         await links.nth(GROUPS.indexOf('Calendar') + 1).focus();
         await page.keyboard.press('Enter');
-        await expect(page).toHaveURL(/#\/examples\/calendar$/);
+        await expect(page).toHaveURL(/\/examples\/calendar$/);
         await expect(page.locator(`${PAGE} .portal-examples-group-heading h1`)).toHaveText('Calendar')
     });
 
@@ -233,7 +233,7 @@ test.describe('Portal examples section', () => {
 
         await button.click();
         await sheet.getByRole('link', {name: /^Calendar, /}).click();
-        await expect(page).toHaveURL(/#\/examples\/calendar$/);
+        await expect(page).toHaveURL(/\/examples\/calendar$/);
         await expectOpenPage(page, 'Calendar');
         await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveAttribute('aria-expanded', 'false');
         await expect(page.locator(`${CRUMB} .portal-examples-group-button`)).toHaveText('Calendar')
@@ -574,11 +574,11 @@ test.describe('Portal examples section', () => {
 
         // history returns through the overview to the scrolled page
         await page.goBack();
-        await expect(page).toHaveURL(/#\/examples$/);
+        await expect(page).toHaveURL(/\/examples$/);
         await expect(page.locator(FEATURED)).toBeVisible();
         await expect(page.locator(PAGE)).toHaveCount(0);
         await page.goBack();
-        await expect(page).toHaveURL(/#\/examples\/grid$/);
+        await expect(page).toHaveURL(/\/examples\/grid$/);
         await expectOpenPage(page, 'Grid & Table');
         await expect.poll(() => page.locator(PAGE).evaluate(node => node.scrollTop)).toBe(600);
 

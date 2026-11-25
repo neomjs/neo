@@ -99,11 +99,13 @@ class Application extends Base {
      */
     async afterSetMainView(value, oldValue) {
         if (value) {
-            let me       = this,
-                {config} = Neo;
+            let me              = this,
+                {config}        = Neo,
+                hasWindowConfig = Boolean(me.windowId != null && Neo.windowConfigs?.[me.windowId]),
+                windowConfig    = hasWindowConfig ? Neo.windowConfigs[me.windowId] : config;
 
             // Short delay to ensure changes from onHashChange() got applied
-            await me.timeout(config.hash ? 200 : 10);
+            await me.timeout(windowConfig.hash ? 200 : 10);
 
             if (config.useSSR && config.vnode) {
                 // SSR Takeover Path => once vnode and mounted are set, delta-updates can start

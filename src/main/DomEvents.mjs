@@ -486,13 +486,15 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Returns the deduplication key (`pathname + '?' + search`) for `'pathname'` mode transitions.
+     * @summary Returns the deduplication key (`pathname + '?' + search + '#' + fragment`) for `'pathname'` mode transitions.
      * @returns {String}
      */
     getRouteKey() {
-        const search = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || '');
+        const
+            fragment = location.hash?.length > 1 ? location.hash.substring(1) : '',
+            search   = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || '');
 
-        return `${this.getRoute()}?${search}`
+        return `${this.getRoute()}?${search}#${fragment}`
     }
 
     /**
@@ -825,14 +827,14 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Forwards a hash change to the App worker. In `'pathname'` mode only a `#/…` link is a route: it moves
-     * into the path first, replacing the entry the link pushed. Any other fragment is an in-page anchor.
+     * @summary Forwards a hash change to the App worker. In `'pathname'` mode a `#/…` link or bookmark upgrades
+     * into the path first, while in-page `#fragment` transitions forward `fragment` (or its removal) on the route.
      */
     onHashChange() {
         let me = this;
 
-        if (Neo.config.routerMode === 'pathname' && !me.upgradeHashRoute()) {
-            return
+        if (Neo.config.routerMode === 'pathname') {
+            me.upgradeHashRoute()
         }
 
         me.sendRoute()
@@ -1333,8 +1335,8 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates on `pathname + '?' + search`
-     * so same-path query edits dispatch while in-page `#anchor`-only hops stay suppressed.
+     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates on
+     * `pathname + '?' + search + '#' + fragment` so same-path query and section-fragment transitions dispatch once each.
      */
     sendRoute() {
         let me         = this,
@@ -1407,13 +1409,14 @@ class DomEvents extends Base {
         }
 
         let [, path = '', query = '', anchor = ''] = route.replace(/^#/, '').match(/^([^?#]*)(?:\?([^#]*))?(#.*)?$/) || [],
+            currentAnchor = location.hash?.length > 1 ? location.hash : '',
             currentSearch = location.search && location.search !== '?' ? location.search : '',
             currentKey, nextKey, nextUrl;
 
         // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
         path       = ('/' + path.replace(/^\/+/, '')).replace(/\/+$/, '') || '/';
-        currentKey = me.getRoute() + currentSearch + (anchor ? location.hash || '' : '');
-        nextKey    = path + (query ? `?${query}` : '') + anchor;
+        currentKey = me.getRoute() + currentSearch + currentAnchor;
+        nextKey    = path + (query ? `?${query}` : '') + (anchor.length > 1 ? anchor : '');
         nextUrl    = Neo.config.routerBasePath + nextKey;
 
         if (nextKey !== currentKey) {

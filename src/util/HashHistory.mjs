@@ -89,9 +89,10 @@ class HashHistory extends Base {
     }
 
     /**
-     * @summary Pushes a route entry onto the window's history stack unless both `hashString` and `search` match top-of-stack.
+     * @summary Pushes a route entry onto the window's history stack unless `hashString`, `search`, and `fragment` all match top-of-stack.
      * @param {Object} data
      * @param {String} [data.appName]
+     * @param {String} [data.fragment]
      * @param {Object} data.hash
      * @param {String} data.hashString
      * @param {Object} [data.query]
@@ -104,7 +105,12 @@ class HashHistory extends Base {
             stack      = me.getStack(windowId),
             top        = stack[0];
 
-        if (!top || top.hashString !== data.hashString || (top.search ?? '') !== (data.search ?? '')) {
+        if (
+            !top ||
+            top.hashString !== data.hashString ||
+            (top.search   ?? '') !== (data.search   ?? '') ||
+            (top.fragment ?? '') !== (data.fragment ?? '')
+        ) {
             delete data[windowId];
             stack.unshift(data);
 

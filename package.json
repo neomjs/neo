@@ -190,5 +190,8 @@
         "{package.json,.husky/pre-commit,.github/workflows/**,buildScripts/util/check-guard-ci-parity.mjs,buildScripts/util/check-guard-ci-parity-registry.json}": [
             "node ./buildScripts/util/check-guard-ci-parity.mjs"
         ]
+    },
+    "neo": {
+        "spaRoot": "apps/portal"
     }
 }

@@ -263,6 +263,9 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
 
     /**
      * @summary Finds the nearest on-disk app boundary, including hash apps so the root SPA cannot capture them.
+     * A hash app directory owns its trailing-slash shell and sub-paths (`/docs/`, `/examples/tree/`, `/docs/...`),
+     * while a slashless route (`/docs`, `/examples/tree`, `/examples/charts`, `/examples/tabs`) falls through to
+     * `rootMount` when the root SPA leaves that slashless route un-ignored.
      * @param {String} decoded
      * @returns {Promise<Object|null>}
      */
@@ -270,7 +273,9 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
         let mount = decoded.replace(/\/+$/, '') || '/';
         while (true) {
             const directory = resolveFile(mount), config = directory && await readConfig(directory);
-            if (config) return {mount: mount === '/' ? '' : mount, directory, config};
+            if (config && (config.routerMode === 'pathname' || !rootMount || mount === '/' || decoded.startsWith(mount + '/'))) {
+                return {mount: mount === '/' ? '' : mount, directory, config}
+            }
             if (mount === '/') return null;
             mount = path.posix.dirname(mount)
         }

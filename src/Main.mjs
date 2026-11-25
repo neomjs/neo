@@ -741,10 +741,17 @@ class Main extends core.Base {
     }
 
     /**
+     * @summary Navigates to `data.url`. In `'pathname'` mode, `#/…` hash-route targets delegate to
+     * `DomEvents#setRoute` so `<base href>` does not turn an internal route redirect into a document reload.
      * @param {Object} data
      * @param {String} data.url
      */
     redirectTo(data) {
+        if (Neo.config.routerMode === 'pathname' && data?.url?.startsWith('#/')) {
+            DomEvents.setRoute(data.url);
+            return
+        }
+
         window.location.href = data.url
     }
 

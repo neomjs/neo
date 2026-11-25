@@ -45,11 +45,11 @@ class Component extends ContentComponent {
     rewriteLinks(html) {
         let me          = this,
             path        = me.getContentPath(me.record),
-            routePrefix = StringUtil.toRouteHref(me.contentRoute),
+            routePrefix = StringUtil.toRouteHref(me.contentRoute, me.windowId),
             store       = me.getStateProvider()?.getStore('tree');
 
         // Less the base path, the fetch path is the file's path in the repository
-        html = rewriteRepoLinks(super.rewriteLinks(html), path.slice(Neo.config.basePath.length));
+        html = rewriteRepoLinks(super.rewriteLinks(html), path.slice(Neo.config.basePath.length), me.windowId);
 
         return html.replace(/<a\b[^>]*>/gi, tag => {
             const match = /(\shref\s*=\s*)(["'])https:\/\/neomjs\.com\/learn\/([^"'?#]+)(#[^"']*)?\2/i.exec(tag);

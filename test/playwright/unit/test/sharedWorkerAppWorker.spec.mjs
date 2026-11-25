@@ -315,7 +315,12 @@ test.describe('test/playwright/dedicatedWorkerNeuralLink — the fixture on a Sh
 
             await app.setProperties('cold', {text: 'first boot'});
 
-            const navigation = routes.find(({pattern}) => pattern.test('http://localhost:8080/apps/workstation/index.html'));
+            const navigation = routes.find(({pattern}) =>
+                pattern.test('http://localhost:8080/apps/workstation/index.html') &&
+                pattern.test('http://localhost:8080/learn/guides/uibuildingblocks/DockLayouts') &&
+                pattern.test('http://localhost:8080/docs/Neo.component.Base') &&
+                !pattern.test('http://localhost:8080/src/Main.mjs')
+            );
 
             await navigation.handler({
                 fallback: async () => {},

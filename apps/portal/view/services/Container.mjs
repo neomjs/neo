@@ -165,15 +165,41 @@ class ServicesContainer extends Container {
     }
 
     /**
-     * @summary Syncs the internal Examples link href with the active `Neo.config.routerMode`.
+     * @summary Re-syncs the internal Examples link href when the container binds to a window with its own `routerMode`.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (oldValue !== undefined && value != null && this.items?.length) {
+            this.syncExamplesLink()
+        }
+    }
+
+    /**
+     * @summary Syncs the internal Examples link href with the active window's `routerMode`.
      */
     onConstructed() {
         super.onConstructed();
+        this.syncExamplesLink()
+    }
 
-        const examplesLink = this.getItem('connect-build-body')?.vdom?.cn?.[1]?.cn?.[1];
+    /**
+     * @summary Updates the internal `/examples` link href for this window.
+     */
+    syncExamplesLink() {
+        const
+            buildBody    = this.getItem('connect-build-body'),
+            examplesLink = buildBody?.vdom?.cn?.[1]?.cn?.[1];
 
         if (examplesLink) {
-            examplesLink.href = StringUtil.toRouteHref('/examples')
+            const href = StringUtil.toRouteHref('/examples', this.windowId);
+            if (examplesLink.href !== href) {
+                examplesLink.href = href;
+                buildBody.update()
+            }
         }
     }
 

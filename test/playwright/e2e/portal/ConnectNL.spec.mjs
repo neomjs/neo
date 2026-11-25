@@ -38,7 +38,7 @@ test.describe('Portal Connect', () => {
             const links = root.getByRole('link');
             expect(await links.evaluateAll(nodes => nodes.map(node => node.getAttribute('href')))).toEqual([
                 'https://github.com/neomjs/create-app',
-                '#/examples',
+                '/examples',
                 'https://github.com/neomjs/neo-agent-brain',
                 'https://github.com/orgs/neomjs/discussions',
                 'https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md',
@@ -107,7 +107,7 @@ test.describe('Portal Connect', () => {
 
             // Exercise a real in-app destination; well-formed hrefs alone do not prove routing.
             await root.getByRole('link', {name: 'Explore examples', exact: true}).click();
-            await expect(page).toHaveURL(/#\/examples$/);
+            await expect(page).toHaveURL(/\/examples$/);
             let examples;
             await expect.poll(async () => {
                 const matches = await app.queryComponent({className: 'Portal.view.examples.MainContainer'}, ['id']);
@@ -128,7 +128,7 @@ test.describe('Portal Connect', () => {
         const link = footer.getByRole('link', {name: 'Connect', exact: true});
         await link.scrollIntoViewIfNeeded();
         await link.click();
-        await expect(page).toHaveURL(/#\/services$/);
+        await expect(page).toHaveURL(/\/services$/);
         await expect(page.locator(ROOT).getByRole('heading', {level: 1})).toHaveText('Connect');
         await expect(page).toHaveTitle('Connect with Neo.mjs')
     })

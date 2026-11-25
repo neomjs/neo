@@ -1,56 +1,9 @@
-import {expect, test} from '../../fixtures.mjs';
+import fs                                from 'node:fs';
+import {extractExampleFamilyDefinitions} from '../../../../buildScripts/docs/seo/seoJson.mjs';
+import {expect, test}                    from '../../fixtures.mjs';
 
-/**
- * @summary Verifies the Portal application in opt-in `'pathname'` routing mode under a root-anchored `<base href>`,
- * matching the `https://neomjs.com` deployment topology:
- * 1. Cold boot at `'/'` stays at `'/'` (`onHomeRoute`) without pushing `'/home'`.
- * 2. Header navigation and clicking the `Neo.mjs` logo (`route: '/'`) from `'/learn'` return to Home via the History
- *    API without reloading `Neo.Main` or main-thread addons.
- * 3. Rewritten Markdown links and canonical same-origin links navigate client-side, while modified new-tab clicks and
- *    `routerIgnorePaths` targets keep native browser semantics.
- */
-async function servePortalPathnameMode(page) {
-    await page.route('**/apps/portal/neo-config.json*', async route => {
-        const response = await route.fetch({maxRetries: 2}),
-              config   = await response.json();
-
-        await route.fulfill({response, json: {
-            ...config,
-            allowAiClientInTests        : true,
-            routerBasePath              : '',
-            routerMode                  : 'pathname',
-            useAiClient                 : false,
-            useCanvasWorkerStartingPoint: false,
-            useServiceWorker            : false,
-            useSharedWorkers            : false
-        }})
-    });
-
-    await page.route(url => {
-        const {pathname} = url;
-
-        if (/\.[a-z0-9]+$/i.test(pathname)) {
-            return false
-        }
-
-        return (
-            pathname === '/' ||
-            pathname === '/learn' || pathname.startsWith('/learn/') ||
-            pathname === '/news' || pathname.startsWith('/news/') ||
-            pathname === '/examples' || /^\/examples\/[^/]+$/.test(pathname) ||
-            pathname === '/services' ||
-            pathname === '/docs'
-        )
-    }, async route => {
-        const response = await route.fetch({
-                  maxRetries: 2,
-                  url       : new URL('/apps/portal/index.html', route.request().url()).href
-              }),
-              html = (await response.text()).replace('<head>', '<head>\n    <base href="/apps/portal/">');
-
-        await route.fulfill({response, body: html})
-    })
-}
+const EXAMPLES_VIEW = new URL('../../../../apps/portal/view/examples/MainContainer.mjs', import.meta.url),
+      GROUP_ROUTES  = extractExampleFamilyDefinitions(fs.readFileSync(EXAMPLES_VIEW, 'utf8')).map(group => group.route);
 
 const VIEWS = {
     examples: 'Portal.view.examples.MainContainer',
@@ -59,7 +12,7 @@ const VIEWS = {
 };
 
 /**
- * @summary Checks whether the named Portal section container is currently mounted in the App Worker via Neural Link.
+ * @summary Checks whether the named Portal section container is currently mounted in the App SharedWorker via Neural Link.
  * @param {Object} app
  * @param {String} className
  * @returns {Promise<Boolean>}
@@ -71,9 +24,8 @@ async function isViewMounted(app, className) {
     return Boolean(view && (view.properties?.mounted ?? view.mounted))
 }
 
-test.describe('Portal pathname routing (Neural Link)', () => {
-    test('cold-boots at /, returns to Home on Logo click from /learn, routes Markdown links without reload, and preserves addon singletons', async ({page, neuralLink}) => {
-        await servePortalPathnameMode(page);
+test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural Link)', () => {
+    test('boots at / with useSharedWorkers: true, routes /learn, ?query editRoute, #section fragments, Cmd/Ctrl+Click, and Logo Home without reload', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 1440, height: 900});
 
         await page.goto('/');
@@ -86,6 +38,17 @@ test.describe('Portal pathname routing (Neural Link)', () => {
         await expect(page).toHaveTitle('Neo.mjs - An Agent Institution');
         await expect(logo).toHaveAttribute('href', '/');
         await expect(logo).toHaveAttribute('aria-current', 'page');
+
+        const bootConfig = await page.evaluate(() => ({
+            baseURI         : document.baseURI,
+            routerBasePath  : Neo.config.routerBasePath || '',
+            routerMode      : Neo.config.routerMode,
+            useSharedWorkers: Neo.config.useSharedWorkers
+        }));
+        expect(bootConfig.routerMode).toBe('pathname');
+        expect(bootConfig.routerBasePath).toBe('');
+        expect(bootConfig.useSharedWorkers).toBe(true);
+        expect(bootConfig.baseURI).toMatch(/\/apps\/portal\/$/);
 
         const headerHrefs = await header.locator('a[href]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')));
         expect(headerHrefs.slice(0, 5)).toEqual(['/', '/learn', '/news', '/examples', '/services']);
@@ -112,18 +75,24 @@ test.describe('Portal pathname routing (Neural Link)', () => {
         await expect(logo).toHaveAttribute('aria-current', 'page');
         await expect(page).toHaveTitle('Neo.mjs - An Agent Institution');
 
-        // Navigate to a Learn guide with relative .md links and verify clean pathname rewrite + click
+        // Navigate to a depth-4 Learn guide with relative .md links and #section fragments
         await page.evaluate(() => Neo.Main.setRoute({value: '/learn/guides/uibuildingblocks/DockLayouts'}));
         const content = page.locator('.neo-app-content-component');
         await expect(content.locator('h1')).toContainText('Dock Layouts:');
 
-        const adoptionLink = content.locator('a[href="/learn/guides/uibuildingblocks/DockLayoutsAdoption"]').first();
-        await expect(adoptionLink).toHaveCount(1);
-        await adoptionLink.click();
-        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayoutsAdoption$/);
+        const sectionLink = content.locator('a[href="/learn/guides/uibuildingblocks/DockLayoutsAdoption#decision-3--policies-live-in-the-model-not-in-your-ui"]').first();
+        await expect(sectionLink).toHaveCount(1);
+        await sectionLink.click();
+        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayoutsAdoption#decision-3--policies-live-in-the-model-not-in-your-ui$/);
         await expect(content.locator('h1')).toContainText('Adopting in Your App');
 
-        // Canonical same-origin full URL inside content (as in release notes / blog posts) routes without reload
+        // Exercise ?query mutation and last-key removal via Neo.Main.editRoute while preserving #fragment
+        await page.evaluate(() => Neo.Main.editRoute({deck: 'learnneo'}));
+        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayoutsAdoption\?deck=learnneo#decision-3--policies-live-in-the-model-not-in-your-ui$/);
+        await page.evaluate(() => Neo.Main.editRoute({deck: null}));
+        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayoutsAdoption#decision-3--policies-live-in-the-model-not-in-your-ui$/);
+
+        // Canonical same-origin full URL inside content routes without reload
         await page.evaluate(() => {
             const article = document.querySelector('.neo-app-content-component'),
                   link    = document.createElement('a');
@@ -138,19 +107,20 @@ test.describe('Portal pathname routing (Neural Link)', () => {
         await expect(page).toHaveURL(/\/examples\/grid$/);
         await expect.poll(() => isViewMounted(app, VIEWS.examples)).toBe(true);
 
-        // Modified new-tab click (ControlOrMeta+Click) opens /services in a new tab without hijacking the current tab
+        // Modified new-tab click (ControlOrMeta+Click) opens /services in a second SharedWorker window without hijacking the first
         const [popup] = await Promise.all([
             page.context().waitForEvent('page'),
             header.getByRole('link', {name: 'Connect', exact: true}).click({modifiers: ['ControlOrMeta']})
         ]);
         await expect(popup).toHaveURL(/\/services$/);
+        await expect(popup.locator('.portal-services-component').getByRole('heading', {level: 1})).toHaveText('Connect');
         await popup.close();
         await expect(page).toHaveURL(/\/examples\/grid$/);
         expect(await isViewMounted(app, VIEWS.examples)).toBe(true);
 
         // Browser Back returns to the Learn guide in the same document, with identical Main & Addon instances
         await page.goBack();
-        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayoutsAdoption$/);
+        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayoutsAdoption#decision-3--policies-live-in-the-model-not-in-your-ui$/);
         await expect.poll(() => isViewMounted(app, VIEWS.learn)).toBe(true);
 
         const permanence = await page.evaluate(() => {
@@ -169,5 +139,41 @@ test.describe('Portal pathname routing (Neural Link)', () => {
             mismatches   : [],
             sameDocument : true
         })
+    });
+
+    test('canonicalizes /apps/portal/ and /apps/portal/index.html#/examples/grid via 301 + hash upgrade, reloads depth-4 routes, and separates all 21 /examples/<group> routes from /examples/tree/', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+
+        // HTTP-level check across all 21 group routes vs standalone /examples/tree/ directory listing
+        expect(GROUP_ROUTES).toHaveLength(21);
+        for (const groupRoute of GROUP_ROUTES) {
+            const response = await page.request.get(groupRoute, {maxRedirects: 0});
+            expect(response.status(), groupRoute).toBe(200);
+            expect(await response.text(), groupRoute).toContain('<base href="/apps/portal/">')
+        }
+
+        const standaloneDir = await page.request.get('/examples/tree/', {maxRedirects: 0});
+        expect(standaloneDir.status()).toBe(200);
+        expect(await standaloneDir.text()).not.toContain('<base href="/apps/portal/">');
+
+        const aliasRedirect = await page.request.get('/apps/portal/?utm_source=test', {maxRedirects: 0});
+        expect(aliasRedirect.status()).toBe(301);
+        expect(aliasRedirect.headers()['location']).toBe('/?utm_source=test');
+
+        // Legacy bookmark /apps/portal/index.html#/examples/grid -> 301 to /#/examples/grid -> upgradeHashRoute to /examples/grid
+        await page.goto('/apps/portal/index.html#/examples/grid');
+        const app = await neuralLink.connectToApp('Portal');
+        await expect(page).toHaveURL(/\/examples\/grid$/);
+        await expect.poll(() => isViewMounted(app, VIEWS.examples)).toBe(true);
+        await expect(page.locator('.portal-examples-group-page:visible .portal-examples-group-heading h1')).toHaveText('Grid & Table');
+
+        // Depth-4 cold load and hard reload at /learn/guides/uibuildingblocks/DockLayouts
+        await page.goto('/learn/guides/uibuildingblocks/DockLayouts');
+        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayouts$/);
+        await expect(page.locator('.neo-app-content-component h1')).toContainText('Dock Layouts: One Application, Many Windows');
+
+        await page.reload();
+        await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayouts$/);
+        await expect(page.locator('.neo-app-content-component h1')).toContainText('Dock Layouts: One Application, Many Windows')
     })
 });

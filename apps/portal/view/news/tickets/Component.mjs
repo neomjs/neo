@@ -78,7 +78,7 @@ class Component extends ContentComponent {
             let renderedValue;
 
             if (key === 'subIssues' && Array.isArray(value)) {
-                const ticketHref = StringUtil.toRouteHref('/news/tickets/');
+                const ticketHref = StringUtil.toRouteHref('/news/tickets/', me.windowId);
 
                 renderedValue = value.map(issue => {
                     return `<div class="neo-sub-issue">${issue
@@ -224,7 +224,7 @@ class Component extends ContentComponent {
 
             if (parentId && parentId !== 'Backlog') {
                 badgesHtml += `
-                    <a class="neo-badge neo-release-badge" href="${StringUtil.toRouteHref('/news/releases/' + parentId.substring(1))}">
+                    <a class="neo-badge neo-release-badge" href="${StringUtil.toRouteHref('/news/releases/' + parentId.substring(1), me.windowId)}">
                         <i class="fa-solid fa-code-branch"></i> ${parentId}
                     </a>`
             }
