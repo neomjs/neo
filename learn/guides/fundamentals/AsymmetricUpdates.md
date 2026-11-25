@@ -46,15 +46,19 @@ sequenceDiagram
     participant P as Parent Component
     participant C as Child Component
     participant VW as VDom Worker
-    
+    participant MT as Main Thread
+
     Note over P, C: Independent Updates (Scoped)
 
     P->>VW: updateBatch([Parent Payload]) - { id: 'parent', cn: [{componentId: 'child'}] }
     C->>VW: updateBatch([Child Payload]) - { id: 'child', text: 'New Text' }
-    
+
     par Parallel Processing
-        VW->>P: Deltas for Parent
-        VW->>C: Deltas for Child
+        VW->>MT: Deltas for Parent
+        MT->>P: Reply after the DOM write
+    and
+        VW->>MT: Deltas for Child
+        MT->>C: Reply after the DOM write
     end
 ```
 
@@ -64,11 +68,9 @@ While parallel updates are safe, sending two messages to the worker is less effi
 
 With the **Teleportation** architecture, merging does **not** mean expanding the Child inside the Parent's VDOM tree (which would require updating the Parent's structure). Instead, it means bundling the Child's disjoint update payload into the same `updateBatch` message as the Parent.
 
-This is controlled by the `canMergeUpdate` logic in `Neo.mixin.VdomLifecycle`.
-
 ### The Logic
 
-A child update can merge into a parent update regardless of distance. The `executeVdomUpdate` method recursively collects all merged children and generates a batch of disjoint payloads.
+A child update can merge into any ancestor's update, regardless of distance, as long as that ancestor's update is still pending. The ancestor's update then collects every merged child and sends a batch of disjoint payloads. [VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) describes the exact rules.
 
 ### The Benefit
 
@@ -82,23 +84,25 @@ sequenceDiagram
     participant C as Child Component
     participant M as VDom Manager
     participant VW as VDom Worker
-    
+    participant MT as Main Thread
+
     Note over P, C: Merged Update (Teleportation Batch)
 
     P->>P: setSilent({style: ...})
     C->>C: setSilent({text: ...})
-    
+
     P->>P: update()
-    
+
     Note right of P: VDOM Traversal
     P->>C: check merged updates?
     C-->>P: Yes
-    
+
     Note right of P: Collect Disjoint Payloads
-    
+
     P->>VW: updateBatch({ updates: { parent: {...}, child: {...} } })
-    
-    VW->>P: Aggregated Deltas + VNodes
+
+    VW->>MT: Aggregated Deltas + VNodes
+    MT->>P: Same reply, after the DOM write
     P->>M: Update Complete
     M->>C: Trigger Child Callbacks
 ```
@@ -112,7 +116,8 @@ To force multiple components to update together in a single atomic batch, use th
 Imagine a Toolbar (Parent) with three Buttons (Children). You want to change the Toolbar's style and update the text of all three buttons simultaneously.
 
 ```javascript
-// 1. Queue updates silently (no worker messages sent yet)
+// 1. Queue updates silently (no worker messages sent yet).
+// The toolbar goes first: a silent change joins only an ancestor update that is already pending.
 toolbar.setSilent({ cls: ['my-active-toolbar'] });
 
 button1.setSilent({ text: 'Save' });
@@ -120,19 +125,16 @@ button2.setSilent({ text: 'Cancel' });
 button3.setSilent({ iconCls: 'fa fa-trash' });
 
 // 2. Trigger the transaction
-// The toolbar sees that its children are "dirty" (need update)
-// and bundles their changes into its own VDOM payload.
+// Each button's change joined the pending toolbar update,
+// so this one update sends all four changes in one batch.
 toolbar.update();
 ```
 
 ### What happens under the hood?
 
-1.  `setSilent` flags the components as `needsVdomUpdate` but does not trigger the `updateVdom` scheduler.
-2.  `toolbar.update()` starts the cycle for the parent.
-3.  The engine recursively collects `mergedChildIds`.
-4.  It generates a **disjoint payload** for the Toolbar and one for each Button.
-5.  It sends a single `updateBatch` message containing all 4 payloads.
-6.  The VDOM worker processes them sequentially and returns a single set of deltas.
+`toolbar.setSilent()` leaves the toolbar with a pending update and sends nothing. Each button's silent change then joins that pending update instead of starting its own. `toolbar.update()` collects the toolbar and the buttons, sends their payloads in one `updateBatch()` call, and one set of deltas comes back.
+
+**Order matters.** A button changed before the toolbar keeps its change pending, and a toolbar update at the default depth does not carry it. [VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) covers the rules.
 
 ## Recursive Merging (formerly Leapfrog)
 
@@ -148,37 +150,33 @@ sequenceDiagram
     participant GP as Grandparent
     participant P as Parent (Clean)
     participant GC as Grandchild (Dirty)
-    
+
     Note over GP, GC: Recursive Merging (Teleportation)
-    
+
     GC->>P: Merge? (No, P not updating)
     GC->>GP: Merge? (Yes, GP updating)
-    
+
     GC->>GP: Register Merge
-    
+
     GP->>GP: Collect Payloads
-    
+
     GP->>GP: Result: { updates: { gp: {...}, gc: {...} } }
     Note right of GP: P is skipped entirely
 ```
 
 ## The Promise Lifecycle
 
-A critical architectural feature of Neo.mjs is that `promiseUpdate()` **always resolves**, even if the component didn't send its own update message.
+`promiseUpdate()` **settles with the update that carries the component's change**, even when the component never sends an update message of its own. When `child` merges into `parent`, the `VDomUpdate` manager records the merge, and the parent's update settles the child's promise when it lands: it resolves after the DOM write, and rejects if that update fails.
 
-When you call `await child.promiseUpdate()`, and that child ends up being merged into a parent, the `VDomUpdate` manager tracks this relationship.
-
-1.  **Registration**: When `child` merges into `parent`, the manager records `parent -> [child]`.
-2.  **Execution**: When `parent` receives its deltas from the worker, it notifies the manager.
-3.  **Resolution**: The manager looks up all merged children for that parent and executes their callbacks.
-
-This ensures that your code flow remains consistent regardless of whether the update was standalone or merged.
+This keeps your code flow the same whether the update was standalone or merged.
 
 ```javascript
-// This awaits successfully even if 'child' never sends a message!
+// This settles even if 'child' never sends a message of its own
 await child.promiseUpdate();
 console.log('Update done (possibly merged)');
 ```
+
+[VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) covers the exact contract.
 
 ## Neo.mjs vs React: VDOM Update Strategies
 
@@ -209,35 +207,7 @@ This architecture becomes critical in two scenarios:
 
 ## Architecture Constraints & Race Conditions
 
-Implementing disjoint updates in a high-performance, multi-threaded, multi-window environment introduces unique challenges. The application engine handles these automatically, but understanding them is crucial for advanced architecture.
-
-### 1. The Lazy Snapshot (Avoiding "Ghost Content")
-
-When a component triggers an update (e.g., `header.hidden = true`), the engine must decide *when* to calculate the VDOM diff.
-If we snapshot the VDOM synchronously at the moment of the trigger, we risk missing subsequent changes that happen in the same execution tick (e.g., a synchronous `remove()` call).
-
-**Solution:** The VDOM lifecycle uses a **Lazy Snapshot** model.
-1.  `updateVdom()` marks the component as dirty (`isVdomUpdating = true`).
-2.  The process **yields to the Macrotask queue** (`await setTimeout`).
-3.  This allows pending synchronous operations (like layout reflows or removals) to complete.
-4.  Only then does `collectPayloads` run, ensuring it captures the *final* state of the transaction.
-
-This prevents "Ghost Content" where a component is removed from the DOM but persists in the VDOM update payload because the snapshot was taken too early.
-
-### 2. SharedWorker Window Isolation
-
-In a SharedWorker environment, a single App Worker manages multiple Browser Windows.
-A `Viewport` in Window A might have a `mergedChildIds` list containing a `Panel`. If that `Panel` moves to Window B (popout), it is physically gone from Window A.
-
-**Constraint:** We must strictly **filter update payloads by Window ID**.
-If `Viewport` (Window A) batches updates, it must **exclude** any merged children that have moved to Window B. Failing to do so would cause "Cross-Window Leaks", where deltas meant for the Popup are applied to the Main Window, causing corruption.
-
-### 3. Zombie Parents (In-Flight Registry)
-
-When a parent component starts an update, it registers itself in the `VDomUpdate` manager. This blocks it from starting overlapping updates (`isChildUpdating` check).
-If a child component **moves** to a new parent while an update is in-flight, the manager must be smart enough to clear the registry for the **old parent**, not just the new one.
-
-**Solution:** The registry tracks dependencies via a direct map (`descendantInFlightMap`). Cleanup iterates this map directly rather than walking the live component tree (which might have changed). This prevents "Zombie Parents" from being permanently blocked by children they no longer own.
+The engine guards disjoint updates for you. It takes the payload snapshot after a task yield, so a change and a `remove()` in the same tick land in one update. It keeps every batch inside one window, so deltas meant for a popup never reach another window. And its in-flight registry releases every former ancestor, even when a component moves while its update is in the air. [VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) shows where each guarantee lives, and what a change to the engine must preserve.
 
 ## Best Practices
 

@@ -145,6 +145,12 @@ const PRIORITIES = new Map([
     ['guides/fundamentals/ApplicationBootstrap'     , 0.9],
     ['guides/fundamentals/MainThreadAddons'         , 0.9],
 
+    // Engine internals: the VDOM pipeline, overview first
+    ['guides/coreengine/VdomEngine'                 , 0.8],
+    ['guides/coreengine/VdomAppWorker'              , 0.7],
+    ['guides/coreengine/VdomWorker'                 , 0.7],
+    ['guides/coreengine/VdomMainThread'             , 0.7],
+
     // Other important guides
     ['guides/uibuildingblocks/ComponentsAndContainers', 0.8],
     ['guides/uibuildingblocks/Layouts'                , 0.8],

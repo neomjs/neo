@@ -128,30 +128,11 @@ const componentRect = await this.getDomRect();
 ```
 
 ### 2. The Triangular Communication (VDOM Updates)
-For VDOM updates, the engine uses a specialized flow to minimize latency and main-thread overhead. Instead of a simple request-response, the data flows in a triangle:
-
-1.  **App Worker:** Generates a new VDOM structure and sends it to the **VDom Worker**.
-2.  **VDom Worker:** Calculates the deltas (diff) and sends a "reply" message.
-3.  **Main Thread (Interception):** Crucially, the Main thread **intercepts** this reply. It sees the deltas, applies them to the DOM immediately via `Neo.worker.Manager.handleDomUpdate()`, and *then* forwards the success/failure confirmation to the App Worker.
-4.  **App Worker:** Receives the confirmation and resolves the promise.
-
-**Why?** This avoids an extra round-trip. If the VDom worker sent the diff back to the App worker, the App worker would then have to send it to the Main thread to be applied. The triangular path cuts out the middleman for the critical rendering path.
-
-```text
-   [App Worker]
-        |
-        | 1. VDOM Update
-        v
-   [VDom Worker]
-        |
-        | 2. Deltas (Diff)
-        |
-   [Main Thread] <--- 3. Intercept & Apply to DOM
-        |
-        | 4. Success Reply
-        v
-   [App Worker]
-```
+VDOM updates travel a triangle instead of a request-response. The App worker sends its payloads to the VDom worker over
+a direct channel. The VDom worker's reply, carrying the deltas and the new vnodes, leaves through the Main thread, which
+writes the deltas in its next frame and only then forwards the reply to the App worker. The deltas skip a hop, and the
+App worker never adopts a vnode for DOM that was not written. [The VDOM Engine](../coreengine/VdomEngine.md) maps every
+edge to the code.
 
 ### 3. Direct MessageChannels (Peer-to-Peer)
 For high-frequency or heavy payloads, direct channels are used.
