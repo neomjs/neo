@@ -708,20 +708,10 @@ class NativeGestureDriver extends GestureDriver {
                     options: opt(startX + 24, startY, startSX + 24, startSY, 1)
                 }]}));
 
-                let armed = false;
-
-                for (let attempt = 0; attempt <= 120 && !me.isDestroyed; attempt++) {
-                    armed = Boolean(
-                        !sortZone.dragStartPending &&
-                        sortZone.stackDragActive &&
-                        sortZone.dragProxy?.mounted &&
-                        sortZone.dragCoordinator
-                    );
-
-                    if (armed) break;
-
-                    attempt < 120 && await driver.trap(driver.timeout(16))
-                }
+                let armed = !me.isDestroyed && await driver.trap(driver.waitFor(
+                    () => Boolean(!me.isDestroyed && !sortZone.dragStartPending && sortZone.stackDragActive && sortZone.dragProxy?.mounted && sortZone.dragCoordinator),
+                    {attempts: 120, delay: 16}
+                ));
 
                 if (!armed) {
                     release = {clientX: startX, clientY: startY, screenX: startSX, screenY: startSY};
