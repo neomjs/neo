@@ -81,6 +81,25 @@ function stageMergedHost({host, intermediate}) {
     return {isSettled: () => settled, ticket}
 }
 
+/**
+ * @summary Asserts none of `ownerIds` holds a `mergedCallbackMap` entry or remains indexed under `ancestorIds`.
+ * @param {String[]} ownerIds
+ * @param {String[]} ancestorIds
+ */
+function expectCleanMergeState(ownerIds, ancestorIds) {
+    for (const ownerId of ownerIds) {
+        expect(VDomUpdate.mergedCallbackMap.get(ownerId)).toBeNull()
+    }
+
+    for (const ancestorId of ancestorIds) {
+        const parked = VDomUpdate.getParkedOwnersUnder(ancestorId);
+
+        for (const ownerId of ownerIds) {
+            expect(parked?.has(ownerId) ?? false).toBe(false)
+        }
+    }
+}
+
 test.describe('Carried merge owners and sparse descendant flags (#21974)', () => {
     test('a full-depth root flight collects and settles a host callback merged into a staged intermediate', async () => {
         const tree                       = await mountTree('deep-carried'),
@@ -96,8 +115,7 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
             expect(isSettled()).toBe(true);
             expect(intermediate.needsVdomUpdate).toBe(false);
             expect(host.needsVdomUpdate).toBe(false);
-            expect(VDomUpdate.mergedCallbackMap.get(intermediate.id)).toBeNull();
-            expect(VDomUpdate.descendantMergedOwnerMap.size).toBe(0)
+            expectCleanMergeState([intermediate.id, host.id, root.id], [root.id, intermediate.id])
         } finally {
             root.destroy()
         }
@@ -116,8 +134,7 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
             await ticket;
 
             expect(isSettled()).toBe(true);
-            expect(VDomUpdate.mergedCallbackMap.get(intermediate.id)).toBeNull();
-            expect(VDomUpdate.descendantMergedOwnerMap.size).toBe(0)
+            expectCleanMergeState([intermediate.id, host.id, root.id], [root.id, intermediate.id])
         } finally {
             root.destroy()
         }
@@ -148,7 +165,7 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
             expect(isSettled()).toBe(true);
             expect(intermediate.needsVdomUpdate).toBe(false);
             expect(host.needsVdomUpdate).toBe(false);
-            expect(VDomUpdate.descendantMergedOwnerMap.size).toBe(0)
+            expectCleanMergeState([intermediate.id, host.id, sibling.id, root.id], [root.id, intermediate.id])
         } finally {
             root.destroy()
         }
@@ -186,8 +203,10 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
             await ticket;
 
             expect(settled).toBe(true);
-            expect(VDomUpdate.mergedCallbackMap.get(detached.id)).toBeNull();
-            expect(VDomUpdate.descendantMergedOwnerMap.size).toBe(0)
+            expectCleanMergeState(
+                [detached.id, detachedHost.id, 'detached-leaf', root.id],
+                [root.id, detached.id, detachedHost.id]
+            )
         } finally {
             root.destroy()
         }
@@ -231,11 +250,108 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
 
             expect(logicalStage.isSettled()).toBe(true);
             expect(foreignStage.isSettled()).toBe(true);
-            expect(VDomUpdate.descendantMergedOwnerMap.size).toBe(0)
+            expectCleanMergeState(
+                [logicalOwner.id, logicalHost.id, foreignTree.intermediate.id, foreignTree.host.id, root.id, foreignTree.root.id],
+                [root.id, logicalOwner.id, foreignTree.root.id, foreignTree.intermediate.id]
+            )
         } finally {
             logicalOwner?.destroy();
             foreignTree.root.destroy();
             root.destroy()
+        }
+    });
+
+    test('re-parenting a staged merge owner or its ancestor updates descendantMergedOwnerMap and settles through the new parent', async () => {
+        const top = Neo.create(Container, {
+                  appName,
+                  id      : 'reparent-top',
+                  windowId: 1,
+                  items   : [{
+                      module: Container,
+                      id    : 'reparent-branch-a',
+                      items : []
+                  }, {
+                      module: Container,
+                      id    : 'reparent-branch-b',
+                      items : [{
+                          module: Container,
+                          id    : 'reparent-mid',
+                          items : [{
+                              module: Component,
+                              id    : 'reparent-host',
+                              text  : 'before'
+                          }]
+                      }]
+                  }]
+              }),
+              holderRoot = Neo.create(Container, {
+                  appName,
+                  id      : 'reparent-holder-root',
+                  windowId: 1,
+                  items   : []
+              });
+
+        try {
+            await top.initVnode(true);
+            top.mounted = true;
+            await top.promiseUpdate();
+
+            await holderRoot.initVnode(true);
+            holderRoot.mounted = true;
+            await holderRoot.promiseUpdate();
+
+            const [branchA, branchB]  = top.items,
+                  [mid]               = branchB.items,
+                  [host]              = mid.items,
+                  {isSettled, ticket} = stageMergedHost({host, intermediate: mid});
+
+            expect(VDomUpdate.getParkedOwnersUnder(branchB.id)?.has(mid.id)).toBe(true);
+            expect(VDomUpdate.getParkedOwnersUnder(top.id)?.has(mid.id)).toBe(true);
+            expect(VDomUpdate.getParkedOwnersUnder(branchA.id)?.has(mid.id) ?? false).toBe(false);
+
+            // Atomic move from branchB to branchA while `mid` stays staged (`silentVdomUpdate` suppresses layout wrapperCls auto-update).
+            mid.silentVdomUpdate = true;
+            branchA.insert(0, mid, true);
+            mid.silentVdomUpdate = false;
+
+            expect(VDomUpdate.getParkedOwnersUnder(branchB.id)?.has(mid.id) ?? false, 'old branch unindexes moved owner').toBe(false);
+            expect(VDomUpdate.getParkedOwnersUnder(branchA.id)?.has(mid.id), 'new branch indexes moved owner').toBe(true);
+            expect(VDomUpdate.getParkedOwnersUnder(top.id)?.has(mid.id), 'shared root keeps moved owner').toBe(true);
+
+            // Old branchB's full-depth flight no longer carries `mid` and leaves `host` parked.
+            branchB.updateDepth = -1;
+            await branchB.promiseUpdate();
+            expect(isSettled()).toBe(false);
+
+            // Moving `branchA` itself into `holderRoot` refreshes descendant merge owner ancestor chains.
+            branchA.silentVdomUpdate = true;
+            holderRoot.insert(0, branchA, true);
+            branchA.silentVdomUpdate = false;
+
+            expect(VDomUpdate.getParkedOwnersUnder(top.id)?.has(mid.id) ?? false, 'old root unindexes descendant owner').toBe(false);
+            expect(VDomUpdate.getParkedOwnersUnder(holderRoot.id)?.has(mid.id), 'new root indexes descendant owner').toBe(true);
+            expect(VDomUpdate.getParkedOwnersUnder(branchA.id)?.has(mid.id)).toBe(true);
+
+            // Old `top`'s full-depth flight also leaves `host` parked now that `branchA` moved out.
+            top.updateDepth = -1;
+            await top.promiseUpdate();
+            expect(isSettled()).toBe(false);
+
+            // Covering flight on `holderRoot` collects `mid` through its refreshed ancestor bucket and settles `host`.
+            holderRoot.updateDepth = -1;
+            await holderRoot.promiseUpdate();
+            await ticket;
+
+            expect(isSettled()).toBe(true);
+            expect(mid.needsVdomUpdate).toBe(false);
+            expect(host.needsVdomUpdate).toBe(false);
+            expectCleanMergeState(
+                [mid.id, host.id, branchA.id, branchB.id, holderRoot.id, top.id],
+                [top.id, holderRoot.id, branchA.id, branchB.id, mid.id]
+            )
+        } finally {
+            holderRoot.destroy();
+            top.destroy()
         }
     });
 
@@ -257,15 +373,16 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
             unrelatedRoot.mounted = true;
             await unrelatedRoot.promiseUpdate();
 
-            const tickets = unrelatedRoot.items.map(owner => {
-                const [leaf] = owner.items;
-                owner.setSilent({cls: ['staged']});
-                owner.updateDepth = -1;
-                leaf.text         = 'v1';
-                return leaf.promiseUpdate()
-            });
+            const countBefore = VDomUpdate.mergedCallbackMap.count,
+                  tickets     = unrelatedRoot.items.map(owner => {
+                      const [leaf] = owner.items;
+                      owner.setSilent({cls: ['staged']});
+                      owner.updateDepth = -1;
+                      leaf.text         = 'v1';
+                      return leaf.promiseUpdate()
+                  });
 
-            expect(VDomUpdate.mergedCallbackMap.count).toBe(50);
+            expect(VDomUpdate.mergedCallbackMap.count).toBe(countBefore + 50);
             expect(VDomUpdate.getParkedOwnersUnder(root.id)).toBeUndefined();
 
             let   mapGetCount = 0;
@@ -289,7 +406,10 @@ test.describe('Carried merge owners and sparse descendant flags (#21974)', () =>
             unrelatedRoot.updateDepth = -1;
             await unrelatedRoot.promiseUpdate();
             await Promise.all(tickets);
-            expect(VDomUpdate.descendantMergedOwnerMap.size).toBe(0)
+            expectCleanMergeState(
+                [root.id, unrelatedRoot.id, ...unrelatedRoot.items.map(owner => owner.id)],
+                [root.id, unrelatedRoot.id]
+            )
         } finally {
             unrelatedRoot.destroy();
             root.destroy()

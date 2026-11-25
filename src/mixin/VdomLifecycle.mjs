@@ -384,6 +384,7 @@ class VdomLifecycle extends Base {
 
             let absorbedMeta, sparseScopes, absorbedScopes, foreignWindowChildren;
 
+            /** @summary Walks rendered `parent.items` / non-`removeDom` VDOM ancestors in this window to return rendered hop count, or `-1`. */
             const getRenderedDistance = (child, ancestorId) => {
                 let cur      = child,
                     distance = 0;
@@ -407,6 +408,7 @@ class VdomLifecycle extends Base {
                 return cur?.id === ancestorId && distance > 0 ? distance : -1
             };
 
+            /** @summary Transfers a `!vnode` merge owner and its same-window merged children onto `carrierId` and unindexes `owner`. */
             const claimUnmountedOwner = (owner, carrierId, distance) => {
                 const ownerId    = owner.id,
                       mergedItem = VDomUpdate.mergedCallbackMap.get(ownerId);
