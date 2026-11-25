@@ -36,6 +36,11 @@
     }
 }
 
+/* The sorter moves pinned columns by updating left, so the header and cards slide together. */
+.neo-board.neo-is-dragging > .neo-board-column:not(.neo-board-column-locked) {
+    transition: left var(--motion-base) var(--ease-out-soft);
+}
+
 .neo-board-column-header {
     align-items: center;
     color      : var(--neo-board-column-color);
