@@ -167,30 +167,40 @@ async function readDesktopPage(page) {
 async function expectCardLayout(list, width) {
     await list.page().mouse.move(0, 0);
     await list.page().evaluate(() => document.activeElement?.blur());
-    await expect.poll(() => list.locator('.portal-example-more').evaluateAll(nodes => nodes.every(node => node.getBoundingClientRect().height < 1))).toBe(true);
+    await expect.poll(() => list.evaluate(ul => {
+        const leadCard  = ul.classList.contains('portal-examples-list-lead') && ul.clientWidth >= 1100,
+              listItems = [...ul.querySelectorAll('.neo-list-item')].filter(node => node.offsetWidth);
+
+        return listItems.every((node, index) => {
+            const h = node.querySelector('.portal-example-more')?.getBoundingClientRect().height || 0;
+            return leadCard && index === 0 ? h > 20 : h < 1
+        })
+    })).toBe(true);
 
     const gridInfo = await list.evaluate(node => ({
-        columns : getComputedStyle(node).gridTemplateColumns.split(' ').length,
-        leadCard: node.classList.contains('portal-examples-list-lead')
+        columns  : getComputedStyle(node).gridTemplateColumns.split(' ').length,
+        leadCard : node.classList.contains('portal-examples-list-lead'),
+        listWidth: node.clientWidth
     }));
 
-    const cards = await list.locator('.neo-list-item').evaluateAll((nodes, {columns, leadCard}) => nodes.filter(node => node.offsetWidth).map((node, index) => {
-        const card    = node.getBoundingClientRect(),
-              wrap    = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
-              caption = node.querySelector('.portal-example-footer'),
-              copy    = caption.getBoundingClientRect(),
-              image   = node.querySelector('.preview-image').getBoundingClientRect(),
-              feature = node.querySelector('.portal-example-feature'),
-              more    = node.querySelector('.portal-example-more'),
-              isLead  = leadCard && columns === 3 && index === 0,
-              shown   = [
+    const cards = await list.locator('.neo-list-item').evaluateAll((nodes, {columns, leadCard, listWidth}) => nodes.filter(node => node.offsetWidth).map((node, index) => {
+        const card     = node.getBoundingClientRect(),
+              wrap     = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+              caption  = node.querySelector('.portal-example-footer'),
+              copy     = caption.getBoundingClientRect(),
+              image    = node.querySelector('.preview-image').getBoundingClientRect(),
+              feature  = node.querySelector('.portal-example-feature'),
+              more     = node.querySelector('.portal-example-more'),
+              moreRect = more?.getBoundingClientRect(),
+              isLead   = leadCard && listWidth >= 1100 && index === 0,
+              shown    = [
                   node.querySelector('.portal-example-group-badge'),
                   node.querySelector('.neo-title'),
                   node.querySelector('.neo-github-image'),
                   node.querySelector('.portal-example-open-cue'),
                   node.querySelector('.portal-example-feature')
               ].filter(el => el && el.offsetWidth > 0),
-              texts   = [...caption.querySelectorAll('*')];
+              texts    = [...caption.querySelectorAll('*')];
 
         return {
             title     : node.querySelector('.neo-title').textContent,
@@ -201,16 +211,23 @@ async function expectCardLayout(list, width) {
             height    : card.height,
             isLead,
             coverRatio: wrap.width / wrap.height,
-            clearCover: (copy.top - wrap.top) / wrap.height,
+            clearCover: ((isLead && moreRect ? Math.min(copy.top, moreRect.top) : copy.top) - wrap.top) / wrap.height,
             coverFills: ['left', 'right', 'top', 'bottom'].every(side => Math.abs(image[side] - wrap[side]) < 1.5),
-            docked    : Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 && Math.abs(copy.bottom - card.bottom) < 1.5 && copy.top >= wrap.bottom - 1.5,
-            fits      : caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1,
+            docked    : isLead
+                ? Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 &&
+                  copy.top >= wrap.bottom - 1.5 && moreRect && Math.abs(moreRect.left - card.left) < 1.5 &&
+                  Math.abs(moreRect.right - card.right) < 1.5 && moreRect.top >= copy.bottom - 1.5 &&
+                  Math.abs(moreRect.bottom - card.bottom) < 1.5
+                : Math.abs(copy.left - card.left) < 1.5 && Math.abs(copy.right - card.right) < 1.5 &&
+                  Math.abs(copy.bottom - card.bottom) < 1.5 && copy.top >= wrap.bottom - 1.5,
+            fits      : caption.scrollHeight <= caption.clientHeight + 1 && caption.scrollWidth <= caption.clientWidth + 1 &&
+                        (!isLead || !more || (more.scrollHeight <= more.clientHeight + 1 && more.scrollWidth <= more.clientWidth + 1)),
             textFits  : shown.every(text => {
                 const rect = text.getBoundingClientRect();
                 return rect.left >= copy.left - 1 && rect.right <= copy.right + 1 && rect.top >= copy.top - 1 && rect.bottom <= copy.bottom + 1
             }),
-            closed      : !more || more.getBoundingClientRect().height < 1,
-            opaque      : [node, caption, ...texts].every(text => getComputedStyle(text).opacity === '1'),
+            closed      : isLead ? Boolean(moreRect && moreRect.height > 20) : (!more || moreRect.height < 1),
+            opaque      : [node, caption, ...(isLead && more ? [more] : []), ...texts].every(text => getComputedStyle(text).opacity === '1'),
             noInlineSize: !node.style.height && !node.querySelector('.content').style.aspectRatio,
             featureWhole: !feature || feature.scrollHeight <= feature.clientHeight + 1
         }
@@ -382,26 +399,30 @@ test.describe('Portal examples section', () => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        const headline   = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
-              counts     = page.locator(`${SIDEBAR} li .portal-examples-group-index-count`),
-              allCount   = page.locator(`${SIDEBAR} .portal-examples-group-index-all .portal-examples-group-index-count`),
-              note       = page.locator(`${SIDEBAR} .portal-examples-group-index-note`),
-              components = counts.nth(GROUPS.indexOf('More components')),
-              apps       = counts.nth(GROUPS.indexOf('Apps')),
-              sum        = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
-              noteOf     = published => `${published} examples in all. Some appear in more than one group.`,
-              headlineOf = published => `${published} live examples in ${GROUPS.length} groups`;
+        const headline      = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
+              counts        = page.locator(`${SIDEBAR} li .portal-examples-group-index-count`),
+              startCount    = page.locator(`${SIDEBAR} .portal-examples-group-index-all .portal-examples-group-index-count`),
+              featuredCards = page.locator(`${FEATURED} .neo-list-item`),
+              findInput     = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input'),
+              note          = page.locator(`${SIDEBAR} .portal-examples-group-index-note`),
+              components    = counts.nth(GROUPS.indexOf('More components')),
+              apps          = counts.nth(GROUPS.indexOf('Apps')),
+              sum           = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
+              noteOf        = published => `${published} examples in all. Some appear in more than one group.`,
+              headlineOf    = published => `${published} live examples in ${GROUPS.length} groups`;
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
         await expect(counts).toHaveCount(GROUPS.length);
         await expect(note).toHaveText(/^\d+ examples in all\. Some appear in more than one group\.$/);
 
         const published      = Number((await note.textContent()).split(' ')[0]),
+              curatedCount   = await featuredCards.count(),
               componentCount = Number(await components.textContent());
 
-        // the line gives the headline's total; a borrowed example counts in every group that shows it, so the list adds up to more
+        // Start here counts the curated cards on /examples, the search placeholder and footer line give the published total
         await expect(headline).toHaveText(headlineOf(published));
-        await expect(allCount).toHaveText(String(published));
+        await expect(startCount).toHaveText(String(curatedCount));
+        await expect(findInput).toHaveAttribute('placeholder', `Search ${published} examples…  /`);
         expect(published).toBeGreaterThan(0);
         expect((await counts.allTextContents()).every(text => /^\d+$/.test(text)), 'every group shows a number').toBe(true);
         expect(await sum()).toBeGreaterThan(published);
@@ -412,12 +433,14 @@ test.describe('Portal examples section', () => {
         await selectBuild(page, 'Dev mode');
         await expect(headline).toHaveText(headlineOf(published - 1));
         await expect(note).toHaveText(noteOf(published - 1));
-        await expect(allCount).toHaveText(String(published - 1));
+        await expect(startCount).toHaveText(String(curatedCount));
+        await expect(findInput).toHaveAttribute('placeholder', `Search ${published - 1} examples…  /`);
         await expect(page.locator(SIDEBAR).getByRole('link', {name: `More components, ${componentCount - 1} live examples`})).toHaveCount(1);
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText(headlineOf(published));
 
-        await expect(allCount).toHaveText(String(published));
+        await expect(startCount).toHaveText(String(curatedCount));
+        await expect(findInput).toHaveAttribute('placeholder', `Search ${published} examples…  /`);
 
         // a planning group's number is its page's cards; it is read, so an examples PR edits no line here
         for (const name of ['Scheduler', 'Gantt', 'Task Board']) {
@@ -455,7 +478,7 @@ test.describe('Portal examples section', () => {
               links = nav.getByRole('link');
 
         await expect(links).toHaveCount(GROUPS.length + 1);
-        await expect(nav.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
+        await expect(nav.locator('[aria-current="page"]')).toHaveAccessibleName(/^Start here, \d+ live examples?$/);
         await expect(nav.locator('[role="tab"], [aria-selected]')).toHaveCount(0);
 
         // The open destination's link is the one Tab stop; the arrow keys walk the rest (side nav keys, below)
@@ -477,9 +500,10 @@ test.describe('Portal examples section', () => {
 
         await expect(button).toBeVisible();
         await expect(button).toHaveText(`All ${GROUPS.length} groups`);
+        await expect(page.locator(`${CRUMB} .portal-examples-find-field input`)).toHaveAttribute('placeholder', /^Search \d+ examples…  \/$/);
         await button.click();
         await expect(sheet).toBeVisible();
-        await expect(sheet.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
+        await expect(sheet.locator('[aria-current="page"]')).toHaveAccessibleName(/^Start here, \d+ live examples?$/);
         await sheet.getByRole('link', {name: /^Grid & Table, /}).click();
         await expectOpenPage(page, 'Grid & Table');
         await expect(button).toHaveText('Grid & Table');
@@ -922,7 +946,7 @@ test.describe('Portal examples section', () => {
 
             const sidebar = page.locator(SIDEBAR),
                   trees   = sidebar.getByRole('link', {name: /^Trees, /}),
-                  current = sidebar.getByRole('link', {name: /^All examples, \d+ live examples?$/}),
+                  current = sidebar.getByRole('link', {name: /^Start here, \d+ live examples?$/}),
                   paint   = link => link.evaluate(node => {
                       const style = getComputedStyle(node);
                       return {background: style.backgroundColor, marker: style.boxShadow}
@@ -1384,17 +1408,18 @@ test.describe('Portal examples section', () => {
             expect(Math.abs(afterSelectRow[key].y - beforeHover[key].y), `${key}.y on select`).toBe(0)
         }
 
-        // AC-3: In multi-column (>= 704 px), .portal-example-more anchors inside .preview-image-wrap (<= 40 % height) and never overlaps .portal-example-footer
-        const bandBounds = await card0.evaluate(node => {
-            const wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+        // AC-3: On the 2x2 lead card, .portal-example-more stays docked below .portal-example-footer leaving 100 % of .preview-image-wrap clear; on 1x1 multi-column cards, it opens <= 40 % inside .preview-image-wrap
+        const leadBounds = await card0.evaluate(node => {
+            const card   = node.getBoundingClientRect(),
+                  wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
                   footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
                   more   = node.querySelector('.portal-example-more').getBoundingClientRect();
-            return {footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, wrapBottom: wrap.bottom, wrapHeight: wrap.height}
+            return {cardBottom: card.bottom, footerBottom: footer.bottom, footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, moreTop: more.top, wrapBottom: wrap.bottom}
         });
-        expect(bandBounds.moreHeight).toBeGreaterThan(20);
-        expect(bandBounds.moreHeight).toBeLessThanOrEqual(bandBounds.wrapHeight * 0.40 + 1);
-        expect(bandBounds.moreBottom, '.portal-example-more stays inside .preview-image-wrap').toBeLessThanOrEqual(bandBounds.wrapBottom + 1);
-        expect(bandBounds.moreBottom, '.portal-example-more never overlaps .portal-example-footer').toBeLessThanOrEqual(bandBounds.footerTop + 1);
+        expect(leadBounds.moreHeight).toBeGreaterThan(20);
+        expect(leadBounds.footerTop, '2x2 lead cover stays 100 % unoccluded').toBeGreaterThanOrEqual(leadBounds.wrapBottom - 1.5);
+        expect(leadBounds.moreTop, '2x2 lead details dock below .portal-example-footer').toBeGreaterThanOrEqual(leadBounds.footerBottom - 1.5);
+        expect(Math.abs(leadBounds.moreBottom - leadBounds.cardBottom), '2x2 lead details fill to card bottom').toBeLessThan(1.5);
 
         // Neighbor hit-owner control: 25 px into row 2 card3's cover belongs to card3, never card0's disclosure band
         const hitOwnerMatchesRow2 = await card3.evaluate(node => {
@@ -1404,12 +1429,23 @@ test.describe('Portal examples section', () => {
         });
         expect(hitOwnerMatchesRow2, 'point 25 px into row 2 cover hits row 2 card').toBe(true);
 
-        // Cross-row selection transfer (card0 -> card3) keeps card3's Open live ↗ at 0.0 px displacement
+        // Cross-row selection transfer (card0 -> card3) keeps card3's Open live ↗ at 0.0 px displacement and opens card3's <= 40 % in-cover band
         await card3.locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
         await expect(card3).toHaveClass(/neo-selected/);
         await expect(card0).not.toHaveClass(/neo-selected/);
         const afterCrossRow = await measureRects();
         expect(Math.abs(afterCrossRow.card3Cue.y - beforeHover.card3Cue.y)).toBe(0);
+
+        const bandBounds = await card3.evaluate(node => {
+            const wrap   = node.querySelector('.preview-image-wrap').getBoundingClientRect(),
+                  footer = node.querySelector('.portal-example-footer').getBoundingClientRect(),
+                  more   = node.querySelector('.portal-example-more').getBoundingClientRect();
+            return {footerTop: footer.top, moreBottom: more.bottom, moreHeight: more.height, wrapBottom: wrap.bottom, wrapHeight: wrap.height}
+        });
+        expect(bandBounds.moreHeight).toBeGreaterThan(20);
+        expect(bandBounds.moreHeight).toBeLessThanOrEqual(bandBounds.wrapHeight * 0.40 + 1);
+        expect(bandBounds.moreBottom, '.portal-example-more stays inside .preview-image-wrap').toBeLessThanOrEqual(bandBounds.wrapBottom + 1);
+        expect(bandBounds.moreBottom, '.portal-example-more never overlaps .portal-example-footer').toBeLessThanOrEqual(bandBounds.footerTop + 1);
 
         const readPill = locator => locator.evaluate(node => {
             const meta  = node.querySelector('.portal-example-meta'),
@@ -1556,9 +1592,9 @@ const groupLink = (page, name) => page.locator(SIDEBAR).getByRole('link', {name:
 
 /**
  * @param {Object} page
- * @returns {Object} The side nav's `"All examples"` link
+ * @returns {Object} The side nav's `"Start here"` link
  */
-const allLink = page => page.locator(SIDEBAR).getByRole('link', {name: /^All examples\b/});
+const startLink = page => page.locator(SIDEBAR).getByRole('link', {name: /^Start here\b/});
 
 /**
  * @param {Object} page
@@ -1604,7 +1640,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(last, 'the walk does not wrap').toBeFocused();
 
         await page.keyboard.press('Home');
-        await expect(allLink(page)).toBeFocused();
+        await expect(startLink(page)).toBeFocused();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first()).toBeVisible();
         await expect(page).toHaveURL(/#\/examples$/);
 
@@ -1687,10 +1723,10 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(cards.nth(1), 'the selected card is the way back in').toBeFocused()
     });
 
-    test('on All examples and under a filter ArrowRight enters what the stage shows, and Tab into the side nav keeps the filter', async ({page}) => {
+    test('on Start here and under a filter ArrowRight enters what the stage shows, and Tab into the side nav keeps the filter', async ({page}) => {
         await page.goto(`${PORTAL}#/examples`);
 
-        const all  = allLink(page),
+        const all  = startLink(page),
               find = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples');
 
         await expect(all).toHaveAttribute('aria-current', 'page');
@@ -1700,6 +1736,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
 
         await find.fill('grid');
         await expect(page.locator(MATCHES).first()).toBeVisible();
+        await expect(all).toHaveAccessibleName(/^Start here, [1-9]\d* matching examples?$/);
         await page.keyboard.press('Tab');
         await expect(all).toBeFocused();
         await expect(find, 'focus arriving by Tab opens nothing').toHaveValue('grid');
@@ -1714,6 +1751,114 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(find).toHaveValue('');
         await expectOpenPage(page, 'Apps')
     });
+});
+
+/**
+ * @summary The id of the list that holds the focused card or tile, or null.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<String|null>}
+ */
+const focusedListId = page => page.evaluate(() => document.activeElement?.closest('.portal-examples-list')?.id || null);
+
+/**
+ * @summary Presses a key and waits until focus moves. A row step lands after a worker round trip; at an edge nothing
+ * moves, so the wait ends quietly after a second.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} key
+ */
+async function pressAndSettle(page, key) {
+    const focusedId = () => page.evaluate(() => document.activeElement?.id || null),
+          before    = await focusedId();
+
+    await page.keyboard.press(key);
+    await expect.poll(focusedId, {timeout: 1000}).not.toBe(before).catch(() => {})
+}
+
+/**
+ * @summary Steps down row by row while focus stays in the given list, at most `max` presses: rows differ per layout, so
+ * the walk reads the page instead of counting presses. Resolves the list that holds focus at the end.
+ * @param {import('@playwright/test').Page} page
+ * @param {String} listId
+ * @param {Number} [max=12]
+ * @returns {Promise<String|null>}
+ */
+async function walkDownOutOf(page, listId, max=12) {
+    for (let press = 0; press < max && await focusedListId(page) === listId; press++) {
+        await pressAndSettle(page, 'ArrowDown')
+    }
+
+    return focusedListId(page)
+}
+
+test.describe('Portal examples gallery rows across cards and tiles (#22121)', () => {
+    for (const {width, height, family, name} of [
+        {width: 1440, height: 900, family: 'forms',   name: 'Forms & Fields'},
+        {width: 1440, height: 900, family: 'buttons', name: 'Buttons, Menus & Toolbars'},
+        {width: 900,  height: 800, family: 'forms',   name: 'Forms & Fields'}
+    ]) {
+        test(`${width}×${height} ${family}: ArrowDown leaves the last demonstration row for the tiles, ArrowUp comes back, and one card stays selected`, async ({page}) => {
+            await page.setViewportSize({width, height});
+            await page.goto(`${PORTAL}#/examples/${family}`);
+
+            const link  = groupLink(page, name),
+                  cards = page.locator(`${CARDS} .neo-list-item`),
+                  tiles = page.locator(`${TILES} .neo-list-item`),
+                  rings = page.locator(`${PAGE} .neo-list-item.neo-selected`);
+
+            await expect(link).toHaveAttribute('aria-current', 'page');
+            await expect(tiles.first()).toBeVisible();
+
+            await link.focus();
+            await page.keyboard.press('ArrowRight');
+            await expect(cards.first()).toBeFocused();
+
+            // ArrowUp on the first row has nowhere to go: the gallery's top edge
+            await pressAndSettle(page, 'ArrowUp');
+            await expect(cards.first(), 'the top edge keeps the card').toBeFocused();
+
+            const cardsList = await focusedListId(page);
+
+            expect(await walkDownOutOf(page, cardsList), 'ArrowDown past the last demonstration row enters the tiles').not.toBe(cardsList);
+            await expect(page.locator(`${TILES} .neo-list-item:focus`)).toHaveClass(/\bneo-selected\b/);
+            await expect(rings, 'focus and selection move together: one ring').toHaveCount(1);
+
+            await pressAndSettle(page, 'ArrowUp');
+            expect(await focusedListId(page), 'ArrowUp past the first tile row returns to the demonstrations').toBe(cardsList);
+            await expect(page.locator(`${CARDS} .neo-list-item:focus`)).toHaveClass(/\bneo-selected\b/);
+            await expect(rings).toHaveCount(1);
+
+            // A pointer selection in the other kind clears the ring here too
+            await cards.first().locator('.preview-image-wrap').click({position: {x: 32, y: 32}});
+            await expect(cards.first()).toHaveClass(/\bneo-selected\b/);
+            await expect(rings).toHaveCount(1);
+            await tiles.first().locator('.preview-image').click({position: {x: 16, y: 16}});
+            await expect(tiles.first()).toHaveClass(/\bneo-selected\b/);
+            await expect(rings).toHaveCount(1)
+        })
+    }
+
+    test('1440×900 search results: ArrowDown walks from one result list into the next, keeping one ring', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(`${PORTAL}#/examples`);
+
+        const find    = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples'),
+              matches = page.locator(MATCHES),
+              rings   = page.locator('.portal-examples-search-groups:visible .neo-list-item.neo-selected');
+
+        await find.fill('field');
+        await expect(matches.first()).toBeVisible();
+
+        await allLink(page).focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(matches.first()).toBeFocused();
+
+        const firstList = await focusedListId(page),
+              lists     = await page.locator('.portal-examples-search-groups:visible .portal-examples-list').count();
+
+        expect(lists, 'the query must yield more than one result list for a crossing').toBeGreaterThan(1);
+        expect(await walkDownOutOf(page, firstList), 'ArrowDown past the first result list\'s last row enters the next').not.toBe(firstList);
+        await expect(rings).toHaveCount(1)
+    })
 });
 
 test.describe('Portal examples phone index keys (#22061)', () => {

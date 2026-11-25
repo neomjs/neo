@@ -68,6 +68,57 @@ async function startThemeOf(context, href) {
 
 test.describe('Examples catalog: an example opens on the catalog\'s theme', () => {
     for (const theme of THEMES) {
+        test(`Overview and SearchResults lists keep overflow visible so bottom rings and shadows stay unclipped in ${theme}`, async ({page, neuralLink}) => {
+            await page.setViewportSize({width: 1440, height: 900});
+            await bootCatalog(page, neuralLink, theme);
+
+            const overviewCards = page.locator(`${FEATURED} > ul.portal-examples-list`);
+            await expect(overviewCards.locator('.neo-list-item').last()).toBeVisible();
+
+            const overviewStyle = await page.locator(FEATURED).evaluate(wrapper => {
+                const ul = wrapper.querySelector(':scope > ul.portal-examples-list'),
+                      ws = getComputedStyle(wrapper),
+                      us = getComputedStyle(ul);
+
+                return {
+                    ulOverflow     : `${us.overflowX}/${us.overflowY}`,
+                    ulPadding      : us.padding,
+                    wrapperOverflow: `${ws.overflowX}/${ws.overflowY}`
+                }
+            });
+
+            expect(overviewStyle).toEqual({
+                ulOverflow     : 'visible/visible',
+                ulPadding      : '0px',
+                wrapperOverflow: 'visible/visible'
+            });
+
+            const find = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input');
+            await find.fill('date');
+            await expect(page.locator('.portal-examples-search-cards .neo-list-item').first()).toBeVisible();
+            await expect(page.locator('.portal-examples-search-tiles .neo-list-item').first()).toBeVisible();
+
+            for (const selector of ['.portal-examples-search-cards', '.portal-examples-search-tiles']) {
+                const searchStyle = await page.locator(selector).first().evaluate(wrapper => {
+                    const ul = wrapper.querySelector(':scope > ul.portal-examples-list'),
+                          ws = getComputedStyle(wrapper),
+                          us = getComputedStyle(ul);
+
+                    return {
+                        ulOverflow     : `${us.overflowX}/${us.overflowY}`,
+                        ulPadding      : us.padding,
+                        wrapperOverflow: `${ws.overflowX}/${ws.overflowY}`
+                    }
+                });
+
+                expect(searchStyle, selector).toEqual({
+                    ulOverflow     : 'visible/visible',
+                    ulPadding      : '4px 0px 0px',
+                    wrapperOverflow: 'visible/visible'
+                })
+            }
+        });
+
         test(`Grid & Table cards open their examples on ${theme}`, async ({page, neuralLink, context}) => {
             await bootCatalog(page, neuralLink, theme);
             await openGroup(page, 'Grid & Table');

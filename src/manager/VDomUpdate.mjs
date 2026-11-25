@@ -104,6 +104,27 @@ class VDomUpdate extends Collection {
      */
     descendantInFlightMap = new Map()
     /**
+     * Reverse ancestor lookup indexing `mergedCallbackMap` owners under their `parentId` ancestors, mirroring
+     * {@link #descendantInFlightMap}. Allows an updating root to discover parked descendant merge owners in O(1)
+     * (`Map.get(rootId)`) with zero global owner scans across unrelated trees.
+     *
+     * Key: ancestorId, Value: Set<ownerId>
+     *
+     * @member {Map<String, Set<String>>} descendantMergedOwnerMap=new Map()
+     * @protected
+     */
+    descendantMergedOwnerMap = new Map()
+    /**
+     * Recorded ancestor IDs per registered `mergedCallbackMap` owner so {@link #removeMergedOwner} and
+     * {@link #syncMergedOwnerAncestors} update {@link #descendantMergedOwnerMap} in O(depth).
+     *
+     * Key: ownerId, Value: String[]
+     *
+     * @member {Map<String, String[]>} #mergedOwnerAncestorsMap=new Map()
+     * @private
+     */
+    #mergedOwnerAncestorsMap = new Map()
+    /**
      * A Map that tracks VDOM updates that have been dispatched to the VDOM worker but
      * have not yet completed. This prevents redundant updates for the same component.
      *
@@ -235,7 +256,7 @@ class VDomUpdate extends Collection {
 
             // Callbacks may create a new merge entry for this owner or one of these children.
             if (item.children.size === 0) {
-                me.mergedCallbackMap.remove(ownerId)
+                me.removeMergedOwner(ownerId)
             }
         }
 
@@ -374,7 +395,7 @@ class VDomUpdate extends Collection {
             for (const childId of item.children.keys()) {
                 me.rejectPromiseCallbacks(childId, error)
             }
-            me.mergedCallbackMap.remove(ownerId)
+            me.removeMergedOwner(ownerId)
         }
 
         me.rejectPromiseCallbacks(ownerId, error)
@@ -657,10 +678,108 @@ class VDomUpdate extends Collection {
 
         if (!item) {
             item = {ownerId, children: new Map()};
-            me.mergedCallbackMap.add(item)
+            me.mergedCallbackMap.add(item);
+            me.#indexMergedOwner(ownerId)
         }
 
         item.children.set(childId, {childUpdateDepth, distance})
+    }
+
+    /**
+     * @summary Returns the Set of `mergedCallbackMap` owner IDs indexed beneath `ancestorId`, or `undefined` in O(1).
+     * @param {String} ancestorId
+     * @returns {Set<String>|undefined}
+     */
+    getParkedOwnersUnder(ancestorId) {
+        return this.descendantMergedOwnerMap.get(ancestorId)
+    }
+
+    /**
+     * @summary Removes an owner entry from {@link #mergedCallbackMap} and cleans its {@link #descendantMergedOwnerMap} index.
+     * @param {String} ownerId
+     */
+    removeMergedOwner(ownerId) {
+        this.mergedCallbackMap.remove(ownerId);
+        this.#unindexMergedOwner(ownerId)
+    }
+
+    /**
+     * @summary Refreshes {@link #descendantMergedOwnerMap} when `componentId` (or an ancestor subtree holding parked
+     * merge owners) changes `parentId` or unregisters.
+     * @param {String} componentId
+     * @param {Boolean} [unregistering=false]
+     */
+    syncMergedOwnerAncestors(componentId, unregistering=false) {
+        if (this.mergedCallbackMap.count === 0 && this.#mergedOwnerAncestorsMap.size === 0) {
+            return
+        }
+
+        if (unregistering) {
+            this.#unindexMergedOwner(componentId)
+        } else if (this.mergedCallbackMap.get(componentId)) {
+            this.#indexMergedOwner(componentId)
+        }
+
+        const descendantOwners = this.descendantMergedOwnerMap.get(componentId);
+
+        if (descendantOwners) {
+            for (const ownerId of [...descendantOwners]) {
+                this.mergedCallbackMap.get(ownerId) ? this.#indexMergedOwner(ownerId) : this.#unindexMergedOwner(ownerId)
+            }
+        }
+    }
+
+    /**
+     * @summary Indexes `ownerId` under its current `parentId` ancestor chain in {@link #descendantMergedOwnerMap}.
+     * @param {String} ownerId
+     * @private
+     */
+    #indexMergedOwner(ownerId) {
+        this.#unindexMergedOwner(ownerId);
+
+        const owner = Neo.getComponent(ownerId);
+        if (!owner) return;
+
+        const parentIds = Neo.manager.Component.getParentIds(owner);
+
+        if (parentIds.length > 0) {
+            this.#mergedOwnerAncestorsMap.set(ownerId, parentIds);
+
+            for (let i = 0, len = parentIds.length; i < len; i++) {
+                const ancestorId = parentIds[i];
+                let   set        = this.descendantMergedOwnerMap.get(ancestorId);
+
+                if (!set) {
+                    set = new Set();
+                    this.descendantMergedOwnerMap.set(ancestorId, set)
+                }
+
+                set.add(ownerId)
+            }
+        }
+    }
+
+    /**
+     * @summary Removes `ownerId` from every recorded ancestor bucket in {@link #descendantMergedOwnerMap}.
+     * @param {String} ownerId
+     * @private
+     */
+    #unindexMergedOwner(ownerId) {
+        const parentIds = this.#mergedOwnerAncestorsMap.get(ownerId);
+
+        if (parentIds) {
+            this.#mergedOwnerAncestorsMap.delete(ownerId);
+
+            for (let i = 0, len = parentIds.length; i < len; i++) {
+                const ancestorId = parentIds[i],
+                      set        = this.descendantMergedOwnerMap.get(ancestorId);
+
+                if (set) {
+                    set.delete(ownerId);
+                    set.size === 0 && this.descendantMergedOwnerMap.delete(ancestorId)
+                }
+            }
+        }
     }
 
     /**

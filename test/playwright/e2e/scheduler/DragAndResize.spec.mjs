@@ -244,6 +244,37 @@ test.describe('Scheduler dragAndResize example', () => {
         expect(consoleErrors).toEqual([])
     });
 
+    test('an edge resize dragged diagonally into another van stays on its own row (#22126)', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto(EXAMPLE_URL);
+
+        const stop14 = page.locator('.neo-timeline-bar[data-event-id="stop-14"]');
+        await expect(stop14).toBeVisible();
+
+        const
+            barBox  = await stop14.boundingBox(),
+            endEdge = await stop14.locator('.neo-resizable-end').boundingBox(),
+            rx      = endEdge.x + endEdge.width / 2,
+            ry      = barBox.y + barBox.height / 2,
+            proxy   = page.locator('.neo-dragproxy');
+
+        // Grow by +36 px while drifting several rows down
+        await page.mouse.move(rx, ry);
+        await page.mouse.down();
+        await page.mouse.move(rx + 36, ry + barBox.height * 4, {steps: 10});
+
+        await expect(page.locator('.depot-status-pill')).toHaveText('Resizing');
+        await expect(page.locator('.depot-status-text')).toContainText('Stop 14 → Van 4,');
+        await expect.poll(async () => Math.abs((await proxy.boundingBox()).y - barBox.y)).toBeLessThan(2);
+
+        await page.mouse.up();
+
+        await expect.poll(() => readWorkerBooking(page, 'stop-14')).toMatchObject({
+            endDate   : '2026-11-20T08:00:00.000Z',
+            resourceId: 'van-4'
+        })
+    });
+
     test('renders cleanly at 390x844 mobile and across all five shipped themes without console errors', async ({page}) => {
         const consoleErrors = [];
         page.on('console', msg => {

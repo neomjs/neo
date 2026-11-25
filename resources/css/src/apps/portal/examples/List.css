@@ -51,7 +51,7 @@
     grid-auto-rows       : max-content;
     /* 340 px minimum fits two columns from 704 px of list content width and three once the stage crosses 1100 px. */
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-    padding              : 16px 16px 0;
+    padding              : 16px;
     transition           : padding var(--portal-transition-duration) var(--ease-out-soft);
 
     &:not(.portal-examples-tiles) {
@@ -64,17 +64,6 @@
         &.portal-examples-list-lead > .neo-list-item:first-child {
             grid-column: span 2;
             grid-row   : span 2;
-
-            /* The cover keeps the 16:9 it was captured at: stretched into the two rows, it lost its right edge beside two
-               cards and shrank to a strip beside one. The caption below it takes the rest of the height. */
-            .neo-title {
-                font-size: 20px;
-            }
-
-            .portal-example-feature {
-                -webkit-line-clamp: 2;
-                font-size         : 14.5px;
-            }
         }
     }
 
@@ -430,6 +419,72 @@
                 padding           : 10px 14px 12px;
             }
         }
+
+        /* 2x2 lead card (>= 1100 px of list content width): progressive details dock permanently below the footer
+           inside the double-height caption zone, keeping 100 % of the 16:9 cover unoccluded at rest and on selection. */
+        @container examples-list (min-width: 1100px) {
+            &.portal-examples-list-lead > .neo-list-item:first-child {
+                .content {
+                    grid-template-rows: auto auto 1fr;
+                }
+
+                .portal-example-footer {
+                    padding: 14px 18px 12px;
+                }
+
+                .neo-title {
+                    font-size: 21px;
+                }
+
+                .portal-example-feature {
+                    -webkit-line-clamp: 2;
+                    font-size         : 15px;
+                    margin-top        : 5px;
+                }
+
+                &,
+                &.neo-selected {
+                    .portal-example-more {
+                        align-self        : stretch;
+                        backdrop-filter   : none;
+                        background        : var(--portal-examples-list-surface);
+                        border-top        : 1px solid var(--portal-examples-list-edge);
+                        color             : var(--portal-examples-list-text);
+                        grid-column       : 1;
+                        grid-row          : 3;
+                        grid-template-rows: 1fr;
+                        max-height        : none;
+                        opacity           : 1;
+                        padding           : 12px 18px 14px;
+                        pointer-events    : auto;
+
+                        .portal-example-look-for {
+                            -webkit-line-clamp: 3;
+                            color             : var(--portal-examples-list-text);
+                            font-size         : 13.5px;
+                            line-height       : 1.45;
+                        }
+
+                        .portal-example-scope {
+                            -webkit-line-clamp: 2;
+                            color             : var(--portal-examples-list-text-muted);
+                            font-size         : 12.5px;
+                            line-height       : 1.4;
+                            margin            : 2px 0 0;
+                        }
+
+                        .portal-example-meta {
+                            margin-top: 2px;
+                        }
+                    }
+                }
+
+                .portal-example-more-inner {
+                    align-content: start;
+                    row-gap      : 4px;
+                }
+            }
+        }
     }
 
     .portal-example-title-row {
@@ -611,7 +666,7 @@
 
     @media (max-width: 600px) {
         gap    : 12px;
-        padding: 8px 8px 0;
+        padding: 8px;
 
         .neo-list-item {
             border-radius: 12px;

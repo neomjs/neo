@@ -185,6 +185,7 @@ class Pointer extends Base {
         Object.assign(me, {
             currentElement : null,
             dragging       : false,
+            lastMoveEvent  : null,
             point          : null,
             pointerDownTime: 0,
             pointerId      : null,
@@ -286,6 +287,10 @@ class Pointer extends Base {
                 return
             }
 
+            if (!delayElapsed) {
+                me.lastMoveEvent = event
+            }
+
             const
                 point                = me.getEventPoint(event),
                 start                = me.getEventPoint(me.startEvent),
@@ -296,9 +301,15 @@ class Pointer extends Base {
             me.point = point;
 
             if ((delayElapsed || timeElapsed >= delay) && distanceTravelled >= minDistance) {
+                const moveEvent = me.lastMoveEvent || me.startEvent;
+
                 clearTimeout(me.pointerDownTimeout);
                 document.removeEventListener('pointermove', me.onDistanceChange);
-                me.startDrag()
+                me.startDrag();
+
+                if (delayElapsed && (point.clientX !== start.clientX || point.clientY !== start.clientY)) {
+                    me.triggerStream('drag:move', moveEvent, point)
+                }
             }
         }
     }
@@ -352,6 +363,7 @@ class Pointer extends Base {
 
                 Object.assign(me, {
                     currentElement : target.node,
+                    lastMoveEvent  : null,
                     point          : me.getEventPoint(event, pointerType),
                     pointerDownTime: Date.now(),
                     pointerId,

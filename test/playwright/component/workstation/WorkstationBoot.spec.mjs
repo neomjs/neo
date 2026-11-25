@@ -477,6 +477,63 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
         }
     });
 
+    test('a cold-boot Reset renders its pane when a full-depth viewport update carries the workspace while reconcileShellStaged merges into it', async ({baseURL, browser, page, context}) => {
+        test.setTimeout(150000);
+
+        const {cold, coldContext} = await bootColdWithRetainedFeed({baseURL, browser, page, context});
+        let probe;
+
+        try {
+            const {hostId, viewportId} = await readBoot(cold);
+
+            probe = await attachPageSharedAppWorker({browser, page: cold});
+
+            await probe.evaluate(async ({hostId, viewportId}) => {
+                const {Neo}    = globalThis,
+                      viewport = Neo.getComponent(viewportId);
+                let   workspace = Neo.getComponent(hostId);
+
+                while (workspace && typeof workspace.projectDockZoneDocument !== 'function') workspace = workspace.parent;
+
+                await Promise.race([
+                    workspace.refreshPromise,
+                    new Promise((resolve, reject) => setTimeout(() => reject(new Error('unsettled: the boot projection')), 60000))
+                ]);
+
+                // Reproduce the cold-boot overlap: workspace holds a staged full-depth flag when
+                // reconcileShellStaged merges `host.promiseUpdate()` into workspace, and viewport's depth -1 batch
+                // expands both workspace and host without workspace scheduling its own flight.
+                workspace.setSilent({cls: [...workspace.cls, 'workstation-staged-probe']});
+                workspace.updateDepth = -1;
+
+                workspace.projectDockZoneDocument(null).catch(() => {});
+
+                const deadline = Date.now() + 10000;
+                while (!Neo.manager.VDomUpdate.mergedCallbackMap.get(workspace.id)?.children.has(hostId)) {
+                    if (Date.now() > deadline) {
+                        throw new Error('reconcileShellStaged did not merge host into workspace')
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 1))
+                }
+
+                viewport.updateDepth = -1;
+                await viewport.promiseUpdate()
+            }, {hostId, viewportId}).catch(error => failWithProjectionState(browser, cold, error));
+
+            await cold.getByRole('button', {name: 'Reset to default', exact: true}).click();
+
+            try {
+                await expect(cold.locator(FEED_PANE).first(), 'Reset renders its pane after the carried shell reconcile settles')
+                    .toBeVisible({timeout: 8000})
+            } catch (error) {
+                await failWithProjectionState(browser, cold, error)
+            }
+        } finally {
+            await probe?.close().catch(() => {});
+            await coldContext.close()
+        }
+    });
+
     test('a popout URL takes the popout branch and does not mount a default host', async ({page}) => {
         // `?popout=<id>` marks the window as a vessel host. With no live pane to adopt it stays
         // empty — that is correct, and the discriminator is the class rather than the emptiness:

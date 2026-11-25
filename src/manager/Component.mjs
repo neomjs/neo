@@ -556,7 +556,8 @@ class Component extends Manager {
         let me = this;
 
         oldParentId && me.removeFromIndex(me.childMap, oldParentId, component.id);
-        component.parentId && me.addToIndex(me.childMap, component.parentId, component.id)
+        component.parentId && me.addToIndex(me.childMap, component.parentId, component.id);
+        Neo.manager.VDomUpdate?.syncMergedOwnerAncestors(component.id)
     }
 
     /**
@@ -619,7 +620,8 @@ class Component extends Manager {
                 }
 
                 parentId        && me.removeFromIndex(me.childMap, parentId,           id);
-                parentComponent && me.removeFromIndex(me.ownerMap, parentComponent.id, id)
+                parentComponent && me.removeFromIndex(me.ownerMap, parentComponent.id, id);
+                Neo.manager.VDomUpdate?.syncMergedOwnerAncestors(id, true)
             }
         }
 

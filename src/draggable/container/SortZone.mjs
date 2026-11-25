@@ -773,6 +773,7 @@ class SortZone extends DragZone {
 
             Object.assign(me, {
                 currentIndex    : -1,
+                dragComponent   : null,
                 indexMap        : null,
                 isRemoteDragging: false,
                 isReorderParked : false,
@@ -983,8 +984,16 @@ class SortZone extends DragZone {
 
         if (me.isResortable()) {
             if (ignoreDragSelector) {
-                const ignoreClassName = ignoreDragSelector.startsWith('.') ? ignoreDragSelector.substring(1) : ignoreDragSelector;
-                if (data.path[0].cls.includes(ignoreClassName)) {
+                const
+                    ignoreClassName = ignoreDragSelector.startsWith('.') ? ignoreDragSelector.substring(1) : ignoreDragSelector,
+                    handleClassName = dragHandleSelector?.startsWith('.') ? dragHandleSelector.substring(1) : dragHandleSelector,
+                    matchesIgnore   = path => {
+                        if (!Array.isArray(path)) return false;
+                        const stop = handleClassName ? path.findIndex(node => node?.cls?.includes(handleClassName)) : 0;
+                        return path.slice(0, stop > -1 ? stop + 1 : 1).some(node => node?.cls?.includes(ignoreClassName))
+                    };
+
+                if (matchesIgnore(data.targetPath) || matchesIgnore(data.path)) {
                     return
                 }
             }

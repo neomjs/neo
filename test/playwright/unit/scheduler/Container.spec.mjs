@@ -43,6 +43,19 @@ test.describe('Neo.scheduler.Container', () => {
                 .toBe('240px')
         } finally { zone.destroy(); axis.destroy() }
     });
+
+    test('an edge resize pins the floating preview to its own row', () => {
+        const axis = Neo.create(TimeAxis, {start: '2026-11-09T00:00Z', end: '2026-11-10T00:00Z', pxPerMinute: 1});
+        const zone = Neo.create(SchedulerEventDragZone, {axis, trackOrigin: -100, offsetY: 12});
+        const next = {startDate: new Date('2026-11-09T04:00Z'), endDate: new Date('2026-11-09T07:00Z')};
+        try {
+            zone.dragElementRect = {top: 180};
+            zone.resizeEdge      = 'end';
+            expect(zone.getDragProxyStyle(next, {clientY: 400}).top).toBe('180px');
+            zone.resizeEdge      = null;
+            expect(zone.getDragProxyStyle(next, {clientY: 400}).top).toBe('388px')
+        } finally { zone.destroy(); axis.destroy() }
+    });
     let scheduler;
     const getRowTrackBars = (grid, rowIndex = 0) => {
         const row = grid.body.items?.[rowIndex];

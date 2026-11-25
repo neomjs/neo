@@ -73,6 +73,11 @@ const ROUTES = [{
     name   : 'a diagram-only route — Monaco loaded but idle (control)',
     source : '/learn/guides/uibuildingblocks/DockLayouts.md',
     url    : '/apps/portal/index.html#/learn/guides/uibuildingblocks/DockLayouts'
+}, {
+    editors: false,
+    name   : 'a benefits route — the engine page opens on its agent loop diagram',
+    source : '/learn/benefits/body/ApplicationEngine.md',
+    url    : '/apps/portal/index.html#/learn/benefits/body/ApplicationEngine'
 }];
 
 test.describe('learn guide mermaid rendering', () => {

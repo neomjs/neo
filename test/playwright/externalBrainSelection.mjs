@@ -133,6 +133,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/StoreLoadingNL.spec.mjs',
     'rendering/TooltipMountFlightNL.spec.mjs',
     'rendering/TooltipWindowSequenceNL.spec.mjs',
+    'rendering/TwoThreadPipelineNL.spec.mjs',
     'rendering/YieldedMoveCoalescingNL.spec.mjs',
     'scheduler/BasicNL.spec.mjs',
     'scheduler/BigDataNL.spec.mjs',
