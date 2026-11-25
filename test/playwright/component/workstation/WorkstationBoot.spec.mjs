@@ -176,8 +176,8 @@ const readBoot = page => page.evaluate(() => ({
 
 /**
  * @summary Reads the main dock workspace's projection record from the page's own App Worker: the latest cycle's timing,
- * whether its refresh settles at all, and which documents are scheduled and parked. Read only after a miss, so it
- * cannot perturb the run it explains; the handle closes before the page goes, or the worker would stop answering.
+ * whether its refresh settles, and which documents and callbacks are parked. Read after the assertion so it cannot
+ * perturb the interaction it explains; the handle closes before the page goes, or the worker would stop answering.
  * @param {import('@playwright/test').Browser} browser
  * @param {import('@playwright/test').Page} page
  * @returns {Promise<Object>}
@@ -211,9 +211,46 @@ const readProjectionState = async (browser, page) => {
                           return {strip: component.id, measuring: Boolean(plugin.measuring), projectQueued: Boolean(plugin.projectQueued)}
                       });
 
+            const vdomUpdate = globalThis.Neo.manager.VDomUpdate,
+                  lineage    = [];
+
+            for (let component = host; component; component = component.parent) {
+                const componentId = component.id,
+                      callbacks   = vdomUpdate.promiseCallbackMap.get(componentId) ?? [];
+
+                lineage.push({
+                    id                : componentId,
+                    parentId          : component.parentId ?? null,
+                    windowId          : component.windowId ?? null,
+                    mounted           : Boolean(component.mounted),
+                    hasVnode          : Boolean(component.vnode),
+                    needsUpdate       : Boolean(component.needsVdomUpdate),
+                    updating          : Boolean(component.isVdomUpdating),
+                    inFlightDepth     : vdomUpdate.getInFlightUpdateDepth(componentId) ?? null,
+                    awaitingCollection: vdomUpdate.awaitingCollectionSet.has(componentId),
+                    callbacks         : callbacks.length,
+                    claimedCallbacks  : callbacks.filter(entry => entry.claimed).length
+                })
+            }
+
+            const lineageIds   = new Set(lineage.map(component => component.id)),
+                  mergedOwners = vdomUpdate.mergedCallbackMap.items.flatMap(({ownerId, children}) =>
+                      [...children].filter(([childId]) => lineageIds.has(childId)).map(([childId, entry]) => ({
+                          ownerId,
+                          childId,
+                          depth    : entry.childUpdateDepth,
+                          distance : entry.distance,
+                          collected: Boolean(entry.collected)
+                      }))
+                  ),
+                  queuedOwners = vdomUpdate.postUpdateQueueMap.items.flatMap(({ownerId, children}) =>
+                      children.filter(({childId}) => lineageIds.has(childId)).map(({childId}) => ({ownerId, childId}))
+                  );
+
             return {
                 hostId    : id,
                 hostUpdate: host ? {updating: Boolean(host.isVdomUpdating), needsUpdate: Boolean(host.needsVdomUpdate)} : null,
+                vdomUpdate: {lineage, mergedOwners, queuedOwners},
                 overflow,
                 workspace : workspace.id,
                 cycle     : workspace.projectionCycle?.timing ?? null,
@@ -373,6 +410,8 @@ test.describe('workstation boot — the rendered outcome of each URL mode', () =
             } catch (error) {
                 await failWithProjectionState(browser, cold, error)
             }
+            const control = await readProjectionState(browser, cold).catch(error => ({snapshotError: error.message}));
+            console.log(`app-worker-projection-control ${JSON.stringify(control)}`);
         } finally {
             await coldContext.close()
         }
