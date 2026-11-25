@@ -70,7 +70,7 @@ With the **Teleportation** architecture, merging does **not** mean expanding the
 
 ### The Logic
 
-A child update can merge into any ancestor's update, regardless of distance, as long as that ancestor's update is still pending. The ancestor's update then collects every merged child and sends a batch of disjoint payloads. [VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) describes the exact rules.
+A child update can merge into any ancestor's update, regardless of distance, as long as that ancestor's update is still pending. The ancestor's update then collects every merged child and sends a batch of disjoint payloads. [VDOM Engine: App Worker](../vdomengine/AppWorker.md) describes the exact rules.
 
 ### The Benefit
 
@@ -134,7 +134,7 @@ toolbar.update();
 
 `toolbar.setSilent()` leaves the toolbar with a pending update and sends nothing. Each button's silent change then joins that pending update instead of starting its own. `toolbar.update()` collects the toolbar and the buttons, sends their payloads in one `updateBatch()` call, and one set of deltas comes back.
 
-**Order matters.** A button changed before the toolbar keeps its change pending, and a toolbar update at the default depth does not carry it. [VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) covers the rules.
+**Order matters.** A button changed before the toolbar keeps its change pending, and a toolbar update at the default depth does not carry it. [VDOM Engine: App Worker](../vdomengine/AppWorker.md) covers the rules.
 
 ## Recursive Merging (formerly Leapfrog)
 
@@ -176,7 +176,7 @@ await child.promiseUpdate();
 console.log('Update done (possibly merged)');
 ```
 
-[VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) covers the exact contract.
+[VDOM Engine: App Worker](../vdomengine/AppWorker.md) covers the exact contract.
 
 ## Neo.mjs vs React: VDOM Update Strategies
 
@@ -207,7 +207,7 @@ This architecture becomes critical in two scenarios:
 
 ## Architecture Constraints & Race Conditions
 
-The engine guards disjoint updates for you. It takes the payload snapshot after a task yield, so a change and a `remove()` in the same tick land in one update. It keeps every batch inside one window, so deltas meant for a popup never reach another window. And its in-flight registry releases every former ancestor, even when a component moves while its update is in the air. [VDOM Engine: App Worker](../coreengine/VdomAppWorker.md) shows where each guarantee lives, and what a change to the engine must preserve.
+The engine guards disjoint updates for you. It takes the payload snapshot after a task yield, so a change and a `remove()` in the same tick land in one update. It keeps every batch inside one window, so deltas meant for a popup never reach another window. And its in-flight registry releases every former ancestor, even when a component moves while its update is in the air. [VDOM Engine: App Worker](../vdomengine/AppWorker.md) shows where each guarantee lives, and what a change to the engine must preserve.
 
 ## Best Practices
 

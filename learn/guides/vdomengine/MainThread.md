@@ -1,6 +1,6 @@
 # VDOM Engine: Main Thread
 
-The Main thread runs stage 4 of [the VDOM engine](./VdomEngine.md): it writes deltas to the DOM and decides when the
+The Main thread runs stage 4 of [the VDOM engine](./Overview.md): it writes deltas to the DOM and decides when the
 App worker hears about it. It keeps no vdom and no vnode. It finds nodes by id and executes what the deltas say
 ([lookup][du-lookup]). Every line reference points at `dev` commit `73e6207999`.
 

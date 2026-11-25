@@ -1,6 +1,6 @@
 # VDOM Engine: App Worker
 
-The App worker runs stages 1, 2 and 5 of [the VDOM engine](./VdomEngine.md). It owns every component's two trees:
+The App worker runs stages 1, 2 and 5 of [the VDOM engine](./Overview.md). It owns every component's two trees:
 `vdom`, what the component should render, and `vnode`, what the DOM holds as of the last confirmed write. Every line
 reference points at `dev` commit `73e6207999`.
 

@@ -1,6 +1,6 @@
 # VDOM Engine: VDom Worker
 
-The VDom worker runs stage 3 of [the VDOM engine](./VdomEngine.md), the diff: each payload becomes deltas and a new
+The VDom worker runs stage 3 of [the VDOM engine](./Overview.md), the diff: each payload becomes deltas and a new
 vnode. The diff runs in the VDom worker by default, and inside the App worker with `useVdomWorker: false`
 ([default][config-vdom-worker], [VDom worker][vdom-import], [App worker][app-import-helper]). Nothing on this page
 depends on that placement: the diff reads only its payload and keeps no tree state between calls. Every line reference

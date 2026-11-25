@@ -167,7 +167,7 @@ class StandardComponent extends Component {
 
 **How `this.update()` works:** it sends the component's vdom, expanded to its `updateDepth`, through the VDOM engine.
 The VDom worker diffs it against the current vnode, and the Main thread writes the resulting deltas in its next frame.
-[The VDOM Engine](../coreengine/VdomEngine.md) covers each step.
+[The VDOM Engine](../vdomengine/Overview.md) covers each step.
 
 **Use `this.update()` when:**
 * Making standard component updates.

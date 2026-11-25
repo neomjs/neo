@@ -168,7 +168,7 @@ This is a triangle communication:
 5. Main will apply the deltas (piped through `requestAnimationFrame()`) and pass the vnode to the App-Worker
 6. At this point (async), the next update-cycle can start
 
-[The VDOM Engine](../../guides/coreengine/VdomEngine.md) maps each step to the code.
+[The VDOM Engine](../../guides/vdomengine/Overview.md) maps each step to the code.
 
 If you think about it: This solves the problem of requiring an "immutable state tree" out of the box.
 We can modify vdom trees multiple times before starting an update-cycle. Once we do, the vdom gets serialised

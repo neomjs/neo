@@ -59,14 +59,14 @@ thread with `Neo.applyDeltas()`, and the Main thread acknowledges the write ([se
 
 The default path has no App worker → Main thread deltas edge. Deltas from the App worker straight to the Main thread are
 either the line above or manual `Neo.applyDeltas()` calls, which skip stages 1–3 and 5. The
-[App worker](./VdomAppWorker.md) page covers them under *Writing the DOM directly*.
+[App worker](./AppWorker.md) page covers them under *Writing the DOM directly*.
 
 ## Read next
 
-- [App worker](./VdomAppWorker.md): stages 1, 2 and 5. When an update starts, waits or joins another, what one update
+- [App worker](./AppWorker.md): stages 1, 2 and 5. When an update starts, waits or joins another, what one update
   carries, and how its result comes back.
 - [VDom worker](./VdomWorker.md): stage 3. How a payload becomes deltas.
-- [Main thread](./VdomMainThread.md): stage 4. How deltas reach the DOM, and when the reply may leave.
+- [Main thread](./MainThread.md): stage 4. How deltas reach the DOM, and when the reply may leave.
 
 Using the engine rather than changing it: [Asymmetric VDOM Updates](../fundamentals/AsymmetricUpdates.md),
 [Working with VDom](../uibuildingblocks/WorkingWithVDom.md) and [Worker Architecture](../fundamentals/WorkerArchitecture.md).

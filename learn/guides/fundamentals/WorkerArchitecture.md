@@ -131,7 +131,7 @@ const componentRect = await this.getDomRect();
 VDOM updates travel a triangle instead of a request-response. The App worker sends its payloads to the VDom worker over
 a direct channel. The VDom worker's reply, carrying the deltas and the new vnodes, leaves through the Main thread, which
 writes the deltas in its next frame and only then forwards the reply to the App worker. The deltas skip a hop, and the
-App worker never adopts a vnode for DOM that was not written. [The VDOM Engine](../coreengine/VdomEngine.md) maps every
+App worker never adopts a vnode for DOM that was not written. [The VDOM Engine](../vdomengine/Overview.md) maps every
 edge to the code.
 
 ### 3. Direct MessageChannels (Peer-to-Peer)
