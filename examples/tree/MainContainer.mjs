@@ -139,7 +139,7 @@ class MainContainer extends ConfigurationViewport {
             module                    : TreeList,
             cls                       : ['tree-library'],
             draggable                 : true,
-            height                    : 420,
+            height                    : 350,
             showCollapseExpandAllIcons: false,
             store                     : LibraryStore,
             width                     : 320,

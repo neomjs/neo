@@ -91,7 +91,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'height')},
             maxValue : 1200,
             minValue : 250,
-            stepSize : 50,
+            stepSize : 10,
             value    : accordion.height,
             style    : {marginTop: '10px'}
         }, {
@@ -115,7 +115,7 @@ class MainContainer extends ConfigurationViewport {
         return {
             module                   : AccordionTree,
             bind                     : {selection: {key: 'selection', twoWay: true}},
-            height                   : 350,
+            height                   : 270,
             rootParentsAreCollapsible: true,
             store                    : SettingsStore,
             width                    : 320,
