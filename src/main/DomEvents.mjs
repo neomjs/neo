@@ -175,6 +175,7 @@ class DomEvents extends Base {
         // The History API fires no hashchange: Back and Forward report a 'pathname' route as popstate. A #/… URL
         // from hash mode becomes its path before any worker reads the route.
         if (Neo.config.routerMode === 'pathname') {
+            me.resolveRouterBasePath();
             window.addEventListener('popstate', me.sendRoute.bind(me));
             me.upgradeHashRoute(true);
             me.#lastRoute    = me.getRouteKey();
@@ -1322,6 +1323,37 @@ class DomEvents extends Base {
         data.cls.forEach(cls => {
             !preventArray.includes(cls) && preventArray.push(cls)
         })
+    }
+
+    /**
+     * @summary Adopts the `<base href>` path as `Neo.config.routerBasePath` when `'pathname'` mode runs under that
+     * sub-path without an explicit `routerBasePath` override in `neo-config.json`.
+     * @returns {String}
+     */
+    resolveRouterBasePath() {
+        const {config} = Neo;
+
+        if (config.routerMode !== 'pathname' || config.routerBasePath || Neo.hasExplicitRouterBasePath) {
+            return config.routerBasePath || ''
+        }
+
+        const baseHref = globalThis.document?.querySelector?.('base[href]')?.getAttribute('href');
+
+        if (!baseHref || !globalThis.location) {
+            return ''
+        }
+
+        try {
+            const basePathname = new URL(baseHref, location.href || `${location.origin}${location.pathname}`).pathname.replace(/\/+$/, '');
+
+            if (basePathname && (location.pathname === basePathname || location.pathname.startsWith(basePathname + '/'))) {
+                config.routerBasePath = basePathname
+            }
+        } catch {
+            // Malformed base href leaves routerBasePath unchanged
+        }
+
+        return config.routerBasePath || ''
     }
 
     /**

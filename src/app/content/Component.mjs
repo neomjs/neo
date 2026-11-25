@@ -130,8 +130,10 @@ class Component extends Markdown {
      * @param {Object} data
      */
     onFragmentChange(data) {
-        if (this.routeSections && this.mounted && data?.windowId === this.windowId && this.record) {
-            this.setRouteSection(this.record, data.fragment)
+        const targetRecord = this.record || this.#routeSection?.record;
+
+        if (this.routeSections && data?.windowId === this.windowId && targetRecord && (this.mounted || !this.#renderedRecord)) {
+            this.setRouteSection(targetRecord, data.fragment)
         }
     }
 

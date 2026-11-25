@@ -1,5 +1,6 @@
 import Controller        from '../../../../src/controller/Component.mjs';
 import CubeLayoutButton  from './CubeLayoutButton.mjs'; // required for the Portal App .md file
+import HashHistory       from '../../../../src/util/HashHistory.mjs';
 import SeoService        from '../../service/Seo.mjs';
 import {getSearchParams} from '../../Util.mjs';
 
@@ -152,7 +153,14 @@ class MainContainerController extends Controller {
                 return
             }
 
-            this.getReference('content')?.setRouteSection(record, fragment);
+            const currentTop       = HashHistory.first(this.windowId),
+                  resolvedFragment = itemFragment ?? (
+                      currentTop?.windowId === this.windowId && currentTop.hashString === route
+                          ? currentTop.fragment
+                          : fragment
+                  );
+
+            this.getReference('content')?.setRouteSection(record, resolvedFragment);
             stateProvider.data.currentPageRecord = record;
 
             if (record?.name) {

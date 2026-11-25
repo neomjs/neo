@@ -339,4 +339,75 @@ test.describe('learn link routing', () => {
             release.resolve()
         }
     });
+
+    test('retains a fragment update or clear that arrives while Learn is still loading its tree record, without refetching Markdown', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await routeMarkdownOnDedicatedWorker(page);
+
+        let markdownRequests = 0;
+        await page.context().route(ADOPTION_MARKDOWN, async route => {
+            markdownRequests++;
+            await route.continue()
+        });
+
+        const article       = page.locator(CONTENT),
+              heading       = article.getByRole('heading', {level: 1, name: ADOPTION_TITLE, exact: true}),
+              readScrollTop = () => article.evaluate((node, selector) => node.closest(selector).scrollTop, SCROLLER);
+
+        // Arm 1: #one-class-five-decisions -> #decision-3--... while learn/tree.json is held
+        const treeStarted1 = Promise.withResolvers(),
+              treeRelease1 = Promise.withResolvers();
+
+        await page.context().route('**/learn/tree.json*', async route => {
+            const response = await route.fetch({maxRetries: 2});
+            treeStarted1.resolve(response.status());
+            await treeRelease1.promise;
+            await route.fulfill({response})
+        }, {times: 1});
+
+        try {
+            await page.goto(`${ADOPTION_ROUTE}#one-class-five-decisions`);
+            expect(await treeStarted1.promise).toBe(200);
+
+            await page.evaluate(nextHash => {
+                location.hash = nextHash
+            }, '#decision-3--policies-live-in-the-model-not-in-your-ui');
+
+            treeRelease1.resolve();
+            await expectDecisionArrival(page);
+            expect(markdownRequests).toBe(1)
+        } finally {
+            treeRelease1.resolve()
+        }
+
+        // Arm 2: cold boot on a fresh document where #decision-3--... clears to '' while learn/tree.json is held
+        markdownRequests = 0;
+        const treeStarted2 = Promise.withResolvers(),
+              treeRelease2 = Promise.withResolvers();
+
+        await page.goto('about:blank');
+        await page.context().route('**/learn/tree.json*', async route => {
+            const response = await route.fetch({maxRetries: 2});
+            treeStarted2.resolve(response.status());
+            await treeRelease2.promise;
+            await route.fulfill({response})
+        }, {times: 1});
+
+        try {
+            await page.goto(DECISION_3_ROUTE);
+            expect(await treeStarted2.promise).toBe(200);
+
+            await page.evaluate(cleanRoute => {
+                Neo.Main.setRoute({value: cleanRoute})
+            }, ADOPTION_ROUTE);
+
+            treeRelease2.resolve();
+            await expect(heading).toBeInViewport();
+            await expect.poll(readScrollTop).toBe(0);
+            await expect(page.locator(`${SECTIONS} .neo-selected`)).toHaveText(ADOPTION_TITLE);
+            expect(markdownRequests).toBe(1)
+        } finally {
+            treeRelease2.resolve()
+        }
+    });
 });

@@ -8,7 +8,7 @@
     "remotesApiUrl"               : "remotes-api.json",
     "routerIgnorePaths"           : [
         "^/(?:dist|raw|resources|resources_pub|badges|node_modules|apps|test)(?:/|$)",
-        "^/examples/[^/]+/",
+        "^/examples/(?:[^/]+/|(?!(?:apps|board|buttons|calendar|charts|components|dashboard|dialogs|drag-drop|forms|functional|gantt|grid|layouts|lists|multi-window|platform|scheduler|state|tabs|tree)$)[^/]+$)",
         "^/docs/"
     ],
     "routerMode"                  : "pathname",

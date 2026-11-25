@@ -264,16 +264,17 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
     /**
      * @summary Finds the nearest on-disk app boundary, including hash apps so the root SPA cannot capture them.
      * A hash app directory owns its trailing-slash shell and sub-paths (`/docs/`, `/examples/tree/`, `/docs/...`),
-     * while a slashless route (`/docs`, `/examples/tree`, `/examples/charts`, `/examples/tabs`) falls through to
-     * `rootMount` when the root SPA leaves that slashless route un-ignored.
+     * while a slashless route (`/docs`, `/examples/tree`, `/examples/dialogs`) yields to `rootMount` only when
+     * `rootClaimsPath` is true so non-catalog demos (`/examples/dialog`) keep their native `301` directory redirect.
      * @param {String} decoded
+     * @param {Boolean} rootClaimsPath
      * @returns {Promise<Object|null>}
      */
-    async function findMount(decoded) {
+    async function findMount(decoded, rootClaimsPath) {
         let mount = decoded.replace(/\/+$/, '') || '/';
         while (true) {
             const directory = resolveFile(mount), config = directory && await readConfig(directory);
-            if (config && (config.routerMode === 'pathname' || !rootMount || mount === '/' || decoded.startsWith(mount + '/'))) {
+            if (config && (config.routerMode === 'pathname' || !rootClaimsPath || mount === '/' || decoded.startsWith(mount + '/'))) {
                 return {mount: mount === '/' ? '' : mount, directory, config}
             }
             if (mount === '/') return null;
@@ -323,10 +324,13 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
         }
         if (rootAlias) return redirect('/');
 
-        let app = await findMount(decoded);
-        if (!app && rootMount) {
-            const directory = resolveFile(rootMount), config = await readConfig(directory);
-            if (config) app = {mount: '', directory, config}
+        const rootDirectory  = rootMount ? resolveFile(rootMount) : null,
+              rootConfig     = rootDirectory ? await readConfig(rootDirectory) : null,
+              rootClaimsPath = Boolean(rootConfig?.routerMode === 'pathname' && isManagedRoutePath(url.pathname, rootConfig.routerIgnorePaths, ''));
+
+        let app = await findMount(decoded, rootClaimsPath);
+        if (!app && rootClaimsPath) {
+            app = {mount: '', directory: rootDirectory, config: rootConfig}
         }
         if (app?.config.routerMode === 'pathname' && isManagedRoutePath(url.pathname, app.config.routerIgnorePaths, app.mount)) {
             const route = normalizeRoutePathname(url.pathname, app.mount), canonical = app.mount + (route === '/' && app.mount ? '' : route);

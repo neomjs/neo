@@ -713,11 +713,25 @@ class App extends Base {
     }
 
     /**
-     * @summary Broadcasts same-route `#fragment` transitions in `'pathname'` mode without mutating `HashHistory`.
+     * @summary Synchronizes the active window route's `#fragment` and notifies same-route listeners without re-running routing.
      * @param {Object} data
      */
     onFragmentChange(data) {
-        this.fire('fragmentChange', data.data)
+        const payload = data?.data;
+
+        if (payload) {
+            const {fragment, hashString, windowId} = payload;
+
+            HashHistory.updateFragment(payload);
+
+            for (const cfg of [Neo.windowConfigs?.[windowId], Neo.config]) {
+                if (cfg?.hash && cfg.hash.windowId === windowId && cfg.hash.hashString === hashString) {
+                    fragment ? (cfg.hash.fragment = fragment) : delete cfg.hash.fragment
+                }
+            }
+        }
+
+        this.fire('fragmentChange', payload)
     }
 
     /**

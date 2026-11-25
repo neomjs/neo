@@ -16,9 +16,11 @@ import fg                                  from 'fast-glob';
 import fs                                  from 'node:fs';
 import path                                from 'node:path';
 import {fileURLToPath}                     from 'node:url';
+import {extractExampleFamilyDefinitions}   from '../../../../../buildScripts/docs/seo/seoJson.mjs';
 import Neo                                 from '../../../../../src/Neo.mjs';
 import * as core                           from '../../../../../src/core/_export.mjs';
 import InstanceManager                     from '../../../../../src/manager/Instance.mjs';
+import {isManagedRoutePath}                from '../../../../../src/util/Route.mjs';
 import AudienceDoors                       from '../../../../../apps/portal/view/home/parts/AudienceDoors.mjs';
 import ContentBox                          from '../../../../../apps/portal/view/home/ContentBox.mjs';
 import ExampleGroup                        from '../../../../../apps/portal/model/ExampleGroup.mjs';
@@ -204,6 +206,26 @@ test.describe('SharedWorker route-href windowId call-site audit (#22175)', () =>
             instances.reverse().forEach(instance => instance.destroy?.());
             Neo.windowConfigs     = prevWindowConfigs;
             Neo.config.routerMode = prevRouterMode
+        }
+    });
+
+    test('apps/portal/neo-config.json routerIgnorePaths admits all 21 catalog groups while excluding trailing-slash and non-catalog standalone demos', () => {
+        const portalConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, 'apps/portal/neo-config.json'), 'utf8')),
+              examplesCode = fs.readFileSync(path.join(repoRoot, 'apps/portal/view/examples/MainContainer.mjs'), 'utf8'),
+              groups       = extractExampleFamilyDefinitions(examplesCode),
+              ignorePaths  = portalConfig.routerIgnorePaths;
+
+        expect(groups).toHaveLength(21);
+
+        for (const {route} of groups) {
+            expect(isManagedRoutePath(route, ignorePaths, ''), route).toBe(true);
+            expect(isManagedRoutePath(`/apps/portal${route}`, ignorePaths, '/apps/portal'), `/apps/portal${route}`).toBe(true);
+            expect(isManagedRoutePath(`${route}/`, ignorePaths, ''), `${route}/`).toBe(false)
+        }
+
+        for (const standalone of ['/examples/dialog', '/examples/dialog/', '/examples/tableFiltering', '/examples/fields', '/examples/grid/bigData']) {
+            expect(isManagedRoutePath(standalone, ignorePaths, ''), standalone).toBe(false);
+            expect(isManagedRoutePath(`/apps/portal${standalone}`, ignorePaths, '/apps/portal'), `/apps/portal${standalone}`).toBe(false)
         }
     })
 });

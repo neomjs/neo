@@ -1,8 +1,12 @@
 import fs                                from 'node:fs';
+import path                              from 'node:path';
+import {fileURLToPath}                   from 'node:url';
 import {extractExampleFamilyDefinitions} from '../../../../buildScripts/docs/seo/seoJson.mjs';
+import {createFileServer, listen}        from '../../../../buildScripts/util/fileServer.mjs';
 import {expect, test}                    from '../../fixtures.mjs';
 
-const EXAMPLES_VIEW = new URL('../../../../apps/portal/view/examples/MainContainer.mjs', import.meta.url),
+const REPO_ROOT     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'),
+      EXAMPLES_VIEW = new URL('../../../../apps/portal/view/examples/MainContainer.mjs', import.meta.url),
       GROUP_ROUTES  = extractExampleFamilyDefinitions(fs.readFileSync(EXAMPLES_VIEW, 'utf8')).map(group => group.route);
 
 const VIEWS = {
@@ -156,6 +160,10 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
         expect(standaloneDir.status()).toBe(200);
         expect(await standaloneDir.text()).not.toContain('<base href="/apps/portal/">');
 
+        const standaloneDemoRedirect = await page.request.get('/examples/dialog?theme=dark', {maxRedirects: 0});
+        expect(standaloneDemoRedirect.status()).toBe(301);
+        expect(standaloneDemoRedirect.headers()['location']).toBe('/examples/dialog/?theme=dark');
+
         const aliasRedirect = await page.request.get('/apps/portal/?utm_source=test', {maxRedirects: 0});
         expect(aliasRedirect.status()).toBe(301);
         expect(aliasRedirect.headers()['location']).toBe('/?utm_source=test');
@@ -175,5 +183,47 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
         await page.reload();
         await expect(page).toHaveURL(/\/learn\/guides\/uibuildingblocks\/DockLayouts$/);
         await expect(page.locator('.neo-app-content-component h1')).toContainText('Dock Layouts: One Application, Many Windows')
+    });
+
+    test('adopts /apps/portal as routerBasePath when mounted below root with spaRoot disabled (--no-spa-root)', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+
+        const server = createFileServer({root: REPO_ROOT, spaRoot: false, freshness: {onListening() {}, onRequest() {}}}),
+              port   = await listen(server, {port: 0, strict: true}),
+              origin = `http://localhost:${port}`;
+
+        try {
+            const rootListing = await page.request.get(`${origin}/`, {maxRedirects: 0});
+            expect(rootListing.status()).toBe(200);
+            expect(await rootListing.text()).toContain('<h1>/</h1>');
+
+            // Bookmark upgrade under --no-spa-root keeps /apps/portal prefix so reload hits Portal, not static /learn/
+            await page.goto(`${origin}/apps/portal/index.html#/learn`);
+            await expect(page).toHaveURL(`${origin}/apps/portal/learn`);
+            await expect(page.locator('.neo-app-content-component h1')).toHaveText('What Is Neo.mjs?');
+
+            const subPathConfig = await page.evaluate(() => ({
+                learnHref     : document.querySelector('.portal-header-toolbar a[href$="/learn"]')?.getAttribute('href'),
+                routerBasePath: Neo.config.routerBasePath,
+                routerMode    : Neo.config.routerMode
+            }));
+            expect(subPathConfig).toEqual({
+                learnHref     : '/apps/portal/learn',
+                routerBasePath: '/apps/portal',
+                routerMode    : 'pathname'
+            });
+
+            await page.reload();
+            await expect(page).toHaveURL(`${origin}/apps/portal/learn`);
+            await expect(page.locator('.neo-app-content-component h1')).toHaveText('What Is Neo.mjs?');
+
+            // Cold deep navigation at /apps/portal/examples/grid resolves '/examples/grid' for the Examples controller
+            await page.goto(`${origin}/apps/portal/examples/grid`);
+            await expect(page).toHaveURL(`${origin}/apps/portal/examples/grid`);
+            await expect(page.locator('.portal-examples-group-page:visible .portal-examples-group-heading h1')).toHaveText('Grid & Table')
+        } finally {
+            server.closeAllConnections();
+            server.close()
+        }
     })
 });

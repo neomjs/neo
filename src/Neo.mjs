@@ -1288,6 +1288,8 @@ function reportLateSet(instance, key) {
     }
 }
 
+Neo.hasExplicitRouterBasePath = Boolean(Neo.config && Object.hasOwn(Neo.config, 'routerBasePath'));
+
 Neo.config ??= {};
 
 Neo.assignDefaults(Neo.config, DefaultConfig);

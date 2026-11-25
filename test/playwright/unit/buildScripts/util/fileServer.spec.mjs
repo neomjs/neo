@@ -41,6 +41,8 @@ test.describe('fileServer pathname mounts', () => {
         write('docs/index.html', '<title>standalone-docs</title>');
         write('examples/charts/neo-config.json', {appPath: 'examples/charts/app.mjs'});
         write('examples/charts/index.html', '<title>standalone-charts</title>');
+        write('examples/dialog/neo-config.json', {appPath: 'examples/dialog/app.mjs'});
+        write('examples/dialog/index.html', '<title>standalone-dialog</title>');
         write('apps/route/data.json', '{"real":true}');
         write('apps/route/license', 'physical extensionless file');
         write('examples/tree/item.txt', 'tree');
@@ -85,8 +87,11 @@ test.describe('fileServer pathname mounts', () => {
         expect(await (await fetch(`${base}/`)).text()).toContain('<title>apps/portal</title>')
     });
 
-    test('classifies the raw path before trimming slashes and keeps ignored directories static', async () => {
-        write('apps/portal/neo-config.json', {routerMode: 'pathname', routerIgnorePaths: ['^/examples/[^/]+/', '^/docs/']});
+    test('classifies the raw path before trimming slashes and keeps ignored directories and non-catalog standalone demos static', async () => {
+        write('apps/portal/neo-config.json', {
+            routerMode       : 'pathname',
+            routerIgnorePaths: ['^/examples/(?:[^/]+/|(?!(?:charts|dialogs|tree)$)[^/]+$)', '^/docs/']
+        });
         const later = new Date(Date.now() + 500);
         fs.utimesSync(path.join(root, 'apps/portal/neo-config.json'), later, later);
 
@@ -95,6 +100,9 @@ test.describe('fileServer pathname mounts', () => {
               portalCharts     = await fetch(`${base}/examples/charts`, {redirect: 'manual'}),
               standaloneCharts = await fetch(`${base}/examples/charts/`, {redirect: 'manual'}),
               missingCharts    = await fetch(`${base}/examples/charts/missing`),
+              portalDialogs    = await fetch(`${base}/examples/dialogs`, {redirect: 'manual'}),
+              dialogRedirect   = await fetch(`${base}/examples/dialog?theme=dark`, {redirect: 'manual'}),
+              standaloneDialog = await fetch(`${base}/examples/dialog/?theme=dark`, {redirect: 'manual'}),
               portalDocs       = await fetch(`${base}/docs`, {redirect: 'manual'}),
               standaloneDocs   = await fetch(`${base}/docs/`, {redirect: 'manual'}),
               missingDocs      = await fetch(`${base}/docs/missing`),
@@ -106,6 +114,12 @@ test.describe('fileServer pathname mounts', () => {
         expect(standaloneCharts.status).toBe(200);
         expect(await standaloneCharts.text()).toContain('<title>standalone-charts</title>');
         expect(missingCharts.status).toBe(404);
+        expect(portalDialogs.status).toBe(200);
+        expect(await portalDialogs.text()).toContain('<title>apps/portal</title>');
+        expect(dialogRedirect.status).toBe(301);
+        expect(dialogRedirect.headers.get('location')).toBe('/examples/dialog/?theme=dark');
+        expect(standaloneDialog.status).toBe(200);
+        expect(await standaloneDialog.text()).toContain('<title>standalone-dialog</title>');
         expect(portalDocs.status).toBe(200);
         expect(await portalDocs.text()).toContain('<title>apps/portal</title>');
         expect(standaloneDocs.status).toBe(200);
