@@ -1811,7 +1811,7 @@ test.describe('Portal examples gallery rows across cards and tiles (#22121)', ()
         await find.fill('field');
         await expect(matches.first()).toBeVisible();
 
-        await allLink(page).focus();
+        await page.locator(`${SIDEBAR} a.portal-examples-group-index-all`).focus();
         await page.keyboard.press('ArrowRight');
         await expect(matches.first()).toBeFocused();
 
