@@ -574,12 +574,9 @@ class App extends Base {
     }
 
     /**
-     * @summary Receives the ping from the Canvas Worker confirming a direct canvas transfer.
-     *
-     * This method resolves the promise created in `Neo.component.Canvas#afterSetMounted`.
-     * It is the final step in the "Triangular Communication" pattern where the Main Thread sends the
-     * `OffscreenCanvas` directly to the Canvas Worker, bypassing the App Worker's standard message payload,
-     * to avoid transfer restrictions in Firefox SharedWorkers.
+     * @summary Confirms a direct `OffscreenCanvas` transfer when its owning `Canvas` component still awaits it, or
+     * evicts the orphaned surface in `Neo.worker.Canvas` if the component unmounted, moved windows, or was destroyed
+     * while `canvasRegistered` was in flight.
      *
      * @param {Object} msg
      * @param {String} msg.componentId
@@ -588,13 +585,31 @@ class App extends Base {
      * @protected
      */
     onCanvasRegistered({componentId, nodeId, windowId}) {
-        let instance = Neo.get(componentId);
+        let instance       = Neo.get(componentId),
+            callback       = instance?.registerCanvasCallbacks?.[nodeId],
+            matchesWindow  = !windowId || !instance?.windowId || instance.windowId === windowId,
+            targetWindowId = windowId || instance?.windowId;
 
-        if (instance?.registerCanvasCallbacks?.[nodeId]) {
-            if (!windowId || !instance.windowId || instance.windowId === windowId) {
-                instance.registerCanvasCallbacks[nodeId]();
-                delete instance.registerCanvasCallbacks[nodeId]
-            }
+        if (callback && !instance.isDestroyed && instance.mounted && matchesWindow) {
+            delete instance.registerCanvasCallbacks[nodeId];
+            callback();
+            return
+        }
+
+        let activeSameBinding = Boolean(
+            instance &&
+            !instance.isDestroyed &&
+            instance.mounted &&
+            instance.offscreenRegistered &&
+            instance.getCanvasId?.() === nodeId &&
+            matchesWindow
+        );
+
+        if (!activeSameBinding && nodeId) {
+            Neo.worker.Canvas?.unregisterCanvas?.({
+                nodeId,
+                ...(targetWindowId ? {windowId: targetWindowId} : {})
+            })?.catch?.(() => {})
         }
     }
 

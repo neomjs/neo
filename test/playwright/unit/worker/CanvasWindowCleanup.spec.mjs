@@ -188,5 +188,109 @@ test.describe('Neo.worker.Canvas departed-window cleanup', () => {
             sceneWindowId: null,
             windowMapKeys: []
         })
+    });
+
+    test('in-flight OffscreenCanvas transfers orphaned before App#onCanvasRegistered are evicted without disturbing live bindings (#22186)', async () => {
+        const script = `
+            import Neo       from './src/Neo.mjs';
+            import * as core from './src/core/_export.mjs';
+            import {setup}   from './test/playwright/setup.mjs';
+
+            setup({mockMain: false, neoConfig: {unitTestMode: true}});
+            globalThis.postMessage = () => {};
+            delete Neo.worker.App;
+            delete Neo.worker.Canvas;
+
+            const
+                {default: canvasWorker} = await import('./src/worker/Canvas.mjs'),
+                {default: app}          = await import('./src/worker/App.mjs'),
+                {default: CanvasCmp}    = await import('./src/component/Canvas.mjs'),
+                report                  = {};
+
+            Object.assign(canvasWorker, {
+                canvasWindowMap: {},
+                isSharedWorker : true,
+                map            : {},
+                ports          : [],
+                promises       : {}
+            });
+            Neo.worker.Canvas = {
+                unregisterCanvas: async data => canvasWorker.unregisterCanvas(data)
+            };
+
+            const makeNode = label => ({getContext: () => ({}), height: 45, label, width: 139});
+
+            // 1. Destroyed before canvasRegistered arrived
+            canvasWorker.registerCanvas({node: makeNode('destroyed'), nodeId: 'cell-destroyed', windowId: 'win-opener'});
+            app.onCanvasRegistered({componentId: 'missing-cmp', nodeId: 'cell-destroyed', windowId: 'win-opener'});
+
+            // 2. Unmounted before canvasRegistered arrived (ScalePane shrink 31 -> 18 while transfer in flight)
+            const unmountedCmp = Neo.create({
+                module             : CanvasCmp,
+                id                 : 'cell-unmounted',
+                mounted            : false,
+                offscreenRegistered: false,
+                windowId           : 'win-opener'
+            });
+            canvasWorker.registerCanvas({node: makeNode('unmounted'), nodeId: 'cell-unmounted', windowId: 'win-opener'});
+            app.onCanvasRegistered({componentId: 'cell-unmounted', nodeId: 'cell-unmounted', windowId: 'win-opener'});
+
+            // 3. Moved to popup before opener's canvasRegistered arrived, while popup callback is parked
+            let popupConfirmed = false;
+            const movedCmp = Neo.create({
+                module             : CanvasCmp,
+                id                 : 'cell-moved',
+                mounted            : true,
+                offscreenRegistered: false,
+                windowId           : 'win-popup'
+            });
+            movedCmp.registerCanvasCallbacks = {
+                'cell-moved': () => { popupConfirmed = true }
+            };
+            canvasWorker.registerCanvas({node: makeNode('stale-opener'), nodeId: 'cell-moved', windowId: 'win-opener'});
+            canvasWorker.registerCanvas({node: makeNode('fresh-popup'),  nodeId: 'cell-moved', windowId: 'win-popup'});
+            app.onCanvasRegistered({componentId: 'cell-moved', nodeId: 'cell-moved', windowId: 'win-opener'});
+            report.popupCallbackSurvivedStalePing = Boolean(movedCmp.registerCanvasCallbacks['cell-moved']) && !popupConfirmed;
+            app.onCanvasRegistered({componentId: 'cell-moved', nodeId: 'cell-moved', windowId: 'win-popup'});
+            report.popupConfirmedOnMatchingPing   = popupConfirmed;
+
+            // 4. Live offscreenRegistered binding on same (nodeId, windowId) is preserved
+            const liveCmp = Neo.create({
+                module             : CanvasCmp,
+                id                 : 'cell-live',
+                mounted            : true,
+                offscreenRegistered: true,
+                windowId           : 'win-opener'
+            });
+            canvasWorker.registerCanvas({node: makeNode('live-opener'), nodeId: 'cell-live', windowId: 'win-opener'});
+            app.onCanvasRegistered({componentId: 'cell-live', nodeId: 'cell-live', windowId: 'win-opener'});
+
+            report.finalMapKeys    = Object.keys(canvasWorker.map).sort();
+            report.movedOwners     = Object.keys(canvasWorker.canvasWindowMap['cell-moved'] || {});
+            report.movedMapSurface = canvasWorker.map['cell-moved']?.label ?? null;
+            report.liveMapSurface  = canvasWorker.map['cell-live']?.label ?? null;
+
+            unmountedCmp.destroy();
+            movedCmp.destroy();
+            liveCmp.destroy();
+            console.log(JSON.stringify(report));
+            process.exit(0)
+        `;
+
+        const {stdout} = await execFileAsync(process.execPath, ['--input-type=module', '-e', script], {
+            cwd     : REPO_ROOT,
+            encoding: 'utf8',
+            timeout : 15_000
+        });
+        const report = JSON.parse(stdout.trim().split('\n').at(-1));
+
+        expect(report).toEqual({
+            finalMapKeys                  : ['cell-live', 'cell-moved'],
+            liveMapSurface                : 'live-opener',
+            movedMapSurface               : 'fresh-popup',
+            movedOwners                   : ['win-popup'],
+            popupCallbackSurvivedStalePing: true,
+            popupConfirmedOnMatchingPing  : true
+        })
     })
 });
