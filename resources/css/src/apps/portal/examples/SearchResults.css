@@ -107,10 +107,14 @@
         }
     }
 
-    .portal-examples-search-cards.portal-examples-list.neo-list,
-    .portal-examples-search-tiles.portal-examples-list.neo-list {
+    .portal-examples-search-cards,
+    .portal-examples-search-tiles {
         overflow: visible;
-        padding : 4px 0 0;
+
+        > .portal-examples-list.neo-list {
+            overflow: visible;
+            padding : 4px 0 0;
+        }
     }
 
     @media (max-width: 640px) {
@@ -118,11 +122,6 @@
 
         .portal-examples-search-heading h1 {
             font-size: 24px;
-        }
-
-        .portal-examples-search-cards.portal-examples-list.neo-list,
-        .portal-examples-search-tiles.portal-examples-list.neo-list {
-            padding: 4px 0 0;
         }
     }
 }
