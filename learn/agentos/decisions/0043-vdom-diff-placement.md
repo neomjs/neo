@@ -50,39 +50,7 @@ The line has been at parity since #22159: an update's `meta`, a `Helper.create` 
    - **Phase 2: deprecation.** For one minor release, `useVdomWorker: true` logs a warning that names this record, and so does a build config that still lists a `vdom` worker.
    - **Phase 3: removal.** It removes the worker, Main's interception of `updateVdom` and `autoMount` replies, the App ↔ VDom channel, the flag, its readers, and the prose that draws the triangle. A build config that still lists a `vdom` worker skips it with that warning instead of failing. `create-app` writes such an entry into every new workspace's `myApps.json`, so without the skip, upgrading would break their builds. The consumer repositories drop their entries in their own PRs (#22196).
 
-<!-- binding-inventory: vdom-worker-retirement -->
-- `src/worker/VDom.mjs`
-- `src/worker/Manager.mjs`
-- `src/worker/App.mjs`
-- `src/worker/Base.mjs`
-- `src/mixin/VdomLifecycle.mjs`
-- `src/vdom/Helper.mjs`
-- `src/DefaultConfig.mjs`
-- `src/Main.mjs`
-- `buildScripts/webpack/json/build.json`
-- `buildScripts/webpack/buildThreads.mjs`
-- `buildScripts/webpack/development/webpack.config.worker.mjs`
-- `buildScripts/webpack/production/webpack.config.worker.mjs`
-- `buildScripts/README.md`
-- `learn/tree.json`
-- `learn/README.md`
-- `learn/guides/vdomengine/Overview.md`
-- `learn/guides/vdomengine/VdomWorker.md`
-- `learn/guides/fundamentals/WorkerArchitecture.md`
-- `learn/guides/fundamentals/AsymmetricUpdates.md`
-- `learn/guides/fundamentals/ApplicationBootstrap.md`
-- `learn/guides/fundamentals/CodebaseOverview.md`
-- `learn/benefits/body/ObjectPermanence.md`
-- `learn/benefits/body/OffTheMainThread.md`
-- `learn/tutorials/Earthquakes.md`
-- `test/playwright/e2e/rendering/TwoThreadPipelineNL.spec.mjs`
-- `test/playwright/e2e/rendering/YieldedMoveCoalescingNL.spec.mjs`
-- `test/playwright/e2e/rendering/SparseUpdatesNL.spec.mjs`
-- `test/playwright/unit/component/DepartedFirstRender.spec.mjs`
-- `test/playwright/unit/worker/ConfigBase.spec.mjs`
-- `test/playwright/unit/buildScripts/util/WorkflowScopeClassifier.spec.mjs`
-- `test/playwright/unit/test/dedicatedWorkerNeuralLink.spec.mjs`
-<!-- /binding-inventory: vdom-worker-retirement -->
+**The removal inventory lives in Epic #22196**, in two marked blocks: `vdom-worker-retirement` (31 engine files) and `vdom-worker-retirement-external` (3 consumer repositories). This record links them instead of copying them, so the list has one owner.
 
 ## 3. Rejected Options
 
