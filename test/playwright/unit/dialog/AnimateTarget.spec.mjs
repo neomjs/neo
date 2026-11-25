@@ -195,5 +195,19 @@ test.describe('dialog.Base: the animation target decides the window only when it
 
         expect(showRuns, 'hide flight reopens once settled').toBe(1);
         expect(dialog.hidden).toBe(false)
+    });
+
+    test('destroying a dialog while animateHide is in flight settles cleanly without touching deleted arrays', async () => {
+        const dialog = create({animateTargetId: 'launcher-item-mail'});
+
+        await dialog.animateShow();
+        dialog._hidden = false;
+
+        dialog.hide();
+        dialog.destroy(true);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        expect(dialog.isDestroyed).toBe(true)
     })
 });

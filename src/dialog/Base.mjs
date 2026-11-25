@@ -523,6 +523,8 @@ class Dialog extends Panel {
             me.#setAnimating(false)
         }
 
+        if (me.isDestroyed) return;
+
         me.closeOrHide(false);
 
         if (me.closeAction === 'hide') {
@@ -875,20 +877,18 @@ class Dialog extends Panel {
     }
 
     /**
-     * Hides the dialog and writes `hidden`. A landed dialog animates out in one flight at a time, and re-enters
-     * {@link #show} if shown again before the flight settles. Otherwise component.Base#hide removes it, and leaves a
-     * dialog still in its mount flight to the flight.
+     * Hides the dialog and writes `hidden` once settled. A landed dialog animates out in one flight at a time, and
+     * re-enters {@link #show} if shown again before the flight settles. Otherwise component.Base#hide removes it, and
+     * leaves a dialog still in its mount flight to the flight.
      * @param {Boolean} animate=!!this.animateTargetId
      */
     async hide(animate=!!this.animateTargetId) {
         let me = this;
 
         if (me.#hideFlight && animate) {
-            me.#reopenAfterHide = null;
-            me._hidden          = true
+            me.#reopenAfterHide = null
         } else if (animate && me.mounted && !me.mountFlight) {
             me.#reopenAfterHide = null;
-            me._hidden          = true;
             me.#hideFlight      = me.#afterAnimation(me.animateHide()).finally(() => {
                 const reopen = me.#reopenAfterHide;
                 me.#hideFlight      = null;
@@ -902,7 +902,7 @@ class Dialog extends Panel {
 
         await me.timeout(30);
 
-        me.syncModalMask()
+        !me.isDestroyed && me.syncModalMask()
     }
 
     /**
@@ -1195,7 +1195,7 @@ class Dialog extends Panel {
 
     /**
      * Shows the dialog and writes `hidden`. An animated show is a mount flight of its own, one at a time; a show
-     * arriving during {@link #animateHide} flips `hidden` back so the hide flight reopens on settle.
+     * arriving during {@link #animateHide} queues a reopen once the hide flight settles.
      * A dialog that is mounted or in flight goes through component.Base#show, which does not mount it again.
      * @param {Boolean} animate=!!this.animateTargetId
      */
@@ -1204,7 +1204,6 @@ class Dialog extends Panel {
 
         if (me.#hideFlight) {
             me.#reopenAfterHide = {animate};
-            me._hidden          = false;
             return
         }
 
@@ -1226,9 +1225,11 @@ class Dialog extends Panel {
         let me   = this,
             name = 'neo-animating';
 
-        NeoArray.toggle(me._cls,     name, animating);
-        NeoArray.toggle(me.vdom.cls, name, animating);
-        me.vnode?.className && NeoArray.toggle(me.vnode.className, name, animating)
+        if (me.isDestroyed) return;
+
+        me._cls             && NeoArray.toggle(me._cls,             name, animating);
+        me.vdom?.cls        && NeoArray.toggle(me.vdom.cls,         name, animating);
+        me.vnode?.className && NeoArray.toggle(me.vnode.className,  name, animating)
     }
 
     /**
