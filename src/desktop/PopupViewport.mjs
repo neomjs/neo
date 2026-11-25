@@ -67,30 +67,39 @@ class PopupViewport extends Viewport {
     }
 
     /**
-     * @summary Offers the return action and app identity while this popup hosts a desktop app.
-     * @param {Function|null} handler Return action for the current popup route.
-     * @param {Neo.desktop.model.App|Object|null} [record=null] Hosted app record for header icon and title.
+     * @summary Projects or clears the hosted desktop app's icon tile and title in the popup header.
+     * @param {Neo.desktop.model.App|Object|null} record Hosted app record for header icon and title.
      */
-    setReturnHandler(handler, record=null) {
+    setAppRecord(record) {
         if (this.isDestroying || this.isDestroyed) return;
 
         const toolbar = this.getReference('desktopPopupToolbar'),
               icon    = toolbar.getReference('desktopPopupIcon'),
               title   = toolbar.getReference('desktopPopupTitle'),
-              spacer  = toolbar.getReference('desktopPopupSpacer'),
-              button  = toolbar.getReference('desktopPopupReturn'),
-              app     = handler ? record : null;
+              spacer  = toolbar.getReference('desktopPopupSpacer');
 
         icon.set({
-            cellIconCls: app?.iconCls || null,
-            hidden     : !app?.iconCls,
-            style      : {'--desktop-app-color': app?.color || null}
+            cellIconCls: record?.iconCls || null,
+            hidden     : !record?.iconCls,
+            style      : {'--desktop-app-color': record?.color || null}
         });
         title.set({
-            hidden: !app?.text,
-            text  : app?.text || null
+            hidden: !record?.text,
+            text  : record?.text || null
         });
-        spacer.hidden  = !app?.iconCls && !app?.text;
+        spacer.hidden = !record?.iconCls && !record?.text
+    }
+
+    /**
+     * @summary Offers the return action while this popup hosts a desktop app.
+     * @param {Function|null} handler Return action for the current popup route.
+     */
+    setReturnHandler(handler) {
+        if (this.isDestroying || this.isDestroyed) return;
+
+        const toolbar = this.getReference('desktopPopupToolbar'),
+              button  = toolbar.getReference('desktopPopupReturn');
+
         button.handler = handler;
         toolbar.hidden = !handler
     }

@@ -12,13 +12,8 @@
     background:
         linear-gradient(var(--desktop-app-window-background-color), var(--desktop-app-window-background-color)),
         var(--desktop-wallpaper);
-    color      : var(--desktop-app-window-color);
-    font-family: var(--neo-font-family, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
-    overflow   : hidden;
-
-    h1, h2, p {
-        font-family: inherit;
-    }
+    color   : var(--desktop-app-window-color);
+    overflow: hidden;
 
     .neo-desktop-popup-toolbar {
         --desktop-popup-button-border    : color-mix(in srgb, var(--desktop-app-window-color) 18%, var(--desktop-app-window-border-color));
@@ -44,20 +39,6 @@
         border-bottom: 1px solid var(--desktop-app-window-border-color);
         min-height   : 41px;
         padding      : 6px 12px;
-    }
-
-    .neo-desktop-app-window-icon {
-        align-items     : center;
-        background-color: var(--desktop-app-color);
-        border-radius   : 7px;
-        color           : #fff;
-        display         : inline-flex;
-        flex            : none;
-        font-size       : 12px;
-        height          : 24px;
-        justify-content : center;
-        margin-right    : 8px;
-        width           : 24px;
     }
 
     .neo-desktop-popup-title {
