@@ -15,7 +15,7 @@
 
 ## How the Content is Organized
 
-The learning navigation tree (`learn/tree.json`) composes `222` visible topics across ten sections (`127` Engine topics plus `95` federated guides from `neo-agent-brain`, `neo-agent-institution`, and `devindex`, alongside hidden redirect/legacy routes and the `learn/blog/` articles):
+The learning navigation tree (`learn/tree.json`) composes `226` visible topics across ten sections (`131` Engine topics plus `95` federated guides from `neo-agent-brain`, `neo-agent-institution`, and `devindex`, alongside hidden redirect/legacy routes and the `learn/blog/` articles):
 
 1. **Using These Topics:** How the learning base is organized and how to run and edit the inline live-preview examples below.
 2. **Benefits:** The [Introduction](./benefits/Introduction.md), [Architecture Overview](./benefits/ArchitectureOverview.md), [Enterprise Evaluation](./benefits/EnterpriseEvaluation.md), **The Brain - Agent OS** (`6` pages covering the [AI Engineering Team](https://neomjs.com/learn/benefits/brain/AIEngineeringTeam), [Identity, Rituals & Culture](https://neomjs.com/learn/benefits/brain/IdentityRitualsCulture), [Agent Memory](https://neomjs.com/learn/benefits/brain/AgentMemory), [Self-Evolution](https://neomjs.com/learn/benefits/brain/SelfEvolution), [The Agent OS on Your Codebase](https://neomjs.com/learn/benefits/brain/AgentOSOnYourCodebase), and [Deploying the Agent OS](https://neomjs.com/learn/benefits/brain/DeployingTheAgentOS)), and **The Body - Application Engine** (`13` pages covering Off-the-Main-Thread workers, multi-window apps, the config system, forms, and four build environments) — `22` pages in all.
