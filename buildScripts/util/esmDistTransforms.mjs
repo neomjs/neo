@@ -15,6 +15,7 @@
 
 import * as acorn from 'acorn';
 import path       from 'node:path';
+import {parse}    from 'parse5';
 
 /**
  * The output tree this build writes, relative to the workspace root.
@@ -164,9 +165,10 @@ export const isFixedBasePath = basePath =>
  * @param {Object} config parsed neo-config.json; mutated in place, matching the caller's contract
  * @param {Object}  options
  * @param {Boolean} options.insideNeo
+ * @param {String} [options.appSubPath] App directory relative to dist/esm; defaults to the emitted appPath's directory.
  * @returns {Object} the same object
  */
-export function rewriteNeoConfig(config, {insideNeo}) {
+export function rewriteNeoConfig(config, {insideNeo, appSubPath}) {
     const {basePath} = config;
 
     Object.assign(config, {
@@ -180,7 +182,57 @@ export function rewriteNeoConfig(config, {insideNeo}) {
         config.appPath = config.appPath.substring(6)
     }
 
+    if (config.routerMode === 'pathname') {
+        rewritePathnameConfig(config, `${esmOutputRoot}/${appSubPath ?? path.posix.dirname(config.appPath)}`)
+    }
     return config
+}
+
+/**
+ * @summary Anchors a pathname app at its emitted directory, shared by ESM and webpack builds.
+ * Hash configurations retain their existing properties unchanged.
+ * @param {Object} config Mutated in place.
+ * @param {String} outputDirectory Workspace-relative output directory.
+ * @returns {Object}
+ */
+export function rewritePathnameConfig(config, outputDirectory) {
+    if (config.routerMode === 'pathname') config.routerBasePath = '/' + outputDirectory.replaceAll('\\', '/').replace(/^\/+|\/+$/g, '');
+    return config
+}
+
+/**
+ * @summary Synchronizes the emitted HTML's base with its pathname mount using parsed source locations.
+ * Only the real head/base is edited; comments, script strings and unrelated formatting stay intact.
+ * Hash pages pass through byte-for-byte. No server-side HTML rewrite is needed.
+ * @param {String} html
+ * @param {Object} config
+ * @param {String} outputDirectory Workspace-relative output directory.
+ * @returns {String}
+ */
+export function rewritePathnameHtml(html, config, outputDirectory) {
+    if (config.routerMode !== 'pathname') return html;
+    const document  = parse(html, {sourceCodeLocationInfo: true}),
+          root      = document.childNodes.find(node => node.tagName === 'html'),
+          head      = root.childNodes.find(node => node.tagName === 'head'),
+          base      = head.childNodes.find(node => node.tagName === 'base'),
+          href      = '/' + outputDirectory.replaceAll('\\', '/').replace(/^\/+|\/+$/g, '') + '/',
+          attribute = `href="${href.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}"`;
+    let start, end, replacement;
+    if (base) {
+        const location = base.sourceCodeLocation;
+        if (location.attrs?.href) {
+            ({startOffset: start, endOffset: end} = location.attrs.href);
+            replacement = attribute
+        } else {
+            start = end = location.startTag.endOffset - (html[location.startTag.endOffset - 2] === '/' ? 2 : 1);
+            replacement = ' ' + attribute
+        }
+    } else {
+        start = end = head.sourceCodeLocation?.startTag.endOffset ?? root.sourceCodeLocation?.startTag?.endOffset ??
+            document.childNodes.find(node => node.nodeName === '#documentType')?.sourceCodeLocation?.endOffset ?? 0;
+        replacement = `<base ${attribute}>`
+    }
+    return html.slice(0, start) + replacement + html.slice(end)
 }
 
 /**

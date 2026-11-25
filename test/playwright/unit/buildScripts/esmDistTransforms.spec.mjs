@@ -1,6 +1,7 @@
 import fs             from 'fs';
 import path           from 'path';
 import {test, expect} from '@playwright/test';
+import {parse}        from 'parse5';
 
 /**
  * `dist/esm` is a copy-and-minify transform with no module resolver, so every path assumption it
@@ -19,6 +20,52 @@ import {test, expect} from '@playwright/test';
  *
  * @see https://github.com/neomjs/neo/issues/17921
  */
+test.describe('pathname dist mounts', () => {
+    let transforms;
+    test.beforeAll(async () => {transforms = await import('../../../../buildScripts/util/esmDistTransforms.mjs')});
+
+    for (const tier of ['esm', 'development', 'production']) {
+        test(`${tier} keeps HTML and config on the same emitted mount`, () => {
+            const mount = `dist/${tier}/apps/camelCase`, config = {routerMode: 'pathname', routerBasePath: '/source'},
+                  html  = '<!doctype html><html><head><base target="_self" href="/source/"><title>app</title></head><body></body></html>';
+            expect(transforms.rewritePathnameConfig(config, mount)).toBe(config);
+            expect(config.routerBasePath).toBe('/' + mount);
+            const result = transforms.rewritePathnameHtml(html, config, mount);
+            expect(result).toContain(`target="_self" href="/${mount}/"`);
+            expect(transforms.rewritePathnameHtml(result, config, mount)).toBe(result)
+        })
+    }
+
+    test('ESM rewrite uses the emitted app folder, which need not own the entry module', () => {
+        const config = transforms.rewriteNeoConfig({routerMode: 'pathname', routerBasePath: '/source',
+            basePath: '../../', appPath: 'apps/shared/app.mjs'}, {insideNeo: true, appSubPath: 'apps/entry'});
+        expect(config.routerBasePath).toBe('/dist/esm/apps/entry')
+    });
+
+    test('hash HTML and routing config remain byte-identical', () => {
+        const html   = '<HTML>\n<HEAD><base href=\'/old/\'></HEAD><BODY>hash</BODY></HTML>',
+              config = {routerMode: 'hash', routerBasePath: '/old', custom: true}, original = JSON.stringify(config);
+        expect(transforms.rewritePathnameHtml(html, config, 'dist/production/apps/hash')).toBe(html);
+        transforms.rewritePathnameConfig(config, 'dist/production/apps/hash');
+        expect(JSON.stringify(config)).toBe(original)
+    });
+
+    test('insertion and attribute edits ignore base-like text in comments and scripts', () => {
+        const config = {routerMode: 'pathname'}, mount = 'dist/esm/apps/route',
+              fake   = '<!-- <base href="/fake/"> --><script>const text = \'<base href="/fake/">\';</script>';
+        for (const base of ['', '<base target="_blank">', '<BASE HREF=\'/old/\'>', '<base href=/old/>']) {
+            const html   = `<!doctype html><html><head>${fake}${base}</head><body></body></html>`,
+                  result = transforms.rewritePathnameHtml(html, config, mount), document = parse(result),
+                  head   = document.childNodes.find(node => node.tagName === 'html').childNodes.find(node => node.tagName === 'head'),
+                  bases  = head.childNodes.filter(node => node.tagName === 'base');
+            expect(result).toContain(fake);
+            expect(bases).toHaveLength(1);
+            expect(bases[0].attrs.find(attr => attr.name === 'href').value).toBe('/dist/esm/apps/route/');
+            if (base.includes('target')) expect(bases[0].attrs.find(attr => attr.name === 'target').value).toBe('_blank')
+        }
+    });
+});
+
 test.describe('esmDistTransforms — a dist/esm build that finishes must also be able to boot', () => {
     let transforms;
 

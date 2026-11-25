@@ -20,6 +20,132 @@ import {
 
 const SCRIPT = fileURLToPath(new URL('../../../../../buildScripts/util/fileServer.mjs', import.meta.url));
 
+test.describe('fileServer pathname mounts', () => {
+    let root, server, base;
+    const quiet = {onListening() {}, onRequest() {}},
+          write = (file, content) => {
+              fs.mkdirSync(path.dirname(path.join(root, file)), {recursive: true});
+              fs.writeFileSync(path.join(root, file), typeof content === 'string' ? content : JSON.stringify(content))
+          };
+
+    test.beforeAll(async () => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-spa-server-'));
+        write('package.json', {neo: {spaRoot: 'apps/portal'}});
+        for (const folder of ['apps/route', 'apps/portal', 'dist/production/apps/route']) {
+            write(`${folder}/neo-config.json`, {routerMode: 'pathname', routerIgnorePaths: ['/examples/tree/']});
+            write(`${folder}/index.html`, `<!doctype html><title>${folder}</title>`)
+        }
+        write('apps/hash/neo-config.json', {routerMode: 'hash'});
+        write('apps/hash/index.html', '<title>hash</title>');
+        write('apps/route/data.json', '{"real":true}');
+        write('apps/route/license', 'physical extensionless file');
+        write('examples/tree/item.txt', 'tree');
+        write('.env', 'secret');
+        server = createFileServer({root, freshness: quiet});
+        base = `http://localhost:${await listen(server, {port: 0, strict: true})}`
+    });
+    test.afterAll(() => {
+        server.closeAllConnections(); server.close();
+        fs.rmSync(root, {recursive: true, force: true})
+    });
+
+    test('GET and HEAD deep routes serve the nearest pathname shell, including dist mounts', async () => {
+        for (const mount of ['/apps/route', '/dist/production/apps/route']) {
+            const response = await fetch(`${base}${mount}/users/42?view=compact`),
+                  head     = await fetch(`${base}${mount}/users/42`, {method: 'HEAD'});
+            expect(response.status).toBe(200);
+            expect(response.headers.get('content-type')).toMatch(/^text\/html/);
+            expect(await response.text()).toContain(`<title>${mount.slice(1)}</title>`);
+            expect(head.status).toBe(200);
+            expect(await head.text()).toBe('')
+        }
+    });
+
+    test('real files win and missing static assets never become HTML', async () => {
+        expect(await (await fetch(`${base}/apps/route/license`)).text()).toBe('physical extensionless file');
+        expect(await (await fetch(`${base}/apps/route/data.json`)).json()).toEqual({real: true});
+        for (const file of ['Missing.mjs', 'Missing.CSS', 'photo.avif', 'archive.zip']) {
+            expect((await fetch(`${base}/apps/route/${file}`)).status, file).toBe(404)
+        }
+        expect((await fetch(`${base}/.env`)).status).toBe(404);
+        expect(await rawStatus(base, '/apps/route/%2e%2e/%2e%2e/.env')).toBe(404)
+    });
+
+    test('root app aliases redirect before the physical index can be served, preserving search', async () => {
+        for (const alias of ['/apps/portal', '/apps/portal/', '/apps/portal/index.html']) {
+            const response = await fetch(`${base}${alias}?view=compact`, {redirect: 'manual'});
+            expect(response.status, alias).toBe(301);
+            expect(response.headers.get('location')).toBe('/?view=compact')
+        }
+        expect(await (await fetch(`${base}/learn/Introduction`)).text()).toContain('<title>apps/portal</title>');
+        expect(await (await fetch(`${base}/`)).text()).toContain('<title>apps/portal</title>')
+    });
+
+    test('classifies the raw path before trimming slashes and keeps ignored directories static', async () => {
+        const ignored   = await fetch(`${base}/examples/tree/`),
+              managed   = await fetch(`${base}/examples/tree`, {redirect: 'manual'}),
+              canonical = await fetch(`${base}/apps/route/users/42/?x=1`, {redirect: 'manual'});
+        expect(await ignored.text()).toContain('item.txt');
+        expect(await managed.text()).toContain('<title>apps/portal</title>');
+        expect(canonical.status).toBe(301);
+        expect(canonical.headers.get('location')).toBe('/apps/route/users/42?x=1')
+    });
+
+    test('fallback retains native range, validator, method and Host behavior', async () => {
+        const first  = await fetch(`${base}/apps/route/home`),
+              tag    = first.headers.get('etag'),
+              range  = await fetch(`${base}/apps/route/home`, {headers: {Range: 'bytes=0-8'}}),
+              cached = await fetch(`${base}/apps/route/home`, {headers: {'If-None-Match': tag}});
+        expect(range.status).toBe(206);
+        expect(await range.text()).toBe('<!doctype');
+        expect(cached.status).toBe(304);
+        expect((await fetch(`${base}/apps/route/home`, {method: 'POST'})).status).toBe(405);
+        expect(await rawStatus(base, '/apps/route/home', 'rebind.example')).toBe(403)
+    });
+
+    test('no-spa-root disables only the root mount; hash apps never gain a fallback', async () => {
+        const isolated = createFileServer({root, spaRoot: false, freshness: quiet}),
+              url      = `http://localhost:${await listen(isolated, {port: 0, strict: true})}`;
+        try {
+            expect(await (await fetch(url + '/')).text()).toContain('<h1>/</h1>');
+            expect((await fetch(url + '/apps/hash/missing')).status).toBe(404);
+            expect((await fetch(url + '/apps/route/users/42')).status).toBe(200)
+        } finally {isolated.closeAllConnections(); isolated.close()}
+    });
+
+    test('config edits invalidate cached router mode and ignore paths', async () => {
+        const file     = 'apps/route/neo-config.json', target = path.join(root, file),
+              original = fs.readFileSync(target, 'utf8');
+        try {
+            write(file, {routerMode: 'hash'});
+            const later = new Date(Date.now() + 1000);
+            fs.utimesSync(target, later, later);
+            const isolated = createFileServer({root, spaRoot: false, freshness: quiet}),
+                  url      = `http://localhost:${await listen(isolated, {port: 0, strict: true})}`;
+            try {
+                expect((await fetch(url + '/apps/route/home')).status).toBe(404);
+                write(file, {routerMode: 'pathname', routerIgnorePaths: ['/blocked/']});
+                fs.utimesSync(target, new Date(+later + 1000), new Date(+later + 1000));
+                expect((await fetch(url + '/apps/route/home')).status).toBe(200);
+                expect((await fetch(url + '/apps/route/blocked/item')).status).toBe(404)
+            } finally {isolated.closeAllConnections(); isolated.close()}
+        } finally {write(file, original)}
+    });
+
+    test('CLI overrides the manifest and no-spa-root preserves the directory listing', async () => {
+        const argv = (...args) => ['node', SCRIPT, '--port', '0', '--no-open', ...args];
+        expect(parseOptions(argv('--spa-root', 'apps/route'), {}).spaRoot).toBe('apps/route');
+        expect(parseOptions(argv('--spa-root', 'apps/route', '--no-spa-root'), {}).spaRoot).toBe(false);
+        for (const flags of [['--spa-root', 'apps/route'], ['--no-spa-root']]) {
+            const active = await main({argv: argv(...flags), root, env: {}});
+            try {
+                const response = await fetch(`http://localhost:${active.address().port}/`), text = await response.text();
+                expect(text).toContain(flags[0] === '--spa-root' ? '<title>apps/route</title>' : '<h1>/</h1>')
+            } finally {active.closeAllConnections(); active.close()}
+        }
+    });
+});
+
 /**
  * @summary Resolves a port nothing listens on.
  * @returns {Promise<Number>}
