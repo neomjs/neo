@@ -423,14 +423,15 @@ test.describe('check-file-sizes', () => {
         });
     });
 
-    test('the workflow fetches current PR truth and never reads the event-snapshot body', () => {
-        const workflow = readFileSync('.github/workflows/file-size-guard.yml', 'utf8');
+    test('the guards job runs the ratchet against the base commit and the live PR body', () => {
+        // The shared baseline fetches the live body and the full history from v2.9.0 on, and its own contract test pins both
+        const workflow = readFileSync('.github/workflows/pr-baseline.yml', 'utf8'),
+              guard    = workflow.split('\n').find(line => line.includes('"name": "file sizes"')) || '',
+              version  = workflow.match(/reusable-pr-baseline\.yml@v(\d+)\.(\d+)\.\d+/) || [];
 
-        expect(workflow).toContain('github.rest.pulls.get');
-        expect(workflow).toContain('data.body');
-        expect(workflow).not.toContain('context.payload.pull_request.body');
-        expect(workflow).toContain('fetch-depth: 0');
-        expect(workflow).toContain('--base');
-        expect(workflow).toContain('--pr-body-file');
+        expect(guard).toContain('npm run check-file-sizes');
+        expect(guard).toContain('--base \\"$BASE_SHA\\"');
+        expect(guard).toContain('--pr-body-file \\"$BODY_FILE\\"');
+        expect(Number(version[1]) * 1000 + Number(version[2])).toBeGreaterThanOrEqual(2009);
     });
 });
