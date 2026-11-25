@@ -54,13 +54,14 @@ permissions:
 # theirs. It lives in the Brain and is read at the Brain's `dev`, never from the pull request under review.
 jobs:
   baseline:
-    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v2.7.2
+    uses: neomjs/neo-agent-skills/.github/workflows/reusable-pr-baseline.yml@v2.9.0
     with:
       required_base: dev
       guides: true
       guides_skip: '["dead-script-ref"]'
       team_roster_repository: neomjs/neo-agent-brain
       team_roster_path: ai/graph/agentCoAuthorEmails.mjs
+      # The guards job hands every guard the PR's base commit (`BASE_SHA`, full history) and its live body (`BODY_FILE`).
       guards: |
         [
           {"name": "guard CI parity",           "run": "node ./buildScripts/util/check-guard-ci-parity.mjs"},
@@ -68,6 +69,7 @@ jobs:
           {"name": "content root derivations",  "run": "node ./buildScripts/util/check-content-root-derivations.mjs"},
           {"name": "engine brain boundary",     "run": "node ./buildScripts/util/check-engine-brain-boundary.mjs"},
           {"name": "fixed sleeps",              "run": "node ./buildScripts/util/check-fixed-sleeps.mjs"},
+          {"name": "file sizes",                "run": "npm run check-file-sizes -- --base \"$BASE_SHA\" --pr-body-file \"$BODY_FILE\""},
           {"name": "JSDoc types",               "run": "node ./buildScripts/util/check-jsdoc-types.mjs"},
           {"name": "relative links",            "run": "npm run check-relative-links"},
           {"name": "theme coverage",            "run": "node ./buildScripts/util/check-theme-coverage.mjs"},
@@ -77,6 +79,6 @@ jobs:
           {"name": "theme surfaces",            "run": "npm run check-theme-surfaces"},
           {"name": "front door fingerprint",    "run": "node ./buildScripts/util/check-front-door-fingerprint.mjs"},
           {"name": "package contents",          "run": "npm run check-package-contents"},
-          {"name": "spec retirement",           "run": "git fetch --no-tags --unshallow origin \"+${GITHUB_REF}:refs/remotes/origin/pr\" +refs/heads/dev:refs/remotes/origin/dev && node ./buildScripts/util/check-spec-retirement.mjs < /dev/null"},
+          {"name": "spec retirement",           "run": "git fetch --no-tags origin \"+${GITHUB_REF}:refs/remotes/origin/pr\" +refs/heads/dev:refs/remotes/origin/dev && node ./buildScripts/util/check-spec-retirement.mjs < /dev/null"},
           {"name": "class hierarchy freshness", "run": "npm run generate-docs-json && git diff --exit-code -- docs/output/class-hierarchy.json"}
         ]
