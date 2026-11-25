@@ -760,6 +760,47 @@ test.describe('Portal examples overview and group pages', () => {
             Neo.main = originalMain
         }
     });
+
+    test('a row step past a list\'s edge enters the page\'s next list, and one selection holds across a page\'s lists', async () => {
+        const view           = createView(),
+              controller     = view.getController(),
+              page           = view.getGroupPage('forms'),
+              [cards, tiles] = page.getLists(),
+              selected       = list => list.selectionModel.items,
+              itemOf         = (list, record) => list.getItemId(list.getRecordId(record)),
+              firstOf        = list => itemOf(list, list.store.items[0]),
+              lastOf         = list => itemOf(list, list.store.items.at(-1));
+
+        // the step needs both kinds on the page
+        expect(cards.store.getCount()).toBeGreaterThan(0);
+        expect(tiles.store.getCount()).toBeGreaterThan(0);
+        expect(controller.getPageLists(tiles.id)).toEqual([cards, tiles]);
+
+        // no layout to measure here, so an entered list takes its first or last card in reading order
+        [cards, tiles].forEach(list => {list.focus = () => {}});
+        cards.selectionModel.select(lastOf(cards));
+
+        // ArrowDown past the last demonstration row enters the tiles, and the card gives up its selection
+        await controller.onListLeaveRow({direction: 1, left: 0, right: 320, source: cards.id});
+        expect(selected(tiles)).toEqual([firstOf(tiles)]);
+        expect(selected(cards)).toEqual([]);
+
+        // ArrowUp past the first tile row returns to the demonstrations' last row
+        await controller.onListLeaveRow({direction: -1, left: 0, right: 320, source: tiles.id});
+        expect(selected(cards)).toEqual([lastOf(cards)]);
+        expect(selected(tiles)).toEqual([]);
+
+        // at the page's outer edges nothing moves
+        await controller.onListLeaveRow({direction: -1, left: 0, right: 320, source: cards.id});
+        expect(selected(cards)).toEqual([lastOf(cards)]);
+        await controller.onListLeaveRow({direction: 1, left: 0, right: 320, source: tiles.id});
+        expect(selected(tiles)).toEqual([]);
+
+        // a pointer selection in the other list clears this one too
+        tiles.selectionModel.select(lastOf(tiles));
+        expect(selected(cards)).toEqual([]);
+        expect(selected(tiles)).toEqual([lastOf(tiles)])
+    });
 });
 
 const {records: catalog} = await readExampleCatalog(path.join(repoRoot, EXAMPLES_DIR)),

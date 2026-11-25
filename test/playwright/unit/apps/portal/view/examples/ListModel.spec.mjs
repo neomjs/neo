@@ -337,5 +337,59 @@ test.describe('Portal.view.examples.ListModel', () => {
         oneCol.model.select(idOf(oneCol, 'workstation'));
         await oneCol.model.onKeyDownDown({path: [{id: idOf(oneCol, 'workstation'), cls: ['neo-list-item']}]});
         expect(oneCol.model.items).toEqual([idOf(oneCol, 'grid-big-data')])
+    });
+
+    test('past the last or first row the card stays and the owner gets leaveRow with its span; enterRow() enters the facing row', async () => {
+        const box = (col, row, w=350, h=260) => {
+            const left = col * (w + 24),
+                  top  = row * (h + 14);
+            return {x: left, y: top, left, top, right: left + w, bottom: top + h, width: w, height: h}
+        };
+
+        // Two rows: three cards above, two below — the second row ends short, as a section's last row does
+        const {focusedIds, list, model, store} = await createMountedList({
+                  rectsByRecordId: {
+                      'workstation'  : box(0, 0),
+                      'grid-big-data': box(1, 0),
+                      'sprint-board' : box(2, 0),
+                      'garden-gantt' : box(0, 1),
+                      'calendar-main': box(1, 1)
+                  }
+              }),
+              idOf   = key => list.getItemId(list.getRecordId(store.get(key))),
+              leaves = [];
+
+        // The two records without a box measure zero-sized and take no part, like cards outside the layout
+        list.on('leaveRow', data => leaves.push(data));
+
+        // ArrowDown on the bottom row keeps the card and hands the step on, with the card's horizontal span
+        model.select(idOf('calendar-main'));
+        await model.onKeyDownDown({path: [{id: idOf('calendar-main'), cls: ['neo-list-item']}]});
+
+        expect(model.items).toEqual([idOf('calendar-main')]);
+        expect(leaves).toHaveLength(1);
+        expect(leaves[0]).toMatchObject({direction: 1, left: 374, right: 724, source: list.id});
+
+        // ArrowUp on the top row does the same in the other direction; a step inside the list hands nothing on
+        model.select(idOf('sprint-board'));
+        await model.onKeyDownUp({path: [{id: idOf('sprint-board'), cls: ['neo-list-item']}]});
+        expect(leaves.at(-1)).toMatchObject({direction: -1, left: 748, right: 1098});
+
+        await model.onKeyDownDown({path: [{id: idOf('sprint-board'), cls: ['neo-list-item']}]});
+        expect(leaves).toHaveLength(2);
+
+        // Entering from above takes the top row's card under the leaving span; from below, the bottom row's
+        model.deselectAll();
+        focusedIds.length = 0;
+        await model.enterRow(1, {left: 748, right: 1098});
+        expect(model.items).toEqual([idOf('sprint-board')]);
+        expect(focusedIds).toEqual([idOf('sprint-board')]);
+
+        // The bottom row has no card under x 748..1098, so the nearest one by center takes it
+        await model.enterRow(-1, {left: 748, right: 1098});
+        expect(model.items).toEqual([idOf('calendar-main')]);
+
+        await model.enterRow(-1, {left: 0, right: 350});
+        expect(model.items).toEqual([idOf('garden-gantt')])
     })
 });
