@@ -178,9 +178,9 @@ class VdomLifecycle extends Base {
         const me         = this,
               windowId   = config.windowId ?? me.windowId,
               createOpts = {
-                  appName: me.appName,
-                  windowId,
-                  ...config
+                  ...config,
+                  appName: config.appName ?? me.appName,
+                  windowId
               },
               data       = await Promise.resolve(Neo.vdom.Helper.create(createOpts));
 

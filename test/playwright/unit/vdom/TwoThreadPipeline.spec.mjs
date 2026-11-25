@@ -256,12 +256,15 @@ test.describe('Two-thread VDOM pipeline parity (#20780)', () => {
 
         calls.length = 0;
         const appended = await comp.createVnodeTree({
+            appName  : undefined,
             autoMount: true,
             parentId : 'document.body',
-            vdom     : {tag: 'span', id: 'append-automount-node', text: 'tail'}
+            vdom     : {tag: 'span', id: 'append-automount-node', text: 'tail'},
+            windowId : undefined
         });
 
         expect(calls).toHaveLength(1);
+        expect(calls[0].windowId).toBe(3);
         expect(calls[0].deltas[0].index).toBe(Number.MAX_SAFE_INTEGER);
         expect(validateBatch(calls[0].deltas, {useDomApiRenderer: true}).valid).toBe(true);
         expect(appended.deltas).toEqual(calls[0].deltas);
