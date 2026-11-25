@@ -399,26 +399,30 @@ test.describe('Portal examples section', () => {
         await page.goto(`${PORTAL}#/examples`);
         const app = await neuralLink.connectToApp('Portal');
 
-        const headline   = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
-              counts     = page.locator(`${SIDEBAR} li .portal-examples-group-index-count`),
-              allCount   = page.locator(`${SIDEBAR} .portal-examples-group-index-all .portal-examples-group-index-count`),
-              note       = page.locator(`${SIDEBAR} .portal-examples-group-index-note`),
-              components = counts.nth(GROUPS.indexOf('More components')),
-              apps       = counts.nth(GROUPS.indexOf('Apps')),
-              sum        = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
-              noteOf     = published => `${published} examples in all. Some appear in more than one group.`,
-              headlineOf = published => `${published} live examples in ${GROUPS.length} groups`;
+        const headline      = page.locator('.portal-examples-overview:visible .portal-examples-overview-headline'),
+              counts        = page.locator(`${SIDEBAR} li .portal-examples-group-index-count`),
+              startCount    = page.locator(`${SIDEBAR} .portal-examples-group-index-all .portal-examples-group-index-count`),
+              featuredCards = page.locator(`${FEATURED} .neo-list-item`),
+              findInput     = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input'),
+              note          = page.locator(`${SIDEBAR} .portal-examples-group-index-note`),
+              components    = counts.nth(GROUPS.indexOf('More components')),
+              apps          = counts.nth(GROUPS.indexOf('Apps')),
+              sum           = async () => (await counts.allTextContents()).reduce((sum, text) => sum + Number(text), 0),
+              noteOf        = published => `${published} examples in all. Some appear in more than one group.`,
+              headlineOf    = published => `${published} live examples in ${GROUPS.length} groups`;
 
         await expect(page.locator(SIDEBAR)).toBeVisible();
         await expect(counts).toHaveCount(GROUPS.length);
         await expect(note).toHaveText(/^\d+ examples in all\. Some appear in more than one group\.$/);
 
         const published      = Number((await note.textContent()).split(' ')[0]),
+              curatedCount   = await featuredCards.count(),
               componentCount = Number(await components.textContent());
 
-        // the line gives the headline's total; a borrowed example counts in every group that shows it, so the list adds up to more
+        // Start here counts the curated cards on /examples, the search placeholder and footer line give the published total
         await expect(headline).toHaveText(headlineOf(published));
-        await expect(allCount).toHaveText(String(published));
+        await expect(startCount).toHaveText(String(curatedCount));
+        await expect(findInput).toHaveAttribute('placeholder', `Search ${published} examples…  /`);
         expect(published).toBeGreaterThan(0);
         expect((await counts.allTextContents()).every(text => /^\d+$/.test(text)), 'every group shows a number').toBe(true);
         expect(await sum()).toBeGreaterThan(published);
@@ -429,12 +433,14 @@ test.describe('Portal examples section', () => {
         await selectBuild(page, 'Dev mode');
         await expect(headline).toHaveText(headlineOf(published - 1));
         await expect(note).toHaveText(noteOf(published - 1));
-        await expect(allCount).toHaveText(String(published - 1));
+        await expect(startCount).toHaveText(String(curatedCount));
+        await expect(findInput).toHaveAttribute('placeholder', `Search ${published - 1} examples…  /`);
         await expect(page.locator(SIDEBAR).getByRole('link', {name: `More components, ${componentCount - 1} live examples`})).toHaveCount(1);
         await selectBuild(page, 'Production build');
         await expect(headline).toHaveText(headlineOf(published));
 
-        await expect(allCount).toHaveText(String(published));
+        await expect(startCount).toHaveText(String(curatedCount));
+        await expect(findInput).toHaveAttribute('placeholder', `Search ${published} examples…  /`);
 
         // a planning group's number is its page's cards; it is read, so an examples PR edits no line here
         for (const name of ['Scheduler', 'Gantt', 'Task Board']) {
@@ -472,7 +478,7 @@ test.describe('Portal examples section', () => {
               links = nav.getByRole('link');
 
         await expect(links).toHaveCount(GROUPS.length + 1);
-        await expect(nav.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
+        await expect(nav.locator('[aria-current="page"]')).toHaveAccessibleName(/^Start here, \d+ live examples?$/);
         await expect(nav.locator('[role="tab"], [aria-selected]')).toHaveCount(0);
 
         // The open destination's link is the one Tab stop; the arrow keys walk the rest (side nav keys, below)
@@ -494,9 +500,10 @@ test.describe('Portal examples section', () => {
 
         await expect(button).toBeVisible();
         await expect(button).toHaveText(`All ${GROUPS.length} groups`);
+        await expect(page.locator(`${CRUMB} .portal-examples-find-field input`)).toHaveAttribute('placeholder', /^Search \d+ examples…  \/$/);
         await button.click();
         await expect(sheet).toBeVisible();
-        await expect(sheet.locator('[aria-current="page"]')).toHaveAccessibleName(/^All examples, \d+ live examples?$/);
+        await expect(sheet.locator('[aria-current="page"]')).toHaveAccessibleName(/^Start here, \d+ live examples?$/);
         await sheet.getByRole('link', {name: /^Grid & Table, /}).click();
         await expectOpenPage(page, 'Grid & Table');
         await expect(button).toHaveText('Grid & Table');
@@ -939,7 +946,7 @@ test.describe('Portal examples section', () => {
 
             const sidebar = page.locator(SIDEBAR),
                   trees   = sidebar.getByRole('link', {name: /^Trees, /}),
-                  current = sidebar.getByRole('link', {name: /^All examples, \d+ live examples?$/}),
+                  current = sidebar.getByRole('link', {name: /^Start here, \d+ live examples?$/}),
                   paint   = link => link.evaluate(node => {
                       const style = getComputedStyle(node);
                       return {background: style.backgroundColor, marker: style.boxShadow}
@@ -1585,9 +1592,9 @@ const groupLink = (page, name) => page.locator(SIDEBAR).getByRole('link', {name:
 
 /**
  * @param {Object} page
- * @returns {Object} The side nav's `"All examples"` link
+ * @returns {Object} The side nav's `"Start here"` link
  */
-const allLink = page => page.locator(SIDEBAR).getByRole('link', {name: /^All examples\b/});
+const startLink = page => page.locator(SIDEBAR).getByRole('link', {name: /^Start here\b/});
 
 /**
  * @param {Object} page
@@ -1633,7 +1640,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(last, 'the walk does not wrap').toBeFocused();
 
         await page.keyboard.press('Home');
-        await expect(allLink(page)).toBeFocused();
+        await expect(startLink(page)).toBeFocused();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first()).toBeVisible();
         await expect(page).toHaveURL(/#\/examples$/);
 
@@ -1716,10 +1723,10 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expect(cards.nth(1), 'the selected card is the way back in').toBeFocused()
     });
 
-    test('on All examples and under a filter ArrowRight enters what the stage shows, and Tab into the side nav keeps the filter', async ({page}) => {
+    test('on Start here and under a filter ArrowRight enters what the stage shows, and Tab into the side nav keeps the filter', async ({page}) => {
         await page.goto(`${PORTAL}#/examples`);
 
-        const all  = allLink(page),
+        const all  = startLink(page),
               find = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples');
 
         await expect(all).toHaveAttribute('aria-current', 'page');
@@ -1729,6 +1736,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
 
         await find.fill('grid');
         await expect(page.locator(MATCHES).first()).toBeVisible();
+        await expect(all).toHaveAccessibleName(/^Start here, [1-9]\d* matching examples?$/);
         await page.keyboard.press('Tab');
         await expect(all).toBeFocused();
         await expect(find, 'focus arriving by Tab opens nothing').toHaveValue('grid');

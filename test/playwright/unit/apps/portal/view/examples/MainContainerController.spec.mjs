@@ -612,6 +612,11 @@ test.describe('Portal examples overview and group pages', () => {
 
         await controller.onExamplesRoute({itemId: 'multi-window'});
         expect(openCard(view)).toBe('multi-window');
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getMobileFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getGroupIndex().vdom.cn[0]['aria-label']).toBe(`Start here, ${startHereIds.length} live examples`);
+        expect(view.getGroupIndex().vdom.cn[0].cn[1].text).toBe('Start here');
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe(String(startHereIds.length));
 
         // Dev mode removes More components, a page created before Multi-Window
         controller.onSelectBuild({id: 'devmode'});
@@ -634,6 +639,11 @@ test.describe('Portal examples overview and group pages', () => {
 
         await controller.onExamplesRoute({itemId: 'multi-window'});
         expect(openCard(view)).toBe('multi-window');
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getMobileFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
+        expect(view.getGroupIndex().vdom.cn[0]['aria-label']).toBe(`Start here, ${startHereIds.length} live examples`);
+        expect(view.getGroupIndex().vdom.cn[0].cn[1].text).toBe('Start here');
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe(String(startHereIds.length));
 
         controller.onFindFieldChange({value: 'drag'});
         expect(stage.items[stage.layout.activeIndex]).toBe(searchResults);
@@ -661,9 +671,13 @@ test.describe('Portal examples overview and group pages', () => {
 
         const indexVdom = view.getGroupIndex().vdom,
               findEntry = (node, id) => node.id === id ? node : (node.cn || []).map(c => findEntry(c, id)).find(Boolean),
+              startRow  = indexVdom.cn[0],
+              dragStart = expectedMatches('drag').filter(record => record.featured).length,
               dragEntry = findEntry(indexVdom, `${view.getGroupIndex().id}__drag-drop`),
               calEntry  = findEntry(indexVdom, `${view.getGroupIndex().id}__calendar`);
 
+        expect(startRow['aria-label']).toBe(`Start here, ${dragStart === 1 ? '1 matching example' : `${dragStart} matching examples`}`);
+        expect(startRow.cn[2].text).toBe(String(dragStart));
         expect(dragEntry['aria-label']).toBe(label('Drag & Drop', 'drag-drop'));
         expect(dragEntry.cn[2].text).toBe(String(drag.get('drag-drop').total));
         expect(calEntry['aria-label']).toBe(label('Calendar', 'calendar'));
@@ -688,15 +702,21 @@ test.describe('Portal examples overview and group pages', () => {
 
         controller.onFindFieldChange({value: 'liquid'});
         expect(matchedIds()).toEqual(['liquid-glass']);
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe('0');
+        expect(view.getGroupIndex().vdom.cn[0].cls).toContain('portal-examples-group-index-zero');
         controller.onSelectBuild({id: 'devmode'});
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount - 1} examples…  /`);
         expect(matchedIds()).toEqual([]);
         expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
         controller.onSelectBuild({id: 'dist_prod'});
+        expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
         expect(matchedIds()).toEqual(['liquid-glass']);
 
         controller.onClearFind();
         expect(view.findQuery).toBe('');
         expect(view.getStateProvider().getData('matchCounts')).toBeNull();
+        expect(view.getStateProvider().getData('featuredMatches')).toBeNull();
+        expect(view.getGroupIndex().vdom.cn[0].cn[2].text).toBe(String(startHereIds.length));
         expect(searchResults.getGroupsContainer().items).toHaveLength(0);
         expect(openCard(view)).toBe('multi-window');
         expect(stage.layout.activeIndex).toBe(stage.indexOf(view.getGroupPage('multi-window')))

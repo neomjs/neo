@@ -120,9 +120,12 @@ class MainContainer extends Container {
         stateProvider: {
             module: StateProvider,
             data  : {
-                catalogMode: 'dist_prod',
-                findQuery  : '',
-                matchCounts: null
+                catalogMode    : 'dist_prod',
+                featuredCount  : 0,
+                featuredMatches: null,
+                findQuery      : '',
+                matchCounts    : null,
+                publishedCount : 0
             },
             stores: {
                 catalog: {module: ExampleStore, pipeline: {connection: {module: ExampleCatalog, url: '../../apps/portal/resources/data/examples/index.json'}}},
@@ -252,6 +255,7 @@ class MainContainer extends Container {
     createFindField(reference, flex='none') {
         return {
             module         : SearchField,
+            bind           : {placeholderText: data => data.publishedCount > 0 ? `Search ${data.publishedCount} examples…  /` : 'Search examples…  /'},
             clearable      : true,
             cls            : ['portal-examples-find-field'],
             domListeners   : {keydown: this.onFindFieldKeyDown, scope: this},
@@ -259,7 +263,7 @@ class MainContainer extends Container {
             flex,
             hideLabel      : true,
             listeners      : {change: 'onFindFieldChange'},
-            placeholderText: 'Find examples…  /',
+            placeholderText: 'Search examples…  /',
             reference,
             value          : this.findQuery || ''
         }
@@ -335,7 +339,7 @@ class MainContainer extends Container {
                     handler  : me.onGroupButtonClick.bind(me),
                     iconCls  : 'fa fa-table-cells-large',
                     reference: 'group-button',
-                    text     : 'All examples',
+                    text     : 'Start here',
                     ui       : 'secondary'
                 }]
             }, me.createFindField('mobile-find', '1 1 180px'), {
@@ -686,7 +690,7 @@ class MainContainer extends Container {
         me.down({reference: 'crumb-separator'}).hidden = !group;
         me.getGroupButton().set(group
             ? {iconCls: group.iconCls, text: group.title}
-            : {iconCls: 'fa fa-table-cells-large', text: total ? `All ${total} groups` : 'All examples'}
+            : {iconCls: 'fa fa-table-cells-large', text: total ? `All ${total} groups` : 'Start here'}
         )
     }
     /** @summary Registers `'/'` preventDefault on `document.body` only while mounted and active. */
