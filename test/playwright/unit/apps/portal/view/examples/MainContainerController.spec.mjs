@@ -1227,10 +1227,10 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(store.getSource()).toBe(catalogStore);
         expect(store.items.map(record => record.id)).toEqual(expectedPage('multi-window').cards);
-        // the dock examples moved home to Dashboard & Docking; two of them stay listed here through alsoIn, as do Email
-        // and On Air at Eight
+        // the dock examples moved home to Dashboard & Docking; two of them stay listed here through alsoIn, as do Web Desktop,
+        // Email and On Air at Eight
         expect(catalogStore.items.filter(record => Example.belongsTo(record, 'multi-window') && record.family !== 'multi-window')
-            .map(record => record.id)).toEqual(expect.arrayContaining(['dock-cross-window', 'dock-tear-out', 'email', 'on-air-at-eight']));
+            .map(record => record.id)).toEqual(expect.arrayContaining(['webdesktop', 'dock-cross-window', 'dock-tear-out', 'email', 'on-air-at-eight']));
 
         for (const mode of modes) {
 
@@ -1242,6 +1242,7 @@ test.describe('Portal examples canonical catalog', () => {
 
         expect(catalogStore.get('dock-layouts').sharedWorkers).toBe(false);
         expect(catalogStore.get('dock-tear-out').sharedWorkers).toBe(true);
+        expect(catalogStore.get('webdesktop').sharedWorkers).toBe(true);
         expect(catalogStore.get('multi-window-helix')).toBeNull();
         expect(catalogStore.get('multi-window-state-provider')).toBeNull();
         expect(fs.existsSync(path.join(repoRoot, 'examples/component/multiWindowHelix/index.html'))).toBe(true);
