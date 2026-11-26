@@ -21,16 +21,17 @@ flowchart TD
         M["Stage 4 · Apply"]
     end
     A1 -->|"updateBatch()"| D1
-    D4 -->|"reply: deltas, vnodes, updateVdom flag"| M
-    M -->|"reply after the DOM write"| A5
+    D4 -->|"vnodes on direct channel"| A5
+    D4 -->|"deltas and meta"| M
+    M -->|"write acknowledgement"| A5
 ```
 
 ## Input and output
 
 `updateBatch()` takes `{updates: {componentId: {vdom, vnode, meta}}}`, plus the meta of absorbed roots and, with
 SharedWorkers, the window that asked ([batch][helper-batch], [payload][vl-batch-data]). It diffs the payloads one after
-another and concatenates their deltas in that order. It returns `{deltas, vnodes, meta, updateVdom: true}`, and the
-`updateVdom` flag is how the Main thread recognizes a reply it must write ([flag][mgr-intercept]).
+another and concatenates their deltas in that order. Its result contains deltas, vnodes and metadata. The worker sends
+vnodes directly to the App worker and deltas to Main; the App worker joins the vnode with Main's write acknowledgement.
 
 ## One payload
 
@@ -80,8 +81,7 @@ mounts itself, the Main thread turns that reply into one `insertNode` ([auto-mou
 
 - `createVnode()`, two node maps and one comparison pass: linear in the payload's nodes.
 - With the string renderer, `insertNode` serializes whole subtrees to markup ([insert][helper-insert]).
-- With the VDom worker, the payload is copied in once, and the deltas and vnodes are copied out twice: to the Main
-  thread, then on to the App worker.
+- With the VDom worker, the payload is copied in and the new vnodes are copied directly back to the App worker.
 
 [config-vdom-worker]: https://github.com/neomjs/neo/blob/845524aad5be56ac56f3c4f213f0d063d6baa7bf/src/DefaultConfig.mjs#L414-L424
 [vdom-import]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/VDom.mjs#L44-L57

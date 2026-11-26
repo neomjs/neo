@@ -30,7 +30,8 @@ This is where your code lives. The App worker hosts:
 *   Business logic.
 
 ### 3. The VDom Worker (The Diffing Engine)
-A dedicated worker for comparing VDOM trees. When a component changes, the App worker sends the new VDOM structure to this worker. It calculates the minimum set of changes (deltas) required to update the real DOM.
+An optional dedicated worker for comparing VDOM trees. By default the App worker computes the deltas locally; setting
+`useVdomWorker: true` moves the diff to this worker.
 
 ### 4. The Data Worker
 Handles data-intensive operations like sorting, filtering, and grouping large datasets inside `Neo.data.Store` instances. This prevents data crunching from blocking the UI logic in the App worker.
@@ -127,12 +128,10 @@ To simplify this, Neo.mjs components provide high-level abstractions that handle
 const componentRect = await this.getDomRect();
 ```
 
-### 2. The Triangular Communication (VDOM Updates)
-VDOM updates travel a triangle instead of a request-response. The App worker sends its payloads to the VDom worker over
-a direct channel. The VDom worker's reply, carrying the deltas and the new vnodes, leaves through the Main thread, which
-writes the deltas in its next frame and only then forwards the reply to the App worker. The deltas skip a hop, and the
-App worker never adopts a vnode for DOM that was not written. [The VDOM Engine](../vdomengine/Overview.md) maps every
-edge to the code.
+### 2. VDOM Updates
+By default the App worker diffs locally and sends deltas to Main. With the opt-in VDom worker, its vnode reply travels
+directly to App while deltas travel to Main. App waits for both the vnode and any required write acknowledgement before
+adopting the result. [The VDOM Engine](../vdomengine/Overview.md) maps the paths.
 
 ### 3. Direct MessageChannels (Peer-to-Peer)
 For high-frequency or heavy payloads, direct channels are used.

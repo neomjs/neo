@@ -415,7 +415,7 @@ const DefaultConfig = {
      * Per ADR 0043 [not-ticket-ref: accepted decision record required by config contract]
      * (`learn/agentos/decisions/0043-vdom-diff-placement.md`), `false` runs `Neo.vdom.Helper` inside the
      * App worker and starts no VDom worker. Set `useVdomWorker: true` in `neo-config.json` to opt back into the
-     * separate VDom worker; `true` stays supported until Phase 3.
+     * separate VDom worker, a supported option for workloads that benefit from offloading the diff.
      * @default false
      * @memberOf! module:Neo
      * @name config.useVdomWorker

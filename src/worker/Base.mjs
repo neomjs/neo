@@ -587,10 +587,9 @@ class Worker extends Base {
      * @param {Object} [sourcePort] Exact SharedWorker port entry which delivered the message
      */
     onMessage(e, sourcePort) {
-        let me                = this,
-            {data}            = e,
-            {action, replyId} = data,
-            promise;
+        let me       = this,
+            {data}   = e,
+            {action} = data;
 
         if (sourcePort && !me.ports.includes(sourcePort)) {
             return
@@ -600,16 +599,24 @@ class Worker extends Base {
             throw new Error('Message action is missing: ' + data.id)
         }
 
-        if (action !== 'reply') {
-            me['on' + Neo.capitalize(action)](data, sourcePort);
-        } else if (promise = action === 'reply' && me.promises[replyId]) {
-            if (data.reject) {
-                promise.reject(data.data)
-            } else {
-                promise.resolve(data.data)
-            }
+        if (action === 'reply') {
+            me.onReply(data)
+        } else {
+            me['on' + Neo.capitalize(action)](data, sourcePort)
+        }
+    }
 
-            delete me.promises[replyId]
+    /**
+     * @summary Settles a live request once. A late reply after window departure has no owner.
+     * @param {Object} msg
+     * @protected
+     */
+    onReply({replyId, reject, data}) {
+        const promise = this.promises[replyId];
+
+        if (promise) {
+            delete this.promises[replyId];
+            reject ? promise.reject(data) : promise.resolve(data)
         }
     }
 

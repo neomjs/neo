@@ -7,6 +7,15 @@ import IdGenerator from '../core/IdGenerator.mjs';
  */
 class Message {
     /**
+     * @summary Identifies the two helper calls whose replies carry an updated VNode tree to App.
+     * @param {Object} request
+     * @returns {Boolean}
+     */
+    static isVdomUpdate({remoteClassName, remoteMethod}) {
+        return remoteClassName === 'Neo.vdom.Helper' && (remoteMethod === 'updateBatch' || remoteMethod === 'update')
+    }
+
+    /**
      * @param {Object} config
      */
     constructor(config) {

@@ -14,20 +14,21 @@ flowchart TD
         D["Stage 3 · Diff"]
     end
     subgraph MAIN["Main thread"]
-        M1["onWorkerMessage(): hold a reply that carries deltas"] --> M2["write queue: next frame, or a 100 ms timer"]
+        M1["onWorkerMessage(): receive deltas"] --> M2["write queue: next frame, or a 100 ms timer"]
         M2 --> M3["DeltaUpdates.update(): apply the batch"]
-        M3 --> M4["release the held reply"]
+        M3 --> M4["acknowledge the write"]
     end
     A1 -->|"updateBatch()"| D
-    D -->|"reply with deltas and vnodes"| M1
-    M4 -->|"the same reply"| A5
+    D -->|"deltas and meta"| M1
+    D -->|"vnodes on direct channel"| A5
+    M4 -->|"write acknowledgement"| A5
 ```
 
 ## Two ways in
 
-1. A reply from the VDom worker that the Main thread did not request itself, and that carries deltas (flagged
-   `updateVdom`) or a first render that mounts itself (flagged `autoMount`) ([intercept][mgr-intercept]). The Main
-   thread holds the reply and forwards it after the write.
+1. An `updateVdom` action from the opt-in VDom worker carries deltas and metadata. Main acknowledges the write to the
+   App worker; the App worker also waits for the vnode sent directly by the VDom worker. First-render `autoMount`
+   retains its mount path ([intercept][mgr-intercept]).
 2. An `updateVdom` action from the App worker, sent by `Neo.applyDeltas()`. That is the path without a VDom worker,
    and every manual write ([action][mgr-update-action], [sender][app-apply-deltas]). The Main thread answers with a
    success reply after the write.

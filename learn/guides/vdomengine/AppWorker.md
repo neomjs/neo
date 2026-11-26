@@ -18,8 +18,9 @@ flowchart TD
         M["Stage 4 · Apply"]
     end
     C3 -->|"updateBatch()"| D
-    D -->|"reply"| M
-    M -->|"reply after the DOM write"| R1
+    D -->|"vnodes on direct channel"| R1
+    D -->|"deltas and meta"| M
+    M -->|"write acknowledgement"| R1
 ```
 
 ## What a component's trees hold
@@ -108,7 +109,8 @@ When the reply lands ([landing][vl-land]):
 
 1. A destroyed initiator drops it, and a reply that misses an emitted root fails the batch ([checks][vl-land-checks]).
 2. Without the VDom worker, the deltas go to the Main thread now, and the flight waits for the write
-   ([write][vl-two-thread]).
+   ([write][vl-two-thread]). With it, the flight waits for both the direct vnode reply and any required Main write
+   acknowledgement; a no-op needs only the vnode reply.
 3. Every root adopts its new vnode without firing `afterSetVnode()`, and hands each child component inside it its
    slice. Children found in the tree are mounted when the root is; children that left it are unmounted
    ([adopt][vl-adopt], [`syncVnodeTree()`][vl-sync]).
@@ -144,7 +146,7 @@ vnode does not learn about them. Use it only for DOM the vdom does not describe,
 - `TreeBuilder` copies every node a payload covers ([build][tb-build]).
 - Joining and collision checks walk the ancestor chain, so they cost the component's depth in the tree
   ([join][vl-merge], [ancestors][vl-parent-updating]).
-- With the VDom worker, the batch is copied once on its way to the diff, and the reply twice on its way back.
+- With the VDom worker, the batch is copied on its way to the diff and the new vnodes return directly to the App worker.
 
 [cm-refs]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/manager/Component.mjs#L84-L130
 [vl-ref]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/mixin/VdomLifecycle.mjs#L226-L236

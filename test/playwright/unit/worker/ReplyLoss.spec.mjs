@@ -70,7 +70,31 @@ const createSharedWorker = portSpecs => {
     return worker
 };
 
+let appPrototype, vdomPrototype;
+
+// Exercise App's real dispatch while retaining the isolated shared-worker port fixture.
+const createAppWorker = portSpecs => {
+    const worker = createSharedWorker(portSpecs);
+    Object.setPrototypeOf(worker, appPrototype);
+    worker.canvasGroups = {retirePort() {}, removeWindow() {}, windows: new Map()};
+    return worker
+};
+
 test.describe('Worker reply loss on null port lookup (#12958)', () => {
+    test.beforeAll(async () => {
+        const original = globalThis.postMessage;
+        globalThis.postMessage = () => {};
+        try {
+            delete Neo.worker.App;
+            const {default: app}  = await import('../../../../src/worker/App.mjs');
+            const {default: vdom} = await import('../../../../src/worker/VDom.mjs');
+            appPrototype  = Object.getPrototypeOf(app);
+            vdomPrototype = Object.getPrototypeOf(vdom)
+        } finally {
+            if (original === undefined) delete globalThis.postMessage;
+            else globalThis.postMessage = original
+        }
+    });
     test('a destroyed target sends a cloneable rejection that settles the live caller', async () => {
         const {port, sent} = createCapturingPort(),
               server       = createSharedWorker([{appName: 'ReplyLossApp', id: 'port-cancel', port, windowId: 'win-cancel'}]),
@@ -370,6 +394,261 @@ test.describe('Worker reply loss on null port lookup (#12958)', () => {
         expect(sent.length).toBe(1);
         expect(sent[0].replyId).toBe('q-8');
         expect(sent[0].reject).toBeUndefined()
+    });
+
+    for (const first of ['tree', 'dom']) {
+        test(`a VDom update waits for both reply legs (${first} first)`, async () => {
+            const captured = createCapturingPort(),
+                  worker   = createAppWorker([{id: 'join-port', port: captured.port, windowId: 'join-window'}]);
+
+            worker.channelPorts.vdom = captured.port;
+
+            const pending = worker.promiseMessage('vdom', {
+                action  : 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch',
+                windowId: 'join-window'
+            });
+            const [{id}]  = captured.sent;
+            const tree    = {action: 'vdomTreeReply', replyId: id, domAckRequired: true, data: {vnode: {id: 'rendered'}}};
+            const dom     = {action: 'reply', replyId: id, success: true};
+            let   settled = false;
+
+            pending.then(() => {settled = true});
+            worker.onMessage({data: first === 'tree' ? tree : dom});
+            await Promise.resolve();
+            expect(settled, 'one leg alone cannot complete the update').toBe(false);
+            worker.onMessage({data: first === 'tree' ? dom : tree});
+            await expect(pending).resolves.toEqual(tree.data);
+            expect(worker.promises[id]).toBeUndefined();
+            worker.destroy()
+        })
+    }
+
+    test('an update whose replies are both lost has a bounded wait', async () => {
+        const captured    = createCapturingPort(), worker = createAppWorker([]),
+              originalSet = globalThis.setTimeout, originalClear = globalThis.clearTimeout;
+        let timer;
+        globalThis.setTimeout = callback => {timer = callback; return 123};
+        globalThis.clearTimeout = () => {};
+        try {
+            worker.channelPorts.vdom = captured.port;
+            const pending = worker.promiseMessage('vdom', {
+                action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+            });
+            const [{id}] = captured.sent;
+            expect(timer, 'a fully lost reply cannot strand the request').toEqual(expect.any(Function));
+            timer();
+            await expect(pending).rejects.toThrow();
+            expect(worker.promises[id]).toBeUndefined()
+        } finally {
+            globalThis.setTimeout = originalSet;
+            globalThis.clearTimeout = originalClear;
+            worker.destroy()
+        }
+    });
+
+    test('a VDom update without DOM work settles on its tree reply', async () => {
+        const captured = createCapturingPort(), worker = createAppWorker([]);
+        worker.channelPorts.vdom = captured.port;
+        const pending = worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+        });
+        const [{id}] = captured.sent, result = {vnode: {id: 'unchanged'}};
+        worker.onMessage({data: {action: 'vdomTreeReply', replyId: id, domAckRequired: false, data: result}});
+        await expect(pending).resolves.toEqual(result);
+        expect(worker.promises[id]).toBeUndefined();
+        worker.destroy()
+    });
+
+    test('a DOM apply failure rejects a VDom update even after its tree reply', async () => {
+        const captured = createCapturingPort(), worker = createAppWorker([]);
+        worker.channelPorts.vdom = captured.port;
+        const pending = worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+        });
+        const [{id}] = captured.sent, error = new Error('DOM apply failed');
+        worker.onMessage({data: {action: 'vdomTreeReply', replyId: id, domAckRequired: true, data: {vnode: {}}}});
+        worker.onMessage({data: {action: 'reply', replyId: id, reject: true, data: error}});
+        await expect(pending).rejects.toThrow('DOM apply failed');
+        expect(worker.promises[id]).toBeUndefined();
+        worker.destroy()
+    });
+
+    test('ordinary VDom remote calls retain one-reply settlement', async () => {
+        const captured = createCapturingPort(), worker = createAppWorker([]);
+        worker.channelPorts.vdom = captured.port;
+        const pending = worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'create', windowId: 'join-window'
+        });
+        const [{id}] = captured.sent, result = {vnode: {id: 'created'}};
+        worker.onMessage({data: {action: 'reply', replyId: id, data: result}});
+        await expect(pending).resolves.toEqual(result);
+        expect(worker.promises[id]).toBeUndefined();
+        worker.destroy()
+    });
+
+    test('an update request that cannot be cloned rejects rather than parking a promise', async () => {
+        const captured = createCapturingPort(), worker = createAppWorker([]);
+        captured.port.postMessage = message => structuredClone(message);
+        worker.channelPorts.vdom = captured.port;
+        await expect(worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch',
+            data  : () => {}, windowId: 'join-window'
+        })).rejects.toMatchObject({name: 'DataCloneError'});
+        expect(Object.keys(worker.promises)).toHaveLength(0);
+        worker.destroy()
+    });
+
+    test('a window departure rejects an update waiting for its DOM acknowledgement', async () => {
+        const captured = createCapturingPort(),
+              entry    = {appNames: new Set(['JoinApp']), id: 'join-port', port: captured.port, windowId: 'join-window'},
+              worker   = createAppWorker([entry]);
+        worker.channelPorts.vdom = captured.port;
+        const pending = worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+        });
+        const [{id}] = captured.sent;
+        worker.onMessage({data: {action: 'vdomTreeReply', replyId: id, domAckRequired: true, data: {vnode: {}}}});
+        WorkerBase.prototype.onDisconnect.call(worker, {appName: 'JoinApp', windowId: 'join-window'}, entry);
+        await expect(pending).rejects.toMatchObject({code: 'NEO_DEAD_PORT'});
+        expect(worker.promises[id]).toBeUndefined();
+        worker.destroy()
+    });
+
+    test('a metadata-only VDom update sends a tree and requires a Main acknowledgement', () => {
+        const direct = createCapturingPort(), main = createCapturingPort(),
+              worker = createSharedWorker([{id: 'main-port', port: main.port, windowId: 'join-window'}]);
+        Object.setPrototypeOf(worker, vdomPrototype);
+        worker.appChannelPort = direct.port;
+        const data = {updateVdom: true, deltas: [], meta: {componentIds: ['one']}, vnode: {id: 'one'}};
+        worker.resolve({id: 'metadata', origin: 'app', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'}, data);
+        expect(direct.sent[0]).toMatchObject({action: 'vdomTreeReply', replyId: 'metadata', domAckRequired: true, data});
+        expect(main.sent[0]).toMatchObject({action: 'updateVdom', id: 'metadata', origin: 'app', deltas: [], meta: data.meta});
+        worker.destroy()
+    });
+
+    test('a VDom tree clone failure rejects App without sending the DOM write', () => {
+        const direct = createCapturingPort(), main = createCapturingPort(),
+              worker = createSharedWorker([{id: 'main-port', port: main.port, windowId: 'join-window'}]);
+        Object.setPrototypeOf(worker, vdomPrototype);
+        worker.appChannelPort = direct.port;
+        worker.channelPorts.app = direct.port;
+        direct.port.postMessage = message => direct.sent.push(structuredClone(message));
+        worker.resolve({id: 'clone', origin: 'app', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'},
+            {updateVdom: true, deltas: [{id: 'one'}], vnode: {bad: () => {}}});
+        expect(main.sent).toHaveLength(0);
+        expect(direct.sent[0]).toMatchObject({action: 'reply', replyId: 'clone', reject: true});
+        worker.destroy()
+    });
+
+    test('a VDom helper failure reaches App after its target window has departed', () => {
+        const direct = createCapturingPort(), worker = createSharedWorker([]), error = new Error('VDom failed');
+        Object.setPrototypeOf(worker, vdomPrototype);
+        worker.appChannelPort = direct.port;
+        worker.departedWindowIds.add('gone');
+        worker.reject({id: 'failed-update', origin: 'app', remoteClassName: 'Neo.vdom.Helper',
+            remoteMethod: 'updateBatch', windowId: 'gone'}, error);
+        expect(direct.sent[0]).toMatchObject({action: 'reply', replyId: 'failed-update', reject: true, data: error});
+        worker.destroy()
+    });
+
+    test('a failed VDom channel rejects only its pending updates', async () => {
+        const captured = createCapturingPort(), worker = createAppWorker([]);
+        worker.channelPorts.vdom = captured.port;
+        const pending = worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+        });
+        const [{id}] = captured.sent;
+        worker.onVdomWorkerFailed({windowId: 'other-window'});
+        expect(worker.promises[id], 'another window failure leaves this flight live').toBeDefined();
+        worker.onVdomWorkerFailed({windowId: 'join-window'});
+        await expect(pending).rejects.toThrow('VDom channel failed');
+        expect(worker.promises[id]).toBeUndefined();
+        worker.destroy()
+    });
+
+    for (const first of ['tree', 'dom']) {
+        test(`a lost ${first === 'tree' ? 'DOM acknowledgement' : 'tree'} times out after ${first} arrives`, async () => {
+            const captured    = createCapturingPort(), worker = createAppWorker([]),
+                  originalSet = globalThis.setTimeout, originalClear = globalThis.clearTimeout;
+            let timer;
+            globalThis.setTimeout = callback => {timer = callback; return 123};
+            globalThis.clearTimeout = () => {};
+            try {
+                worker.channelPorts.vdom = captured.port;
+                const pending = worker.promiseMessage('vdom', {
+                    action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+                });
+                const [{id}] = captured.sent;
+                worker.onMessage({data: first === 'tree' ?
+                    {action: 'vdomTreeReply', replyId: id, domAckRequired: true, data: {vnode: {}}} :
+                    {action: 'reply', replyId: id, success: true}});
+                expect(timer, 'the remaining leg has a bounded wait').toEqual(expect.any(Function));
+                timer();
+                await expect(pending).rejects.toThrow();
+                expect(worker.promises[id]).toBeUndefined()
+            } finally {
+                globalThis.setTimeout = originalSet;
+                globalThis.clearTimeout = originalClear;
+                worker.destroy()
+            }
+        })
+    }
+
+    test('a registered VDom port acknowledges readiness and rejects its flights on messageerror', async () => {
+        const captured = createCapturingPort(), worker = createAppWorker([]), listeners = {};
+        captured.port.addEventListener = (name, listener) => {listeners[name] = listener};
+        worker.onRegisterPort({origin: 'vdom', transfer: captured.port});
+        expect(captured.sent.shift()).toEqual({action: 'vdomChannelReady'});
+        captured.port.onmessage({data: {action: 'vdomChannelActive'}});
+        expect(captured.sent.shift()).toEqual({action: 'vdomChannelRegistered'});
+        const pending = worker.promiseMessage('vdom', {
+            action: 'remoteMethod', remoteClassName: 'Neo.vdom.Helper', remoteMethod: 'updateBatch', windowId: 'join-window'
+        });
+        captured.port.onmessageerror();
+        await expect(pending).rejects.toThrow('VDom channel failed');
+        expect(listeners.close).toEqual(expect.any(Function));
+        worker.destroy()
+    });
+
+    test('a VDom channel transfer retries through a surviving window when its owner departs early', () => {
+        const first       = createCapturingPort(), second = createCapturingPort(),
+              firstEntry  = {id: 'port-first', port: first.port, windowId: 'first'},
+              secondEntry = {id: 'port-second', port: second.port, windowId: 'second'},
+              worker      = createSharedWorker([firstEntry, secondEntry]);
+        Object.setPrototypeOf(worker, vdomPrototype);
+        worker.connectAppChannel(firstEntry);
+        const initial = worker.appChannelPort;
+        expect(first.sent[0]).toMatchObject({action: 'registerPort', port: 'port-first'});
+        worker.removePort(firstEntry);
+        expect(worker.appChannelPort).not.toBe(initial);
+        expect(second.sent[0]).toMatchObject({action: 'registerPort', port: 'port-second'});
+        worker.appChannelPort.close();
+        first.sent[0].transfer.close();
+        second.sent[0].transfer.close();
+        worker.destroy()
+    });
+
+    test('a stale registration arriving after its replacement cannot displace the active VDom channel', async () => {
+        const first       = createCapturingPort(), second = createCapturingPort(),
+              firstEntry  = {id: 'port-first', port: first.port, windowId: 'first'},
+              secondEntry = {id: 'port-second', port: second.port, windowId: 'second'},
+              vdom        = createSharedWorker([firstEntry, secondEntry]), app = createAppWorker([]);
+        Object.setPrototypeOf(vdom, vdomPrototype);
+        vdom.connectAppChannel(firstEntry);
+        const stale = first.sent[0].transfer;
+        vdom.removePort(firstEntry);
+        const current = second.sent[0].transfer;
+        app.onRegisterPort({origin: 'vdom', transfer: current});
+        await expect.poll(() => app.channelPorts.vdom).toBe(current);
+        app.onRegisterPort({origin: 'vdom', transfer: stale});
+        await new Promise(resolve => setImmediate(resolve));
+        expect(app.channelPorts.vdom, 'a stale candidate cannot take the confirmed channel').toBe(current);
+        vdom.appChannelPort.close();
+        current.close();
+        stale.close();
+        await new Promise(resolve => setImmediate(resolve));
+        vdom.destroy();
+        app.destroy()
     });
 });
 

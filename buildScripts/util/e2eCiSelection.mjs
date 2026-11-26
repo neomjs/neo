@@ -68,6 +68,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/rendering/ContextMenuNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaCoherenceRegistryNL.spec.mjs',
     'test/playwright/e2e/rendering/DeltaUpdatesChangeNodeName.spec.mjs',
+    'test/playwright/e2e/rendering/DirectVdomReplyNL.spec.mjs',
     'test/playwright/e2e/rendering/FocusHistoryMultiWindowNL.spec.mjs',
     'test/playwright/e2e/rendering/GraphScene.spec.mjs',
     'test/playwright/e2e/rendering/InputModalityMultiWindow.spec.mjs',
