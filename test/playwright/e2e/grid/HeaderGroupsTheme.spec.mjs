@@ -120,36 +120,71 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
                 await testInfo.attach(`${theme}-leaf.png`, {body: await page.screenshot(), contentType: 'image/png'})
             }
             if (i === leafNames.length - 1) {
-                // Scroll the Main-thread scrollbar to 0 as soon as the proxy leaves the DOM while Main->App
-                // scroll(0) forwards lag behind SortZone#processDragEnd's post-drop re-sync.
+                // Hold the tested grid's Main->App scroll(0) notifications until SortZone#processDragEnd's
+                // terminal header scroll restoration has executed on Main, proving scroll(0) remained in flight.
                 await page.evaluate(() => {
-                    const domEvents = Neo.main.DomEvents,
-                          origSend  = domEvents.sendMessageToApp.bind(domEvents);
-                    let   holdUntil = 0;
+                    const domAccess  = Neo.main.DomAccess,
+                          domEvents  = Neo.main.DomEvents,
+                          scrollSync = Neo.main.addon.GridHorizontalScrollSync,
+                          gridEl     = document.querySelector('.neo-grid-container'),
+                          headerEl   = gridEl.querySelectorAll('.neo-grid-header-toolbar')[1],
+                          barEl      = gridEl.querySelector('.neo-grid-horizontal-scrollbar'),
+                          origSend   = domEvents.sendMessageToApp.bind(domEvents),
+                          origScroll = domAccess.scrollTo.bind(domAccess),
+                          origSync   = scrollSync.sync?.bind(scrollSync),
+                          held       = [];
+                    let restoring = false;
 
-                    window.__scrollForwardFlushed = false;
+                    window.__dragEndRestoreWitness = {heldAtRestore: 0, settled: false};
+
+                    const finishRestore = () => {
+                        if (restoring) return;
+                        restoring = true;
+                        domEvents.sendMessageToApp = origSend;
+                        domAccess.scrollTo         = origScroll;
+                        if (origSync) scrollSync.sync = origSync;
+
+                        window.__dragEndRestoreWitness.heldAtRestore = held.length;
+
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                while (held.length) origSend(held.shift());
+                                window.__dragEndRestoreWitness.settled = true
+                            })
+                        })
+                    };
+
+                    domAccess.scrollTo = data => {
+                        const result = origScroll(data);
+                        if (data?.id === headerEl.id) finishRestore();
+                        return result
+                    };
+
+                    if (origSync) {
+                        scrollSync.sync = data => {
+                            const matchesBar = scrollSync.registrations.get(data?.id)?.scrollerId === barEl.id,
+                                  result     = origSync(data);
+                            if (matchesBar) finishRestore();
+                            return result
+                        }
+                    }
 
                     const observer = new MutationObserver(() => {
                         if (!document.querySelector('.neo-dragproxy')) {
                             observer.disconnect();
-                            const bar = document.querySelector('.neo-grid-horizontal-scrollbar');
-                            bar.scrollLeft = 0;
-                            bar.dispatchEvent(new Event('scroll'))
+                            barEl.scrollLeft = 0;
+                            barEl.dispatchEvent(new Event('scroll'))
                         }
                     });
 
                     domEvents.sendMessageToApp = data => {
-                        if (data?.type === 'scroll' && data.scrollLeft === 0) {
-                            if (!holdUntil) holdUntil = performance.now() + 90;
-                            const delay = Math.max(0, holdUntil - performance.now());
-                            if (delay > 0) {
-                                setTimeout(() => {
-                                    origSend(data);
-                                    window.__scrollForwardFlushed = true
-                                }, delay);
-                                return
-                            }
-                            domEvents.sendMessageToApp = origSend
+                        const inTestedGrid = data?.target?.id === barEl.id ||
+                            data?.target?.id === headerEl.id ||
+                            data?.path?.some(entry => entry.id === gridEl.id);
+
+                        if (!restoring && data?.type === 'scroll' && inTestedGrid && data.scrollLeft === 0) {
+                            held.push(data);
+                            return
                         }
                         return origSend(data)
                     };
@@ -162,8 +197,10 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
             await expect(proxy).toHaveCount(0)
         }
 
-        await page.waitForFunction(() => window.__scrollForwardFlushed);
-        await expect.poll(() => page.evaluate(() => ({
+        const restoreWitness = await page.waitForFunction(() => window.__dragEndRestoreWitness?.settled ? window.__dragEndRestoreWitness : null)
+            .then(handle => handle.jsonValue());
+        expect(restoreWitness.heldAtRestore).toBeGreaterThan(0);
+        expect(await page.evaluate(() => ({
             header   : document.querySelectorAll('.neo-grid-container .neo-grid-header-toolbar')[1].scrollLeft,
             scrollbar: document.querySelector('.neo-grid-horizontal-scrollbar').scrollLeft
         }))).toEqual({header: 0, scrollbar: 0});
