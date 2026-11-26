@@ -422,7 +422,38 @@ class Component extends Markdown {
         // link the other half never rewrites. A single-quoted raw-HTML anchor is ordinary authoring
         // — the corpus already contains them — and it would render a href that works in a file tree
         // and 404s in the SPA, which is the exact failure this pair exists to prevent.
-        return html.replace(/(<a\b[^>]*\bhref\s*=\s*(["']))([^"']+)\2([^>]*>)/gi, (match, prefix, quote, href, tail) => {
+        return html.replace(/<a(?=[\t\n\f\r />])(?:"[^"]*"|'[^']*'|[^>"'])*>/gi, openTag => {
+            const
+                closeLen  = openTag.endsWith('/>') ? 2 : 1,
+                attrsText = openTag.slice(2, openTag.length - closeLen),
+                attrRegex = /([^\t\n\f\r "'/>=]+)(?:(\s*=\s*)(?:(")([^"]*)"|(')([^']*)'|([^\t\n\f\r >]*)))?/g;
+
+            let hasTarget = false,
+                hrefAttr  = null,
+                attrMatch;
+
+            while ((attrMatch = attrRegex.exec(attrsText)) !== null) {
+                const name = attrMatch[1].toLowerCase();
+
+                if (name === 'target') {
+                    hasTarget = true
+                } else if (name === 'href' && !hrefAttr && (attrMatch[3] || attrMatch[5])) {
+                    const
+                        quote      = attrMatch[3] || attrMatch[5],
+                        href       = attrMatch[3] ? attrMatch[4] : attrMatch[6],
+                        valueStart = 2 + attrMatch.index + attrMatch[1].length + attrMatch[2].length + 1,
+                        attrEnd    = 2 + attrMatch.index + attrMatch[0].length;
+
+                    hrefAttr = {attrEnd, href, quote, valueStart}
+                }
+            }
+
+            if (!hrefAttr) {
+                return openTag
+            }
+
+            const {attrEnd, href, quote, valueStart} = hrefAttr;
+
             // Case-insensitive because URI schemes are (RFC 3986 §3.1), and a browser follows
             // `HTTPS://…` exactly like `https://…`. A case-sensitive test rewrote
             // `HTTPS://example.com/docs/Foo.md` into `#/learn/…`, corrupting an absolute URL — and
@@ -430,7 +461,7 @@ class Component extends Markdown {
             // a dead repository path. The rule is pinned against the guard's `EXTERNAL_TARGET` in
             // test/playwright/unit/app/content/LinkPredicateParity.spec.mjs; change both or neither.
             if (/^(?:[a-z][a-z0-9+.-]*:|#|\/)/i.test(href) || !/\.md($|#)/i.test(href)) {
-                return match
+                return openTag
             }
 
             const [target, fragment] = href.split('#'),
@@ -440,12 +471,12 @@ class Component extends Markdown {
             // untouched keeps it correct for a file-tree reader and visibly unresolved here, which
             // beats routing it to an id that does not exist.
             if (id === null) {
-                return match
+                return openTag
             }
 
-            const targetAttr = isInternal || /\btarget\s*=/i.test(prefix + tail) ? '' : ` target=${quote}_blank${quote}`;
+            const targetAttr = isInternal || hasTarget ? '' : ` target=${quote}_blank${quote}`;
 
-            return `${prefix}${routePrefix}${id}${fragment ? `#${fragment}` : ''}${quote}${targetAttr}${tail}`
+            return `${openTag.slice(0, valueStart)}${routePrefix}${id}${fragment ? `#${fragment}` : ''}${quote}${targetAttr}${openTag.slice(attrEnd)}`
         })
     }
 
