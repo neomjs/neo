@@ -1002,9 +1002,14 @@ class Helix extends Component {
     }
 
     /**
+     * @summary Scales finite touch-move deltas into wheel rotation/zoom updates and ignores events lacking finite deltas.
      * @param {Object} data
      */
     onTouchMove(data) {
+        if (!Number.isFinite(data?.deltaX) || !Number.isFinite(data?.deltaY)) {
+            return
+        }
+
         data.deltaX *= 1.5;
         data.deltaY *= 3;
 

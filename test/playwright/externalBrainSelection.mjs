@@ -31,6 +31,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'board/SwimlanesNL.spec.mjs',
     'code/LivePreviewExample.spec.mjs',
     'component/ApplicationToolbarNL.spec.mjs',
+    'component/HelixTouchNL.spec.mjs',
     'component/StandaloneThemeSwitcher.spec.mjs',
     'component/VideoTile.spec.mjs',
     'core/DistEsmWorkspaceBoot.spec.mjs',
