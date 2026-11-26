@@ -331,6 +331,42 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left'), 'the unregistered grid keeps its registered position').toBe('0px');
             expect(elements['second-body'].style.getPropertyValue('--grid-scroll-left'), 'the other grid').toBe('60px')
         });
+
+        test('sync re-applies the live scroller scrollLeft without triggering onHeaderScroll rollback (#22245)', () => {
+            addon.register({
+                id         : 'test-grid__h_scroll',
+                scrollerId : 'grid-scroller',
+                bodyId     : 'grid-body',
+                headerId   : 'grid-header',
+                viewId     : 'grid-view',
+                followerIds: ['follower-row-1']
+            });
+
+            elements['grid-scroller'].scrollLeft = 230;
+            elements['grid-scroller'].trigger('scroll');
+            expect(elements['grid-header'].scrollLeft).toBe(230);
+
+            // Reflow clamps header to 0 while scroller stays at 230; sync restores 230 cleanly
+            elements['grid-header'].scrollLeft = 0;
+            addon.sync({id: 'test-grid__h_scroll'});
+            elements['grid-header'].trigger('scroll');
+
+            expect(elements['grid-header'].scrollLeft).toBe(230);
+            expect(elements['grid-scroller'].scrollLeft).toBe(230);
+
+            // Scroller moved to 0 before late drag-end sync arrives; sync preserves 0
+            elements['grid-scroller'].scrollLeft = 0;
+            elements['grid-scroller'].trigger('scroll');
+            expect(elements['grid-header'].scrollLeft).toBe(0);
+
+            addon.sync({id: 'test-grid__h_scroll'});
+            elements['grid-header'].trigger('scroll');
+
+            expect(elements['grid-header'].scrollLeft).toBe(0);
+            expect(elements['grid-scroller'].scrollLeft).toBe(0);
+            expect(elements['grid-body'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
+            expect(elements['follower-row-1'].style.getPropertyValue('--grid-scroll-left')).toBe('0px');
+        });
     });
 
     test.describe('Neo.grid.ScrollManager follower registration API', () => {
@@ -339,6 +375,7 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
         const fakeAddon = {
             register(payload)           { addonCalls.push({method: 'register', payload}); },
             registerFollower(payload)   { addonCalls.push({method: 'registerFollower', payload}); },
+            sync(payload)               { addonCalls.push({method: 'sync', payload}); },
             unregister(payload)         { addonCalls.push({method: 'unregister', payload}); },
             unregisterFollower(payload) { addonCalls.push({method: 'unregisterFollower', payload}); }
         };
@@ -495,6 +532,31 @@ test.describe('GridHorizontalScrollSync & ScrollManager follower rows', () => {
             await pending;
 
             expect(addonCalls.some(c => c.method === 'registerFollower')).toBe(false);
+        });
+
+        test('syncHorizontalScroll dispatches GridHorizontalScrollSync.sync when mounted and skips when unmounted or destroyed (#22245)', async () => {
+            await manager.syncHorizontalScroll();
+            expect(addonCalls.some(c => c.method === 'sync'), 'unmounted manager skips sync').toBe(false);
+
+            manager.mounted = true;
+            await manager.timeout(0);
+            addonCalls.length = 0;
+
+            await manager.syncHorizontalScroll();
+            expect(addonCalls.filter(c => c.method === 'sync')).toEqual([{
+                method : 'sync',
+                payload: {id: manager.id + '__h_scroll', windowId: 'win-1'}
+            }]);
+
+            addonCalls.length = 0;
+            const resolvers = [];
+            Neo.currentWorker.getAddon = () => new Promise(resolve => {resolvers.push(() => resolve(fakeAddon))});
+            const pending = manager.syncHorizontalScroll();
+            manager.destroy();
+            resolvers.forEach(r => r());
+            await pending;
+
+            expect(addonCalls.some(c => c.method === 'sync'), 'destroyed mid-await skips sync').toBe(false);
         });
     });
 });

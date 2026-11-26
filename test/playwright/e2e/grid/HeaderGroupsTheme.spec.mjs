@@ -93,8 +93,10 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
               };
 
         await scroll(230);
-        for (const name of ['Oct', 'Sep', 'Nov', 'Oct', 'Sep', 'Oct']) {
-            const leaf  = toolbar.locator('.neo-grid-header-button').filter({hasText: new RegExp(`^${name}$`)}),
+        const leafNames = ['Oct', 'Sep', 'Nov', 'Oct', 'Sep', 'Oct'];
+        for (let i = 0; i < leafNames.length; i++) {
+            const name  = leafNames[i],
+                  leaf  = toolbar.locator('.neo-grid-header-button').filter({hasText: new RegExp(`^${name}$`)}),
                   from  = await leaf.boundingBox(),
                   color = await leaf.evaluate(node => getComputedStyle(node).backgroundColor),
                   y     = from.y + from.height / 2;
@@ -117,11 +119,54 @@ for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
             if (name === 'Nov') {
                 await testInfo.attach(`${theme}-leaf.png`, {body: await page.screenshot(), contentType: 'image/png'})
             }
+            if (i === leafNames.length - 1) {
+                // Scroll the Main-thread scrollbar to 0 as soon as the proxy leaves the DOM while Main->App
+                // scroll(0) forwards lag behind SortZone#processDragEnd's post-drop re-sync.
+                await page.evaluate(() => {
+                    const domEvents = Neo.main.DomEvents,
+                          origSend  = domEvents.sendMessageToApp.bind(domEvents);
+                    let   holdUntil = 0;
+
+                    window.__scrollForwardFlushed = false;
+
+                    const observer = new MutationObserver(() => {
+                        if (!document.querySelector('.neo-dragproxy')) {
+                            observer.disconnect();
+                            const bar = document.querySelector('.neo-grid-horizontal-scrollbar');
+                            bar.scrollLeft = 0;
+                            bar.dispatchEvent(new Event('scroll'))
+                        }
+                    });
+
+                    domEvents.sendMessageToApp = data => {
+                        if (data?.type === 'scroll' && data.scrollLeft === 0) {
+                            if (!holdUntil) holdUntil = performance.now() + 90;
+                            const delay = Math.max(0, holdUntil - performance.now());
+                            if (delay > 0) {
+                                setTimeout(() => {
+                                    origSend(data);
+                                    window.__scrollForwardFlushed = true
+                                }, delay);
+                                return
+                            }
+                            domEvents.sendMessageToApp = origSend
+                        }
+                        return origSend(data)
+                    };
+
+                    observer.observe(document.body, {childList: true, subtree: true})
+                })
+            }
             await page.keyboard.press('Escape');
             await page.mouse.up();
             await expect(proxy).toHaveCount(0)
         }
 
+        await page.waitForFunction(() => window.__scrollForwardFlushed);
+        await expect.poll(() => page.evaluate(() => ({
+            header   : document.querySelectorAll('.neo-grid-container .neo-grid-header-toolbar')[1].scrollLeft,
+            scrollbar: document.querySelector('.neo-grid-horizontal-scrollbar').scrollLeft
+        }))).toEqual({header: 0, scrollbar: 0});
         await scroll(0);
         const group  = page.locator('.neo-grid-container .neo-grid-header-group-cell').filter({hasText: /^Q2$/}),
               from   = await group.boundingBox(),
