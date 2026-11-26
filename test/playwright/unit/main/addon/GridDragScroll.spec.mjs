@@ -363,3 +363,184 @@ test.describe('Neo.main.addon.GridDragScroll — a grid nested in another grid\'
         expect(timers).toBe(0)
     })
 });
+
+test.describe('Neo.main.addon.GridDragScroll — touch cancellation and multi-contact interruption', () => {
+    let addon, grid, previousHasTouch;
+
+    const touch = (identifier, clientX, clientY) => ({identifier, clientX, clientY});
+
+    const dispatchDoc = (type, init = {}) => {
+        const event = Object.assign(new Event(type, {bubbles: true, cancelable: true}), init);
+        documentRef.dispatchEvent(event);
+        return event
+    };
+
+    const startTouchOnGrid = (touches, changedTouches = touches) => {
+        const path  = [fakeElement('neo-grid-cell'), fakeElement('neo-grid-row'), grid.bodyElement],
+              event = {
+                  type         : 'touchstart',
+                  touches,
+                  changedTouches,
+                  currentTarget: grid.bodyElement,
+                  composedPath : () => path
+              };
+
+        addon.onDragStart(event);
+        return event
+    };
+
+    test.beforeEach(() => {
+        installGlobals();
+        frames.queue.clear();
+        frames.cancelled.length = 0;
+
+        previousHasTouch          = Neo.config.hasTouchEvents;
+        Neo.config.hasTouchEvents = true;
+
+        addon = Neo.create(GridDragScroll, {delay: 50, minDistance: 5});
+        grid  = viewRegistration('touch-grid');
+        grid.bodyElement.scrollTop = 100;
+        addon.registrations.set('touch-grid', grid)
+    });
+
+    test.afterEach(() => {
+        addon.monitorDrag && addon.onMonitorEnd({type: 'touchcancel', touches: [], changedTouches: []});
+        addon.activeDrag  && addon.cancelActiveDrag();
+        addon.destroy?.();
+        Neo.config.hasTouchEvents = previousHasTouch
+    });
+
+    test('touchcancel during monitoring clears the timer and document listeners without arming an outside touch', async () => {
+        startTouchOnGrid([touch(13, 120, 200)]);
+        expect(addon.monitorDrag?.id).toBe('touch-grid');
+
+        dispatchDoc('touchcancel', {touches: [], changedTouches: [touch(13, 120, 200)]});
+        expect(addon.monitorDrag).toBeNull();
+
+        await new Promise(resolve => setTimeout(resolve, 70));
+
+        const outsideMove = dispatchDoc('touchmove', {
+            touches       : [touch(31, 120, 140)],
+            changedTouches: [touch(31, 120, 140)]
+        });
+
+        expect(outsideMove.defaultPrevented).toBe(false);
+        expect(addon.activeDrag).toBeNull();
+        expect(grid.bodyElement.scrollTop).toBe(100)
+    });
+
+    test('touchcancel during an active drag stops tracking without starting momentum and leaves outside moves untouched', async () => {
+        startTouchOnGrid([touch(13, 120, 260)]);
+        await new Promise(resolve => setTimeout(resolve, 65));
+
+        dispatchDoc('touchmove', {
+            touches       : [touch(13, 120, 220)],
+            changedTouches: [touch(13, 120, 220)]
+        });
+        dispatchDoc('touchmove', {
+            touches       : [touch(13, 120, 180)],
+            changedTouches: [touch(13, 120, 180)]
+        });
+
+        expect(addon.activeDrag?.listeners).toBeTruthy();
+        expect(grid.bodyElement.scrollTop).toBe(140);
+
+        dispatchDoc('touchcancel', {touches: [], changedTouches: [touch(13, 120, 180)]});
+
+        expect(addon.activeDrag).toBeNull();
+        expect(frames.queue.size, 'cancellation never schedules momentum').toBe(0);
+
+        const outsideMove = dispatchDoc('touchmove', {
+            touches       : [touch(31, 120, 120)],
+            changedTouches: [touch(31, 120, 120)]
+        });
+
+        expect(outsideMove.defaultPrevented).toBe(false);
+        expect(grid.bodyElement.scrollTop).toBe(140)
+    });
+
+    test('a second contact cannot replace bookkeeping, and partial lift releases listeners without flinging or leaking', async () => {
+        startTouchOnGrid([touch(13, 120, 260)]);
+        await new Promise(resolve => setTimeout(resolve, 65));
+
+        dispatchDoc('touchmove', {
+            touches       : [touch(13, 120, 220)],
+            changedTouches: [touch(13, 120, 220)]
+        });
+        const ownerListeners = addon.activeDrag?.listeners;
+        expect(ownerListeners).toBeTruthy();
+        expect(addon.activeDrag.touchId).toBe(13);
+
+        dispatchDoc('touchmove', {
+            touches       : [touch(13, 120, 190)],
+            changedTouches: [touch(13, 120, 190)]
+        });
+        expect(grid.bodyElement.scrollTop).toBe(130);
+
+        // Second contact 27 joins on the grid, waits past arming delay, both move, then 13 lifts while 27 remains down
+        startTouchOnGrid([touch(13, 120, 190), touch(27, 240, 260)], [touch(27, 240, 260)]);
+        expect(addon.monitorDrag, 'second contact never arms a competing monitor').toBeNull();
+        expect(addon.activeDrag?.listeners, 'owning drag bookkeeping is preserved').toBe(ownerListeners);
+
+        await new Promise(resolve => setTimeout(resolve, 65));
+
+        dispatchDoc('touchmove', {
+            touches       : [touch(13, 120, 160), touch(27, 240, 220)],
+            changedTouches: [touch(13, 120, 160), touch(27, 240, 220)]
+        });
+        expect(grid.bodyElement.scrollTop, 'owner contact 13 continues driving scroll without jumping to 27').toBe(160);
+
+        // Partial lift: 13 lifts while 27 stays down -> releases listeners without starting momentum
+        dispatchDoc('touchend', {
+            touches       : [touch(27, 240, 220)],
+            changedTouches: [touch(13, 120, 160)]
+        });
+        expect(addon.activeDrag, 'partial lift clears activeDrag').toBeNull();
+        expect(frames.queue.size, 'partial lift starts no momentum while contact 27 stays down').toBe(0);
+
+        expect(() => {
+            const remainingMove = dispatchDoc('touchmove', {
+                touches       : [touch(27, 240, 180)],
+                changedTouches: [touch(27, 240, 180)]
+            });
+            expect(remainingMove.defaultPrevented).toBe(false);
+
+            dispatchDoc('touchend', {
+                touches       : [],
+                changedTouches: [touch(27, 240, 180)]
+            })
+        }).not.toThrow();
+
+        const outsideMove = dispatchDoc('touchmove', {
+            touches       : [touch(31, 40, 40)],
+            changedTouches: [touch(31, 40, 40)]
+        });
+        expect(outsideMove.defaultPrevented).toBe(false);
+        expect(grid.bodyElement.scrollTop).toBe(160);
+
+        // Fresh one-finger drag and ordinary release still scroll and fling
+        startTouchOnGrid([touch(41, 120, 260)]);
+        await new Promise(resolve => setTimeout(resolve, 65));
+
+        dispatchDoc('touchmove', {
+            touches       : [touch(41, 120, 230)],
+            changedTouches: [touch(41, 120, 230)]
+        });
+        await new Promise(resolve => setTimeout(resolve, 20));
+        dispatchDoc('touchmove', {
+            touches       : [touch(41, 120, 180)],
+            changedTouches: [touch(41, 120, 180)]
+        });
+        expect(grid.bodyElement.scrollTop).toBe(210);
+
+        dispatchDoc('touchend', {
+            touches       : [],
+            changedTouches: [touch(41, 120, 180)]
+        });
+
+        expect(grid.bodyElement.scrollTop).toBeGreaterThan(210);
+        expect(addon.activeDrag?.animation, 'ordinary single-finger release still starts momentum').toBeTruthy();
+        pumpFrames();
+        expect(addon.activeDrag).toBeNull()
+    })
+});

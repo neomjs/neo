@@ -79,6 +79,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/BigDataNL.spec.mjs',
     'grid/ColumnCrossBodyDnD.spec.mjs',
     'grid/ColumnOverdragScroll.spec.mjs',
+    'grid/GridDragScrollTouchNL.spec.mjs',
     'grid/GridExportCsvNL.spec.mjs',
     'grid/GridViewFocus.spec.mjs',
     'grid/HeaderGroupsTheme.spec.mjs',
