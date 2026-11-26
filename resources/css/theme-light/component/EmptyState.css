@@ -7,6 +7,10 @@
     --empty-state-action-color         : #1f2328;
     --empty-state-action-color-hover   : #0b0f14;
     --empty-state-action-focus-outline : #1c60a0;
+    --empty-state-action-font-size     : 11px;
+    --empty-state-action-font-weight   : 600;
+    --empty-state-action-min-height    : 0px;
+    --empty-state-action-padding       : 5px 12px;
     --empty-state-align-items          : flex-start;
     --empty-state-background-color     : #ffffff;
     --empty-state-border               : 1px solid #d8dee4;

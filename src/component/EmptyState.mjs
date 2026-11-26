@@ -6,12 +6,17 @@ import {resolveCallback} from '../util/Function.mjs';
 /**
  * @summary Presents a meaningful empty or no-results message with optional supporting guidance and a recovery action.
  *
- * Text-only configurations render a single semantic paragraph without empty decorative wrappers. When `iconCls` is
- * supplied, the glyph stays `aria-hidden="true"` so screen readers announce only the consumer-owned message, optional
- * `description`, and optional native `<button type="button">` recovery action. Pointer clicks and keyboard activation
- * (`Enter` / `Space`) share the browser's native button path, invoke `actionHandler` via `resolveCallback`, and emit
- * the semantic `action` event. Pass `ui: 'plain'` when embedding inside a surface that already draws its own border
- * and padding.
+ * Text-only configurations render a single semantic paragraph at full title prominence without empty decorative
+ * wrappers. When `iconCls` is supplied, the glyph stays `aria-hidden="true"` so screen readers announce only the
+ * consumer-owned message, optional `description`, and optional native `<button type="button">` recovery action.
+ *
+ * `EmptyState` intentionally extends `Neo.component.Base` with a native `<button>` rather than `Neo.container.Base`
+ * composing `Neo.button.Base`: text-only and `removeDom`-toggled empty states pay zero container layout or child
+ * component lifecycle cost, while `.neo-empty-state-action` inherits Neo's `--button-*` sizing/typography cascade and
+ * `--cmp-button-secondary-*` surface tokens so it matches neighbouring `Neo.button.Base` controls on the same surface.
+ * Pointer clicks and keyboard activation (`Enter` / `Space`) share the browser's native button path, invoke
+ * `actionHandler` via `resolveCallback`, and emit the semantic `action` event. Pass `ui: 'plain'` when embedding
+ * inside a surface that already draws its own border and padding.
  *
  * @class Neo.component.EmptyState
  * @extends Neo.component.Base
@@ -53,6 +58,8 @@ class EmptyState extends Component {
         /**
          * Callback invoked when the recovery action button is activated. Accepts a function or a string method name
          * resolved on the nearest `Neo.controller.Component` or ancestor (`'up.methodName'`).
+         * Custom `isEqual` always treats two function references as unequal so re-bound closures with updated outer
+         * state are never skipped, while identical string controller method names still short-circuit as no-ops.
          * @member {Function|String|null} actionHandler_=null
          * @reactive
          */

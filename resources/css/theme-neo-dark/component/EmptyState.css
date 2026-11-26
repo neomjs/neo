@@ -7,6 +7,10 @@
     --empty-state-action-color         : var(--sem-color-text-neutral-default);
     --empty-state-action-color-hover   : var(--sem-color-text-neutral-contrast);
     --empty-state-action-focus-outline : var(--sem-color-border-focus);
+    --empty-state-action-font-size     : 0.875rem;
+    --empty-state-action-font-weight   : var(--core-fontweight-semibold);
+    --empty-state-action-min-height    : var(--height-32);
+    --empty-state-action-padding       : 6px var(--sem-spacing-small);
     --empty-state-align-items          : flex-start;
     --empty-state-background-color     : var(--sem-color-surface-neutral-default);
     --empty-state-border               : 1px solid var(--sem-color-border-subtle);

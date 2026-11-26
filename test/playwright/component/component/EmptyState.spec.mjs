@@ -142,4 +142,62 @@ test.describe('Neo.component.EmptyState browser contract', () => {
             expect(ratios.action).toBeGreaterThanOrEqual(4.5)
         })
     }
+
+    test('inherits ancestor --button-* sizing tokens for action chrome and preserves full title prominence when text-only', async ({page}) => {
+        componentId = await page.evaluate(async () => {
+            const result = await Neo.worker.App.createNeoInstance({
+                actionText: 'Clear (Esc)',
+                importPath: '../component/EmptyState.mjs',
+                ntype     : 'empty-state',
+                parentId  : 'component-test-viewport',
+                text      : 'Select a file or a folder to see its details.'
+            });
+
+            if (!result.success) throw new Error(result.error.message);
+            return result.id
+        });
+
+        const root = page.locator(`#${componentId}`);
+        await expect(root).toBeVisible();
+
+        const withAction = await page.evaluate(id => {
+            const viewport = document.getElementById('component-test-viewport');
+            viewport.style.setProperty('--button-height', '48px');
+            viewport.style.setProperty('--button-padding', '0 16px');
+            viewport.style.setProperty('--button-text-font-size', '16px');
+
+            const el    = document.getElementById(id),
+                  title = getComputedStyle(el.querySelector('.neo-empty-state-title')),
+                  btn   = el.querySelector('.neo-empty-state-action');
+
+            return {
+                buttonFontSize: getComputedStyle(btn).fontSize,
+                buttonHeight  : Math.round(btn.getBoundingClientRect().height),
+                titleColor    : title.color,
+                titleFontSize : title.fontSize,
+                titleWeight   : title.fontWeight
+            }
+        }, componentId);
+
+        expect(withAction.buttonHeight).toBe(48);
+        expect(withAction.buttonFontSize).toBe('16px');
+
+        await page.evaluate(id => Neo.worker.App.setConfigs({id, actionText: null}), componentId);
+        await expect(root.locator('.neo-empty-state-actions')).toHaveCount(0);
+
+        const textOnly = await page.evaluate(id => {
+            const title = getComputedStyle(document.getElementById(id).querySelector('.neo-empty-state-title'));
+            return {
+                titleColor   : title.color,
+                titleFontSize: title.fontSize,
+                titleWeight  : title.fontWeight
+            }
+        }, componentId);
+
+        expect(textOnly, 'sole message keeps full title typography rather than demoting to description style').toEqual({
+            titleColor   : withAction.titleColor,
+            titleFontSize: withAction.titleFontSize,
+            titleWeight  : withAction.titleWeight
+        })
+    })
 });

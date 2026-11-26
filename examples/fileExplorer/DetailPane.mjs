@@ -92,8 +92,7 @@ class DetailPane extends Container {
         if (!value) {
             body.vdom.cn      = [];
             body.hidden       = true;
-            emptyState.hidden = false;
-            body.update()
+            emptyState.hidden = false
         } else {
             emptyState.hidden = true;
             body.vdom.cn      = [{

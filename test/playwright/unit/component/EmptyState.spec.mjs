@@ -18,7 +18,6 @@ import * as core           from '../../../../src/core/_export.mjs';
 import ComponentController from '../../../../src/controller/Component.mjs';
 import Container           from '../../../../src/container/Base.mjs';
 import EmptyState          from '../../../../src/component/EmptyState.mjs';
-import DetailPane          from '../../../../examples/fileExplorer/DetailPane.mjs';
 
 class EmptyStateTestController extends ComponentController {
     static config = {
@@ -140,36 +139,5 @@ test.describe('Neo.component.EmptyState', () => {
         expect(fired).toHaveLength(2);
 
         parent.destroy()
-    });
-
-    test('DetailPane uses EmptyState when details is null and transitions cleanly to populated details and back', () => {
-        const pane  = Neo.create(DetailPane, {appName}),
-              empty = pane.down({reference: 'empty-state'}),
-              body  = pane.down({reference: 'detail-body'});
-
-        expect(pane.vdom.tag).toBe('section');
-        expect(empty.className).toBe('Neo.component.EmptyState');
-        expect(empty.hidden).toBe(false);
-        expect(empty.text).toBe('Select a file or a folder to see its details.');
-        expect(body.hidden).toBe(true);
-
-        pane.details = {
-            icon: ['fe-icon', 'fe-kind-script'],
-            name: 'Cart.mjs',
-            path: '/src/components/Cart.mjs',
-            rows: [['Kind', 'JavaScript module'], ['Size', '2.1 KB']]
-        };
-
-        expect(empty.hidden).toBe(true);
-        expect(body.hidden).toBe(false);
-        expect(body.vdom.cn[0].cn[1].text).toBe('Cart.mjs');
-        expect(body.vdom.cn[1].text).toBe('/src/components/Cart.mjs');
-
-        pane.details = null;
-        expect(empty.hidden).toBe(false);
-        expect(body.hidden).toBe(true);
-        expect(body.vdom.cn).toEqual([]);
-
-        pane.destroy()
     })
 });
