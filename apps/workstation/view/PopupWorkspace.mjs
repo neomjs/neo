@@ -63,17 +63,89 @@ class PopupWorkspace extends DockWorkspace {
     runtimeState = null
 
     /**
+     * Cached `document.body` `keydown` listener descriptor active only while this popup vessel is mounted.
+     * @member {Object|null} bodyKeyListener=null
+     * @protected
+     */
+    bodyKeyListener = null
+    /**
+     * Window id on whose `Neo.main.DomEvents` `'F1'` `preventDefault` is currently registered for this popup.
+     * @member {Number|String|null} registeredKeyWindowId=null
+     * @protected
+     */
+    registeredKeyWindowId = null
+
+    /**
      * @summary Registers the document owner before any render target is required.
      * @param {Object} config
      */
     construct(config) {
         super.construct(config);
         const me = this;
-        me.addDomListeners({keydown: me.onPopupKeyDown, scope: me, vnodeId: 'document.body'});
         me.workspaceSet.register(me.workspaceKey, {
             ...me.getDockParticipantSeams(me.workspaceKey),
             dispose: () => { if (!me.isDestroyed) me.destroy() }
         })
+    }
+
+    /**
+     * @summary Attaches or detaches document-level command-palette shortcuts as the popup mounts or detaches.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        this.syncPopupBodyKeyCapture(Boolean(value))
+    }
+
+    /**
+     * @summary Synchronizes the popup vessel's `document.body` `keydown` listener and `'F1'` `preventDefault`
+     * registration with its mounted state.
+     * @param {Boolean} mounted
+     * @protected
+     */
+    syncPopupBodyKeyCapture(mounted) {
+        const me = this;
+
+        if (mounted) {
+            if (!me.bodyKeyListener) {
+                me.bodyKeyListener = {keydown: me.onPopupKeyDown, scope: me, vnodeId: 'document.body'};
+                me.addDomListeners(me.bodyKeyListener)
+            }
+
+            if (!Neo.config.unitTestMode && me.windowId && me.registeredKeyWindowId !== me.windowId) {
+                if (me.registeredKeyWindowId) {
+                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
+                        id      : 'document.body',
+                        keys    : ['F1'],
+                        windowId: me.registeredKeyWindowId
+                    })
+                }
+                Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
+                    id      : 'document.body',
+                    keys    : ['F1'],
+                    windowId: me.windowId
+                });
+                me.registeredKeyWindowId = me.windowId
+            }
+        } else {
+            if (me.bodyKeyListener) {
+                me.removeDomListeners(me.bodyKeyListener);
+                me.bodyKeyListener = null
+            }
+
+            if (me.registeredKeyWindowId) {
+                if (!Neo.config.unitTestMode) {
+                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
+                        id      : 'document.body',
+                        keys    : ['F1'],
+                        windowId: me.registeredKeyWindowId
+                    })
+                }
+                me.registeredKeyWindowId = null
+            }
+        }
     }
 
     /**
@@ -287,6 +359,7 @@ class PopupWorkspace extends DockWorkspace {
      * @summary Retires this popup's Group membership and interaction registration.
      */
     destroy() {
+        this.syncPopupBodyKeyCapture(false);
         if (Neo.manager.Transaction.getParticipant(this.topologyGroupId, this.workspaceKey)?.componentId === this.id) {
             this.workspaceSet.unregister(this.workspaceKey)
         }

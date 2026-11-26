@@ -123,9 +123,21 @@ class Viewport extends BaseViewport {
     commandPalette = null
 
     /**
+     * @summary Synchronizes document-level command-palette shortcut listeners with the viewport's mount state.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        this.getController()?.syncBodyKeyCapture?.(Boolean(value))
+    }
+
+    /**
      * @param {...*} args
      */
     destroy(...args) {
+        this.getController()?.syncBodyKeyCapture?.(false);
         this.commandPalette?.destroy();
         this.commandPalette = null;
         super.destroy(...args)

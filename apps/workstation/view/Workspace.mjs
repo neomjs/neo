@@ -902,11 +902,23 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
+     * @summary Synchronizes document-level command-palette shortcut listeners with the workspace's mount state.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+        this.getController()?.syncBodyKeyCapture?.(Boolean(value))
+    }
+
+    /**
      * @summary Releases content owned by this composition after vessel resources have retired.
      * The provider's own teardown destroys its created stores; passed-in stores remain borrowed.
      * @protected
      */
     destroyWorkspaceContent() {
+        this.getController()?.syncBodyKeyCapture?.(false);
         this.commandPalette?.destroy();
         this.commandPalette = null;
         this.dockService?.destroy();

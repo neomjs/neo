@@ -16,6 +16,18 @@ class WorkspaceController extends Controller {
         className: 'Workstation.view.WorkspaceController'
     }
 
+    /**
+     * Cached `document.body` `keydown` listener descriptor bound to this controller while the workspace is mounted.
+     * @member {Object|null} bodyKeyListener=null
+     * @protected
+     */
+    bodyKeyListener = null
+    /**
+     * Window id on whose `Neo.main.DomEvents` `'F1'` `preventDefault` is currently registered.
+     * @member {Number|String|null} registeredKeyWindowId=null
+     * @protected
+     */
+    registeredKeyWindowId = null
     /** @member {Promise|null} tourControllerPromise=null */
     tourControllerPromise = null
 
@@ -32,32 +44,78 @@ class WorkspaceController extends Controller {
      * @param {...*} args
      */
     destroy(...args) {
+        this.syncBodyKeyCapture(false);
         Neo.currentWorker.un({connect: this.onWindowConnect, scope: this});
 
         super.destroy(...args)
     }
 
     /**
-     * @summary Registers document-level keyboard shortcuts for the root workspace window.
+     * @summary Wires document-level command-palette shortcuts only while the workspace is mounted.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
 
+        if (this.component?.mounted) {
+            this.syncBodyKeyCapture(true)
+        }
+    }
+
+    /**
+     * @summary Attaches or detaches the `document.body` `keydown` listener and `'F1'` `preventDefault` registration
+     * in lockstep with the workspace's mount state so unmounted unit-test instances never retain global body listeners.
+     * @param {Boolean} mounted
+     */
+    syncBodyKeyCapture(mounted) {
         const me        = this,
               workspace = me.component;
 
-        workspace?.addDomListeners?.({
-            keydown: me.onWorkspaceKeyDown,
-            scope  : me,
-            vnodeId: 'document.body'
-        });
+        if (!workspace || workspace.isDestroyed) {
+            return
+        }
 
-        if (!Neo.config.unitTestMode && workspace?.windowId) {
-            Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                id      : 'document.body',
-                keys    : ['F1'],
-                windowId: workspace.windowId
-            })
+        if (mounted) {
+            if (!me.bodyKeyListener) {
+                me.bodyKeyListener = {
+                    keydown: me.onWorkspaceKeyDown,
+                    scope  : me,
+                    vnodeId: 'document.body'
+                };
+                workspace.addDomListeners?.(me.bodyKeyListener)
+            }
+
+            if (!Neo.config.unitTestMode && workspace.windowId && me.registeredKeyWindowId !== workspace.windowId) {
+                if (me.registeredKeyWindowId) {
+                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
+                        id      : 'document.body',
+                        keys    : ['F1'],
+                        windowId: me.registeredKeyWindowId
+                    })
+                }
+
+                Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
+                    id      : 'document.body',
+                    keys    : ['F1'],
+                    windowId: workspace.windowId
+                });
+                me.registeredKeyWindowId = workspace.windowId
+            }
+        } else {
+            if (me.bodyKeyListener) {
+                workspace.removeDomListeners?.(me.bodyKeyListener);
+                me.bodyKeyListener = null
+            }
+
+            if (me.registeredKeyWindowId) {
+                if (!Neo.config.unitTestMode) {
+                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
+                        id      : 'document.body',
+                        keys    : ['F1'],
+                        windowId: me.registeredKeyWindowId
+                    })
+                }
+                me.registeredKeyWindowId = null
+            }
         }
     }
 

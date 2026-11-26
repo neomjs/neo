@@ -89,8 +89,21 @@ class ViewportController extends Controller {
     }
 
     /**
+     * Cached `document.body` `keydown` listener descriptor bound to this controller while the viewport is mounted.
+     * @member {Object|null} bodyKeyListener=null
+     * @protected
+     */
+    bodyKeyListener = null
+    /**
+     * Window id on whose `Neo.main.DomEvents` `'F1'` `preventDefault` is currently registered.
+     * @member {Number|String|null} registeredKeyWindowId=null
+     * @protected
+     */
+    registeredKeyWindowId = null
+
+    /**
      * Records the viewport's starting theme as state, which the taskbar's theme button and the Settings app read,
-     * and wires document-level command-palette shortcuts (`Ctrl+K`, `Meta+K`, `F1`).
+     * and wires document-level command-palette shortcuts (`Ctrl+K`, `Meta+K`, `F1`) once mounted.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
@@ -100,18 +113,66 @@ class ViewportController extends Controller {
 
         me.setState('theme', viewport.getTheme());
 
-        viewport?.addDomListeners?.({
-            keydown: me.onViewportKeyDown,
-            scope  : me,
-            vnodeId: 'document.body'
-        });
+        if (viewport?.mounted) {
+            me.syncBodyKeyCapture(true)
+        }
+    }
 
-        if (!Neo.config.unitTestMode && viewport?.windowId) {
-            Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                id      : 'document.body',
-                keys    : ['F1'],
-                windowId: viewport.windowId
-            })
+    /**
+     * @summary Attaches or detaches the `document.body` `keydown` listener and `'F1'` `preventDefault` registration
+     * in lockstep with the viewport's mount state.
+     * @param {Boolean} mounted
+     */
+    syncBodyKeyCapture(mounted) {
+        const me       = this,
+              viewport = me.component;
+
+        if (!viewport || viewport.isDestroyed) {
+            return
+        }
+
+        if (mounted) {
+            if (!me.bodyKeyListener) {
+                me.bodyKeyListener = {
+                    keydown: me.onViewportKeyDown,
+                    scope  : me,
+                    vnodeId: 'document.body'
+                };
+                viewport.addDomListeners?.(me.bodyKeyListener)
+            }
+
+            if (!Neo.config.unitTestMode && viewport.windowId && me.registeredKeyWindowId !== viewport.windowId) {
+                if (me.registeredKeyWindowId) {
+                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
+                        id      : 'document.body',
+                        keys    : ['F1'],
+                        windowId: me.registeredKeyWindowId
+                    })
+                }
+
+                Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
+                    id      : 'document.body',
+                    keys    : ['F1'],
+                    windowId: viewport.windowId
+                });
+                me.registeredKeyWindowId = viewport.windowId
+            }
+        } else {
+            if (me.bodyKeyListener) {
+                viewport.removeDomListeners?.(me.bodyKeyListener);
+                me.bodyKeyListener = null
+            }
+
+            if (me.registeredKeyWindowId) {
+                if (!Neo.config.unitTestMode) {
+                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
+                        id      : 'document.body',
+                        keys    : ['F1'],
+                        windowId: me.registeredKeyWindowId
+                    })
+                }
+                me.registeredKeyWindowId = null
+            }
         }
     }
 
