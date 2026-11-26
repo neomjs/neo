@@ -22,7 +22,7 @@ The other repositories ride these lines: [neomjs/neo-agent-skills](https://githu
 
 ## Next: Engine 14.1
 
-The [14.1 milestone](https://github.com/neomjs/neo/milestone/15) connects a working example, the lessons that teach it, and the controls developers can reuse in their own apps. The target is the weekend cut. Peers can pick an open milestone issue after checking its assignee and active PRs. Existing epic stewards keep their scopes.
+The [14.1 milestone](https://github.com/neomjs/neo/milestone/15) connects a working example, the lessons that teach it, and the controls developers can reuse in their own apps. Two foundations join it: a design system that every theme is written against, and touch input as engine events. The cut is planned for Sunday 29 or Monday 30 November and takes what has passed its gate by then; the rest of an open track leads the next release. Peers can pick an open milestone issue after checking its assignee and active PRs. Existing epic stewards keep their scopes.
 
 ### Learn through a working application
 
@@ -38,9 +38,19 @@ The [segmented control](https://github.com/neomjs/neo/issues/22234) replaces man
 
 A visitor can [share a catalog search](https://github.com/neomjs/neo/issues/22238) and open the same results in a fresh tab. Typing in Find leaves browser history alone. A developer can follow the pathname guide in a [freshly generated workspace](https://github.com/neomjs/neo/issues/22239), open a deep link directly, reload, edit its query and use Back. Exercise both development and production with the packed candidate. Confirm registry consumption after publication. The [routing epic](https://github.com/neomjs/neo/issues/22169) tracks the Engine and server contracts. Pages and middleware have separate deployment steps.
 
-### Design and tooling decisions
+### A design system every theme is written against
 
-Theming starts in the [Ideation Sandbox](https://github.com/orgs/neomjs/discussions/22228). Compare actual Workstation and Fleet overrides, identify aliases that can be removed while preserving independent customization, and check light/dark switches, floating elements and detached windows. An app palette, theme workbench or token migration needs a decision from that exploration. The [read-only preview investigation](https://github.com/neomjs/neo/issues/22240) compares footprint and behavior for Learn and Docs. Editable examples continue to use Monaco and LivePreview. The milestone includes these investigations; their implementation decisions can follow the cut.
+Themes moved from Sass to plain CSS in 14.0. The tokens under them are still a skeleton exported from Figma in 2023. The [design-system discussion](https://github.com/orgs/neomjs/discussions/22228) decides their replacement: colour ramps named by function instead of hue, semantic tokens that say what a value is for, and component variables bound to them. Every theme then defines the same names, and an override written once works on every base theme. Kept on purpose: structural rules in `src` beside theme variable files, themes that define variables only, and nesting. A theme covers every widget; a product look such as Workstation's or Fleet's is a palette of a theme. Variable names change in one cut, with a rename map in the release notes and no alias layer. Clio maintains the discussion and drafts its decision record.
+
+Work that needs no decision is open now and is measured by the [theme census](https://github.com/neomjs/neo/issues/22270): the [old token export leaves](https://github.com/neomjs/neo/issues/22276), every variable a structural rule reads resolves in the Neo and classic pairs, and no structural rule paints a colour a theme cannot reach. The migration starts when the discussion graduates, in this proposed order: the `--cmp-*` layer goes, theme Neo moves onto the new tokens with light and dark as one theme, then the classic pair and Cyberpunk.
+
+### Touch input as engine events
+
+A phone user swipes a row, holds a handle, pinches a canvas. The [touch discussion](https://github.com/orgs/neomjs/discussions/22259), maintained by Emmy, decides which gestures become engine events, where they are recognized, and how Neural Link and a Playwright test replay them. Correctness work needs no decision and is landing: [a tap that loses its click](https://github.com/neomjs/neo/issues/22264) and [touch listeners that outlive a cancelled contact](https://github.com/neomjs/neo/issues/22271). The discussion's first experiment is declared touch policy: a component states `touch-action` in its structural CSS, the body-level `touchmove` listener becomes passive, and a physical iPhone run confirms that grid dragging, the Helix and page scrolling each keep their behaviour. Gesture events follow when the input section graduates.
+
+**Capstone, on green foundations only.** A Material light and dark theme and the first adaptive mobile components, a sheet that swipes and a floating action button, need both foundations. They enter this cut if the design system and the gesture events are merged with time to spare, and lead the next one otherwise.
+
+The [read-only preview investigation](https://github.com/neomjs/neo/issues/22240) is closed; its outcome continues as [smaller Highlight.js bundles](https://github.com/neomjs/neo/issues/22249). Editable examples continue to use Monaco and LivePreview.
 
 ### Release gate
 
@@ -48,4 +58,4 @@ Theming starts in the [Ideation Sandbox](https://github.com/orgs/neomjs/discussi
 
 Ada holds the [live defect gate](https://github.com/neomjs/neo/issues?q=is%3Aissue%20is%3Aopen%20label%3Abug). Each fix retains its owner and a regression witness. The operator decides outstanding deferrals at the cut. In particular, the [yielded-update issue](https://github.com/neomjs/neo/issues/20747) and [drag-terminal issue](https://github.com/neomjs/neo/issues/20871) carry scheduling and ordering decisions into the [scheduling discussion](https://github.com/neomjs/neo/discussions/22199). [ADR 0043](learn/agentos/decisions/0043-vdom-diff-placement.md) governs diff placement: App-worker diff is the default and the enhanced VDom worker remains supported as an opt-in.
 
-**Beyond this cut.** The wider web desktop, first-run installation-speed, platform-example and contributor-standing epics retain their own delivery schedules. Calendar on the shared time axis, server-backed planning data, the second docs app, the remaining Grid Multi-Body work, and further workbench features remain deferred. Brain and Fleet Manager follow their own release lines.
+**Beyond this cut.** The wider web desktop, first-run installation-speed, platform-example and contributor-standing epics retain their own delivery schedules. Product palettes for Workstation and Fleet and a theme workbench follow the theme migration. Calendar on the shared time axis, server-backed planning data, the second docs app, the remaining Grid Multi-Body work, and further workbench features remain deferred. Brain and Fleet Manager follow their own release lines.
