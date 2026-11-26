@@ -147,9 +147,12 @@ test('hash mode under spaRoot serves / and redirects /apps/route/index.html#/sec
         await expect(page).toHaveURL(spaOrigin + '/#/section1');
         await expect.poll(() => shownCard(page)).toBe(card.section1);
 
+        await page.evaluate(() => { globalThis.sameDocument = true });
+
         await page.getByRole('button', {name: 'Section 2'}).click();
         await expect.poll(() => shownCard(page)).toBe(card.section2);
-        await expect(page).toHaveURL(spaOrigin + '/#/section2')
+        await expect(page).toHaveURL(spaOrigin + '/#/section2');
+        expect(await page.evaluate(() => globalThis.sameDocument)).toBe(true)
     } finally {
         spaServer.closeAllConnections();
         spaServer.close()

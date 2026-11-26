@@ -1268,4 +1268,52 @@ test.describe('Neo.main.DomEvents', () => {
             Neo.hasExplicitRouterBasePath = origExplicit
         }
     });
+
+    test('hash mode keeps #/… clicks in the same document when <base href> points at a spaRoot directory', () => {
+        const clickHashAnchor = (owner, rawHref, baseUri) => {
+            const anchor = {
+                attributes  : [],
+                classList   : Object.assign([], {contains: () => false}),
+                dataset     : {},
+                getAttribute: name => name === 'href' ? rawHref : null,
+                hasAttribute: name => name === 'href',
+                href        : new URL(rawHref, baseUri).href,
+                id          : 'hash-link-1',
+                tagName     : 'A',
+                target      : ''
+            };
+            const event = {
+                altKey          : false,
+                button          : 0,
+                buttons         : 1,
+                clientX         : 10,
+                clientY         : 10,
+                composedPath    : () => [anchor, documentRef.body],
+                ctrlKey         : false,
+                defaultPrevented: false,
+                metaKey         : false,
+                preventDefault() { this.defaultPrevented = true },
+                shiftKey : false,
+                target   : anchor,
+                timeStamp: 1,
+                type     : 'click'
+            };
+
+            owner.onClick(event);
+            return event.defaultPrevented
+        };
+
+        // Served at / under spaRoot with <base href="/apps/route/">: prevents cross-path /apps/route/#/section2 reload
+        withRouter({mode: 'hash', url: '/#/section1'}, ({location, owner}) => {
+            expect(clickHashAnchor(owner, '#/section2', 'https://neomjs.com/apps/route/')).toBe(true);
+            expect(location.pathname).toBe('/');
+            expect(location.hash).toBe('#/section2');
+            expect(clickHashAnchor(owner, '/other/page.html', 'https://neomjs.com/apps/route/')).toBe(false)
+        });
+
+        // Served directly at /apps/route/index.html: native browser hash navigation runs untouched
+        withRouter({mode: 'hash', url: '/apps/route/index.html#/section1'}, ({owner}) => {
+            expect(clickHashAnchor(owner, '#/section2', 'https://neomjs.com/apps/route/index.html')).toBe(false)
+        })
+    });
 });

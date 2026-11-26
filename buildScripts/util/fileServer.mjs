@@ -92,6 +92,30 @@ export function isAllowedHost(host = '') {
 const escapeHtml = text => text.replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`);
 
 /**
+ * @summary Returns whether `html` declares an uncommented `<base ... href=>` tag without mutating or sanitizing HTML.
+ * @param {String} html
+ * @returns {Boolean}
+ */
+function hasBaseHref(html) {
+    let cursor = 0;
+
+    while (cursor < html.length) {
+        const comment = html.indexOf('<!--', cursor),
+              slice   = html.slice(cursor, comment === -1 ? html.length : comment);
+
+        if (/<base\b[^>]*\bhref\s*=/i.test(slice)) return true;
+        if (comment === -1) return false;
+
+        const end = html.indexOf('-->', comment + 4);
+        if (end === -1) return false;
+
+        cursor = end + 3
+    }
+
+    return false
+}
+
+/**
  * @summary Ends a response with a status and a body.
  * @param {http.ServerResponse} response
  * @param {Number} statusCode
@@ -374,8 +398,7 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
             if (!baseWarned) {
                 baseWarned = true;
                 try {
-                    const html = fs.readFileSync(rootIndex, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
-                    if (!/<base\b[^>]*\bhref\s*=/i.test(html)) {
+                    if (!hasBaseHref(fs.readFileSync(rootIndex, 'utf8'))) {
                         console.warn(
                             `[file-server] WARNING: ${cleanSpaRoot}/index.html has no <base href>; ` +
                             `add <base href="${rootMount}/"> so ./neo-config.json and relative assets resolve at /`

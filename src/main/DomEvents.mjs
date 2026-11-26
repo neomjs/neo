@@ -610,15 +610,15 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Intercepts unmodified primary clicks on internal links in `'pathname'` mode so routes move through the
-     * History API without reloading the document or workers, while preserving modified clicks, `target`, `download`,
-     * static assets, and `Neo.config.routerIgnorePaths`. For managed anchors, the anchor's `href` is the route.
+     * @summary Intercepts unmodified primary clicks on internal links in `'pathname'` mode (and `#...` links in
+     * `'hash'` mode when `<base href>` differs from `location.pathname`, as under `spaRoot`) so routes move without
+     * reloading the document or workers, while preserving modified clicks, `target`, `download`, static assets, and
+     * `Neo.config.routerIgnorePaths`. For managed anchors, the anchor's `href` is the route.
      * @param {MouseEvent} event
      * @returns {Boolean} true when the click was handled and its default browser navigation must be prevented
      */
     handlePathnameLinkClick(event) {
         if (
-            Neo.config.routerMode !== 'pathname' ||
             event.defaultPrevented ||
             (event.button ?? 0) !== 0 ||
             event.metaKey ||
@@ -630,12 +630,17 @@ class DomEvents extends Base {
         }
 
         let me      = this,
+            isPath  = Neo.config.routerMode === 'pathname',
             path    = event.composedPath ? event.composedPath() : me.getPathFromElement(event.target),
             anchor  = path.find(node => node?.tagName === 'A' && node.hasAttribute('href')),
             rawHref = anchor?.getAttribute('href'),
             rel, target, url;
 
         if (!anchor || !rawHref || anchor.hasAttribute('download')) {
+            return false
+        }
+
+        if (!isPath && !rawHref.startsWith('#')) {
             return false
         }
 
@@ -646,7 +651,7 @@ class DomEvents extends Base {
             return false
         }
 
-        if (rawHref.startsWith('#/')) {
+        if (isPath && rawHref.startsWith('#/')) {
             me.setRoute(rawHref);
             return true
         }
@@ -666,7 +671,7 @@ class DomEvents extends Base {
                     location.hash = rawHref
                 }
 
-                if (rawHref.length > 1) {
+                if (rawHref.length > 1 && !rawHref.startsWith('#/')) {
                     try {
                         document.getElementById(decodeURIComponent(rawHref.substring(1)))?.scrollIntoView()
                     } catch {
