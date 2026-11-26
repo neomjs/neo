@@ -61,7 +61,7 @@ class Component extends ContentComponent {
         html = super.rewriteLinks(html);
 
         // Less the base path, the fetch path is the file's path in the repository
-        return path ? rewriteRepoLinks(html, path.slice(Neo.config.basePath.length)) : html
+        return path ? rewriteRepoLinks(html, path.slice(Neo.config.basePath.length), me.windowId) : html
     }
 }
 

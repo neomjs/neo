@@ -141,6 +141,10 @@ class DomEvents extends Base {
      */
     #fontEvents = null
     /**
+     * @member {String} #lastFragment=''
+     */
+    #lastFragment = ''
+    /**
      * The route the App worker last received, in `'pathname'` mode
      * @member {String|null} #lastRoute=null
      */
@@ -171,9 +175,11 @@ class DomEvents extends Base {
         // The History API fires no hashchange: Back and Forward report a 'pathname' route as popstate. A #/… URL
         // from hash mode becomes its path before any worker reads the route.
         if (Neo.config.routerMode === 'pathname') {
+            me.resolveRouterBasePath();
             window.addEventListener('popstate', me.sendRoute.bind(me));
             me.upgradeHashRoute(true);
-            me.#lastRoute = me.getRouteKey()
+            me.#lastRoute    = me.getRouteKey();
+            me.#lastFragment = location.hash?.length > 1 ? location.hash.substring(1) : ''
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -825,14 +831,14 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Forwards a hash change to the App worker. In `'pathname'` mode only a `#/…` link is a route: it moves
-     * into the path first, replacing the entry the link pushed. Any other fragment is an in-page anchor.
+     * @summary Forwards a hash change to the App worker. In `'pathname'` mode a `#/…` link or bookmark upgrades
+     * into the path first, while in-page `#fragment` transitions forward `fragment` (or its removal) on the route.
      */
     onHashChange() {
         let me = this;
 
-        if (Neo.config.routerMode === 'pathname' && !me.upgradeHashRoute()) {
-            return
+        if (Neo.config.routerMode === 'pathname') {
+            me.upgradeHashRoute()
         }
 
         me.sendRoute()
@@ -1320,6 +1326,37 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Adopts the `<base href>` path as `Neo.config.routerBasePath` when `'pathname'` mode runs under that
+     * sub-path without an explicit `routerBasePath` override in `neo-config.json`.
+     * @returns {String}
+     */
+    resolveRouterBasePath() {
+        const {config} = Neo;
+
+        if (config.routerMode !== 'pathname' || config.routerBasePath || Neo.hasExplicitRouterBasePath) {
+            return config.routerBasePath || ''
+        }
+
+        const baseHref = globalThis.document?.querySelector?.('base[href]')?.getAttribute('href');
+
+        if (!baseHref || !globalThis.location) {
+            return ''
+        }
+
+        try {
+            const basePathname = new URL(baseHref, location.href || `${location.origin}${location.pathname}`).pathname.replace(/\/+$/, '');
+
+            if (basePathname && (location.pathname === basePathname || location.pathname.startsWith(basePathname + '/'))) {
+                config.routerBasePath = basePathname
+            }
+        } catch {
+            // Malformed base href leaves routerBasePath unchanged
+        }
+
+        return config.routerBasePath || ''
+    }
+
+    /**
      * Sends the parsed event data to the app worker
      * @param {Object} data
      * @protected
@@ -1333,8 +1370,8 @@ class DomEvents extends Base {
     }
 
     /**
-     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates on `pathname + '?' + search`
-     * so same-path query edits dispatch while in-page `#anchor`-only hops stay suppressed.
+     * @summary Sends the current route to the App worker. In `'pathname'` mode, deduplicates routes on
+     * `pathname + '?' + search` and emits `fragmentChange` when only `#fragment` changes on the same route.
      */
     sendRoute() {
         let me         = this,
@@ -1342,18 +1379,34 @@ class DomEvents extends Base {
             hashString = me.getRoute();
 
         if (Neo.config.routerMode === 'pathname') {
-            const routeKey = me.getRouteKey();
+            const
+                currentFragment = location.hash?.length > 1 ? location.hash.substring(1) : '',
+                fragment        = currentFragment || undefined,
+                routeKey        = me.getRouteKey();
 
             if (routeKey === me.#lastRoute) {
+                if (currentFragment !== me.#lastFragment) {
+                    me.#lastFragment = currentFragment;
+
+                    Manager.sendMessage('app', {
+                        action: 'fragmentChange',
+                        data  : {
+                            appNames: Manager.appNames,
+                            ...(fragment ? {fragment} : {}),
+                            hashString,
+                            windowId: Manager.windowId
+                        }
+                    })
+                }
                 return
             }
 
-            me.#lastRoute = routeKey;
+            me.#lastRoute    = routeKey;
+            me.#lastFragment = currentFragment;
 
             const
-                fragment = location.hash?.length > 1 ? location.hash.substring(1) : undefined,
-                search   = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || ''),
-                query    = parseQueryParams(search);
+                search = location.search?.startsWith('?') ? location.search.substring(1) : (location.search || ''),
+                query  = parseQueryParams(search);
 
             Manager.sendMessage('app', {
                 action: 'hashChange',
@@ -1407,13 +1460,14 @@ class DomEvents extends Base {
         }
 
         let [, path = '', query = '', anchor = ''] = route.replace(/^#/, '').match(/^([^?#]*)(?:\?([^#]*))?(#.*)?$/) || [],
+            currentAnchor = location.hash?.length > 1 ? location.hash : '',
             currentSearch = location.search && location.search !== '?' ? location.search : '',
             currentKey, nextKey, nextUrl;
 
         // 'home' and '/home' are one route, and '' and '/' the root: one history entry each
         path       = ('/' + path.replace(/^\/+/, '')).replace(/\/+$/, '') || '/';
-        currentKey = me.getRoute() + currentSearch + (anchor ? location.hash || '' : '');
-        nextKey    = path + (query ? `?${query}` : '') + anchor;
+        currentKey = me.getRoute() + currentSearch + currentAnchor;
+        nextKey    = path + (query ? `?${query}` : '') + (anchor.length > 1 ? anchor : '');
         nextUrl    = Neo.config.routerBasePath + nextKey;
 
         if (nextKey !== currentKey) {

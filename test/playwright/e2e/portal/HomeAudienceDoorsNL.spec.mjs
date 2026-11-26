@@ -174,8 +174,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         const essayHref   = await proofLinks.nth(2).getAttribute('href');
 
         expect(bigDataHref).toContain('examples/grid/bigData/index.html');
-        expect(recordHref).toBe('#/news/pulls/15123');
-        expect(essayHref).toBe('#/learn/benefits/Introduction');
+        expect(recordHref).toBe('/news/pulls/15123');
+        expect(essayHref).toBe('/learn/benefits/Introduction');
 
         const bigDataUrl      = new URL(bigDataHref, page.url()).toString();
         const bigDataResponse = await page.request.get(bigDataUrl);
@@ -208,15 +208,15 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         }, {timeout: 10000}).toBeGreaterThan(doorsScrollTop + 200);
         await expect(page.locator(`#${bodyEntry.id}`)).toBeInViewport();
         await waitForScrollSettled(page, home.id);
-        await expect(page).toHaveURL(/#\/home$/);
+        await expect(page).toHaveURL(/\/home$/);
 
-        // Return to AudienceDoors and click Door 2 CTA -> Agent OS Brain stage while keeping #/home hash
+        // Return to AudienceDoors and click Door 2 CTA -> Agent OS Brain stage while keeping /home route
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
         await agentsCtaEl.click();
         await expect(page.locator(`#${agentOs.id}`)).toBeInViewport({timeout: 10000});
         await waitForScrollSettled(page, home.id);
         await expect(page.locator(`#${agentOs.id}`).getByRole('heading', {name: 'The Agent OS Brain'})).toBeVisible();
-        await expect(page).toHaveURL(/#\/home$/);
+        await expect(page).toHaveURL(/\/home$/);
 
         // Embedded Viewport previews inside LivePreview must keep their theme scoped instead of hijacking document.body.
         // The home's own snippets mount no themed Viewport, so this witness hands one to a preview in tab mode.
@@ -243,7 +243,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
         // Return to AudienceDoors and click Door 3 CTA -> What Is Neo.mjs? guide
         await scrollHomeToReference(page, app, home.id, 'home-audience-doors', doors.id);
         await page.locator(`#${doorStudyCta.id}`).click();
-        await expect(page).toHaveURL(/#\/learn\/benefits\/Introduction$/);
+        await expect(page).toHaveURL(/\/learn\/benefits\/Introduction$/);
         await expect(page.getByRole('heading', {level: 1, name: 'What Is Neo.mjs?'})).toBeVisible({timeout: 15000})
     });
 
@@ -266,7 +266,7 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
 
             await buttons.last().click();
             await expect(page.locator(`#${doors.id}`)).toBeInViewport({timeout: 10000});
-            await expect(page).toHaveURL(/#\/home$/)
+            await expect(page).toHaveURL(/\/home$/)
         })
     }
 
@@ -593,8 +593,8 @@ test.describe('Portal Home AudienceDoors (Neural Link)', () => {
             expect(snapshot.html).toContain(`id="${bodyEntry.id}"`);
             expect(snapshot.html).toContain(`href="#${agentOs.id}"`);
             expect(snapshot.html).toContain(`id="${agentOs.id}"`);
-            expect(snapshot.html).toContain('#/news/pulls/15123');
-            expect(snapshot.html).toContain('#/learn/benefits/Introduction')
+            expect(snapshot.html).toContain('/news/pulls/15123');
+            expect(snapshot.html).toContain('/learn/benefits/Introduction')
         }
     })
 });

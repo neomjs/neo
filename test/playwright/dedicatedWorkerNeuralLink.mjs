@@ -3,6 +3,8 @@ import crypto                      from 'node:crypto';
 import process                     from 'node:process';
 import {attachPageSharedAppWorker} from './sharedWorkerAppWorker.mjs';
 
+const NAVIGATION_URL = /^(?!.*\/[^/?#]+\.(?:avif|bmp|cjs|css|csv|eot|gif|glb|gltf|gz|ico|jpeg|jpg|js|json|jsonl|map|md|mjs|mp3|mp4|ogg|otf|pdf|png|svg|ttf|txt|wasm|wav|webm|webp|woff|woff2|xml|yaml|yml|zip)(?:[?#]|$)).+/i;
+
 const WORKER_ID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
 
 /**
@@ -716,7 +718,7 @@ export async function runDedicatedWorkerNeuralLink({browser, context, page}, use
                     await (await attaching?.catch(() => null))?.close()
                 };
 
-                await boundPage.route?.(/(?:\.html|\/)(?:\?[^#]*)?$/, async route => {
+                await boundPage.route?.(NAVIGATION_URL, async route => {
                     const request = route.request();
 
                     if (request.isNavigationRequest() && request.frame() === boundPage.mainFrame()) {

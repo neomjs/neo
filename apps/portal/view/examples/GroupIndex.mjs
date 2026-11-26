@@ -213,6 +213,21 @@ class GroupIndex extends Component {
     }
 
     /**
+     * @summary Re-renders group links when the component moves or binds to a window with a distinct `routerMode`.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value != null && this.vdom.cn?.length &&
+            StringUtil.toRouteHref('/examples', oldValue) !== StringUtil.toRouteHref('/examples', value)) {
+            this.createEntries()
+        }
+    }
+
+    /**
      * @param {String} value
      * @param {String} oldValue
      * @returns {String}
@@ -271,7 +286,7 @@ class GroupIndex extends Component {
                 cls           : startCls,
                 'aria-current': !isFiltering && me.activeFamily === null && me.presentation !== 'overview' ? 'page' : null,
                 'aria-label'  : startAria,
-                href          : StringUtil.toRouteHref('/examples'),
+                href          : StringUtil.toRouteHref('/examples', me.windowId),
                 removeDom     : me.presentation === 'overview',
                 tabIndex      : me.getTabIndex(null),
                 cn            : [
@@ -324,7 +339,7 @@ class GroupIndex extends Component {
             id            : me.id + '__' + group.family,
             'aria-current': !me.matchCounts && group.family === me.activeFamily ? 'page' : null,
             'aria-label'  : ariaLabel,
-            href          : StringUtil.toRouteHref(group.route),
+            href          : StringUtil.toRouteHref(group.route, me.windowId),
             tabIndex      : me.getTabIndex(group.family),
             cn            : [
                 {tag: 'i',    cls: [...group.iconCls.split(' '), 'portal-examples-group-index-icon'], 'aria-hidden': true},

@@ -179,8 +179,8 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
 
         // The planning page links its own families first
         expect(await readLinks(planning)).toEqual([
-            '#/examples/gantt', '#/examples/board', '#/examples/grid', '#/examples/forms',
-            '#/examples/scheduler', '#/examples/calendar', '#/examples/dashboard'
+            '/examples/gantt', '/examples/board', '/examples/grid', '/examples/forms',
+            '/examples/scheduler', '/examples/calendar', '/examples/dashboard'
         ]);
 
         // One store under both views
@@ -264,8 +264,8 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
 
         // The other families are one click away
         expect(await readLinks(grid)).toEqual([
-            '#/examples/grid', '#/examples/forms', '#/examples/scheduler', '#/examples/gantt',
-            '#/examples/board', '#/examples/calendar', '#/examples/dashboard'
+            '/examples/grid', '/examples/forms', '/examples/scheduler', '/examples/gantt',
+            '/examples/board', '/examples/calendar', '/examples/dashboard'
         ]);
 
         // Changing the code changes the grid, and the feed keeps running on the smaller store

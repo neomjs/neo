@@ -13,9 +13,8 @@ import {expect, test} from '../../fixtures.mjs';
  * "does clicking it arrive".
  */
 
-const PORTAL            = '/apps/portal/index.html',
-      GUIDE             = `${PORTAL}#/learn/guides/uibuildingblocks/DockLayouts`,
-      ADOPTION_ROUTE    = '#/learn/guides/uibuildingblocks/DockLayoutsAdoption',
+const GUIDE             = '/learn/guides/uibuildingblocks/DockLayouts',
+      ADOPTION_ROUTE    = '/learn/guides/uibuildingblocks/DockLayoutsAdoption',
       ADOPTION_MARKDOWN = '**/DockLayoutsAdoption.md*',
       ADOPTION_TITLE    = 'Dock Layouts: Adopting in Your App',
       DECISION_3_ROUTE  = `${ADOPTION_ROUTE}#decision-3--policies-live-in-the-model-not-in-your-ui`,
@@ -153,25 +152,25 @@ test.describe('learn link routing', () => {
     });
 
     test('opening a guide section URL scrolls after loading the article', async ({page}) => {
-        await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+        await page.goto(DECISION_3_ROUTE);
         await expectDecisionArrival(page)
     });
 
     test('changing the fragment scrolls within the loaded article', async ({page}) => {
-        await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+        await page.goto(ADOPTION_ROUTE);
 
         const heading = page.locator(CONTENT).getByRole('heading', {level: 2, name: DECISION_3_TITLE, exact: true});
 
         await expect(heading).toBeVisible();
         await expect(heading).not.toBeInViewport();
 
-        await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+        await page.goto(DECISION_3_ROUTE);
         await expectDecisionArrival(page)
     });
 
     test('clicking an On this page entry keeps the heading in view as earlier content expands', async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
-        await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+        await page.goto(ADOPTION_ROUTE);
 
         const heading = page.locator(CONTENT).getByRole('heading', {level: 2, name: DECISION_3_TITLE, exact: true});
 
@@ -196,7 +195,7 @@ test.describe('learn link routing', () => {
     });
 
     test('opening an unknown section keeps the start of the article visible', async ({page}) => {
-        await page.goto(`${PORTAL}${ADOPTION_ROUTE}#unknown-section`);
+        await page.goto(`${ADOPTION_ROUTE}#unknown-section`);
         await expect(page.locator(`${CONTENT} h1`, {hasText: 'Adopting in Your App'})).toBeInViewport()
     });
 
@@ -213,18 +212,22 @@ test.describe('learn link routing', () => {
               heading       = article.getByRole('heading', {level: 1, name: ADOPTION_TITLE, exact: true}),
               readScrollTop = () => article.evaluate((node, selector) => node.closest(selector).scrollTop, SCROLLER);
 
-        await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+        await page.goto(DECISION_3_ROUTE);
         await expectDecisionArrival(page);
         expect(requests).toBe(1);
 
         for (const suffix of ['', '#unknown-section']) {
-            await page.goto(`${PORTAL}${ADOPTION_ROUTE}${suffix}`);
+            if (suffix) {
+                await page.goto(`${ADOPTION_ROUTE}${suffix}`)
+            } else {
+                await page.evaluate(route => Neo.Main.setRoute({value: route}), ADOPTION_ROUTE)
+            }
             await expect(heading).toBeInViewport();
             await expect.poll(readScrollTop).toBe(0);
             await expect(page.locator(`${SECTIONS} .neo-selected`)).toHaveText(ADOPTION_TITLE);
 
             if (!suffix) {
-                await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+                await page.goto(DECISION_3_ROUTE);
                 await expectDecisionArrival(page)
             }
         }
@@ -234,7 +237,7 @@ test.describe('learn link routing', () => {
 
     test('scrolling back to the top selects the article title while its first section is still visible', async ({page}) => {
         await page.setViewportSize({width: 1440, height: 900});
-        await page.goto(`${PORTAL}${ADOPTION_ROUTE}`);
+        await page.goto(ADOPTION_ROUTE);
 
         const firstSectionTitle = 'One class, five decisions',
               article           = page.locator(CONTENT),
@@ -295,7 +298,7 @@ test.describe('learn link routing', () => {
 
                 return result
             }
-        }, {contentId, oldRecordId: ADOPTION_ROUTE.slice('#/learn/'.length)});
+        }, {contentId, oldRecordId: ADOPTION_ROUTE.slice('/learn/'.length)});
 
         await page.context().route(ADOPTION_MARKDOWN, async route => {
             const response = await route.fetch({maxRetries: 2});
@@ -306,14 +309,14 @@ test.describe('learn link routing', () => {
         }, {times: 1});
 
         try {
-            await page.goto(`${PORTAL}${DECISION_3_ROUTE}`);
+            await page.evaluate(route => Neo.Main.setRoute({value: route}), DECISION_3_ROUTE);
             expect(await started.promise).toBe(200);
 
             const newerTitle   = 'Using These Topics',
                   newerSection = 'How the Content is Organized',
                   selected     = sections.locator('.neo-selected');
 
-            await page.goto(`${PORTAL}#/learn/UsingTheseTopics#how-the-content-is-organized`);
+            await page.evaluate(() => Neo.Main.setRoute({value: '/learn/UsingTheseTopics#how-the-content-is-organized'}));
             await expect(article.locator('h1')).toHaveText(newerTitle);
             await expect(selected).toHaveText(newerSection);
             await expect.poll(readScrollTop).toBeGreaterThan(0);
@@ -334,6 +337,77 @@ test.describe('learn link routing', () => {
             expect(await readScrollTop()).toBe(scrollTop)
         } finally {
             release.resolve()
+        }
+    });
+
+    test('retains a fragment update or clear that arrives while Learn is still loading its tree record, without refetching Markdown', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await routeMarkdownOnDedicatedWorker(page);
+
+        let markdownRequests = 0;
+        await page.context().route(ADOPTION_MARKDOWN, async route => {
+            markdownRequests++;
+            await route.continue()
+        });
+
+        const article       = page.locator(CONTENT),
+              heading       = article.getByRole('heading', {level: 1, name: ADOPTION_TITLE, exact: true}),
+              readScrollTop = () => article.evaluate((node, selector) => node.closest(selector).scrollTop, SCROLLER);
+
+        // Arm 1: #one-class-five-decisions -> #decision-3--... while learn/tree.json is held
+        const treeStarted1 = Promise.withResolvers(),
+              treeRelease1 = Promise.withResolvers();
+
+        await page.context().route('**/learn/tree.json*', async route => {
+            const response = await route.fetch({maxRetries: 2});
+            treeStarted1.resolve(response.status());
+            await treeRelease1.promise;
+            await route.fulfill({response})
+        }, {times: 1});
+
+        try {
+            await page.goto(`${ADOPTION_ROUTE}#one-class-five-decisions`);
+            expect(await treeStarted1.promise).toBe(200);
+
+            await page.evaluate(nextHash => {
+                location.hash = nextHash
+            }, '#decision-3--policies-live-in-the-model-not-in-your-ui');
+
+            treeRelease1.resolve();
+            await expectDecisionArrival(page);
+            expect(markdownRequests).toBe(1)
+        } finally {
+            treeRelease1.resolve()
+        }
+
+        // Arm 2: cold boot on a fresh document where #decision-3--... clears to '' while learn/tree.json is held
+        markdownRequests = 0;
+        const treeStarted2 = Promise.withResolvers(),
+              treeRelease2 = Promise.withResolvers();
+
+        await page.goto('about:blank');
+        await page.context().route('**/learn/tree.json*', async route => {
+            const response = await route.fetch({maxRetries: 2});
+            treeStarted2.resolve(response.status());
+            await treeRelease2.promise;
+            await route.fulfill({response})
+        }, {times: 1});
+
+        try {
+            await page.goto(DECISION_3_ROUTE);
+            expect(await treeStarted2.promise).toBe(200);
+
+            await page.evaluate(cleanRoute => {
+                Neo.Main.setRoute({value: cleanRoute})
+            }, ADOPTION_ROUTE);
+
+            treeRelease2.resolve();
+            await expect(heading).toBeInViewport();
+            await expect.poll(readScrollTop).toBe(0);
+            await expect(page.locator(`${SECTIONS} .neo-selected`)).toHaveText(ADOPTION_TITLE);
+            expect(markdownRequests).toBe(1)
+        } finally {
+            treeRelease2.resolve()
         }
     });
 });

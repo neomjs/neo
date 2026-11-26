@@ -713,6 +713,28 @@ class App extends Base {
     }
 
     /**
+     * @summary Synchronizes the active window route's `#fragment` and notifies same-route listeners without re-running routing.
+     * @param {Object} data
+     */
+    onFragmentChange(data) {
+        const payload = data?.data;
+
+        if (payload) {
+            const {fragment, hashString, windowId} = payload;
+
+            HashHistory.updateFragment(payload);
+
+            for (const cfg of [Neo.windowConfigs?.[windowId], Neo.config]) {
+                if (cfg?.hash && cfg.hash.windowId === windowId && cfg.hash.hashString === hashString) {
+                    fragment ? (cfg.hash.fragment = fragment) : delete cfg.hash.fragment
+                }
+            }
+        }
+
+        this.fire('fragmentChange', payload)
+    }
+
+    /**
      * Every URL hash-change will create a post message in main and end up here first.
      * @param {Object} data parsed key-value pairs for each hash value
      */

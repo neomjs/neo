@@ -232,7 +232,7 @@ class SearchResults extends Container {
                             tag: 'h2',
                             cn : [{
                                 tag : 'a',
-                                href: StringUtil.toRouteHref(definition.route),
+                                href: StringUtil.toRouteHref(definition.route, me.windowId),
                                 cn  : [
                                     {tag: 'i', cls: [...definition.iconCls.split(' '), 'portal-examples-search-group-icon'], 'aria-hidden': true},
                                     {tag: 'span', text: definition.title}

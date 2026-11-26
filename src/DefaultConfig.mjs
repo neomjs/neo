@@ -237,7 +237,9 @@ const DefaultConfig = {
     renderCountDeltas: false,
     /**
      * The path in front of every `'pathname'` route, without a trailing slash: with `'/docs'`, the route
-     * `/learn/Intro` is the URL `/docs/learn/Intro`. Ignored in `'hash'` mode.
+     * `/learn/Intro` is the URL `/docs/learn/Intro`. When omitted in `'pathname'` mode, `DomEvents` adopts the
+     * document `<base href>` path if `location.pathname` is mounted under it; explicit `''` forces root mounting.
+     * Ignored in `'hash'` mode.
      * @default ''
      * @memberOf! module:Neo
      * @name config.routerBasePath

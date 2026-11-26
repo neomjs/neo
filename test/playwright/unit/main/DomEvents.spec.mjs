@@ -868,11 +868,28 @@ test.describe('Neo.main.DomEvents', () => {
 
     test('pathname mode moves a #/… link into the path as a whole route, and an in-page anchor changes nothing', () => {
         withRouter({mode: 'pathname', url: '/learn/Intro?deck=training'}, ({calls, go, location, owner, sent}) => {
+            const fragments = [],
+                  origSend  = Neo.worker.Manager.sendMessage;
+
+            Neo.worker.Manager.sendMessage = (dest, msg) => {
+                if (msg.action === 'fragmentChange') {
+                    fragments.push(msg.data)
+                }
+                origSend(dest, msg)
+            };
+
             go('#section');
             owner.onHashChange();
             expect(calls).toEqual([]);
             expect(sent).toEqual([]);
+            expect(fragments).toEqual([{appNames: undefined, fragment: 'section', hashString: '/learn/Intro', windowId: undefined}]);
 
+            owner.setRoute('/learn/Intro?deck=training');
+            expect(calls).toEqual([['push', '/learn/Intro?deck=training']]);
+            expect(sent).toEqual([]);
+            expect(fragments.at(-1)).toEqual({appNames: undefined, hashString: '/learn/Intro', windowId: undefined});
+
+            calls.length = 0;
             go('#/news/blog');
             owner.onHashChange();
             expect(calls).toEqual([['replace', '/news/blog']]);
@@ -1216,5 +1233,39 @@ test.describe('Neo.main.DomEvents', () => {
             hashString: '/examples/grid',
             search    : ''
         })
+    });
+
+    test('pathname mode adopts <base href> when mounted below root without an explicit routerBasePath, while preserving root mounts and explicit root overrides', () => {
+        const origQuerySelector = documentRef.querySelector,
+              origExplicit      = Neo.hasExplicitRouterBasePath;
+
+        documentRef.querySelector = selector => selector === 'base[href]'
+            ? {getAttribute: name => name === 'href' ? '/apps/portal/' : null}
+            : null;
+
+        try {
+            Neo.hasExplicitRouterBasePath = false;
+
+            withRouter({base: '', mode: 'pathname', url: '/apps/portal/index.html#/learn'}, ({calls, owner}) => {
+                expect(Neo.config.routerBasePath).toBe('/apps/portal');
+                expect(calls).toEqual([['replace', '/apps/portal/learn']]);
+                expect(owner.getRoute()).toBe('/learn')
+            });
+
+            withRouter({base: '', mode: 'pathname', url: '/learn'}, ({owner}) => {
+                expect(Neo.config.routerBasePath).toBe('');
+                expect(owner.getRoute()).toBe('/learn')
+            });
+
+            Neo.hasExplicitRouterBasePath = true;
+
+            withRouter({base: '', mode: 'pathname', url: '/apps/portal/learn'}, ({owner}) => {
+                expect(Neo.config.routerBasePath).toBe('');
+                expect(owner.getRoute()).toBe('/apps/portal/learn')
+            })
+        } finally {
+            documentRef.querySelector     = origQuerySelector;
+            Neo.hasExplicitRouterBasePath = origExplicit
+        }
     });
 });

@@ -175,4 +175,32 @@ test.describe('Neo.util.HashHistory', () => {
             HashHistory.un('change', onChange)
         }
     });
+
+    test('updateFragment mutates or clears the active window route fragment in place without firing change', () => {
+        const events   = [],
+              onChange = (...args) => events.push(args);
+
+        HashHistory.on('change', onChange);
+
+        try {
+            HashHistory.push({fragment: 'first-heading', hash: {}, hashString: '/learn/Intro', windowId: 'w1'});
+            HashHistory.push({fragment: 'other-window',  hash: {}, hashString: '/learn/Intro', windowId: 'w2'});
+            expect(events).toHaveLength(2);
+
+            expect(HashHistory.updateFragment({fragment: 'next-heading', hashString: '/learn/Intro', windowId: 'w1'})).toBe(true);
+            expect(HashHistory.first('w1').fragment).toBe('next-heading');
+            expect(HashHistory.first('w2').fragment).toBe('other-window');
+            expect(events).toHaveLength(2);
+
+            expect(HashHistory.updateFragment({fragment: 'wrong-route', hashString: '/learn/Other', windowId: 'w1'})).toBe(false);
+            expect(HashHistory.first('w1').fragment).toBe('next-heading');
+
+            expect(HashHistory.updateFragment({hashString: '/learn/Intro', windowId: 'w1'})).toBe(true);
+            expect(HashHistory.first('w1')).not.toHaveProperty('fragment');
+            expect(HashHistory.getCount('w1')).toBe(1);
+            expect(events).toHaveLength(2)
+        } finally {
+            HashHistory.un('change', onChange)
+        }
+    });
 });

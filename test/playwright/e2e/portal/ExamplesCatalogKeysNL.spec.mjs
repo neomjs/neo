@@ -58,7 +58,7 @@ test.describe('Portal examples search, selection and row navigation', () => {
         // the line under the list explains the catalog's sums; a filter shows matches, so it stays out
         await expect(page.locator(`${SIDEBAR} .portal-examples-group-index-note`)).toHaveCount(0);
         await expect(page.locator(`${SIDEBAR} li.portal-examples-group-index-zero`).filter({hasText: 'Calendar'})).toBeVisible();
-        await expect(page).toHaveURL(/#\/examples\/grid$/);
+        await expect(page).toHaveURL(/\/examples\/grid$/);
         expect(await page.evaluate(() => window.history.length)).toBe(initialHistoryLength);
 
         await sidebarInput.fill('date');
@@ -405,11 +405,11 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await page.keyboard.press('Home');
         await expect(startLink(page)).toBeFocused();
         await expect(page.locator(`${FEATURED} .neo-list-item`).first()).toBeVisible();
-        await expect(page).toHaveURL(/#\/examples$/);
+        await expect(page).toHaveURL(/\/examples$/);
 
         expect(await historyLength(page), 'one history entry for the whole walk').toBe(before + 1);
         await page.evaluate(() => history.back());
-        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expect(page).toHaveURL(/\/examples\/scheduler$/);
         await expectOpenPage(page, 'Scheduler')
     });
 
@@ -428,7 +428,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         }
 
         await expect(groupLink(page, 'Dashboard & Docking')).toBeFocused();
-        await expect(page, 'nothing opens while the key is held').toHaveURL(/#\/examples\/scheduler$/);
+        await expect(page, 'nothing opens while the key is held').toHaveURL(/\/examples\/scheduler$/);
 
         await page.keyboard.up('ArrowDown');
         await expectOpenPage(page, 'Dashboard & Docking');
@@ -474,7 +474,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await page.keyboard.press('ArrowLeft');
         await expect(scheduler).toBeFocused();
         await expect(cards.first(), 'the card keeps its selection').toHaveClass(/\bneo-selected\b/);
-        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expect(page).toHaveURL(/\/examples\/scheduler$/);
 
         await page.keyboard.press('ArrowRight');
         await expect(cards.first()).toBeFocused();
@@ -532,7 +532,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expectOpenPage(page, 'Gantt');
 
         await page.goBack();
-        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expect(page).toHaveURL(/\/examples\/scheduler$/);
         await expectOpenPage(page, 'Scheduler');
         await expect(scheduler).toHaveAttribute('aria-current', 'page');
 
@@ -541,7 +541,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         expect(listIndex.properties.activeFamily).toBe('scheduler');
 
         await page.keyboard.press('ArrowRight');
-        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expect(page).toHaveURL(/\/examples\/scheduler$/);
         await expect(cards.first()).toBeFocused();
         await expect(cards.first().locator('.neo-title')).toHaveText('Studio Bookings');
 
@@ -557,7 +557,7 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await find.focus();
         await expect(find).toBeFocused();
         await page.goBack();
-        await expect(page).toHaveURL(/#\/examples\/scheduler$/);
+        await expect(page).toHaveURL(/\/examples\/scheduler$/);
         await expectOpenPage(page, 'Scheduler');
         await expect(find).toBeFocused()
     });

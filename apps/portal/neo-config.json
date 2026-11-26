@@ -7,10 +7,11 @@
     "releaseNotesBasePath"        : ".github/RELEASE_NOTES/",
     "remotesApiUrl"               : "remotes-api.json",
     "routerIgnorePaths"           : [
-        "^/(?:dist|raw|resources|resources_pub|badges|node_modules|apps)(?:/|$)",
-        "^/examples/[^/]+/.+",
+        "^/(?:dist|raw|resources|resources_pub|badges|node_modules|apps|test)(?:/|$)",
+        "^/examples/(?:[^/]+/|(?!(?:apps|board|buttons|calendar|charts|components|dashboard|dialogs|drag-drop|forms|functional|gantt|grid|layouts|lists|multi-window|platform|scheduler|state|tabs|tree)$)[^/]+$)",
         "^/docs/"
     ],
+    "routerMode"                  : "pathname",
     "themes"                      : ["neo-theme-neo-dark", "neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
     "useAiClient"                 : true,
     "useCanvasWorker"             : true,

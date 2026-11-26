@@ -65,7 +65,7 @@ test.describe('Docs app class and source routes', () => {
         await page.locator('.neo-docs-navigation-tab-container .neo-list-item-leaf', {hasText: 'TextArea'}).first().click();
 
         await expect(page.locator('.neo-docs-maincontainer .neo-tab-header-button', {hasText: 'TextArea'})).toHaveClass(/pressed/);
-        await expect(page, 'the Portal owns the hash').toHaveURL(/#\/docs$/);
+        await expect(page, 'the Portal owns the route').toHaveURL(/\/docs$/);
 
         await page.reload();
         await expect(page.locator('.neo-docs-maincontainer'), 'the reload keeps the docs view').toBeVisible()

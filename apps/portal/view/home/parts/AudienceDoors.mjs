@@ -293,6 +293,20 @@ class AudienceDoors extends BaseContainer {
     }
 
     /**
+     * @summary Re-syncs runtime-resolved proof links when the container attaches to a window with its own config.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (oldValue !== undefined && value != null && this.items?.length) {
+            this.syncProofLinks()
+        }
+    }
+
+    /**
      * @summary Moves focus to the stage's header without scrolling, so a keyboard visitor who arrived through the hero's
      * cue continues with Tab inside this stage instead of jumping back to the cue's siblings.
      */
@@ -301,26 +315,48 @@ class AudienceDoors extends BaseContainer {
     }
 
     /**
-     * @summary Syncs the runtime-resolved proof links with the active Neo.config once child items exist.
+     * @summary Syncs the runtime-resolved proof links with the active window's `Neo.config` once child items exist.
      */
     onConstructed() {
         super.onConstructed();
+        this.syncProofLinks()
+    }
 
+    /**
+     * @summary Updates the three proof-link `href` targets against this window's `routerMode` and `basePath`.
+     */
+    syncProofLinks() {
         const
-            buildProof  = this.getItem('door-build-body')?.vdom?.cn?.[4]?.cn?.[0],
-            agentsProof = this.getItem('door-agents-body')?.vdom?.cn?.[4]?.cn?.[0],
-            studyProof  = this.getItem('door-study-body')?.vdom?.cn?.[4]?.cn?.[0];
+            windowConfig = (this.windowId != null && Neo.windowConfigs?.[this.windowId]) || Neo.config,
+            buildBody    = this.getItem('door-build-body'),
+            agentsBody   = this.getItem('door-agents-body'),
+            studyBody    = this.getItem('door-study-body'),
+            buildProof   = buildBody?.vdom?.cn?.[4]?.cn?.[0],
+            agentsProof  = agentsBody?.vdom?.cn?.[4]?.cn?.[0],
+            studyProof   = studyBody?.vdom?.cn?.[4]?.cn?.[0];
 
         if (buildProof) {
-            buildProof.href = AudienceDoors.resolveBigDataExampleUrl()
+            const href = AudienceDoors.resolveBigDataExampleUrl(windowConfig);
+            if (buildProof.href !== href) {
+                buildProof.href = href;
+                buildBody.update()
+            }
         }
 
         if (agentsProof) {
-            agentsProof.href = StringUtil.toRouteHref('/news/pulls/15123')
+            const href = StringUtil.toRouteHref('/news/pulls/15123', this.windowId);
+            if (agentsProof.href !== href) {
+                agentsProof.href = href;
+                agentsBody.update()
+            }
         }
 
         if (studyProof) {
-            studyProof.href = StringUtil.toRouteHref('/learn/benefits/Introduction')
+            const href = StringUtil.toRouteHref('/learn/benefits/Introduction', this.windowId);
+            if (studyProof.href !== href) {
+                studyProof.href = href;
+                studyBody.update()
+            }
         }
     }
 

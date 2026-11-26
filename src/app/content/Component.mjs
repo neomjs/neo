@@ -106,7 +106,35 @@ class Component extends Markdown {
         me.addDomListeners({
             intersect: 'onIntersect',
             scope    : me
-        })
+        });
+
+        if (me.routeSections && typeof Neo.currentWorker?.on === 'function') {
+            Neo.currentWorker.on('fragmentChange', me.onFragmentChange, me)
+        }
+    }
+
+    /**
+     * @summary Unregisters the worker fragment listener on destruction.
+     * @param {...*} args
+     */
+    destroy(...args) {
+        if (this.routeSections && typeof Neo.currentWorker?.un === 'function') {
+            Neo.currentWorker.un('fragmentChange', this.onFragmentChange, this)
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
+     * @summary Applies same-route `#fragment` updates in `'pathname'` mode without re-fetching the article.
+     * @param {Object} data
+     */
+    onFragmentChange(data) {
+        const targetRecord = this.record || this.#routeSection?.record;
+
+        if (this.routeSections && data?.windowId === this.windowId && targetRecord && (this.mounted || !this.#renderedRecord)) {
+            this.setRouteSection(targetRecord, data.fragment)
+        }
     }
 
     /**

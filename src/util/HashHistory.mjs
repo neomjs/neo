@@ -124,6 +124,30 @@ class HashHistory extends Base {
     second(windowId) {
         return this.getAt(1, windowId)
     }
+
+    /**
+     * @summary Updates the active top-of-stack entry's `fragment` in place without pushing an entry or firing `change`.
+     * @param {Object} [data={}]
+     * @param {String} [data.fragment]
+     * @param {String} data.hashString
+     * @param {Number|String} data.windowId
+     * @returns {Boolean}
+     */
+    updateFragment({fragment, hashString, windowId} = {}) {
+        const top = windowId != null ? this.first(windowId) : null;
+
+        if (!top || top.windowId !== windowId || top.hashString !== hashString) {
+            return false
+        }
+
+        if (fragment) {
+            top.fragment = fragment
+        } else {
+            delete top.fragment
+        }
+
+        return true
+    }
 }
 
 export default Neo.setupClass(HashHistory);

@@ -89,11 +89,30 @@ class ContentBox extends Base {
             vdom.href   = value;
             vdom.target = '_blank'
         } else {
-            vdom.href = value ? StringUtil.toRouteHref(value) : value;
+            vdom.href = value ? StringUtil.toRouteHref(value, this.windowId) : value;
             delete vdom.target
         }
 
         this.update()
+    }
+
+    /**
+     * Re-evaluates internal route hrefs when the component binds or moves to a window with a distinct `routerMode`.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value != null && this.route && !this.route.startsWith('http')) {
+            const nextHref = StringUtil.toRouteHref(this.route, value);
+
+            if (this.vdom.href !== nextHref) {
+                this.vdom.href = nextHref;
+                this.update()
+            }
+        }
     }
 }
 
