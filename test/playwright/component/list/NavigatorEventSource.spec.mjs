@@ -60,3 +60,117 @@ test('a list whose eventSource is not in the DOM neither subscribes nor throws, 
 
     expect(errors, 'unmounting threw nothing').toEqual([])
 });
+
+test('clickSelector routes Enter on a focused item to the matching descendant while leaving nested anchor Enter untouched (#22223)', async ({page}) => {
+    const counts = await page.evaluate(() => {
+        const host = document.createElement('ul');
+        host.id = 'navigator-click-selector-host';
+        host.innerHTML = [
+            '<li id="nav-card-1" class="nav-card" tabindex="-1">',
+            '  <a id="nav-primary-1" class="nav-primary" href="#primary">Primary</a>',
+            '  <a id="nav-secondary-1" class="nav-secondary" href="#secondary">Secondary</a>',
+            '</li>',
+            '<li id="nav-card-2" class="nav-card" tabindex="-1">',
+            '  <span>No matching link</span>',
+            '</li>'
+        ].join('');
+        document.body.appendChild(host);
+
+        const hits = {card1: 0, card2: 0, primary: 0, secondary: 0};
+        document.getElementById('nav-card-1').addEventListener('click', e => {
+            if (e.target.id === 'nav-card-1') hits.card1++
+        });
+        document.getElementById('nav-card-2').addEventListener('click', () => hits.card2++);
+        document.getElementById('nav-primary-1').addEventListener('click', e => {
+            e.preventDefault();
+            hits.primary++
+        });
+        document.getElementById('nav-secondary-1').addEventListener('click', e => {
+            e.preventDefault();
+            hits.secondary++
+        });
+
+        Neo.main.addon.Navigator.subscribe({
+            clickSelector: '.nav-primary',
+            id           : host.id,
+            selector     : '.nav-card'
+        });
+
+        const card1      = document.getElementById('nav-card-1'),
+              card2      = document.getElementById('nav-card-2'),
+              secondary1 = document.getElementById('nav-secondary-1');
+
+        card1.focus();
+        const enterOnCard = new KeyboardEvent('keydown', {bubbles: true, cancelable: true, key: 'Enter'});
+        card1.dispatchEvent(enterOnCard);
+
+        secondary1.focus();
+        const enterOnSecondary = new KeyboardEvent('keydown', {bubbles: true, cancelable: true, key: 'Enter'});
+        secondary1.dispatchEvent(enterOnSecondary);
+
+        card2.focus();
+        const enterOnUnmatched = new KeyboardEvent('keydown', {bubbles: true, cancelable: true, key: 'Enter'});
+        card2.dispatchEvent(enterOnUnmatched);
+
+        Neo.main.addon.Navigator.unsubscribe({id: host.id});
+        host.remove();
+
+        return {
+            cardPrevented     : enterOnCard.defaultPrevented,
+            hits,
+            secondaryPrevented: enterOnSecondary.defaultPrevented,
+            unmatchedPrevented: enterOnUnmatched.defaultPrevented
+        }
+    });
+
+    expect(counts).toEqual({
+        cardPrevented     : true,
+        hits              : {card1: 0, card2: 0, primary: 1, secondary: 0},
+        secondaryPrevented: false,
+        unmatchedPrevented: false
+    })
+});
+
+test('omitted clickSelector preserves native form submit when pressing Enter in a focused text input inside a subscribed item (#22223)', async ({page}) => {
+    await page.evaluate(() => {
+        window.__navFormCounts = {itemClicks: 0, submits: 0};
+
+        const form = document.createElement('form');
+        form.id = 'navigator-omitted-selector-form';
+        form.innerHTML = [
+            '<ul id="navigator-omitted-selector-list">',
+            '  <li id="nav-form-item-1" tabindex="-1">',
+            '    <input id="nav-form-input" type="text" value="alpha">',
+            '  </li>',
+            '</ul>',
+            '<button type="submit">Submit</button>'
+        ].join('');
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            window.__navFormCounts.submits++
+        });
+        document.body.appendChild(form);
+
+        document.getElementById('nav-form-item-1').addEventListener('click', () => {
+            window.__navFormCounts.itemClicks++
+        });
+
+        Neo.main.addon.Navigator.subscribe({
+            id      : 'navigator-omitted-selector-list',
+            selector: 'li'
+        })
+    });
+
+    await page.locator('#nav-form-input').focus();
+    await page.keyboard.press('Enter');
+
+    const counts = await page.evaluate(() => {
+        Neo.main.addon.Navigator.unsubscribe({id: 'navigator-omitted-selector-list'});
+        document.getElementById('navigator-omitted-selector-form')?.remove();
+        const result = window.__navFormCounts;
+        delete window.__navFormCounts;
+        return result
+    });
+
+    expect(counts).toEqual({itemClicks: 1, submits: 1})
+});

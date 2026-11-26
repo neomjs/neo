@@ -4,8 +4,9 @@ import BaseListModel from '../../../../src/selection/ListModel.mjs';
  * @summary Selection and keyboard-navigation model for {@link Portal.view.examples.List} cards.
  *
  * Separates native anchor launches (`.neo-title`, `.portal-example-open-cue`, `.neo-github-image`) from card-body
- * selection so clicking a link on card B launches once while preserving card A's selection (`selectOnFocus: false` /
- * `autoClick: false` on the owning list). Card-body clicks toggle selection (`select` / `deselect`), `Escape` clears
+ * selection so clicking a link on card B or pressing `Enter` on a focused card (`clickSelector: '.neo-title'`) launches
+ * once while preserving selection (`selectOnFocus: false` / `autoClick: false` on the owning list). Card-body clicks
+ * toggle selection (`select` / `deselect`), `Escape` clears
  * selection, `ArrowLeft` / `ArrowRight` step linearly across visible cards (`ArrowLeft` on the first card hands the step
  * to the list's owner as `leaveStart`, and {@link #enter} is the way back in), and `ArrowUp` / `ArrowDown` traverse
  * visual grid rows via {@link Neo.component.Base#getDomRect} — handling uniform multi-column grids, `2×2` `leadCard`

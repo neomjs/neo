@@ -108,12 +108,12 @@ class List extends BaseList {
     }
 
     /**
-     * Delegates all four arrow keys to {@link Portal.view.examples.ListModel} so multi-column row traversal and
-     * single-owner selection/focus stay synchronized without `Navigator` stepping `±1` independently.
-     * @member {Object} navigator={workerKeys:['ArrowDown','ArrowLeft','ArrowRight','ArrowUp']}
+     * Delegates arrow keys to {@link Portal.view.examples.ListModel} and clicks `.neo-title` synchronously on `Enter`.
+     * @member {Object} navigator={clickSelector:'.neo-title',workerKeys:['ArrowDown','ArrowLeft','ArrowRight','ArrowUp']}
      */
     navigator = {
-        workerKeys: ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp']
+        clickSelector: '.neo-title',
+        workerKeys   : ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp']
     }
 
     /**
@@ -236,7 +236,8 @@ class List extends BaseList {
     afterSetMounted(value, oldValue) {
         if (value) {
             this.navigator = Neo.merge({
-                workerKeys: ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp']
+                clickSelector: '.neo-title',
+                workerKeys   : ['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp']
             }, this.navigator)
         }
 

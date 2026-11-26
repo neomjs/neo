@@ -561,6 +561,115 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         await expectOpenPage(page, 'Scheduler');
         await expect(find).toBeFocused()
     });
+
+    test('Enter on a focused card or tile launches its example while preserving selection, and Tab onto GitHub source launches only GitHub (#22223)', async ({page, neuralLink, context, baseURL}) => {
+        await context.route('https://neomjs.com/**', route => route.fulfill({
+            status     : 200,
+            contentType: 'text/html',
+            body       : '<title>Launched Example</title>'
+        }));
+        await context.route('https://github.com/neomjs/**', route => route.fulfill({
+            status     : 200,
+            contentType: 'text/html',
+            body       : '<title>GitHub Source</title>'
+        }));
+
+        await page.goto(`${PORTAL}#/examples/forms`);
+        let app = await neuralLink.connectToApp('Portal');
+        await expectOpenPage(page, 'Forms & Fields');
+
+        const formsLink = groupLink(page, 'Forms & Fields'),
+              cards     = page.locator(`${CARDS} .neo-list-item`),
+              tiles     = page.locator(`${TILES} .neo-list-item`);
+
+        // 1. GroupPage demonstration card: ArrowRight -> Enter opens _blank popup and keeps selection + focus on the card
+        await formsLink.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(cards.first()).toBeFocused();
+        await expect(cards.first()).toHaveClass(/\bneo-selected\b/);
+        const cardHref = await cards.first().locator('.neo-title').getAttribute('href');
+
+        const cardPopupPromise = context.waitForEvent('page');
+        await page.keyboard.press('Enter');
+        const cardPopup = await cardPopupPromise;
+        await expect(cardPopup).toHaveURL(cardHref);
+        await cardPopup.close();
+        await expect(cards.first()).toHaveClass(/\bneo-selected\b/);
+        await expect(cards.first()).toBeFocused();
+
+        // 2. Tab onto .neo-github-image + Enter opens only the GitHub source tab (never double-launching .neo-title)
+        const openedUrls = [];
+        const onPage     = popup => openedUrls.push(popup);
+        context.on('page', onPage);
+
+        await page.keyboard.press('Tab');
+        await expect(cards.first().locator('.neo-title')).toBeFocused();
+        await page.keyboard.press('Tab');
+        const githubLink = cards.first().locator('.neo-github-image');
+        await expect(githubLink).toBeFocused();
+        const githubHref = await githubLink.getAttribute('href');
+
+        const ghPopupPromise = context.waitForEvent('page');
+        await page.keyboard.press('Enter');
+        const ghPopup = await ghPopupPromise;
+        await expect(ghPopup).toHaveURL(githubHref);
+        await ghPopup.close();
+        context.off('page', onPage);
+        expect(openedUrls).toHaveLength(1);
+        await expect(cards.first()).toHaveClass(/\bneo-selected\b/);
+
+        // 3. GroupPage compact component tile: walk down into tiles -> Enter launches tile popup and keeps tile selected
+        await cards.first().focus();
+        const cardsList = await focusedListId(page);
+        expect(await walkDownOutOf(page, cardsList)).not.toBe(cardsList);
+        const focusedTile = page.locator(`${TILES} .neo-list-item:focus`);
+        await expect(focusedTile).toHaveClass(/\bneo-selected\b/);
+        const tileHref = await focusedTile.locator('.neo-title').getAttribute('href');
+
+        const tilePopupPromise = context.waitForEvent('page');
+        await page.keyboard.press('Enter');
+        const tilePopup = await tilePopupPromise;
+        await expect(tilePopup).toHaveURL(tileHref);
+        await tilePopup.close();
+        await expect(focusedTile).toHaveClass(/\bneo-selected\b/);
+        await expect(focusedTile).toBeFocused();
+
+        // 4. SearchResults card: filter -> ArrowRight from Start here -> Enter launches matched card popup
+        const find = page.locator('.portal-examples-sidebar:visible').getByLabel('Find examples');
+        await find.fill('sprint');
+        await expect(page.locator(MATCHES).first()).toBeVisible();
+        await startLink(page).focus();
+        await page.keyboard.press('ArrowRight');
+        const firstMatch = page.locator(MATCHES).first();
+        await expect(firstMatch).toBeFocused();
+        const matchHref = await firstMatch.locator('.neo-title').getAttribute('href');
+
+        const matchPopupPromise = context.waitForEvent('page');
+        await page.keyboard.press('Enter');
+        const matchPopup = await matchPopupPromise;
+        await expect(matchPopup).toHaveURL(matchHref);
+        await matchPopup.close();
+        await expect(firstMatch).toHaveClass(/\bneo-selected\b/);
+
+        // 5. Overview "Start here" sharedWorkers card in devmode: Enter on Workstation navigates in the same window
+        await page.goto(`${PORTAL}#/examples/devmode`);
+        app = await neuralLink.connectToApp('Portal');
+        const overviewList = (await app.queryComponent({className: 'Portal.view.examples.List'}, ['id', 'reference']))
+            .find(item => item.properties.reference === 'overview-list');
+        await app.setProperties(overviewList.id, {baseUrl: `${baseURL}/`});
+        await app.callMethod(overviewList.id, 'createItems');
+
+        await startLink(page).focus();
+        await page.keyboard.press('ArrowRight');
+        const workstationCard = page.locator(`${FEATURED} .neo-list-item`).first();
+        await expect(workstationCard).toBeFocused();
+        await expect(workstationCard.locator('.neo-title')).toHaveText('Workstation');
+        await expect(workstationCard.locator('.neo-title')).not.toHaveAttribute('target', /_blank/);
+
+        await page.keyboard.press('Enter');
+        await expect(page).toHaveURL(/\/apps\/workstation\/index\.html\?theme=neo-theme-neo-dark$/);
+        await expect(page.locator('.workstation-viewport')).toBeVisible()
+    });
 });
 
 test.describe('Portal examples gallery rows across cards and tiles (#22121)', () => {
