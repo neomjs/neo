@@ -4,8 +4,8 @@ Every visible change in a Neo application takes one path. A component edits its 
 computes the smallest set of DOM operations, the deltas, that turns the current DOM into the new one. The Main thread
 writes them.
 
-This page maps that path. Three pages describe each thread's part closely enough to change it safely. Every line
-reference in this set points at `dev` commit `73e6207999`.
+This page maps that path. Three pages describe each thread's part closely enough to change it safely. Line
+reference anchors in this set point at `dev` commit `73e6207999`, except [`DefaultConfig.useVdomWorker`][config-vdom-worker] at `845524aad5`.
 
 ## Five stages
 
@@ -84,7 +84,7 @@ Using the engine rather than changing it: [Asymmetric VDOM Updates](../fundament
 [helper-update]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/vdom/Helper.mjs#L843-L866
 [helper-remote]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/vdom/Helper.mjs#L28-L34
 [app-import-helper]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/App.mjs#L828
-[config-vdom-worker]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/DefaultConfig.mjs#L416-L419
+[config-vdom-worker]: https://github.com/neomjs/neo/blob/845524aad5be56ac56f3c4f213f0d063d6baa7bf/src/DefaultConfig.mjs#L414-L424
 [vl-send]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/mixin/VdomLifecycle.mjs#L570
 [vdom-channel]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/VDom.mjs#L34-L42
 [app-register-port]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/App.mjs#L852-L866

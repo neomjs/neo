@@ -340,7 +340,7 @@ The Neo.mjs application bootstrap process follows these key steps:
 1. **index.html** loads the MicroLoader
 2. **MicroLoader.mjs** fetches the configuration and imports Neo.Main
 3. **Neo.Main** initializes the main thread and creates the Neo.worker.Manager
-4. **Neo.worker.Manager** creates the configured workers (`Neo.worker.App` by default, plus optional `VDom`, `Data`, `Canvas`, and `Task` workers)
+4. **Neo.worker.Manager** creates the configured workers (`Neo.worker.App` and `Neo.worker.Data` by default, plus optional `VDom`, `Canvas`, and `Task` workers)
 5. When all workers are constructed, Neo.worker.Manager sends a 'loadApplication' message to the Neo.worker.App worker
 6. **Neo.worker.App** receives the message and dynamically imports the application module
 7. **app.mjs** is executed, and its onStart function creates the application
