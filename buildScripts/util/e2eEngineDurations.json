@@ -203,7 +203,7 @@
     "test/playwright/e2e/portal/LearnMermaidRender.spec.mjs": 8.6,
     "test/playwright/e2e/portal/MotionTokens.spec.mjs": 5.4,
     "test/playwright/e2e/portal/NewsTabOverflow.spec.mjs": 6.1,
-    "test/playwright/e2e/portal/PathnameRoutingNL.spec.mjs": 8.1,
+    "test/playwright/e2e/portal/PathnameRoutingNL.spec.mjs": 70.1,
     "test/playwright/e2e/portal/StandaloneExamplesThemeSwitcher.spec.mjs": 44.7,
     "test/playwright/e2e/portal/StoredThemeBoot.spec.mjs": 7.1,
     "test/playwright/e2e/portal/VideosNL.spec.mjs": 4.9,
