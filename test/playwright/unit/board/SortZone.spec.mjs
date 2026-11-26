@@ -1332,5 +1332,32 @@ test.describe('Neo.board.SortZone', () => {
         expect(deltas).toEqual([{action: 'moveNode', id: card.id, index: 1, parentId: root('in-progress')}]);
         expect(zone.activeColumn).toBe(board.getColumn('in-progress'));
         expect(card.wrapperStyle.position).toBe('absolute')
+    });
+
+    test('single-card drag proxy vdom carries no pinned column-body offset while keeping the card root id and accent', async () => {
+        store = createStore(cards().map(record => record.id === 'c5' ? {...record, color: '#e5484d'} : record));
+
+        const
+            zone = await startZone(),
+            card = board.getCard('c5');
+
+        Neo.main.DomAccess.getAttributes = () => Promise.resolve({scrollTop: 40});
+
+        await drag(zone, 'c5', 400, 270);
+
+        expect(card.wrapperStyle.position, 'the live card in the column body is pinned out of flow').toBe('absolute');
+        expect(card.wrapperStyle.top).toBe('250px');
+        expect(zone.getDragElementRoot().id, 'root id stays bound to the dragged card').toBe(card.id);
+        expect(zone.dragProxyConfig.vdom, 'single-card drags keep dragProxyConfig.vdom unset').toBeUndefined();
+
+        const proxyCard = zone.getDragProxyVdom().cn[0];
+
+        expect(proxyCard.id).toBeUndefined();
+        expect(proxyCard.cls).not.toContain('neo-board-card-slot');
+        expect(proxyCard.cls).not.toContain('neo-board-card-ghost');
+        expect(proxyCard.style).toEqual({'--neo-board-card-accent': '#e5484d'});
+
+        await zone.onDragCancel({});
+        expectNothingPinned()
     })
 });
