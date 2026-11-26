@@ -1,0 +1,292 @@
+.neo-examples-grid-order-review-desk,
+.neo-examples-grid-order-review-desk [class*=neo-theme-],
+body:has(.neo-examples-grid-order-review-desk) .neo-dragproxy,
+body:has(.neo-examples-grid-order-review-desk) .neo-dragproxy [class*=neo-theme-] {
+    --grid-container-border-color                : var(--order-desk-border);
+    --grid-container-cell-background-color       : var(--order-desk-surface);
+    --grid-container-cell-background-color-even  : var(--order-desk-alternate);
+    --grid-container-color                       : var(--order-desk-text);
+    --grid-container-font-size                   : 13px;
+    --grid-cell-background-color-hover           : var(--order-desk-hover);
+    --grid-header-button-background-color        : var(--order-desk-header);
+    --grid-header-button-background-color-hover  : var(--order-desk-hover);
+    --grid-header-button-background-image        : none;
+    --grid-header-button-border-right-color      : var(--order-desk-border);
+    --grid-header-button-color                   : var(--order-desk-title);
+    --grid-header-button-color-hover             : var(--order-desk-accent);
+    --grid-header-button-font-size               : 12px;
+    --grid-header-button-font-weight             : 600;
+    --grid-cellmodel-selected-cell-background-color: var(--order-desk-selected-bg);
+    --grid-cellmodel-selected-cell-color         : var(--order-desk-title);
+    --textfield-border-color                     : var(--order-desk-border);
+    --textfield-border-color-active              : var(--order-desk-accent);
+    --textfield-input-background-color           : var(--order-desk-surface);
+    --textfield-input-color                      : var(--order-desk-title);
+}
+
+.neo-examples-grid-order-review-desk.neo-viewport {
+    background-color: var(--order-desk-background);
+    box-sizing      : border-box;
+    color           : var(--order-desk-text);
+    font-family     : var(--neo-font-family);
+    gap             : 10px;
+    overflow-x      : hidden;
+    padding         : 16px 20px 12px;
+
+    .order-desk-header {
+        background-color: transparent;
+        gap             : 12px;
+
+        .order-desk-title {
+            color         : var(--order-desk-title);
+            font-size     : 22px;
+            font-weight   : 700;
+            letter-spacing: -0.02em;
+            line-height   : 1.2;
+            margin        : 0 0 4px;
+        }
+
+        .order-desk-subtitle {
+            color      : var(--order-desk-muted);
+            font-size  : 13px;
+            line-height: 1.45;
+            margin     : 0;
+        }
+    }
+
+    .order-desk-exception-pill {
+        border-radius       : 999px;
+        font-size           : 12px;
+        font-variant-numeric: tabular-nums;
+        font-weight         : 700;
+        line-height         : 1;
+        padding             : 7px 12px;
+        white-space         : nowrap;
+
+        &.has-exceptions {
+            background-color: var(--order-desk-warn-bg);
+            border          : 1px solid var(--order-desk-warn-border);
+            color           : var(--order-desk-warn-text);
+        }
+
+        &.is-clear {
+            background-color: var(--order-desk-ok-bg);
+            border          : 1px solid var(--order-desk-ok-border);
+            color           : var(--order-desk-ok-text);
+        }
+    }
+
+    .order-desk-toolbar {
+        background-color: transparent;
+        gap             : 8px 10px;
+    }
+
+    .order-desk-filter-group {
+        background-color: var(--order-desk-surface);
+        border          : 1px solid var(--order-desk-border);
+        border-radius   : 999px;
+        gap             : 3px;
+        padding         : 3px;
+
+        .order-desk-filter-btn.neo-button {
+            --button-background-color      : transparent;
+            --button-background-color-hover: var(--order-desk-hover);
+            --button-background-image      : none;
+            --button-border                : 1px solid transparent;
+            --button-border-hover          : 1px solid transparent;
+            --button-border-radius         : 999px;
+            --button-text-color            : var(--order-desk-muted);
+            --button-text-color-hover      : var(--order-desk-title);
+            font-size                      : 12px;
+            font-variant-numeric           : tabular-nums;
+            font-weight                    : 600;
+            min-height                     : 28px;
+            padding                        : 0 12px;
+
+            &.pressed {
+                --button-background-color      : var(--order-desk-pill-active-bg);
+                --button-background-color-hover: var(--order-desk-pill-active-bg);
+                --button-border                : 1px solid var(--order-desk-accent);
+                --button-text-color            : var(--order-desk-pill-active-text);
+                --button-text-color-hover      : var(--order-desk-pill-active-text);
+            }
+        }
+    }
+
+    .order-desk-action-btn.neo-button,
+    .order-desk-theme-btn.neo-button {
+        --button-background-color      : var(--order-desk-surface);
+        --button-background-color-hover: var(--order-desk-hover);
+        --button-background-image      : none;
+        --button-border                : 1px solid var(--order-desk-border);
+        --button-border-hover          : 1px solid var(--order-desk-accent);
+        --button-border-radius         : 8px;
+        --button-text-color            : var(--order-desk-title);
+        --button-text-color-hover      : var(--order-desk-title);
+        font-size                      : 12px;
+        font-weight                    : 600;
+        min-height                     : 32px;
+        padding                        : 0 11px;
+    }
+
+    .order-desk-visible-count {
+        color               : var(--order-desk-muted);
+        font-size           : 12px;
+        font-variant-numeric: tabular-nums;
+        margin-left         : auto;
+        white-space         : nowrap;
+    }
+
+    .order-desk-receipt {
+        background-color    : var(--order-desk-receipt-bg);
+        border              : 1px solid var(--order-desk-border);
+        border-radius       : 8px;
+        color               : var(--order-desk-title);
+        font-size           : 12.5px;
+        font-variant-numeric: tabular-nums;
+        line-height         : 1.45;
+        padding             : 8px 12px;
+        white-space         : normal;
+    }
+
+    .neo-grid-container {
+        background-color: var(--order-desk-surface);
+        border          : 1px solid var(--order-desk-border);
+        border-radius   : 8px;
+        min-height      : 180px;
+
+        .neo-grid-header-group-row .neo-grid-header-group-cell {
+            justify-content: flex-start;
+            padding        : 0 12px;
+        }
+    }
+
+    .neo-grid-cell {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .order-desk-qty-value {
+        font-weight: 600;
+
+        &.is-invalid {
+            background-color: var(--order-desk-warn-bg);
+            border          : 1px solid var(--order-desk-warn-border);
+            border-radius   : 6px;
+            color           : var(--order-desk-warn-text);
+            display         : inline-block;
+            font-weight     : 700;
+            line-height     : 1.2;
+            margin-left     : auto;
+            padding         : 2px 7px;
+            width           : fit-content;
+        }
+    }
+
+    .order-desk-status-badge {
+        border-radius: 999px;
+        display      : inline-block;
+        font-size    : 11.5px;
+        font-weight  : 600;
+        line-height  : 1.25;
+        padding      : 2px 8px;
+        white-space  : nowrap;
+        width        : fit-content;
+
+        &.is-exception {
+            background-color: var(--order-desk-warn-bg);
+            border          : 1px solid var(--order-desk-warn-border);
+            color           : var(--order-desk-warn-text);
+        }
+
+        &.is-ok {
+            background-color: var(--order-desk-ok-bg);
+            border          : 1px solid var(--order-desk-ok-border);
+            color           : var(--order-desk-ok-text);
+        }
+    }
+
+    .order-desk-empty-state {
+        background-color: var(--order-desk-surface);
+        border          : 1px solid var(--order-desk-border);
+        border-radius   : 8px;
+        gap             : 16px;
+        min-height      : 200px;
+        padding         : 28px 20px;
+        text-align      : center;
+
+        .order-desk-empty-copy {
+            max-width: 480px;
+        }
+
+        .order-desk-empty-title {
+            color      : var(--order-desk-title);
+            font-size  : 18px;
+            font-weight: 700;
+            margin     : 0 0 8px;
+        }
+
+        .order-desk-empty-body {
+            color      : var(--order-desk-muted);
+            font-size  : 13.5px;
+            line-height: 1.5;
+            margin     : 0;
+        }
+
+        .order-desk-empty-actions {
+            background-color: transparent;
+            gap             : 10px;
+            justify-content : center;
+        }
+    }
+
+    .order-desk-scope-footer {
+        color      : var(--order-desk-muted);
+        font-size  : 11.5px;
+        line-height: 1.4;
+        white-space: normal;
+    }
+
+    @media (max-width: 760px) {
+        gap    : 8px;
+        padding: 12px;
+
+        .order-desk-header {
+            align-items: flex-start;
+            flex-wrap  : wrap;
+            gap        : 8px;
+
+            .order-desk-heading-copy {
+                flex-basis: 100%;
+            }
+
+            .order-desk-title {
+                font-size: 18px;
+            }
+
+            .order-desk-subtitle {
+                font-size: 12px;
+            }
+        }
+
+        .order-desk-filter-group {
+            display              : grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            width                : 100%;
+
+            .order-desk-filter-btn.neo-button {
+                font-size      : 11.5px;
+                justify-content: center;
+                padding        : 0 6px;
+            }
+        }
+
+        .order-desk-action-btn.neo-button {
+            font-size: 11.5px;
+            padding  : 0 9px;
+        }
+
+        .order-desk-visible-count {
+            margin-left: 0;
+        }
+    }
+}

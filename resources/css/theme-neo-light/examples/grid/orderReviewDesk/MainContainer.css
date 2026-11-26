@@ -1,0 +1,22 @@
+:where(.neo-theme-neo-light) {
+    --order-desk-accent          : #0f6b70;
+    --order-desk-alternate       : #f7fafc;
+    --order-desk-background      : #eef3f7;
+    --order-desk-border          : #d4e0e8;
+    --order-desk-header          : #e6eef4;
+    --order-desk-hover           : #dbeef0;
+    --order-desk-muted           : #586c7c;
+    --order-desk-ok-bg           : #eafaf0;
+    --order-desk-ok-border       : #86efac;
+    --order-desk-ok-text         : #166534;
+    --order-desk-pill-active-bg  : #0f6b70;
+    --order-desk-pill-active-text: #ffffff;
+    --order-desk-receipt-bg      : #ffffff;
+    --order-desk-selected-bg     : #d3ecef;
+    --order-desk-surface         : #ffffff;
+    --order-desk-text            : #334856;
+    --order-desk-title           : #132836;
+    --order-desk-warn-bg         : #fffbeb;
+    --order-desk-warn-border     : #f59e0b;
+    --order-desk-warn-text       : #92400e;
+}

@@ -1,0 +1,8 @@
+{
+    "appPath"    : "examples/grid/orderReviewDesk/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "useAiClient": true,
+    "themes"     : ["neo-theme-neo-dark", "neo-theme-neo-light"]
+}

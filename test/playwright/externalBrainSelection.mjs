@@ -91,6 +91,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'grid/LockedCellHorizontalStability.spec.mjs',
     'grid/LockedDnDDuplication.spec.mjs',
     'grid/LockedRegionRowRender.spec.mjs',
+    'grid/OrderReviewDeskNL.spec.mjs',
     'grid/PremeasureRowsNL.spec.mjs',
     'grid/ResponsiveLockPolicyNL.spec.mjs',
     'grid/ServerSidePagingNL.spec.mjs',
