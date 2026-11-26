@@ -44,6 +44,16 @@
         white-space  : nowrap;
     }
 
+    .portal-examples-search-share-status {
+        color : var(--portal-examples-text-muted);
+        margin: 0;
+    }
+
+    .portal-examples-search-share-status:not(:empty),
+    .portal-examples-search-share-url {
+        margin-bottom: 12px;
+    }
+
     .portal-examples-search-empty {
         background-color: var(--portal-examples-bg-raised);
         border          : 1px solid var(--portal-examples-border);
@@ -119,6 +129,10 @@
 
     @media (max-width: 640px) {
         padding: 16px 16px 28px;
+
+        .portal-examples-search-actions {
+            width: 100%;
+        }
 
         .portal-examples-search-heading h1 {
             font-size: 24px;

@@ -100,7 +100,8 @@ class DomAccess extends Base {
                 'trapFocus',
                 'unalign',
                 'waitForAnimation',
-                'windowScrollTo'
+                'windowScrollTo',
+                'writeClipboardText'
             ]
         },
         /**
@@ -364,6 +365,23 @@ class DomAccess extends Base {
     execCommand(data) {
         document.execCommand(data.command);
         return data
+    }
+
+    /**
+     * @summary Reports whether this window's clipboard accepted an explicit text write.
+     * @param {Object} data
+     * @param {String} data.text
+     * @returns {Promise<Boolean>}
+     */
+    async writeClipboardText({text}) {
+        if (typeof navigator.clipboard?.writeText !== 'function') return false;
+
+        try {
+            await navigator.clipboard.writeText(text);
+            return true
+        } catch {
+            return false
+        }
     }
 
     /**

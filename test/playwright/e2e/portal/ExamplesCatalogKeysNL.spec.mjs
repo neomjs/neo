@@ -16,6 +16,7 @@ import {
     PORTAL,
     pressAndSettle,
     readList,
+    selectBuild,
     SHEET,
     SIDEBAR,
     startLink,
@@ -27,6 +28,80 @@ import {
  * @summary Live slash search, pointer/selection hitboxes, and keyboard navigation across side nav, cards, tiles and phone index.
  */
 test.describe('Portal examples search, selection and row navigation', () => {
+    test('copies a search link, restores the saved build and filter, and offers a selectable link on denial (#22238)', async ({page, context}) => {
+        const desktopFind = '.portal-examples-sidebar:visible .portal-examples-find-field input',
+              phoneFind   = `${CRUMB} .portal-examples-find-field input`,
+              results     = '.portal-examples-search-results:visible',
+              query       = 'café+drag?x=#';
+
+        await page.setViewportSize({width: 1440, height: 900});
+        await context.addInitScript(() => {
+            Object.defineProperty(navigator, 'clipboard', {
+                configurable: true,
+                value       : {writeText: async text => {
+                    if (window.__denyExamplesCopy) throw new DOMException('Denied', 'NotAllowedError');
+                    window.__examplesCopiedUrl = text
+                }}
+            })
+        });
+
+        await page.goto('/examples/grid?campaign=first&campaign=second');
+        await expectOpenPage(page, 'Grid & Table');
+        await selectBuild(page, 'ESM build');
+
+        const initialUrl     = page.url(),
+              initialHistory = await historyLength(page);
+
+        await page.locator(desktopFind).fill(query);
+        await expect(page.locator(results).getByText('No published examples match', {exact: false})).toBeVisible();
+        await page.locator(results).getByRole('button', {name: 'Copy search link'}).press('Enter');
+        await expect(page.locator(results).getByRole('status')).toHaveText('Copied');
+
+        const sharedUrl = new URL(await page.evaluate(() => window.__examplesCopiedUrl));
+        expect(sharedUrl.pathname).toBe('/examples/grid');
+        expect(sharedUrl.searchParams.get('find')).toBe(query);
+        expect(sharedUrl.searchParams.get('catalogMode')).toBe('dist_esm');
+        expect(sharedUrl.searchParams.getAll('campaign')).toEqual(['first', 'second']);
+        expect(page.url()).toBe(initialUrl);
+        expect(await historyLength(page)).toBe(initialHistory);
+
+        const destination = await context.newPage();
+        await destination.setViewportSize({width: 390, height: 844});
+        await destination.goto(sharedUrl.href);
+        await expect(destination.locator(phoneFind)).toHaveValue(query);
+        await expect(destination.locator(results).getByRole('button', {name: 'Open in: ESM build'})).toBeVisible();
+        await expect.poll(() => destination.locator(results).evaluate(panel => {
+            const bounds = panel.getBoundingClientRect();
+
+            return Array.from(panel.querySelectorAll('.portal-examples-search-actions button')).every(button => {
+                const rect = button.getBoundingClientRect();
+                return rect.width > 0 && rect.left >= bounds.left && rect.right <= bounds.right
+            })
+        })).toBe(true);
+        await expect(destination.locator(results).getByText('No published examples match', {exact: false})).toBeVisible();
+
+        await destination.reload();
+        await expect(destination.locator(phoneFind)).toHaveValue(query);
+        await destination.evaluate(() => {window.__denyExamplesCopy = true});
+        await destination.locator(results).getByRole('button', {name: 'Copy search link'}).click();
+        await expect(destination.locator(results).getByRole('status')).toHaveText('Copy this link manually');
+        const manualLink = destination.getByRole('textbox', {name: 'Search link'});
+        await expect(manualLink).toHaveValue(sharedUrl.href);
+        await expect(manualLink).toHaveJSProperty('readOnly', true);
+
+        const history = await historyLength(destination);
+        await destination.locator(results).getByRole('button', {name: 'Clear (Esc)'}).click();
+        await expectOpenPage(destination, 'Grid & Table');
+        expect(destination.url()).toBe(sharedUrl.href);
+        expect(await historyLength(destination)).toBe(history);
+
+        await destination.evaluate(() => Neo.Main.setRoute({value: '/examples/forms'}));
+        await expectOpenPage(destination, 'Forms & Fields');
+        await destination.goBack();
+        await expect(destination.locator(phoneFind)).toHaveValue(query);
+        await destination.close()
+    });
+
     test('find filters across all groups live, focuses on slash, dims zero-match groups, and Escape restores the open page without history churn', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 1440, height: 900});
         await page.goto(`${PORTAL}#/examples/grid`);
