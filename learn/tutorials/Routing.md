@@ -362,9 +362,9 @@ In `SharedWorker` apps with multiple windows, pass an explicit `windowId` to `Ne
 
 ### Local Serving (`fileServer.mjs`) and Hosting Boundary
 
-`buildScripts/util/fileServer.mjs` enables shell fallback for sub-path apps whose on-disk `neo-config.json` sets `"routerMode": "pathname"` while keeping physical files and static assets untouched. Setting `"neo": {"spaRoot": "apps/portal"}` in `package.json` mounts an app at `/`, overridable via `--spa-root <dir>` and `--no-spa-root`.
+`buildScripts/util/fileServer.mjs` enables shell fallback for sub-path apps whose on-disk `neo-config.json` sets `"routerMode": "pathname"` while keeping physical files and static assets untouched. In an `npx neo-app` workspace (`neomjs/create-app`), `npm run server-start` calls `fileServer.mjs` `run({open})` with no `spaRoot` configured so workspace browsing at `/` stays unchanged until you opt in. Set `"neo": {"spaRoot": "apps/<app>"}` in `package.json` (as `neomjs/neo` sets for `apps/portal`) to mount a `'pathname'` app at `/`, or override it per run with `--spa-root <dir>` and `--no-spa-root`.
 
-The engine router and `fileServer.mjs` handle interactive human-browser routing only. Crawler SSR snapshots, `410` responses, and `/blog` archive redirects belong to deployment middleware — `fileServer.mjs` never rewrites HTML or emulates bot snapshots.
+The engine router and `fileServer.mjs` handle interactive human-browser routing only. SEO snapshots, status codes, and redirects belong to your deployment's server — `fileServer.mjs` never rewrites HTML or emulates bot snapshots.
 
 ## Summary
 

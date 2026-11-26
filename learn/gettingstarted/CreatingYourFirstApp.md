@@ -25,7 +25,7 @@ If you ever want to start the server again later, just run:
 npm run server-start
 ```
 
-> **Note:** In an `npx neo-app` workspace (`neomjs/create-app`), `buildScripts/server.mjs` calls `fileServer.mjs` `run({open})` with no `spaRoot` configured, keeping the workspace tree at `/` unless you set `"neo": {"spaRoot": "apps/<app>"}` in `package.json` or pass `--spa-root <dir>`. Inside the `neomjs/neo` repository, `"neo": {"spaRoot": "apps/portal"}` mounts the Portal at `/`; run `npm run server-start -- --no-spa-root` for the root directory listing.
+For `'pathname'` routing and `spaRoot` / `--no-spa-root` options on `npm run server-start`, see [Local Serving in the Routing tutorial](../tutorials/Routing.md#local-serving-fileservermjs-and-hosting-boundary).
 
 **Note:**  
 You can also create additional apps inside the same workspace later by running
