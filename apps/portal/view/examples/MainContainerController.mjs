@@ -1,5 +1,7 @@
-import Component from '../../../../src/controller/Component.mjs';
-import Example   from '../../model/Example.mjs';
+import Component   from '../../../../src/controller/Component.mjs';
+import Example     from '../../model/Example.mjs';
+import HashHistory from '../../../../src/util/HashHistory.mjs';
+import StringUtil  from '../../../../src/util/String.mjs';
 
 /**
  * @summary Routes the overview and the group pages, publishes the groups of the selected build, and shares one build
@@ -51,6 +53,11 @@ class MainContainerController extends Component {
      * @member {Number} routeGeneration=0
      */
     routeGeneration = 0
+    /**
+     * Keeps a late clipboard reply from replacing feedback for a newer search or copy.
+     * @member {Number} shareGeneration=0
+     */
+    shareGeneration = 0
 
     /**
      * @summary Filters published catalog entries across titles, captions, component, group titles and `keywords`,
@@ -63,6 +70,9 @@ class MainContainerController extends Component {
               terms         = Example.tokenizeSearchText(query),
               searchResults = view.getSearchResults(),
               stage         = view.getStage();
+
+        me.shareGeneration++;
+        searchResults.setShareFeedback();
 
         if (terms.length === 0) {
             searchResults.clearResults();
@@ -180,6 +190,43 @@ class MainContainerController extends Component {
     }
 
     /**
+     * @summary Copies the current filter as a per-window Examples link without navigating.
+     * @returns {Promise<void>}
+     */
+    async onCopySearchLink() {
+        const me         = this,
+              view       = me.component,
+              {windowId} = view,
+              config     = Neo.windowConfigs?.[windowId] || Neo.config,
+              entry      = HashHistory.first(windowId),
+              route      = entry?.hashString || me.getOpenRoute(),
+              url        = new URL(StringUtil.toRouteHref(route, windowId), config.url.href),
+              routeMode  = view.buildModes.find(mode => `/examples/${mode.id}` === route)?.id || view.buildModes[0].id,
+              generation = ++me.shareGeneration;
+
+        url.search = config.routerMode === 'pathname' ? entry?.search || '' : config.url.search || '';
+        url.searchParams.set('find', view.findQuery);
+        url.searchParams.delete('catalogMode');
+
+        if (view.catalogMode !== routeMode) {
+            url.searchParams.set('catalogMode', view.catalogMode)
+        }
+
+        const text   = url.href;
+        let   copied = false;
+
+        try {
+            copied = await Neo.main.DomAccess.writeClipboardText({text, windowId}) === true
+        } catch {
+            // A closed or unavailable Main window does not confirm a write.
+        }
+
+        if (!me.isDestroyed && generation === me.shareGeneration) {
+            view.getSearchResults().setShareFeedback(copied ? 'Copied' : 'Copy this link manually', copied ? '' : text)
+        }
+    }
+
+    /**
      * @summary Updates shared `findQuery` state as the visitor types without modifying browser history.
      * @param {Object} data
      */
@@ -198,27 +245,33 @@ class MainContainerController extends Component {
     }
 
     /**
-     * @summary Resolves a group route to its page, and old build routes, unknown groups and groups without a card in
-     * the selected build to the overview.
+     * @summary Restores an Examples route and its saved filter before loading the catalog. Old build routes, unknown
+     * groups and groups without a card in the selected build use the overview underneath the filter.
      * @param {Object} [params={}]
+     * @param {Object} [entry={}] Window route entry with its raw page query.
      */
-    async onExamplesRoute(params={}) {
+    async onExamplesRoute(params={}, entry={}) {
         const me         = this,
               view       = me.component,
               generation = ++me.routeGeneration,
               legacyMode = view.buildModes.find(mode => mode.id === params.itemId),
-              store      = view.getCatalogStore();
+              store      = view.getCatalogStore(),
+              search     = new URLSearchParams(entry.search || ''),
+              findQuery  = search.get('find'),
+              shareMode  = findQuery === null ? null : view.buildModes.find(mode => mode.id === search.get('catalogMode')),
+              mode       = shareMode || legacyMode || (findQuery !== null ? view.buildModes[0] : null),
+              route      = !legacyMode && params.itemId ? '/examples/' + params.itemId : null;
 
-        if (legacyMode) me.getStateProvider().setData({catalogMode: legacyMode.id});
+        me.openFamily = route && view.familyDefinitions.find(definition => definition.route === route)?.family || null;
+        me.shareGeneration++;
+        view.getSearchResults().setShareFeedback();
+        me.getStateProvider().setData({findQuery: findQuery ?? '', ...(mode ? {catalogMode: mode.id} : {})});
+
         if (!store.isLoaded) {
             me.catalogLoadPromise ||= store.load().finally(() => {me.catalogLoadPromise = null});
             await me.catalogLoadPromise
         }
         if (me.isDestroyed || generation !== me.routeGeneration) return;
-
-        const route = !legacyMode && params.itemId ? '/examples/' + params.itemId : null;
-
-        me.openFamily = route && view.familyDefinitions.find(definition => definition.route === route)?.family || null;
 
         const indexPosition = me.indexRoutes.indexOf(me.getOpenRoute()),
               fromIndex     = indexPosition !== -1;
@@ -229,10 +282,7 @@ class MainContainerController extends Component {
             me.indexRoutes.length = 0
         }
 
-        if (view.findQuery) {
-            me.clearFind();
-            !fromIndex && !me.cardsRoute && view.getGroupIndex().syncFocus()
-        } else {
+        if (Example.tokenizeSearchText(view.findQuery).length === 0) {
             me.showOpenGroup(fromIndex)
         }
     }

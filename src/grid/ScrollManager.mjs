@@ -444,6 +444,26 @@ class ScrollManager extends Base {
     }
 
     /**
+     * @summary Re-syncs the horizontal header and followers from the live Main-thread scrollbar position.
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async syncHorizontalScroll(windowId = this.windowId) {
+        let me = this;
+
+        if (me.mounted && windowId && !me.isDestroyed) {
+            let addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+            if (me.isDestroyed || !me.mounted || me.windowId !== windowId) return;
+
+            await addon.sync({
+                id: me.id + '__h_scroll',
+                windowId
+            })
+        }
+    }
+
+    /**
      * @param {Boolean} active
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}

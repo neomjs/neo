@@ -11,10 +11,10 @@ import {test, expect} from '../../fixtures.mjs';
  * Run: npm run test-e2e -- test/playwright/e2e/board/BasicNL.spec.mjs
  */
 const
-    COUNTS     = {backlog: 12, ready: 10, 'in-progress': 6, review: 2, done: 10},
-    STATUSES   = Object.keys(COUNTS),
-    asArray    = value => Array.isArray(value) ? value : value ? [value] : [],
-    firstId    = async (app, className) => asArray(await app.findInstances({className}, ['id']))[0]?.id,
+    COUNTS   = {backlog: 12, ready: 10, 'in-progress': 6, review: 2, done: 10},
+    STATUSES = Object.keys(COUNTS),
+    asArray  = value => Array.isArray(value) ? value : value ? [value] : [],
+    firstId  = async (app, className) => asArray(await app.findInstances({className}, ['id']))[0]?.id,
     // Keep the original nodes so a replacement cannot satisfy the motion witness.
     recordColumnFrames = (page, ids) => page.evaluateHandle(columnIds => {
         const columns = columnIds.map(id => {
@@ -182,8 +182,8 @@ test.describe('Board, basic example: one store, two views', () => {
     for (const theme of ['neo-theme-neo-light', 'neo-theme-neo-dark']) {
         test(`a column dragged by its header carries its cards, leaves its slot empty and moves once (${theme})`, async ({page, neuralLink}, testInfo) => {
             const {boardId, column, domOrder, records} = await open(page, neuralLink, theme),
-                  proxy  = page.locator('.neo-dragproxy'),
-                  order  = () => page.locator(`[id^="${boardId}__col__"]`).evaluateAll((nodes, prefix) =>
+                  proxy                                = page.locator('.neo-dragproxy'),
+                  order                                = () => page.locator(`[id^="${boardId}__col__"]`).evaluateAll((nodes, prefix) =>
                       nodes.map(node => node.id.slice(prefix.length)).filter(status => !status.includes('_')), `${boardId}__col__`),
                   cards  = await domOrder('ready'),
                   from   = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
@@ -317,10 +317,10 @@ test.describe('Board, basic example: one store, two views', () => {
 
     test('a column dragged diagonally past the board\'s corner stays inside the board', async ({page, neuralLink}) => {
         const {boardId, domOrder} = await open(page, neuralLink),
-              proxy = page.locator('.neo-dragproxy'),
-              board = await page.locator(`[id="${boardId}"]`).boundingBox(),
-              from  = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
-              y     = from.y + from.height / 2;
+              proxy               = page.locator('.neo-dragproxy'),
+              board               = await page.locator(`[id="${boardId}"]`).boundingBox(),
+              from                = await page.locator(`[id="${boardId}__col__ready"] .neo-board-column-header`).boundingBox(),
+              y                   = from.y + from.height / 2;
 
         await page.mouse.move(from.x + 24, y);
         await page.mouse.down();
@@ -346,7 +346,7 @@ test.describe('Board, basic example: one store, two views', () => {
 
     test('a windowed column dragged by its header carries only the cards it renders', async ({page, neuralLink}) => {
         const {app, boardId, storeId, domOrder} = await open(page, neuralLink),
-              proxy = page.locator('.neo-dragproxy');
+              proxy                             = page.locator('.neo-dragproxy');
 
         await seedSliced(app, boardId, storeId, 60, 8);
         await expect.poll(async () => (await domOrder('ready')).length, {message: 'the column windows its 60 cards'}).toBeLessThan(60);
@@ -365,7 +365,8 @@ test.describe('Board, basic example: one store, two views', () => {
     });
 
     test('a card drag that starts in a windowed column scrolled to its end keeps the column there, through the drag and after Escape', async ({page, neuralLink}) => {
-        const {body, scroll} = await readyAtEnd(page, await open(page, neuralLink)),
+        const board          = await open(page, neuralLink),
+              {body, scroll} = await readyAtEnd(page, board),
               end            = await scroll(),
               // The card nearest the column's middle: the middle itself can fall in the gap between two cards
               cardId         = await body.evaluate(el => {
@@ -383,12 +384,42 @@ test.describe('Board, basic example: one store, two views', () => {
         await page.mouse.down();
         await page.mouse.move(x + width / 2 + 20, y + height / 2 + 10, {steps: 4});
         await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+        const [scrolledProxyBox, scrolledInnerBox] = await Promise.all([
+            page.locator('.neo-dragproxy').boundingBox(),
+            page.locator('.neo-dragproxy > .neo-board-card').boundingBox()
+        ]);
+        expect(Math.abs(scrolledInnerBox.x - scrolledProxyBox.x), 'scrolled drag proxy card x aligns with proxy').toBeLessThanOrEqual(1);
+        expect(Math.abs(scrolledInnerBox.y - scrolledProxyBox.y), 'scrolled drag proxy card y aligns with proxy').toBeLessThanOrEqual(1);
         expect(await scroll(), 'the drag keeps the column where it was scrolled to').toBe(end);
 
         await page.keyboard.press('Escape');
         await page.mouse.up();
         await expect(page.locator('.neo-dragproxy')).toHaveCount(0);
-        expect(await scroll(), 'and so does the cancel').toBe(end)
+        expect(await scroll(), 'and so does the cancel').toBe(end);
+
+        // Unscrolled multi-row check: rows 0, 1, and 2 each render flush inside the drag proxy with zero row-gap offset
+        const backlogCards = board.column('backlog').locator('.neo-board-card');
+        for (let row = 0; row < 3; row++) {
+            const box = await backlogCards.nth(row).boundingBox(),
+                  cx  = box.x + box.width / 2,
+                  cy  = box.y + box.height / 2;
+
+            await page.mouse.move(cx, cy);
+            await page.mouse.down();
+            await page.mouse.move(cx + 16, cy, {steps: 4});
+            await expect(page.locator('.neo-dragproxy')).toHaveCount(1);
+
+            const [proxyBox, innerBox] = await Promise.all([
+                page.locator('.neo-dragproxy').boundingBox(),
+                page.locator('.neo-dragproxy > .neo-board-card').boundingBox()
+            ]);
+            expect(Math.abs(innerBox.x - proxyBox.x), `backlog row ${row}: card left matches proxy`).toBeLessThanOrEqual(1);
+            expect(Math.abs(innerBox.y - proxyBox.y), `backlog row ${row}: card top matches proxy`).toBeLessThanOrEqual(1);
+
+            await page.keyboard.press('Escape');
+            await page.mouse.up();
+            await expect(page.locator('.neo-dragproxy')).toHaveCount(0)
+        }
     });
 
     test('a drop out of a windowed column scrolled to its end leaves the column at its end', async ({page, neuralLink}) => {
