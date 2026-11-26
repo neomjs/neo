@@ -654,8 +654,13 @@ test.describe('Portal examples side nav keys (#22061)', () => {
         // 5. Overview "Start here" sharedWorkers card in devmode: Enter on Workstation navigates in the same window
         await page.goto(`${PORTAL}#/examples/devmode`);
         app = await neuralLink.connectToApp('Portal');
-        const overviewList = (await app.queryComponent({className: 'Portal.view.examples.List'}, ['id', 'reference']))
-            .find(item => item.properties.reference === 'overview-list');
+        await expect(page.locator(FEATURED)).toBeVisible();
+        let overviewList;
+        await expect.poll(async () => {
+            overviewList = (await app.queryComponent({className: 'Portal.view.examples.List'}, ['id', 'reference']))
+                .find(item => item.properties.reference === 'overview-list');
+            return Boolean(overviewList?.id)
+        }).toBe(true);
         await app.setProperties(overviewList.id, {baseUrl: `${baseURL}/`});
         await app.callMethod(overviewList.id, 'createItems');
 
