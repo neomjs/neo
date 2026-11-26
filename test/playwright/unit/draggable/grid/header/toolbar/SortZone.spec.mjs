@@ -358,5 +358,68 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
         expect(calls).toEqual(['syncAriaColumnIndexes', 'measureAfterUpdate', 'measured', 'createViewData']);
 
         zone.destroy()
+    });
+
+    test('processDragEnd re-syncs the center header via scrollManager.syncHorizontalScroll instead of stale worker owner.scrollLeft (#22245)', async () => {
+        const
+            {DomAccess}   = Neo.main || {},
+            calls         = [],
+            domScrolls    = [],
+            column        = {dataField: 'alpha', locked: null},
+            dragComponent = {vdom: {}, wrapperStyle: {}},
+            gridContainer = {
+                body         : {createViewData: () => calls.push('createViewData')},
+                columns      : {count: 1, getAt: () => column},
+                scrollManager: {syncHorizontalScroll: async () => calls.push('syncHorizontalScroll')}
+            },
+            owner         = {
+                addDomListeners   : () => {},
+                cls               : [],
+                dragResortable    : true,
+                gridContainer,
+                id                : 'center-header-toolbar',
+                items             : [dragComponent],
+                measureAfterUpdate: async () => {calls.push('measureAfterUpdate')},
+                on                : () => {},
+                promiseUpdate     : async () => {calls.push('promiseUpdate')},
+                // Stale worker mirror still holds 230 while Main-thread scrollbar already moved to 0
+                scrollLeft           : 230,
+                style                : {},
+                syncAriaColumnIndexes: () => calls.push('syncAriaColumnIndexes'),
+                update               : () => calls.push('update'),
+                vdom                 : {cn: []}
+            },
+            zone          = Neo.create(SortZone, {owner});
+
+        gridContainer.headerToolbar = owner;
+        Neo.ns('Neo.main', true).DomAccess = {...DomAccess, scrollTo: async payload => {domScrolls.push(payload)}};
+
+        Object.assign(zone, {
+            currentIndex   : 0,
+            dragColumnField: 'alpha',
+            dragComponent,
+            dragElement    : {},
+            itemStyles     : [{}],
+            ownerStyle     : {},
+            sortableItems  : [dragComponent],
+            startIndex     : 0,
+            timeout        : () => Promise.resolve()
+        });
+
+        try {
+            await zone.processDragEnd({cancelled: true});
+
+            expect(domScrolls, 'must not write stale worker owner.scrollLeft directly via DomAccess.scrollTo').toEqual([]);
+            expect(calls).toEqual([
+                'syncAriaColumnIndexes',
+                'measureAfterUpdate',
+                'createViewData',
+                'promiseUpdate',
+                'syncHorizontalScroll'
+            ])
+        } finally {
+            Neo.main.DomAccess = DomAccess;
+            zone.destroy()
+        }
     })
 });

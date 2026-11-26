@@ -29,6 +29,7 @@ class GridHorizontalScrollSync extends Base {
             app: [
                 'register',
                 'registerFollower',
+                'sync',
                 'unregister',
                 'unregisterFollower'
             ]
@@ -224,6 +225,18 @@ class GridHorizontalScrollSync extends Base {
                 DomAccess.getElement(followerId)?.style.setProperty('--grid-scroll-left', scrollerNode.scrollLeft + 'px');
             }
         }
+    }
+
+    /**
+     * @summary Re-applies the registered scrollbar's live `scrollLeft` onto its header, body and followers.
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    sync({id}) {
+        let registration = this.registrations.get(id),
+            scrollerNode = registration && DomAccess.getElement(registration.scrollerId);
+
+        scrollerNode && this.syncFromScroller(registration, scrollerNode)
     }
 
     /**

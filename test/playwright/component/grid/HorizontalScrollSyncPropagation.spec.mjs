@@ -195,5 +195,24 @@ test.describe('Neo.main.addon.GridHorizontalScrollSync in the browser', () => {
 
         await scrollTo(page, 80);
         expect(await read(page)).toEqual({body: '40px', header: 40, scroller: 80})
+    });
+
+    test('sync restores a clamped header to the live scrollbar position and keeps a post-drop scroll to 0 (#22245)', async ({page}) => {
+        await scrollTo(page, 230);
+        expect(await read(page)).toEqual({body: '230px', header: 230, scroller: 230});
+
+        // Layout clamp to 0 while scroller remains at 230: sync restores 230 without reverse-rolling scroller
+        await page.evaluate(() => {
+            document.getElementById('probe-header').scrollLeft = 0;
+            Neo.main.addon.GridHorizontalScrollSync.sync({id: 'probe__h_scroll'})
+        });
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        expect(await read(page), 'clamped header rejoins live scroller at 230').toEqual({body: '230px', header: 230, scroller: 230});
+
+        // Scroller moves to 0 before late drag-end sync arrives: sync preserves 0 on both header and scroller
+        await scrollTo(page, 0);
+        await page.evaluate(() => Neo.main.addon.GridHorizontalScrollSync.sync({id: 'probe__h_scroll'}));
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+        expect(await read(page), 'late sync preserves post-drop scroll to 0').toEqual({body: '0px', header: 0, scroller: 0})
     })
 });
