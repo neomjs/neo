@@ -14,6 +14,7 @@ import fs              from 'node:fs';
 import path            from 'node:path';
 import {fileURLToPath} from 'node:url';
 import isEntryModule   from './isEntryModule.mjs';
+import {stripVarCalls} from './themeCss.mjs';
 
 const
     dirname              = path.dirname(fileURLToPath(import.meta.url)),
@@ -94,35 +95,6 @@ function resolvesDifferently({dark, light, name, value, seen = new Set([name]), 
  */
 function stripBlockComments(source) {
     return source.replace(/\/\*[\s\S]*?\*\//g, match => match.replace(/[^\n]/g, ' '))
-}
-
-/**
- * @summary Removes balanced var() calls so literal fallbacks inside them remain allowed.
- * @param {String} value
- * @returns {String}
- */
-function stripVarCalls(value) {
-    let index;
-
-    while ((index = value.indexOf('var(')) !== -1) {
-        let depth = 0,
-            end   = -1;
-
-        for (let i = index + 3; i < value.length; i++) {
-            if (value[i] === '(') {
-                depth++
-            } else if (value[i] === ')' && --depth === 0) {
-                end = i;
-                break
-            }
-        }
-
-        value = end === -1
-            ? value.slice(0, index) + value.slice(index + 3)
-            : value.slice(0, index) + value.slice(end + 1)
-    }
-
-    return value
 }
 
 /**
