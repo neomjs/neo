@@ -32,7 +32,7 @@ Revisit [Max Rahder’s Earthquakes tutorial](https://github.com/neomjs/neo/issu
 
 ### Reusable controls and interactions
 
-The [segmented control](https://github.com/neomjs/neo/issues/22234) replaces manual pressed-state synchronization in the Board example. The [empty state](https://github.com/neomjs/neo/issues/22235) gives File Explorer and Portal search a shared presentation while each view owns its message and recovery action. The [command palette](https://github.com/neomjs/neo/issues/22236) enters as a prototype. Its Workstation keyboard journey, focus restoration, and adoption in a second application decide whether to promote it to a public component.
+The [segmented control](https://github.com/neomjs/neo/issues/22234) replaces manual pressed-state synchronization in the Board example. The [empty state](https://github.com/neomjs/neo/issues/22235) gives File Explorer and Portal search a shared presentation while each view owns its message and recovery action. The [command palette](https://github.com/neomjs/neo/issues/22236) ships as an importable Engine dialog (`Neo.dialog.CommandPalette`) with search, keyboard navigation, focus restoration, and shared Workstation and Web Desktop adoption.
 
 ### Share an example, then run it outside this checkout
 

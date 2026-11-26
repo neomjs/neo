@@ -110,30 +110,30 @@
 }
 
 .neo-command-palette .neo-command-palette-query-field.neo-textfield {
-    flex   : 1 1 auto;
-    height : auto;
-    margin : 0;
+    flex     : 1 1 auto;
+    height   : auto;
+    margin   : 0;
     min-width: 0;
 }
 
 .neo-command-palette .neo-command-palette-query-field.neo-textfield .neo-textfield-input,
 .neo-command-palette .neo-command-palette-query-field.neo-textfield.neo-focus .neo-textfield-input {
-    appearance      : none;
-    background      : transparent;
-    border          : 0;
-    border-color    : transparent;
-    border-radius   : 0;
-    box-shadow      : none;
-    color           : var(--command-palette-text-color, #edf2f7);
-    flex            : 1 1 auto;
-    font-family     : inherit;
-    font-size       : 0.9375rem;
-    line-height     : 1.4;
-    min-height      : 1.5rem;
-    min-width       : 0;
-    outline         : none !important;
-    padding         : 0.125rem 0;
-    width           : 100%;
+    appearance   : none;
+    background   : transparent;
+    border       : 0;
+    border-color : transparent;
+    border-radius: 0;
+    box-shadow   : none;
+    color        : var(--command-palette-text-color, #edf2f7);
+    flex         : 1 1 auto;
+    font-family  : inherit;
+    font-size    : 0.9375rem;
+    line-height  : 1.4;
+    min-height   : 1.5rem;
+    min-width    : 0;
+    outline      : none !important;
+    padding      : 0.125rem 0;
+    width        : 100%;
 }
 
 .neo-command-palette .neo-command-palette-query-field.neo-textfield .neo-textfield-input::placeholder,

@@ -1,4 +1,4 @@
-import CommandPalette from '../../../examples/workbench/CommandPalette.mjs';
+import CommandPalette from '../../../src/dialog/CommandPalette.mjs';
 import Controller     from '../../../src/controller/Component.mjs';
 import {catalog}      from '../store/Apps.mjs';
 
@@ -89,21 +89,24 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Cached `document.body` `keydown` listener descriptor bound to this controller while the viewport is mounted.
-     * @member {Object|null} bodyKeyListener=null
+     * Shared contextual command palette bound to the owning viewport.
+     * @member {Neo.dialog.CommandPalette|null} commandPalette=null
      * @protected
      */
-    bodyKeyListener = null
+    commandPalette = null
+
     /**
-     * Window id on whose `Neo.main.DomEvents` `'F1'` `preventDefault` is currently registered.
-     * @member {Number|String|null} registeredKeyWindowId=null
-     * @protected
+     * @param {...*} args
      */
-    registeredKeyWindowId = null
+    destroy(...args) {
+        this.commandPalette?.destroy?.();
+        this.commandPalette = null;
+        super.destroy(...args)
+    }
 
     /**
      * Records the viewport's starting theme as state, which the taskbar's theme button and the Settings app read,
-     * and wires document-level command-palette shortcuts (`Ctrl+K`, `Meta+K`, `F1`) once mounted.
+     * and initializes the shared command palette so `owner` mount-state shortcut binding is active.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
@@ -112,136 +115,45 @@ class ViewportController extends Controller {
               viewport = me.component;
 
         me.setState('theme', viewport.getTheme());
-
-        if (viewport?.mounted) {
-            me.syncBodyKeyCapture(true)
-        }
+        me.getCommandPalette()
     }
 
     /**
-     * @summary Attaches or detaches the `document.body` `keydown` listener and `'F1'` `preventDefault` registration
-     * in lockstep with the viewport's mount state.
-     * @param {Boolean} mounted
+     * @summary Returns (or creates) the Web Desktop's {@link Neo.dialog.CommandPalette} instance.
+     * @returns {Neo.dialog.CommandPalette}
      */
-    syncBodyKeyCapture(mounted) {
+    getCommandPalette() {
         const me       = this,
               viewport = me.component;
 
-        if (!viewport || viewport.isDestroyed) {
-            return
-        }
-
-        if (mounted) {
-            if (!me.bodyKeyListener) {
-                me.bodyKeyListener = {
-                    keydown: me.onViewportKeyDown,
-                    scope  : me,
-                    vnodeId: 'document.body'
-                };
-                viewport.addDomListeners?.(me.bodyKeyListener)
-            }
-
-            if (!Neo.config.unitTestMode && viewport.windowId && me.registeredKeyWindowId !== viewport.windowId) {
-                if (me.registeredKeyWindowId) {
-                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-                        id      : 'document.body',
-                        keys    : ['F1'],
-                        windowId: me.registeredKeyWindowId
-                    })
-                }
-
-                Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                    id      : 'document.body',
-                    keys    : ['F1'],
-                    windowId: viewport.windowId
-                });
-                me.registeredKeyWindowId = viewport.windowId
-            }
-        } else {
-            if (me.bodyKeyListener) {
-                viewport.removeDomListeners?.(me.bodyKeyListener);
-                me.bodyKeyListener = null
-            }
-
-            if (me.registeredKeyWindowId) {
-                if (!Neo.config.unitTestMode) {
-                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-                        id      : 'document.body',
-                        keys    : ['F1'],
-                        windowId: me.registeredKeyWindowId
-                    })
-                }
-                me.registeredKeyWindowId = null
-            }
-        }
-    }
-
-    /**
-     * @summary Lazily creates the Web Desktop's shared {@link Neo.examples.workbench.CommandPalette} instance.
-     * @returns {Neo.examples.workbench.CommandPalette}
-     */
-    ensureCommandPalette() {
-        const me       = this,
-              viewport = me.component;
-
-        if (!viewport.commandPalette || viewport.commandPalette.isDestroyed) {
-            viewport.commandPalette = {
-                actionProvider : () => me.buildCommandPaletteActions(),
-                appName        : viewport.appName,
-                parentComponent: viewport,
+        if (!me.commandPalette || me.commandPalette.isDestroyed) {
+            me.commandPalette = Neo.create(CommandPalette, {
+                commandProvider: () => me.buildCommandPaletteActions(),
+                fallbackFocusId: () => me.resolveFallbackFocusId(),
+                owner          : viewport,
                 placeholder    : 'Search accounts, apps, or theme...',
                 theme          : me.getState('theme') || viewport.getTheme(),
-                title          : 'Web Desktop Commands',
-                windowId       : viewport.windowId
-            }
+                title          : 'Web Desktop Commands'
+            })
         }
 
-        return viewport.commandPalette
+        return me.commandPalette
     }
 
     /**
      * @summary Opens or toggles the command palette from the Taskbar `Commands` button.
      * @param {Object} [data]
-     * @returns {Promise<Neo.examples.workbench.CommandPalette|Boolean>}
+     * @returns {Promise<Neo.dialog.CommandPalette|void>}
      */
     onOpenCommandPalette(data) {
         const me        = this,
               viewport  = me.component,
               triggerId = me.getReference('commands')?.id ?? data?.component?.id ?? null;
 
-        return me.ensureCommandPalette().toggle({
-            fallbackFocusId: () => me.resolveFallbackFocusId(),
-            returnFocusId  : triggerId,
-            theme          : me.getState('theme') || viewport.getTheme(),
-            windowId       : viewport.windowId
-        })
-    }
-
-    /**
-     * @summary Opens or toggles the command palette on `Ctrl+K`, `Meta+K`, or `F1` across both Sign-In and Desktop views.
-     * @param {Object} data
-     */
-    onViewportKeyDown(data) {
-        if (!CommandPalette.isOpenShortcut(data)) {
-            return
-        }
-
-        const me       = this,
-              viewport = me.component;
-
-        if (!viewport || viewport.isDestroyed) {
-            return
-        }
-
-        data.cancelBubble = true;
-
-        const originId = data.target?.id && data.target.id !== 'document.body' ? data.target.id : null;
-
-        me.ensureCommandPalette().toggle({
-            fallbackFocusId: () => me.resolveFallbackFocusId(),
-            returnFocusId  : originId,
-            theme          : me.getState('theme') || viewport.getTheme(),
-            windowId       : viewport.windowId
+        return me.getCommandPalette().toggle({
+            returnFocusId: triggerId,
+            theme        : me.getState('theme') || viewport.getTheme(),
+            windowId     : viewport.windowId
         })
     }
 
@@ -407,8 +319,8 @@ class ViewportController extends Controller {
             menuList.theme = theme
         }
 
-        if (me.component.commandPalette && !me.component.commandPalette.isDestroyed) {
-            me.component.commandPalette.theme = theme
+        if (me.commandPalette && !me.commandPalette.isDestroyed) {
+            me.commandPalette.theme = theme
         }
 
         me.setState('theme', theme)

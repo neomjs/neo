@@ -469,6 +469,53 @@ icon would have sent. The post
 [Role-based navigation from one store filter](https://neomjs.com/news/blog/role-based-navigation-from-one-store-filter)
 tells the whole pattern, with four demo accounts.
 
+## Adding a command palette
+
+Once a desktop or multi-pane application offers several tools, arrangements or session actions, keyboard users look for
+one place to search and run them. `Neo.dialog.CommandPalette` (`src/dialog/CommandPalette.mjs`, `ntype: 'command-palette'`)
+is that control as an engine dialog: it pairs a combobox `TextField` with a `Neo.list.Base` listbox and `Navigator`
+virtual focus, announces result counts and unavailable reasons through a polite `role="status"` region, and restores
+keyboard focus to the control that opened it. Your application keeps its own permissions, state and action methods.
+
+In a workspace generated with `npx neo-app`, import `CommandPalette` from the installed engine, pass `owner` so
+`Ctrl+K`, `Meta+K` and `F1` follow the view's mount state and theme automatically, and supply commands that call your
+existing controller methods:
+
+```javascript
+import CommandPalette from '../../../node_modules/neo.mjs/src/dialog/CommandPalette.mjs';
+import Controller     from '../../../node_modules/neo.mjs/src/controller/Component.mjs';
+
+class MainViewController extends Controller {
+    static config = {
+        className: 'MyApp.view.MainViewController'
+    }
+
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        this.palette = Neo.create(CommandPalette, {
+            owner   : this.component,
+            commands: [
+                {id: 'save',  label: 'Save document', handler: () => this.saveDocument()},
+                {id: 'theme', label: 'Switch theme',  handler: () => this.toggleTheme()}
+            ]
+        })
+    }
+
+    onOpenCommands({component}) {
+        return this.palette.toggle({returnFocusId: component?.id})
+    }
+}
+
+export default Neo.setupClass(MainViewController);
+```
+
+When the set of eligible commands or their availability changes with the session — such as the signed-in account and
+granted permissions in `apps/webdesktop`, or the active arrangement and undo history in `apps/workstation` — pass
+`commandProvider: () => [...]` instead of a static `commands` array. Marking an entry `available: false` with an
+`unavailableReason` keeps the command discoverable in search and announces why it cannot run yet rather than hiding it
+without explanation.
+
 ## Phones and touch
 
 Below 600px the desktop rearranges itself instead of shrinking:

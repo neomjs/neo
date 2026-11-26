@@ -1,4 +1,4 @@
-import CommandPalette           from '../../../examples/workbench/CommandPalette.mjs';
+import CommandPalette           from '../../../src/dialog/CommandPalette.mjs';
 import Controller               from '../../../src/controller/Component.mjs';
 import DockProjectionReconciler from '../../../src/dashboard/dock/projection/Reconciler.mjs';
 import TransactionManager       from '../../../src/manager/Transaction.mjs';
@@ -17,17 +17,11 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * Cached `document.body` `keydown` listener descriptor bound to this controller while the workspace is mounted.
-     * @member {Object|null} bodyKeyListener=null
+     * Shared contextual command palette bound to the owning workspace and open popup vessels.
+     * @member {Neo.dialog.CommandPalette|null} commandPalette=null
      * @protected
      */
-    bodyKeyListener = null
-    /**
-     * Window id on whose `Neo.main.DomEvents` `'F1'` `preventDefault` is currently registered.
-     * @member {Number|String|null} registeredKeyWindowId=null
-     * @protected
-     */
-    registeredKeyWindowId = null
+    commandPalette = null
     /** @member {Promise|null} tourControllerPromise=null */
     tourControllerPromise = null
 
@@ -44,151 +38,67 @@ class WorkspaceController extends Controller {
      * @param {...*} args
      */
     destroy(...args) {
-        this.syncBodyKeyCapture(false);
+        this.commandPalette?.destroy?.();
+        this.commandPalette = null;
         Neo.currentWorker.un({connect: this.onWindowConnect, scope: this});
 
         super.destroy(...args)
     }
 
     /**
-     * @summary Wires document-level command-palette shortcuts only while the workspace is mounted.
+     * @summary Initializes the shared command palette so `owner` mount-state shortcut binding is active.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
-
-        if (this.component?.mounted) {
-            this.syncBodyKeyCapture(true)
-        }
+        this.getCommandPalette()
     }
 
     /**
-     * @summary Attaches or detaches the `document.body` `keydown` listener and `'F1'` `preventDefault` registration
-     * in lockstep with the workspace's mount state so unmounted unit-test instances never retain global body listeners.
-     * @param {Boolean} mounted
+     * @summary Returns (or creates) the workspace's {@link Neo.dialog.CommandPalette} instance.
+     * @returns {Neo.dialog.CommandPalette}
      */
-    syncBodyKeyCapture(mounted) {
+    getCommandPalette() {
         const me        = this,
               workspace = me.component;
 
-        if (!workspace || workspace.isDestroyed) {
-            return
-        }
-
-        if (mounted) {
-            if (!me.bodyKeyListener) {
-                me.bodyKeyListener = {
-                    keydown: me.onWorkspaceKeyDown,
-                    scope  : me,
-                    vnodeId: 'document.body'
-                };
-                workspace.addDomListeners?.(me.bodyKeyListener)
-            }
-
-            if (!Neo.config.unitTestMode && workspace.windowId && me.registeredKeyWindowId !== workspace.windowId) {
-                if (me.registeredKeyWindowId) {
-                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-                        id      : 'document.body',
-                        keys    : ['F1'],
-                        windowId: me.registeredKeyWindowId
-                    })
-                }
-
-                Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                    id      : 'document.body',
-                    keys    : ['F1'],
-                    windowId: workspace.windowId
-                });
-                me.registeredKeyWindowId = workspace.windowId
-            }
-        } else {
-            if (me.bodyKeyListener) {
-                workspace.removeDomListeners?.(me.bodyKeyListener);
-                me.bodyKeyListener = null
-            }
-
-            if (me.registeredKeyWindowId) {
-                if (!Neo.config.unitTestMode) {
-                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-                        id      : 'document.body',
-                        keys    : ['F1'],
-                        windowId: me.registeredKeyWindowId
-                    })
-                }
-                me.registeredKeyWindowId = null
-            }
-        }
-    }
-
-    /**
-     * @summary Lazily creates the workspace's contextual command palette instance.
-     * @returns {Neo.examples.workbench.CommandPalette}
-     */
-    ensureCommandPalette() {
-        const me        = this,
-              workspace = me.component;
-
-        if (!workspace.commandPalette || workspace.commandPalette.isDestroyed) {
-            workspace.commandPalette = {
-                actionProvider : ({windowId}) => me.buildCommandPaletteActions(windowId),
-                appName        : workspace.appName,
-                parentComponent: workspace,
+        if (!me.commandPalette || me.commandPalette.isDestroyed) {
+            me.commandPalette = Neo.create(CommandPalette, {
+                commandProvider: ({windowId}) => me.buildCommandPaletteActions(windowId),
+                fallbackFocusId: ({windowId}) => me.resolveFallbackFocusId(windowId),
+                owner          : workspace,
                 placeholder    : 'Search arrangements, panes, or tour...',
-                theme          : workspace.getTheme(),
-                title          : 'Workstation Commands',
-                windowId       : workspace.windowId
-            }
+                title          : 'Workstation Commands'
+            })
         }
 
-        return workspace.commandPalette
+        return me.commandPalette
+    }
+
+    /**
+     * @summary Registers or releases a torn-out popup vessel on the shared command palette's shortcut hosts.
+     * @param {Workstation.view.PopupWorkspace} popup
+     * @param {Boolean} active
+     */
+    syncPopupShortcuts(popup, active) {
+        if (this.component && !this.component.isDestroyed) {
+            this.getCommandPalette().registerShortcutHost(popup, active)
+        }
     }
 
     /**
      * @summary Opens or toggles the command palette from the TourToolbar `Commands` button.
      * @param {Object} [data]
-     * @returns {Promise<Neo.examples.workbench.CommandPalette|Boolean>}
+     * @returns {Promise<Neo.dialog.CommandPalette|void>}
      */
     onOpenCommandPalette(data) {
         const me        = this,
               workspace = me.component,
               triggerId = me.getReference('command-palette-trigger')?.id ?? data?.component?.id ?? null;
 
-        return me.ensureCommandPalette().toggle({
-            context        : {windowId: workspace.windowId},
-            fallbackFocusId: () => me.resolveFallbackFocusId(workspace.windowId),
-            returnFocusId  : triggerId,
-            theme          : workspace.getTheme(),
-            windowId       : workspace.windowId
-        })
-    }
-
-    /**
-     * @summary Handles `Ctrl+K`, `Meta+K`, and `F1` across the main workspace window and open popup vessels.
-     * @param {Object} data
-     * @param {Number|String|null} [explicitWindowId=null]
-     */
-    onWorkspaceKeyDown(data, explicitWindowId = null) {
-        if (!CommandPalette.isOpenShortcut(data)) {
-            return
-        }
-
-        const me        = this,
-              workspace = me.component;
-
-        if (!workspace || workspace.isDestroyed) {
-            return
-        }
-
-        data.cancelBubble = true;
-
-        const windowId = explicitWindowId ?? workspace.windowId,
-              originId = data.target?.id && data.target.id !== 'document.body' ? data.target.id : null;
-
-        me.ensureCommandPalette().toggle({
-            context        : {windowId},
-            fallbackFocusId: () => me.resolveFallbackFocusId(windowId),
-            returnFocusId  : originId,
-            theme          : workspace.getTheme(),
-            windowId
+        return me.getCommandPalette().toggle({
+            context      : {windowId: workspace.windowId},
+            returnFocusId: triggerId,
+            windowId     : workspace.windowId
         })
     }
 

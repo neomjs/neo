@@ -433,6 +433,7 @@ complete organism where the codebase and the agent co-evolve.
 | `src/core/` | Class system, Observable, Logger | `Base`, `Observable` | — |
 | `src/component/` | UI primitives | `Base`, `Wrapper` | — |
 | `src/container/` | Layout containers | `Base`, `Viewport` | — |
+| `src/dialog/` | Modal and floating dialogs, including the importable command palette | `Base`, `CommandPalette`, `header.Toolbar` | — |
 | `src/list/` | Store-bound semantic lists, including fixed-height buffered component pools | `Base`, `Component`, `Buffered` | — |
 | `src/grid/` | Buffered data grids | `Container`, `View` | — |
 | `src/board/`, `src/timeline/`, `src/scheduler/`, `src/gantt/` | Planning families over records a store already holds: a kanban board of columns and swimlanes, and a timeline, scheduler and Gantt chart on one shared time axis | `board.Container`, `timeline.TimeAxis`, `scheduler.Container`, `gantt.Container` | — |

@@ -52,20 +52,20 @@ function measurePaletteContrast(page) {
     })
 }
 
-test.describe('Neo.examples.workbench.CommandPalette (component)', () => {
+test.describe('Neo.dialog.CommandPalette (component)', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
         await page.waitForSelector('#component-test-viewport', {state: 'attached'})
     });
 
-    test('mounts combobox dialog, filters, traps Tab, refuses unavailable items, dispatches actions, restores focus, and meets WCAG AA across themes and 320px viewports', async ({page}) => {
+    test('mounts public Engine dialog, binds owner shortcuts, traps Tab, refuses unavailable items, dispatches commands, restores focus, and meets WCAG AA across themes and 320px viewports', async ({page}) => {
         const appWorker = page.workers().find(worker => worker.url().includes('/worker/App'));
         expect(appWorker).toBeTruthy();
 
         const ids = await appWorker.evaluate(async () => {
             const [{default: Button}, {default: CommandPalette}] = await Promise.all([
                 import('../../../src/button/Base.mjs'),
-                import('../../../examples/workbench/CommandPalette.mjs')
+                import('../../../src/dialog/CommandPalette.mjs')
             ]);
 
             const viewport = Neo.getComponent('component-test-viewport'),
@@ -83,11 +83,9 @@ test.describe('Neo.examples.workbench.CommandPalette (component)', () => {
             viewport.add(trigger);
 
             const palette = Neo.create(CommandPalette, {
-                appName        : viewport.appName,
-                parentComponent: viewport,
+                owner          : viewport,
                 theme          : 'neo-theme-neo-dark',
-                windowId       : viewport.windowId,
-                actionProvider : () => [{
+                commandProvider: () => [{
                     id               : 'locked-deploy',
                     available        : false,
                     description      : 'Requires release approval.',
@@ -126,12 +124,8 @@ test.describe('Neo.examples.workbench.CommandPalette (component)', () => {
         await expect(trigger).toBeVisible();
         await trigger.focus();
 
-        await appWorker.evaluate(({paletteId, triggerId}) => {
-            return Neo.getComponent(paletteId).open({
-                returnFocusId: triggerId,
-                theme        : 'neo-theme-neo-dark'
-            })
-        }, ids);
+        // Owner shortcut (Control+k) opens the dialog and focuses the combobox input
+        await page.keyboard.press('Control+k');
 
         const dialog      = page.getByRole('dialog', {name: 'Command Palette'}),
               input       = page.locator(`#${ids.inputId}`),

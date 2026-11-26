@@ -1,31 +1,31 @@
-import List from '../../src/list/Base.mjs';
+import List from '../list/Base.mjs';
 
 /**
- * @summary `Neo.list.Base` listbox view for {@link Neo.examples.workbench.CommandPalette} action records.
+ * @summary `Neo.list.Base` listbox view for {@link Neo.dialog.CommandPalette} command records.
  *
- * Renders each {@link Neo.examples.workbench.CommandActionModel} record as a `<li role="option">` item
- * navigated from the palette's combobox `<input>` via {@link Neo.main.addon.Navigator} (`eventSource`).
+ * Renders each {@link Neo.dialog.model.CommandAction} record as a `<li role="option">` item navigated
+ * from the palette's combobox `<input>` via {@link Neo.main.addon.Navigator} (`eventSource`).
  * Unavailable commands stay navigable and clickable (`aria-disabled="true"`, `.neo-is-unavailable`)
  * rather than `.neo-disabled` (`pointer-events: none`) so keyboard and pointer users can inspect and
- * trigger explicit refusal announcements explaining why an action is unavailable.
+ * trigger polite refusal announcements explaining why a command is currently unavailable.
  *
- * @class Neo.examples.workbench.CommandActionList
+ * @class Neo.dialog.CommandPaletteList
  * @extends Neo.list.Base
  */
-class CommandActionList extends List {
+class CommandPaletteList extends List {
     static config = {
         /**
-         * @member {String} className='Neo.examples.workbench.CommandActionList'
+         * @member {String} className='Neo.dialog.CommandPaletteList'
          * @protected
          */
-        className: 'Neo.examples.workbench.CommandActionList',
+        className: 'Neo.dialog.CommandPaletteList',
         /**
-         * @member {String} ntype='workbench-command-action-list'
+         * @member {String} ntype='command-palette-list'
          * @protected
          */
-        ntype: 'workbench-command-action-list',
+        ntype: 'command-palette-list',
         /**
-         * The owning {@link Neo.examples.workbench.CommandPalette} manages store lifetime.
+         * Store lifetime belongs to the owning {@link Neo.dialog.CommandPalette}.
          * @member {Boolean} autoDestroyStore=false
          */
         autoDestroyStore: false,
@@ -40,7 +40,6 @@ class CommandActionList extends List {
          */
         disableSelection: true,
         /**
-         * Structured VDOM item trees replace string-level HTML highlight injection.
          * @member {Boolean} highlightFilterValue=false
          */
         highlightFilterValue: false,
@@ -51,7 +50,7 @@ class CommandActionList extends List {
          */
         itemsFocusable: false,
         /**
-         * Preserves active option highlight across live store filter mutations (`ComboBox` pattern).
+         * Preserves active option highlight across live store filter updates.
          * @member {Boolean} keepFocusIndex=true
          */
         keepFocusIndex: true,
@@ -74,8 +73,17 @@ class CommandActionList extends List {
     itemRole = 'option'
 
     /**
+     * @summary Populates `vdom.cn` silently while unmounted so pre-open `store` refreshes mount atomically
+     * inside `Neo.dialog.Base#show` instead of dispatching an unmounted child update.
+     * @param {Boolean} [silent=false]
+     */
+    createItems(silent = false) {
+        super.createItems(silent || !this.mounted)
+    }
+
+    /**
      * @summary Builds the structured VDOM payload merged into each `<li role="option">` item by `Neo.list.Base#createItem`.
-     * @param {Neo.examples.workbench.CommandActionModel} record
+     * @param {Neo.dialog.model.CommandAction} record
      * @param {Number} index
      * @returns {Object}
      */
@@ -170,4 +178,4 @@ class CommandActionList extends List {
     }
 }
 
-export default Neo.setupClass(CommandActionList);
+export default Neo.setupClass(CommandPaletteList);

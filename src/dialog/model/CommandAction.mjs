@@ -1,22 +1,23 @@
-import Model from '../../src/data/Model.mjs';
+import Model from '../../data/Model.mjs';
 
 /**
- * @summary Schema for one consumer-supplied action in {@link Neo.examples.workbench.CommandPalette}.
+ * @summary Record schema for a command entry in {@link Neo.dialog.CommandPalette}.
  *
- * Each consumer owns its action descriptors, contextual availability, and execution callbacks. Storing
- * actions in a `Neo.data.Store` of `CommandActionModel` records keeps filtering, Neural Link store
- * inspection, and keyboard selection aligned with standard Neo data primitives.
+ * Only `label` and `handler` (plus a stable `id`, defaulted from `label` when omitted) are required
+ * for minimal consumers. Optional metadata (`group`, `description`, `shortcut`, `iconCls`, `keywords`,
+ * `available`, `unavailableReason`, `managesFocus`) enriches filtering, accessibility announcements,
+ * and post-execution focus handback without coupling the dialog to application state.
  *
- * @class Neo.examples.workbench.CommandActionModel
+ * @class Neo.dialog.model.CommandAction
  * @extends Neo.data.Model
  */
-class CommandActionModel extends Model {
+class CommandAction extends Model {
     static config = {
         /**
-         * @member {String} className='Neo.examples.workbench.CommandActionModel'
+         * @member {String} className='Neo.dialog.model.CommandAction'
          * @protected
          */
-        className: 'Neo.examples.workbench.CommandActionModel',
+        className: 'Neo.dialog.model.CommandAction',
         /**
          * @member {String} keyProperty='id'
          */
@@ -71,4 +72,4 @@ class CommandActionModel extends Model {
     }
 }
 
-export default Neo.setupClass(CommandActionModel);
+export default Neo.setupClass(CommandAction);

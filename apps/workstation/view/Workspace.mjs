@@ -1,6 +1,4 @@
 import BoardPane                           from './BoardPane.mjs';
-import ClassSystemUtil                     from '../../../src/util/ClassSystem.mjs';
-import CommandPalette                      from '../../../examples/workbench/CommandPalette.mjs';
 import Container                           from '../../../src/container/Base.mjs';
 import VesselWorkspace                     from './VesselWorkspace.mjs';
 import Feed                                from '../store/Feed.mjs';
@@ -88,8 +86,7 @@ class Workspace extends VesselWorkspace {
         additionalThemeFiles: [
             'Workstation.view.Viewport',
             'Neo.dashboard.Container',
-            'Workstation.view.Workspace',
-            'Neo.examples.workbench.CommandPalette'
+            'Workstation.view.Workspace'
         ],
         /**
          * @member {String[]} cls
@@ -150,12 +147,6 @@ class Workspace extends VesselWorkspace {
                 workItems: {module: WorkItems}
             }
         },
-        /**
-         * Lazily created contextual command palette shared across this workspace's windows.
-         * @member {Neo.examples.workbench.CommandPalette|Object|null} commandPalette_=null
-         * @reactive
-         */
-        commandPalette_: null,
         /**
          * The class `construct` builds the controls row's status readout from. An app that extends the
          * Workstation names its own readout class here, through a `Workstation.view.Workspace` subclass or
@@ -829,10 +820,6 @@ class Workspace extends VesselWorkspace {
         me.theme = theme;
         me.syncThemeToggle(theme);
 
-        if (me.commandPalette && !me.commandPalette.isDestroyed) {
-            me.commandPalette.theme = theme
-        }
-
         Object.values(me.paneCache).forEach(pane => {
             if (!pane.isDestroyed && (!pane.theme || pane.theme === previousTheme)) {
                 pane.theme = theme
@@ -904,35 +891,11 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
-     * @param {Neo.examples.workbench.CommandPalette|Object|null} value
-     * @param {Neo.examples.workbench.CommandPalette|null} oldValue
-     * @returns {Neo.examples.workbench.CommandPalette|null}
-     * @protected
-     */
-    beforeSetCommandPalette(value, oldValue) {
-        oldValue?.destroy?.();
-        return value ? ClassSystemUtil.beforeSetInstance(value, CommandPalette) : null
-    }
-
-    /**
-     * @summary Synchronizes document-level command-palette shortcut listeners with the workspace's mount state.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-        this.getController()?.syncBodyKeyCapture?.(Boolean(value))
-    }
-
-    /**
      * @summary Releases content owned by this composition after vessel resources have retired.
      * The provider's own teardown destroys its created stores; passed-in stores remain borrowed.
      * @protected
      */
     destroyWorkspaceContent() {
-        this.getController()?.syncBodyKeyCapture?.(false);
-        this.commandPalette = null;
         this.dockService?.destroy();
         this.perspectiveStore?.destroy();
         this.topologyLibrary?.destroy();

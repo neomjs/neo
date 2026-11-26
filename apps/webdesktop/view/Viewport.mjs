@@ -1,6 +1,4 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
-import ClassSystemUtil       from '../../../src/util/ClassSystem.mjs';
-import CommandPalette        from '../../../examples/workbench/CommandPalette.mjs';
 import Component             from '../../../src/component/Base.mjs';
 import Desktop               from '../../../src/desktop/Container.mjs';
 import PermissionPanel       from './PermissionPanel.mjs';
@@ -25,21 +23,9 @@ class Viewport extends BaseViewport {
          */
         className: 'WebDesktop.view.Viewport',
         /**
-         * @member {String[]} additionalThemeFiles=['Neo.examples.workbench.CommandPalette']
-         */
-        additionalThemeFiles: [
-            'Neo.examples.workbench.CommandPalette'
-        ],
-        /**
          * @member {String[]} cls=['webdesktop-viewport']
          */
         cls: ['webdesktop-viewport'],
-        /**
-         * Lazily created contextual command palette instance owned by this viewport.
-         * @member {Neo.examples.workbench.CommandPalette|Object|null} commandPalette_=null
-         * @reactive
-         */
-        commandPalette_: null,
         /**
          * @member {Neo.controller.Component} controller=ViewportController
          */
@@ -121,37 +107,6 @@ class Viewport extends BaseViewport {
             },
             taskbarConfig: {module: Taskbar}
         }]
-    }
-
-    /**
-     * @param {Neo.examples.workbench.CommandPalette|Object|null} value
-     * @param {Neo.examples.workbench.CommandPalette|null} oldValue
-     * @returns {Neo.examples.workbench.CommandPalette|null}
-     * @protected
-     */
-    beforeSetCommandPalette(value, oldValue) {
-        oldValue?.destroy?.();
-        return value ? ClassSystemUtil.beforeSetInstance(value, CommandPalette) : null
-    }
-
-    /**
-     * @summary Synchronizes document-level command-palette shortcut listeners with the viewport's mount state.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-        this.getController()?.syncBodyKeyCapture?.(Boolean(value))
-    }
-
-    /**
-     * @param {...*} args
-     */
-    destroy(...args) {
-        this.getController()?.syncBodyKeyCapture?.(false);
-        this.commandPalette = null;
-        super.destroy(...args)
     }
 }
 
