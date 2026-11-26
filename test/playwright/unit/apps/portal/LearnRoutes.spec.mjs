@@ -6,7 +6,7 @@ import {fileURLToPath} from 'url';
 const
     root       = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../'),
     portalDir  = path.join(root, 'apps/portal'),
-    routeRegex = /#\/learn\/([\w./-]+)/g;
+    routeRegex = /(?:^|['"`#])\/learn\/([\w./-]+)/g;
 
 /**
  * The portal files that can hold a learn route: every `.mjs` and `.html` below `apps/portal`,
@@ -27,7 +27,7 @@ function collectSources(dir) {
 }
 
 test.describe('Portal learn routes', () => {
-    test('every #/learn/ route in the portal source names a record in learn/tree.json', () => {
+    test('every /learn/ route in the portal source names a record in learn/tree.json', () => {
         const
             ids    = new Set(JSON.parse(fs.readFileSync(path.join(root, 'learn/tree.json'), 'utf-8')).data.map(record => record.id)),
             found  = [],
