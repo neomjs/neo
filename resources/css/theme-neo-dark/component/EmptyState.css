@@ -1,0 +1,28 @@
+:where(.neo-theme-neo-dark) { /* .neo-empty-state */
+    --empty-state-action-bg            : var(--cmp-button-secondary-surface-default);
+    --empty-state-action-bg-active     : var(--cmp-button-secondary-surface-active);
+    --empty-state-action-bg-hover      : var(--cmp-button-secondary-surface-hover);
+    --empty-state-action-border        : var(--cmp-button-borderwidth, 1px) solid var(--cmp-button-secondary-border-default);
+    --empty-state-action-border-radius : var(--cmp-button-borderradius, 8px);
+    --empty-state-action-color         : var(--sem-color-text-neutral-default);
+    --empty-state-action-color-hover   : var(--sem-color-text-neutral-contrast);
+    --empty-state-action-focus-outline : var(--sem-color-border-focus);
+    --empty-state-action-font-size     : 0.875rem;
+    --empty-state-action-font-weight   : var(--core-fontweight-semibold);
+    --empty-state-action-min-height    : var(--height-32);
+    --empty-state-action-padding       : 6px var(--sem-spacing-small);
+    --empty-state-align-items          : flex-start;
+    --empty-state-background-color     : var(--sem-color-surface-neutral-default);
+    --empty-state-border               : 1px solid var(--sem-color-border-subtle);
+    --empty-state-border-radius        : 12px;
+    --empty-state-description-color    : var(--sem-color-text-neutral-subdued);
+    --empty-state-description-font-size: 14px;
+    --empty-state-gap                  : 6px;
+    --empty-state-glyph-color          : var(--sem-color-icon-neutral-subdued);
+    --empty-state-glyph-size           : 20px;
+    --empty-state-padding              : 24px;
+    --empty-state-padding-narrow       : 16px;
+    --empty-state-title-color          : var(--sem-color-text-neutral-default);
+    --empty-state-title-font-size      : 16px;
+    --empty-state-title-font-weight    : 600;
+}

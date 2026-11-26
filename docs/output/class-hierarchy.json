@@ -187,6 +187,7 @@
  "Neo.component.Circle": "Neo.component.Base",
  "Neo.component.Clock": "Neo.component.Base",
  "Neo.component.DateSelector": "Neo.component.Base",
+ "Neo.component.EmptyState": "Neo.component.Base",
  "Neo.component.Gallery": "Neo.component.Base",
  "Neo.component.Helix": "Neo.component.Base",
  "Neo.component.Icon": "Neo.component.Base",

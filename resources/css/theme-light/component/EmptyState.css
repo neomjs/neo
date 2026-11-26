@@ -1,0 +1,28 @@
+:root .neo-theme-light { /* .neo-empty-state */
+    --empty-state-action-bg            : #f6f8fa;
+    --empty-state-action-bg-active     : #dfe5eb;
+    --empty-state-action-bg-hover      : #eaeef2;
+    --empty-state-action-border        : 1px solid #d0d7de;
+    --empty-state-action-border-radius : 6px;
+    --empty-state-action-color         : #1f2328;
+    --empty-state-action-color-hover   : #0b0f14;
+    --empty-state-action-focus-outline : #1c60a0;
+    --empty-state-action-font-size     : 11px;
+    --empty-state-action-font-weight   : 600;
+    --empty-state-action-min-height    : 0px;
+    --empty-state-action-padding       : 5px 12px;
+    --empty-state-align-items          : flex-start;
+    --empty-state-background-color     : #ffffff;
+    --empty-state-border               : 1px solid #d8dee4;
+    --empty-state-border-radius        : 8px;
+    --empty-state-description-color    : #57606a;
+    --empty-state-description-font-size: 14px;
+    --empty-state-gap                  : 6px;
+    --empty-state-glyph-color          : #57606a;
+    --empty-state-glyph-size           : 20px;
+    --empty-state-padding              : 20px;
+    --empty-state-padding-narrow       : 16px;
+    --empty-state-title-color          : #1f2328;
+    --empty-state-title-font-size      : 15px;
+    --empty-state-title-font-weight    : 600;
+}

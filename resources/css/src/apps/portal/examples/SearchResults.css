@@ -54,25 +54,6 @@
         margin-bottom: 12px;
     }
 
-    .portal-examples-search-empty {
-        background-color: var(--portal-examples-bg-raised);
-        border          : 1px solid var(--portal-examples-border);
-        border-radius   : 12px;
-        padding         : 24px;
-
-        .portal-examples-search-empty-title {
-            font-size  : 16px;
-            font-weight: 600;
-            margin     : 0 0 6px;
-        }
-
-        .portal-examples-search-empty-hint {
-            color    : var(--portal-examples-text-muted);
-            font-size: 14px;
-            margin   : 0;
-        }
-    }
-
     .portal-examples-search-groups {
         gap: 28px;
     }
