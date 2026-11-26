@@ -19,6 +19,7 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
+import '../../../../src/manager/Focus.mjs';
 import '../../../../src/vdom/Helper.mjs';
 import '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import '../../../../src/vdom/util/StringFromVnode.mjs';
@@ -32,12 +33,19 @@ import CommandPalette     from '../../../../src/dialog/CommandPalette.mjs';
 import CommandPaletteList from '../../../../src/dialog/CommandPaletteList.mjs';
 
 test.describe('Neo.dialog.CommandPalette (unit)', () => {
-    let domAccess, domEventsCalls, instances, navigatorCalls, navigatorMock, ownDomAccess, priorDomEvents, priorNavigator;
+    let bodyKeyMap, chordMap, domAccess, domEventsCalls, instances, navigatorCalls, navigatorMock, ownDomAccess, priorDomEvents, priorNavigator;
 
     test.beforeEach(() => {
         instances      = [];
+        bodyKeyMap     = {};
+        chordMap       = new Map();
         navigatorCalls = {navigateTo: [], subscribe: [], unsubscribe: []};
-        domEventsCalls = {register: [], unregister: []};
+        domEventsCalls = {
+            registerChords  : [],
+            registerKeys    : [],
+            unregisterChords: [],
+            unregisterKeys  : []
+        };
 
         domAccess    = Neo.main.DomAccess;
         ownDomAccess = ['syncModalMask', 'trapFocus'].map(name => [name, Object.hasOwn(domAccess, name), domAccess[name]]);
@@ -47,8 +55,22 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
 
         priorDomEvents     = Neo.main.DomEvents;
         Neo.main.DomEvents = {
-            registerPreventDefaultKeys  : payload => domEventsCalls.register.push(payload),
-            unregisterPreventDefaultKeys: payload => domEventsCalls.unregister.push(payload)
+            registerPreventDefaultChords(payload) {
+                domEventsCalls.registerChords.push(payload);
+                chordMap.set(payload.scopeId, payload.chords)
+            },
+            registerPreventDefaultKeys(payload) {
+                domEventsCalls.registerKeys.push(payload);
+                bodyKeyMap[payload.id] = payload.keys
+            },
+            unregisterPreventDefaultChords(payload) {
+                domEventsCalls.unregisterChords.push(payload);
+                chordMap.delete(payload.scopeId)
+            },
+            unregisterPreventDefaultKeys(payload) {
+                domEventsCalls.unregisterKeys.push(payload);
+                delete bodyKeyMap[payload.id]
+            }
         };
 
         priorNavigator = Neo.main.addon.Navigator;
@@ -57,7 +79,8 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
             subscribe  : payload => navigatorCalls.subscribe.push(payload),
             unsubscribe: payload => navigatorCalls.unsubscribe.push(payload)
         };
-        Neo.main.addon.Navigator = navigatorMock
+        Neo.main.addon.Navigator = navigatorMock;
+        Neo.manager.Focus.removeWindow(1)
     });
 
     test.afterEach(() => {
@@ -72,7 +95,8 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
         });
 
         Neo.main.DomEvents       = priorDomEvents;
-        Neo.main.addon.Navigator = priorNavigator
+        Neo.main.addon.Navigator = priorNavigator;
+        Neo.manager.Focus.removeWindow(1)
     });
 
     test('registers ntype command-palette and matches open shortcuts and multi-token queries', () => {
@@ -100,12 +124,16 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
         expect(CommandPalette.matchesQuery(record, 'planning unknown')).toBe(false)
     });
 
-    test('supports minimal two-command adoption, owner mount-scoped shortcuts, and reactive owner theme sync', async () => {
+    test('keeps shortcuts opt-in by default and preserves existing document.body preventDefaultKeys across setup and teardown', async () => {
+        Neo.main.DomEvents.registerPreventDefaultKeys({id: 'document.body', keys: ['F8'], windowId: 1});
+        domEventsCalls.registerKeys.length = 0;
+
         const invoked = [],
               owner   = Neo.create(Container, {
                   appName,
                   autoInitVnode: false,
                   autoMount    : false,
+                  mounted      : true,
                   theme        : 'neo-theme-neo-dark',
                   windowId     : 1
               }),
@@ -120,14 +148,27 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
 
         instances.push(palette, owner);
 
-        expect(palette instanceof CommandPalette).toBe(true);
-        expect(palette.appName).toBe(appName);
-        expect(palette.windowId).toBe(1);
-        expect(palette.theme).toBe('neo-theme-neo-dark');
-        expect(domEventsCalls.register.length, 'unmounted owner registers no global shortcut yet').toBe(0);
+        expect(palette.enableShortcuts, 'shortcuts are opt-in by default').toBe(false);
+        expect(domEventsCalls.registerChords).toEqual([]);
+        expect(domEventsCalls.registerKeys).toEqual([]);
+        expect(domEventsCalls.unregisterKeys).toEqual([]);
+        expect(bodyKeyMap['document.body'], 'existing F8 reservation stays intact').toEqual(['F8']);
 
-        owner.mounted = true;
-        expect(domEventsCalls.register).toEqual([{id: 'document.body', keys: ['F1'], windowId: 1}]);
+        palette.enableShortcuts = true;
+        expect(domEventsCalls.registerChords).toEqual([{
+            chords  : [{key: 'F1'}, {ctrlOrMeta: true, key: 'k'}],
+            scopeId : `${palette.id}:${owner.id}`,
+            windowId: 1
+        }]);
+        expect(bodyKeyMap['document.body']).toEqual(['F8']);
+
+        palette.enableShortcuts = false;
+        expect(domEventsCalls.unregisterChords).toEqual([{
+            scopeId : `${palette.id}:${owner.id}`,
+            windowId: 1
+        }]);
+        expect(chordMap.size).toBe(0);
+        expect(bodyKeyMap['document.body'], 'disabling shortcuts preserves F8 reservation').toEqual(['F8']);
 
         // Owner reactive theme update propagates to the palette automatically
         owner.theme = 'neo-theme-neo-light';
@@ -136,19 +177,152 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
         palette.show(false);
         await expect.poll(() => palette.mounted).toBe(true);
 
-        expect(palette.store.getCount()).toBe(2);
-        expect(palette.store.getAt(0).id).toBe('Save document');
-
         palette.setQuery('save');
         expect(palette.store.getCount()).toBe(1);
 
+        const selectedEvents = [];
+        palette.on('select', payload => selectedEvents.push(payload));
+
         await palette.activateRecord(palette.store.getAt(0));
         expect(invoked).toEqual(['save']);
+        expect(selectedEvents[0].source, 'Observable sender id remains intact').toBe(palette.id);
+        expect(selectedEvents[0].triggerSource).toBe('keyboard');
         expect(palette.hidden).toBe(true);
         expect(palette.mounted).toBe(false);
 
-        owner.mounted = false;
-        expect(domEventsCalls.unregister).toEqual([{id: 'document.body', keys: ['F1'], windowId: 1}])
+        palette.enableShortcuts = true;
+        palette.destroy();
+        expect(chordMap.size).toBe(0);
+        expect(bodyKeyMap['document.body'], 'destroying palette preserves F8 reservation').toEqual(['F8'])
+    });
+
+    test('ties dismissal and destruction to owner unmount and owner removal/destroy', async () => {
+        const parent = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  windowId     : 1
+              }),
+              owner  = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  windowId     : 1
+              });
+
+        parent.add(owner);
+        owner.mounted = true;
+
+        const palette = Neo.create(CommandPalette, {
+            commands       : [{id: 'save', label: 'Save document', handler: () => {}}],
+            enableShortcuts: true,
+            owner
+        });
+
+        instances.push(palette, owner, parent);
+
+        palette.show(false);
+        await expect.poll(() => palette.mounted).toBe(true);
+        expect(palette.isOpen).toBe(true);
+
+        // Removing owner without destroying it unmounts owner and hides the open modal
+        parent.remove(owner, false);
+        expect(owner.mounted).toBe(false);
+        await expect.poll(() => palette.mounted).toBe(false);
+        expect(palette.isOpen).toBe(false);
+        expect(palette.isDestroyed).toBeFalsy();
+        expect(chordMap.size).toBe(0);
+
+        // Re-mount owner, re-open palette, then remove owner with default destroyItem=true
+        parent.add(owner);
+        owner.mounted = true;
+        palette.show(false);
+        await expect.poll(() => palette.mounted).toBe(true);
+        expect(palette.isOpen).toBe(true);
+
+        parent.remove(owner);
+        expect(owner.isDestroyed).toBe(true);
+        expect(palette.isDestroyed, 'destroying owner destroys its palette').toBe(true);
+        expect(palette.isOpen).toBe(false);
+        expect(palette.owner).toBeNull();
+        expect(palette.parentComponent).toBeNull();
+        expect(chordMap.size).toBe(0)
+    });
+
+    test('scopes focus return per opening and cancels stale async focus restoration after reopen', async () => {
+        let finishSave;
+        const focusLog = [],
+              buttonA  = Neo.create(Button, {appName, text: 'Launcher A', windowId: 1}),
+              buttonB  = Neo.create(Button, {appName, text: 'Launcher B', windowId: 1}),
+              owner    = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  windowId     : 1
+              }),
+              palette  = Neo.create(CommandPalette, {
+                  enableShortcuts: true,
+                  owner,
+                  commands       : [{
+                      id     : 'save',
+                      label  : 'Save document',
+                      handler: () => new Promise(resolve => {
+                          finishSave = resolve
+                      })
+                  }]
+              });
+
+        buttonA.focus = id => focusLog.push(['A', id]);
+        buttonB.focus = id => focusLog.push(['B', id]);
+
+        instances.push(buttonA, buttonB, palette, owner);
+
+        // 1. Open by shortcut from Button A, close via Escape -> returns to A
+        palette.onHostKeyDown(owner, {ctrlKey: true, key: 'k', target: {id: buttonA.id}});
+        await expect.poll(() => palette.mounted).toBe(true);
+        expect(palette.returnFocusId).toBe(buttonA.id);
+
+        await palette.hide(false);
+        expect(focusLog).toEqual([['A', buttonA.id]]);
+        expect(palette.returnFocusId, 'hide clears stale returnFocusId').toBeNull();
+
+        // 2. Focus Button B and call palette.show() directly -> Escape returns to Button B, not Button A
+        focusLog.length = 0;
+        Neo.manager.Focus.onFocusin({
+            componentPath: [buttonB.id],
+            data         : {path: [{id: buttonB.id}], target: {id: buttonB.id}},
+            windowId     : 1
+        });
+
+        palette.show(false);
+        await expect.poll(() => palette.mounted).toBe(true);
+        expect(palette.returnFocusId).toBe(buttonB.id);
+
+        palette.onKeyDownEscape();
+        await expect.poll(() => palette.mounted).toBe(false);
+        expect(focusLog).toEqual([['B', buttonB.id]]);
+
+        // 3. Pending async Save finishes AFTER palette reopened -> must not steal focus out of reopened dialog
+        focusLog.length = 0;
+        await palette.open({returnFocusId: buttonA.id, windowId: 1});
+
+        const activationPromise = palette.activateRecord(palette.store.get('save'));
+        await expect.poll(() => palette.mounted).toBe(false);
+        expect(typeof finishSave).toBe('function');
+
+        // User reopens palette while Save is still in flight
+        palette.show(false);
+        await expect.poll(() => palette.mounted).toBe(true);
+        expect(palette.isOpen).toBe(true);
+
+        finishSave('saved');
+        await activationPromise;
+
+        expect(palette.isOpen, 'reopened palette stays open').toBe(true);
+        expect(focusLog, 'completed Save from earlier opening does not move focus').toEqual([])
     });
 
     test('uses normal Dialog show, hide, and close lifecycle without duplicate close events', async () => {
@@ -170,14 +344,12 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
         await expect.poll(() => palette.mounted).toBe(true);
         expect(events).toEqual(['show']);
 
-        // Default closeAction: 'hide' hides on Escape without firing 'close' or destroying
         palette.onKeyDownEscape();
         await expect.poll(() => palette.mounted).toBe(false);
         expect(palette.hidden).toBe(true);
         expect(palette.isDestroyed).toBeFalsy();
         expect(events).toEqual(['show', 'hide']);
 
-        // Re-show and run close(false) with closeAction: 'close': fires 'close' once and destroys
         palette.closeAction = 'close';
         palette.show(false);
         await expect.poll(() => palette.mounted).toBe(true);
@@ -188,8 +360,9 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
     });
 
     test('composes Dialog, TextField, CommandPaletteList, and Navigator for filtering and unavailable refusal', async () => {
-        const calls   = [],
-              palette = Neo.create(CommandPalette, {
+        const calls           = [],
+              refusalPayloads = [],
+              palette         = Neo.create(CommandPalette, {
                   appName,
                   theme          : 'neo-theme-neo-dark',
                   windowId       : 1,
@@ -219,6 +392,7 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
               });
 
         instances.push(palette);
+        palette.on('unavailableCommand', payload => refusalPayloads.push(payload));
 
         expect(palette instanceof Dialog).toBe(true);
         expect(palette.queryField instanceof TextField).toBe(true);
@@ -257,6 +431,8 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
         const refused = await palette.activateRecord(palette.store.get('undo'), {source: 'keyboard'});
         expect(refused.executed).toBe(false);
         expect(refused.reason).toBe('Nothing to undo');
+        expect(refusalPayloads[0].source).toBe(palette.id);
+        expect(refusalPayloads[0].triggerSource).toBe('keyboard');
         expect(calls).toEqual([]);
         expect(palette.isOpen).toBe(true);
         expect(palette.statusText).toBe('Undo layout change is unavailable: Nothing to undo.');

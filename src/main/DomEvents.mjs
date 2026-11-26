@@ -63,11 +63,8 @@ const lastWheelEvent = {
     target: null
 };
 
-const
-    disabledInputKeys         = {},
-    preventClickTargets       = [],
-    preventContextmenuTargets = [],
-    preventDefaultKeys        = {};
+const disabledInputKeys    = {}, preventClickTargets = [], preventContextmenuTargets = [],
+      preventDefaultChords = new Map(), preventDefaultKeys = {};
 
 /**
  * @class Neo.main.DomEvents
@@ -107,12 +104,10 @@ class DomEvents extends Base {
          */
         remote: {
             app: [
-                'addDomListener',
-                'registerDisabledInputChars',
-                'registerPreventDefaultKeys',
-                'registerPreventDefaultTargets',
-                'unregisterDisabledInputChars',
-                'unregisterPreventDefaultKeys'
+                'addDomListener', 'registerPreventDefaultTargets',
+                'registerDisabledInputChars', 'unregisterDisabledInputChars',
+                'registerPreventDefaultChords', 'unregisterPreventDefaultChords',
+                'registerPreventDefaultKeys', 'unregisterPreventDefaultKeys'
             ]
         }
     }
@@ -920,7 +915,7 @@ class DomEvents extends Base {
             // When the target is `document.body`, callers register against `'document.body'` because body often has no id.
             const preventId = target === document.body ? (target.id || 'document.body') : target.id;
 
-            if (preventDefaultKeys[preventId]?.includes(event.key)) {
+            if (preventDefaultKeys[preventId]?.includes(event.key) || me.hasMatchingPreventDefaultChord(event)) {
                 event.preventDefault()
             }
 
@@ -1330,6 +1325,39 @@ class DomEvents extends Base {
     }
 
     /**
+     * @summary Checks whether `event` matches any active document-wide keychord registered via
+     * {@link #registerPreventDefaultChords}.
+     * @param {KeyboardEvent} event
+     * @returns {Boolean}
+     */
+    hasMatchingPreventDefaultChord(event) {
+        if (preventDefaultChords.size === 0 || typeof event.key !== 'string') return false;
+        const keyLower = event.key.toLowerCase();
+
+        for (const chords of preventDefaultChords.values()) {
+            for (const chord of chords) {
+                const modOk = chord.ctrlOrMeta ? (event.ctrlKey || event.metaKey)
+                    : (Boolean(chord.ctrlKey) === Boolean(event.ctrlKey) && Boolean(chord.metaKey) === Boolean(event.metaKey));
+                if (modOk && Boolean(chord.altKey) === Boolean(event.altKey) && Boolean(chord.shiftKey) === Boolean(event.shiftKey) && String(chord.key).toLowerCase() === keyLower) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     * @summary Cancels the browser default for matching document-wide keychords under `scopeId` while still
+     * forwarding the `keydown` event to the App Worker, without overwriting other scopes or {@link #registerPreventDefaultKeys}.
+     * @param {Object} data
+     * @param {Object[]} data.chords `{key, ctrlOrMeta?, ctrlKey?, metaKey?, altKey?, shiftKey?}` descriptors
+     * @param {String} data.scopeId
+     */
+    registerPreventDefaultChords(data) {
+        data?.scopeId && Array.isArray(data.chords) && preventDefaultChords.set(data.scopeId, data.chords)
+    }
+
+    /**
      * Cancels the browser default of `keys` while the node `id` is the keydown target. Unlike
      * {@link #registerDisabledInputChars} the event is still delivered to the App Worker, and the node need not be
      * an input: this is for a key the worker handles itself on a focusable container, where letting the default
@@ -1571,6 +1599,15 @@ class DomEvents extends Base {
      */
     unregisterDisabledInputChars(data) {
         delete disabledInputKeys[data.id]
+    }
+
+    /**
+     * @summary Releases a scoped keychord registration added via {@link #registerPreventDefaultChords}.
+     * @param {Object} data
+     * @param {String} data.scopeId
+     */
+    unregisterPreventDefaultChords(data) {
+        data?.scopeId && preventDefaultChords.delete(data.scopeId)
     }
 
     /**

@@ -15,10 +15,11 @@ import {resolveCallback}  from '../util/Function.mjs';
  *
  * Applications import `Neo.dialog.CommandPalette` (`ntype: 'command-palette'`), supply a static
  * {@link #commands} array or dynamic {@link #commandProvider} callback, and call {@link #show},
- * {@link #open}, or {@link #toggle} (or pass {@link #owner} for automatic `Ctrl+K` / `Meta+K` / `F1`
- * shortcut binding). Application permissions, command execution, and domain state remain with the
- * caller while the dialog owns search filtering, `Navigator` option movement, `Escape` and close-button
- * dismissal, polite `role="status"` feedback, window migration, and focus restoration.
+ * {@link #open}, or {@link #toggle} (optionally setting `enableShortcuts: true` with {@link #owner}
+ * for mount-scoped `Ctrl+K` / `Meta+K` / `F1` shortcut binding). Application permissions, command
+ * execution, and domain state remain with the caller while the dialog owns search filtering,
+ * `Navigator` option movement, `Escape` and close-button dismissal, polite `role="status"` feedback,
+ * owner teardown, and focus restoration.
  *
  * @example
  *     import CommandPalette from '../../../node_modules/neo.mjs/src/dialog/CommandPalette.mjs';
@@ -26,8 +27,8 @@ import {resolveCallback}  from '../util/Function.mjs';
  *     this.palette ??= Neo.create(CommandPalette, {
  *         owner   : this.component,
  *         commands: [
- *             {id: 'counter:increment', label: 'Increment counter', handler: () => this.onIncrement()},
- *             {id: 'theme:toggle',      label: 'Toggle theme',      handler: () => this.onToggleTheme()}
+ *             {id: 'save',  label: 'Save document', handler: () => this.saveDocument()},
+ *             {id: 'theme', label: 'Switch theme',  handler: () => this.toggleTheme()}
  *         ]
  *     });
  *     this.palette.show();
@@ -71,6 +72,7 @@ class CommandPalette extends Dialog {
         closeButtonText: 'Esc',
         /**
          * @member {String[]} cls=['neo-command-palette','neo-command-palette-surface']
+         * @reactive
          */
         cls: ['neo-command-palette', 'neo-command-palette-surface'],
         /**
@@ -95,6 +97,7 @@ class CommandPalette extends Dialog {
         },
         /**
          * @member {Boolean} draggable=false
+         * @reactive
          */
         draggable: false,
         /**
@@ -118,12 +121,12 @@ class CommandPalette extends Dialog {
          */
         emptyResultsTitle: 'No matching commands',
         /**
-         * Automatically binds `Ctrl+K`, `Meta+K`, and `F1` on {@link #owner} (and registered shortcut hosts)
-         * while mounted.
-         * @member {Boolean} enableShortcuts_=true
+         * Opt-in binding of `Ctrl+K`, `Meta+K`, and `F1` on {@link #owner} (and registered shortcut hosts)
+         * while mounted, canceling native browser defaults under an isolated chord scope.
+         * @member {Boolean} enableShortcuts_=false
          * @reactive
          */
-        enableShortcuts_: true,
+        enableShortcuts_: false,
         /**
          * Fallback DOM element id or resolver `({palette, windowId}) => String|null` focused when the
          * pre-open focus origin unmounted during command execution.
@@ -132,6 +135,7 @@ class CommandPalette extends Dialog {
         fallbackFocusId: null,
         /**
          * @member {Boolean} hidden=true
+         * @reactive
          */
         hidden: true,
         /**
@@ -141,17 +145,19 @@ class CommandPalette extends Dialog {
         legendText: '↑↓ navigate · Enter run · Esc close',
         /**
          * @member {Boolean} modal=true
+         * @reactive
          */
         modal: true,
         /**
          * Optional owning component (`Viewport`, `Workspace`, etc.) from which `appName`, `windowId`,
-         * `theme`, controller callback scope, and mount-scoped keyboard shortcuts are derived.
+         * `theme`, controller callback scope, mount-scoped shortcuts, and teardown lifecycle are derived.
          * @member {Neo.component.Base|null} owner_=null
          * @reactive
          */
         owner_: null,
         /**
          * @member {String} parentId='document.body'
+         * @reactive
          */
         parentId: 'document.body',
         /**
@@ -162,10 +168,12 @@ class CommandPalette extends Dialog {
         placeholder_: 'Type a command or search...',
         /**
          * @member {Boolean} resizable=false
+         * @reactive
          */
         resizable: false,
         /**
          * @member {String} role='dialog'
+         * @reactive
          */
         role: 'dialog',
         /**
@@ -177,10 +185,12 @@ class CommandPalette extends Dialog {
         /**
          * Accessible dialog title and header label.
          * @member {String|null} title='Command Palette'
+         * @reactive
          */
         title: 'Command Palette',
         /**
          * @member {Boolean} trapFocus=true
+         * @reactive
          */
         trapFocus: true,
         /**
@@ -231,7 +241,7 @@ class CommandPalette extends Dialog {
      */
     query = ''
     /**
-     * Origin DOM element id captured before opening so dismissal restores keyboard focus.
+     * Origin DOM element id captured for the active opening so dismissal restores keyboard focus.
      * @member {String|null} returnFocusId=null
      */
     returnFocusId = null
@@ -256,6 +266,16 @@ class CommandPalette extends Dialog {
      */
     #activeFallbackFocusId = null
     /**
+     * Monotonic show/hide generation counter preventing stale async focus restoration after a new opening.
+     * @member {Number} #openGeneration=0
+     */
+    #openGeneration = 0
+    /**
+     * Unwrap callback for the active {@link #owner}'s `destroy` hook.
+     * @member {Function|null} #ownerDestroyCleanup=null
+     */
+    #ownerDestroyCleanup = null
+    /**
      * Cleanup callback returned by {@link #owner}'s reactive `mounted` `Config#subscribe`.
      * @member {Function|null} #ownerMountedUnsubscribe=null
      */
@@ -271,13 +291,23 @@ class CommandPalette extends Dialog {
      */
     #refusalRecordId = null
     /**
-     * Active `document.body` shortcut registrations keyed by host component.
-     * @member {Map<Neo.component.Base, {listener: Object, windowId: Number|String|null}>} #shortcutHosts
+     * Whether {@link #returnFocusId} for the current opening was supplied explicitly via {@link #open}.
+     * @member {Boolean} #returnFocusExplicit=false
+     */
+    #returnFocusExplicit = false
+    /**
+     * Active shortcut registrations keyed by host component.
+     * @member {Map<Neo.component.Base, {listener: Object, scopeId: String, windowId: Number|String|null}>} #shortcutHosts
      */
     #shortcutHosts = new Map()
     /**
-     * Suppresses automatic focus restoration inside {@link #hide} when {@link #activateRecord} runs its
-     * async command handler first and restores or delegates focus afterwards.
+     * Indicates {@link #show} is executing inside {@link #open}, which already initialized opening metadata.
+     * @member {Boolean} #showFromOpen=false
+     */
+    #showFromOpen = false
+    /**
+     * Suppresses automatic focus restoration inside {@link #hide} when {@link #activateRecord} or owner
+     * teardown manages dismissal directly.
      * @member {Boolean} #suppressHideFocusReturn=false
      */
     #suppressHideFocusReturn = false
@@ -336,7 +366,8 @@ class CommandPalette extends Dialog {
     }
 
     /**
-     * @param {Object} config
+     * @param {...*} args
+     * @returns {Object}
      */
     mergeConfig(...args) {
         const config = super.mergeConfig(...args),
@@ -393,7 +424,7 @@ class CommandPalette extends Dialog {
      * @returns {Boolean}
      */
     get isOpen() {
-        return !this.hidden && (this.mounted || Boolean(this.mountFlight))
+        return !this.isDestroyed && !this.hidden && (this.mounted || Boolean(this.mountFlight))
     }
 
     /**
@@ -431,13 +462,13 @@ class CommandPalette extends Dialog {
             me.#refusalRecordId = String(record.id);
             me.setStatusText(`${record.label} is unavailable: ${reason}.`);
             me.fire('unavailableCommand', {
-                context : me.activeContext,
+                context      : me.activeContext,
                 event,
-                palette : me,
+                palette      : me,
                 reason,
                 record,
-                source,
-                windowId: me.windowId
+                triggerSource: source,
+                windowId     : me.windowId
             });
 
             return {executed: false, reason, record, result: undefined}
@@ -461,6 +492,7 @@ class CommandPalette extends Dialog {
             me.#suppressHideFocusReturn = false
         }
 
+        const closedGeneration = me.#openGeneration;
         let result;
 
         if (record.handler) {
@@ -484,16 +516,16 @@ class CommandPalette extends Dialog {
             me.fire('select', {
                 context,
                 event,
-                palette: me,
+                palette      : me,
                 record,
                 result,
-                source,
+                triggerSource: source,
                 windowId
             })
         }
 
-        if (!managesFocus && !me.isDestroyed) {
-            await me.restoreOriginFocus(returnFocusId, fallbackFocusId, windowId)
+        if (!managesFocus && !me.isDestroyed && !me.isOpen && me.#openGeneration === closedGeneration) {
+            await me.restoreOriginFocus(returnFocusId, fallbackFocusId, windowId, closedGeneration)
         }
 
         return {executed: true, reason: null, record, result}
@@ -533,18 +565,10 @@ class CommandPalette extends Dialog {
     afterSetOwner(value, oldValue) {
         const me = this;
 
-        if (me.#ownerMountedUnsubscribe) {
-            me.#ownerMountedUnsubscribe();
-            me.#ownerMountedUnsubscribe = null
-        }
+        me.#detachOwner(oldValue);
 
-        if (me.#ownerThemeUnsubscribe) {
-            me.#ownerThemeUnsubscribe();
-            me.#ownerThemeUnsubscribe = null
-        }
-
-        if (oldValue) {
-            me.registerShortcutHost(oldValue, false)
+        if (oldValue && me.parentComponent === oldValue && (!value || value.isDestroyed)) {
+            me.parentComponent = null
         }
 
         if (value && !value.isDestroyed) {
@@ -552,7 +576,7 @@ class CommandPalette extends Dialog {
                 me.appName = value.appName
             }
 
-            if (!me.parentComponent) {
+            if (!me.parentComponent || me.parentComponent === oldValue) {
                 me.parentComponent = value
             }
 
@@ -575,7 +599,16 @@ class CommandPalette extends Dialog {
                     scope: me,
                     fn   : mounted => {
                         if (!me.isDestroyed) {
-                            me.registerShortcutHost(value, Boolean(mounted) && me.enableShortcuts)
+                            me.registerShortcutHost(value, Boolean(mounted) && me.enableShortcuts);
+
+                            if (!mounted && me.isOpen && (!me.windowId || !value.windowId || me.windowId === value.windowId)) {
+                                me.#suppressHideFocusReturn = true;
+                                try {
+                                    me.hide(false)
+                                } finally {
+                                    me.#suppressHideFocusReturn = false
+                                }
+                            }
                         }
                     }
                 })
@@ -592,6 +625,27 @@ class CommandPalette extends Dialog {
                     }
                 })
             }
+
+            const hasOwnDestroy = Object.hasOwn(value, 'destroy'),
+                  priorDestroy  = value.destroy,
+                  wrapped       = function(...destroyArgs) {
+                      if (me.owner === value && !me.isDestroyed) {
+                          me.#handleOwnerDestroy(value)
+                      }
+
+                      return priorDestroy.apply(this, destroyArgs)
+                  };
+
+            value.destroy = wrapped;
+            me.#ownerDestroyCleanup = () => {
+                if (value.destroy === wrapped) {
+                    if (hasOwnDestroy) {
+                        value.destroy = priorDestroy
+                    } else {
+                        delete value.destroy
+                    }
+                }
+            };
 
             if (me.enableShortcuts && value.mounted) {
                 me.registerShortcutHost(value, true)
@@ -866,19 +920,26 @@ class CommandPalette extends Dialog {
      * @param {...*} args
      */
     destroy(...args) {
-        const me = this;
+        const me    = this,
+              owner = me.owner;
 
-        if (me.#ownerMountedUnsubscribe) {
-            me.#ownerMountedUnsubscribe();
-            me.#ownerMountedUnsubscribe = null
-        }
-
-        if (me.#ownerThemeUnsubscribe) {
-            me.#ownerThemeUnsubscribe();
-            me.#ownerThemeUnsubscribe = null
-        }
-
+        ++me.#openGeneration;
+        me.#detachOwner(owner);
         me.#clearAllShortcutHosts();
+
+        if (owner && me.parentComponent === owner) {
+            me.parentComponent = null
+        }
+
+        me._owner        = null;
+        me.returnFocusId = null;
+
+        if (me.mounted) {
+            me.mounted && me.modal && me.syncModalMask(me.id, false);
+            me.mounted = false
+        }
+
+        me._hidden = true;
         me.store?.destroy?.();
         me._store = null;
 
@@ -919,7 +980,7 @@ class CommandPalette extends Dialog {
 
     /**
      * @summary Hides the palette via `Neo.dialog.Base#hide` and restores keyboard focus unless suppressed
-     * by an in-flight command activation.
+     * by an in-flight command activation or owner teardown.
      * @param {Boolean} [animate=!!this.animateTargetId]
      * @returns {Promise<String|null>|undefined}
      */
@@ -930,7 +991,8 @@ class CommandPalette extends Dialog {
             return
         }
 
-        const fallbackFocusId = me.#activeFallbackFocusId ?? me.fallbackFocusId,
+        const generation      = ++me.#openGeneration,
+              fallbackFocusId = me.#activeFallbackFocusId ?? me.fallbackFocusId,
               inFlight        = [me, me.queryField, me.actionList, me.emptyState, me.statusComponent].filter(cmp => cmp?.isVdomUpdating),
               returnFocusId   = me.returnFocusId,
               suppressFocus   = me.#suppressHideFocusReturn,
@@ -938,13 +1000,15 @@ class CommandPalette extends Dialog {
               finishHide      = () => {
                   super.hide(animate);
 
-                  if (!suppressFocus && !me.isDestroyed) {
-                      return me.restoreOriginFocus(returnFocusId, fallbackFocusId, windowId)
+                  if (!suppressFocus && !me.isDestroyed && !me.isOpen && me.#openGeneration === generation) {
+                      return me.restoreOriginFocus(returnFocusId, fallbackFocusId, windowId, generation)
                   }
               };
 
         me.activeContext          = null;
         me.#activeFallbackFocusId = null;
+        me.returnFocusId          = null;
+        me.#returnFocusExplicit   = false;
 
         if (inFlight.length > 0) {
             return Promise.all(inFlight.map(cmp => cmp.promiseUpdate().catch(() => {}))).then(finishHide)
@@ -974,7 +1038,7 @@ class CommandPalette extends Dialog {
     }
 
     /**
-     * @summary Handles open-shortcut toggle-hide and FIFO-ordered `Enter` activation against {@link #store}.
+     * @summary Handles opt-in open-shortcut toggle-hide and FIFO-ordered `Enter` activation against {@link #store}.
      * @param {Object} data
      * @protected
      */
@@ -985,7 +1049,7 @@ class CommandPalette extends Dialog {
             return
         }
 
-        if (CommandPalette.isOpenShortcut(data)) {
+        if (me.enableShortcuts && CommandPalette.isOpenShortcut(data)) {
             data.cancelBubble = true;
             me.closeOrHide(false);
             return
@@ -995,6 +1059,21 @@ class CommandPalette extends Dialog {
             data.cancelBubble = true;
             const record = me.activeIndex >= 0 ? me.store?.getAt(me.activeIndex) : null;
             me.activateRecord(record, {event: data, source: 'keyboard'})
+        }
+    }
+
+    /**
+     * @summary Records the DOM element focus came from when {@link #show} opened without an explicit
+     * `returnFocusId`, so direct `palette.show()` calls restore focus to their launcher on `Escape`.
+     * @param {Object} data
+     */
+    onFocusEnter(data) {
+        super.onFocusEnter(data);
+
+        const relatedId = data?.relatedTarget?.id;
+
+        if (!this.#returnFocusExplicit && relatedId && relatedId !== 'document.body' && !this.#isOwnElementId(relatedId)) {
+            this.returnFocusId = relatedId
         }
     }
 
@@ -1113,8 +1192,12 @@ class CommandPalette extends Dialog {
 
         me.activeContext = options.context ?? null;
 
-        if (options.returnFocusId !== undefined || !me.isOpen) {
-            me.returnFocusId = options.returnFocusId ?? null
+        if (options.returnFocusId !== undefined) {
+            me.returnFocusId        = options.returnFocusId ?? null;
+            me.#returnFocusExplicit = Boolean(me.returnFocusId)
+        } else if (!me.isOpen) {
+            me.returnFocusId        = me.#resolveCurrentFocusedId(targetWindowId);
+            me.#returnFocusExplicit = false
         }
 
         if (options.fallbackFocusId !== undefined) {
@@ -1133,7 +1216,13 @@ class CommandPalette extends Dialog {
             me.theme = resolvedTheme
         }
 
-        me.show(false);
+        me.#showFromOpen = true;
+
+        try {
+            me.show(false)
+        } finally {
+            me.#showFromOpen = false
+        }
 
         if (me.mountFlight) {
             await me.mountFlight
@@ -1221,8 +1310,8 @@ class CommandPalette extends Dialog {
     }
 
     /**
-     * @summary Attaches or detaches `Ctrl+K` / `Meta+K` / `F1` document-level shortcut listeners on `host`
-     * (used automatically for {@link #owner} and optionally for secondary multi-window participants).
+     * @summary Attaches or detaches opt-in `Ctrl+K` / `Meta+K` / `F1` document-level shortcut listeners
+     * and scoped default-prevention chords on `host` without altering unrelated `DomEvents` registrations.
      * @param {Neo.component.Base} host
      * @param {Boolean} [active=Boolean(host?.mounted)]
      */
@@ -1233,7 +1322,9 @@ class CommandPalette extends Dialog {
             return
         }
 
-        const existing = me.#shortcutHosts.get(host);
+        const existing = me.#shortcutHosts.get(host),
+              chords   = [{key: 'F1'}, {ctrlOrMeta: true, key: 'k'}],
+              scopeId  = existing?.scopeId || `${me.id}:${host.id}`;
 
         if (active && me.enableShortcuts && !host.isDestroyed) {
             if (!existing) {
@@ -1245,26 +1336,25 @@ class CommandPalette extends Dialog {
                 host.addDomListeners?.(listener);
 
                 if (host.windowId) {
-                    Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                        id      : 'document.body',
-                        keys    : ['F1'],
+                    Neo.main?.DomEvents?.registerPreventDefaultChords?.({
+                        chords,
+                        scopeId,
                         windowId: host.windowId
                     })
                 }
 
-                me.#shortcutHosts.set(host, {listener, windowId: host.windowId ?? null})
+                me.#shortcutHosts.set(host, {listener, scopeId, windowId: host.windowId ?? null})
             } else if (host.windowId && existing.windowId !== host.windowId) {
                 if (existing.windowId) {
-                    Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-                        id      : 'document.body',
-                        keys    : ['F1'],
+                    Neo.main?.DomEvents?.unregisterPreventDefaultChords?.({
+                        scopeId,
                         windowId: existing.windowId
                     })
                 }
 
-                Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-                    id      : 'document.body',
-                    keys    : ['F1'],
+                Neo.main?.DomEvents?.registerPreventDefaultChords?.({
+                    chords,
+                    scopeId,
                     windowId: host.windowId
                 });
                 existing.windowId = host.windowId
@@ -1275,9 +1365,8 @@ class CommandPalette extends Dialog {
             }
 
             if (existing.windowId) {
-                Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-                    id      : 'document.body',
-                    keys    : ['F1'],
+                Neo.main?.DomEvents?.unregisterPreventDefaultChords?.({
+                    scopeId : existing.scopeId,
                     windowId: existing.windowId
                 })
             }
@@ -1288,15 +1377,22 @@ class CommandPalette extends Dialog {
 
     /**
      * @summary Restores keyboard focus to `returnId` when still mounted and visible, otherwise falls back
-     * to `fallbackId` so post-command UI transitions never leave focus on `<body>`.
+     * to `fallbackId` unless the palette has reopened or moved to a newer opening generation.
      * @param {String|null} returnId
      * @param {Function|String|null} fallbackId
      * @param {Number|String|null} windowId
+     * @param {Number} [expectedGeneration=this.#openGeneration]
      * @returns {Promise<String|null>}
      */
-    async restoreOriginFocus(returnId, fallbackId, windowId) {
+    async restoreOriginFocus(returnId, fallbackId, windowId, expectedGeneration = this.#openGeneration) {
+        const me = this;
+
+        if (me.isDestroyed || me.isOpen || me.#openGeneration !== expectedGeneration) {
+            return null
+        }
+
         const resolveFallback = () => Neo.isFunction(fallbackId)
-            ? fallbackId({palette: this, windowId})
+            ? fallbackId({palette: me, windowId})
             : fallbackId;
 
         let targetId       = returnId || resolveFallback() || null,
@@ -1317,6 +1413,10 @@ class CommandPalette extends Dialog {
                     id      : returnId,
                     windowId: targetWindowId
                 }).catch(() => null);
+
+                if (me.isDestroyed || me.isOpen || me.#openGeneration !== expectedGeneration) {
+                    return null
+                }
 
                 domUnavailable = !rect || (rect.width <= 0 && rect.height <= 0)
             }
@@ -1397,13 +1497,25 @@ class CommandPalette extends Dialog {
     }
 
     /**
-     * @summary Refreshes eligible commands, adopts {@link #owner}'s current theme when present, mounts via
-     * `Neo.dialog.Base#show`, and synchronizes `Navigator` highlight once mounted.
+     * @summary Refreshes eligible commands, captures focus origin for direct `show()` openings, adopts
+     * {@link #owner}'s current theme when present, mounts via `Neo.dialog.Base#show`, and synchronizes `Navigator`.
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
     show(animate = !!this.animateTargetId) {
         const me         = this,
+              wasOpen    = me.isOpen,
               ownerTheme = me.owner?.getTheme?.();
+
+        if (!wasOpen) {
+            ++me.#openGeneration;
+
+            if (!me.#showFromOpen) {
+                me.activeContext          = null;
+                me.#activeFallbackFocusId = null;
+                me.returnFocusId          = me.#resolveCurrentFocusedId(me.windowId);
+                me.#returnFocusExplicit   = false
+            }
+        }
 
         if (ownerTheme && ownerTheme !== me.theme) {
             me.theme = ownerTheme
@@ -1491,12 +1603,100 @@ class CommandPalette extends Dialog {
     }
 
     /**
-     * @summary Releases all active `document.body` shortcut listeners and `'F1'` `preventDefault` registrations.
+     * @summary Releases all active `document.body` shortcut listeners and scoped chord registrations.
      */
     #clearAllShortcutHosts() {
         for (const host of [...this.#shortcutHosts.keys()]) {
             this.registerShortcutHost(host, false)
         }
+    }
+
+    /**
+     * @summary Detaches reactive subscriptions, shortcut listeners, and the destroy hook from `owner`.
+     * @param {Neo.component.Base|null} owner
+     */
+    #detachOwner(owner) {
+        const me = this;
+
+        if (me.#ownerMountedUnsubscribe) {
+            me.#ownerMountedUnsubscribe();
+            me.#ownerMountedUnsubscribe = null
+        }
+
+        if (me.#ownerThemeUnsubscribe) {
+            me.#ownerThemeUnsubscribe();
+            me.#ownerThemeUnsubscribe = null
+        }
+
+        if (me.#ownerDestroyCleanup) {
+            me.#ownerDestroyCleanup();
+            me.#ownerDestroyCleanup = null
+        }
+
+        if (owner) {
+            me.registerShortcutHost(owner, false)
+        }
+    }
+
+    /**
+     * @summary Tears down the palette when its owning component is destroyed so no modal or reference outlives `owner`.
+     * @param {Neo.component.Base} destroyedOwner
+     */
+    #handleOwnerDestroy(destroyedOwner) {
+        const me = this;
+
+        me.#detachOwner(destroyedOwner);
+        me._owner = null;
+
+        if (me.parentComponent === destroyedOwner) {
+            me.parentComponent = null
+        }
+
+        if (!me.isDestroyed) {
+            me.#suppressHideFocusReturn = true;
+            me.destroy(true)
+        }
+    }
+
+    /**
+     * @param {String|null} id
+     * @returns {Boolean}
+     */
+    #isOwnElementId(id) {
+        if (!id) {
+            return false
+        }
+
+        if (id === this.id || id === this.inputId || id === this.closeButtonId || id === this.listboxId) {
+            return true
+        }
+
+        const cmp = Neo.getComponent(id);
+
+        return Boolean(cmp && (cmp === this || cmp.up?.({id: this.id})))
+    }
+
+    /**
+     * @summary Resolves the currently focused DOM element or Neo component in `windowId` outside this palette.
+     * @param {Number|String|null} [windowId=this.windowId]
+     * @returns {String|null}
+     */
+    #resolveCurrentFocusedId(windowId = this.windowId) {
+        const focusManager = Neo.manager?.Focus,
+              history      = windowId != null ? focusManager?.history?.[windowId] : null,
+              latest       = history?.[0];
+
+        if (!latest || focusManager?.leftHistoryEntries?.has?.(latest)) {
+            return null
+        }
+
+        if (Array.isArray(latest.componentPath) && latest.componentPath.includes(this.id)) {
+            return null
+        }
+
+        const leafId = latest.data?.path?.[0]?.id || latest.data?.target?.id || latest.componentPath?.[0] || null;
+
+        return leafId && leafId !== 'document.body' && !this.#isOwnElementId(leafId) ? leafId : null
     }
 }
 

@@ -1,9 +1,8 @@
-import CommandPalette           from '../../../src/dialog/CommandPalette.mjs';
-import Controller               from '../../../src/controller/Component.mjs';
-import DockProjectionReconciler from '../../../src/dashboard/dock/projection/Reconciler.mjs';
-import TransactionManager       from '../../../src/manager/Transaction.mjs';
-import NativeVesselTransaction  from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
-import {resolveBootIntent}      from '../BootIntent.mjs';
+import CommandPalette          from '../../../src/dialog/CommandPalette.mjs';
+import Controller              from '../../../src/controller/Component.mjs';
+import TransactionManager      from '../../../src/manager/Transaction.mjs';
+import NativeVesselTransaction from '../../../src/dashboard/dock/window/NativeVesselTransaction.mjs';
+import {resolveBootIntent}     from '../BootIntent.mjs';
 
 /**
  * @summary Workstation actions, durable topology, window adoption and optional tour-controller activation.
@@ -17,7 +16,7 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * Shared contextual command palette bound to the owning workspace and open popup vessels.
+     * Shared contextual command palette bound to the owning workspace.
      * @member {Neo.dialog.CommandPalette|null} commandPalette=null
      * @protected
      */
@@ -46,7 +45,7 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * @summary Initializes the shared command palette so `owner` mount-state shortcut binding is active.
+     * @summary Initializes the shared command palette with opt-in workspace shortcuts.
      */
     onComponentConstructed() {
         super.onComponentConstructed();
@@ -58,15 +57,15 @@ class WorkspaceController extends Controller {
      * @returns {Neo.dialog.CommandPalette}
      */
     getCommandPalette() {
-        const me        = this,
-              workspace = me.component;
+        const me = this;
 
         if (!me.commandPalette || me.commandPalette.isDestroyed) {
             me.commandPalette = Neo.create(CommandPalette, {
-                commandProvider: ({windowId}) => me.buildCommandPaletteActions(windowId),
-                fallbackFocusId: ({windowId}) => me.resolveFallbackFocusId(windowId),
-                owner          : workspace,
-                placeholder    : 'Search arrangements, panes, or tour...',
+                commandProvider: () => me.buildCommandPaletteActions(),
+                enableShortcuts: true,
+                fallbackFocusId: () => me.getReference('command-palette-trigger')?.id ?? me.getReference('theme-toggle')?.id ?? null,
+                owner          : me.component,
+                placeholder    : 'Search arrangements, layout, or tour...',
                 title          : 'Workstation Commands'
             })
         }
@@ -75,88 +74,27 @@ class WorkspaceController extends Controller {
     }
 
     /**
-     * @summary Registers or releases a torn-out popup vessel on the shared command palette's shortcut hosts.
-     * @param {Workstation.view.PopupWorkspace} popup
-     * @param {Boolean} active
-     */
-    syncPopupShortcuts(popup, active) {
-        if (this.component && !this.component.isDestroyed) {
-            this.getCommandPalette().registerShortcutHost(popup, active)
-        }
-    }
-
-    /**
      * @summary Opens or toggles the command palette from the TourToolbar `Commands` button.
      * @param {Object} [data]
      * @returns {Promise<Neo.dialog.CommandPalette|void>}
      */
     onOpenCommandPalette(data) {
-        const me        = this,
-              workspace = me.component,
-              triggerId = me.getReference('command-palette-trigger')?.id ?? data?.component?.id ?? null;
-
-        return me.getCommandPalette().toggle({
-            context      : {windowId: workspace.windowId},
-            returnFocusId: triggerId,
-            windowId     : workspace.windowId
+        return this.getCommandPalette().toggle({
+            returnFocusId: data?.component?.id ?? this.getReference('command-palette-trigger')?.id ?? null
         })
     }
 
     /**
-     * @summary Resolves a mounted fallback control in `windowId` (or the main `Commands` trigger when a popup closed).
-     * @param {Number|String|null} windowId
-     * @returns {String|null}
-     * @protected
-     */
-    resolveFallbackFocusId(windowId) {
-        const me        = this,
-              workspace = me.component;
-
-        if (!workspace || workspace.isDestroyed) {
-            return null
-        }
-
-        if (windowId && windowId !== workspace.windowId) {
-            const popupState = workspace.getPopupStates().find(state =>
-                state.windowId === windowId && !state.disconnected && state.host && !state.host.isDestroyed
-            );
-
-            if (popupState?.host) {
-                const shell = DockProjectionReconciler.liveShell(popupState.host.getDockHost(), popupState.host.dockShellIndex),
-                      tabs  = DockProjectionReconciler.collectProjectedTabs(shell);
-
-                for (const tabContainer of tabs.values()) {
-                    const buttons = tabContainer.getTabButtons?.() || [],
-                          button  = buttons[tabContainer.activeIndex ?? 0] || buttons[0];
-
-                    if (button && !button.isDestroyed) {
-                        return button.id
-                    }
-                }
-            }
-        }
-
-        return me.getReference('command-palette-trigger')?.id ?? me.getReference('theme-toggle')?.id ?? null
-    }
-
-    /**
-     * @summary Builds contextual Workstation actions for `windowId`, reflecting live arrangement, Group
-     * history, projected dock panes, tour state, and workspace theme.
-     * @param {Number|String|null} [windowId=this.component?.windowId]
+     * @summary Supplies a concise set of contextual Workstation commands delegating to existing workspace handlers.
      * @returns {Object[]}
      */
-    buildCommandPaletteActions(windowId = this.component?.windowId) {
+    buildCommandPaletteActions() {
         const me            = this,
               workspace     = me.component,
               provider      = workspace.getStateProvider(),
               groupProvider = TransactionManager.getProvider(workspace.topologyGroupId),
               declared      = provider?.getData('dock.declaredPerspectives') || Object.keys(workspace.perspectives || {}),
               active        = workspace.activePerspective,
-              modified      = Boolean(provider?.getData('dock.perspective.modified')),
-              canUndo       = groupProvider?.getData('canUndo') === true,
-              canRedo       = groupProvider?.getData('canRedo') === true,
-              tourRunning   = Boolean(provider?.getData('tour.running')),
-              gatePrompt    = provider?.getData('tour.gatePrompt') || null,
               isLight       = workspace.getTheme() === 'neo-theme-neo-light',
               actions       = [];
 
@@ -164,11 +102,9 @@ class WorkspaceController extends Controller {
             actions.push({
                 id               : 'arrangement:shipped',
                 available        : active !== 'shipped',
-                description      : 'Restore the dense 20-pane live operations workspace.',
                 group            : 'Arrangements',
                 handler          : () => me.onShowOperations(),
                 iconCls          : 'fa fa-gauge-high',
-                keywords         : ['operations', 'shipped', 'perspective', 'dense', 'matrix'],
                 label            : 'Switch to Operations arrangement',
                 unavailableReason: 'Operations arrangement is active'
             })
@@ -178,11 +114,9 @@ class WorkspaceController extends Controller {
             actions.push({
                 id               : 'arrangement:planning',
                 available        : active !== 'planning',
-                description      : 'Open the shared Team board, Release plan, and Team schedule.',
                 group            : 'Arrangements',
                 handler          : () => me.onShowPlanning(),
                 iconCls          : 'fa fa-calendar-days',
-                keywords         : ['planning', 'board', 'gantt', 'scheduler', 'perspective'],
                 label            : 'Switch to Planning arrangement',
                 unavailableReason: 'Planning arrangement is active'
             })
@@ -190,189 +124,37 @@ class WorkspaceController extends Controller {
 
         actions.push({
             id               : 'topology:reset',
-            available        : modified,
-            description      : 'Return the active arrangement and torn-out panes to their declared layout.',
+            available        : Boolean(provider?.getData('dock.perspective.modified')),
             group            : 'Layout & History',
             handler          : () => workspace.resetTopology(),
             iconCls          : 'fa fa-rotate-left',
-            keywords         : ['reset', 'default', 'restore', 'layout', 'topology'],
             label            : 'Reset arrangement to default',
             unavailableReason: 'Arrangement matches its default layout'
         }, {
-            id         : 'topology:undo',
-            available  : canUndo,
-            description: 'Step back one committed layout or arrangement transaction.',
-            group      : 'Layout & History',
-            handler    : async () => {
-                const result = await TransactionManager.undo({groupId: workspace.topologyGroupId});
-                await Promise.resolve(workspace.refreshPromise).catch(() => {});
-                return result
-            },
+            id               : 'topology:undo',
+            available        : groupProvider?.getData('canUndo') === true,
+            group            : 'Layout & History',
+            handler          : () => TransactionManager.undo({groupId: workspace.topologyGroupId}),
             iconCls          : 'fa fa-rotate-left',
-            keywords         : ['undo', 'back', 'history', 'transaction'],
             label            : 'Undo layout change',
             unavailableReason: 'Nothing to undo'
         }, {
-            id         : 'topology:redo',
-            available  : canRedo,
-            description: 'Re-apply the most recently undone layout transaction.',
-            group      : 'Layout & History',
-            handler    : async () => {
-                const result = await TransactionManager.redo({groupId: workspace.topologyGroupId});
-                await Promise.resolve(workspace.refreshPromise).catch(() => {});
-                return result
-            },
-            iconCls          : 'fa fa-rotate-right',
-            keywords         : ['redo', 'forward', 'history', 'transaction'],
-            label            : 'Redo layout change',
-            unavailableReason: 'Nothing to redo'
-        });
-
-        for (const paneEntry of me.collectProjectedPanes(windowId)) {
-            actions.push({
-                id          : `pane:focus:${paneEntry.itemId}`,
-                available   : true,
-                description : `Activate and focus ${paneEntry.label} in ${paneEntry.locationLabel}.`,
-                group       : 'Panes in Window',
-                handler     : () => me.focusWorkspacePane(paneEntry.nodeId, paneEntry.tabIndex, paneEntry.label, windowId),
-                iconCls     : 'fa fa-window-maximize',
-                keywords    : ['pane', 'tab', 'focus', paneEntry.itemId, paneEntry.label],
-                label       : `Focus ${paneEntry.label}`,
-                managesFocus: true
-            })
-        }
-
-        actions.push({
             id               : 'tour:start',
-            available        : !tourRunning,
-            description      : 'Run the deterministic guided tour across live panes and dock zones.',
+            available        : !provider?.getData('tour.running'),
             group            : 'Guided Tour',
             handler          : () => me.onStartTour(),
             iconCls          : 'fa fa-play',
-            keywords         : ['tour', 'play', 'demo', 'guide'],
             label            : 'Start guided tour',
             unavailableReason: 'Guided tour is already running'
         }, {
-            id               : 'tour:continue',
-            available        : Boolean(gatePrompt),
-            description      : gatePrompt ? `Advance pending gate: ${gatePrompt}.` : 'Advance a paused tour gate when prompted.',
-            group            : 'Guided Tour',
-            handler          : () => me.onContinueTour(),
-            iconCls          : 'fa fa-forward',
-            keywords         : ['tour', 'continue', 'gate', 'advance'],
-            label            : 'Continue guided tour',
-            unavailableReason: 'No tour gate is waiting'
-        }, {
-            id         : 'theme:toggle',
-            available  : true,
-            description: `Switch every Workstation window to ${isLight ? 'dark' : 'light'} theme tokens.`,
-            group      : 'Appearance',
-            handler    : () => workspace.toggleWorkspaceTheme(),
-            iconCls    : isLight ? 'fa fa-moon' : 'fa fa-sun',
-            keywords   : ['theme', 'dark', 'light', 'mode', 'color'],
-            label      : isLight ? 'Switch to Dark mode' : 'Switch to Light mode'
+            id     : 'theme:toggle',
+            group  : 'Appearance',
+            handler: () => workspace.toggleWorkspaceTheme(),
+            iconCls: isLight ? 'fa fa-moon' : 'fa fa-sun',
+            label  : isLight ? 'Switch to Dark mode' : 'Switch to Light mode'
         });
 
         return actions
-    }
-
-    /**
-     * @summary Lists tabs declared in `type: 'tabs'` nodes of the committed `dockModel` for `windowId`
-     * (excluding rail-collapsed items and remaining race-free while a staged shell swap is in flight).
-     * @param {Number|String|null} windowId
-     * @returns {Array<{itemId: String, label: String, locationLabel: String, nodeId: String, tabIndex: Number}>}
-     * @protected
-     */
-    collectProjectedPanes(windowId) {
-        const workspace = this.component,
-              popup     = windowId && windowId !== workspace.windowId
-                  ? workspace.getPopupStates().find(state => state.windowId === windowId && !state.disconnected && state.host && !state.host.isDestroyed)
-                  : null,
-              host          = popup?.host || workspace,
-              locationLabel = popup ? 'this popup window' : 'the main workspace',
-              doc           = host?.dockModel,
-              nodes         = doc?.nodes || {},
-              items         = doc?.items || {},
-              entries       = [];
-
-        for (const [nodeId, node] of Object.entries(nodes)) {
-            if (node?.type !== 'tabs' || !Array.isArray(node.items)) {
-                continue
-            }
-
-            node.items.forEach((itemId, tabIndex) => {
-                if (!Object.hasOwn(items, itemId)) {
-                    return
-                }
-
-                entries.push({
-                    itemId,
-                    label: workspace.getPaneHeaderText(itemId, items[itemId]),
-                    locationLabel,
-                    nodeId,
-                    tabIndex
-                })
-            })
-        }
-
-        return entries
-    }
-
-    /**
-     * @summary Waits for any in-flight dock projection on `host`, activates the target tab inside `nodeId`,
-     * and focuses its `Neo.tab.header.Button`.
-     * @param {String} nodeId
-     * @param {Number} tabIndex
-     * @param {String} label
-     * @param {Number|String|null} windowId
-     * @returns {Promise<Boolean>}
-     */
-    async focusWorkspacePane(nodeId, tabIndex, label, windowId) {
-        const workspace = this.component,
-              popup     = windowId && windowId !== workspace.windowId
-                  ? workspace.getPopupStates().find(state => state.windowId === windowId && !state.disconnected && state.host && !state.host.isDestroyed)
-                  : null,
-              host      = popup?.host || workspace;
-
-        if (!host || host.isDestroyed) {
-            return false
-        }
-
-        await Promise.resolve(host.refreshPromise).catch(() => {});
-
-        const dockHost = host.getDockHost?.();
-
-        if (!dockHost || dockHost.isDestroyed) {
-            return false
-        }
-
-        const shell        = DockProjectionReconciler.liveShell(dockHost, host.dockShellIndex),
-              tabContainer = DockProjectionReconciler.collectProjectedTabs(shell).get(nodeId);
-
-        if (!tabContainer || tabContainer.isDestroyed) {
-            return false
-        }
-
-        const buttons       = tabContainer.getTabButtons?.() || [],
-              matchedIndex  = buttons.findIndex(btn => btn?.text?.trim?.() === label),
-              resolvedIndex = matchedIndex >= 0 ? matchedIndex : tabIndex;
-
-        if (tabContainer.activeIndex !== resolvedIndex) {
-            tabContainer.activeIndex = resolvedIndex;
-            await Promise.all([
-                tabContainer.promiseUpdate?.(),
-                host.refreshPromise
-            ].map(promise => Promise.resolve(promise).catch(() => {})))
-        }
-
-        const tabButton = tabContainer.getTabButtons?.()?.[resolvedIndex];
-
-        if (tabButton && !tabButton.isDestroyed) {
-            tabButton.focus(tabButton.id, false, false, 'keyboard');
-            return true
-        }
-
-        return false
     }
 
     /**

@@ -477,9 +477,9 @@ is that control as an engine dialog: it pairs a combobox `TextField` with a `Neo
 virtual focus, announces result counts and unavailable reasons through a polite `role="status"` region, and restores
 keyboard focus to the control that opened it. Your application keeps its own permissions, state and action methods.
 
-In a workspace generated with `npx neo-app`, import `CommandPalette` from the installed engine, pass `owner` so
-`Ctrl+K`, `Meta+K` and `F1` follow the view's mount state and theme automatically, and supply commands that call your
-existing controller methods:
+In a workspace generated with `npx neo-app`, import `CommandPalette` from the installed engine, pass `owner` so theme
+and teardown follow the view automatically (adding `enableShortcuts: true` when you want `Ctrl+K`, `Meta+K` and `F1`
+bound on that view), and supply commands that call your existing controller methods:
 
 ```javascript
 import CommandPalette from '../../../node_modules/neo.mjs/src/dialog/CommandPalette.mjs';
@@ -494,16 +494,17 @@ class MainViewController extends Controller {
         super.onComponentConstructed();
 
         this.palette = Neo.create(CommandPalette, {
-            owner   : this.component,
-            commands: [
+            owner          : this.component,
+            enableShortcuts: true,
+            commands       : [
                 {id: 'save',  label: 'Save document', handler: () => this.saveDocument()},
                 {id: 'theme', label: 'Switch theme',  handler: () => this.toggleTheme()}
             ]
         })
     }
 
-    onOpenCommands({component}) {
-        return this.palette.toggle({returnFocusId: component?.id})
+    onOpenCommands() {
+        this.palette.show()
     }
 }
 

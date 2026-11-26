@@ -76,17 +76,6 @@ class PopupWorkspace extends DockWorkspace {
     }
 
     /**
-     * @summary Registers or releases this popup vessel as a shortcut host on the root command palette.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-        this.rootWorkspace?.getController()?.syncPopupShortcuts?.(this, Boolean(value))
-    }
-
-    /**
      * @summary The popup's two seams over the engine participation the façade composes: the root's
      * proxy embodiment, and a hit-test that admits drops only while populated — an empty retained
      * vessel cannot target its own next tear-out.
@@ -289,7 +278,6 @@ class PopupWorkspace extends DockWorkspace {
      * @summary Retires this popup's Group membership and interaction registration.
      */
     destroy() {
-        this.rootWorkspace?.getController()?.syncPopupShortcuts?.(this, false);
         if (Neo.manager.Transaction.getParticipant(this.topologyGroupId, this.workspaceKey)?.componentId === this.id) {
             this.workspaceSet.unregister(this.workspaceKey)
         }

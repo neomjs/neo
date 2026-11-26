@@ -31,12 +31,14 @@ class CommandPaletteList extends List {
         autoDestroyStore: false,
         /**
          * @member {String[]} cls=['neo-command-palette-list']
+         * @reactive
          */
         cls: ['neo-command-palette-list'],
         /**
          * Active highlight is owned by {@link Neo.main.addon.Navigator} (`aria-activedescendant` +
          * `.neo-navigator-active-item`) rather than persistent multi-row selection state.
          * @member {Boolean} disableSelection=true
+         * @reactive
          */
         disableSelection: true,
         /**
@@ -56,6 +58,7 @@ class CommandPaletteList extends List {
         keepFocusIndex: true,
         /**
          * @member {String} role='listbox'
+         * @reactive
          */
         role: 'listbox',
         /**

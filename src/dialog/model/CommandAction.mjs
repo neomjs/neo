@@ -20,6 +20,7 @@ class CommandAction extends Model {
         className: 'Neo.dialog.model.CommandAction',
         /**
          * @member {String} keyProperty='id'
+         * @reactive
          */
         keyProperty: 'id',
         /**
