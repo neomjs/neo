@@ -417,7 +417,7 @@ class Markdown extends Component {
                 const
                     isRoute    = Boolean(me.issuesUrl?.startsWith('#/') || (me.issuesUrl?.startsWith('/') && !me.issuesUrl.startsWith('//'))),
                     issuesUrl  = isRoute ? StringUtil.toRouteHref(me.issuesUrl, windowId) : me.issuesUrl,
-                    isInternal = issuesUrl.startsWith('#') || (windowConfig.routerMode === 'pathname' && issuesUrl.startsWith('/')),
+                    isInternal = issuesUrl.startsWith('#') || (windowConfig.routerMode === 'pathname' && issuesUrl.startsWith('/') && !issuesUrl.startsWith('//')),
                     url        = issuesUrl + id,
                     target     = isInternal ? '' : ' target="_blank"';
 

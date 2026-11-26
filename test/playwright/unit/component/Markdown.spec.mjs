@@ -302,21 +302,46 @@ test.describe('Neo.component.Markdown render order', () => {
 
             markdown.issuesUrl = '//issues.example.com/';
             markdown.value     = 'External #99.';
-            highlights[3]();
+            highlights.at(-1)();
             await flush();
             expect(markdown.html).toContain('<a href="//issues.example.com/99" target="_blank">#99</a>');
 
-            const rewriteForWindow = (windowId, contentRoute = '/learn/') => ContentComponent.prototype.rewriteLinks.call({
+            markdown.contentRoute = null;
+            markdown.windowId     = 'win-root';
+            await flush();
+            markdown.value        = 'Pathname protocol-relative #100.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="//issues.example.com/100" target="_blank">#100</a>');
+
+            markdown.issuesUrl = 'https://issues.example.com/';
+            markdown.value     = 'Pathname https #101.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="https://issues.example.com/101" target="_blank">#101</a>');
+
+            markdown.windowId = 'win-hash';
+            await flush();
+            markdown.value    = 'Hash https #102.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="https://issues.example.com/102" target="_blank">#102</a>');
+
+            const rewriteForWindow = (windowId, contentRoute = '/learn/', anchor = '<a href="./CodebaseOverview.md#intro">Overview</a>') => ContentComponent.prototype.rewriteLinks.call({
                 contentRoute,
                 record          : {id: 'guides/fundamentals/Boot'},
                 resolveContentId: ContentComponent.prototype.resolveContentId,
                 windowId
-            }, '<a href="./CodebaseOverview.md#intro">Overview</a>');
+            }, anchor);
 
             expect(rewriteForWindow('win-root')).toBe('<a href="/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
             expect(rewriteForWindow('win-sub')).toBe('<a href="/dist/production/apps/portal/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
             expect(rewriteForWindow('win-hash')).toBe('<a href="#/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
-            expect(rewriteForWindow('win-root', '//docs.example.com/learn/')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>')
+            expect(rewriteForWindow('win-root', '//docs.example.com/learn/')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-hash', '//docs.example.com/learn/')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-hash', 'https://docs.example.com/learn/')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', '<a href="./CodebaseOverview.md" target="_self">Overview</a>')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview" target="_self">Overview</a>')
         } finally {
             Neo.windowConfigs = prevWindowConfigs
         }

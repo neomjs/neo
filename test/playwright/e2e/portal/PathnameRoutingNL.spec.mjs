@@ -417,5 +417,82 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
             subServer?.closeAllConnections();  subServer?.close();
             fs.rmSync(tmpRoot, {recursive: true, force: true})
         }
+    });
+
+    test('emitted dist/esm/apps/portal build boots on both root spaRoot and sub-path mounts with matching routerBasePath and More grids navigation (#22229)', async ({page}) => {
+        const distMountRel   = 'dist/esm/apps/portal',
+              distConfigPath = path.join(REPO_ROOT, distMountRel, 'neo-config.json');
+
+        test.skip(
+            Boolean(process.env.NEO_TEST_SKIP_CI) || !fs.existsSync(distConfigPath),
+            'Outside-CI check requiring local `npm run build-dist-esm` + `npm run build-themes -- -n -e esm -t all`'
+        );
+
+        await page.setViewportSize({width: 1440, height: 900});
+
+        const emittedJson = JSON.parse(fs.readFileSync(distConfigPath, 'utf8'));
+        expect(emittedJson.environment).toBe('dist/esm');
+        expect(Object.hasOwn(emittedJson, 'routerBasePath')).toBe(false);
+
+        let rootServer, subServer;
+
+        try {
+            rootServer = createFileServer({root: REPO_ROOT, spaRoot: distMountRel, freshness: {onListening() {}, onRequest() {}}});
+            const rootOrigin = `http://localhost:${await listen(rootServer, {port: 0, strict: true})}`;
+
+            await page.goto(`${rootOrigin}/`);
+            const rootMoreGrids = page.locator('.portal-home-parts-grid').getByRole('link', {name: 'More grids'});
+            await expect(rootMoreGrids).toHaveAttribute('href', '/examples/grid');
+
+            const rootBoot = await page.evaluate(() => ({
+                baseURI       : document.baseURI,
+                environment   : Neo.config.environment,
+                mainPath      : Neo.config.mainPath,
+                routerBasePath: Neo.config.routerBasePath
+            }));
+            expect(rootBoot).toEqual({
+                baseURI       : `${rootOrigin}/${distMountRel}/`,
+                environment   : 'dist/esm',
+                mainPath      : './Main.mjs',
+                routerBasePath: ''
+            });
+
+            await page.evaluate(() => {
+                const scroller = document.querySelector('.portal-home-maincontainer');
+                if (scroller) scroller.style.scrollSnapType = 'none'
+            });
+            await rootMoreGrids.scrollIntoViewIfNeeded();
+            await rootMoreGrids.click();
+            await expect(page).toHaveURL(`${rootOrigin}/examples/grid`);
+            await expect(page.locator('.portal-examples-group-page:visible .portal-examples-group-heading h1')).toHaveText('Grid & Table');
+
+            subServer = createFileServer({root: REPO_ROOT, spaRoot: false, freshness: {onListening() {}, onRequest() {}}});
+            const subOrigin = `http://localhost:${await listen(subServer, {port: 0, strict: true})}`;
+
+            await page.goto(`${subOrigin}/${distMountRel}/`);
+            const subMoreGrids = page.locator('.portal-home-parts-grid').getByRole('link', {name: 'More grids'});
+            await expect(subMoreGrids).toHaveAttribute('href', `/${distMountRel}/examples/grid`);
+
+            const subBoot = await page.evaluate(() => ({
+                environment   : Neo.config.environment,
+                routerBasePath: Neo.config.routerBasePath
+            }));
+            expect(subBoot).toEqual({
+                environment   : 'dist/esm',
+                routerBasePath: `/${distMountRel}`
+            });
+
+            await page.evaluate(() => {
+                const scroller = document.querySelector('.portal-home-maincontainer');
+                if (scroller) scroller.style.scrollSnapType = 'none'
+            });
+            await subMoreGrids.scrollIntoViewIfNeeded();
+            await subMoreGrids.click();
+            await expect(page).toHaveURL(`${subOrigin}/${distMountRel}/examples/grid`);
+            await expect(page.locator('.portal-examples-group-page:visible .portal-examples-group-heading h1')).toHaveText('Grid & Table')
+        } finally {
+            rootServer?.closeAllConnections(); rootServer?.close();
+            subServer?.closeAllConnections();  subServer?.close()
+        }
     })
 });

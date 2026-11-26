@@ -406,6 +406,7 @@ class Component extends Markdown {
     rewriteLinks(html) {
         let me                       = this,
             {contentRoute, windowId} = me,
+            windowConfig             = (windowId != null && Neo.windowConfigs?.[windowId]) || Neo.config,
             isRoute                  = Boolean(contentRoute?.startsWith('#/') || (contentRoute?.startsWith('/') && !contentRoute.startsWith('//'))),
             routePrefix              = isRoute ? StringUtil.toRouteHref(contentRoute, windowId) : contentRoute;
 
@@ -413,12 +414,15 @@ class Component extends Markdown {
             return html
         }
 
+        const isInternal = routePrefix.startsWith('#') ||
+            (windowConfig.routerMode === 'pathname' && routePrefix.startsWith('/') && !routePrefix.startsWith('//'));
+
         // Quote-style agnostic on purpose: this must extract exactly what the build-time guard
         // extracts (`check-relative-links.mjs` HTML_HREF), or one half of the contract validates a
         // link the other half never rewrites. A single-quoted raw-HTML anchor is ordinary authoring
         // — the corpus already contains them — and it would render a href that works in a file tree
         // and 404s in the SPA, which is the exact failure this pair exists to prevent.
-        return html.replace(/(<a\b[^>]*\bhref\s*=\s*(["']))([^"']+)\2/gi, (match, prefix, quote, href) => {
+        return html.replace(/(<a\b[^>]*\bhref\s*=\s*(["']))([^"']+)\2([^>]*>)/gi, (match, prefix, quote, href, tail) => {
             // Case-insensitive because URI schemes are (RFC 3986 §3.1), and a browser follows
             // `HTTPS://…` exactly like `https://…`. A case-sensitive test rewrote
             // `HTTPS://example.com/docs/Foo.md` into `#/learn/…`, corrupting an absolute URL — and
@@ -439,7 +443,9 @@ class Component extends Markdown {
                 return match
             }
 
-            return `${prefix}${routePrefix}${id}${fragment ? `#${fragment}` : ''}${quote}`
+            const targetAttr = isInternal || /\btarget\s*=/i.test(prefix + tail) ? '' : ` target=${quote}_blank${quote}`;
+
+            return `${prefix}${routePrefix}${id}${fragment ? `#${fragment}` : ''}${quote}${targetAttr}${tail}`
         })
     }
 
