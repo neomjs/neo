@@ -313,5 +313,157 @@ test.describe('Neo.dialog.CommandPalette (component)', () => {
 
         expect(childDestroyed).toBe(true);
         await expect(childDialog).toHaveCount(0)
+    });
+
+    test('keeps held F1 open while toggling on separate presses, syncs aria-selected with ArrowDown/filtering, and handles rejecting commands cleanly', async ({page}) => {
+        const pageErrors       = [],
+              workerRejections = [];
+
+        page.on('pageerror', err => pageErrors.push(String(err)));
+
+        const appWorker = page.workers().find(worker => worker.url().includes('/worker/App'));
+        expect(appWorker).toBeTruthy();
+
+        await appWorker.evaluate(() => {
+            globalThis.__paletteUnhandledRejections = [];
+            self.addEventListener('unhandledrejection', event => {
+                globalThis.__paletteUnhandledRejections.push(String(event.reason))
+            })
+        });
+
+        const ids = await appWorker.evaluate(async () => {
+            const [{default: Button}, {default: CommandPalette}] = await Promise.all([
+                import('../../../src/button/Base.mjs'),
+                import('../../../src/dialog/CommandPalette.mjs')
+            ]);
+
+            const viewport  = Neo.getComponent('component-test-viewport'),
+                  launcherA = Neo.create(Button, {
+                      appName : viewport.appName,
+                      parentId: viewport.id,
+                      text    : 'Launcher A',
+                      windowId: viewport.windowId
+                  }),
+                  launcherB = Neo.create(Button, {
+                      appName : viewport.appName,
+                      parentId: viewport.id,
+                      text    : 'Launcher B',
+                      windowId: viewport.windowId
+                  });
+
+            viewport.add([launcherA, launcherB]);
+
+            const palette = Neo.create(CommandPalette, {
+                enableShortcuts: true,
+                owner          : viewport,
+                theme          : 'neo-theme-neo-dark',
+                commands       : [{
+                    id     : 'open-settings',
+                    group  : 'Workspace',
+                    handler: () => {},
+                    label  : 'Open settings'
+                }, {
+                    id      : 'failing-save',
+                    group   : 'File',
+                    handler : () => Promise.reject(new Error('Disk full')),
+                    keywords: ['persist'],
+                    label   : 'Save document'
+                }, {
+                    id     : 'unresolved-cmd',
+                    group  : 'Debug',
+                    handler: 'missingControllerAction',
+                    label  : 'Unresolved action'
+                }]
+            });
+
+            return {
+                inputId    : palette.inputId,
+                launcherAId: launcherA.id,
+                launcherBId: launcherB.id,
+                paletteId  : palette.id
+            }
+        });
+
+        const launcherA = page.locator(`#${ids.launcherAId}`),
+              launcherB = page.locator(`#${ids.launcherBId}`),
+              dialog    = page.getByRole('dialog', {name: 'Command Palette'}),
+              input     = page.locator(`#${ids.inputId}`),
+              options   = dialog.getByRole('option');
+
+        await expect(launcherA).toBeVisible();
+        await expect(launcherB).toBeVisible();
+
+        // Focus B first, then move focus to A
+        await launcherB.focus();
+        await expect(launcherB).toBeFocused();
+        await launcherA.focus();
+        await expect(launcherA).toBeFocused();
+
+        // Dispatch held F1: initial keydown (repeat: false) followed by repeated keydowns before keyup
+        await page.evaluate(launcherId => {
+            const target = document.getElementById(launcherId);
+            target.dispatchEvent(new KeyboardEvent('keydown', {bubbles: true, cancelable: true, code: 'F1', key: 'F1', repeat: false}));
+        }, ids.launcherAId);
+
+        await expect(dialog).toBeVisible();
+        await expect(input).toBeFocused();
+
+        await page.evaluate(inputId => {
+            const target = document.getElementById(inputId);
+            target.dispatchEvent(new KeyboardEvent('keydown', {bubbles: true, cancelable: true, code: 'F1', key: 'F1', repeat: true}));
+            target.dispatchEvent(new KeyboardEvent('keydown', {bubbles: true, cancelable: true, code: 'F1', key: 'F1', repeat: true}));
+            target.dispatchEvent(new KeyboardEvent('keyup',   {bubbles: true, cancelable: true, code: 'F1', key: 'F1'}));
+        }, ids.inputId);
+
+        await expect(dialog, 'held F1 auto-repeat must keep palette open').toBeVisible();
+        await expect(input).toBeFocused();
+
+        // Second separate F1 press closes the palette and returns focus to Launcher A
+        await page.keyboard.press('F1');
+        await expect(dialog).toHaveCount(0);
+        await expect(launcherA).toBeFocused();
+
+        // Reopen with F1 from Launcher A; verify initial aria-selected and ArrowDown synchronization
+        await page.keyboard.press('F1');
+        await expect(dialog).toBeVisible();
+        await expect(options).toHaveCount(3);
+        await expect.poll(() => options.evaluateAll(els => els.map(el => el.getAttribute('aria-selected')))).toEqual(['true', 'false', 'false']);
+
+        await page.keyboard.press('ArrowDown');
+        await expect.poll(() => options.evaluateAll(els => els.map(el => el.getAttribute('aria-selected')))).toEqual(['false', 'true', 'false']);
+
+        const navSync = await appWorker.evaluate(({paletteId}) => {
+            const p = Neo.getComponent(paletteId);
+            return {activeIndex: p.activeIndex, focusIndex: p.actionList.focusIndex, activeItemId: p.actionList.vdom.cn[1].id}
+        }, ids);
+        expect(navSync.activeIndex).toBe(1);
+        expect(navSync.focusIndex).toBe(1);
+        await expect(input).toHaveAttribute('aria-activedescendant', navSync.activeItemId);
+
+        // Press Enter on the highlighted rejecting 'Save document' command -> closes, shows alert, restores focus to A (never B), zero unhandled rejections
+        await page.keyboard.press('Enter');
+        await expect(dialog).toHaveCount(0);
+        await expect(launcherA, 'rejecting command restores focus to Launcher A, not Launcher B').toBeFocused();
+
+        const alert = page.getByRole('alert');
+        await expect(alert).toBeVisible();
+        await expect(alert).toHaveText('Save document failed: Disk full');
+
+        workerRejections.push(...await appWorker.evaluate(() => globalThis.__paletteUnhandledRejections));
+        expect(workerRejections).toEqual([]);
+        expect(pageErrors).toEqual([]);
+
+        // Reopen, filter to unresolved string handler, verify aria-selected=['true'], and verify pointer click reports executed: false
+        await page.keyboard.press('Control+k');
+        await expect(dialog).toBeVisible();
+        await expect(alert, 'reopening dismisses prior error alert').toHaveCount(0);
+
+        await input.fill('Unresolved');
+        await expect(options).toHaveCount(1);
+        await expect.poll(() => options.evaluateAll(els => els.map(el => el.getAttribute('aria-selected')))).toEqual(['true']);
+
+        await options.first().click();
+        await expect(dialog, 'unresolved handler keeps palette open').toBeVisible();
+        await expect(dialog.locator('[role="status"]')).toHaveText('Unresolved action failed: command handler could not be resolved.')
     })
 });

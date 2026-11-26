@@ -508,5 +508,213 @@ test.describe('Neo.dialog.CommandPalette (unit)', () => {
 
         await palette.activateRecord(palette.store.get('custom-focus'));
         expect(focusLog).toEqual(['pane-focused'])
+    });
+
+    test('observes owner lifecycle without mutating owner methods, supports out-of-order multi-palette teardown, and keeps windowId coherent on owner reassignment', async () => {
+        const providerWindows = [],
+              owner1          = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  theme        : 'neo-theme-neo-dark',
+                  windowId     : 1
+              }),
+              owner2          = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  theme        : 'neo-theme-neo-light',
+                  windowId     : 2
+              }),
+              priorDestroy1   = owner1.destroy,
+              priorDestroy2   = owner2.destroy,
+              paletteA        = Neo.create(CommandPalette, {
+                  commands       : [{id: 'a', label: 'Action A', handler: () => {}}],
+                  enableShortcuts: true,
+                  owner          : owner1
+              }),
+              paletteB        = Neo.create(CommandPalette, {
+                  commandProvider: ({windowId}) => {
+                      providerWindows.push(windowId);
+                      return [{id: 'b', label: 'Action B', handler: () => {}}]
+                  },
+                  enableShortcuts: true,
+                  owner          : owner1
+              });
+
+        instances.push(paletteA, paletteB, owner1, owner2);
+
+        expect(owner1.destroy, 'palette registration never wraps owner.destroy').toBe(priorDestroy1);
+        expect(chordMap.size).toBe(2);
+
+        // Out-of-order teardown: destroy A first while B stays attached to owner1
+        paletteA.destroy();
+        expect(paletteA.isDestroyed).toBe(true);
+        expect(owner1.destroy, 'destroying A leaves owner1.destroy untouched').toBe(priorDestroy1);
+        expect(chordMap.has(`${paletteB.id}:${owner1.id}`)).toBe(true);
+
+        // Reassign B from window-1 owner1 to window-2 owner2, then call plain show()
+        paletteB.owner = owner2;
+        expect(owner1.destroy).toBe(priorDestroy1);
+        expect(owner2.destroy).toBe(priorDestroy2);
+        expect(paletteB.parentComponent).toBe(owner2);
+        expect(paletteB.windowId).toBe(2);
+        expect(paletteB.headerToolbar.windowId).toBe(2);
+        expect(paletteB.theme).toBe('neo-theme-neo-light');
+        expect(chordMap.has(`${paletteB.id}:${owner1.id}`)).toBe(false);
+        expect(chordMap.has(`${paletteB.id}:${owner2.id}`)).toBe(true);
+
+        paletteB.show(false);
+        await expect.poll(() => paletteB.mounted).toBe(true);
+        expect(paletteB.windowId).toBe(2);
+        expect(paletteB.actionList.windowId).toBe(2);
+        expect(paletteB.actionList.navigator.windowId).toBe(2);
+        expect(providerWindows.at(-1)).toBe(2);
+        expect(navigatorCalls.navigateTo.at(-1)?.windowId).toBe(2);
+
+        // Destroying owner1 now has zero effect on reassigned paletteB; destroying owner2 tears down paletteB
+        owner1.destroy();
+        expect(paletteB.isDestroyed).toBeFalsy();
+
+        owner2.destroy();
+        expect(paletteB.isDestroyed).toBe(true);
+        expect(chordMap.size).toBe(0)
+    });
+
+    test('catches rejecting handlers, restores current opening origin, surfaces role=alert notice, and reports unresolved string handlers accurately', async () => {
+        const focusLog = [],
+              errors   = [],
+              selected = [],
+              buttonA  = Neo.create(Button, {appName, text: 'Launcher A', windowId: 1}),
+              buttonB  = Neo.create(Button, {appName, text: 'Launcher B', windowId: 1}),
+              owner    = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  windowId     : 1
+              }),
+              palette  = Neo.create(CommandPalette, {
+                  enableShortcuts: true,
+                  owner,
+                  commands       : [{
+                      id     : 'reject-save',
+                      label  : 'Save document',
+                      handler: () => Promise.reject(new Error('Disk quota exceeded'))
+                  }, {
+                      id     : 'missing-fn',
+                      label  : 'Broken string command',
+                      handler: 'nonExistentControllerMethod'
+                  }, {
+                      id     : 'missing-up',
+                      label  : 'Broken ancestor command',
+                      handler: 'up.nonExistentAncestorMethod'
+                  }]
+              });
+
+        buttonA.focus = id => focusLog.push(['A', id]);
+        buttonB.focus = id => focusLog.push(['B', id]);
+        palette.on('commandError', payload => errors.push(payload));
+        palette.on('select',       payload => selected.push(payload));
+
+        instances.push(buttonA, buttonB, palette, owner);
+
+        // Seed Button B in focus history first, then open from Button A and press Enter on rejecting Save
+        Neo.manager.Focus.onFocusin({
+            componentPath: [buttonB.id],
+            data         : {path: [{id: buttonB.id}], target: {id: buttonB.id}},
+            windowId     : 1
+        });
+
+        await palette.onHostKeyDown(owner, {ctrlKey: true, key: 'k', repeat: false, target: {id: buttonA.id}});
+        await expect.poll(() => palette.mounted).toBe(true);
+
+        const enterOutcome = await palette.onDialogKeyDown({
+            key   : 'Enter',
+            target: {id: palette.inputId}
+        });
+
+        expect(enterOutcome.executed).toBe(false);
+        expect(enterOutcome.reason).toBe('handler-error');
+        expect(enterOutcome.error?.message).toBe('Disk quota exceeded');
+        expect(selected).toEqual([]);
+        expect(focusLog, 'failure restores focus to current opening origin A, never B').toEqual([['A', buttonA.id]]);
+        expect(palette.errorNotice?.role).toBe('alert');
+        expect(palette.errorNotice?.mounted).toBe(true);
+        expect(palette.errorNotice?.text).toBe('Save document failed: Disk quota exceeded');
+        expect(errors[0]?.reason).toBe('handler-error');
+
+        // Re-open and invoke unresolved string handlers via keyboard and pointer -> executed: false, palette stays open
+        focusLog.length = 0;
+        await palette.open({returnFocusId: buttonA.id, windowId: 1});
+        expect(palette.errorNotice?.mounted, 'reopening dismisses prior error alert').toBe(false);
+
+        palette.setQuery('Broken string');
+        const unresolvedKey = await palette.onDialogKeyDown({
+            key   : 'Enter',
+            target: {id: palette.inputId}
+        });
+        expect(unresolvedKey.executed).toBe(false);
+        expect(unresolvedKey.reason).toBe('unresolved-handler');
+        expect(palette.isOpen).toBe(true);
+        expect(palette.statusText).toBe('Broken string command failed: command handler could not be resolved.');
+
+        palette.setQuery('');
+        const unresolvedClick = await palette.onListItemClick({record: palette.store.get('missing-up')});
+        expect(unresolvedClick.executed).toBe(false);
+        expect(unresolvedClick.reason).toBe('unresolved-handler');
+        expect(selected).toEqual([])
+    });
+
+    test('ignores repeated open-shortcut keydowns while held and keeps aria-selected synchronized through navigation and SearchFilter queries', async () => {
+        const owner = Neo.create(Container, {
+                  appName,
+                  autoInitVnode: false,
+                  autoMount    : false,
+                  mounted      : true,
+                  windowId     : 1
+              }),
+              palette = Neo.create(CommandPalette, {
+                  enableShortcuts: true,
+                  owner,
+                  commands       : [
+                      {id: 'first',  label: 'First command',  keywords: ['alpha'], handler: () => {}},
+                      {id: 'second', label: 'Second command', keywords: ['beta'],  handler: () => {}},
+                      {id: 'third',  label: 'Third command',  keywords: ['gamma'], handler: () => {}}
+                  ]
+              });
+
+        instances.push(palette, owner);
+
+        expect(palette.getSearchFilter()?.ntype).toBe('search-filter');
+
+        // First F1 press opens; repeated F1 keydowns while held must NOT close it
+        await palette.onHostKeyDown(owner, {key: 'F1', repeat: false, target: {id: owner.id}});
+        await expect.poll(() => palette.isOpen).toBe(true);
+
+        await palette.onDialogKeyDown({key: 'F1', repeat: true, target: {id: palette.inputId}});
+        await palette.onHostKeyDown(owner, {key: 'F1', repeat: true, target: {id: palette.inputId}});
+        expect(palette.isOpen, 'held F1 auto-repeat leaves palette open').toBe(true);
+
+        // Initial open marks option 0 aria-selected="true" and others "false"
+        expect(palette.actionList.vdom.cn.map(node => node['aria-selected'])).toEqual(['true', 'false', 'false']);
+
+        // Navigator movement to index 1 updates focusIndex, activeIndex, and aria-selected
+        palette.actionList.fire('itemNavigate', {activeIndex: 1, record: palette.store.getAt(1)});
+        expect(palette.activeIndex).toBe(1);
+        expect(palette.actionList.focusIndex).toBe(1);
+        expect(palette.actionList.vdom.cn.map(node => node['aria-selected'])).toEqual(['false', 'true', 'false']);
+
+        // Filtering via SearchFilter updates aria-selected to the active filtered match
+        palette.setQuery('gamma');
+        expect(palette.store.getCount()).toBe(1);
+        expect(palette.activeIndex).toBe(0);
+        expect(palette.actionList.vdom.cn.map(node => node['aria-selected'])).toEqual(['true']);
+
+        // Second separate F1 press (repeat: false) closes the palette
+        await palette.onDialogKeyDown({key: 'F1', repeat: false, target: {id: palette.inputId}});
+        await expect.poll(() => palette.isOpen).toBe(false)
     })
 });

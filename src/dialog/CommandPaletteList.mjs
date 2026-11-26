@@ -71,6 +71,11 @@ class CommandPaletteList extends List {
     }
 
     /**
+     * Zero-based index of the currently active `<li role="option">`, or `-1` when empty.
+     * @member {Number} activeOptionIndex=-1
+     */
+    activeOptionIndex = -1
+    /**
      * @member {String} itemRole='option'
      */
     itemRole = 'option'
@@ -82,6 +87,40 @@ class CommandPaletteList extends List {
      */
     createItems(silent = false) {
         super.createItems(silent || !this.mounted)
+    }
+
+    /**
+     * @summary Synchronizes `aria-selected` across rendered `<li role="option">` items and aligns
+     * {@link #focusIndex} without overwriting Main's `.neo-navigator-active-item` class.
+     * @param {Number} activeIndex
+     * @param {Boolean} [silent=false]
+     */
+    syncActiveSelection(activeIndex, silent = false) {
+        const me    = this,
+              index = Neo.isNumber(activeIndex) ? activeIndex : -1,
+              nodes = me.vdom?.cn || [];
+
+        me.activeOptionIndex = index;
+        me._focusIndex       = index >= 0 ? index : null;
+
+        let changed = false;
+
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+
+            if (node) {
+                const expected = i === index ? 'true' : 'false';
+
+                if (node['aria-selected'] !== expected) {
+                    node['aria-selected'] = expected;
+                    changed               = true
+                }
+            }
+        }
+
+        if (changed && !silent && me.mounted) {
+            me.update()
+        }
     }
 
     /**
@@ -169,9 +208,11 @@ class CommandPaletteList extends List {
             })
         }
 
+        const selectedIndex = this.activeOptionIndex >= 0 ? this.activeOptionIndex : this.focusIndex;
+
         return {
             'aria-disabled': unavailable ? 'true' : 'false',
-            'aria-selected': index === this.focusIndex ? 'true' : 'false',
+            'aria-selected': index === selectedIndex ? 'true' : 'false',
             cls,
             cn             : optionChildren,
             data           : {

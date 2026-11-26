@@ -372,16 +372,12 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getKeyboardEventData(event) {
-        let {altKey, code, ctrlKey, key, keyCode, metaKey, shiftKey} = event;
+        let {altKey, code, ctrlKey, key, keyCode, metaKey, repeat, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
-            altKey,
-            code,
-            ctrlKey,
-            key,
-            keyCode,
-            metaKey,
+            altKey, code, ctrlKey, key, keyCode, metaKey,
+            repeat: Boolean(repeat),
             shiftKey
         }
     }

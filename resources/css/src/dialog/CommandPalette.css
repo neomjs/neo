@@ -330,6 +330,35 @@
     margin     : 0;
 }
 
+.neo-command-palette-status.neo-is-error {
+    color      : var(--command-palette-error-accent, #f87171);
+    font-weight: 600;
+}
+
+.neo-command-palette-alert {
+    align-items     : center;
+    background-color: var(--command-palette-surface-bg, #141a24);
+    border          : 1px solid var(--command-palette-error-accent, #f87171);
+    border-left     : 4px solid var(--command-palette-error-accent, #f87171);
+    border-radius   : 8px;
+    box-shadow      : var(--command-palette-shadow, 0 22px 48px rgba(0, 0, 0, 0.55));
+    box-sizing      : border-box;
+    color           : var(--command-palette-text-color, #edf2f7);
+    cursor          : pointer;
+    display         : flex;
+    font-family     : var(--neo-font-family, system-ui, -apple-system, sans-serif);
+    font-size       : 0.8125rem;
+    font-weight     : 500;
+    gap             : 0.625rem;
+    line-height     : 1.4;
+    max-width       : min(28rem, calc(100vw - 1.5rem));
+    padding         : 0.625rem 0.875rem;
+    position        : fixed;
+    right           : 0.75rem;
+    top             : 0.75rem;
+    z-index         : 10002;
+}
+
 .neo-command-palette-legend {
     color      : var(--command-palette-muted-color, #9aa6b8);
     font-size  : 0.75rem;

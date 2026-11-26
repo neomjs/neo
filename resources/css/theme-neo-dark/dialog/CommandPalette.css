@@ -4,6 +4,7 @@
     --command-palette-backdrop-bg  : rgba(7, 10, 16, 0.68);
     --command-palette-badge-bg     : #1b2330;
     --command-palette-border-color : #2c3748;
+    --command-palette-error-accent : #f87171;
     --command-palette-focus-ring   : #5eead4;
     --command-palette-footer-bg    : #0f141d;
     --command-palette-hover-bg     : rgba(255, 255, 255, 0.05);

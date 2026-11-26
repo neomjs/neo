@@ -1351,8 +1351,26 @@ test.describe('Neo.main.DomEvents', () => {
             expect(fireKey(buttonTarget, 'k', {ctrlKey: true})).toBe(true);
             expect(fireKey(buttonTarget, 'K', {metaKey: true})).toBe(true);
             expect(fireKey(buttonTarget, 'F1')).toBe(true);
+            expect(fireKey(buttonTarget, 'F1', {repeat: true})).toBe(true);
             expect(fireKey(buttonTarget, 'k')).toBe(false);
             expect(fireKey(documentRef.body, 'F8')).toBe(true);
+
+            DomEvents.getEventData = originalGetEventData;
+            const serializedRepeat = DomEvents.getKeyboardEventData({
+                altKey      : false,
+                code        : 'F1',
+                composedPath: () => [buttonTarget],
+                ctrlKey     : false,
+                key         : 'F1',
+                keyCode     : 112,
+                metaKey     : false,
+                repeat      : true,
+                shiftKey    : false,
+                target      : buttonTarget,
+                timeStamp   : 42,
+                type        : 'keydown'
+            });
+            expect(serializedRepeat.repeat).toBe(true);
 
             DomEvents.unregisterPreventDefaultChords({scopeId: 'palette-1'});
             expect(fireKey(buttonTarget, 'k', {ctrlKey: true})).toBe(false);
