@@ -1,12 +1,13 @@
-import Component from '../../src/component/Base.mjs';
+import Container  from '../../src/container/Base.mjs';
+import EmptyState from '../../src/component/EmptyState.mjs';
 
 /**
  * @summary Shows one entry of the explorer: its name, where it lives, what kind it is, and its size and last change
  * for a file or what it holds for a folder. It renders what `details` says and knows nothing of the store.
  * @class Neo.examples.fileExplorer.DetailPane
- * @extends Neo.component.Base
+ * @extends Neo.container.Base
  */
-class DetailPane extends Component {
+class DetailPane extends Container {
     static config = {
         /**
          * @member {String} className='Neo.examples.fileExplorer.DetailPane'
@@ -26,12 +27,43 @@ class DetailPane extends Component {
          */
         details_: null,
         /**
-         * @member {Object} _vdom
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
-        _vdom: {
-            tag: 'section',
-            cn : []
-        }
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {String} tag='section'
+         * @reactive
+         */
+        tag: 'section'
+    }
+
+    /**
+     * @summary Builds the shared empty state and the populated entry-details body.
+     * @protected
+     */
+    createItems() {
+        let me = this;
+
+        me.items = [{
+            module      : EmptyState,
+            cls         : ['fe-detail-empty'],
+            contentAlign: 'center',
+            flex        : 1,
+            reference   : 'empty-state',
+            text        : 'Select a file or a folder to see its details.',
+            ui          : 'plain'
+        }, {
+            ntype    : 'component',
+            cls      : ['fe-detail-body'],
+            flex     : 'none',
+            hidden   : true,
+            reference: 'detail-body',
+            vdom     : {cn: []}
+        }];
+
+        super.createItems();
+        me.syncDetails(me.details)
     }
 
     /**
@@ -41,12 +73,30 @@ class DetailPane extends Component {
      * @protected
      */
     afterSetDetails(value, oldValue) {
-        let me = this;
+        this.items?.length && this.syncDetails(value)
+    }
+
+    /**
+     * @summary Toggles the empty state against the populated entry metadata view.
+     * @param {Object|null} value
+     * @protected
+     */
+    syncDetails(value) {
+        let emptyState = this.down({reference: 'empty-state'}),
+            body       = this.down({reference: 'detail-body'});
+
+        if (!emptyState || !body) {
+            return
+        }
 
         if (!value) {
-            me.vdom.cn = [{cls: ['fe-detail-empty'], text: 'Select a file or a folder to see its details.'}]
+            body.vdom.cn      = [];
+            body.hidden       = true;
+            emptyState.hidden = false;
+            body.update()
         } else {
-            me.vdom.cn = [{
+            emptyState.hidden = true;
+            body.vdom.cn      = [{
                 cls: ['fe-detail-head'],
                 cn : [
                     {tag: 'span', cls: ['fe-detail-icon', ...value.icon], 'aria-hidden': true},
@@ -58,10 +108,10 @@ class DetailPane extends Component {
             }, {
                 tag: 'dl',
                 cn : value.rows.flatMap(([label, text]) => [{tag: 'dt', text: label}, {tag: 'dd', text}])
-            }]
+            }];
+            body.hidden = false;
+            body.update()
         }
-
-        me.update()
     }
 }
 

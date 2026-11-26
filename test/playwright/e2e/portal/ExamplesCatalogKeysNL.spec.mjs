@@ -162,6 +162,28 @@ test.describe('Portal examples search, selection and row navigation', () => {
         await page.setViewportSize({width: 390, height: 844});
         const mobileInput = page.locator(`${CRUMB} .portal-examples-find-field input`);
         await expect(mobileInput).toBeVisible();
+        await mobileInput.fill('no-such-example-xyz');
+
+        const emptyState = results.locator('.portal-examples-search-empty.neo-empty-state'),
+              recoverBtn = emptyState.getByRole('button', {name: 'Clear (Esc)'});
+        await expect(emptyState).toBeVisible();
+        await expect(results.locator('.portal-examples-search-clear')).toHaveCount(0);
+        await expect(emptyState.locator('.neo-empty-state-title')).toHaveText('No published examples match your query in the selected build.');
+        await expect(emptyState.locator('.neo-empty-state-description')).toContainText('Try a capability term');
+        await expect(recoverBtn).toBeVisible();
+
+        const mobileEmptyFits = await emptyState.evaluate(el => ({
+            fits     : el.getBoundingClientRect().right <= window.innerWidth + 0.5,
+            overflowX: el.scrollWidth > el.clientWidth + 1
+        }));
+        expect(mobileEmptyFits).toEqual({fits: true, overflowX: false});
+
+        // Keyboard Enter on EmptyState recovery action clears query and restores Grid & Table page
+        await recoverBtn.focus();
+        await expect(recoverBtn).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expectOpenPage(page, 'Grid & Table');
+
         await mobileInput.fill('drag');
         await expect(results.getByRole('link', {name: 'Sprint Board', exact: true})).toBeVisible();
         await results.getByRole('button', {name: 'Clear (Esc)'}).click();
