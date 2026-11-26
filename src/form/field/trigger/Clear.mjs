@@ -126,20 +126,26 @@ class Clear extends Base {
     }
 
     /**
+     * @summary Reveals the clear trigger on hover only while neither the trigger nor its owning field is disabled.
      * @override
      */
     onMouseEnter() {
         let me = this;
 
-        me.isHovered = true;
-        me.hidden    = me.getHiddenState()
+        if (!me.disabled && !me.field?.disabled) {
+            me.isHovered = true;
+            me.hidden    = me.getHiddenState()
+        }
     }
 
     /**
+     * @summary Clears the owning field only while both the trigger and its owning field are enabled.
      * @param {Object} data
      */
     onTriggerClick(data) {
-        this.field.clear()
+        if (!this.disabled && !this.field?.disabled) {
+            this.field.clear()
+        }
     }
 }
 

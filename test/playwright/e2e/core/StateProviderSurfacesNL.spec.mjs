@@ -205,12 +205,29 @@ test.describe('One state, every surface (stateProvider/advanced)', () => {
             await directCompanion.goto(`${ENTRY}?companion=1&theme=neo-theme-neo-dark`);
             await expect(directCompanion.locator('.sp-companion-member-name')).toHaveText('Primary window closed', {timeout: 30000});
             await expect(directCompanion.getByRole('button', {name: 'Reset member'})).toBeDisabled();
+            for (const key of ['name', 'role', 'location', 'statusNote']) {
+                await expect(directCompanion.locator(`input[name="window-${key}"]`)).toBeDisabled()
+            }
+            await directCompanion.keyboard.press('Tab');
+            await directCompanion.keyboard.press('Tab');
+            await expect(directCompanion.locator('input[name="window-name"]')).not.toBeFocused();
+            await directCompanion.keyboard.type('Detached edit attempt');
+            await expect(directCompanion.locator('input[name="window-name"]')).toHaveValue('Primary window closed');
 
             // 4. Closing Primary B detaches companionB cleanly; reloading companionB afterwards stays disconnected (never adopts A)
             await pageB.close({runBeforeUnload: true});
             await expect(companionB.locator('.sp-companion-member-name')).toHaveText('Primary window closed');
+            for (const key of ['name', 'role', 'location', 'statusNote']) {
+                await expect(companionB.locator(`input[name="window-${key}"]`)).toBeDisabled()
+            }
+            await companionB.keyboard.press('Tab');
+            await companionB.keyboard.press('Tab');
+            await expect(companionB.locator('input[name="window-name"]')).not.toBeFocused();
+            await companionB.keyboard.type('Closed owner edit attempt');
+            await expect(companionB.locator('input[name="window-name"]')).toHaveValue('Primary window closed');
             await companionB.reload();
             await expect(companionB.locator('.sp-companion-member-name')).toHaveText('Primary window closed', {timeout: 30000});
+            await expect(companionB.locator('input[name="window-name"]')).toBeDisabled();
             await expect(page.locator('.sp-hero-name')).toHaveText('First Primary')
         } finally {
             if (directCompanion && !directCompanion.isClosed()) {
