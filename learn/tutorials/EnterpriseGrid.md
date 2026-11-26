@@ -43,7 +43,7 @@ class MainView extends Grid {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Predict how many rows the browser will need
@@ -124,7 +124,7 @@ class MainView extends Grid {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Find `ORD-000004` again. It contains 74 units at $95 each, with a limit of 50. Predict the
