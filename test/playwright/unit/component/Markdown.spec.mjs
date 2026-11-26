@@ -265,6 +265,63 @@ test.describe('Neo.component.Markdown render order', () => {
         expect(Neo.get(orphanId)).toBeFalsy()
     });
 
+    test('clean root-relative issuesUrl and contentRoute (/...) resolve per windowId across hash and pathname windows while keeping //external external (#22229)', async () => {
+        const ContentComponent  = (await import('../../../../src/app/content/Component.mjs')).default,
+              prevWindowConfigs = Neo.windowConfigs;
+
+        Neo.windowConfigs = {
+            ...prevWindowConfigs,
+            'win-hash': {routerMode: 'hash',     routerBasePath: ''},
+            'win-root': {routerMode: 'pathname', routerBasePath: ''},
+            'win-sub' : {routerMode: 'pathname', routerBasePath: '/dist/production/apps/portal'}
+        };
+
+        try {
+            markdown.set({
+                contentRoute    : '/learn/',
+                issuesUrl       : '/news/tickets/',
+                replaceTicketIds: true,
+                windowId        : 'win-root'
+            });
+            markdown.value = 'See #22229.';
+            highlights[0]();
+            await flush();
+            expect(markdown.html).toContain('<a href="/news/tickets/22229">#22229</a>');
+
+            markdown.windowId = 'win-sub';
+            await flush();
+            highlights[1]();
+            await flush();
+            expect(markdown.html).toContain('<a href="/dist/production/apps/portal/news/tickets/22229">#22229</a>');
+
+            markdown.windowId = 'win-hash';
+            await flush();
+            highlights[2]();
+            await flush();
+            expect(markdown.html).toContain('<a href="#/news/tickets/22229">#22229</a>');
+
+            markdown.issuesUrl = '//issues.example.com/';
+            markdown.value     = 'External #99.';
+            highlights[3]();
+            await flush();
+            expect(markdown.html).toContain('<a href="//issues.example.com/99" target="_blank">#99</a>');
+
+            const rewriteForWindow = (windowId, contentRoute = '/learn/') => ContentComponent.prototype.rewriteLinks.call({
+                contentRoute,
+                record          : {id: 'guides/fundamentals/Boot'},
+                resolveContentId: ContentComponent.prototype.resolveContentId,
+                windowId
+            }, '<a href="./CodebaseOverview.md#intro">Overview</a>');
+
+            expect(rewriteForWindow('win-root')).toBe('<a href="/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
+            expect(rewriteForWindow('win-sub')).toBe('<a href="/dist/production/apps/portal/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
+            expect(rewriteForWindow('win-hash')).toBe('<a href="#/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
+            expect(rewriteForWindow('win-root', '//docs.example.com/learn/')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>')
+        } finally {
+            Neo.windowConfigs = prevWindowConfigs
+        }
+    });
+
     test('windowId change preserves embedded components across same-config windows and re-renders links on hash -> pathname transition (#22170)', async () => {
         const prevWindowConfigs = Neo.windowConfigs,
               widgetId          = 'markdown-window-move-widget';

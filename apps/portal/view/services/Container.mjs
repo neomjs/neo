@@ -87,7 +87,7 @@ class ServicesContainer extends Container {
                             tag : 'a', href: 'https://github.com/neomjs/create-app',
                             text: 'Create an app', target: '_blank', rel: 'noopener'
                         }, {
-                            tag: 'a', href: '#/examples', text: 'Explore examples'
+                            tag: 'a', href: '/examples', text: 'Explore examples'
                         }]}
                     ]}
                 }]

@@ -189,14 +189,17 @@ export function rewriteNeoConfig(config, {insideNeo, appSubPath}) {
 }
 
 /**
- * @summary Anchors a pathname app at its emitted directory, shared by ESM and webpack builds.
- * Hash configurations retain their existing properties unchanged.
+ * @summary Rewrites an explicit non-empty `routerBasePath` to the app's emitted directory across ESM and webpack builds.
+ * Leaves omitted and `''` `routerBasePath` configs untouched so `DomEvents#resolveRouterBasePath()` can adopt `<base href>`
+ * on sub-path dist mounts while keeping `''` on root `spaRoot` deployments. Hash configs pass through unchanged.
  * @param {Object} config Mutated in place.
  * @param {String} outputDirectory Workspace-relative output directory.
  * @returns {Object}
  */
 export function rewritePathnameConfig(config, outputDirectory) {
-    if (config.routerMode === 'pathname') config.routerBasePath = '/' + outputDirectory.replaceAll('\\', '/').replace(/^\/+|\/+$/g, '');
+    if (config.routerMode === 'pathname' && config.routerBasePath) {
+        config.routerBasePath = '/' + outputDirectory.replaceAll('\\', '/').replace(/^\/+|\/+$/g, '')
+    }
     return config
 }
 

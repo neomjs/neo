@@ -51,9 +51,9 @@ class Component extends ContentComponent {
         /**
          * `#N` references in PR bodies are issue numbers → resolve to the portal tickets view.
          * Per-content-type config: the generic content base no longer defaults this.
-         * @member {String} issuesUrl='#/news/tickets/'
+         * @member {String} issuesUrl='/news/tickets/'
          */
-        issuesUrl: '#/news/tickets/',
+        issuesUrl: '/news/tickets/',
         /**
          * @member {String} repoUserUrl='https://github.com/'
          */

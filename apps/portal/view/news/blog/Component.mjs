@@ -14,13 +14,13 @@ class Component extends ContentComponent {
          */
         className: 'Portal.view.news.blog.Component',
         /**
-         * @member {String} contentRoute='#/'
+         * @member {String} contentRoute='/'
          */
-        contentRoute: '#/',
+        contentRoute: '/',
         /**
-         * @member {String} issuesUrl='#/news/tickets/'
+         * @member {String} issuesUrl='/news/tickets/'
          */
-        issuesUrl: '#/news/tickets/'
+        issuesUrl: '/news/tickets/'
     }
 
     /**

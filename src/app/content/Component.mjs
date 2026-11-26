@@ -31,7 +31,7 @@ class Component extends Markdown {
          */
         contentObserverSelectors: ['.neo-h2', '.neo-h3'],
         /**
-         * The route prefix a relative Markdown link is rewritten onto, e.g. `'#/learn/'`.
+         * The route prefix a relative Markdown link is rewritten onto, e.g. `'/learn/'`.
          *
          * Null by default for the same reason issuesUrl is: this generic content base must not bake in
          * an app route. A consuming view declares its own, and while unset no rewriting happens at all.
@@ -42,7 +42,7 @@ class Component extends Markdown {
         // issuesUrl is intentionally NOT defaulted here: this generic content base must not bake in a
         // portal-app route. It inherits Neo.component.Markdown's neutral default
         // (https://github.com/neomjs/neo/issues/); each consuming portal view sets its own cross-link
-        // target (e.g. '#/news/tickets/') as a per-content-type config.
+        // target (e.g. '/news/tickets/') as a per-content-type config.
         /**
          * @member {Object} record_=null
          * @reactive
@@ -406,7 +406,8 @@ class Component extends Markdown {
     rewriteLinks(html) {
         let me                       = this,
             {contentRoute, windowId} = me,
-            routePrefix              = contentRoute?.startsWith('#/') ? StringUtil.toRouteHref(contentRoute, windowId) : contentRoute;
+            isRoute                  = Boolean(contentRoute?.startsWith('#/') || (contentRoute?.startsWith('/') && !contentRoute.startsWith('//'))),
+            routePrefix              = isRoute ? StringUtil.toRouteHref(contentRoute, windowId) : contentRoute;
 
         if (!routePrefix || !me.record?.id) {
             return html

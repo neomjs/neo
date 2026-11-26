@@ -25,10 +25,10 @@ class Grid extends FeatureSection {
          */
         headline: 'Data Grid',
         /**
-         * @member {String} learnMoreRoute='#/learn/guides/datahandling/Grids'
+         * @member {String} learnMoreRoute='/learn/guides/datahandling/Grids'
          * @reactive
          */
-        learnMoreRoute: '#/learn/guides/datahandling/Grids',
+        learnMoreRoute: '/learn/guides/datahandling/Grids',
         /**
          * @member {String} learnMoreText='The grid guide'
          * @reactive
@@ -39,13 +39,13 @@ class Grid extends FeatureSection {
          * @reactive
          */
         links: [
-            {route: '#/examples/grid',       text: 'More grids'},
-            {route: '#/examples/forms',      text: 'Forms'},
-            {route: '#/examples/scheduler',  text: 'Scheduler'},
-            {route: '#/examples/gantt',      text: 'Gantt'},
-            {route: '#/examples/board',      text: 'Task Board'},
-            {route: '#/examples/calendar',   text: 'Calendar'},
-            {route: '#/examples/dashboard',  text: 'Docking'}
+            {route: '/examples/grid',       text: 'More grids'},
+            {route: '/examples/forms',      text: 'Forms'},
+            {route: '/examples/scheduler',  text: 'Scheduler'},
+            {route: '/examples/gantt',      text: 'Gantt'},
+            {route: '/examples/board',      text: 'Task Board'},
+            {route: '/examples/calendar',   text: 'Calendar'},
+            {route: '/examples/dashboard',  text: 'Docking'}
         ],
         /**
          * @member {String} livePreviewCode

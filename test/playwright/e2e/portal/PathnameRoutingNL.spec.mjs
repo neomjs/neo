@@ -1,10 +1,12 @@
-import fs                                from 'node:fs';
-import path                              from 'node:path';
-import {fileURLToPath}                   from 'node:url';
-import {extractExampleFamilyDefinitions} from '../../../../buildScripts/docs/seo/seoJson.mjs';
-import {createFileServer, listen}        from '../../../../buildScripts/util/fileServer.mjs';
-import {expect, test}                    from '../../fixtures.mjs';
-import {expectOpenPage}                  from '../utils/portalExamplesCatalog.mjs';
+import fs                                           from 'node:fs';
+import os                                           from 'node:os';
+import path                                         from 'node:path';
+import {fileURLToPath}                              from 'node:url';
+import {extractExampleFamilyDefinitions}            from '../../../../buildScripts/docs/seo/seoJson.mjs';
+import {rewritePathnameConfig, rewritePathnameHtml} from '../../../../buildScripts/util/esmDistTransforms.mjs';
+import {createFileServer, listen}                   from '../../../../buildScripts/util/fileServer.mjs';
+import {expect, test}                               from '../../fixtures.mjs';
+import {expectOpenPage}                             from '../utils/portalExamplesCatalog.mjs';
 
 const REPO_ROOT     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'),
       EXAMPLES_VIEW = new URL('../../../../apps/portal/view/examples/MainContainer.mjs', import.meta.url),
@@ -123,6 +125,26 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
             return Object.keys(globalThis.__bootAddons).length
         });
         expect(addonCount).toBeGreaterThan(0);
+
+        // Verify Home stage links (AudienceDoors proof anchors + Grid FeatureSection links) emit clean root hrefs (never #/... or /apps/portal/...)
+        const doorProofHrefs = await page.locator('.portal-door-proof a[href]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href')));
+        expect(doorProofHrefs).toEqual([
+            '../../examples/grid/bigData/index.html',
+            '/news/pulls/15123',
+            '/learn/benefits/Introduction'
+        ]);
+
+        const moreGridsLink = page.locator('.portal-home-parts-grid').getByRole('link', {name: 'More grids'});
+        await expect(moreGridsLink).toHaveAttribute('href', '/examples/grid');
+        expect(await moreGridsLink.evaluate(el => new URL(el.href).pathname)).toBe('/examples/grid');
+
+        await moreGridsLink.click();
+        await expect(page).toHaveURL(/\/examples\/grid$/);
+        await expect.poll(() => isViewMounted(app, VIEWS.examples)).toBe(true);
+
+        await logo.click();
+        await expect(page).toHaveURL(/\/$/);
+        await expect.poll(() => isViewMounted(app, VIEWS.home)).toBe(true);
 
         // Navigate / -> /learn via header link, then click the Neo.mjs Logo back to /
         await header.getByRole('link', {name: 'Learn', exact: true}).click();
@@ -282,6 +304,118 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
         } finally {
             server.closeAllConnections();
             server.close()
+        }
+    });
+
+    test('dist pathname shell with omitted routerBasePath keeps root hrefs under spaRoot and adopts <base href> on sub-path dist mounts (#22229)', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+
+        const tmpRoot      = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-portal-dist-sparoot-')),
+              distMountRel = 'dist/esm/apps/portal',
+              distMountDir = path.join(tmpRoot, distMountRel),
+              linkType     = process.platform === 'win32' ? 'junction' : 'dir';
+
+        let rootServer, subServer;
+
+        try {
+            fs.mkdirSync(distMountDir, {recursive: true});
+
+            for (const entry of fs.readdirSync(REPO_ROOT, {withFileTypes: true})) {
+                if (entry.name === 'dist' || entry.name === '.git' || entry.name === 'test') continue;
+                fs.symlinkSync(
+                    path.join(REPO_ROOT, entry.name),
+                    path.join(tmpRoot, entry.name),
+                    entry.isDirectory() ? linkType : 'file'
+                )
+            }
+
+            // Populate dist/ target assets alongside the emitted dist/esm tree
+            for (const entry of fs.readdirSync(path.join(REPO_ROOT, 'dist'), {withFileTypes: true})) {
+                if (entry.name === 'esm') continue;
+                fs.symlinkSync(
+                    path.join(REPO_ROOT, 'dist', entry.name),
+                    path.join(tmpRoot, 'dist', entry.name),
+                    entry.isDirectory() ? linkType : 'file'
+                )
+            }
+
+            fs.symlinkSync(path.join(REPO_ROOT, 'src'),                  path.join(tmpRoot, 'dist/esm/src'),       linkType);
+            fs.symlinkSync(path.join(REPO_ROOT, 'dist'),                 path.join(tmpRoot, 'dist/esm/dist'),      linkType);
+            fs.symlinkSync(path.join(REPO_ROOT, 'dist/development/css'), path.join(tmpRoot, 'dist/esm/css'),       linkType);
+            fs.symlinkSync(path.join(REPO_ROOT, 'resources'),            path.join(tmpRoot, 'dist/esm/resources'), linkType);
+
+            for (const entry of fs.readdirSync(path.join(REPO_ROOT, 'apps/portal'), {withFileTypes: true})) {
+                if (entry.name === 'index.html' || entry.name === 'neo-config.json') continue;
+                fs.symlinkSync(
+                    path.join(REPO_ROOT, 'apps/portal', entry.name),
+                    path.join(distMountDir, entry.name),
+                    entry.isDirectory() ? linkType : 'file'
+                )
+            }
+
+            const rawConfig     = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'apps/portal/neo-config.json'), 'utf8')),
+                  rawHtml       = fs.readFileSync(path.join(REPO_ROOT, 'apps/portal/index.html'), 'utf8'),
+                  emittedConfig = rewritePathnameConfig({
+                      ...rawConfig,
+                      basePath        : '../../../../',
+                      environment     : 'development',
+                      mainPath        : './Main.mjs',
+                      useServiceWorker: false,
+                      useSharedWorkers: false,
+                      workerBasePath  : '../../src/worker/'
+                  }, distMountRel),
+                  emittedHtml   = rewritePathnameHtml(rawHtml, emittedConfig, distMountRel);
+
+            expect(Object.hasOwn(emittedConfig, 'routerBasePath')).toBe(false);
+            fs.writeFileSync(path.join(distMountDir, 'neo-config.json'), JSON.stringify(emittedConfig, null, 2));
+            fs.writeFileSync(path.join(distMountDir, 'index.html'), emittedHtml);
+
+            // 1. Deployed root SPA mount (--spa-root dist/esm/apps/portal, matching neomjs.com): routerBasePath stays ''
+            rootServer = createFileServer({root: tmpRoot, spaRoot: distMountRel, freshness: {onListening() {}, onRequest() {}}});
+            const rootOrigin = `http://localhost:${await listen(rootServer, {port: 0, strict: true})}`;
+
+            await page.goto(`${rootOrigin}/`);
+            const rootMoreGrids = page.locator('.portal-home-parts-grid').getByRole('link', {name: 'More grids'});
+            await expect(rootMoreGrids).toHaveAttribute('href', '/examples/grid');
+
+            const rootState = await page.evaluate(() => ({
+                baseURI       : document.baseURI,
+                routerBasePath: Neo.config.routerBasePath
+            }));
+            expect(rootState.baseURI).toBe(`${rootOrigin}/${distMountRel}/`);
+            expect(rootState.routerBasePath).toBe('');
+            expect(await rootMoreGrids.evaluate(el => el.href)).toBe(`${rootOrigin}/examples/grid`);
+
+            await page.evaluate(() => {
+                const scroller = document.querySelector('.portal-home-maincontainer');
+                if (scroller) scroller.style.scrollSnapType = 'none'
+            });
+            await rootMoreGrids.scrollIntoViewIfNeeded();
+            await rootMoreGrids.click();
+            await expect(page).toHaveURL(`${rootOrigin}/examples/grid`);
+            await expect(page.locator('.portal-examples-group-page:visible .portal-examples-group-heading h1')).toHaveText('Grid & Table');
+
+            // 2. Same emitted build mounted at /dist/esm/apps/portal/ (--no-spa-root): adopts <base href> as routerBasePath
+            subServer = createFileServer({root: tmpRoot, spaRoot: false, freshness: {onListening() {}, onRequest() {}}});
+            const subOrigin = `http://localhost:${await listen(subServer, {port: 0, strict: true})}`;
+
+            await page.goto(`${subOrigin}/${distMountRel}/`);
+            const subMoreGrids = page.locator('.portal-home-parts-grid').getByRole('link', {name: 'More grids'});
+            await expect(subMoreGrids).toHaveAttribute('href', `/${distMountRel}/examples/grid`);
+            expect(await page.evaluate(() => Neo.config.routerBasePath)).toBe(`/${distMountRel}`);
+
+            await page.evaluate(() => {
+                const scroller = document.querySelector('.portal-home-maincontainer');
+                if (scroller) scroller.style.scrollSnapType = 'none'
+            });
+            await subMoreGrids.scrollIntoViewIfNeeded();
+            await subMoreGrids.click();
+            await expect(page).toHaveURL(`${subOrigin}/${distMountRel}/examples/grid`);
+            await expect(page.locator('.portal-examples-group-page:visible .portal-examples-group-heading h1')).toHaveText('Grid & Table')
+        } finally {
+            rootServer?.closeAllConnections(); rootServer?.close();
+            subServer?.closeAllConnections();  subServer?.close();
+            fs.rmSync(tmpRoot, {recursive: true, force: true})
         }
     })
 });
