@@ -96,12 +96,13 @@ test.describe('Portal.view.examples.ListModel', () => {
         expect(tileImage).toContain('isolation          : isolate')
     });
 
-    test('configures selectOnFocus: false and delegates all four arrow keys via navigator.workerKeys', async () => {
+    test('configures selectOnFocus: false, clickSelector: ".neo-title", and all four arrow keys via navigator.workerKeys', async () => {
         const {list, model} = await createMountedList();
 
         expect(model).toBeInstanceOf(ExamplesListModel);
         expect(list.selectOnFocus).toBe(false);
         expect(list.navigator.autoClick).toBe(false);
+        expect(list.navigator.clickSelector).toBe('.neo-title');
         expect(list.navigator.workerKeys).toEqual(['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'])
     });
 

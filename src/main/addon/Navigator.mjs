@@ -254,7 +254,12 @@ class Navigator extends Base {
             // Click the currently active item if necessary
             case 'Enter':
                 if (data.activeItem && !enterActivatedTags[target.tagName]) {
-                    this.clickItem(data.activeItem)
+                    const clickTarget = data.clickSelector ? data.activeItem.querySelector(data.clickSelector) : data.activeItem;
+
+                    if (clickTarget) {
+                        keyEvent.preventDefault();
+                        this.clickItem(clickTarget)
+                    }
                 }
         }
 
@@ -503,6 +508,7 @@ class Navigator extends Base {
      * @param {Boolean} data.wrap Pass as `true` to have navigation wrap from first to last and vice versa.
      * @param {Boolean} [data.autoClick=false] Pass as `true` to have navigation click the target navigated to.
      * TabPanels will use this on their tab toolbar.
+     * @param {String} [data.clickSelector] Optional CSS selector inside `activeItem` clicked on `Enter` instead of `activeItem`.
      * @param {Boolean} [data.focusOnly=false] Pass as `true` when the items are real focusable elements whose Tab stop and
      * state the subscriber renders, as an index of links does: the keys only move focus, and no `tabIndex` or
      * `aria-activedescendant` is written.
