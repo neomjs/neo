@@ -112,7 +112,7 @@ class MainView extends Grid {
             {text: 'Line Item', columns: [
                 {dataField: 'item',        text: 'Item',     width: 200},
                 {dataField: 'quantity',    text: 'Quantity', width: 100, editable: true,
-                    editor: {module: NumberField, clearable: false, minValue: 1, maxValue: 50}},
+                    editor: {module: NumberField, clearable: false, required: true, minValue: 1, maxValue: 50}},
                 {dataField: 'maxOrderQty', text: 'Limit',    width: 80},
                 {dataField: 'unitPrice',   text: 'Price',    width: 90}
             ]},
@@ -130,9 +130,10 @@ MainView = Neo.setupClass(MainView);
 Find `ORD-000004` again. It contains 74 units at $95 each, with a limit of 50. Predict the
 total for one unit. Double-click **Quantity**, enter `1`, and press **Enter**. Settlement drops
 from $7,030.00 to $95.00, the status reads **OK**, and the order ID stays in place. Try
-another edit and press **Escape** to keep the previous value. The editor enforces the 1–50
-range for new entries. The model also checks incoming data, which is how the original 74
-appeared in the review queue.
+clearing the quantity and pressing **Enter**. The editor stays open because a quantity is
+required. Press **Escape** to keep the previous value. The editor enforces the 1–50 range
+for new entries. The model also checks incoming data, which is how the original 74 appeared
+in the review queue.
 
 ### Turn the same grid into a repair queue
 
