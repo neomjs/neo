@@ -1,9 +1,9 @@
 import ArticleStore   from './ArticleStore.mjs';
 import BoardContainer from '../../../src/board/Container.mjs';
-import Button         from '../../../src/button/Base.mjs';
 import Component      from '../../../src/component/Base.mjs';
 import Container      from '../../../src/container/Base.mjs';
 import Label          from '../../../src/component/Label.mjs';
+import Segmented      from '../../../src/button/Segmented.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
 import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';
@@ -99,34 +99,18 @@ class CardDesignsViewport extends Viewport {
                 cls   : ['editorial-spacer'],
                 flex  : 1
             }, {
-                module: Container,
-                cls   : ['editorial-segmented'],
-                flex  : 'none',
-                layout: {ntype: 'hbox', align: 'center'},
-                role  : 'group',
-                vdom  : {'aria-label': 'Card design', cn: []},
-                items : [{
-                    module   : Button,
-                    cls      : ['editorial-seg-btn'],
-                    handler  : 'up.onSelectCompact',
-                    pressed  : false,
-                    reference: 'btn-compact',
-                    text     : 'Compact'
-                }, {
-                    module   : Button,
-                    cls      : ['editorial-seg-btn'],
-                    handler  : 'up.onSelectStandard',
-                    pressed  : false,
-                    reference: 'btn-standard',
-                    text     : 'Standard'
-                }, {
-                    module   : Button,
-                    cls      : ['editorial-seg-btn'],
-                    handler  : 'up.onSelectDetailed',
-                    pressed  : true,
-                    reference: 'btn-detailed',
-                    text     : 'Detailed'
-                }]
+                module   : Segmented,
+                ariaLabel: 'Card design',
+                cls      : ['editorial-segmented'],
+                choices  : [
+                    {value: 'compact',  text: 'Compact'},
+                    {value: 'standard', text: 'Standard'},
+                    {value: 'detailed', text: 'Detailed'}
+                ],
+                flex     : 'none',
+                listeners: {change: 'up.onDesignChange'},
+                reference: 'design-selector',
+                value    : 'detailed'
             }, {
                 module: ThemeSwitcher
             }]
@@ -172,7 +156,7 @@ class CardDesignsViewport extends Viewport {
     }
 
     /**
-     * @summary Switches `board.cardItems`, board density classes, and segmented `Button#pressed` states without reloading.
+     * @summary Switches the board and keeps the design selector in sync without reloading.
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -183,15 +167,13 @@ class CardDesignsViewport extends Viewport {
         }
 
         const
-            me      = this,
-            board   = me.getReference('board'),
-            readout = me.getReference('design-readout');
+            me       = this,
+            board    = me.getReference('board'),
+            readout  = me.getReference('design-readout'),
+            selector = me.getReference('design-selector');
 
-        for (const mode of ['compact', 'standard', 'detailed']) {
-            const btn = me.getReference(`btn-${mode}`);
-            if (btn) {
-                btn.pressed = mode === value
-            }
+        if (selector && selector.value !== value) {
+            selector.value = value
         }
 
         if (board) {
@@ -207,24 +189,11 @@ class CardDesignsViewport extends Viewport {
     }
 
     /**
-     * @summary Activates the `Compact` (`title`) card design.
+     * @summary Applies the selected card design.
+     * @param {Object} event
      */
-    onSelectCompact() {
-        this.design = 'compact'
-    }
-
-    /**
-     * @summary Activates the `Detailed` (`title`, `text`, `tags`, `progress`, `avatars`) card design.
-     */
-    onSelectDetailed() {
-        this.design = 'detailed'
-    }
-
-    /**
-     * @summary Activates the `Standard` (`title`, `tags`, `avatars`) card design.
-     */
-    onSelectStandard() {
-        this.design = 'standard'
+    onDesignChange({value}) {
+        this.design = value
     }
 }
 

@@ -196,6 +196,12 @@ class Navigator extends Base {
      * @param {Object} data
      */
     navigateKeyDownHandler(keyEvent, data) {
+        // A nested subscription can already have moved focus. The same key still bubbles so other listeners
+        // (including the App worker) receive it, but it must not move the enclosing navigator a second time.
+        if (keyEvent.defaultPrevented && DomUtils.closest(keyEvent.target, el => el.$navigator?.eventSource === el, data.eventSource)) {
+            return
+        }
+
         if (data.workerKeys?.includes(keyEvent.key) || data.workerChords && (keyEvent.ctrlKey || keyEvent.metaKey) && chordKeys.has(keyEvent.key)) {
             keyEvent.preventDefault();
             return

@@ -136,6 +136,7 @@
  "Neo.button.Base": "Neo.component.Base",
  "Neo.button.Effect": "Neo.component.Base",
  "Neo.button.Menu": "Neo.button.Split",
+ "Neo.button.Segmented": "Neo.toolbar.Base",
  "Neo.button.Split": "Neo.button.Base",
  "Neo.button.ThemeSwitcher": "Neo.button.Base",
  "Neo.calendar.model.Calendar": "Neo.data.Model",

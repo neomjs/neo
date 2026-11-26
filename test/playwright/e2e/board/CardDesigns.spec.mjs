@@ -96,9 +96,9 @@ test.describe('Board cardDesigns example', () => {
             card2       = page.locator('[id$="__card__art-2"]'),
             card3       = page.locator('[id$="__card__art-3"]'),
             card20      = page.locator('[id$="__card__art-20"]'),
-            btnCompact  = page.locator('.editorial-seg-btn', {hasText: 'Compact'}),
-            btnStandard = page.locator('.editorial-seg-btn', {hasText: 'Standard'}),
-            btnDetailed = page.locator('.editorial-seg-btn', {hasText: 'Detailed'});
+            btnCompact  = page.locator('.neo-segmented-button > .neo-button', {hasText: 'Compact'}),
+            btnStandard = page.locator('.neo-segmented-button > .neo-button', {hasText: 'Standard'}),
+            btnDetailed = page.locator('.neo-segmented-button > .neo-button', {hasText: 'Detailed'});
 
         await expect(btnDetailed).toHaveAttribute('aria-pressed', 'true');
         await expect(btnStandard).toHaveAttribute('aria-pressed', 'false');
@@ -173,6 +173,116 @@ test.describe('Board cardDesigns example', () => {
         expect(deltaStats.observedUpdates).toBeGreaterThan(0);
         expect(deltaStats.idlessInserts).toBe(0);
         expect(consoleErrors).toEqual([])
+    });
+
+    test('navigates and activates the reusable segmented control without losing Board state', async ({page}) => {
+        await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
+
+        const control  = page.locator('.neo-segmented-button'),
+              compact  = control.locator(':scope > .neo-button', {hasText: 'Compact'}),
+              standard = control.locator(':scope > .neo-button', {hasText: 'Standard'}),
+              detailed = control.locator(':scope > .neo-button', {hasText: 'Detailed'}),
+              card     = page.locator('[id$="__card__art-1"]');
+
+        await expect(control).toBeVisible();
+        await expect(control).toHaveAccessibleName('Card design');
+        const id = await control.getAttribute('id');
+        expect(id).toBeTruthy();
+        const worker = getAppWorker(page);
+        expect(await worker.evaluate(id => {
+            const component = Neo.getComponent(id);
+            return {className: component.className, value: component.value}
+        }, id)).toEqual({className: 'Neo.button.Segmented', value: 'detailed'});
+        await expect(detailed).toHaveAttribute('aria-pressed', 'true');
+
+        // Navigation moves focus, while activation alone changes the selected design.
+        await detailed.focus();
+        await page.keyboard.press('Home');
+        await expect(compact).toBeFocused();
+        await expect(detailed).toHaveAttribute('aria-pressed', 'true');
+        await page.keyboard.press('ArrowRight');
+        await expect(standard).toBeFocused();
+        await page.keyboard.press('Enter');
+        await expect(standard).toHaveAttribute('aria-pressed', 'true');
+        await expect(standard).toBeFocused();
+        await expect.poll(async () => (await readWorkerState(page)).design).toBe('standard');
+        await expect(card.locator('.neo-board-card-text')).toHaveCount(0);
+        await page.keyboard.press('End');
+        await expect(detailed).toBeFocused();
+        await page.keyboard.press('ArrowLeft');
+        await expect(standard).toBeFocused();
+        await page.keyboard.press('ArrowLeft');
+        await expect(compact).toBeFocused();
+        await page.keyboard.press('Space');
+        await expect(compact).toHaveAttribute('aria-pressed', 'true');
+        await expect(compact).toBeFocused();
+        await expect.poll(async () => (await readWorkerState(page)).design).toBe('compact');
+        await expect(card.locator('.neo-board-card-tags')).toHaveCount(0);
+
+        // A disabled middle choice is skipped by the real toolbar navigator.
+        await worker.evaluate(({id, choices}) => { Neo.getComponent(id).choices = choices }, {id, choices: [
+            {value: 'compact', text: 'Compact'},
+            {value: 'standard', text: 'Standard', disabled: true},
+            {value: 'detailed', text: 'Detailed'}
+        ]});
+        await expect(standard).toBeDisabled();
+        await compact.focus();
+        await page.keyboard.press('ArrowRight');
+        await expect(detailed).toBeFocused();
+        await expect(compact).toHaveAttribute('aria-pressed', 'true');
+        await detailed.click();
+        await expect(detailed).toHaveAttribute('aria-pressed', 'true');
+        await expect.poll(async () => (await readWorkerState(page)).design).toBe('detailed');
+        await expect(card.locator('.neo-board-card-text')).toBeVisible();
+
+        // Programmatic writes travel through the same control-to-Board path.
+        await worker.evaluate(id => { Neo.getComponent(id).value = 'compact' }, id);
+        await expect(compact).toHaveAttribute('aria-pressed', 'true');
+        await expect(detailed).toHaveAttribute('aria-pressed', 'false');
+        await expect.poll(async () => (await readWorkerState(page)).design).toBe('compact');
+        expect(await worker.evaluate(id => Neo.getComponent(id).value, id)).toBe('compact');
+
+        const viewportId = await page.locator('.editorial-viewport').getAttribute('id');
+        expect(viewportId).toBeTruthy();
+        await worker.evaluate(id => { Neo.getComponent(id).design = 'detailed' }, viewportId);
+        await expect(detailed).toHaveAttribute('aria-pressed', 'true');
+        await expect(compact).toHaveAttribute('aria-pressed', 'false');
+        await expect(card.locator('.neo-board-card-text')).toBeVisible();
+        expect(await worker.evaluate(id => Neo.getComponent(id).value, id)).toBe('detailed');
+
+        // Replacing descriptors keeps the same buttons: losing the current tab stop must not
+        // strand keyboard users outside the group, including after a group disable/enable cycle.
+        await worker.evaluate(({id, choices}) => { Neo.getComponent(id).choices = choices }, {id, choices: [
+            {value: 'compact', text: 'Compact'},
+            {value: 'standard', text: 'Standard'},
+            {value: 'detailed', text: 'Detailed'}
+        ]});
+        await compact.focus();
+        await expect(compact).toHaveAttribute('tabindex', '0');
+        await page.evaluate(id => {
+            const button = document.createElement('button');
+            button.id = 'segmented-tab-probe';
+            document.getElementById(id).before(button)
+        }, id);
+        const probe = page.locator('#segmented-tab-probe');
+        await probe.focus();
+        await worker.evaluate(({id, choices}) => { Neo.getComponent(id).choices = choices }, {id, choices: [
+            {value: 'compact', text: 'Compact', disabled: true},
+            {value: 'standard', text: 'Standard'},
+            {value: 'detailed', text: 'Detailed'}
+        ]});
+        await expect(compact).toBeDisabled();
+        await expect(standard).toHaveAttribute('tabindex', '0');
+        await page.keyboard.press('Tab');
+        await expect(standard).toBeFocused();
+        await worker.evaluate(id => { Neo.getComponent(id).disabled = true }, id);
+        await expect(standard).toBeDisabled();
+        await worker.evaluate(id => { Neo.getComponent(id).disabled = false }, id);
+        await expect(standard).toBeEnabled();
+        await expect(standard).toHaveAttribute('tabindex', '0');
+        await probe.focus();
+        await page.keyboard.press('Tab');
+        await expect(standard).toBeFocused()
     });
 
     test('renders cleanly at 1440x900 and 390x844 across all five shipped themes with two-line title clamping and custom controls', async ({page}) => {

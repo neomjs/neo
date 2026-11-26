@@ -1,0 +1,9 @@
+.neo-segmented-button.neo-toolbar {
+    border-radius: 999px;
+    gap          : 3px;
+    padding      : 3px;
+
+    > .neo-button {
+        border-radius: 999px;
+    }
+}
