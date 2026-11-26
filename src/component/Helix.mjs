@@ -784,16 +784,22 @@ class Helix extends Component {
                 vdom       : itemVdom,
                 windowId   : me.windowId
             }).then(data => {
+                if (!data || me.isDestroyed) {
+                    return
+                }
+
                 me.clonedItems.push(itemVdom);
 
                 me.timeout(50).then(() => {
-                    Neo.applyDeltas(me.windowId, {
-                        id   : itemVdom.id,
-                        style: {
-                            opacity  : 1,
-                            transform: me.getCloneTransform()
-                        }
-                    })
+                    if (!me.isDestroyed) {
+                        Neo.applyDeltas(me.windowId, {
+                            id   : itemVdom.id,
+                            style: {
+                                opacity  : 1,
+                                transform: me.getCloneTransform()
+                            }
+                        })
+                    }
                 })
             })
         }

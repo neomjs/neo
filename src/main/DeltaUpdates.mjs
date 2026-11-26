@@ -401,6 +401,7 @@ class DeltaUpdates extends Base {
      * @param {String}         delta.parentId               The ID of the parent DOM node.
      * @param {Object[]}       [delta.postMountUpdates]     Array of post-mount updates (e.g. scroll state).
      * @param {Neo.vdom.VNode} [delta.vnode]                The VNode representation of the new node (for direct DOM API mounting).
+     * @returns {Boolean} `true` when the node was inserted into a resolved parent, `false` when skipped.
      */
     insertNode({hasLeadingTextChildren, index, outerHTML, parentId, postMountUpdates, vnode}) {
         this.checkRendererAvailability();
@@ -462,12 +463,16 @@ class DeltaUpdates extends Base {
                         }
                     })
                 }
+
+                return true
             } else {
                 console.error('insertNode: Failed to create newNode', {outerHTML, vnode});
             }
         } else {
             console.error('insertNode: Parent not found', {parentId, index});
         }
+
+        return false
     }
 
     /**
@@ -476,6 +481,7 @@ class DeltaUpdates extends Base {
      * into a single DocumentFragment insertion, minimizing browser reflows.
      *
      * @param {Object[]} batch Array of delta objects to insert.
+     * @returns {Boolean} `true` when the parent resolved and every batch node was created, `false` otherwise.
      * @protected
      */
     insertNodeBatch(batch) {
@@ -504,6 +510,7 @@ class DeltaUpdates extends Base {
                 {render}            = Neo.main,
                 namespace           = NeoConfig.useDomApiRenderer ? render.DomApiRenderer.getChildNamespace(parentNode) : null,
                 allPostMountUpdates = [];
+            let insertedAll = true;
 
             batch.forEach(delta => {
                 let localPostMountUpdates = delta.postMountUpdates || [],
@@ -528,6 +535,7 @@ class DeltaUpdates extends Base {
                         allPostMountUpdates.push(...localPostMountUpdates)
                     }
                 } else {
+                    insertedAll = false;
                     console.error('insertNodeBatch: Failed to create node', delta);
                 }
             });
@@ -553,9 +561,13 @@ class DeltaUpdates extends Base {
                     }
                 })
             }
+
+            return insertedAll
         } else {
             console.error('insertNodeBatch: Parent not found', {parentId, index});
         }
+
+        return false
     }
 
     /**
@@ -1175,14 +1187,18 @@ class DeltaUpdates extends Base {
                     }
 
                     if (batch.length > 1) {
-                        me.insertNodeBatch(batch);
+                        if (me.insertNodeBatch(batch) === false) {
+                            data.skippedInserts = (data.skippedInserts || 0) + 1
+                        }
                         i = j; // Skip the processed batch
                         continue
                     }
                 }
 
                 // Fallback for non-batched operations
-                me[delta.action || 'updateNode'](delta);
+                if (me[delta.action || 'updateNode'](delta) === false && delta.action === 'insertNode') {
+                    data.skippedInserts = (data.skippedInserts || 0) + 1
+                }
                 i++
             }
         } finally {

@@ -861,8 +861,8 @@ class App extends Base {
             })
         }
 
-        if ((!config.useVdomWorker || data?.useVdomWorker === false) && !me.vdomHelperPromise) {
-            me.vdomHelperPromise = import('../vdom/Helper.mjs')
+        if (!config.useVdomWorker && !me.vdomHelperPromise) {
+            me.vdomHelperPromise = import('../vdom/Helper.mjs').then(({default: helper}) => helper.ready())
         }
     }
 

@@ -425,7 +425,17 @@ class Manager extends Base {
 
         if (deltas?.length > 0 || Object.keys(payload.meta || {}).length > 0) {
             me.promiseForwardMessage(data).then(msgData => {
-                me.sendMessage(replyDest, forward ? msgData : {action: 'reply', replyId: msgData.id, success: true})
+                const payloadData = forward ? msgData?.data : msgData,
+                      reply       = forward ? msgData : {action: 'reply', replyId: msgData.id, success: true};
+
+                if (!forward && payloadData?.skippedInserts > 0) {
+                    reply.data = {inserted: false, skippedInserts: payloadData.skippedInserts}
+                } else if (forward && payloadData?.autoMount && payloadData.skippedInserts > 0) {
+                    reply.data   = {error: `Initial mount insertNode skipped for parentId "${deltas?.[0]?.parentId}"`};
+                    reply.reject = true
+                }
+
+                me.sendMessage(replyDest, reply)
             }).catch(({originalData, error}) => {
                 // A delta failed to apply (see Main.mjs#processQueue). The reply MUST still reach the
                 // originating worker — a dropped reply permanently wedges every component awaiting the
@@ -775,14 +785,25 @@ class Manager extends Base {
 
     /**
      * @param {String} replyId
+     * @param {Object} [operation]
      */
-    resolveDomOperationPromise(replyId) {
+    resolveDomOperationPromise(replyId, operation) {
         if (replyId) {
             let {promises} = this,
                 promise    = promises[replyId];
 
             if (promise) {
-                promise.resolve(promise.data);
+                let result = promise.data;
+
+                if (operation?.skippedInserts > 0) {
+                    if (result === undefined) {
+                        result = {inserted: false, skippedInserts: operation.skippedInserts}
+                    } else if (result && typeof result === 'object' && !result.skippedInserts && !result.data?.skippedInserts) {
+                        result.skippedInserts = operation.skippedInserts
+                    }
+                }
+
+                promise.resolve(result);
                 delete promises[replyId]
             }
         }

@@ -164,7 +164,7 @@ class VdomLifecycle extends Base {
 
     /**
      * @summary Creates a VNode tree via `Neo.vdom.Helper.create` and, when `autoMount` runs without a VDom worker,
-     * awaits `insertNode` on Main before invoking `afterCreate` so vnode adoption never runs ahead of the DOM.
+     * awaits a confirmed `insertNode` on Main before invoking `afterCreate` so vnode adoption never runs ahead of the DOM.
      * @param {Object} config
      * @param {String} [config.appName=this.appName]
      * @param {Boolean} [config.autoMount]
@@ -173,40 +173,78 @@ class VdomLifecycle extends Base {
      * @param {Object} config.vdom
      * @param {Number|String} [config.windowId=this.windowId]
      * @param {Function} [afterCreate] Invoked with `data` after DOM insertion is acknowledged (or after `Helper.create` when `!autoMount`)
-     * @returns {Promise<Object>}
+     * @returns {Promise<Object|null>}
      */
     async createVnodeTree(config, afterCreate) {
-        if (!Neo.config.useVdomWorker && Neo.currentWorker?.vdomHelperPromise) {
-            await Neo.currentWorker.vdomHelperPromise
-        }
-
-        const me         = this,
-              windowId   = config.windowId ?? me.windowId,
-              createOpts = {
+        const me            = this,
+              attempt       = me[initializationAttempt],
+              registered    = Boolean(me.id && Neo.getComponent(me.id) === me),
+              isLiveAttempt = () => !me.isDestroyed
+                  && (registered ? Neo.getComponent(me.id) === me : !me.id || !Neo.getComponent(me.id))
+                  && me[initializationAttempt] === attempt,
+              windowId      = config.windowId ?? me.windowId,
+              createOpts    = {
                   ...config,
                   appName: config.appName ?? me.appName,
                   windowId
-              },
-              data       = await Promise.resolve(Neo.vdom.Helper.create(createOpts));
+              };
+
+        if (!Neo.config.useVdomWorker) {
+            let helper = Neo.vdom?.Helper;
+
+            if (Neo.currentWorker?.vdomHelperPromise) {
+                await Neo.currentWorker.vdomHelperPromise;
+                helper = Neo.vdom?.Helper
+            } else if (!helper) {
+                ({default: helper} = await import('../vdom/Helper.mjs'))
+            }
+
+            if (helper?.isReady === false && typeof helper.ready === 'function') {
+                await helper.ready()
+            }
+
+            if (typeof helper?.importUtil === 'function' && (
+                Neo.config.useDomApiRenderer ? !Neo.vdom?.util?.DomApiVnodeCreator : !Neo.vdom?.util?.StringFromVnode
+            )) {
+                await helper.importUtil()
+            }
+
+            if (!isLiveAttempt()) {
+                return null
+            }
+        }
+
+        const data = await Promise.resolve(Neo.vdom.Helper.create(createOpts));
+
+        if (!isLiveAttempt()) {
+            return null
+        }
 
         if (createOpts.autoMount && !Neo.config.useVdomWorker) {
-            const deltas = [{
-                action   : 'insertNode',
-                id       : data.vnode?.id ?? createOpts.vdom?.id,
-                index    : createOpts.parentIndex ?? Number.MAX_SAFE_INTEGER,
-                outerHTML: data.outerHTML,
-                parentId : createOpts.parentId,
-                vnode    : data.vnode
-            }];
+            const insertId = data.vnode?.id ?? createOpts.vdom?.id,
+                  deltas   = [{
+                      action   : 'insertNode',
+                      id       : insertId,
+                      index    : createOpts.parentIndex ?? Number.MAX_SAFE_INTEGER,
+                      outerHTML: data.outerHTML,
+                      parentId : createOpts.parentId,
+                      vnode    : data.vnode
+                  }];
 
             data.deltas = deltas;
 
-            await Neo.applyDeltas(windowId, deltas)
+            const ack = await Neo.applyDeltas(windowId, deltas);
+
+            if (!isLiveAttempt()) {
+                return null
+            }
+
+            if (ack?.inserted === false || ack?.skippedInserts > 0) {
+                throw new Error(`Initial mount insertNode skipped for "${insertId}" (parentId: "${createOpts.parentId}")`)
+            }
         }
 
-        if (!me.isDestroyed) {
-            afterCreate?.(data)
-        }
+        afterCreate?.(data);
 
         return data
     }
@@ -935,7 +973,10 @@ class VdomLifecycle extends Base {
             })
         }
 
-        const attempt = me[initializationAttempt] = Symbol();
+        const attempt          = me[initializationAttempt] = Symbol(),
+              registered       = Boolean(id && Neo.getComponent(id) === me),
+              isCurrent        = () => !me.isDestroyed && (registered ? Neo.getComponent(id) === me : !id || !Neo.getComponent(id)),
+              isCurrentAttempt = () => isCurrent() && me[initializationAttempt] === attempt;
         me.isVnodeInitializing = true;
 
         if (!app.vnodeInitialized) {
@@ -967,8 +1008,12 @@ class VdomLifecycle extends Base {
                     vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
                     windowId   : me.windowId
                 }, ({vnode}) => {
-                    me.onInitVnode(vnode, autoMount)
+                    isCurrentAttempt() && me.onInitVnode(vnode, autoMount)
                 });
+
+                if (!data || !isCurrentAttempt()) {
+                    return data
+                }
 
                 if (!data.deltas) {
                     data.deltas = []
@@ -979,9 +1024,7 @@ class VdomLifecycle extends Base {
                 return data
             }
         } catch (err) {
-            const isCurrent = () => Neo.getComponent(id) === me && !me.isDestroyed;
-
-            if (isCurrent() && me[initializationAttempt] === attempt) {
+            if (isCurrentAttempt()) {
                 const postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null;
                 postUpdates && VDomUpdate.postUpdateQueueMap.remove(postUpdates);
                 me.isVdomUpdating      = false;
@@ -1220,9 +1263,15 @@ class VdomLifecycle extends Base {
      * @protected
      */
     resolveVdomUpdate(data, mergedChildIds) {
-        const me          = this,
-              id          = me.id,
-              postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null,
+        const me = this,
+              id = me.id;
+
+        if (me.isDestroyed || (id && Neo.getComponent(id) && Neo.getComponent(id) !== me)) {
+            me.isVdomUpdating = false;
+            return
+        }
+
+        const postUpdates = VDomUpdate.postUpdateQueueMap.get(id) ?? null,
               preUpdate   = VDomUpdate.preUpdateMap.get(id) ?? null;
         let failure;
 
