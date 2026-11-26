@@ -135,6 +135,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Ends tracking and starts a kinetic tail only when recent samples span a positive time interval.
      * @param {MouseEvent|TouchEvent} event
      */
     onDragEnd(event) {
@@ -153,18 +154,17 @@ class GridDragScroll extends Base {
                 document.removeEventListener('touchend', me.activeDrag.listeners.end, {capture: true})
             }
 
-            let {history, id, registration} = me.activeDrag,
-                now                         = Date.now(),
-                cutoff                      = now - 100, // 100ms
-                relevantMoves               = history.filter(item => item.time > cutoff);
+            const {history, id, registration} = me.activeDrag,
+                  cutoff                      = Date.now() - 100,
+                  relevantMoves               = history.filter(item => item.time > cutoff),
+                  oldest                      = relevantMoves[0],
+                  newest                      = relevantMoves.at(-1);
 
-            // We need at least 2 points to calculate velocity
-            if (relevantMoves.length > 1) {
-                let newest = relevantMoves[relevantMoves.length - 1],
-                    oldest = relevantMoves[0],
-                    dt     = newest.time - oldest.time,
-                    vX     = (newest.x - oldest.x) / dt * 16, // px per frame (approx 16ms)
-                    vY     = (newest.y - oldest.y) / dt * 16;
+            // Multiple moves can land in the same millisecond; only elapsed time yields a release velocity.
+            if (newest && newest.time > oldest.time) {
+                const dt = newest.time - oldest.time,
+                      vX = (newest.x - oldest.x) / dt * 16, // px per frame (approx 16ms)
+                      vY = (newest.y - oldest.y) / dt * 16;
 
                 // Simple exponential decay friction
                 // 0.95 feels like a good balance between "slippery" and "controlled"
