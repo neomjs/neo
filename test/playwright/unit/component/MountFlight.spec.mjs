@@ -141,7 +141,7 @@ test.describe('component.Base: one mount attempt for a document.body-rooted comp
         await new Promise(resolve => setTimeout(resolve, 0));
 
         expect(deltas.inserts.length, 'the first attempt reached its insert').toBe(1);
-        expect(component.isVnodeInitializing, 'the insert sits after the flag is lowered').toBe(false);
+        expect(component.isVnodeInitializing, 'vnode adoption waits until Main acknowledges the insert').toBe(true);
 
         component.hidden = true;
         component.hidden = false;

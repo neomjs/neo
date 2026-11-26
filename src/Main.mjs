@@ -662,7 +662,7 @@ class Main extends core.Base {
                         DeltaUpdates.update(operation)
                     }
 
-                    WorkerManager.resolveDomOperationPromise(operation.replyId)
+                    WorkerManager.resolveDomOperationPromise(operation.replyId, operation)
                 } catch (err) {
                     console.error('processQueue: DOM operation failed', mode, err, operation);
                     WorkerManager.rejectDomOperationPromise(operation.replyId, err)

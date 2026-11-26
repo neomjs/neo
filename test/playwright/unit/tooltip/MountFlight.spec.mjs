@@ -68,7 +68,7 @@ test.describe('Neo.tooltip.Base: one mount flight lands on the latest visibility
     };
 
     /**
-     * @summary Proves the arm reached a real, held insertion outside the vnode-initialization flag.
+     * @summary Proves the arm reached a real, held insertion before vnode adoption and mounting settle.
      * @param {Neo.tooltip.Base} tooltip
      */
     const expectHeldInsert = async tooltip => {
@@ -76,7 +76,7 @@ test.describe('Neo.tooltip.Base: one mount flight lands on the latest visibility
 
         expect(inserts).toHaveLength(1);
         expect(pending).toHaveLength(1);
-        expect(tooltip.isVnodeInitializing).toBe(false);
+        expect(tooltip.isVnodeInitializing).toBe(true);
         expect(tooltip.mounted).toBe(false)
     };
 
