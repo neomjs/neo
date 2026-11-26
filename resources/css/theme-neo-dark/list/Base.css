@@ -13,6 +13,10 @@
     /* Text Color */
     --list-item-color-selected           : var(--sem-color-text-primary-default);
 
+    /* Border Color */
+    --list-border-color                  : var(--sem-color-border-default);
+    --list-item-border-color-active      : var(--sem-color-border-focus);
+
     --list-item-focus-outline            : 3px solid var(--sem-color-border-focus);
     --list-item-focus-outline-offset     : -3px; /* the ring's width: inside the row, which the list clips */
     --list-item-glyph-color              : var(--sem-color-icon-neutral-default);
