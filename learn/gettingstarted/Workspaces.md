@@ -65,6 +65,8 @@ server whose doc root is the workspace.
 If you drill down into the `src` directory you'll see your applications.
 The `docs` directory holds the Neo.mjs API docs.
 
+For `'pathname'` routing and `spaRoot` / `--no-spa-root` options on `npm run server-start`, see [Local Serving in the Routing tutorial](../tutorials/Routing.md#local-serving-fileservermjs-and-hosting-boundary).
+
 ## The structure of a simple app
 
 In order to discuss the structure of an app, we'll create a simple starter

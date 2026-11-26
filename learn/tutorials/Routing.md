@@ -13,7 +13,7 @@ navigation between them using Neo.mjs's built-in routing system.
 
 - **View Controllers**: Centralizing the logic for a view, including route handling.
 - **Card Layout**: A layout that shows only one child item at a time, perfect for managing different views.
-- **Routes Config**: A declarative way to map URL hash fragments to controller methods.
+- **Routes Config**: A declarative way to map URL hash fragments (or clean pathnames in `'pathname'` mode) to controller methods.
 - **Declarative Navigation**: Using the `route` config on buttons to handle navigation automatically.
 
 ---
@@ -318,6 +318,54 @@ Now, when you click the "User: John" or "User: Jane" buttons, the `onUserRoute` 
 It receives the name from the URL, updates the content of the user view, and then makes that view active.
 </details>
 
+---
+
+## Opting Into Pathname Routing
+
+Hash routing (`routerMode: 'hash'`) stays the zero-config default because it works on `file://` URLs and static hosts without SPA rewrites. Opt into `'pathname'` when you want clean History API URLs (`/users/Jane`) and control server fallback.
+
+### Configuring `routerMode`, `routerBasePath`, `routerIgnorePaths`, and `<base href>`
+
+Enable `'pathname'` in `neo-config.json` (see `src/DefaultConfig.mjs`) and add `<base href>` in `index.html` so relative asset URLs resolve on nested routes:
+
+```json
+{
+    "routerMode"       : "pathname",
+    "routerBasePath"   : "/apps/myapp",
+    "routerIgnorePaths": ["/docs/", "^/assets/"]
+}
+```
+
+```html
+<base href="/apps/myapp/">
+```
+
+- **`routerBasePath`**: Sub-path prefix stripped before route matching (explicit `''` forces root mounting; when omitted, `DomEvents#resolveRouterBasePath()` adopts the `<base href>` pathname if `location.pathname` starts with it).
+- **`routerIgnorePaths`**: Prefixes or `^`-anchored regex strings evaluated against the raw pathname after `routerBasePath` *before* trailing-slash canonicalization (`src/util/Route.mjs`). Matched paths and `STATIC_ASSET_EXTENSIONS` keep native browser navigation.
+- **Dist builds**: `dist/esm`, `dist/development`, and `dist/production` transforms (`rewritePathnameConfig` and `rewritePathnameHtml` in `buildScripts/util/esmDistTransforms.mjs`) rewrite `routerBasePath` and `<base href>` to the emitted output directory without server-side HTML rewriting.
+
+### Reading `?search` Parameters and `Neo.Main.editRoute`
+
+Controller `routes` still match `value.hashString` (the path). In `'pathname'` mode, `value.hash` holds typed parsed query values, `value.query` holds raw strings or arrays for repeated keys and `key[]`, and `value.search` holds the query string without `?`:
+
+```javascript
+onUserRoute(params, value) {
+    console.log(value.query, value.search);
+    Neo.Main.editRoute({tab: 'activity', filter: ['open', 'assigned']});
+    Neo.Main.editRoute({tab: null}); // removes key, including the last remaining key
+}
+```
+
+### `SharedWorker` Per-Window Links (`windowId`)
+
+In `SharedWorker` apps with multiple windows, pass an explicit `windowId` to `Neo.util.String.toRouteHref(route, this.windowId)` and read `Neo.windowConfigs[windowId]` instead of worker-global `Neo.config` so each window keeps its own `routerMode` and `routerBasePath`.
+
+### Local Serving (`fileServer.mjs`) and Hosting Boundary
+
+`buildScripts/util/fileServer.mjs` enables shell fallback for sub-path apps whose on-disk `neo-config.json` sets `"routerMode": "pathname"` while keeping physical files and static assets untouched. In an `npx neo-app` workspace (`neomjs/create-app`), `npm run server-start` calls `fileServer.mjs` `run({open})` with no `spaRoot` configured so workspace browsing at `/` stays unchanged until you opt in. Set `"neo": {"spaRoot": "apps/<app>"}` in `package.json` (as `neomjs/neo` sets for `apps/portal`) to mount a `'pathname'` app at `/`, or override it per run with `--spa-root <dir>` and `--no-spa-root`.
+
+The engine router and `fileServer.mjs` handle interactive human-browser routing only. SEO snapshots, status codes, and redirects belong to your deployment's server — `fileServer.mjs` never rewrites HTML or emulates bot snapshots.
+
 ## Summary
 
 Congratulations! You've built a multi-view application and learned the fundamentals of routing in Neo.mjs.
@@ -328,3 +376,4 @@ You now know how to:
 - Define a `routes` config to map URL hashes to controller methods.
 - Use the `route` config on buttons for easy, declarative navigation.
 - Create dynamic routes that accept parameters from the URL.
+- Opt into `'pathname'` routing with `routerBasePath`, `routerIgnorePaths`, `?search` edits (`Neo.Main.editRoute`), `SharedWorker` `windowId` links (`Neo.util.String.toRouteHref`), and `fileServer.mjs` `spaRoot`.

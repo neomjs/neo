@@ -32,6 +32,8 @@ This script automates the entire setup process:
 4.  It runs the initial Neo.mjs builds (`npm run build-all`).
 5.  It starts the development server for you (`npm run server-start`).
 
+For `'pathname'` routing and `spaRoot` / `--no-spa-root` options on `npm run server-start`, see [Local Serving in the Routing tutorial](../tutorials/Routing.md#local-serving-fileservermjs-and-hosting-boundary).
+
 When you're finished, you will have a complete Neo.mjs workspace, as described in the _Workspaces and Applications_ topic, which follows.
 
 ## Understanding the Four Environments

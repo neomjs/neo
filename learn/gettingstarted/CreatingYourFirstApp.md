@@ -25,6 +25,8 @@ If you ever want to start the server again later, just run:
 npm run server-start
 ```
 
+For `'pathname'` routing and `spaRoot` / `--no-spa-root` options on `npm run server-start`, see [Local Serving in the Routing tutorial](../tutorials/Routing.md#local-serving-fileservermjs-and-hosting-boundary).
+
 **Note:**  
 You can also create additional apps inside the same workspace later by running
 
