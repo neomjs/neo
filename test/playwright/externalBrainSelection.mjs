@@ -127,6 +127,7 @@ export const ADAPTER_ELIGIBLE_SPECS = new Set([
     'rendering/CalendarMonthRollover.spec.mjs',
     'rendering/ContextMenuNL.spec.mjs',
     'rendering/DeltaCoherenceRegistryNL.spec.mjs',
+    'rendering/DirectVdomReplyNL.spec.mjs',
     'rendering/FocusHistoryMultiWindowNL.spec.mjs',
     'rendering/GraphScene.spec.mjs',
     'rendering/MarkdownStreamingCoherenceNL.spec.mjs',

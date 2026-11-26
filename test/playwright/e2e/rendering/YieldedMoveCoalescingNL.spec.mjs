@@ -274,10 +274,10 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
                           holding: false, released: false, queue: [], arrivals: [], delivered: [], batches: [], maxNodes: 1
                       };
 
-                // Hold the real leaf reply upstream of Main's renderer and App acknowledgement. Every later
+                // Hold the real leaf delta upstream of Main's renderer and App acknowledgement. Every later
                 // message on this VDOM source channel queues behind it; no response may overtake another.
                 vdomWorker.onmessage = function(event) {
-                    const roots    = Object.keys(event.data.data?.vnodes || {}),
+                    const roots    = event.data.action === 'updateVdom' ? (event.data.deltas || []).map(delta => delta.id) : [],
                           sequence = witness.arrivals.length;
 
                     witness.arrivals.push({sequence, roots});
@@ -323,7 +323,7 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
             try {
                 await app.setProperties(entryId, {style: {color: 'red'}});
                 await expect.poll(() => page.evaluate(id => window.dispatchedMoveWitness.queue.some(
-                    item => Object.hasOwn(item.event.data.data?.vnodes || {}, id)
+                    item => item.event.data.action === 'updateVdom' && item.event.data.deltas?.some(delta => delta.id === id)
                 ), entryId), {message: 'the moving leaf has a genuine dispatched VDOM response'}).toBe(true);
                 expect(await app.getComponent(entryId, ['mounted', 'parentId', 'isVdomUpdating'])).toEqual({
                     mounted: true, parentId: sourceId, isVdomUpdating: true
@@ -372,7 +372,7 @@ test.describe('Cross-container insert coalescing under yielded ancestor VDOM upd
                     // A broken target has already escaped the ancestor. Include its actual response in the
                     // FIFO release; a fixed target merges without dispatching, so no absent response is awaited.
                     await expect.poll(() => page.evaluate(id => window.dispatchedMoveWitness.queue.some(
-                        item => Object.hasOwn(item.event.data.data?.vnodes || {}, id)
+                        item => item.event.data.action === 'updateVdom' && item.event.data.deltas?.some(delta => delta.id === id)
                     ), collectorId)).toBe(true)
                 }
 

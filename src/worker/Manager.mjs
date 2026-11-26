@@ -26,8 +26,8 @@ navigator.serviceWorker?.addEventListener('controllerchange', function() {
  * 2.  **Message Routing:** Acting as the hub for inter-worker communication. While standard messages are routed
  *     via the main thread, this manager also facilitates the initial handshake to establish direct
  *     **MessageChannel** connections between workers (e.g., App <-> Canvas) for high-performance,
- *     bi-directional communication. The VDOM update process is a notable exception, using a triangular
- *     flow (App -> VDom -> Main -> App) by design.
+ *     bi-directional communication. In worker-based VDOM updates, Main receives the DOM write set;
+ *     the VDom worker returns the VNode result to App directly.
  * 3.  **DOM Update Coordination:** intercepting VDOM update requests and synchronizing them with the
  *     browser's animation frame to ensure smooth rendering. This involves a complex promise-based
  *     mechanism to delay worker replies until the DOM changes are actually painted.
@@ -271,6 +271,9 @@ class Manager extends Base {
         isCanvas && worker.addEventListener('error', () => {
             me.sendMessage('app', {action: 'canvasStartFailed', group: canvasGroup})
         });
+        if (opts === me.workers.vdom) {
+            worker.addEventListener('error', () => me.sendMessage('app', {action: 'vdomWorkerFailed', windowId: me.windowId}))
+        }
 
         me.activeWorkers++;
 
@@ -543,6 +546,12 @@ class Manager extends Base {
         const {action, destination: dest, replyId} = data;
 
         me.fire('message:'+action, data);
+
+        // The channel handshake is acknowledged on the transferred port. Main owns no reply promise.
+        if (action === 'registerPort' && data.origin === 'vdom' && dest === 'app') {
+            me.sendMessage(dest, data, [data.transfer]);
+            return
+        }
 
         if (action === 'updateVdom') {
             if (me.isForeignWindowId(dest)) {

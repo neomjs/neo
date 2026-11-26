@@ -11,6 +11,9 @@ import HashHistory         from '../util/HashHistory.mjs';
 import {getThemeNamespace} from '../util/Theme.mjs';
 import {generateUUID}     from '../util/UUID.mjs';
 
+// A terminated worker or closed channel need not deliver either leg or an error event.
+const vdomReplyTimeout = 30_000;
+
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
  * See the tutorials for further infos.
@@ -920,9 +923,119 @@ class App extends Base {
             return
         }
 
-        port.onmessage = me.onMessage.bind(me);
+        if (origin === 'vdom') {
+            port.onmessageerror = () => me.rejectVdomReplies(port);
+            port.onmessage = event => {
+                if (event.data.action === 'vdomChannelActive') {
+                    // A departing window can deliver its provisional port after a sibling delivered the replacement.
+                    // Only the port still owned by VDom can answer this handshake.
+                    const previous = me.channelPorts.vdom;
+                    if (previous && previous !== port) {
+                        me.rejectVdomReplies(previous);
+                        previous.close()
+                    }
+                    me.channelPorts.vdom = port;
+                    port.postMessage({action: 'vdomChannelRegistered'})
+                } else if (me.channelPorts.vdom === port) {
+                    me.onMessage(event)
+                }
+            };
+            port.addEventListener('close', () => {
+                me.rejectVdomReplies(port);
+                if (me.channelPorts.vdom === port) delete me.channelPorts.vdom
+            });
+            port.postMessage({action: 'vdomChannelReady'});
+            return
+        }
 
+        port.onmessage = me.onMessage.bind(me);
         me.channelPorts[origin] = port
+    }
+
+    /**
+     * @summary Joins Main's DOM-write acknowledgement with the direct VDom result. An ordinary reply, including
+     * a rejection, retains the base settlement path.
+     * @param {Object} msg
+     * @protected
+     */
+    onReply(msg) {
+        const pending = this.promises[msg.replyId];
+
+        if (pending?.vdomPort && !msg.reject && msg.success === true) {
+            pending.mainAckReceived = true;
+            if (!pending.vdomPayload) return;
+            msg = {...msg, data: pending.vdomPayload}
+        }
+        super.onReply(msg)
+    }
+
+    /**
+     * @summary Accepts the tree for one update. No-delta/no-meta updates have no Main leg.
+     * @param {Object} msg
+     * @protected
+     */
+    onVdomTreeReply({replyId, domAckRequired, data}) {
+        const pending = this.promises[replyId];
+
+        if (!pending?.vdomPort) return;
+
+        if (domAckRequired && !pending.mainAckReceived) {
+            pending.vdomPayload = data
+        } else {
+            super.onReply({replyId, data})
+        }
+    }
+
+    /**
+     * @summary A window observing its VDom worker fail releases its own outstanding update flights.
+     * @param {Object} msg
+     * @protected
+     */
+    onVdomWorkerFailed({windowId}) {
+        this.rejectVdomReplies(this.channelPorts.vdom, windowId)
+    }
+
+    /**
+     * @summary Releases update flights owned by a failed VDom channel generation.
+     * @param {MessagePort} port
+     * @param {String} [windowId]
+     * @protected
+     */
+    rejectVdomReplies(port, windowId) {
+        for (const [replyId, pending] of Object.entries(this.promises)) {
+            if (port && pending.vdomPort === port && (!windowId || !this.isSharedWorker || pending.windowId === windowId)) {
+                this.onReply({replyId, reject: true, data: new Error('VDom channel failed before update completed')})
+            }
+        }
+    }
+
+    /**
+     * @summary Marks only remote VDom helper updates for split settlement; create and other RPCs keep one reply.
+     * @param {String} dest
+     * @param {Object} opts
+     * @param {Array} [transfer]
+     * @returns {Promise<*>}
+     */
+    promiseMessage(dest, opts, transfer) {
+        if (dest !== 'vdom' || !Message.isVdomUpdate(opts)) {
+            return super.promiseMessage(dest, opts, transfer)
+        }
+        const port = this.channelPorts.vdom;
+        if (!port) return Promise.reject(new Error('VDom update channel is unavailable'));
+
+        const result  = super.promiseMessage(dest, opts, transfer),
+              id      = opts.id,
+              pending = this.promises[id];
+
+        if (!pending) return result;
+
+        pending.vdomPort = port;
+        const timer = setTimeout(() => {
+            if (this.promises[id] === pending) {
+                this.onReply({replyId: id, reject: true, data: new Error('VDom update timed out waiting for its tree and DOM acknowledgement')})
+            }
+        }, vdomReplyTimeout);
+        return result.finally(() => clearTimeout(timer))
     }
 
     /**
