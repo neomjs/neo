@@ -340,11 +340,13 @@ test.describe('Neo.form.field.Text', () => {
                 const [
                     {default: Button},
                     {default: Container},
+                    {default: DateTrigger},
                     {default: StateProvider},
                     {default: FieldModule}
                 ] = await Promise.all([
                     import('../button/Base.mjs'),
                     import('../container/Base.mjs'),
+                    import('../form/field/trigger/Date.mjs'),
                     import('../state/Provider.mjs'),
                     import(`../form/field/${type}.mjs`)
                 ]);
@@ -372,6 +374,7 @@ test.describe('Neo.form.field.Text', () => {
                               module       : FieldModule,
                               labelPosition: 'inline',
                               labelText    : 'Bound disabled',
+                              triggers     : [{module: DateTrigger}],
                               value        : 'Bound value',
                               bind         : {
                                   disabled: data => data.locked
@@ -433,6 +436,30 @@ test.describe('Neo.form.field.Text', () => {
                 });
                 expect(withAttribute).toEqual(classOnly)
             }
+
+            // Trigger paint continuity: .neo-field-trigger.neo-disabled keeps opacity 1 so it does not double-dim inside the 0.5 field root
+            const boundTrigger = boundField.locator('.neo-field-trigger').first();
+            await expect(boundTrigger).toHaveClass(/neo-disabled/);
+            const triggerPaint = await boundTrigger.evaluate(node => {
+                const probe = () => {
+                    const style = getComputedStyle(node);
+                    return {
+                        backgroundColor: style.backgroundColor,
+                        borderLeftColor: style.borderLeftColor,
+                        color          : style.color,
+                        opacity        : style.opacity
+                    }
+                };
+                const rootOpacity  = getComputedStyle(node.closest('.neo-textfield')).opacity,
+                      withDisabled = probe();
+                node.classList.remove('neo-disabled');
+                const withoutDisabled = probe();
+                node.classList.add('neo-disabled');
+                return {rootOpacity, withDisabled, withoutDisabled}
+            });
+            expect(triggerPaint.rootOpacity).toBe('0.5');
+            expect(triggerPaint.withDisabled.opacity).toBe('1');
+            expect(triggerPaint.withDisabled).toEqual(triggerPaint.withoutDisabled);
 
             // Tab from sentinel skips both disabled fields and lands directly on the read-only field
             await sentinel.focus();
