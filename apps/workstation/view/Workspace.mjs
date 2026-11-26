@@ -1,4 +1,5 @@
 import BoardPane                           from './BoardPane.mjs';
+import ClassSystemUtil                     from '../../../src/util/ClassSystem.mjs';
 import CommandPalette                      from '../../../examples/workbench/CommandPalette.mjs';
 import Container                           from '../../../src/container/Base.mjs';
 import VesselWorkspace                     from './VesselWorkspace.mjs';
@@ -150,6 +151,12 @@ class Workspace extends VesselWorkspace {
             }
         },
         /**
+         * Lazily created contextual command palette shared across this workspace's windows.
+         * @member {Neo.examples.workbench.CommandPalette|Object|null} commandPalette_=null
+         * @reactive
+         */
+        commandPalette_: null,
+        /**
          * The class `construct` builds the controls row's status readout from. An app that extends the
          * Workstation names its own readout class here, through a `Workstation.view.Workspace` subclass or
          * the workspace config object: `statusModule: MyStatusComponent`.
@@ -158,11 +165,6 @@ class Workspace extends VesselWorkspace {
         statusModule: StatusComponent
     }
 
-    /**
-     * Lazily created contextual command palette shared across this workspace's windows.
-     * @member {Neo.examples.workbench.CommandPalette|null} commandPalette=null
-     */
-    commandPalette = null
     /**
      * @member {Neo.ai.client.DockService|null} dockService=null
      */
@@ -902,6 +904,17 @@ class Workspace extends VesselWorkspace {
     }
 
     /**
+     * @param {Neo.examples.workbench.CommandPalette|Object|null} value
+     * @param {Neo.examples.workbench.CommandPalette|null} oldValue
+     * @returns {Neo.examples.workbench.CommandPalette|null}
+     * @protected
+     */
+    beforeSetCommandPalette(value, oldValue) {
+        oldValue?.destroy?.();
+        return value ? ClassSystemUtil.beforeSetInstance(value, CommandPalette) : null
+    }
+
+    /**
      * @summary Synchronizes document-level command-palette shortcut listeners with the workspace's mount state.
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -919,7 +932,6 @@ class Workspace extends VesselWorkspace {
      */
     destroyWorkspaceContent() {
         this.getController()?.syncBodyKeyCapture?.(false);
-        this.commandPalette?.destroy();
         this.commandPalette = null;
         this.dockService?.destroy();
         this.perspectiveStore?.destroy();

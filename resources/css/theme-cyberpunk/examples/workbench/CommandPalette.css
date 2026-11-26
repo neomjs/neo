@@ -1,0 +1,14 @@
+:root .neo-theme-cyberpunk {
+    --command-palette-active-bg    : rgba(0, 210, 255, 0.14);
+    --command-palette-active-border: var(--cyber-cyan);
+    --command-palette-backdrop-bg  : rgba(7, 10, 16, 0.72);
+    --command-palette-badge-bg     : var(--cyber-bg-alt);
+    --command-palette-border-color : var(--cyber-border);
+    --command-palette-focus-ring   : var(--cyber-cyan);
+    --command-palette-footer-bg    : var(--cyber-bg);
+    --command-palette-hover-bg     : rgba(0, 210, 255, 0.07);
+    --command-palette-muted-color  : #9aa6b8;
+    --command-palette-shadow       : var(--cyber-glow), 0 22px 48px rgba(0, 0, 0, 0.75);
+    --command-palette-surface-bg   : var(--cyber-bg-alt);
+    --command-palette-text-color   : var(--cyber-text);
+}

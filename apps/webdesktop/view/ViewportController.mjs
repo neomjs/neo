@@ -185,7 +185,7 @@ class ViewportController extends Controller {
               viewport = me.component;
 
         if (!viewport.commandPalette || viewport.commandPalette.isDestroyed) {
-            viewport.commandPalette = Neo.create(CommandPalette, {
+            viewport.commandPalette = {
                 actionProvider : () => me.buildCommandPaletteActions(),
                 appName        : viewport.appName,
                 parentComponent: viewport,
@@ -193,7 +193,7 @@ class ViewportController extends Controller {
                 theme          : me.getState('theme') || viewport.getTheme(),
                 title          : 'Web Desktop Commands',
                 windowId       : viewport.windowId
-            })
+            }
         }
 
         return viewport.commandPalette

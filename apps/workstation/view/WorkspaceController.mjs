@@ -128,7 +128,7 @@ class WorkspaceController extends Controller {
               workspace = me.component;
 
         if (!workspace.commandPalette || workspace.commandPalette.isDestroyed) {
-            workspace.commandPalette = Neo.create(CommandPalette, {
+            workspace.commandPalette = {
                 actionProvider : ({windowId}) => me.buildCommandPaletteActions(windowId),
                 appName        : workspace.appName,
                 parentComponent: workspace,
@@ -136,7 +136,7 @@ class WorkspaceController extends Controller {
                 theme          : workspace.getTheme(),
                 title          : 'Workstation Commands',
                 windowId       : workspace.windowId
-            })
+            }
         }
 
         return workspace.commandPalette

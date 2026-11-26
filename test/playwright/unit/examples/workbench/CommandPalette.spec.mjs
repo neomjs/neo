@@ -5,27 +5,51 @@ const appName = 'WorkbenchCommandPaletteUnitTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        unitTestMode           : true
+        unitTestMode           : true,
+        useDomApiRenderer      : true,
+        useVdomWorker          : false
     },
     appConfig: {
-        name: appName
+        name             : appName,
+        vnodeInitialising: false
     }
 });
 
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../../src/Neo.mjs';
 import * as core          from '../../../../../src/core/_export.mjs';
-import InstanceManager    from '../../../../../src/manager/Instance.mjs';
-import VDomUtil           from '../../../../../src/util/VDom.mjs';
+import '../../../../../src/manager/Instance.mjs';
+import '../../../../../src/vdom/Helper.mjs';
+import '../../../../../src/vdom/util/DomApiVnodeCreator.mjs';
+import '../../../../../src/vdom/util/StringFromVnode.mjs';
 import Button             from '../../../../../src/button/Base.mjs';
+import Dialog             from '../../../../../src/dialog/Base.mjs';
+import List               from '../../../../../src/list/Base.mjs';
+import TextField          from '../../../../../src/form/field/Text.mjs';
+import CommandActionList  from '../../../../../examples/workbench/CommandActionList.mjs';
 import CommandActionModel from '../../../../../examples/workbench/CommandActionModel.mjs';
 import CommandPalette     from '../../../../../examples/workbench/CommandPalette.mjs';
 
 test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
-    let instances;
+    let domAccess, instances, navigatorCalls, navigatorMock, ownDomAccess, priorNavigator;
 
     test.beforeEach(() => {
-        instances = []
+        instances      = [];
+        navigatorCalls = {navigateTo: [], subscribe: [], unsubscribe: []};
+
+        domAccess    = Neo.main.DomAccess;
+        ownDomAccess = ['syncModalMask', 'trapFocus'].map(name => [name, Object.hasOwn(domAccess, name), domAccess[name]]);
+        ownDomAccess.forEach(([name]) => {
+            domAccess[name] = () => {}
+        });
+
+        priorNavigator = Neo.main.addon.Navigator;
+        navigatorMock  = {
+            navigateTo : payload => navigatorCalls.navigateTo.push(payload),
+            subscribe  : payload => navigatorCalls.subscribe.push(payload),
+            unsubscribe: payload => navigatorCalls.unsubscribe.push(payload)
+        };
+        Neo.main.addon.Navigator = navigatorMock
     });
 
     test.afterEach(() => {
@@ -33,7 +57,13 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
             if (instance && !instance.isDestroyed) {
                 instance.destroy()
             }
-        })
+        });
+
+        ownDomAccess.forEach(([name, own, method]) => {
+            own ? domAccess[name] = method : delete domAccess[name]
+        });
+
+        Neo.main.addon.Navigator = priorNavigator
     });
 
     test('matches standard keyboard open shortcuts and multi-token search queries', () => {
@@ -58,11 +88,12 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
         expect(CommandPalette.matchesQuery(record, 'planning unknown')).toBe(false)
     });
 
-    test('hydrates CommandActionModel records, skips initial unavailable items, filters, navigates, and announces status', async () => {
+    test('composes Dialog, TextField, CommandActionList, and Navigator on the real mount path', async () => {
         const calls   = [],
               palette = Neo.create(CommandPalette, {
                   appName,
                   theme         : 'neo-theme-neo-dark',
+                  windowId      : 1,
                   actionProvider: () => [{
                       id               : 'undo',
                       available        : false,
@@ -90,9 +121,15 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
 
         instances.push(palette);
 
-        await palette.open({theme: 'neo-theme-neo-dark'});
+        expect(palette instanceof Dialog).toBe(true);
+        expect(palette.queryField instanceof TextField).toBe(true);
+        expect(palette.actionList instanceof CommandActionList).toBe(true);
+        expect(palette.actionList instanceof List).toBe(true);
+
+        await palette.open({theme: 'neo-theme-neo-dark', windowId: 1});
 
         expect(palette.isOpen).toBe(true);
+        expect(palette.mounted).toBe(true);
         expect(palette.store.model.className).toBe(CommandActionModel.prototype.className);
         expect(palette.store.getCount()).toBe(3);
         expect(palette.store.getAt(0).id, 'available commands sort ahead of unavailable ones').toBe('planning');
@@ -100,26 +137,34 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
         expect(palette.activeIndex).toBe(0);
         expect(palette.cls).toContain('neo-theme-neo-dark');
 
-        const inputNode  = VDomUtil.find(palette.vdom, {id: palette.inputId})?.vdom,
-              statusNode = VDomUtil.find(palette.vdom, {id: palette.statusId})?.vdom;
-
+        const inputNode = palette.queryField.getInputEl();
         expect(inputNode.role).toBe('combobox');
-        expect(inputNode['aria-activedescendant']).toBe(palette.getOptionId('planning'));
-        expect(statusNode.role).toBe('status');
-        expect(statusNode['aria-live']).toBe('polite');
-        expect(statusNode.text).toBe('3 commands (2 available, 1 unavailable).');
+        expect(inputNode['aria-controls']).toBe(palette.listboxId);
+        expect(palette.statusComponent.role).toBe('status');
+        expect(palette.statusComponent.vdom['aria-live']).toBe('polite');
+        expect(palette.statusComponent.text).toBe('3 commands (2 available, 1 unavailable).');
 
-        palette.onPaletteKeyDown({key: 'ArrowDown'});
+        // Navigator subscribed with the query input as eventSource and navigated to index 0
+        expect(navigatorCalls.subscribe.length).toBe(1);
+        expect(navigatorCalls.subscribe[0].eventSource).toBe(palette.inputId);
+        expect(navigatorCalls.subscribe[0].wrap).toBe(true);
+        expect(navigatorCalls.navigateTo.at(-1)?.target).toBe(0);
+
+        // Navigator itemNavigate updates activeIndex and announces unavailable reasons
+        palette.actionList.fire('itemNavigate', {
+            activeIndex: 1,
+            record     : palette.store.getAt(1)
+        });
         expect(palette.activeIndex).toBe(1);
 
-        palette.onPaletteKeyDown({key: 'ArrowDown'});
+        palette.actionList.fire('itemNavigate', {
+            activeIndex: 2,
+            record     : palette.store.getAt(2)
+        });
         expect(palette.activeIndex).toBe(2);
         expect(palette.statusText).toBe('Undo layout change — unavailable: Nothing to undo.');
 
-        palette.onPaletteKeyDown({key: 'ArrowDown'});
-        expect(palette.activeIndex, 'wraps from end to start').toBe(0);
-
-        // Pressing Enter on an unavailable option must NOT invoke its handler or close the palette
+        // Activating an unavailable option refuses execution and keeps the dialog open
         const refused = await palette.activateRecord(palette.store.get('undo'), {source: 'keyboard'});
         expect(refused.executed).toBe(false);
         expect(refused.reason).toBe('Nothing to undo');
@@ -127,19 +172,19 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
         expect(palette.isOpen).toBe(true);
         expect(palette.statusText).toBe('Undo layout change is unavailable: Nothing to undo.');
 
-        // Filtering narrows the store and announces the match count
-        palette.setQuery('schedule');
+        // Filtering via TextField change updates the store and status announcement
+        palette.queryField.value = 'schedule';
         expect(palette.store.getCount()).toBe(1);
         expect(palette.activeIndex).toBe(0);
         expect(palette.statusText).toBe('1 command matching "schedule".');
 
-        // Zero-match query renders explicit empty state and clears activeIndex
+        // Zero-match query hides list items via .neo-is-empty and reveals emptyState
         palette.setQuery('nonexistent-command');
         expect(palette.store.getCount()).toBe(0);
         expect(palette.activeIndex).toBe(-1);
         expect(palette.statusText).toBe('No commands matching "nonexistent-command".');
-        const emptyTitle = VDomUtil.find(palette.vdom, {cls: 'neo-command-palette-empty-title'})?.vdom;
-        expect(emptyTitle.text).toBe('No matching commands');
+        expect(palette.emptyState.hidden).toBe(false);
+        expect(palette.emptyState.vdom.cn[0].text).toBe('No matching commands');
 
         // Switching theme updates the root theme carrier class
         palette.theme = 'neo-theme-neo-light';
@@ -147,13 +192,14 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
         expect(palette.cls).not.toContain('neo-theme-neo-dark')
     });
 
-    test('restores focus to returnFocusId on close, or falls back to fallbackFocusId when origin control unmounts', async () => {
+    test('restores focus to returnFocusId on close, or falls back to fallbackFocusId when origin control hides', async () => {
         const focusLog = [],
-              origin   = Neo.create(Button, {appName, text: 'Origin'}),
-              fallback = Neo.create(Button, {appName, text: 'Fallback'}),
+              origin   = Neo.create(Button, {appName, text: 'Origin', windowId: 1}),
+              fallback = Neo.create(Button, {appName, text: 'Fallback', windowId: 1}),
               palette  = Neo.create(CommandPalette, {
                   appName,
-                  actions: [{
+                  windowId: 1,
+                  actions : [{
                       id     : 'unmount-origin',
                       label  : 'Replace view',
                       handler: () => {
@@ -176,16 +222,20 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
 
         await palette.open({
             fallbackFocusId: () => fallback.id,
-            returnFocusId  : origin.id
+            returnFocusId  : origin.id,
+            windowId       : 1
         });
 
         await palette.close({restoreFocus: true});
+        expect(palette.mounted).toBe(false);
+        expect(navigatorCalls.unsubscribe.length).toBe(1);
         expect(focusLog).toEqual([['origin', origin.id]]);
 
         focusLog.length = 0;
         await palette.open({
             fallbackFocusId: () => fallback.id,
-            returnFocusId  : origin.id
+            returnFocusId  : origin.id,
+            windowId       : 1
         });
 
         await palette.activateRecord(palette.store.get('unmount-origin'));
@@ -196,7 +246,8 @@ test.describe('Neo.examples.workbench.CommandPalette (unit)', () => {
         focusLog.length = 0;
         await palette.open({
             fallbackFocusId: () => fallback.id,
-            returnFocusId  : fallback.id
+            returnFocusId  : fallback.id,
+            windowId       : 1
         });
 
         await palette.activateRecord(palette.store.get('custom-focus'));

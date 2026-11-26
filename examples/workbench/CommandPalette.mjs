@@ -1,13 +1,16 @@
 import ClassSystemUtil    from '../../src/util/ClassSystem.mjs';
+import CommandActionList  from './CommandActionList.mjs';
 import CommandActionModel from './CommandActionModel.mjs';
 import Component          from '../../src/component/Base.mjs';
+import Container          from '../../src/container/Base.mjs';
+import Dialog             from '../../src/dialog/Base.mjs';
+import NeoArray           from '../../src/util/Array.mjs';
 import Store              from '../../src/data/Store.mjs';
-
-const PREVENT_INPUT_KEYS = ['ArrowDown', 'ArrowUp', 'End', 'Enter', 'Escape', 'Home', 'Tab'],
-      PREVENT_CLOSE_KEYS = ['Escape', 'Tab'];
+import TextField          from '../../src/form/field/Text.mjs';
 
 /**
- * @summary Reusable keyboard-first command palette prototype consumed by Workstation and Web Desktop.
+ * @summary Reusable keyboard-first command palette prototype composed from `Neo.dialog.Base`,
+ * `Neo.form.field.Text`, `Neo.list.Base`, and `Neo.main.addon.Navigator`.
  *
  * `CommandPalette` keeps contextual action discovery decoupled from any single application's state
  * provider or window topology. Consumers supply action descriptors (`id`, `label`, `group`,
@@ -15,20 +18,23 @@ const PREVENT_INPUT_KEYS = ['ArrowDown', 'ArrowUp', 'End', 'Enter', 'Escape', 'H
  * `handler`) statically via {@link #actions} or dynamically on each open via {@link #actionProvider},
  * backed by a `Neo.data.Store` of {@link Neo.examples.workbench.CommandActionModel} records.
  *
- * ### Accessibility & Interaction Contract
- * - Opens as a modal `role="dialog"` (`aria-modal="true"`) containing an ARIA 1.2 `role="combobox"`
- *   search input controlling a `role="listbox"` (`aria-activedescendant`) of `role="option"` items.
- * - Announces live result counts and unavailable-action explanations through a polite `role="status"`
- *   region (`aria-live="polite"`).
- * - Unavailable commands remain visible (`aria-disabled="true"`) with their explicit reason so users
- *   understand why an action cannot run right now, and are never silently invoked on `Enter` or click.
- * - Restores focus to `returnFocusId` on dismissal, or probes `fallbackFocusId` when an executed
- *   command unmounts the origin control (such as switching arrangements or signing out).
+ * ### Engine Primitive Composition
+ * - **`Neo.dialog.Base` (`modal: true`, `trapFocus: true`, `draggable: false`, `resizable: false`):**
+ *   owns modal mask synchronization (`DomAccess.syncModalMask`), DOM focus trapping (`DomAccess.trapFocus`),
+ *   `Escape` dismissal (`keys: {Escape: 'onKeyDownEscape'}`), header close button routing, and arrival focus
+ *   onto the query field (`Dialog#focusOnArrival`).
+ * - **`Neo.form.field.Text` (`role: 'combobox'`) + `CommandActionList` (`Neo.list.Base`, `role: 'listbox'`):**
+ *   paired via `navigator: {eventSource: queryField.getInputElId(), wrap: true}` (`ComboBox` picker pattern)
+ *   so `ArrowDown`, `ArrowUp`, `Home`, `End`, `Enter`, `aria-activedescendant`, and smooth scrolling execute
+ *   directly on the Main thread via `Neo.main.addon.Navigator`.
+ * - **Explicit unavailable & empty states:** unavailable actions stay navigable (`aria-disabled="true"`) with
+ *   visible reason pills and announce refusals through `role="status"` (`aria-live="polite"`) without invoking
+ *   their handler or closing the dialog.
  *
  * @class Neo.examples.workbench.CommandPalette
- * @extends Neo.component.Base
+ * @extends Neo.dialog.Base
  */
-class CommandPalette extends Component {
+class CommandPalette extends Dialog {
     static config = {
         /**
          * @member {String} className='Neo.examples.workbench.CommandPalette'
@@ -61,15 +67,34 @@ class CommandPalette extends Component {
          */
         autoMount: false,
         /**
-         * @member {String[]} baseCls=['neo-command-palette-backdrop']
-         * @protected
+         * @member {Boolean} autoShow=false
          */
-        baseCls: ['neo-command-palette-backdrop'],
+        autoShow: false,
         /**
-         * Visible label on the header close control.
+         * Keep the instance across open/close cycles so consumers reuse one palette per workspace/viewport.
+         * @member {String} closeAction='hide'
+         */
+        closeAction: 'hide',
+        /**
+         * Visible label on the dialog header close button.
          * @member {String} closeButtonText='Esc'
          */
         closeButtonText: 'Esc',
+        /**
+         * @member {String[]} cls=['neo-command-palette','neo-command-palette-surface']
+         */
+        cls: ['neo-command-palette', 'neo-command-palette-surface'],
+        /**
+         * @member {Object} containerConfig
+         */
+        containerConfig: {
+            cls   : ['neo-command-palette-body'],
+            layout: {ntype: 'vbox', align: 'stretch'}
+        },
+        /**
+         * @member {Boolean} draggable=false
+         */
+        draggable: false,
         /**
          * Supporting copy when the consumer registered zero commands.
          * @member {String} emptyActionsDescription='This view has not registered any contextual commands yet.'
@@ -91,17 +116,6 @@ class CommandPalette extends Component {
          */
         emptyResultsTitle: 'No matching commands',
         /**
-         * Full-viewport fixed modal backdrop (`parentId: 'document.body'`); does not use `.neo-floating`'s
-         * off-screen `(-10000px, -10000px)` pre-alignment park.
-         * @member {Boolean} floating=false
-         */
-        floating: false,
-        /**
-         * The palette focuses its combobox input explicitly after mounting and registering key rules.
-         * @member {Boolean} focusOnMount=false
-         */
-        focusOnMount: false,
-        /**
          * @member {Boolean} hidden=true
          */
         hidden: true,
@@ -110,6 +124,10 @@ class CommandPalette extends Component {
          * @member {String} legendText='↑↓ navigate · Enter run · Esc close'
          */
         legendText: '↑↓ navigate · Enter run · Esc close',
+        /**
+         * @member {Boolean} modal=true
+         */
+        modal: true,
         /**
          * @member {String} parentId='document.body'
          */
@@ -120,57 +138,92 @@ class CommandPalette extends Component {
          */
         placeholder: 'Type a command or search actions...',
         /**
+         * @member {Boolean} resizable=false
+         */
+        resizable: false,
+        /**
+         * @member {String} role='dialog'
+         */
+        role: 'dialog',
+        /**
          * Backing store of {@link Neo.examples.workbench.CommandActionModel} records.
          * @member {Neo.data.Store|Object|null} store_=null
          * @reactive
          */
         store_: null,
         /**
-         * Accessible dialog title and subtle header badge.
-         * @member {String} title='Command Palette'
+         * Accessible dialog title and header label.
+         * @member {String|null} title='Command Palette'
          */
         title: 'Command Palette',
         /**
-         * @member {Object} _vdom
+         * @member {Boolean} trapFocus=true
          */
-        _vdom: {
-            cn: []
+        trapFocus: true,
+        /**
+         * Explicit upper-third viewport centering preserved by `Neo.dialog.Base#initVnode` across both
+         * `.neo-body-viewport` and plain-`<body>` applications (`WebDesktop`, component test hosts).
+         * @member {Object} wrapperStyle
+         */
+        wrapperStyle: {
+            left     : '50%',
+            top      : 'clamp(1rem, 10vh, 6rem)',
+            transform: 'translateX(-50%)'
         }
     }
 
+    /**
+     * Child `CommandActionList` (`Neo.list.Base`) bound to {@link #store}.
+     * @member {Neo.examples.workbench.CommandActionList|null} actionList=null
+     */
+    actionList = null
     /**
      * Arbitrary consumer context passed to {@link #open} and forwarded to {@link #actionProvider} / handlers.
      * @member {*} activeContext=null
      */
     activeContext = null
     /**
-     * Zero-based index of the highlighted record in {@link #store}, or `-1` when empty.
+     * Zero-based index of the currently highlighted record in {@link #store}, or `-1` when empty.
      * @member {Number} activeIndex=-1
      */
     activeIndex = -1
+    /**
+     * Empty-state child component shown when {@link #store} contains zero visible records.
+     * @member {Neo.component.Base|null} emptyState=null
+     */
+    emptyState = null
     /**
      * Fallback DOM element id (or resolver `() => String|null`) focused when `returnFocusId` is unmounted.
      * @member {Function|String|null} fallbackFocusId=null
      */
     fallbackFocusId = null
     /**
-     * Current filter query text in the combobox input.
+     * Footer keyboard-legend child component.
+     * @member {Neo.component.Base|null} legendComponent=null
+     */
+    legendComponent = null
+    /**
+     * Combobox search `Neo.form.field.Text` child component.
+     * @member {Neo.form.field.Text|null} queryField=null
+     */
+    queryField = null
+    /**
+     * Current filter query text in {@link #queryField}.
      * @member {String} query=''
      */
     query = ''
-    /**
-     * Window id on whose `Neo.main.DomEvents` prevent-default keys are currently registered.
-     * @member {Number|String|null} registeredKeyWindowId=null
-     * @protected
-     */
-    registeredKeyWindowId = null
     /**
      * Origin DOM element id captured before opening so dismissal restores keyboard focus.
      * @member {String|null} returnFocusId=null
      */
     returnFocusId = null
     /**
-     * Live polite status text announced by the footer `role="status"` node.
+     * Polite `role="status"` child component announcing counts and unavailable action reasons.
+     * @member {Neo.component.Base|null} statusComponent=null
+     */
+    statusComponent = null
+    /**
+     * Live polite status text announced by {@link #statusComponent}.
      * @member {String} statusText=''
      */
     statusText = ''
@@ -179,6 +232,18 @@ class CommandPalette extends Component {
      * @member {Number} totalActionCount=0
      */
     totalActionCount = 0
+    /**
+     * Record id whose explicit activation refusal message is currently displayed in `statusComponent`,
+     * preventing trailing initial `neonavigate` echoes for the same record from overwriting it.
+     * @member {String|null} #refusalRecordId=null
+     */
+    #refusalRecordId = null
+    /**
+     * Guards re-entrant `queryField` `change` events when {@link #setQuery} or {@link #refreshActions}
+     * updates the field programmatically.
+     * @member {Boolean} #syncingQueryField=false
+     */
+    #syncingQueryField = false
 
     /**
      * @summary Checks whether a serialized Neo keyboard event matches the standard palette open chord
@@ -236,68 +301,54 @@ class CommandPalette extends Component {
 
         const me = this;
 
-        me.addDomListeners([
-            {click: me.onBackdropClick, scope: me},
-            {click: me.onCloseButtonClick, delegate: '.neo-command-palette-close', scope: me},
-            {click: me.onOptionClick, delegate: '.neo-command-palette-option', scope: me},
-            {input: me.onInputValueChange, delegate: '.neo-command-palette-input', scope: me},
-            {keydown: me.onPaletteKeyDown, scope: me}
-        ]);
+        me.vdom['aria-label'] = me.title;
+        me.vdom['aria-modal'] = 'true';
+
+        me.addDomListeners({
+            keydown: me.onDialogKeyDown,
+            scope  : me
+        });
 
         if (me.actions?.length > 0 && me.totalActionCount === 0) {
-            me.refreshActions({preserveQuery: false, render: false})
+            me.refreshActions({preserveQuery: false})
         } else {
-            me.syncVdom(false)
+            me.syncPresentation()
         }
     }
 
     /**
-     * @returns {String}
+     * @returns {String|null}
      */
     get closeButtonId() {
-        return `${this.id}__close`
+        return this.headerToolbar?.getAction?.('close')?.id ?? null
     }
 
     /**
-     * @returns {String}
+     * @returns {String|null}
      */
     get inputId() {
-        return `${this.id}__input`
+        return this.queryField?.getInputElId() ?? null
     }
 
     /**
      * @returns {Boolean}
      */
     get isOpen() {
-        return !this.hidden && (this.mounted || Boolean(Neo.config.unitTestMode))
+        return !this.hidden && (this.mounted || Boolean(this.mountFlight))
     }
 
     /**
-     * @returns {String}
+     * @returns {String|null}
      */
     get listboxId() {
-        return `${this.id}__listbox`
+        return this.actionList?.id ?? null
     }
 
     /**
-     * @returns {String}
+     * @returns {String|null}
      */
     get statusId() {
-        return `${this.id}__status`
-    }
-
-    /**
-     * @returns {String}
-     */
-    get surfaceId() {
-        return `${this.id}__surface`
-    }
-
-    /**
-     * @returns {String}
-     */
-    get titleId() {
-        return `${this.id}__title`
+        return this.statusComponent?.id ?? null
     }
 
     /**
@@ -306,7 +357,7 @@ class CommandPalette extends Component {
      * @param {Object} [meta={}]
      * @param {Object} [meta.event=null]
      * @param {String} [meta.source='keyboard'] `'keyboard'` | `'pointer'` | `'programmatic'`
-     * @returns {Promise<{executed: Boolean, reason: String|null, record: Object|null, result: *}>}
+     * @returns {Promise<Object>}
      */
     async activateRecord(record, {event = null, source = 'keyboard'} = {}) {
         const me = this;
@@ -318,8 +369,8 @@ class CommandPalette extends Component {
         if (!record.available) {
             const reason = record.unavailableReason || 'Unavailable in the current state';
 
-            me.statusText = `${record.label} is unavailable: ${reason}.`;
-            me.syncVdom(true);
+            me.#refusalRecordId = String(record.id);
+            me.setStatusText(`${record.label} is unavailable: ${reason}.`);
             me.fire('unavailableAction', {
                 context : me.activeContext,
                 event,
@@ -378,7 +429,34 @@ class CommandPalette extends Component {
      */
     afterSetActions(value, oldValue) {
         if (oldValue !== undefined && !this.actionProvider && this.store) {
-            this.refreshActions({preserveQuery: this.isOpen, render: this.isOpen})
+            this.refreshActions({preserveQuery: this.isOpen})
+        }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTitle(value, oldValue) {
+        super.afterSetTitle(value, oldValue);
+
+        const me = this;
+
+        if (value) {
+            me.vdom['aria-label'] = value;
+
+            if (me.queryField) {
+                me.queryField.getInputEl()['aria-label'] = value;
+                me.queryField.update()
+            }
+
+            if (me.actionList) {
+                me.actionList.vdom['aria-label'] = value;
+                me.actionList.update()
+            }
+
+            me.update()
         }
     }
 
@@ -408,113 +486,7 @@ class CommandPalette extends Component {
     }
 
     /**
-     * @summary Builds one `<li role="option">` VDOM descriptor for a `CommandActionModel` record.
-     * @param {Neo.examples.workbench.CommandActionModel} record
-     * @param {Number} index
-     * @returns {Object}
-     * @protected
-     */
-    buildOptionVdom(record, index) {
-        const me          = this,
-              isActive    = index === me.activeIndex,
-              unavailable = !record.available,
-              cls         = ['neo-command-palette-option'],
-              metaNodes   = [];
-
-        if (isActive) {
-            cls.push('neo-is-active')
-        }
-
-        if (unavailable) {
-            cls.push('neo-is-unavailable');
-
-            if (record.unavailableReason) {
-                metaNodes.push({
-                    tag : 'span',
-                    cls : ['neo-command-palette-unavailable-pill'],
-                    text: record.unavailableReason
-                })
-            }
-        }
-
-        if (record.shortcut) {
-            metaNodes.push({
-                tag : 'kbd',
-                cls : ['neo-command-palette-shortcut'],
-                text: record.shortcut
-            })
-        }
-
-        const headingChildren = [{
-            tag : 'span',
-            cls : ['neo-command-palette-option-label'],
-            text: record.label
-        }];
-
-        if (record.group) {
-            headingChildren.push({
-                tag : 'span',
-                cls : ['neo-command-palette-option-group'],
-                text: record.group
-            })
-        }
-
-        const copyChildren = [{
-            cls: ['neo-command-palette-option-heading'],
-            cn : headingChildren
-        }];
-
-        if (record.description) {
-            copyChildren.push({
-                tag : 'p',
-                cls : ['neo-command-palette-option-detail'],
-                text: record.description
-            })
-        }
-
-        const mainChildren = [];
-
-        if (record.iconCls) {
-            mainChildren.push({
-                tag          : 'span',
-                'aria-hidden': 'true',
-                cls          : ['neo-command-palette-option-icon', ...record.iconCls.trim().split(/\s+/)]
-            })
-        }
-
-        mainChildren.push({
-            cls: ['neo-command-palette-option-copy'],
-            cn : copyChildren
-        });
-
-        const optionChildren = [{
-            cls: ['neo-command-palette-option-main'],
-            cn : mainChildren
-        }];
-
-        if (metaNodes.length > 0) {
-            optionChildren.push({
-                cls: ['neo-command-palette-option-meta'],
-                cn : metaNodes
-            })
-        }
-
-        return {
-            tag            : 'li',
-            id             : me.getOptionId(record.id),
-            role           : 'option',
-            'aria-disabled': unavailable ? 'true' : 'false',
-            'aria-selected': isActive ? 'true' : 'false',
-            cls,
-            cn             : optionChildren,
-            data           : {
-                recordId: String(record.id)
-            }
-        }
-    }
-
-    /**
-     * @summary Dismisses the palette, unregisters Main-thread prevent-default keys, and optionally restores focus.
+     * @summary Dismisses the palette dialog via `Neo.dialog.Base#unmount` and optionally restores origin focus.
      * @param {Object} [options={}]
      * @param {Boolean} [options.restoreFocus=true]
      * @returns {Promise<Boolean>} `true` when an open palette was closed.
@@ -530,16 +502,18 @@ class CommandPalette extends Component {
               returnFocusId   = me.returnFocusId,
               windowId        = me.windowId;
 
-        me.unregisterKeyCapture();
-        me._hidden      = true;
+        me._hidden       = true;
         me.activeContext = null;
 
-        if (!Neo.config.unitTestMode && me.mounted) {
+        if (me.mountFlight) {
+            await me.mountFlight
+        } else if (me.mounted) {
             await me.unmount()
         } else {
             me.vdom.removeDom = true
         }
 
+        me.fire('hide');
         me.fire('close', {palette: me, windowId});
 
         if (restoreFocus) {
@@ -547,6 +521,13 @@ class CommandPalette extends Component {
         }
 
         return true
+    }
+
+    /**
+     * @summary Routes `Neo.dialog.Base` header close clicks and `Escape` presses through {@link #close}.
+     */
+    closeOrHide() {
+        return this.close({restoreFocus: true})
     }
 
     /**
@@ -587,10 +568,164 @@ class CommandPalette extends Component {
     }
 
     /**
+     * @summary Configures the `Neo.dialog.Base` header toolbar with the title and `Esc` close button only.
+     */
+    createHeader() {
+        const me = this;
+
+        me.headerConfig = {
+            actions: ['close'],
+            cls    : ['neo-header-toolbar', 'neo-toolbar', 'neo-command-palette-titlebar'],
+            ...me.headerConfig,
+            actionMap: {
+                close: () => ({
+                    action: 'close',
+                    cls   : ['neo-command-palette-close'],
+                    text  : me.closeButtonText,
+                    vdom  : {'aria-label': 'Close command palette'}
+                }),
+                ...me.headerConfig?.actionMap
+            }
+        };
+
+        super.createHeader()
+    }
+
+    /**
+     * @summary Builds the query `TextField`, `CommandActionList` (`Navigator`-paired), empty state, and docked status footer.
+     */
+    createItems() {
+        const me = this;
+
+        if (!me.queryField) {
+            me.statusComponent = Neo.create(Component, {
+                appName : me.appName,
+                cls     : ['neo-command-palette-status'],
+                flex    : 1,
+                role    : 'status',
+                tag     : 'p',
+                text    : me.statusText,
+                vdom    : {tag: 'p', 'aria-live': 'polite'},
+                windowId: me.windowId
+            });
+
+            me.legendComponent = Neo.create(Component, {
+                appName : me.appName,
+                cls     : ['neo-command-palette-legend'],
+                flex    : 'none',
+                tag     : 'span',
+                text    : me.legendText,
+                vdom    : {tag: 'span', 'aria-hidden': 'true'},
+                windowId: me.windowId
+            });
+
+            me.headers = [
+                ...(me.headers || []),
+                Neo.create(Container, {
+                    appName : me.appName,
+                    cls     : ['neo-command-palette-footer'],
+                    dock    : 'bottom',
+                    flex    : 'none',
+                    items   : [me.statusComponent, me.legendComponent],
+                    layout  : {ntype: 'hbox', align: 'center'},
+                    windowId: me.windowId
+                })
+            ];
+
+            me.queryField = Neo.create(TextField, {
+                appName     : me.appName,
+                autoComplete: false,
+                clearable   : false,
+                cls         : ['neo-command-palette-query-field'],
+                emptyValue  : '',
+                flex        : 1,
+                hideLabel   : true,
+                // Disable Field's non-bubbling KeyNavigation so Escape and Ctrl+K/F1 reach the enclosing Dialog.
+                keys           : null,
+                listeners      : {change: me.onQueryFieldChange, scope: me},
+                placeholderText: me.placeholder,
+                role           : 'combobox',
+                spellCheck     : false,
+                value          : '',
+                windowId       : me.windowId
+            });
+
+            const searchBar = Neo.create(Container, {
+                appName : me.appName,
+                cls     : ['neo-command-palette-header'],
+                flex    : 'none',
+                layout  : {ntype: 'hbox', align: 'center'},
+                windowId: me.windowId,
+                items   : [{
+                    module  : Component,
+                    appName : me.appName,
+                    cls     : ['neo-command-palette-search-icon', 'fa', 'fa-magnifying-glass'],
+                    flex    : 'none',
+                    tag     : 'span',
+                    vdom    : {tag: 'span', 'aria-hidden': 'true'},
+                    windowId: me.windowId
+                }, me.queryField]
+            });
+
+            me.actionList = Neo.create(CommandActionList, {
+                appName  : me.appName,
+                flex     : 1,
+                listeners: {
+                    createItems : me.onListCreateItems,
+                    itemClick   : me.onListItemClick,
+                    itemNavigate: me.onListItemNavigate,
+                    scope       : me
+                },
+                navigator: {
+                    // Leave Enter activation on the App-worker FIFO queue after input filtering so rapid
+                    // type-then-Enter never races the async list VDOM round-trip on Main.
+                    clickSelector: '[data-command-enter]',
+                    eventSource  : me.queryField.getInputElId(),
+                    windowId     : me.windowId,
+                    wrap         : true
+                },
+                store   : me.store,
+                windowId: me.windowId
+            });
+
+            const inputEl = me.queryField.getInputEl();
+
+            inputEl['aria-autocomplete'] = 'list';
+            inputEl['aria-controls']     = me.actionList.id;
+            inputEl['aria-expanded']     = 'true';
+            inputEl['aria-label']        = me.title;
+
+            me.actionList.vdom['aria-label'] = me.title;
+
+            me.emptyState = Neo.create(Component, {
+                appName : me.appName,
+                cls     : ['neo-command-palette-empty'],
+                flex    : 'none',
+                hidden  : true,
+                windowId: me.windowId,
+                vdom    : {
+                    cn: [{
+                        tag : 'p',
+                        cls : ['neo-command-palette-empty-title'],
+                        text: me.emptyResultsTitle
+                    }, {
+                        tag : 'p',
+                        cls : ['neo-command-palette-empty-description'],
+                        text: me.emptyResultsDescription
+                    }]
+                }
+            });
+
+            me._items = [searchBar, me.actionList, me.emptyState]
+        }
+
+        super.createItems()
+    }
+
+    /**
      * @param {...*} args
      */
     destroy(...args) {
-        this.unregisterKeyCapture();
         this.store?.destroy?.();
         this._store = null;
         super.destroy(...args)
@@ -620,160 +755,127 @@ class CommandPalette extends Component {
     }
 
     /**
-     * @param {String} recordId
-     * @returns {String}
+     * @summary Suppresses `Component#revertFocusOnDeparture` during explicit `close()` handling so async
+     * post-action focus restoration (`fallbackFocusId`, `managesFocus: true`) owns the handback cleanly.
+     * @returns {Neo.component.Base|null}
      */
-    getOptionId(recordId) {
-        return `${this.id}__option-${String(recordId).replace(/[^a-zA-Z0-9_-]/g, '-')}`
+    getFocusReturnTarget() {
+        return null
     }
 
     /**
-     * @summary Moves the highlighted option by `delta` (`+1` or `-1`) with wrap-around.
-     * @param {Number} delta
+     * @summary Resolves the rendered `<li role="option">` DOM id for a record or record id.
+     * @param {Neo.examples.workbench.CommandActionModel|String} recordOrId
+     * @returns {String|null}
      */
-    moveSelection(delta) {
-        const count = this.store?.getCount() ?? 0;
-
-        if (count === 0) {
-            return
+    getOptionId(recordOrId) {
+        if (!this.actionList || recordOrId == null) {
+            return null
         }
 
-        const current = this.activeIndex >= 0 ? this.activeIndex : 0,
-              next    = (current + delta + count) % count;
+        const record = Neo.isRecord(recordOrId) ? recordOrId : this.store?.get(recordOrId);
 
-        this.setActiveIndex(next)
+        return record ? this.actionList.getItemId(record) : null
     }
 
     /**
+     * @summary Handles open-shortcut toggle-close and FIFO-ordered `Enter` activation against {@link #store}.
      * @param {Object} data
      * @protected
      */
-    onBackdropClick(data) {
-        if (data.target?.id === this.id) {
-            this.close({restoreFocus: true})
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    onCloseButtonClick(data) {
-        data.cancelBubble = true;
-        this.close({restoreFocus: true})
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    onInputValueChange(data) {
-        this.setQuery(data.value ?? '')
-    }
-
-    /**
-     * @param {Object} data
-     * @protected
-     */
-    onOptionClick(data) {
-        data.cancelBubble = true;
-
-        const me         = this,
-              optionNode = data.path?.find(node => node.id === data.currentTarget) ||
-                           data.path?.find(node => node.cls?.includes?.('neo-command-palette-option')),
-              recordId   = optionNode?.data?.recordId ?? optionNode?.data?.['record-id'];
-
-        if (!recordId) {
-            return
-        }
-
-        const record = me.store.get(recordId);
-
-        if (!record) {
-            return
-        }
-
-        const index = me.store.indexOf(record);
-
-        if (index >= 0 && index !== me.activeIndex) {
-            me.activeIndex = index
-        }
-
-        me.activateRecord(record, {event: data, source: 'pointer'})
-    }
-
-    /**
-     * @summary Handles combobox/dialog keyboard navigation, activation, Escape dismissal, and Tab trapping.
-     * @param {Object} data
-     * @protected
-     */
-    onPaletteKeyDown(data) {
-        const me  = this,
-              key = data.key;
+    onDialogKeyDown(data) {
+        const me = this;
 
         if (!me.isOpen) {
             return
         }
 
-        if (key === 'Escape' || CommandPalette.isOpenShortcut(data)) {
+        if (CommandPalette.isOpenShortcut(data)) {
             data.cancelBubble = true;
             me.close({restoreFocus: true});
             return
         }
 
-        if (key === 'Tab') {
+        if (data.key === 'Enter' && data.target?.id === me.inputId) {
             data.cancelBubble = true;
-            const nextId = data.target?.id === me.closeButtonId ? me.inputId : me.closeButtonId;
-
-            if (!Neo.config.unitTestMode) {
-                Neo.main?.DomAccess?.focus?.({
-                    id      : nextId,
-                    modality: 'keyboard',
-                    windowId: me.windowId
-                })
-            }
-            return
-        }
-
-        if (key === 'ArrowDown') {
-            data.cancelBubble = true;
-            me.moveSelection(1);
-            return
-        }
-
-        if (key === 'ArrowUp') {
-            data.cancelBubble = true;
-            me.moveSelection(-1);
-            return
-        }
-
-        if (key === 'Home') {
-            data.cancelBubble = true;
-            if (me.store.getCount() > 0) {
-                me.setActiveIndex(0)
-            }
-            return
-        }
-
-        if (key === 'End') {
-            data.cancelBubble = true;
-            const count = me.store.getCount();
-            if (count > 0) {
-                me.setActiveIndex(count - 1)
-            }
-            return
-        }
-
-        if (key === 'Enter') {
-            data.cancelBubble = true;
-            const record = me.activeIndex >= 0 ? me.store.getAt(me.activeIndex) : null;
+            const record = me.activeIndex >= 0 ? me.store?.getAt(me.activeIndex) : null;
             me.activateRecord(record, {event: data, source: 'keyboard'})
         }
     }
 
     /**
-     * @summary Opens the command palette in the target window, refreshes eligible actions, mounts into
-     * `document.body`, registers Main-thread prevent-default keys, and focuses the combobox input.
+     * @summary Synchronizes `Navigator` active highlight once `CommandActionList` finishes rendering filtered items.
+     * @protected
+     */
+    onListCreateItems() {
+        this.syncNavigatorHighlight()
+    }
+
+    /**
+     * @summary Activates or refuses the pointer-clicked option record.
+     * @param {Object} data
+     * @param {Neo.examples.workbench.CommandActionModel} data.record
+     * @protected
+     */
+    onListItemClick({record}) {
+        if (!record) {
+            return
+        }
+
+        const index = this.store.indexOf(record);
+
+        if (index >= 0) {
+            this.activeIndex = index
+        }
+
+        this.activateRecord(record, {source: 'pointer'})
+    }
+
+    /**
+     * @summary Updates {@link #activeIndex} and announces unavailable reasons when `Navigator` moves across options.
+     * @param {Object} data
+     * @param {Number} [data.activeIndex]
+     * @param {Neo.examples.workbench.CommandActionModel} [data.record]
+     * @protected
+     */
+    onListItemNavigate(data) {
+        const me     = this,
+              record = data?.record || (Neo.isNumber(data?.activeIndex) ? me.store?.getAt(data.activeIndex) : null);
+
+        if (!record) {
+            return
+        }
+
+        const nextIndex = me.store.indexOf(record);
+
+        if (me.#refusalRecordId && String(record.id) === me.#refusalRecordId && nextIndex === me.activeIndex) {
+            return
+        }
+
+        me.#refusalRecordId = null;
+        me.activeIndex      = nextIndex;
+
+        if (!record.available && record.unavailableReason) {
+            me.setStatusText(`${record.label} — unavailable: ${record.unavailableReason}.`)
+        } else {
+            me.setStatusText(me.computeDefaultStatusText())
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String|null} data.value
+     * @protected
+     */
+    onQueryFieldChange({value}) {
+        if (!this.#syncingQueryField) {
+            this.setQuery(value ?? '')
+        }
+    }
+
+    /**
+     * @summary Opens the command palette in the target window, refreshes eligible actions, mounts via
+     * `Neo.dialog.Base#show`, synchronizes `Navigator` highlight, and focuses the combobox input.
      * @param {Object} [options={}]
      * @param {*} [options.context=null]
      * @param {Function|String|null} [options.fallbackFocusId=null]
@@ -786,8 +888,7 @@ class CommandPalette extends Component {
         const me             = this,
               targetWindowId = options.windowId ?? me.windowId ?? me.parentComponent?.windowId ?? null;
 
-        if (!Neo.config.unitTestMode && me.mounted && targetWindowId && me.windowId && targetWindowId !== me.windowId) {
-            me.unregisterKeyCapture();
+        if (me.mounted && targetWindowId && me.windowId && targetWindowId !== me.windowId) {
             await me.unmount()
         }
 
@@ -811,26 +912,16 @@ class CommandPalette extends Component {
             me.theme = resolvedTheme
         }
 
-        delete me.vdom.removeDom;
-        me._hidden = false;
+        me.refreshActions({preserveQuery: false});
 
-        me.refreshActions({preserveQuery: false, render: false});
-        me.syncVdom(!Neo.config.unitTestMode && me.mounted);
+        me.show(false);
 
-        if (!Neo.config.unitTestMode) {
-            if (!me.mounted) {
-                await me.initVnode(true)
-            }
-
-            me.registerKeyCapture(me.windowId);
-            me.scrollActiveOptionIntoView();
-
-            Neo.main?.DomAccess?.focus?.({
-                id      : me.inputId,
-                modality: 'keyboard',
-                windowId: me.windowId
-            })
+        if (me.mountFlight) {
+            await me.mountFlight
         }
+
+        me.syncNavigatorHighlight();
+        me.queryField?.focus(undefined, false, true, 'keyboard');
 
         me.fire('open', {
             context : me.activeContext,
@@ -845,20 +936,26 @@ class CommandPalette extends Component {
      * @summary Pulls fresh action descriptors from {@link #actionProvider} (or {@link #actions}) into {@link #store}.
      * @param {Object} [options={}]
      * @param {Boolean} [options.preserveQuery=true]
-     * @param {Boolean} [options.render=true]
      * @returns {Number} Filtered record count.
      */
-    refreshActions({preserveQuery = true, render = true} = {}) {
+    refreshActions({preserveQuery = true} = {}) {
         const me       = this,
               rawItems = Neo.isFunction(me.actionProvider)
                   ? (me.actionProvider({context: me.activeContext, palette: me, windowId: me.windowId}) || [])
                   : (me.actions || []),
-              items        = Array.isArray(rawItems) ? rawItems : [],
-              queryFilter  = me.store.getFilter('query'),
-              previousId   = preserveQuery && me.activeIndex >= 0 ? me.store.getAt(me.activeIndex)?.id : null;
+              items       = Array.isArray(rawItems) ? rawItems : [],
+              queryFilter = me.store.getFilter('query'),
+              previousId  = preserveQuery && me.activeIndex >= 0 ? me.store.getAt(me.activeIndex)?.id : null;
 
         if (!preserveQuery) {
-            me.query = ''
+            me.query = '';
+
+            if (me.queryField) {
+                me.#syncingQueryField            = true;
+                me.queryField.reportedInputValue = null;
+                me.queryField.value              = '';
+                me.#syncingQueryField            = false
+            }
         }
 
         if (queryFilter) {
@@ -870,6 +967,8 @@ class CommandPalette extends Component {
 
         if (items.length > 0) {
             me.store.add(items)
+        } else {
+            me.actionList?.createItems(!me.mounted)
         }
 
         let nextIndex = -1;
@@ -886,39 +985,11 @@ class CommandPalette extends Component {
             nextIndex = me.findDefaultActiveIndex()
         }
 
-        me.activeIndex = nextIndex;
-        me.statusText  = me.computeDefaultStatusText();
-
-        if (render) {
-            me.syncVdom(true)
-        }
+        me.#refusalRecordId = null;
+        me.activeIndex      = nextIndex;
+        me.syncPresentation();
 
         return me.store.getCount()
-    }
-
-    /**
-     * @param {Number|String|null} windowId
-     * @protected
-     */
-    registerKeyCapture(windowId) {
-        if (!windowId || Neo.config.unitTestMode) {
-            return
-        }
-
-        this.unregisterKeyCapture();
-        this.registeredKeyWindowId = windowId;
-
-        Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-            id  : this.inputId,
-            keys: PREVENT_INPUT_KEYS,
-            windowId
-        });
-
-        Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
-            id  : this.closeButtonId,
-            keys: PREVENT_CLOSE_KEYS,
-            windowId
-        })
     }
 
     /**
@@ -939,32 +1010,22 @@ class CommandPalette extends Component {
             return null
         }
 
-        if (Neo.config.unitTestMode) {
-            const targetComponent = Neo.getComponent(targetId);
+        if (returnId) {
+            const originCmp      = Neo.getComponent(returnId),
+                  cmpUnavailable = Boolean(originCmp && (originCmp.isDestroyed || originCmp.hidden));
 
-            if (targetComponent && !targetComponent.isDestroyed && !targetComponent.hidden) {
-                targetComponent.focus?.(targetId);
-                return targetId
+            let domUnavailable = false;
+
+            if (!cmpUnavailable && Neo.main?.DomAccess?.getBoundingClientRect) {
+                const rect = await Neo.main.DomAccess.getBoundingClientRect({
+                    id      : returnId,
+                    windowId: targetWindowId
+                }).catch(() => null);
+
+                domUnavailable = !rect || (rect.width <= 0 && rect.height <= 0)
             }
 
-            const fallback = resolveFallback();
-
-            if (fallback && fallback !== targetId) {
-                const fallbackComponent = Neo.getComponent(fallback);
-                fallbackComponent?.focus?.(fallback);
-                return fallback
-            }
-
-            return targetId
-        }
-
-        if (returnId && Neo.main?.DomAccess?.getBoundingClientRect) {
-            const rect = await Neo.main.DomAccess.getBoundingClientRect({
-                id      : returnId,
-                windowId: targetWindowId
-            }).catch(() => null);
-
-            if (!rect || (rect.width <= 0 && rect.height <= 0)) {
+            if (cmpUnavailable || domUnavailable) {
                 const fallback = resolveFallback();
 
                 if (fallback) {
@@ -980,84 +1041,23 @@ class CommandPalette extends Component {
             }
         }
 
-        Neo.main?.DomAccess?.focus?.({
-            id      : targetId,
-            windowId: targetWindowId
-        });
+        const targetCmp = Neo.getComponent(targetId);
+
+        if (targetCmp && !targetCmp.isDestroyed && !targetCmp.hidden) {
+            targetCmp.focus(targetId)
+        } else {
+            Neo.main?.DomAccess?.focus?.({
+                id      : targetId,
+                windowId: targetWindowId
+            })
+        }
 
         return targetId
     }
 
     /**
-     * @summary Updates {@link #activeIndex}, refreshes `aria-activedescendant` and `.neo-is-active`, and
-     * scrolls the newly highlighted option into view inside the listbox.
-     * @param {Number} index
-     * @param {Object} [options={}]
-     * @param {Boolean} [options.scroll=true]
-     */
-    setActiveIndex(index, {scroll = true} = {}) {
-        const me    = this,
-              count = me.store?.getCount() ?? 0;
-
-        if (count === 0) {
-            me.activeIndex = -1;
-            me.syncVdom(true);
-            return
-        }
-
-        const clamped = Math.max(0, Math.min(count - 1, index)),
-              record  = me.store.getAt(clamped);
-
-        me.activeIndex = clamped;
-
-        if (record && !record.available && record.unavailableReason) {
-            me.statusText = `${record.label} — unavailable: ${record.unavailableReason}.`
-        } else {
-            me.statusText = me.computeDefaultStatusText()
-        }
-
-        me.syncVdom(true);
-
-        if (scroll && record && !Neo.config.unitTestMode && me.mounted) {
-            me.scrollActiveOptionIntoView()
-        }
-    }
-
-    /**
-     * @summary Scrolls the currently active `<li role="option">` into view once pending VDOM updates land.
-     * @protected
-     */
-    scrollActiveOptionIntoView() {
-        const me = this;
-
-        if (Neo.config.unitTestMode || !me.mounted || me.activeIndex < 0) {
-            return
-        }
-
-        const record = me.store?.getAt(me.activeIndex);
-
-        if (!record) {
-            return
-        }
-
-        const optionId = me.getOptionId(record.id),
-              windowId = me.windowId;
-
-        Promise.resolve(me.promiseUpdate?.()).catch(() => {}).then(() => {
-            if (!me.isDestroyed && me.mounted && !me.hidden) {
-                Neo.main?.DomAccess?.scrollIntoView?.({
-                    behavior: 'instant',
-                    block   : 'nearest',
-                    id      : optionId,
-                    windowId
-                })
-            }
-        })
-    }
-
-    /**
-     * @summary Filters {@link #store} by `query`, resets selection to the best matching option, and updates
-     * the polite status region.
+     * @summary Filters {@link #store} by `query`, resets highlight to the best matching option, and updates
+     * the polite status region and empty state.
      * @param {String} query
      */
     setQuery(query) {
@@ -1067,14 +1067,19 @@ class CommandPalette extends Component {
 
         me.query = normalized;
 
+        if (me.queryField && me.queryField.value !== normalized) {
+            me.#syncingQueryField = true;
+            me.queryField.value   = normalized;
+            me.#syncingQueryField = false
+        }
+
         if (queryFilter) {
             queryFilter.value = normalized
         }
 
-        me.activeIndex = me.findDefaultActiveIndex();
-        me.statusText  = me.computeDefaultStatusText();
-        me.syncVdom(true);
-        me.scrollActiveOptionIntoView();
+        me.#refusalRecordId = null;
+        me.activeIndex      = me.findDefaultActiveIndex();
+        me.syncPresentation();
 
         me.fire('filter', {
             count  : me.store.getCount(),
@@ -1084,115 +1089,65 @@ class CommandPalette extends Component {
     }
 
     /**
-     * @summary Rebuilds the dialog VDOM from current {@link #store}, {@link #query}, {@link #activeIndex},
-     * and {@link #statusText} state.
-     * @param {Boolean} [commitUpdate=true]
+     * @summary Updates {@link #statusText} and synchronizes the `role="status"` footer label.
+     * @param {String} text
      * @protected
      */
-    syncVdom(commitUpdate = true) {
-        const me             = this,
-              count          = me.store?.getCount() ?? 0,
-              activeRecord   = me.activeIndex >= 0 && me.activeIndex < count ? me.store.getAt(me.activeIndex) : null,
-              activeOptionId = activeRecord ? me.getOptionId(activeRecord.id) : undefined,
-              optionNodes    = [];
+    setStatusText(text) {
+        this.statusText = text;
 
-        for (let i = 0; i < count; i++) {
-            const record = me.store.getAt(i);
+        if (this.statusComponent) {
+            this.statusComponent.text = text
+        }
+    }
 
-            if (record) {
-                optionNodes.push(me.buildOptionVdom(record, i))
-            }
+    /**
+     * @summary Directs `Neo.main.addon.Navigator` (`CommandActionList#focusIndex`) to {@link #activeIndex}
+     * while mounted and non-empty.
+     * @protected
+     */
+    syncNavigatorHighlight() {
+        const me = this;
+
+        if (!me.mounted || !me.actionList || me.activeIndex < 0 || (me.store?.getCount() ?? 0) === 0) {
+            return
         }
 
-        const bodyNode = count > 0
-            ? {
-                tag         : 'ul',
-                id          : me.listboxId,
-                role        : 'listbox',
-                'aria-label': me.title,
-                cls         : ['neo-command-palette-list'],
-                cn          : optionNodes
+        me.actionList._focusIndex = -1;
+        me.actionList.focusIndex  = me.activeIndex
+    }
+
+    /**
+     * @summary Synchronizes listbox visibility, zero-result empty copy, and polite status text with {@link #store}.
+     * @protected
+     */
+    syncPresentation() {
+        const me    = this,
+              count = me.store?.getCount() ?? 0;
+
+        me.setStatusText(me.computeDefaultStatusText());
+
+        if (me.actionList) {
+            const listCls = me.actionList.cls;
+            NeoArray.toggle(listCls, 'neo-is-empty', count === 0);
+            me.actionList.cls = listCls
+        }
+
+        if (me.emptyState) {
+            const [titleNode, descNode] = me.emptyState.vdom.cn;
+
+            titleNode.text = me.totalActionCount === 0 ? me.emptyActionsTitle : me.emptyResultsTitle;
+            descNode.text  = me.totalActionCount === 0 ? me.emptyActionsDescription : me.emptyResultsDescription;
+
+            if (count === 0) {
+                if (me.emptyState.hidden) {
+                    me.emptyState.hidden = false
+                } else {
+                    me.emptyState.update()
+                }
+            } else if (!me.emptyState.hidden) {
+                me.emptyState.hidden = true
             }
-            : {
-                tag         : 'div',
-                id          : me.listboxId,
-                role        : 'listbox',
-                'aria-label': me.title,
-                cls         : ['neo-command-palette-list'],
-                cn          : [{
-                    cls: ['neo-command-palette-empty'],
-                    cn : [{
-                        tag : 'p',
-                        cls : ['neo-command-palette-empty-title'],
-                        text: me.totalActionCount === 0 ? me.emptyActionsTitle : me.emptyResultsTitle
-                    }, {
-                        tag : 'p',
-                        cls : ['neo-command-palette-empty-description'],
-                        text: me.totalActionCount === 0 ? me.emptyActionsDescription : me.emptyResultsDescription
-                    }]
-                }]
-            };
-
-        me.vdom.cn = [{
-            id               : me.surfaceId,
-            role             : 'dialog',
-            'aria-labelledby': me.titleId,
-            'aria-modal'     : 'true',
-            cls              : ['neo-command-palette-surface'],
-            cn               : [{
-                cls: ['neo-command-palette-header'],
-                cn : [{
-                    tag          : 'span',
-                    'aria-hidden': 'true',
-                    cls          : ['neo-command-palette-search-icon', 'fa', 'fa-magnifying-glass']
-                }, {
-                    tag                : 'input',
-                    id                 : me.inputId,
-                    type               : 'text',
-                    role               : 'combobox',
-                    'aria-autocomplete': 'list',
-                    'aria-controls'    : me.listboxId,
-                    'aria-expanded'    : 'true',
-                    'aria-label'       : me.title,
-                    ...(activeOptionId && {'aria-activedescendant': activeOptionId}),
-                    autocomplete: 'off',
-                    cls         : ['neo-command-palette-input'],
-                    placeholder : me.placeholder,
-                    spellcheck  : 'false',
-                    value       : me.query
-                }, {
-                    tag : 'span',
-                    id  : me.titleId,
-                    cls : ['neo-command-palette-title'],
-                    text: me.title
-                }, {
-                    tag         : 'button',
-                    id          : me.closeButtonId,
-                    type        : 'button',
-                    'aria-label': 'Close command palette',
-                    cls         : ['neo-command-palette-close'],
-                    text        : me.closeButtonText
-                }]
-            }, bodyNode, {
-                cls: ['neo-command-palette-footer'],
-                cn : [{
-                    tag        : 'p',
-                    id         : me.statusId,
-                    role       : 'status',
-                    'aria-live': 'polite',
-                    cls        : ['neo-command-palette-status'],
-                    text       : me.statusText
-                }, {
-                    tag          : 'span',
-                    'aria-hidden': 'true',
-                    cls          : ['neo-command-palette-legend'],
-                    text         : me.legendText
-                }]
-            }]
-        }];
-
-        if (commitUpdate && (me.mounted || Neo.config.unitTestMode) && !me.hidden) {
-            me.update()
         }
     }
 
@@ -1210,30 +1165,6 @@ class CommandPalette extends Component {
         }
 
         return me.open(options)
-    }
-
-    /**
-     * @protected
-     */
-    unregisterKeyCapture() {
-        const windowId = this.registeredKeyWindowId;
-
-        if (!windowId || Neo.config.unitTestMode) {
-            this.registeredKeyWindowId = null;
-            return
-        }
-
-        this.registeredKeyWindowId = null;
-
-        Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-            id      : this.inputId,
-            windowId
-        });
-
-        Neo.main?.DomEvents?.unregisterPreventDefaultKeys?.({
-            id      : this.closeButtonId,
-            windowId
-        })
     }
 }
 

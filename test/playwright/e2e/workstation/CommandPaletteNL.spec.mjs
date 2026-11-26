@@ -160,7 +160,7 @@ test.describe('Contextual Command Palette across Workstation and Web Desktop', (
 
         await page.keyboard.press('Control+k');
         await expect(dialog).toBeVisible();
-        await expect(page.locator('.neo-command-palette-backdrop')).toHaveClass(/neo-theme-neo-light/);
+        await expect(page.locator('.neo-command-palette')).toHaveClass(/neo-theme-neo-light/);
 
         // Sign out via palette closes desktop windows and returns to lock screen without page errors
         await combobox.fill('Sign out');

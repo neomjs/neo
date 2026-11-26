@@ -1,4 +1,5 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
+import ClassSystemUtil       from '../../../src/util/ClassSystem.mjs';
 import CommandPalette        from '../../../examples/workbench/CommandPalette.mjs';
 import Component             from '../../../src/component/Base.mjs';
 import Desktop               from '../../../src/desktop/Container.mjs';
@@ -33,6 +34,12 @@ class Viewport extends BaseViewport {
          * @member {String[]} cls=['webdesktop-viewport']
          */
         cls: ['webdesktop-viewport'],
+        /**
+         * Lazily created contextual command palette instance owned by this viewport.
+         * @member {Neo.examples.workbench.CommandPalette|Object|null} commandPalette_=null
+         * @reactive
+         */
+        commandPalette_: null,
         /**
          * @member {Neo.controller.Component} controller=ViewportController
          */
@@ -117,10 +124,15 @@ class Viewport extends BaseViewport {
     }
 
     /**
-     * Lazily created contextual command palette instance owned by this viewport.
-     * @member {Neo.examples.workbench.CommandPalette|null} commandPalette=null
+     * @param {Neo.examples.workbench.CommandPalette|Object|null} value
+     * @param {Neo.examples.workbench.CommandPalette|null} oldValue
+     * @returns {Neo.examples.workbench.CommandPalette|null}
+     * @protected
      */
-    commandPalette = null
+    beforeSetCommandPalette(value, oldValue) {
+        oldValue?.destroy?.();
+        return value ? ClassSystemUtil.beforeSetInstance(value, CommandPalette) : null
+    }
 
     /**
      * @summary Synchronizes document-level command-palette shortcut listeners with the viewport's mount state.
@@ -138,7 +150,6 @@ class Viewport extends BaseViewport {
      */
     destroy(...args) {
         this.getController()?.syncBodyKeyCapture?.(false);
-        this.commandPalette?.destroy();
         this.commandPalette = null;
         super.destroy(...args)
     }
