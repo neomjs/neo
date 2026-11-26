@@ -28,25 +28,29 @@ In this build-along, you will construct that pipeline step by step — first in 
 You can run Labs 1–3 directly inside this page's **Preview** tabs first, or scaffold a clean local workspace to run the full multi-worker application with custom `modulePath` interceptors in Step 4:
 
 ```bash readonly
-npx neo-app
+npx neo-app@latest -w workspace -n MyApp -t all -u no -v no -s false
 ```
 
-Inside your generated workspace, create a minimal app (`PipelineLab`), build themes once, and start the static server:
+Passing `-s false` skips the generator's automatic `server-start` step so your current shell stays free (avoiding port conflicts with a second terminal), `-t all` compiles the development theme CSS during setup, and `-n MyApp` names the initial starter application (`MyApp`) so the `PipelineLab` app you add next stays unambiguous. *(If you run interactive `npx neo-app -s false` instead, accept the default `workspace` folder and `MyApp` starter app name.)*
+
+Enter the generated workspace directory, create the minimal `PipelineLab` app, and start the static server:
 
 ```bash readonly
+cd workspace
 npm run create-app-minimal -- -a PipelineLab -t all -u no -s no
-npm run build-themes -- -n -e dev -t all
 npm run server-start -- --port 8080 --no-open
 ```
+
+*(Re-run `npm run build-themes -- -n -e dev -t all` only if you skipped `-t all` during workspace setup or later edit SCSS.)*
 
 Why no extra worker flag is needed: `Neo.worker.Manager` automatically boots both the **`App` Worker** and the **`Data` Worker** in every Neo.mjs application. Your components and stores live in `App`; `Data` stands ready whenever a `Pipeline` sets `workerExecution: 'data'`. (For workspace layout details, see [Workspaces and Applications](../gettingstarted/Workspaces.md).)
 
 ---
 
-## Step 1: From Raw Payload and `Model` to a `Store` Pipeline
+## Step 1: From Pre-Aggregated Fixture and `Model` to a `Store` Pipeline
 
-Before adding custom interceptors or worker switching, start with the foundational loop:
-1. A deterministic generator (`createOrdersBlob`) builds `N` order objects (`id`, `customer`, `country`, `amount`, `placed`) using a fixed seed (`21880`) so every run on every worker processes the exact same input bytes.
+Before adding raw-order generation, custom aggregation, or worker switching, verify the foundational `Store` + `Pipeline` loop in isolation:
+1. A fixed pre-aggregated fixture (`SAMPLE_ROWS`, 4 country summary objects serialized into an in-memory `Blob` URL) supplies a known input without external network calls. Lab 2 will replace this static fixture with the deterministic raw-order generator (`buildOrdersBlob`, and `createOrdersBlob` in Step 4).
 2. `ReportModel` (`Neo.data.Model`) defines typed fields (`country`, `orders`, `revenue`, `average`, `customers`, `bestMonth`).
 3. When `Store#load()` runs against a `blob:` URL, `Store` passes paging parameters (`{page: 1, pageSize: ...}`) by default. Because browser `fetch()` rejects query strings appended to `blob:` URLs, a tiny `request` interceptor strips `page` and `pageSize` before `Neo.data.connection.Fetch` reads the in-memory document, and `response` unwraps `response.data`.
 
@@ -174,11 +178,10 @@ A `Neo.data.interceptor.Base` subclass participates in up to four ordered hooks 
 - **`response(response)`:** Unwraps `response.data` from `Neo.data.connection.Fetch`'s response envelope.
 - **`postParse(orders)`:** Receives the parsed array of raw orders, parses each ISO timestamp (`new Date(order.placed).getUTCMonth()`), counts distinct customers per country, and returns 8 sorted summary rows (`rawSize.records` orders → `parsedSize.records: 8` rows) before `Normalizer` hands `{data, totalCount}` to the `Store`.
 
-When you set `telemetry: true` on the pipeline, every `read` operation emits a frozen `telemetry` sample on the `App`-Worker `Pipeline` instance containing:
-- **`worker`:** `'app'` or `'data'` — read directly from `Neo.workerId` inside the worker realm that actually ran the stages.
-- **`status`:** `'fulfilled'` when all stages completed, or `'rejected'` if transport or interception threw.
-- **Stage timestamps:** `requestStart/End`, `connectionStart/End`, `responseStart/End`, `parserStart/End`, `postParseStart/End`, and `normalizerStart/End` (with skipped stages remaining `null`).
-- **Observed cardinalities:** `rawSize: {bytes, records}` (measured right after `response`) and `parsedSize: {bytes, records}` (measured right after `postParse`).
+When you set `telemetry: true` on the pipeline, `Pipeline#publishTelemetry` distinguishes the **frozen telemetry snapshot** from the **listener event** fired on the `App`-Worker `Pipeline`:
+- **Frozen snapshot (`Object.freeze`):** In whichever worker executed the stages, `publishTelemetry` seals `{...telemetry, rawSize: Object.freeze(...), parsedSize: Object.freeze(...)}` into an immutable snapshot. `Logger.log` receives that frozen snapshot directly, and when `workerExecution: 'data'`, the `Data` Worker posts it over `pipelineTelemetry` IPC to the `App`-Worker `Pipeline`.
+- **Shallow listener event carrier (`{...sample}`):** On the `App`-Worker `Pipeline`, `this.fire('telemetry', {...sample})` emits a shallow mutable copy of that snapshot so `Neo.core.Observable` can attach `source` without mutating the frozen snapshot (nested `rawSize` and `parsedSize` remain frozen). Publication is best-effort (`try / catch`), so observers never alter pipeline execution.
+- **Fields on every observation:** `worker` (`'app'` or `'data'`, read from `Neo.workerId` inside the executing worker), `status` (`'fulfilled'` or `'rejected'`), per-stage timestamps (`requestStart/End`, `connectionStart/End`, `responseStart/End`, `parserStart/End`, `postParseStart/End`, `normalizerStart/End`, with skipped stages `null`), and observed cardinalities (`rawSize: {bytes, records}` after `response`, `parsedSize: {bytes, records}` after `postParse`).
 
 Open **Preview** in Lab 2 and click **Run 12,000-order pipeline** to inspect the live telemetry sample and aggregated report:
 
@@ -363,19 +366,20 @@ MainView = Neo.setupClass(MainView);
 What changes when you switch `workerExecution: 'app'` to `workerExecution: 'data'`?
 
 1. **Built-in stages serialize by `className`:** Built-in `Neo.data.*` classes (`'Neo.data.connection.Fetch'`, `'Neo.data.normalizer.Base'`) load automatically in the `Data` Worker via `Neo.worker.Data#loadDataModule`. (When running in `'app'` mode, remember to `import` those modules in your view or controller so the `App` Worker has registered them too.)
-2. **Custom application stages declare a scoped `modulePath`:** Closure callbacks cannot cross `postMessage`. Instead, your custom `Interceptor` (or custom `Connection` / `Parser` / `Normalizer`) is an ordinary registered Neo class configured with plain data options and a workspace-scoped `.mjs` path under `apps/`, `examples/`, `docs/app/`, or `src/data/` — for example:
+2. **Custom application stages declare a scoped `modulePath` (exercised in Step 4):** Closure callbacks cannot cross `postMessage`. Lab 3 below exercises built-in stages (`Fetch`, `NormalizerBase`) across both workers in-page; in **Step 4**, your custom `Report` interceptor is a registered Neo class configured with a workspace-scoped `.mjs` path under `apps/`, `examples/`, `docs/app/`, or `src/data/`:
    ```javascript readonly
    interceptors: [{
        module    : Report,
        modulePath: 'apps/pipelinelab/data/Report.mjs'
    }]
    ```
-   Before creating the remote `Pipeline` instance, `Neo.data.Pipeline` validates `modulePath` (`InterceptorChain.validateModulePath`) and preloads that exact ES module inside the `Data` Worker.
-3. **Truthful handling of failed or incomplete attempts (`status: 'rejected'`):**
-   - When transport fails (for example, an unreachable endpoint or revoked `Blob` URL) or an interceptor throws, `Pipeline#profile` sets `telemetry.status = 'rejected'`, publishes that rejected telemetry sample for observability, and rethrows the error.
-   - A truthful UI **never** files a rejected or store-less attempt over its last valid worker sample, and **never** leaves a blank table pretending 0 orders exist. Keep the in-flight `attempt` separate until `await store.load()` succeeds, snapshot the prior rows before a reload clears the `Store`, restore them if the run fails, re-enable controls in `finally`, and display an explicit `role="alert"` message naming the worker and failure reason.
+   Before creating the remote `Pipeline` instance in Step 4, `Neo.data.Pipeline` validates `modulePath` (`InterceptorChain.validateModulePath`) and preloads that exact ES module inside the `Data` Worker.
+3. **Local profiling vs `Data`-worker remote return, and preserving verified state on incomplete runs:**
+   - **Local `'app'` profiling (`Pipeline#profile`):** When transport or an interceptor throws locally, `profile` sets `telemetry.status = 'rejected'`, publishes that rejected observation, and **rethrows** the error to the caller (`Store#load` or `pipeline.read()`).
+   - **Remote `'data'` execution (`Pipeline#executeRemoteOrLocal`):** If an admitted interceptor rejects (`NEO_PIPELINE_INTERCEPTION_REJECTED`, as in Step 4's `Report` chain), the `App`-Worker proxy rethrows `error.reason`. By contrast, raw transport or execution failures on retryable operations (`read` / `execute` without an interceptor rejection, as in Lab 3's built-in `Fetch` failure) retry up to `maxRemoteRetries` (`3`), publishing a `status: 'rejected'` telemetry sample per failed attempt, and after exhausting retries log `console.error` and **return `null`** to the `App` Worker rather than throwing.
+   - **Truthful verification gate:** Because a load can reject, resolve to `null`, return empty/unexpected rows (`[]`), or populate `Store` rows without a best-effort fulfilled telemetry sample, a truthful UI disables action buttons while a run is in flight (`finally` re-enables them), requires **both** the expected nonempty report rows and `sample?.status === 'fulfilled'` before updating its verified worker slot, unconditionally restores the prior verified rows if an unverified load mutated or cleared `Store`, and surfaces an explicit `role="alert"` banner naming the worker and incomplete/rejected reason.
 
-Test all three behaviors live in Lab 3 below — run on `'app'`, run on `'data'`, verify `sample.worker` flips from `'app'` to `'data'`, and click **Simulate failed load** to observe `status: 'rejected'` recovery:
+Test all three behaviors live in Lab 3 below — run on `'app'`, run on `'data'`, verify `sample.worker` flips from `'app'` to `'data'`, and click **Simulate failed load** to observe retry-exhausted `null` + `status: 'rejected'` preservation:
 
 ```javascript live-preview
 import Button         from '../button/Base.mjs';
@@ -395,6 +399,7 @@ const PAYLOAD = [
 
 class MainView extends Container {
     blobUrl    = null
+    isRunning  = false
     lastRows   = []
     lastSample = {}
 
@@ -407,17 +412,20 @@ class MainView extends Container {
             layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
             style : {gap: '8px'},
             items : [{
-                module : Button,
-                handler: 'up.onRunApp',
-                text   : 'Run on App worker'
+                module   : Button,
+                handler  : 'up.onRunApp',
+                reference: 'btn-app',
+                text     : 'Run on App worker'
             }, {
-                module : Button,
-                handler: 'up.onRunData',
-                text   : 'Run on Data worker'
+                module   : Button,
+                handler  : 'up.onRunData',
+                reference: 'btn-data',
+                text     : 'Run on Data worker'
             }, {
-                module : Button,
-                handler: 'up.onRunFailure',
-                text   : 'Simulate failed load'
+                module   : Button,
+                handler  : 'up.onRunFailure',
+                reference: 'btn-fail',
+                text     : 'Simulate failed load'
             }]
         }, {
             module   : Label,
@@ -443,21 +451,25 @@ class MainView extends Container {
         super.destroy(...args)
     }
 
-    onRunApp()     { return this.executeRun('app',  false) }
-    onRunData()    { return this.executeRun('data', false) }
-    onRunFailure() { return this.executeRun('data', true)  }
+    onRunApp()     { return this.executeRun('app') }
+    onRunData()    { return this.executeRun('data') }
+    onRunFailure() { return this.executeRun('data', {shouldFail: true}) }
 
-    async executeRun(mode, shouldFail) {
+    async executeRun(mode, {shouldFail = false, url = null, telemetry = true} = {}) {
         const me = this;
+        if (me.isRunning) return;
+
+        me.isRunning = true;
+        me.setButtonsDisabled(true);
         me.blobUrl ??= URL.createObjectURL(new Blob([JSON.stringify(PAYLOAD)], {type: 'application/json'}));
 
-        const targetUrl = shouldFail ? 'blob:invalid-unreachable-orders-payload' : me.blobUrl;
+        const targetUrl = url || (shouldFail ? 'blob:invalid-unreachable-orders-payload' : me.blobUrl);
         let observed    = null;
 
         const pipeline = Neo.create(Pipeline, {
             connection     : {className: BUILTIN_STAGES[0].prototype.className, url: targetUrl},
             normalizer     : {className: BUILTIN_STAGES[1].prototype.className},
-            telemetry      : true,
+            telemetry,
             workerExecution: mode
         });
 
@@ -468,8 +480,11 @@ class MainView extends Container {
             const normalized = await pipeline.read();
             const rows       = normalized?.data?.data ?? normalized?.data;
 
-            if (!Array.isArray(rows) || observed?.status !== 'fulfilled') {
-                throw new Error('Load returned no valid rows')
+            if (!Array.isArray(rows) || rows.length !== PAYLOAD.length) {
+                throw new Error(`Expected ${PAYLOAD.length} report rows, received ${Array.isArray(rows) ? rows.length : 'none'}`)
+            }
+            if (observed?.status !== 'fulfilled') {
+                throw new Error('Pipeline completed without a fulfilled telemetry sample')
             }
 
             // Attribute sample strictly to the worker reported by telemetry itself
@@ -477,14 +492,19 @@ class MainView extends Container {
             me.lastRows = rows;
             me.renderSummary()
         } catch (error) {
-            const alert = me.getReference('error-banner');
-            alert.set({
+            const telemetryNote = observed
+                ? `telemetry.status="${observed.status}" on worker="${observed.worker}"`
+                : 'no fulfilled telemetry sample';
+
+            me.getReference('error-banner').set({
                 hidden: false,
-                text  : `Attempt on '${mode}' worker failed (${observed ? `telemetry.status="${observed.status}" on worker="${observed.worker}"` : error?.message || 'rejected'}). Prior rows (${me.lastRows.length}) and fulfilled samples remain intact.`
+                text  : `Attempt on '${mode}' worker incomplete (${error?.message || 'load failed'}; ${telemetryNote}). Prior rows (${me.lastRows.length}) and fulfilled samples remain intact.`
             });
             me.renderSummary()
         } finally {
-            pipeline.destroy()
+            pipeline.destroy();
+            me.isRunning = false;
+            me.isDestroyed || me.setButtonsDisabled(false)
         }
     }
 
@@ -497,6 +517,12 @@ class MainView extends Container {
         this.getReference('rows-readout').text   = this.lastRows.length
             ? `Current rows (${this.lastRows.length}): ${this.lastRows.map(r => `${r.country}=${r.orders}`).join(', ')}`
             : 'Current rows: none'
+    }
+
+    setButtonsDisabled(disabled) {
+        this.getReference('btn-app') .disabled = disabled;
+        this.getReference('btn-data').disabled = disabled;
+        this.getReference('btn-fail').disabled = disabled
     }
 }
 
@@ -664,14 +690,14 @@ export default Neo.setupClass(StageModel);
 
 ```javascript readonly
 // apps/pipelinelab/view/MainView.mjs
-import Button             from '../../../node_modules/neo.mjs/src/button/Base.mjs';
-import Container          from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Label              from '../../../node_modules/neo.mjs/src/component/Label.mjs';
-import Table              from '../../../node_modules/neo.mjs/src/table/Container.mjs';
-import {createOrdersBlob} from '../data/Orders.mjs';
-import Report             from '../data/Report.mjs';
-import ReportModel        from '../model/ReportModel.mjs';
-import StageModel         from '../model/StageModel.mjs';
+import Button                      from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Container                   from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Label                       from '../../../node_modules/neo.mjs/src/component/Label.mjs';
+import Table                       from '../../../node_modules/neo.mjs/src/table/Container.mjs';
+import {MARKETS, createOrdersBlob} from '../data/Orders.mjs';
+import Report                      from '../data/Report.mjs';
+import ReportModel                 from '../model/ReportModel.mjs';
+import StageModel                  from '../model/StageModel.mjs';
 // Ensure built-in stages named by className are registered when running in the App Worker
 import '../../../node_modules/neo.mjs/src/data/connection/Fetch.mjs';
 import '../../../node_modules/neo.mjs/src/data/normalizer/Base.mjs';
@@ -690,6 +716,7 @@ const BEAT       = 5,
 class MainView extends Container {
     attempt        = null
     heartbeat      = null
+    isRunning      = false
     lastReportRows = []
     lastRejected   = null
     mode           = null
@@ -856,10 +883,12 @@ class MainView extends Container {
         }
     }
 
-    async runPipeline(mode, url) {
+    async runPipeline(mode, url, {telemetry = true} = {}) {
         const me      = this,
               {store} = me.getReference('report-table');
 
+        if (me.isRunning) return;
+        me.isRunning = true;
         me.setButtonsDisabled(true);
         me.showError(null);
 
@@ -868,7 +897,7 @@ class MainView extends Container {
                 connection     : {className: 'Neo.data.connection.Fetch', url},
                 interceptors   : [{module: Report, modulePath: 'apps/pipelinelab/data/Report.mjs'}],
                 normalizer     : {className: 'Neo.data.normalizer.Base'},
-                telemetry      : true,
+                telemetry,
                 workerExecution: mode
             };
             store.pipeline.on('telemetry', me.onTelemetry, me);
@@ -884,8 +913,8 @@ class MainView extends Container {
             const run    = me.stopHeartbeat(),
                   sample = me.attempt;
 
-            if (report == null || store.count === 0) {
-                me.failRun(mode, 'load completed without returning report rows')
+            if (report == null || store.count !== MARKETS.length) {
+                me.failRun(mode, `expected ${MARKETS.length} country rows, received ${report == null ? 'null' : store.count}`)
             } else if (!sample) {
                 me.failRun(mode, 'pipeline published no fulfilled telemetry sample')
             } else {
@@ -901,7 +930,8 @@ class MainView extends Container {
                 me.failRun(mode, error?.message || String(error))
             }
         } finally {
-            me.attempt = null;
+            me.attempt   = null;
+            me.isRunning = false;
             me.stopHeartbeat();
             me.isDestroyed || me.setButtonsDisabled(false)
         }
@@ -913,17 +943,19 @@ class MainView extends Container {
 
         me.mode = null;
 
-        // Store#load clears existing items at load start; restore prior verified snapshot so a failed run never wipes valid data
-        if (store.count === 0 && me.lastReportRows.length > 0) {
-            store.data = me.lastReportRows.map(row => ({...row}))
+        // Store#load mutates items directly (clear + addLoadedItems); clear and re-add the verified snapshot on every incomplete run
+        store.clear();
+        if (me.lastReportRows.length > 0) {
+            store.add(me.lastReportRows.map(row => ({...row})))
         }
 
-        const rejectedNote = me.lastRejected
-            ? ` (telemetry status="${me.lastRejected.status}" on worker="${me.lastRejected.worker}")`
-            : '';
+        const observed      = me.lastRejected || me.attempt,
+              telemetryNote = observed
+                  ? ` (telemetry status="${observed.status}" on worker="${observed.worker}")`
+                  : ' (no fulfilled telemetry sample)';
 
         me.showError(
-            `Run on '${mode}' worker did not finish: ${reason}${rejectedNote}. ` +
+            `Run on '${mode}' worker did not complete verification: ${reason}${telemetryNote}. ` +
             `Preserved ${store.count} prior report rows and previous fulfilled worker samples.`
         )
     }
@@ -1017,19 +1049,21 @@ Open `http://localhost:8080/apps/pipelinelab/index.html` and verify:
 
 ```mermaid
 flowchart TD
-    Store["Store#load() in App Worker<br/>passes {page, pageSize} params"]
-    Proxy["App Worker Neo.data.Pipeline<br/>workerExecution: 'app' | 'data' · telemetry: true"]
-    AppExec["Local Execution in App Worker<br/>Fetch → Report Interceptor → Normalizer.Base<br/>shares event loop with UI heartbeat"]
-    DataExec["Remote Execution in Data Worker<br/>Neo.worker.Data loads apps/pipelinelab/data/Report.mjs<br/>Fetch → Report Interceptor → Normalizer.Base"]
-    Telemetry["Frozen telemetry event in App Worker<br/>worker: 'app' | 'data' · status: 'fulfilled' | 'rejected'<br/>stageStart/End · rawSize · parsedSize"]
-    Outcome["Truthful Store & UI Update<br/>fulfilled: files sample under sample.worker & renders 8 rows<br/>rejected: shows alert & preserves prior rows/samples"]
+    Store["Store#load() in App Worker<br/>passes {page, pageSize}"]
+    Proxy["App-Worker Neo.data.Pipeline<br/>workerExecution: 'app' | 'data'"]
+    AppExec["Local App-Worker Stages<br/>Fetch → Report → Normalizer<br/>rejection publishes & rethrows"]
+    DataExec["Remote Data-Worker Stages<br/>loads Report.mjs via modulePath<br/>retry exhaustion returns null"]
+    Snapshot["Frozen Snapshot (Object.freeze)<br/>worker · status · stage ms · sizes"]
+    Event["Listener Event ({...sample, source})<br/>shallow carrier on App Pipeline"]
+    Outcome["Verified Store & UI Gate<br/>rows + fulfilled: update slot & table<br/>incomplete: alert & restore snapshot"]
 
     Store --> Proxy
-    Proxy -->|"workerExecution: 'app'"| AppExec
-    Proxy -->|"workerExecution: 'data' (IPC)"| DataExec
-    AppExec --> Telemetry
-    DataExec -->|"8 shaped rows + sample over IPC"| Telemetry
-    Telemetry --> Outcome
+    Proxy -->|"'app'"| AppExec
+    Proxy -->|"'data' IPC"| DataExec
+    AppExec --> Snapshot
+    DataExec -->|"rows or null + IPC"| Snapshot
+    Snapshot --> Event
+    Event --> Outcome
 ```
 
 ---
