@@ -92,6 +92,13 @@ class TourToolbar extends Toolbar {
                 text     : 'Planning'
             }]
         }, {
+            cls      : ['workstation-command-button'],
+            handler  : 'onOpenCommandPalette',
+            iconCls  : 'fa fa-terminal',
+            ntype    : 'button',
+            reference: 'command-palette-trigger',
+            text     : 'Commands'
+        }, {
             cls      : ['workstation-theme-button'],
             handler  : 'onToggleWorkspaceTheme',
             iconCls  : 'fa fa-sun',

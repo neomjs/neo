@@ -1,4 +1,5 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
+import CommandPalette        from '../../../examples/workbench/CommandPalette.mjs';
 import Component             from '../../../src/component/Base.mjs';
 import Desktop               from '../../../src/desktop/Container.mjs';
 import PermissionPanel       from './PermissionPanel.mjs';
@@ -22,6 +23,12 @@ class Viewport extends BaseViewport {
          * @protected
          */
         className: 'WebDesktop.view.Viewport',
+        /**
+         * @member {String[]} additionalThemeFiles=['Neo.examples.workbench.CommandPalette']
+         */
+        additionalThemeFiles: [
+            'Neo.examples.workbench.CommandPalette'
+        ],
         /**
          * @member {String[]} cls=['webdesktop-viewport']
          */
@@ -107,6 +114,21 @@ class Viewport extends BaseViewport {
             },
             taskbarConfig: {module: Taskbar}
         }]
+    }
+
+    /**
+     * Lazily created contextual command palette instance owned by this viewport.
+     * @member {Neo.examples.workbench.CommandPalette|null} commandPalette=null
+     */
+    commandPalette = null
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.commandPalette?.destroy();
+        this.commandPalette = null;
+        super.destroy(...args)
     }
 }
 

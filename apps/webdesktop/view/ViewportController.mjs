@@ -1,4 +1,6 @@
-import Controller from '../../../src/controller/Component.mjs';
+import CommandPalette from '../../../examples/workbench/CommandPalette.mjs';
+import Controller     from '../../../src/controller/Component.mjs';
+import {catalog}      from '../store/Apps.mjs';
 
 /**
  * @summary Signs accounts in and out, grants and revokes permissions, and switches the theme. The engine's desktop
@@ -87,11 +89,229 @@ class ViewportController extends Controller {
     }
 
     /**
-     * Records the viewport's starting theme as state, which the taskbar's theme button and the Settings app read.
+     * Records the viewport's starting theme as state, which the taskbar's theme button and the Settings app read,
+     * and wires document-level command-palette shortcuts (`Ctrl+K`, `Meta+K`, `F1`).
      */
     onComponentConstructed() {
         super.onComponentConstructed();
-        this.setState('theme', this.component.getTheme())
+
+        const me       = this,
+              viewport = me.component;
+
+        me.setState('theme', viewport.getTheme());
+
+        viewport?.addDomListeners?.({
+            keydown: me.onViewportKeyDown,
+            scope  : me,
+            vnodeId: 'document.body'
+        });
+
+        if (!Neo.config.unitTestMode && viewport?.windowId) {
+            Neo.main?.DomEvents?.registerPreventDefaultKeys?.({
+                id      : 'document.body',
+                keys    : ['F1'],
+                windowId: viewport.windowId
+            })
+        }
+    }
+
+    /**
+     * @summary Lazily creates the Web Desktop's shared {@link Neo.examples.workbench.CommandPalette} instance.
+     * @returns {Neo.examples.workbench.CommandPalette}
+     */
+    ensureCommandPalette() {
+        const me       = this,
+              viewport = me.component;
+
+        if (!viewport.commandPalette || viewport.commandPalette.isDestroyed) {
+            viewport.commandPalette = Neo.create(CommandPalette, {
+                actionProvider : () => me.buildCommandPaletteActions(),
+                appName        : viewport.appName,
+                parentComponent: viewport,
+                placeholder    : 'Search accounts, apps, or theme...',
+                theme          : me.getState('theme') || viewport.getTheme(),
+                title          : 'Web Desktop Commands',
+                windowId       : viewport.windowId
+            })
+        }
+
+        return viewport.commandPalette
+    }
+
+    /**
+     * @summary Opens or toggles the command palette from the Taskbar `Commands` button.
+     * @param {Object} [data]
+     * @returns {Promise<Neo.examples.workbench.CommandPalette|Boolean>}
+     */
+    onOpenCommandPalette(data) {
+        const me        = this,
+              viewport  = me.component,
+              triggerId = me.getReference('commands')?.id ?? data?.component?.id ?? null;
+
+        return me.ensureCommandPalette().toggle({
+            fallbackFocusId: () => me.resolveFallbackFocusId(),
+            returnFocusId  : triggerId,
+            theme          : me.getState('theme') || viewport.getTheme(),
+            windowId       : viewport.windowId
+        })
+    }
+
+    /**
+     * @summary Opens or toggles the command palette on `Ctrl+K`, `Meta+K`, or `F1` across both Sign-In and Desktop views.
+     * @param {Object} data
+     */
+    onViewportKeyDown(data) {
+        if (!CommandPalette.isOpenShortcut(data)) {
+            return
+        }
+
+        const me       = this,
+              viewport = me.component;
+
+        if (!viewport || viewport.isDestroyed) {
+            return
+        }
+
+        data.cancelBubble = true;
+
+        const originId = data.target?.id && data.target.id !== 'document.body' ? data.target.id : null;
+
+        me.ensureCommandPalette().toggle({
+            fallbackFocusId: () => me.resolveFallbackFocusId(),
+            returnFocusId  : originId,
+            theme          : me.getState('theme') || viewport.getTheme(),
+            windowId       : viewport.windowId
+        })
+    }
+
+    /**
+     * @summary Resolves a live focus fallback across Sign-In <-> Desktop transitions when the origin control unmounts.
+     * @returns {String|null}
+     * @protected
+     */
+    resolveFallbackFocusId() {
+        const me = this;
+
+        if (me.getState('account')) {
+            return me.getReference('commands')?.id ?? me.getReference('start-button')?.id ?? null
+        }
+
+        return me.component?.down({ntype: 'list'})?.id ?? null
+    }
+
+    /**
+     * @summary Builds contextual Web Desktop commands from the live account session, RBAC permission grants,
+     * desktop app catalog, permission simulation panel, and theme state.
+     * @returns {Object[]}
+     */
+    buildCommandPaletteActions() {
+        const me               = this,
+              provider         = me.getStateProvider(),
+              account          = me.getState('account'),
+              permissions      = me.getState('permissions') || [],
+              permissionsPanel = Boolean(me.getState('permissionsPanel')),
+              isLight          = me.getState('theme') === 'neo-theme-neo-light',
+              accountsStore    = provider?.getStore('accounts'),
+              desktop          = me.getReference('desktop'),
+              actions          = [];
+
+        if (accountsStore) {
+            for (let i = 0, count = accountsStore.getCount(); i < count; i++) {
+                const record = accountsStore.getAt(i);
+
+                if (!record) {
+                    continue
+                }
+
+                const isCurrent = account?.id === record.id;
+
+                actions.push({
+                    id         : `account:signin:${record.id}`,
+                    available  : !isCurrent,
+                    description: record.role ? `${record.role} (${record.permissions?.length ?? 0} permissions)` : 'Sign in with this demo account.',
+                    group      : 'Accounts',
+                    handler    : async () => {
+                        me.onAccountItemClick({record});
+                        await Promise.all([
+                            me.component?.promiseUpdate?.(),
+                            desktop?.promiseUpdate?.()
+                        ].map(promise => Promise.resolve(promise).catch(() => {})))
+                    },
+                    iconCls          : 'fas fa-user',
+                    keywords         : ['account', 'login', 'sign in', 'switch user', record.name, record.role],
+                    label            : `Sign in as ${record.name}`,
+                    unavailableReason: 'Already signed in'
+                })
+            }
+        }
+
+        for (const entry of catalog) {
+            if (entry.isLeaf === false) {
+                continue
+            }
+
+            const granted = Boolean(account) && permissions.includes(entry.permission),
+                  reason  = !account
+                      ? 'Sign in to an account first'
+                      : `Requires ${entry.permission} permission`;
+
+            actions.push({
+                id         : `app:open:${entry.id}`,
+                available  : granted,
+                description: entry.description || `Open ${entry.text} in a desktop window.`,
+                group      : 'Desktop Apps',
+                handler    : async () => {
+                    const win = await desktop?.openApp(entry);
+
+                    if (win && !win.isDestroyed) {
+                        win.focus?.(win.id, true)
+                    }
+
+                    return win
+                },
+                iconCls          : entry.iconCls || 'fas fa-window-maximize',
+                keywords         : ['app', 'open', 'launch', 'window', entry.id, entry.text, entry.permission],
+                label            : `Open ${entry.text}`,
+                managesFocus     : true,
+                unavailableReason: reason
+            })
+        }
+
+        actions.push({
+            id               : 'desktop:permissions-panel',
+            available        : Boolean(account),
+            description      : 'Toggle the live RBAC permission simulation panel beside the launcher.',
+            group            : 'Session & Desktop',
+            handler          : () => me.onPermissionsButtonClick({}),
+            iconCls          : 'fas fa-user-shield',
+            keywords         : ['permissions', 'rbac', 'grants', 'panel', 'security'],
+            label            : permissionsPanel ? 'Hide Permissions panel' : 'Show Permissions panel',
+            unavailableReason: 'Sign in to an account first'
+        }, {
+            id         : 'desktop:theme-toggle',
+            available  : true,
+            description: `Switch the Web Desktop to the ${isLight ? 'dark' : 'light'} Neo theme.`,
+            group      : 'Appearance',
+            handler    : () => me.onThemeButtonClick({}),
+            iconCls    : isLight ? 'fas fa-moon' : 'fas fa-sun',
+            keywords   : ['theme', 'dark', 'light', 'mode', 'appearance'],
+            label      : isLight ? 'Switch to Dark theme' : 'Switch to Light theme'
+        }, {
+            id         : 'account:signout',
+            available  : Boolean(account),
+            description: 'Close open desktop windows and return to the account lock screen.',
+            group      : 'Session & Desktop',
+            handler    : async () => {
+                me.onSignOutButtonClick({});
+                await Promise.resolve(me.component?.promiseUpdate?.()).catch(() => {})
+            },
+            iconCls          : 'fas fa-right-from-bracket',
+            keywords         : ['sign out', 'logout', 'lock', 'session'],
+            label            : 'Sign out',
+            unavailableReason: 'No account is signed in'
+        });
+
+        return actions
     }
 
     /**
@@ -124,6 +344,10 @@ class ViewportController extends Controller {
 
         if (menuList) {
             menuList.theme = theme
+        }
+
+        if (me.component.commandPalette && !me.component.commandPalette.isDestroyed) {
+            me.component.commandPalette.theme = theme
         }
 
         me.setState('theme', theme)

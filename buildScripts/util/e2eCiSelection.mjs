@@ -92,6 +92,7 @@ export const RUN_PATHS = [
     'test/playwright/e2e/table',
     'test/playwright/e2e/timeline',
     'test/playwright/e2e/webdesktop',
+    'test/playwright/e2e/workstation/CommandPaletteNL.spec.mjs',
     'test/playwright/e2e/workstation/DockSplitterZoneIdNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselClosesMidFirstRenderNL.spec.mjs',
     'test/playwright/e2e/workstation/VesselNativeRouteNL.spec.mjs',

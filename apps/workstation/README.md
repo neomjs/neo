@@ -69,7 +69,7 @@ creates a fresh controller. The workspace and its stores remain owned by the ord
 ## Layout controls, header action ownership, and persistence
 
 Two global header rows keep the workspace chrome compact:
-- **Row 1 (`view/TourToolbar.mjs`):** **Start tour**, conditional **Continue** (while a viewer gate is pending), **Operations** / **Planning** (when both arrangements are declared), and the theme toggle (**Light mode** / **Dark mode**).
+- **Row 1 (`view/TourToolbar.mjs`):** **Start tour**, conditional **Continue** (while a viewer gate is pending), **Operations** / **Planning** (when both arrangements are declared), **Commands** (contextual command palette, also reachable via `Ctrl+K` / `Meta+K` / `F1`), and the theme toggle (**Light mode** / **Dark mode**).
 - **Row 2 (`view/TopologyToolbar.mjs` beside `view/StatusComponent.mjs`):** live store statistics beside **Reset to default**, **Undo**, and **Redo** (with reactive step badges). Opening more popup participants adds no controls or rows.
 
 **Action placement rule:** a new demo, capture, or test scenario uses the tour runner (`TourController`) or test fixture rather than adding a launcher to the global headers; a new product function belongs where a person uses it. Any deliberate change to the global header actions updates this section and [`test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs`](../../test/playwright/e2e/workstation/WorkstationTourActivationNL.spec.mjs) together.

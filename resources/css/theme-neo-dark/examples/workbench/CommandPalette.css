@@ -1,0 +1,14 @@
+:root .neo-theme-neo-dark {
+    --command-palette-active-bg    : rgba(94, 234, 212, 0.14);
+    --command-palette-active-border: rgba(94, 234, 212, 0.48);
+    --command-palette-backdrop-bg  : rgba(7, 10, 16, 0.68);
+    --command-palette-badge-bg     : #1b2330;
+    --command-palette-border-color : #2c3748;
+    --command-palette-focus-ring   : #5eead4;
+    --command-palette-footer-bg    : #0f141d;
+    --command-palette-hover-bg     : rgba(255, 255, 255, 0.05);
+    --command-palette-muted-color  : #9aa6b8;
+    --command-palette-shadow       : 0 22px 48px rgba(0, 0, 0, 0.55);
+    --command-palette-surface-bg   : #141a24;
+    --command-palette-text-color   : #edf2f7;
+}

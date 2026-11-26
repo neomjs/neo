@@ -58,6 +58,12 @@ function expectedGlobalHeaderActions({gatePrompt = null, themeLabel = 'Light mod
         action   : null,
         hasIcon  : true,
         owner    : 'tour-bar',
+        reference: 'command-palette-trigger',
+        text     : 'Commands'
+    }, {
+        action   : null,
+        hasIcon  : true,
+        owner    : 'tour-bar',
         reference: 'theme-toggle',
         text     : themeLabel
     });

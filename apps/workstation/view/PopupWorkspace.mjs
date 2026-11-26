@@ -69,10 +69,19 @@ class PopupWorkspace extends DockWorkspace {
     construct(config) {
         super.construct(config);
         const me = this;
+        me.addDomListeners({keydown: me.onPopupKeyDown, scope: me, vnodeId: 'document.body'});
         me.workspaceSet.register(me.workspaceKey, {
             ...me.getDockParticipantSeams(me.workspaceKey),
             dispose: () => { if (!me.isDestroyed) me.destroy() }
         })
+    }
+
+    /**
+     * @summary Forwards document-level command-palette shortcuts from a torn-out vessel window to the root controller.
+     * @param {Object} data
+     */
+    onPopupKeyDown(data) {
+        this.rootWorkspace?.getController()?.onWorkspaceKeyDown(data, this.windowId)
     }
 
     /**

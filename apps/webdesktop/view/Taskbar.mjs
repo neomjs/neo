@@ -22,6 +22,12 @@ class WebDesktopTaskbar extends Taskbar {
             'start-button': {
                 bind: {disabled: data => data.permissions.length === 0}
             },
+            commands: {
+                handler: 'onOpenCommandPalette',
+                iconCls: 'fas fa-terminal',
+                text   : 'Commands',
+                weight : 35
+            },
             permissions: {
                 bind   : {pressed: data => data.permissionsPanel},
                 handler: 'onPermissionsButtonClick',

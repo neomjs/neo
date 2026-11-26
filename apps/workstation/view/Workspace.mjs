@@ -1,4 +1,5 @@
 import BoardPane                           from './BoardPane.mjs';
+import CommandPalette                      from '../../../examples/workbench/CommandPalette.mjs';
 import Container                           from '../../../src/container/Base.mjs';
 import VesselWorkspace                     from './VesselWorkspace.mjs';
 import Feed                                from '../store/Feed.mjs';
@@ -86,7 +87,8 @@ class Workspace extends VesselWorkspace {
         additionalThemeFiles: [
             'Workstation.view.Viewport',
             'Neo.dashboard.Container',
-            'Workstation.view.Workspace'
+            'Workstation.view.Workspace',
+            'Neo.examples.workbench.CommandPalette'
         ],
         /**
          * @member {String[]} cls
@@ -156,6 +158,11 @@ class Workspace extends VesselWorkspace {
         statusModule: StatusComponent
     }
 
+    /**
+     * Lazily created contextual command palette shared across this workspace's windows.
+     * @member {Neo.examples.workbench.CommandPalette|null} commandPalette=null
+     */
+    commandPalette = null
     /**
      * @member {Neo.ai.client.DockService|null} dockService=null
      */
@@ -820,6 +827,10 @@ class Workspace extends VesselWorkspace {
         me.theme = theme;
         me.syncThemeToggle(theme);
 
+        if (me.commandPalette && !me.commandPalette.isDestroyed) {
+            me.commandPalette.theme = theme
+        }
+
         Object.values(me.paneCache).forEach(pane => {
             if (!pane.isDestroyed && (!pane.theme || pane.theme === previousTheme)) {
                 pane.theme = theme
@@ -896,6 +907,8 @@ class Workspace extends VesselWorkspace {
      * @protected
      */
     destroyWorkspaceContent() {
+        this.commandPalette?.destroy();
+        this.commandPalette = null;
         this.dockService?.destroy();
         this.perspectiveStore?.destroy();
         this.topologyLibrary?.destroy();

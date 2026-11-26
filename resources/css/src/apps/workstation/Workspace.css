@@ -217,6 +217,7 @@
         }
     }
 
+    .workstation-command-button,
     .workstation-theme-button {
         --button-background-color       : var(--workstation-panel-2);
         --button-background-color-active: color-mix(in srgb, var(--workstation-signal) 18%, var(--workstation-panel-2));
@@ -296,6 +297,7 @@
 
 /* Beat generic button focus/pressed descendant colors without relying on theme load order. */
 .workstation-workspace .workstation-tourbar {
+    .workstation-command-button,
     .workstation-theme-button {
         .neo-button-glyph,
         .neo-button-text {
