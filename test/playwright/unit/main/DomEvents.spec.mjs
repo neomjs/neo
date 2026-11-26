@@ -1316,4 +1316,51 @@ test.describe('Neo.main.DomEvents', () => {
             expect(clickHashAnchor(owner, '#/section2', 'https://neomjs.com/apps/route/index.html')).toBe(false)
         })
     });
+
+    test('scoped preventDefaultChords cancel matching chords on focused buttons while preserving body preventDefaultKeys', () => {
+        const owner = {
+            getKeyboardEventData: value => value,
+            sendMessageToApp    : () => {},
+            testPathInclusion   : () => false
+        };
+
+        const fireKey = (target, key, mods = {}) => {
+            let prevented = false;
+            DomEvents.onKeyDown.call(owner, {
+                altKey        : false,
+                ctrlKey       : false,
+                key,
+                metaKey       : false,
+                preventDefault: () => { prevented = true },
+                shiftKey      : false,
+                target,
+                ...mods
+            });
+            return prevented
+        };
+
+        const buttonTarget = {id: 'launcher-btn', tagName: 'BUTTON', closest: () => null};
+
+        DomEvents.registerPreventDefaultKeys({id: 'document.body', keys: ['F8']});
+        DomEvents.registerPreventDefaultChords({
+            chords : [{key: 'F1'}, {ctrlOrMeta: true, key: 'k'}],
+            scopeId: 'palette-1'
+        });
+
+        try {
+            expect(fireKey(buttonTarget, 'k', {ctrlKey: true})).toBe(true);
+            expect(fireKey(buttonTarget, 'K', {metaKey: true})).toBe(true);
+            expect(fireKey(buttonTarget, 'F1')).toBe(true);
+            expect(fireKey(buttonTarget, 'k')).toBe(false);
+            expect(fireKey(documentRef.body, 'F8')).toBe(true);
+
+            DomEvents.unregisterPreventDefaultChords({scopeId: 'palette-1'});
+            expect(fireKey(buttonTarget, 'k', {ctrlKey: true})).toBe(false);
+            expect(fireKey(buttonTarget, 'F1')).toBe(false);
+            expect(fireKey(documentRef.body, 'F8'), 'body F8 reservation survives chord teardown').toBe(true)
+        } finally {
+            DomEvents.unregisterPreventDefaultChords({scopeId: 'palette-1'});
+            DomEvents.unregisterPreventDefaultKeys({id: 'document.body'})
+        }
+    });
 });

@@ -915,7 +915,7 @@ class DomEvents extends Base {
             // When the target is `document.body`, callers register against `'document.body'` because body often has no id.
             const preventId = target === document.body ? (target.id || 'document.body') : target.id;
 
-            if (preventDefaultKeys[preventId]?.includes(event.key) || me.hasMatchingPreventDefaultChord(event)) {
+            if (preventDefaultKeys[preventId]?.includes(event.key) || DomEvents.hasMatchingPreventDefaultChord(event)) {
                 event.preventDefault()
             }
 
@@ -1330,7 +1330,7 @@ class DomEvents extends Base {
      * @param {KeyboardEvent} event
      * @returns {Boolean}
      */
-    hasMatchingPreventDefaultChord(event) {
+    static hasMatchingPreventDefaultChord(event) {
         if (preventDefaultChords.size === 0 || typeof event.key !== 'string') return false;
         const keyLower = event.key.toLowerCase();
 
