@@ -152,6 +152,7 @@
     "test/playwright/e2e/grid/LockedRegionEmpties.spec.mjs": 3.1,
     "test/playwright/e2e/grid/LockedRegionRowRender.spec.mjs": 3.6,
     "test/playwright/e2e/grid/LockedWrapRows.spec.mjs": 2.5,
+    "test/playwright/e2e/grid/OrderReviewDeskNL.spec.mjs": 7.5,
     "test/playwright/e2e/grid/PinnedColumnsExample.spec.mjs": 6.7,
     "test/playwright/e2e/grid/PremeasureRowsNL.spec.mjs": 60.8,
     "test/playwright/e2e/grid/ResponsiveLockPolicyNL.spec.mjs": 2.9,

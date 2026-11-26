@@ -96,6 +96,39 @@
         "scope": "Shows the World Bank's latest indicators (CC BY 4.0) as retrieved on 17 Nov 2026; the flags load from an outside image host."
     },
     {
+        "id": "grid-order-review-desk",
+        "featured": false,
+        "alsoIn": [
+            "state"
+        ],
+        "image": "devmode/grid-order-review-desk-14.jpg",
+        "hasLightCover": true,
+        "name": "Order Review Desk",
+        "sourceUrl": "examples/grid/orderReviewDesk",
+        "urls": {
+            "devmode": "examples/grid/orderReviewDesk/index.html",
+            "dist_dev": "dist/development/examples/grid/orderReviewDesk/index.html",
+            "dist_esm": "dist/esm/examples/grid/orderReviewDesk/index.html",
+            "dist_prod": "dist/production/examples/grid/orderReviewDesk/index.html"
+        },
+        "hiddenIn": [],
+        "family": "grid-table",
+        "environments": ["Desktop", "Mobile"],
+        "order": 135,
+        "component": "Grid",
+        "feature": "100,000 local orders with pinned Order and Settlement columns, exception filtering, typed quantity editing and recalculated line totals",
+        "lookFor": "Filter to the 6 flagged exceptions, double-click or press Enter on Quantity (1–50) to watch Line total and the exception count update, jump to ORD-099985, or clear the last exception to reach the empty state.",
+        "scope": "Runs on 100,000 deterministic in-memory orders; session edits reset on reload and require no backend.",
+        "keywords": [
+            "editing",
+            "filtering",
+            "locked",
+            "exceptions",
+            "workflow",
+            "100000"
+        ]
+    },
+    {
         "id": "table-filtering",
         "featured": false,
         "image": "devmode/table-filtering-14.jpg",
