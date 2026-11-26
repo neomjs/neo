@@ -265,6 +265,94 @@ test.describe('Neo.component.Markdown render order', () => {
         expect(Neo.get(orphanId)).toBeFalsy()
     });
 
+    test('clean root-relative issuesUrl and contentRoute (/...) resolve per windowId across hash and pathname windows while keeping //external external (#22229)', async () => {
+        const ContentComponent  = (await import('../../../../src/app/content/Component.mjs')).default,
+              prevWindowConfigs = Neo.windowConfigs;
+
+        Neo.windowConfigs = {
+            ...prevWindowConfigs,
+            'win-hash': {routerMode: 'hash',     routerBasePath: ''},
+            'win-root': {routerMode: 'pathname', routerBasePath: ''},
+            'win-sub' : {routerMode: 'pathname', routerBasePath: '/dist/production/apps/portal'}
+        };
+
+        try {
+            markdown.set({
+                contentRoute    : '/learn/',
+                issuesUrl       : '/news/tickets/',
+                replaceTicketIds: true,
+                windowId        : 'win-root'
+            });
+            markdown.value = 'See #22229.';
+            highlights[0]();
+            await flush();
+            expect(markdown.html).toContain('<a href="/news/tickets/22229">#22229</a>');
+
+            markdown.windowId = 'win-sub';
+            await flush();
+            highlights[1]();
+            await flush();
+            expect(markdown.html).toContain('<a href="/dist/production/apps/portal/news/tickets/22229">#22229</a>');
+
+            markdown.windowId = 'win-hash';
+            await flush();
+            highlights[2]();
+            await flush();
+            expect(markdown.html).toContain('<a href="#/news/tickets/22229">#22229</a>');
+
+            markdown.issuesUrl = '//issues.example.com/';
+            markdown.value     = 'External #99.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="//issues.example.com/99" target="_blank">#99</a>');
+
+            markdown.contentRoute = null;
+            markdown.windowId     = 'win-root';
+            await flush();
+            markdown.value        = 'Pathname protocol-relative #100.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="//issues.example.com/100" target="_blank">#100</a>');
+
+            markdown.issuesUrl = 'https://issues.example.com/';
+            markdown.value     = 'Pathname https #101.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="https://issues.example.com/101" target="_blank">#101</a>');
+
+            markdown.windowId = 'win-hash';
+            await flush();
+            markdown.value    = 'Hash https #102.';
+            highlights.at(-1)();
+            await flush();
+            expect(markdown.html).toContain('<a href="https://issues.example.com/102" target="_blank">#102</a>');
+
+            const rewriteForWindow = (windowId, contentRoute = '/learn/', anchor = '<a href="./CodebaseOverview.md#intro">Overview</a>') => ContentComponent.prototype.rewriteLinks.call({
+                contentRoute,
+                record          : {id: 'guides/fundamentals/Boot'},
+                resolveContentId: ContentComponent.prototype.resolveContentId,
+                windowId
+            }, anchor);
+
+            expect(rewriteForWindow('win-root')).toBe('<a href="/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
+            expect(rewriteForWindow('win-sub')).toBe('<a href="/dist/production/apps/portal/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
+            expect(rewriteForWindow('win-hash')).toBe('<a href="#/learn/guides/fundamentals/CodebaseOverview#intro">Overview</a>');
+            expect(rewriteForWindow('win-root', '//docs.example.com/learn/')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-hash', '//docs.example.com/learn/')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-hash', 'https://docs.example.com/learn/')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview#intro" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', '<a href="./CodebaseOverview.md" target="_self">Overview</a>')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview" target="_self">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', "<a target='_top' href='./CodebaseOverview.md'>Overview</a>")).toBe("<a target='_top' href='https://docs.example.com/learn/guides/fundamentals/CodebaseOverview'>Overview</a>");
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', '<a href="./CodebaseOverview.md" TARGET=_parent>Overview</a>')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview" TARGET=_parent>Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', '<a data-target="section" href="./CodebaseOverview.md">Overview</a>')).toBe('<a data-target="section" href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-hash', '//docs.example.com/learn/', '<a href="./CodebaseOverview.md" data-target="section">Overview</a>')).toBe('<a href="//docs.example.com/learn/guides/fundamentals/CodebaseOverview" target="_blank" data-target="section">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', '<a title="target=section" aria-label=\'see target="_self"\' data-cfg=mode:target=section href="./CodebaseOverview.md">Overview</a>')).toBe('<a title="target=section" aria-label=\'see target="_self"\' data-cfg=mode:target=section href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview" target="_blank">Overview</a>');
+            expect(rewriteForWindow('win-root', 'https://docs.example.com/learn/', '<a href="./CodebaseOverview.md" data-href="./Ignore.md">Overview</a>')).toBe('<a href="https://docs.example.com/learn/guides/fundamentals/CodebaseOverview" target="_blank" data-href="./Ignore.md">Overview</a>')
+        } finally {
+            Neo.windowConfigs = prevWindowConfigs
+        }
+    });
+
     test('windowId change preserves embedded components across same-config windows and re-renders links on hash -> pathname transition (#22170)', async () => {
         const prevWindowConfigs = Neo.windowConfigs,
               widgetId          = 'markdown-window-move-widget';

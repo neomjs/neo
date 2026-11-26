@@ -13,9 +13,9 @@ class Component extends ContentComponent {
          */
         className: 'Portal.view.news.release.Component',
         /**
-         * @member {String} issuesUrl='#/news/tickets/'
+         * @member {String} issuesUrl='/news/tickets/'
          */
-        issuesUrl: '#/news/tickets/'
+        issuesUrl: '/news/tickets/'
     }
 
     /**

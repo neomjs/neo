@@ -25,10 +25,10 @@ class Planning extends FeatureSection {
          */
         headline: 'Gantt & Task Board',
         /**
-         * @member {String} learnMoreRoute='#/learn/guides/datahandling/Gantt'
+         * @member {String} learnMoreRoute='/learn/guides/datahandling/Gantt'
          * @reactive
          */
-        learnMoreRoute: '#/learn/guides/datahandling/Gantt',
+        learnMoreRoute: '/learn/guides/datahandling/Gantt',
         /**
          * @member {String} learnMoreText='The Gantt guide'
          * @reactive
@@ -39,13 +39,13 @@ class Planning extends FeatureSection {
          * @reactive
          */
         links: [
-            {route: '#/examples/gantt',      text: 'More Gantt charts'},
-            {route: '#/examples/board',      text: 'Task Boards'},
-            {route: '#/examples/grid',       text: 'Grids'},
-            {route: '#/examples/forms',      text: 'Forms'},
-            {route: '#/examples/scheduler',  text: 'Scheduler'},
-            {route: '#/examples/calendar',   text: 'Calendar'},
-            {route: '#/examples/dashboard',  text: 'Docking'}
+            {route: '/examples/gantt',      text: 'More Gantt charts'},
+            {route: '/examples/board',      text: 'Task Boards'},
+            {route: '/examples/grid',       text: 'Grids'},
+            {route: '/examples/forms',      text: 'Forms'},
+            {route: '/examples/scheduler',  text: 'Scheduler'},
+            {route: '/examples/calendar',   text: 'Calendar'},
+            {route: '/examples/dashboard',  text: 'Docking'}
         ],
         /**
          * @member {String} livePreviewCode

@@ -42,6 +42,28 @@ test.describe('pathname dist mounts', () => {
         expect(config.routerBasePath).toBe('/dist/esm/apps/entry')
     });
 
+    test('pathname configs without a non-empty routerBasePath stay omitted or empty for spaRoot mounts while HTML base still rewrites (#22229)', () => {
+        for (const tier of ['esm', 'development', 'production']) {
+            const mount   = `dist/${tier}/apps/portal`,
+                  omitted = {routerMode: 'pathname'},
+                  rootPin = {routerMode: 'pathname', routerBasePath: ''},
+                  html    = '<!doctype html><html><head><base href="/apps/portal/"><title>portal</title></head><body></body></html>';
+
+            transforms.rewritePathnameConfig(omitted, mount);
+            transforms.rewritePathnameConfig(rootPin, mount);
+
+            expect(Object.hasOwn(omitted, 'routerBasePath')).toBe(false);
+            expect(rootPin.routerBasePath).toBe('');
+            expect(transforms.rewritePathnameHtml(html, omitted, mount)).toContain(`href="/${mount}/"`)
+        }
+
+        const esmOmitted = transforms.rewriteNeoConfig(
+            {routerMode: 'pathname', basePath: '../../', appPath: 'apps/portal/app.mjs'},
+            {insideNeo: true}
+        );
+        expect(Object.hasOwn(esmOmitted, 'routerBasePath')).toBe(false)
+    });
+
     test('hash HTML and routing config remain byte-identical', () => {
         const html   = '<HTML>\n<HEAD><base href=\'/old/\'></HEAD><BODY>hash</BODY></HTML>',
               config = {routerMode: 'hash', routerBasePath: '/old', custom: true}, original = JSON.stringify(config);

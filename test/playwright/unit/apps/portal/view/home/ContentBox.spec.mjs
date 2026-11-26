@@ -174,7 +174,7 @@ test.describe('Portal.view.home.ContentBox', () => {
 
             for (const part of [Grid, Planning]) {
                 part.config.links.forEach(({route}) => {
-                    const group = ExamplesContainer.config.familyDefinitions.find(definition => `#${definition.route}` === route);
+                    const group = ExamplesContainer.config.familyDefinitions.find(definition => definition.route === route);
 
                     expect(group, `${route} names no examples group`).toBeTruthy();
                     expect(catalog.some(record => (record.family === group.family || record.alsoIn?.includes(group.family)) &&
@@ -188,12 +188,12 @@ test.describe('Portal.view.home.ContentBox', () => {
             expect(featureCssSource).toContain('.neo-h1 {');
             expect(featureCssSource).toContain('.neo-h2 {');
 
-            expect(Grid.config.learnMoreRoute).toBe('#/learn/guides/datahandling/Grids');
+            expect(Grid.config.learnMoreRoute).toBe('/learn/guides/datahandling/Grids');
             expect(Grid.config.learnMoreRoute).not.toContain('itnext.io');
 
             const gridSection     = home.items.find(item => item.className === 'Portal.view.home.parts.Grid');
             const learnMoreButton = gridSection.getItem('learn-more-button');
-            expect(learnMoreButton.route).toBe('#/learn/guides/datahandling/Grids');
+            expect(learnMoreButton.route).toBe('/learn/guides/datahandling/Grids');
             expect(learnMoreButton.vdom.href).toBe('#/learn/guides/datahandling/Grids');
 
             // A component page's button names its guide; a page without its own text keeps the default
@@ -211,7 +211,7 @@ test.describe('Portal.view.home.ContentBox', () => {
             expect(livePreview.activeView).toBe('source');
             expect(livePreview.getPreviewContainer().items).toHaveLength(0);
             expect(links.map(link => link.route)).toEqual(Grid.config.links.map(link => link.route));
-            links.forEach(link => expect(link.route).toMatch(/^#\/examples\/[a-z-]+$/));
+            links.forEach(link => expect(link.route).toMatch(/^\/examples\/[a-z-]+$/));
         } finally {
             home.destroy();
             if (originalMonacoAddon === undefined) {

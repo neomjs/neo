@@ -95,7 +95,7 @@ import Toolbar    from '../../src/toolbar/Base.mjs';
 class ViewController extends Controller {
     static config = {
         className: 'Tutorial.Routing.ViewController',
-        
+
         // The routes config maps hash patterns to handler methods
         routes: {
             '/home'   : 'onHomeRoute',
@@ -122,7 +122,7 @@ ViewController = Neo.setupClass(ViewController);
 class MainView extends Container {
     static config = {
         className: 'Tutorial.Routing.MainView',
-        
+
         // 3. Attach the controller to the view
         controller: ViewController,
 
@@ -272,7 +272,7 @@ class ViewController extends Controller {
     // The 'params' object will contain the value from the URL
     onUserRoute(params) {
         const userView = this.getReference('user-view');
-        
+
         // Update the user view with the parameter
         userView.text = `Displaying profile for: ${params.name}`;
 
@@ -342,7 +342,7 @@ Enable `'pathname'` in `neo-config.json` (see `src/DefaultConfig.mjs`) and add `
 
 - **`routerBasePath`**: Sub-path prefix stripped before route matching (explicit `''` forces root mounting; when omitted, `DomEvents#resolveRouterBasePath()` adopts the `<base href>` pathname if `location.pathname` starts with it).
 - **`routerIgnorePaths`**: Prefixes or `^`-anchored regex strings evaluated against the raw pathname after `routerBasePath` *before* trailing-slash canonicalization (`src/util/Route.mjs`). Matched paths and `STATIC_ASSET_EXTENSIONS` keep native browser navigation.
-- **Dist builds**: `dist/esm`, `dist/development`, and `dist/production` transforms (`rewritePathnameConfig` and `rewritePathnameHtml` in `buildScripts/util/esmDistTransforms.mjs`) rewrite `routerBasePath` and `<base href>` to the emitted output directory without server-side HTML rewriting.
+- **Dist builds**: `dist/esm`, `dist/development`, and `dist/production` transforms (`rewritePathnameConfig` and `rewritePathnameHtml` in `buildScripts/util/esmDistTransforms.mjs`) rewrite `<base href>` (and any non-empty `routerBasePath`, leaving omitted/`''` configs intact for root `spaRoot` mounts) to the emitted output directory without server-side HTML rewriting.
 
 ### Reading `?search` Parameters and `Neo.Main.editRoute`
 
