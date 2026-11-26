@@ -32,6 +32,8 @@ This script automates the entire setup process:
 4.  It runs the initial Neo.mjs builds (`npm run build-all`).
 5.  It starts the development server for you (`npm run server-start`).
 
+> **Note:** In an `npx neo-app` workspace (`neomjs/create-app`), `npm run server-start` launches `fileServer.mjs` via `run({open})` without a `spaRoot` unless configured. Inside a `neomjs/neo` clone, `package.json` sets `"neo": {"spaRoot": "apps/portal"}` so `/` mounts the Portal; pass `npm run server-start -- --no-spa-root` for the root directory listing.
+
 When you're finished, you will have a complete Neo.mjs workspace, as described in the _Workspaces and Applications_ topic, which follows.
 
 ## Understanding the Four Environments
