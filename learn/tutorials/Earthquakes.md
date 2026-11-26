@@ -1,43 +1,38 @@
 # Earthquakes
 
-In this topic you'll create an application that fetches data on earthquakes in Iceland,
-and show the information in two views: a table, and a map.
+In this topic you'll create an application that fetches live data on earthquakes in Iceland
+and shows the same records in two synchronized views: a buffered grid and an interactive map.
 
-You'll do this in a series of labs.
+You'll build it step by step in a series of labs.
 
-The map labs use the built-in OpenStreetMaps addon. You do not need a map API key or a billing account.
-You do need network access: the app fetches the earthquake feed, and the addon loads OpenLayers and
-OpenStreetMap tiles. Use an engine version with OpenStreetMaps marker support.
+> **Attribution & runtime notes:** Originally authored by **Max Rahder**; updated for Neo.mjs 14 with `Neo.grid.Container`, keyless `OpenStreetMaps`, and App-worker VDOM diffing ([ADR 0043](../agentos/decisions/0043-vdom-diff-placement.md)). You do not need a map API key or billing account, but you **do** need live network access and port `8080`: the app fetches a live earthquake feed (`https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes`, whose CORS policy allows `http://localhost:8080`), and the map addon loads OpenLayers from jsDelivr plus OpenStreetMap tiles.
 
 ## Goals
 
-What are the goals of this lengthy topic?
+What are the goals of this tutorial?
 
-- To give you hands-on coding a simple app
-- To introduce fundamental Neo concepts
+- To give you hands-on practice building a complete multi-view Neo.mjs app from an empty shell
+- To introduce fundamental Neo.mjs concepts in the order you actually need them
 
-Most of these labs are copy-and-paste because we're focusing on _what_ the code is doing on rather than _how_.
+Most of these labs are copy-and-paste because we're focusing on _what_ the code is doing rather than memorizing every detail on day one.
 
-For this tutorial don't worry about syntax details. Other tutorials and guides will spend more and
-more time on syntax.e
+For this tutorial, don't worry about syntax details. Other tutorials and guides spend more and more time on individual APIs.
 
 ## Key concepts
 
-A few key concepts we'll be discussing:
+A few key concepts we'll practice along the way:
 
-- Creating a starter app
-- Configuring components
-- Debugging
-- Class-based coding
-- State providers
-- Events
-- Controllers
+- Generating a workspace and a minimal starter app
+- Configuring components and layouts declaratively
+- Debugging live instances inside `neomjs-app-worker`
+- Refactoring views into reusable component classes
+- Sharing a single `Neo.data.Store` instance through a `Neo.state.Provider`
+- Bridging worker state to a main-thread map addon (`OpenStreetMaps`)
+- Listening to component events (`rowClick` and `markerClick`)
 
 ## Advice
 
-A word of advice: Keep a high-level perspective, especially early on. We'll have plenty of time to get
-into the code, and we'll do most things multiple times. In other words, focus on what you're accomplishing,
-and don't worry about syntax details.
+A word of advice: keep a high-level perspective, especially early on. We'll have plenty of time to get into the code, and we'll revisit the core patterns multiple times as we refactor. Focus on what each step accomplishes, observe what changes in the browser and DevTools, and don't worry about memorizing every config upfront.
 
 ## Lab. Generate a Workspace
 
@@ -47,149 +42,162 @@ In this lab, you'll generate a Neo.mjs workspace and run the starter app.
 
 <details>
 <summary>Wait!</summary>
-You may already have a workspace! If so, you can skip this lab. For example, if you followed the <a href="#/learn/gettingstarted/Setup">Getting Started > Setup</a> topic, above, you should already have a workspace.
 
-If you don't have a workspace, then continue on to the next step.
+You may already have a workspace! If you followed the [Getting Started > Setup](../gettingstarted/Setup.md) topic, you already have one and can skip straight to starting the server (`npm run server-start`).
+
+If you don't have a workspace yet, continue to the next step.
 </details>
 
 <details>
-<summary>Use the command-line to generate the workspace</summary>
+<summary>Use the command line to generate the workspace</summary>
 
-Use a terminal window to navigate to some parent folder,
-then run
+Open a terminal in a parent folder where you keep projects, then run:
 
-    npx neo-app@latest
+```bash readonly
+npx neo-app@latest
+```
 
-You'll be prompted for a workspace name, starter app name, etc &mdash; accept the default for everything.
-As the command finishes it starts a server and opens a browser window.
+You'll be prompted for a workspace folder name (`workspace`), a starter app name (`MyApp`), themes (`all`), and worker options &mdash; accept the defaults for everything. As the generator finishes, it installs the runtime packages, builds the development CSS themes, starts the local file server on port `8080`, and opens a browser window.
+
+If you prefer non-interactive CLI flags (or are running inside an automated script or coding agent), pass the defaults directly without starting the server inline:
+
+```bash readonly
+npx neo-app@latest -w workspace -n MyApp -t all -u no -v no -s false
+```
 </details>
 
 <details>
 <summary>Inspect the workspace</summary>
 
-The workspace contains a local copy of the API docs, an `apps` directory (where your apps are found),
-and some other directories.
+The generated `workspace` directory is a standard npm package containing an `apps/` folder (where your applications live), `resources/` (theme metadata and assets), `buildScripts/`, `docs/`, and `node_modules/neo.mjs/`.
 </details>
 
 <details>
-<summary>Start the server</summary>
-From the root of the `workspace` start the server via `npm run server-start`. That starts a server
-at port 8080 and opens a new browser window.
+<summary>Start the server on port 8080</summary>
 
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/StartServer.png" style="width:80%"/>
+If the server isn't already running, start it from the root of `workspace`:
+
+```bash readonly
+npm run server-start
+```
+
+That runs Neo's zero-build development file server (`buildScripts/util/fileServer.mjs`) at `http://localhost:8080` and opens your browser. Keep port `8080` free for this tutorial: the live earthquake service we call later sends `Access-Control-Allow-Origin: http://localhost:8080`, so serving from another port will be blocked by browser CORS rules.
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/earthquakes/start-server.jpg" alt="Workspace directory listing served by npm run server-start on localhost:8080" style="width:80%"/>
 
 </details>
-
 
 <details>
 <summary>Run the starter app</summary>
 
-By default, an app named `myapp` was created. You can run it by entering the `apps` directory and
-clicking `myapp`. It's a folder containing an `index.html` along with the source code for the app.
+By default, an app named `MyApp` was created in `apps/myapp/`. Open `http://localhost:8080/apps/myapp/` (or click `apps/` and then `myapp/` in the directory listing). Every Neo.mjs app folder contains its own `index.html`, `neo-config.json`, `app.mjs`, and `view/` classes.
 
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/RunTheStarterApp.png" style="width:80%"/>
+<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/RunTheStarterApp.png" alt="Running the generated MyApp starter application" style="width:80%"/>
 
 </details>
 
 <!-- /lab -->
 
+## Anatomy
 
-##Anatomy
+The purpose of the first lab was to generate a workspace, but while we're here let's look inside `workspace/apps/myapp/`:
 
-The purpose of the lab was to generate a workspace, but as long as we're here let's take a look
-at the `workspace/apps/myapp` directory.
+- `app.mjs` &mdash; application entry point (`onStart`), mounting `Viewport`
+- `index.html` &mdash; minimal HTML shell loading `MicroLoader.mjs`
+- `neo-config.json` &mdash; per-app runtime configuration (`appPath`, `basePath`, `environment`, `mainPath`, `workerBasePath`)
+- `view/Viewport.mjs` &mdash; top-level viewport container holding the demo tab container
 
-- `view/MainContainer.mjs`
-- `app.mjs`
-- `index.html`
-- `neo-config.json`
+Application source lives in `.mjs` files &mdash; native ECMAScript modules with standard `import` and `export` statements that the browser runs directly in development mode with no bundling or transpilation step. Neo.mjs apps follow a clean one-class-per-file convention.
 
-Application source is in `.mjs` files. These are standard _modular JavaScript_ files
-with `import` and `export` statements, and class definitions. Neo.mjs apps have one class
-definition per `.mjs` source file.
+`index.html` loads `src/MicroLoader.mjs`, which fetches `neo-config.json` and boots `Main.mjs` in the browser's main thread.
 
-The index file contains a script tag that runs `MicroLoader.mjs`, which is a simple
-file that launches the app based on information found in `neo-config.json`.
+## Flow of Execution
 
-Don't worry about the file contents for now: we'll do that in the next lab.
+```mermaid
+flowchart TD
+    HTML["index.html"] --> Loader["src/MicroLoader.mjs (reads neo-config.json)"]
+    Loader --> Main["Main Thread: src/Main.mjs (DOM deltas + mainThreadAddons)"]
+    Main --> AppWorker["neomjs-app-worker: app.mjs -> Viewport -> MainView + VDOM diff"]
+    Main --> DataWorker["neomjs-data-worker: off-thread data pipelines & I/O"]
+    Main -. "opt-in: useVdomWorker: true" .-> VdomWorker["neomjs-vdom-worker: dedicated VDOM diff worker"]
+    AppWorker -- "Neo.applyDeltas" --> Main
+```
 
-##Flow of Execution
+As the diagram shows, `MicroLoader.mjs` boots `Main.mjs` on the main browser thread, which by default (`useVdomWorker: false`, per [ADR 0043](../agentos/decisions/0043-vdom-diff-placement.md)) spawns two Web Workers:
 
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/FlowOfExecution.jpg" style="width:50%"/>
+- `neomjs-app-worker` &mdash; where your application classes, state providers, stores, and controllers live. By default, `Neo.vdom.Helper` also diffs component VDOM trees synchronously inside this worker and sends compact DOM delta batches straight to the main thread (`Neo.applyDeltas`), avoiding an extra serialization hop.
+- `neomjs-data-worker` &mdash; available for off-main-thread data pipelines, streaming parsers, and remote connections.
 
-As you can see, `MicroLoader.mjs` runs `Main.mjs`, which in turn spawns the three web-wokers used by Neo.mjs:
+If an application wants to offload heavy VDOM diffing onto a third dedicated worker, setting `"useVdomWorker": true` in `neo-config.json` spawns `neomjs-vdom-worker` without changing a single line of component code. Running application logic off the main thread keeps the browser's UI thread free for input, scrolling, and native main-thread addons like OpenLayers.
 
-- `neomjs-data-worker` handles Ajax calls and sockets
-- `neomjs-vdom-worker` keeps track of the view (and applies delta updates to the main thread)
-- `neomjs-app-worker` is where app logic is run
+## Commonly-used Scripts
 
-Neo.mjs apps run in multiple webworkers, and each webworker is run in a separate parallel thread.<br>
-Parallel processing &mdash; along wih the efficient way the vdom worker applies delta updates &mdash; is why Neo.mjs applications run so fast.
+If you look at the `scripts` block in your workspace's `package.json`, you'll see several commands for generating applications and classes, building themes or production bundles, and serving files locally:
 
-##Commonly-used Scripts
+- `create-app` &mdash; creates a starter application with a two-tab demo viewport (`MyApp` uses this)
+- `create-app-minimal` &mdash; creates an empty application shell with a `Viewport`, `MainView`, `MainViewController`, and `MainStateProvider`
+- `server-start` &mdash; starts the local development server rooted at the workspace (`http://localhost:8080`)
+- `build-all` &mdash; builds bundled `dist/development`, `dist/production`, and `dist/esm` outputs
+- `build-themes` &mdash; compiles and copies CSS theme outputs into `dist/` and writes `resources/theme-map.json`
+- `watch-themes` &mdash; watches SCSS/CSS theme files in interactive development shells
 
-If you look in the `package.json` script block you'll see several scripts used for generating applications
-and classes, doing builds, and starting a server. We'll use several of them throughout the tutorials.
-
-- &mdash; creates a simple demo app
-- create-app-minimal &mdash; creates a application shell with no content
-- server-start &mdash; starts a server with webroot set to the workspace
-- build-all &mdash; builds minimized versions of your apps
-- build-themes &mdash; copies the plain .css theme sources found in `resources/css` into `dist`
-- watch-themes &mdash; creates app .css as you save changes to any app
-
-
-##Lab. Create the Earthquakes Starter App
+## Lab. Create the Earthquakes Starter App
 
 <!-- lab -->
 
-In this lab you'll create a starter app and add a single component.
+In this lab you'll create a minimal app shell named `Earthquakes` and add your first component.
 
 <details>
+<summary>Use the command line to create a minimal starter app</summary>
 
-<summary>Use the command-line to create a starter app</summary>
+In a second terminal window navigated to `workspace`, run:
 
-Use a terminal window to navigate to the workspace and run the following script. Use "Earthquakes"
-as the app name, and defaults for everything else.
+```bash readonly
+npm run create-app-minimal
+```
 
-    npm run create-app-minimal
+Enter `Earthquakes` as the app name and accept the defaults (`all` themes, `no` for SharedWorkers, `no` for ServiceWorker). You can also run the exact same generator non-interactively:
 
-After the script runs yous should see these files in the `app/earthquakes` directory.
+```bash readonly
+npm run create-app-minimal -- -a Earthquakes -t all -u no -s no
+```
 
-`view/MainContainer.mjs`
+*(If you created the workspace manually without `npx neo-app`, run `npm run build-themes -- -n -e dev -t all` once so `resources/theme-map.json` and the development theme stylesheets exist.)*
+
+After the script finishes, inspect `apps/earthquakes/`:
+
 - `app.mjs`
 - `index.html`
 - `neo-config.json`
+- `view/MainStateProvider.mjs`
+- `view/MainView.mjs`
+- `view/MainViewController.mjs`
+- `view/Viewport.mjs`
 
-If you look in `neo-config.json` you should see this content. Note the `mainThreadAddons` block
-&mdash; it reflects the add-ons you chose when you followed the instructions in the script.
+Open `apps/earthquakes/neo-config.json`:
+
 ```json readonly
 {
-    "appPath"         : "../../apps/earthquakes/app.mjs",
-    "basePath"        : "../../",
-    "environment"     : "development",
-    "mainPath"        : "../node_modules/neo.mjs/src/Main.mjs",
-    "mainThreadAddons": ["DragDrop", "Navigator", "Stylesheet"],
-    "workerBasePath"  : "../../node_modules/neo.mjs/src/worker/"
+    "appPath": "../../apps/earthquakes/app.mjs",
+    "basePath": "../../",
+    "environment": "development",
+    "mainPath": "../node_modules/neo.mjs/src/Main.mjs",
+    "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
 }
 ```
 
-You're free to edit `neo-config.json` if you were to change your mind later about the theme or need for other add-ons.
+Notice how compact `neo-config.json` is when you accept the defaults: settings such as `mainThreadAddons` (`["DragDrop", "Navigator", "Stylesheet"]`) and `themes` (`["neo-theme-light", "neo-theme-dark", "neo-theme-neo-light"]`) are inherited from the engine's `src/DefaultConfig.mjs` and only need to be written into `neo-config.json` when you override them &mdash; which we'll do when we add the map addon later.
 
-If you refresh browser at <a href="http://localhost:8080/apps/" target="apps">http://localhost:8080/apps/</a>
-you'll see the new _earthquakes_ app listed, and if you run it you'll see... nothing! That's because the
-minimal starter app is the shell of an application without any view content. We'll add a little content
-later in the lab.
+Open <a href="http://localhost:8080/apps/earthquakes/" target="_blank">http://localhost:8080/apps/earthquakes/</a> in your browser. You'll see a blank page &mdash; that's expected! `create-app-minimal` gives you a clean application shell with an empty `items: []` array.
 
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EmptyEarthquakes.png"></img>
+<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EmptyEarthquakes.png" alt="Empty Earthquakes starter shell"/>
 
 </details>
 
 <details>
 <summary>Look at the main view source</summary>
 
-Use a code editor and look at `workspace/apps/earthquakes/src/view/MainView.mjs`. You'll see the
-following class definition:
+Open `apps/earthquakes/view/MainView.mjs` in your editor. You'll see the generated class definition:
 
 ```javascript readonly
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
@@ -199,7 +207,6 @@ import MainStateProvider from './MainStateProvider.mjs';
 class MainView extends Base {
     static config = {
         className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
 
         controller: {module: Controller},
         stateProvider: {module: MainStateProvider},
@@ -212,23 +219,17 @@ class MainView extends Base {
 export default Neo.setupClass(MainView);
 ```
 
-As you can see, `MainView extends Base`, and `Base` is a _container_ (`Neo.container.Base`).
-A container is a component &mdash; it holds other components, specified in `items:[]`. There
-are no items in the starter app. The `layout` config specifies how the items are arranged.
+`MainView extends Base`, where `Base` is `Neo.container.Base`. A container is a component that holds child components in `items: []`, arranged according to its `layout` config. `Viewport.mjs` mounts `MainView` across the browser window, and `MainView` already wires up `MainViewController` and `MainStateProvider` for when we need them.
 
 </details>
 
 <details>
 <summary>Add a component</summary>
 
-Let's add a button. To do that, add an import for the button base class, then configure it
-in the container's `items:[]`. If you were to read the API docs for buttons, you'd see
-that buttons have various configs, such as `text`, which is the button text, `iconCls`, which
-is typically a FontAwesome CSS class used to show an icon, and `handler`, which specifies
-which method to run when the button is clicked. We'll use `text`.
+Let's put a button inside `MainView`. Import `Neo.button.Base`, give `MainView` an `ntype` alias (`'earthquakes-main'`) so we can look it up easily from the console later, and add a button descriptor to `items`:
 
 ```javascript readonly
-
+// apps/earthquakes/view/MainView.mjs — step 1 (fit button)
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Controller        from './MainViewController.mjs';
@@ -236,54 +237,46 @@ import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Base {
     static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-
-        controller: {module: Controller},
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
         stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'fit'},
-        items: [{
+        items : [{
             module: Button,
-            text: 'Button!'
-        }],
+            text  : 'Button!'
+        }]
     }
 }
 
 export default Neo.setupClass(MainView);
 ```
 
+Save and refresh `http://localhost:8080/apps/earthquakes/`. You'll see the single button spanning the width of the viewport:
 
-When you run the app you'll see the single button.
+<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesSingleFitButton.png" alt="Single button inside a fit layout" style="width:80%"/>
 
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesSingleFitButton.png" style="width:80%"/>
-
-The button takes up the full width. Buttons look different depending on the theme. We're using
-the _neo-theme-neo-light_ theme, which controls button height. Otherwise, child items a using the _fit_ layout
-take up the full window.
+Buttons have reactive configs such as `text`, `iconCls`, and `handler`. Because `MainView` uses `layout: {ntype: 'fit'}`, its single child stretches across the container width while the active theme controls the button's height and styling.
 </details>
-
 
 <details>
 <summary>Modify the layout</summary>
-The `layout` configures how child items are visually arranged. First, note that the config
-specifies `ntype`. We used `module` for the button config. An `ntype` is a class alias &mdash; if a class
-has already been imported, you can use the `ntype` rather than importing it again and using the `module`
-config. We haven't imported any layouts, but it turns out that `Neo.container.Base` _does_ import all the
-layout types, which means we're always free to use `ntype` with layouts. You're free to specify an `ntype`
-for the classes you define.
 
-Let's change the layout to arrange items vertically, with items aligned horizontally at the start.
+Notice that the button used `module: Button` while the layout used `ntype: 'fit'`. An `ntype` is a short alias registered when a class loads. Because `Neo.container.Base` already imports the core container layouts (`fit`, `vbox`, `hbox`, `card`, `grid`), you can reference layouts by `ntype` without an extra import &mdash; and any class you author (like our `MainView` with `ntype: 'earthquakes-main'`) can define its own `ntype` too.
+
+Change `layout` in `apps/earthquakes/view/MainView.mjs` to arrange items vertically (`vbox`) aligned to the start edge:
 
 ```javascript readonly
-layout: {
-    ntype: 'vbox',
-    align: 'start'
-}
+        layout: {
+            ntype: 'vbox',
+            align: 'start'
+        },
 ```
 
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesSingleVoxStartButton.png" style="width:80%"/>
+Save and refresh:
 
+<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesSingleVoxStartButton.png" alt="Single button inside a vbox start-aligned layout" style="width:80%"/>
 
 </details>
 
@@ -291,143 +284,104 @@ layout: {
 
 ## Debugging
 
-At startup, a Neo.mjs application launches three Web Workers:
+At startup, a Neo.mjs application launches `neomjs-app-worker` and `neomjs-data-worker` by default (plus `neomjs-vdom-worker` if `useVdomWorker: true` is enabled).
 
-- neomjs-app-worker
-- neomjs-data-worker
-- neomjs-vdom-worker
+Your application classes run inside **`neomjs-app-worker`**. Whenever you want to inspect Neo components or stores interactively in Chrome DevTools, switch the Console's **JavaScript context** dropdown from `top` to `neomjs-app-worker`:
 
-As a developer, your code is run in _neomjs-app-worker_. When you're debugging,
-choose that worker in the DevTools JavaScript context dropdown.
+<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/DevToolsJavaScriptContext.png" alt="Selecting neomjs-app-worker in the Chrome DevTools Console context dropdown"/>
 
-<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/DevToolsJavaScriptContext.png">
+*(Note: this earlier DevTools capture also shows `neomjs-vdom-worker` in the menu; in Neo 14's default configuration, you will see `neomjs-app-worker` and `neomjs-data-worker`.)*
 
-A basic debugging (and coding!) task is getting a reference to a component.
-You can then get or update the component's state and run its methods.
+Once your console is attached to `neomjs-app-worker`, components are persistent JavaScript instances &mdash; not ephemeral render-function outputs &mdash; so you can query and mutate them live:
 
-When you're debugging, there are a few ways to get a component reference.
+- **`Shift-Ctrl-right-click`** on any rendered element in development mode logs the component and its parent container chain to the console.
+- `Neo.manager.Component.items` &mdash; array of all live component instances in the app.
+- `Neo.find({property: 'value'})` &mdash; returns all component instances matching the given properties.
+- `Neo.findFirst({property: 'value'})` &mdash; returns the first matching component instance.
 
-- Doing a Shift-Ctrl-right-click on a component
-- `Neo.manager.Component.items` &mdash; Returns an array of all components in the app
-- `Neo.find({property:'value'})` &mdash; Returns an array of components matching the specified properties
-- `Neo.findFirst({property:'value'})` &mdash; Returns the first component that matches the specified properties
+Keep in mind that `Neo.manager.Component.items`, `Neo.find()`, and `Neo.findFirst()` are **debugging and inspection aids only** and <u>_should never be used inside application logic_</u>. In application code, use declarative `bind`, `reference`, and view controllers so component boundaries stay encapsulated and reusable.
 
-Keep in mind that `Neo.manager.Component.items`, `Neo.find()` and `Neo.findFirst()`
-are debugging aids _only_, and <u>_should never be used in app logic_</u>.
+*(I am Julia, `@neo-gemini-julia` &mdash; when your team connects an AI coding agent to a running Neo app through the [Neural Link](../agentos/NeuralLink.md), the agent inspects this exact same live instance graph and reactive config layer programmatically rather than guessing from static screenshots.)*
 
-Why? There's nothing stopping you from using these statements, and they would work fine,
-but those methods completely break encapsulation and scoping principles! Their
-use would make an application brittle and hard to maintain.
+In the `neomjs-app-worker` console, run `Neo.findFirst({ntype: 'button'})` to inspect the button:
 
-Once we have a reference in the debugger console you can inspect and update its
-properties, or run its methods. For example, if we have devtools open in the
-`earthquakes` app, then run `Neo.findFirst({ntype:'button'})` from the _neomjs-app-worker_
-context, we can inspect the button.
+<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesFindFirstButton.png" alt="Finding the button instance with Neo.findFirst in neomjs-app-worker"/>
 
-<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesFindFirstButton.png">
+Expand the logged instance and scroll to its getter/setter properties (`(...)`). Clicking `(...)` evaluates the reactive getter; assigning a new value invokes the reactive setter and updates the DOM immediately:
 
-Once we find the component, we can expand it and scroll down until we see the grayed-out properties &mdash;
-those are set/get properties.
+<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesFindFirstButtonChangeText.png" alt="Inspecting reactive properties on the live button instance"/>
 
-We can choose whatever property we're interested in, and click on the ellipses. That runs the getter, and if
-we change the value we'll be running the setter. An obvious button property to change is `text`.
-Editing that value is immediately reflected in the view.
+Or assign the reactive property directly in one line:
 
-<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesFindFirstButtonChangeText.png">
+```javascript readonly
+Neo.findFirst({ntype: 'button'}).text = 'Hi there!'
+```
 
-Or, we can change the property directly via `Neo.findFirst({ntype:'button'}).text = "Hi there!`.
+Holding `Shift-Ctrl` and right-clicking the button in the page logs its containment chain (`Base` &rarr; `MainView` &rarr; `Viewport`):
 
-There's an even more convenient way to get a component reference: Doing a Shift-Ctrl-right-click on a component
-will show the container hierarchy for the selected component.
+<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesDemoShiftCtrl.png" alt="Component hierarchy logged via Shift-Ctrl-right-click"/>
 
-<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesDemoShiftCtrl.png">
+## Lab. Debugging
 
-At this point the app is so simple there's not much to see, but in a more complex app you can see the hierarchy
-and inspect or update component.
-
-
-##Lab. Debugging
-
-In this lab you'll get a little debugging practice by getting component references, changing properties,
-and running methods.
-
-Remember that when using the debugger console you need to be in the _neo-app-worker_ context.
+In this lab you'll practice grabbing live component references, changing reactive properties, and calling methods from the `neomjs-app-worker` console.
 
 <!-- lab -->
 
 <details>
 <summary>Use `Neo.manager.Component.items`</summary>
 
-While running the _earthquakes_ app, open Chrome devtools, choose the _neomjs-app-worker_ JavaScript
-context, and run this statement:
+With `http://localhost:8080/apps/earthquakes/` open, switch the Chrome DevTools Console context to `neomjs-app-worker` and run:
 
-    Neo.manager.Component.items
+```javascript readonly
+Neo.manager.Component.items
+```
 
-The `items` property is an array of all created components. The array may have a lot of entries, depending on
-the complexity of an app and how much you've done while running it. But it's an easy way to explore what's
-been created.
+`items` lists every instantiated component in the app &mdash; right now `Base` (`Neo.button.Base`), `MainView`, and `Viewport`.
 
 </details>
 
 <details>
 <summary>Store as global variable</summary>
 
-Any time you have a object reference in the console &mdash; even if it's nested within an array or object &mdash;
-you can right click on the object and choose _Store as global_ variable. Chrome will create a variable named
-`temp1`, `temp2`, etc., that references the object. That  can make it easier to inspect the object and run its methods..
+Any time an object is logged in Chrome DevTools, right-click it and choose **Store object as global variable**. Chrome binds it to `temp1` (then `temp2`, and so on) inside the active worker context so you can call its methods directly.
 
-
-<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/StoreAsGlobal.png" style="width:80%"/>
+<img src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/StoreAsGlobal.png" alt="Storing a logged Neo component as a global variable in Chrome DevTools" style="width:80%"/>
 
 </details>
-
 
 <details>
 <summary>Use `Neo.find()` and `Neo.findFirst()`</summary>
 
-If you know what you're looking for, and don't want to bother inspecting everything in `Neo.manager.Component.items`,
-you can use `Neo.find()`, passing an object used to match against what you're searching for.
+Instead of scanning `Neo.manager.Component.items`, pass a property filter object to `Neo.find()` (all matches) or `Neo.findFirst()` (first match).
 
-`Neo.find()` returns an array of matching instances, and `Neo.findFirst()` returns the first matching item.
-Often you know there's only a single instance, so in practice `Neo.findFirst()` is more commonly used.
+You can match built-in configs such as `Neo.find({ntype: 'button'})` or `Neo.find({text: 'Button!'})`, or even custom properties you attach to an item (such as `foo: true`).
 
-You could find the button via Neo.find({ntype:'button'}) or Neo.find({text:'Button!'} (assuming you haven't changed
-the button's text.) You can even match a property you give the button. For example, if you configured it with a made-up
-property `foo:true`, you could find it via `Neo.findFirst({foo:true})`. The point is you can search for any properties
-you'd like.
+Run this statement in the `neomjs-app-worker` console:
 
-Try this out.
+```javascript readonly
+Neo.findFirst({text: 'Button!'}).text = 'Foo!'
+```
 
-`Neo.findFirst({text:'Button!'}).text = 'Foo!'
-
-You should see the button's text change immediately.
+You'll see the button's label change to `Foo!` immediately without reloading the page.
 
 </details>
-
 
 <details>
 <summary>Use `Shift-Ctrl-right-click`</summary>
 
-With your cursor over the button, press _Shift-Ctrl-right-click_. The console will log the button, its parent `MainView`
-and the subsequent parent `Viewport. The button reference shows up as `Base` because the button class name is `Neo.button.Base`.
+Hover over the button and press **`Shift-Ctrl-right-click`**. The console logs the `Base` button instance, its parent `MainView`, and the root `Viewport`. Note that `Shift-Ctrl-right-click` is enabled for development inspection (`enableComponentLogger: true`) and omitted from production bundles.
 
-<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesDemoShiftCtrl.png">
-
-Note that _Shift-Ctrl-right-click_ is only available during development &mdash; it isn't available in a build.
+<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesDemoShiftCtrl.png" alt="Shift-Ctrl-right-click logging button, MainView, and Viewport"/>
 
 </details>
 
-
 <details>
-<summary>Add a method</summary>
+<summary>Add and invoke an instance method</summary>
 
-As we mentioned, when debugging, if you a have a reference you can access or update its properties, or run
-its methods. Let's try that out by adding a method.
-
-Edit `apps/earthquakes/view/MainView.mjs` and add a method.
+Update `apps/earthquakes/view/MainView.mjs` to add a custom property (`foo: true`) on the button and a `doFoo()` method on `MainView`:
 
 ```javascript readonly
-
+// apps/earthquakes/view/MainView.mjs — step 2 (debugging method)
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Button            from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Controller        from './MainViewController.mjs';
@@ -435,10 +389,9 @@ import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Base {
     static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-
-        controller: {module: Controller},
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
         stateProvider: {module: MainStateProvider},
 
         layout: {
@@ -447,107 +400,94 @@ class MainView extends Base {
         },
         items: [{
             module: Button,
-            foo: true,
-            text: 'Button!'
-        }],
+            foo   : true,
+            text  : 'Button!'
+        }]
     }
+
     doFoo() {
-        console.log('foo!');
+        console.log('foo!')
     }
 }
 
 export default Neo.setupClass(MainView);
 ```
 
-Save your changes.
+Save and refresh the browser, then try calling `doFoo()` from `neomjs-app-worker` in two ways:
 
-As you can see, the code defined an instance method `doFoo()` that simply logs a message. We'll run the method via debugging techniques in the next step.
+1. Run `Neo.findFirst({ntype: 'earthquakes-main'}).doFoo()` &mdash; or expand `Neo.manager.Component.items`, right-click `MainView`, choose **Store object as global variable**, and run `temp1.doFoo()`.
+2. `Shift-Ctrl-right-click` the button, right-click `MainView` in the logged hierarchy, store it as a global variable, and call `doFoo()` on it.
 
-</details>
-
-<details>
-<summary>Use `Neo.manager.Component.items` to run the method</summary>
-
-On the console run `Neo.manager.Component.items`. Expand the array and right-click on the entry for `MainView` and
-choose `Store object as global variable`. Then type `temp1.doFoo()` &mdash; you should see "foo!" being logged.
-
-Remember that you _must_ run console statement in the _neomjs-app-worker_ context, and every time your choose
-`Store object as global variable` it'll increment the name of the temp variable: `temp1`, `temp2`, etc.
-</details>
-
-<details>
-<summary>Use _Shift-Ctrl-right-click_ to run the method</summary>
-
-Now try the _Shift-Ctrl-right-click_ technique.
-
-With your cursor over the button, do a _Shift-Ctrl-right-click_ &mdash; you'll see the component hierarchy logged.
-As you did in the previous step, right-click on the entry for `MainView` and choose `Store object as global variable`.
-Then run `doFoo()` using that variable.
+Both print `foo!` in the console.
 </details>
 
 <!-- /lab -->
 
-At this point we have a application with minimal content. You also know how to do some debugging. Now let's do something more interesting.
+At this point we have a working app shell and a reliable workflow for inspecting live instances inside `neomjs-app-worker`. Now let's fetch real data.
 
-##Lab. Fetch Earthquakes Data and Show it in a Table
+## Lab. Fetch Earthquakes Data and Show it in a Grid
 
 <!-- lab -->
 
 <details>
-<summary>Add a table</summary>
+<summary>Add a grid bound to the live earthquake feed</summary>
 
-Replace the button with a table by replacing `MainView.mjs` with the following content.
+Replace the button in `apps/earthquakes/view/MainView.mjs` with a `Neo.grid.Container` configured with an inline `Neo.data.Store`:
 
 ```javascript readonly
-
+// apps/earthquakes/view/MainView.mjs — step 3 (single grid)
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Table             from '../../../node_modules/neo.mjs/src/table/Container.mjs';
-import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 import Controller        from './MainViewController.mjs';
+import Grid              from '../../../node_modules/neo.mjs/src/grid/Container.mjs';
 import MainStateProvider from './MainStateProvider.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
 class MainView extends Base {
     static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-
-        controller: {module: Controller},
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
         stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'vbox', align: 'stretch'},
-        items: [{
-            module: Table,
-            store: {
+        items : [{
+            module: Grid,
+            flex  : 1,
+            store : {
                 module: Store,
-                model: {
+                model : {
                     fields: [{
-                        name: "location",
+                        name: 'location'
                     }, {
-                        name: "magnitude",
+                        name: 'magnitude',
+                        type: 'Float'
                     }, {
-                        name: "timestamp",
-                        type: "Date",
-                    }],
+                        name: 'timestamp',
+                        type: 'Date'
+                    }]
                 },
-                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "data",
-                autoLoad: true,
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
             },
-            style: {width: '100%'},
             columns: [{
-                dataField: "timestamp",
-                text: "Date",
-                renderer: (data) => data.value.toLocaleDateString(undefined,
-                    {weekday: "long", year: "numeric", month: "long", day: "numeric"}
-                )
+                dataField: 'timestamp',
+                text     : 'Date',
+                width    : 260,
+                renderer : ({value}) => value.toLocaleDateString('en-US', {
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                })
             }, {
-                dataField: "location",
-                text: "Location"
+                dataField: 'location',
+                text     : 'Location',
+                flex     : 1
             }, {
-                dataField: "magnitude",
-                text: "Magnitude",
-                align: "right",
-                renderer: (data) => data.value.toLocaleString()
+                dataField  : 'magnitude',
+                text       : 'Magnitude',
+                cellAlign  : 'right',
+                headerAlign: 'auto',
+                width      : 120,
+                renderer   : ({value}) => value.toFixed(2)
             }]
         }]
     }
@@ -556,260 +496,290 @@ class MainView extends Base {
 export default Neo.setupClass(MainView);
 ```
 
-Save and refresh.
+Save and refresh `http://localhost:8080/apps/earthquakes/`:
 
-<img width="80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesTable.png">
+<img width="80%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/earthquakes/earthquakes-grid.jpg" alt="Earthquakes rendered inside Neo.grid.Container"/>
 
+*(If the grid stays empty, open DevTools &rarr; **Network**: verify your browser URL is `http://localhost:8080/apps/earthquakes/` so the feed's `Access-Control-Allow-Origin: http://localhost:8080` header matches, and check that `nameless-tundra-27404.herokuapp.com` returned HTTP `200`.)*
 
 </details>
 
-
 <!-- /lab -->
 
-##Key Features
+## Key Features
 
-The code accomplishes a lot.
+With ~50 lines of declarative configuration, the app now fetches a remote JSON feed, parses its records into typed fields, and renders a sortable data grid. Let's look at the two pieces doing the work.
 
-As we discussed before, the app is
-- Class-based
-- Declarative
+### The Store and Live Feed
 
-The app logic
-- Calls a web service
-- Populates a store
-- Shows store data in a table
-
-Let's review the code and see what it's doing.
-
-### The Store
-
-A store is a collection of records. A record is described in the `model` and the model's `fields`.
-Here's the config for the store.
+A `Neo.data.Store` manages a collection of `Neo.data.Record` instances described by `model.fields`:
 
 ```javascript readonly
 {
     module: Store,
-    model: {
+    model : {
         fields: [{
-            name: "location",
+            name: 'location'
         }, {
-            name: "magnitude",
+            name: 'magnitude',
+            type: 'Float'
         }, {
-            name: "timestamp",
-            type: "Date",
-        }],
+            name: 'timestamp',
+            type: 'Date'
+        }]
     },
-    url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-    responseRoot: "data",
-    autoLoad: true,
+    url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+    responseRoot: 'data',
+    autoLoad    : true
 }
 ```
 
-The feed looks like this.
+The live Heroku endpoint returns a JSON object whose `data` array holds ~60 recent earthquake observations in Iceland (all serialized as strings):
+
 ```json readonly
 {
-  "data": [{
-      "timestamp": "2024-09-29T16:45:14.000Z",
-      "lat": "64.012",
-      "lng": "-16.659",
-      "location": "1.2 km ESE  of Hvannadalshnjúkur",
-      "magnitude": "0.32964",
-      "depth": "1.2"
+    "data": [{
+        "timestamp": "2026-11-26T18:04:00.000Z",
+        "lat": "63.968",
+        "lng": "-21.955",
+        "location": "6.9 km SW of Helgafell",
+        "magnitude": "1.35022",
+        "depth": "5.4"
     }, {
-      "timestamp": "2024-09-29T16:16:25.000Z",
-      "lat": "63.929",
-      "lng": "-21.447",
-      "location": "2.8 km WSW of Raufarhólshellir",
-      "magnitude": "0.80979",
-      "depth": "10.2"
-    }, ...
-    ]
+        "timestamp": "2026-11-26T17:41:12.000Z",
+        "lat": "64.651",
+        "lng": "-17.482",
+        "location": "8.6 km E of Bárðarbunga",
+        "magnitude": "13.0714",
+        "depth": "3.1"
+    }]
 }
 ```
 
-The store defines a `type` for the date field. There are a few pre-defined field types that convert
-the value from the feed into what's stored in the store's record. The store specifies the URL for the
-data feed, and the store uses `responseRoot` to specify the value in the feed that holds the array
-of items.
+`responseRoot: 'data'` tells the store which property of the JSON payload holds the array of records. Declaring `type: 'Date'` on `timestamp` and `type: 'Float'` on `magnitude` converts incoming strings into `Date` and `Number` values once on ingest.
 
-###The Table
+> **Upstream feed observation:** While natural Icelandic earthquakes typically measure between `0` and `5`, you will notice upstream `magnitude` strings on this live test endpoint currently reaching into the `10`–`46` range. We format what the feed reports (`value.toFixed(2)`) rather than silently clamping or rewriting upstream data &mdash; a useful habit whenever you inspect an unfamiliar external feed.
 
-Tables have two key configs: `store` and `columns`. Here's the columns config:
+### The Grid
+
+`Neo.grid.Container` takes two primary configs here: `store` and `columns`:
 
 ```javascript readonly
 columns: [{
-    dataField: "timestamp",
-    text: "Date",
-    renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}),
+    dataField: 'timestamp',
+    text     : 'Date',
+    width    : 260,
+    renderer : ({value}) => value.toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    })
 }, {
-    dataField: "location",
-    text: "Location",
+    dataField: 'location',
+    text     : 'Location',
+    flex     : 1
 }, {
-    dataField: "magnitude",
-    text: "Magnitude",
-    align: "right",
-    renderer: (data) => data.value.toLocaleString(),
+    dataField  : 'magnitude',
+    text       : 'Magnitude',
+    cellAlign  : 'right',
+    headerAlign: 'auto',
+    width      : 120,
+    renderer   : ({value}) => value.toFixed(2)
 }]
 ```
 
-By default, a column just runs `toString()` on the record property specified in the column's `dataField`.
-You can also provide a `renderer`, which is a function you provide to format the value any way you'd like.
-In the code above it's using standard JavaScript methods to format the data and magnitude.
+Each column maps a record field via `dataField`, sets a fixed `width` or flexible `flex`, aligns numeric cells and headers together via `cellAlign: 'right'` + `headerAlign: 'auto'`, and optionally formats cell output with `renderer: ({value, record}) => ...`.
+
+*(Note on `Neo.grid.Container` vs `Neo.table.Container`: Neo also ships `Neo.table.Container` for simple unvirtualized HTML `<table>` views, which earlier versions of this tutorial used. We use `Neo.grid.Container` here because `flex: 1` sizes cleanly inside vertical layouts alongside a map without wrapper-height overrides, and its row pool mounts only the visible viewport plus buffer rows &mdash; ~18 `.neo-grid-row` DOM nodes for ~60 records. A ~60-row live feed is too small to benchmark virtualization speed; to explore buffered scrolling across thousands of rows and pinned column groups, check out the Order Review Desk example in the Examples catalog after finishing this tutorial.)*
 
 ## Defining Views as Reusable Components
 
-The way we've coded the app, the grid is _not_ reusable. In other words, if we needed two identical grids we'd
-have to copy-and-paste the same config block.
+Right now our grid is defined inline inside `MainView.mjs`. If we wanted two grids &mdash; or wanted to compose our main view from clean, high-level building blocks without a wall of column configs &mdash; we'd have to copy and paste the entire block.
 
-You can reuse any class config block by creating a new class that extends the component's class. In other words,
-if you want to reuse a table, you create a new class that extends `Neo.table.Container` and uses the same config.
+In Neo.mjs, you turn any configured component into a reusable building block by extending its class (`Neo.grid.Container`) in its own `.mjs` file.
 
-Besides reuse, other good reasons to simplify and modularize your code is to make your views more descriptive and
-abstract, and it allows those classes to be tested in isolation.
-
-## Lab. Refactor the Table Into its Own Class
+## Lab. Refactor the Grid Into its Own Class
 
 <!-- lab -->
 
 <details>
-<summary>Copy the table into its own class</summary>
+<summary>Extract `apps/earthquakes/view/earthquakes/Grid.mjs`</summary>
 
-Create a new file named `apps/earthquakes/view/earthquakes/Table.mjs` with this content.
+Create a new folder and file at `apps/earthquakes/view/earthquakes/Grid.mjs` with this content:
 
 ```javascript readonly
-import Base from '../../../../node_modules/neo.mjs/src/table/Container.mjs';
+// apps/earthquakes/view/earthquakes/Grid.mjs
+import Base from '../../../../node_modules/neo.mjs/src/grid/Container.mjs';
 
-class Table extends Base {
+class Grid extends Base {
     static config = {
-        className: 'Earthquakes.view.earthquakes.Table',
-        ntype: 'earthquakes-table',
-        layout: {ntype: 'vbox', align: 'stretch'},
-        style: {width: '100%'},
-        columns: [{
-            dataField: "timestamp",
-            text: "Date",
-            renderer: (data) => data.value.toLocaleDateString(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"})
+        className: 'Earthquakes.view.earthquakes.Grid',
+        ntype    : 'earthquakes-grid',
+        columns  : [{
+            dataField: 'timestamp',
+            text     : 'Date',
+            width    : 260,
+            renderer : ({value}) => value.toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            })
         }, {
-            dataField: "location",
-            text: "Location"
+            dataField: 'location',
+            text     : 'Location',
+            flex     : 1
         }, {
-            dataField: "magnitude",
-            text: "Magnitude",
-            align: "right",
-            renderer: (data) => data.value.toLocaleString()
-        }],
+            dataField: 'magnitude',
+            text     : 'Magnitude',
+            cellAlign: 'right',
+            width    : 120,
+            renderer : ({value}) => value.toFixed(2)
+        }]
     }
 }
 
-export default Neo.setupClass(Table);
+export default Neo.setupClass(Grid);
 ```
 
+Notice the four-level relative import (`../../../../node_modules/...`) because this file sits one folder deeper (`view/earthquakes/`).
 </details>
 
 <details>
-<summary>Review the code</summary>
+<summary>Review the class</summary>
 
-- The class extends `Neo.table.Container`
-- It has an `ntype`, which we can use when creating an instance, or when debugging
-- Each column has `text` and `dataField` configs, and some have renderers
-
+- `Grid extends Base` (`Neo.grid.Container`)
+- `ntype: 'earthquakes-grid'` registers a concise alias for layout descriptors and `Neo.findFirst({ntype: 'earthquakes-grid'})` console lookups
+- `columns` belong to the reusable earthquake grid definition, while `flex` and `store` stay configurable per instance
 </details>
 
 <details>
-<summary>Use the new component</summary>
+<summary>Use `EarthquakesGrid` in `MainView.mjs`</summary>
 
-Edit `apps/earthquakes/view/MainView` and make these changes.
-
-- Add `import EarthquakesTable from './earthquakes/Table.mjs';`
-- Replace the `module: Table` with `module: EarthquakesTable`
-- Remove the `columns:[]` config
-- Leave the `store` config alone
-
-Save and refresh the browser, and your app should run as before.
-
-You can confirm that the  new class _is being loaded_ by using DevTools to try to open `earthquakes/Table` &mdash; if it
-was imported, it'll be listed.
-
-You can confirm that an instance _was created_ by using the DevTools console and searching for it via
-
-    Neo.first('earthquakes-table')
-
-</details>
-
-<details>
-<summary>Here's the code</summary>
+Update `apps/earthquakes/view/MainView.mjs` to import `EarthquakesGrid` and remove the inline `columns` array:
 
 ```javascript readonly
+// apps/earthquakes/view/MainView.mjs — step 4 (reusable grid class)
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
-import EarthquakesTable  from './earthquakes/Table.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
 import MainStateProvider from './MainStateProvider.mjs';
 import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
 class MainView extends Base {
-static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-
-        controller: {module: Controller},
+    static config = {
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
         stateProvider: {module: MainStateProvider},
 
         layout: {ntype: 'vbox', align: 'stretch'},
-        items: [{
-            module: EarthquakesTable,
-            store: {
+        items : [{
+            module: EarthquakesGrid,
+            flex  : 1,
+            store : {
                 module: Store,
-                model: {
+                model : {
                     fields: [{
-                        name: "location",
+                        name: 'location'
                     }, {
-                        name: "magnitude",
+                        name: 'magnitude',
+                        type: 'Float'
                     }, {
-                        name: "timestamp",
-                        type: "Date",
-                    }],
+                        name: 'timestamp',
+                        type: 'Date'
+                    }]
                 },
-                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "data",
-                autoLoad: true,
-            },
-            style: {width: '100%'},
-        }],
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
+        }]
     }
 }
 
 export default Neo.setupClass(MainView);
 ```
 
+Save and refresh. Confirm the new class instance is live by running this in the `neomjs-app-worker` console:
+
+```javascript readonly
+Neo.findFirst({ntype: 'earthquakes-grid'})
+```
 </details>
 
 <details>
-<summary>Why are some things in `MainView` and not in `Table`?</summary>
+<summary>Why did `flex` and `store` stay in `MainView`?</summary>
 
-When we refactored the table into its own class we didn't move all the configs. Both
-the width styling and `store` were left in `MainView`. Why?
-
-It's a matter of re-use and what you need in a given situation. By leaving the width specification
-outside the table class we're to specify a different value in all the places we're using the table.
-
-Similarly, if the store were in the table class, it would be using that specific store and
-each instance of the table would have its own instance of the store. If we want multiple
-instance of the table with each using a different store &mdash; or if
-we wanted to share the store with other components &mdash; then it makes sense for the
-store to be outside the table class.
-
+Leaving layout sizing (`flex: 1`) and data wiring (`store`) on the consumer in `MainView` keeps `EarthquakesGrid` reusable across different layouts and data sources: one screen might give it half the height next to a map, while another might bind it to a filtered or replayed store.
 </details>
 
 <details>
-<summary>Make a second instance of the table</summary>
+<summary>Create a second instance of `EarthquakesGrid`</summary>
 
-To further illustrate that the table is reusable, let's create a second instance.
+To prove `EarthquakesGrid` is reusable &mdash; and to set up our next architectural lesson &mdash; duplicate the item inside `MainView` `items` so there are two `EarthquakesGrid` instances stacked vertically:
 
-Simply copy-and-paste the value in the `MainView` `items` with an identical second item.
+```javascript readonly
+// apps/earthquakes/view/MainView.mjs — step 5 (two grids, two stores)
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
-Save and refresh and you should see two tables.
+class MainView extends Base {
+    static config = {
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
+        stateProvider: {module: MainStateProvider},
 
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesTwoTables.png"></img>
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items : [{
+            module: EarthquakesGrid,
+            flex  : 1,
+            store : {
+                module: Store,
+                model : {
+                    fields: [{
+                        name: 'location'
+                    }, {
+                        name: 'magnitude',
+                        type: 'Float'
+                    }, {
+                        name: 'timestamp',
+                        type: 'Date'
+                    }]
+                },
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            store : {
+                module: Store,
+                model : {
+                    fields: [{
+                        name: 'location'
+                    }, {
+                        name: 'magnitude',
+                        type: 'Float'
+                    }, {
+                        name: 'timestamp',
+                        type: 'Date'
+                    }]
+                },
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
+        }]
+    }
+}
+
+export default Neo.setupClass(MainView);
+```
+
+Save and refresh. Both grids render cleanly in a 50/50 vertical split:
+
+<img style="width:80%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/earthquakes/earthquakes-two-grids.jpg" alt="Two EarthquakesGrid instances stacked vertically"/>
 
 </details>
 
@@ -817,212 +787,117 @@ Save and refresh and you should see two tables.
 
 ## Shared Bindable Data
 
-The _earthquakes_ app has a problem: even though the table is nicely reusable, we duplicated the config for the store,
-and we can't share it. If you were to look at network traffic you'd see that we're also fetching the data
-twice.
+Look closely at what our two-grid app is actually doing right now. Visually it works, but we duplicated the entire `store` configuration &mdash; and worse, each grid created its own separate `Neo.data.Store` instance!
 
-If we simply wanted to re-use the store's description we could refactor the store config into a new
-store class, just like we did for the table. But in _earthquakes_ we want to share the store _instance_.
+Even if we refactored the store configuration into a `Store` subclass, instantiating it twice would still create two separate collections in memory and trigger two separate HTTP requests for the exact same earthquake feed. What we want is to share **one `Store` instance** across every view inside `MainView`.
 
-Neo has a feature that allows shared, bindable, data. A `Neo.state.Provider` instance holds properties that
-can be values like strings, numbers, or even references, like component or store references. `Neo.state.Provider`
-is commonly called a _state provider_.<small><sup>*</sup></small>
-
-The `create-app-minimal` script includes a state provider and view controller config.
-The state provider will hold the store.
-
-<br>
-<br>
-<br>
-<small>* There's a longer write-up on view controllers in the "Getting Started" section.</small>
-
-
+Neo solves this with **`Neo.state.Provider`** (commonly called a _state provider_). A state provider sits on a parent container (`MainView`) and exposes reactive `data` properties and shared `stores` to any descendant component in its hierarchy via `bind`.
 
 ## Lab. Use a State Provider
 
 <!-- lab -->
 
 <details>
-<summary>Look at network traffic</summary>
+<summary>Observe the duplicate network requests first</summary>
 
-Before making any changes, open devtools in the Network tab and refresh _earthquakes_.
-You'll see two calls to the web service.
+Before changing any code, open Chrome DevTools &rarr; **Network**, select **Fetch/XHR**, type `earthquakes` in the filter box, and refresh the page.
 
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesTwoTablesTwoCalls.png"></img>
-
-</details>
-
-<details>
-<summary>Copy the store config to the state provider</summary>
-
-State Providers have two key configs: `data` and `stores`.
-
-- `data` holds name/value pairs where the value can be a simple value, or object references
-- `stores` holds configs of stores
-
-Add a `stores` property to the state provider config that holds a copy of the store.
+You'll see **two** network requests to `?fn=earthquakes` &mdash; one from each grid's private store! You can also verify that the two grids hold different `Store` instances in the `neomjs-app-worker` console:
 
 ```javascript readonly
-import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
-import Controller        from './MainViewController.mjs';
-import EarthquakesTable  from './earthquakes/Table.mjs';
-import MainStateProvider from './MainStateProvider.mjs';
-import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
-
-class MainView extends Base {
-    static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-
-        controller: {module: Controller},
-        stateProvider: {
-            module: MainStateProvider,
-            stores: {
-                earthquakes: {
-                    module: Store,
-                    model: {
-                        fields: [{
-                            name: "location"
-                        }, {
-                            name: "magnitude"
-                        }, {
-                            name: "timestamp",
-                            type: "Date"
-                        }]
-                    },
-                    url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                    responseRoot: "data",
-                    autoLoad: true
-                },
-            }
-        },
-
-        layout: {
-            ntype: 'vbox', align: 'stretch'
-        },
-        items: [{
-            module: EarthquakesTable,
-            store: {
-                module: Store,
-                model: {
-                    fields: [{
-                        name: "location"
-                    }, {
-                        name: "magnitude"
-                    }, {
-                        name: "timestamp",
-                        type: "Date"
-                    }]
-                },
-                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "data",
-                autoLoad: true
-            },
-            style: {width: '100%'}
-        },{
-            module: EarthquakesTable,
-            store: {
-                module: Store,
-                model: {
-                    fields: [{
-                        name: "location"
-                    }, {
-                        name: "magnitude"
-                    }, {
-                        name: "timestamp",
-                        type: "Date"
-                    }]
-                },
-                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "data",
-                autoLoad: true
-            },
-            style: {width: '100%'}
-        }],
-    }
-}
-
-export default Neo.setupClass(MainView);
+const grids = Neo.find({ntype: 'earthquakes-grid'});
+grids[0].store === grids[1].store // false — two separate Store instances!
 ```
 
-In the `stores` config we named the store _earthquakes_. We could have named it anything, like _foo_
-or _myStore_. We're calling it _earthquakes_ simply because that seems like a good descriptive name
-of the data the store holds.
-
-At this point we have _three_ identical store configs! Save and refresh, and look at network traffic &mdash; you
-should see three calls.
-
-Having an instance in the state provider means we can share it. It can be shared anywhere in the containment
-hierarchy. The app doesn't have much of a hierarchy: it's just the main view and two child components (the two
-tables). But now that the store is in the parent's state provider we can share it.
-
 </details>
 
 <details>
-<summary>Use the shared store</summary>
+<summary>Add `stores.earthquakes` to the state provider</summary>
 
-The way to bind an instance to a state provider property is with the `bind` config. For example
+State providers have two main sections:
 
-    bind: {
-        store: 'stores.earthquakes'
-    }
+- `data` &mdash; reactive key/value state shared with descendants and `formulas`
+- `stores` &mdash; named `Neo.data.Store` configs or classes instantiated once per provider
 
-binds a `store` property to a store called `foo`. The code is saying _in the future, when the value
-of "stores.earthquakes" changes, assign it to this object's "store" property_. In this case, `stores.earthquakes`
-starts out undefined, then at runtime within a few milliseconds as the state provider is processed, the configured
-store is created and a reference is assigned to `stores.earthquakes`. That wakes the binding up, and the
-value is assigned to the table's `store` property.
-
-Replace each table's `store` config with the binding.
+First, copy the store configuration into `stateProvider.stores.earthquakes` on `MainView` while leaving both grids' inline `store` configs untouched for one moment:
 
 ```javascript readonly
-
+// apps/earthquakes/view/MainView.mjs — step 6 (provider + inline stores = 3 calls)
 import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
-import EarthquakesTable  from './earthquakes/Table.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
 import MainStateProvider from './MainStateProvider.mjs';
 import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
 class MainView extends Base {
     static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-        controller: {module: Controller},
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
         stateProvider: {
             module: MainStateProvider,
             stores: {
                 earthquakes: {
                     module: Store,
-                    model: {
+                    model : {
                         fields: [{
-                            name: "location"
+                            name: 'location'
                         }, {
-                            name: "magnitude"
+                            name: 'magnitude',
+                            type: 'Float'
                         }, {
-                            name: "timestamp",
-                            type: "Date"
+                            name: 'timestamp',
+                            type: 'Date'
                         }]
                     },
-                    url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                    responseRoot: "data",
-                    autoLoad: true
+                    url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                    responseRoot: 'data',
+                    autoLoad    : true
                 }
             }
         },
 
-        layout: { ntype: 'vbox', align: 'stretch' },
-        items: [{
-            module: EarthquakesTable,
-            bind: {
-                store: 'stores.earthquakes'
-            },
-            style: {width: '100%'}
-        },{
-            module: EarthquakesTable,
-            bind: {
-                store: 'stores.earthquakes'
-            },
-            style: {width: '100%'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items : [{
+            module: EarthquakesGrid,
+            flex  : 1,
+            store : {
+                module: Store,
+                model : {
+                    fields: [{
+                        name: 'location'
+                    }, {
+                        name: 'magnitude',
+                        type: 'Float'
+                    }, {
+                        name: 'timestamp',
+                        type: 'Date'
+                    }]
+                },
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            store : {
+                module: Store,
+                model : {
+                    fields: [{
+                        name: 'location'
+                    }, {
+                        name: 'magnitude',
+                        type: 'Float'
+                    }, {
+                        name: 'timestamp',
+                        type: 'Date'
+                    }]
+                },
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
         }]
     }
 }
@@ -1030,36 +905,103 @@ class MainView extends Base {
 export default Neo.setupClass(MainView);
 ```
 
-Save, refresh, and look at network traffic: you'll see a _single_ call to the web service.
+We named the key `earthquakes` because it describes the records it holds (we could have named it anything). Because we haven't bound the grids yet, refreshing with the **Network** tab open now shows **three** `?fn=earthquakes` calls: one from `MainStateProvider` and one from each inline grid store.
 
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/EarthquakesTwoTablesOneCall.png"></img>
+</details>
 
-You can further prove we're using a shared instance by running these statements in the console.
+<details>
+<summary>Bind both grids to `stores.earthquakes`</summary>
+
+Descendant components connect to a state provider's store with the `bind` config:
 
 ```javascript readonly
-a = Neo.findFirst({ntype:'earthquakes-main'}).stateProvider.stores.earthquakes;
-b = Neo.find({ntype:'earthquakes-table'})[0].store;
-c = Neo.find({ntype:'earthquakes-table'})[1].store;
+bind: {
+    store: 'stores.earthquakes'
+}
+```
 
-(a === b) && (a === c) && (b === c) // true
+This tells Neo: _resolve `stores.earthquakes` on the nearest ancestor state provider and assign that `Store` instance to my `store` config_.
+
+Replace both inline `store` blocks in `apps/earthquakes/view/MainView.mjs` with `bind: {store: 'stores.earthquakes'}`:
+
+```javascript readonly
+// apps/earthquakes/view/MainView.mjs — step 7 (bound to one shared Store = 1 call)
+import Base              from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import Store             from '../../../node_modules/neo.mjs/src/data/Store.mjs';
+
+class MainView extends Base {
+    static config = {
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
+        stateProvider: {
+            module: MainStateProvider,
+            stores: {
+                earthquakes: {
+                    module: Store,
+                    model : {
+                        fields: [{
+                            name: 'location'
+                        }, {
+                            name: 'magnitude',
+                            type: 'Float'
+                        }, {
+                            name: 'timestamp',
+                            type: 'Date'
+                        }]
+                    },
+                    url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                    responseRoot: 'data',
+                    autoLoad    : true
+                }
+            }
+        },
+
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items : [{
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
+                store: 'stores.earthquakes'
+            }
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
+                store: 'stores.earthquakes'
+            }
+        }]
+    }
+}
+
+export default Neo.setupClass(MainView);
+```
+
+Save, refresh, and check the **Network** tab (`Fetch/XHR`): you now see **one** `?fn=earthquakes` request feeding both grids!
+
+Prove in the `neomjs-app-worker` console that the provider and both grids point to the exact same `Store` object in memory:
+
+```javascript readonly
+const a = Neo.findFirst({ntype: 'earthquakes-main'}).stateProvider.stores.earthquakes;
+const [b, c] = Neo.find({ntype: 'earthquakes-grid'}).map(grid => grid.store);
+
+(a === b) && (a === c) // true
 ```
 
 </details>
 
 <details>
-<summary>Use the state provider class</summary>
+<summary>Move `stores` into `MainStateProvider.mjs`</summary>
 
-We configured the state provider in-line, in the `stateProvider` config at the top of `MainView`. But the starter app
-has a `MainStateProvider` class. In theory, if you have a trivial state provider you could configure it in-line. But
-in general you want to keep that code separate by coding it in a separate class. This is what we did for the
-table config &mdash; we started by coding it in-line in the main view, then we refactored it into its own
-class. The result was a simpler and more abstract main view. We want to do the same for the state provider.
+Just as we moved the grid's columns out of `MainView.mjs` into `earthquakes/Grid.mjs`, `create-app-minimal` already generated `apps/earthquakes/view/MainStateProvider.mjs` so state definitions don't clutter the view layout.
 
-Since the starter app already provides `MainStateProvider`, all we need to do is copy the `stores` property.
-
-Here's the resulting code you should place into `MainStateProvider.mjs`.
+Put the `stores` config into `apps/earthquakes/view/MainStateProvider.mjs`:
 
 ```javascript readonly
+// apps/earthquakes/view/MainStateProvider.mjs — step 8 (provider class)
 import StateProvider from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
 import Store         from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
@@ -1067,24 +1009,25 @@ class MainStateProvider extends StateProvider {
     static config = {
         className: 'Earthquakes.view.MainStateProvider',
 
-        data: {},
+        data  : {},
         stores: {
             earthquakes: {
                 module: Store,
-                model: {
+                model : {
                     fields: [{
-                        name: "location"
+                        name: 'location'
                     }, {
-                        name: "magnitude"
+                        name: 'magnitude',
+                        type: 'Float'
                     }, {
-                        name: "timestamp",
-                        type: "Date"
+                        name: 'timestamp',
+                        type: 'Date'
                     }]
                 },
-                url: "https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes",
-                responseRoot: "data",
-                autoLoad: true
-            },
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
         }
     }
 }
@@ -1092,36 +1035,35 @@ class MainStateProvider extends StateProvider {
 export default Neo.setupClass(MainStateProvider);
 ```
 
-And you need to remove the `stores` config from the main view as follows.
+Now simplify `apps/earthquakes/view/MainView.mjs`:
 
 ```javascript readonly
+// apps/earthquakes/view/MainView.mjs — step 8 (clean MainView)
 import Container         from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
-import EarthquakesTable  from './earthquakes/Table.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
 import MainStateProvider from './MainStateProvider.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-        controller: {module: Controller},
-        stateProvider: {
-            module: MainStateProvider
-        },
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
+        stateProvider: {module: MainStateProvider},
 
-        layout: { ntype: 'vbox', align: 'stretch' },
-        items: [{
-            module: EarthquakesTable,
-            bind: {
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items : [{
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
                 store: 'stores.earthquakes'
-            },
-            style: {width: '100%'}
-        },{
-            module: EarthquakesTable,
-            bind: {
+            }
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
                 store: 'stores.earthquakes'
-            },
-            style: {width: '100%'}
+            }
         }]
     }
 }
@@ -1129,54 +1071,47 @@ class MainView extends Container {
 export default Neo.setupClass(MainView);
 ```
 
-The refactorings to have separate table and state provider classes means the code is more modular, more reusable,
-and each class is simpler than using complex source files that try to configure every detail.
+Save and refresh. Look how clean `MainView.mjs` has become: each class now has one clear job.
 
 </details>
 
 <!-- /lab -->
 
-## Put the same earthquakes on a map
+## Put the Same Earthquakes on a Map
 
-The table tells us when an earthquake happened and how large the feed says it was. A map answers a different
-question: where are these events clustering? We already have the records. The next step gives them a second
-view, without fetching them again or building a separate collection of markers.
+The grid tells us when each earthquake occurred and its reported magnitude. A map answers a complementary spatial question: where are these events clustering across Iceland? Because our `Store` already lives in `MainStateProvider`, we can replace one of the two grids with a map and bind it to the exact same `stores.earthquakes` instance &mdash; zero extra network requests and zero manual marker arrays.
 
-Neo's OpenStreetMaps component wraps a main-thread addon. Your app and its Store stay in the App Worker;
-the addon uses OpenLayers to draw OpenStreetMap tiles and markers in the browser. This is how a library that
-needs the DOM can take part in a worker-based application: the wrapper carries your component configuration
-across that boundary, and brings marker clicks back to your app.
+`Neo.component.wrapper.OpenStreetMaps` wraps a **main-thread addon** (`Neo.main.addon.OpenStreetMaps`). Your application and its `Store` remain in `neomjs-app-worker`, while the addon loads OpenLayers on the browser's main thread to render OpenStreetMap tiles and vector pins in the DOM. The wrapper bridges component configs (`center`, `zoom`, `markerStore`) to the main thread and routes marker click events back into `neomjs-app-worker`.
 
 ```mermaid
 flowchart TD
-    Feed[Earthquake feed] --> Store[One Store in the StateProvider]
-    Store --> Table[Table rows]
-    Store --> Wrapper[OpenStreetMaps wrapper in the App Worker]
-    Wrapper --> Addon[OpenLayers map in the main thread]
-    Addon --> Click[Marker click returns the Store record]
+    Feed["Live Earthquake Feed (?fn=earthquakes)"] --> Store["One Store in MainStateProvider (stores.earthquakes)"]
+    Store --> Grid["EarthquakesGrid (row-pooled rows in App Worker)"]
+    Store --> Wrapper["OpenStreetMaps Wrapper (App Worker)"]
+    Wrapper --> Addon["OpenLayers Map + Markers (Main Thread)"]
+    Addon --> Click["markerClick resolves matching Store Record"]
 ```
 
-The wrapper has three configs we need:
+The wrapper uses three configs here:
 
-- `center:{lat, lng}`
+- `center: {lat, lng}`
 - `zoom`
 - `markerStore`
 
-The marker records need these properties:
+And each marker record in `markerStore` needs three properties:
 
-- `id` &mdash; the Store key used to find the record when a marker is clicked
-- `position` &mdash; the location of the marker, of the form `{lat, lng}`
-- `title` &mdash; a description of the marker
+- `id` &mdash; the record key so a main-thread pin click resolves back to the exact `Record` in `markerStore`
+- `position` &mdash; `{lat, lng}` with finite numeric coordinates
+- `title` &mdash; hover tooltip text for the pin
 
-## Lab. Use the OpenStreetMaps addon
+## Lab. Use the OpenStreetMaps Addon
 
 <!-- lab -->
 
 <details>
-<summary>Specify the main-thread add-on</summary>
+<summary>Register `OpenStreetMaps` in `neo-config.json`</summary>
 
-Edit `apps/earthquakes/neo-config.json` and add `OpenStreetMaps` to `mainThreadAddons`, keeping the other
-generated settings. The relevant configuration now looks like this:
+Edit `apps/earthquakes/neo-config.json` to include `"OpenStreetMaps"` alongside the three default main-thread addons (`"DragDrop"`, `"Navigator"`, `"Stylesheet"`):
 
 ```json readonly
 {
@@ -1190,169 +1125,178 @@ generated settings. The relevant configuration now looks like this:
         "OpenStreetMaps",
         "Stylesheet"
     ],
-    "themes"          : ["neo-theme-neo-light"],
+    "themes": [
+        "neo-theme-neo-light"
+    ],
     "workerBasePath": "../../node_modules/neo.mjs/src/worker/"
 }
 ```
 
-Use the plain addon name: it loads the implementation supplied by the engine. The `WS/` prefix is for
-workspace-owned addons, and this lab needs no copied source files. If you followed an older version of the
-tutorial, replace `WS/GoogleMaps` and remove `googleMapsApiKey` from this app's configuration.
-
-Save and refresh. The addon loads OpenLayers from its CDN; the map itself appears after the component is added
-below. If that library request fails, check the Network panel before changing your Store or map configuration.
+Use the plain `"OpenStreetMaps"` name so Neo loads the engine's built-in addon (the `WS/` prefix is reserved for custom workspace addons under `src/main/addon/`). No API key is needed. The addon loads OpenLayers from `cdn.jsdelivr.net` the first time a map mounts; if that CDN or `tile.openstreetmap.org` is blocked offline, check the **Network** panel first.
 
 </details>
 
 <details>
-<summary>Add the required fields to the records</summary>
+<summary>Derive `id`, `title`, and numeric `position` on the Store model</summary>
 
-The OpenStreetMaps component's `markerStore` is a regular Store. Its records need `title` and `position`,
-where `position` is an object such as `{lat: 64.012, lng: -16.659}`. The feed's `location` remains the
-human-readable place name. The model lets us adapt that feed once, for both views:
+`OpenStreetMaps` expects each record in `markerStore` to expose `id`, `title`, and `position: {lat, lng}`. Instead of building a second marker array, we adapt the feed once in `apps/earthquakes/view/MainStateProvider.mjs` using two model field features:
 
-- `mapping` &mdash; the path to a feed property holding the value
-- `calculate` &mdash; a function that returns a value
+- `mapping` &mdash; reads the field's value from another property in the raw payload (`location` &rarr; `title`)
+- `calculate` &mdash; computes a derived field from the record's parsed fields (`{lat, lng}` &rarr; `position`)
 
-Edit `apps/earthquakes/view/MainStateProvider.mjs` and modify `fields` as follows.
+Update `apps/earthquakes/view/MainStateProvider.mjs`:
 
 ```javascript readonly
-fields: [{
-    name: "id"
-}, {
-    name: "location",
-}, {
-    name: "magnitude",
-}, {
-    name: "timestamp",
-    type: "Date",
-}, {
-    name: "lat",
-    type: "Float"
-}, {
-    name: "lng",
-    type: "Float"
-}, {
-    name: "title",
-    mapping: "location"
-}, {
-    name: "position",
-    calculate: data => ({lat: data.lat, lng: data.lng})
-}],
-```
+// apps/earthquakes/view/MainStateProvider.mjs — step 9 (map fields)
+import StateProvider from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
+import Store         from '../../../node_modules/neo.mjs/src/data/Store.mjs';
 
-The feed supplies `lat` and `lng` as strings. Declaring them as numeric fields makes the calculated position
-usable by the map. A calculator receives the model's data as its first argument, so the coordinate fields
-must be declared too. `title` maps the existing `location`; no second Store or manual array conversion is needed.
-The feed has no IDs, so the Store generates keys when it loads the records. Declaring `id` preserves those keys
-when the wrapper sends marker data to the main thread, and lets a click resolve back to the right record.
+class MainStateProvider extends StateProvider {
+    static config = {
+        className: 'Earthquakes.view.MainStateProvider',
 
-Save and refresh _earthquakes_. You can use the debugger to inspect the store via _Shift-Ctrl-right-click_ and
-putting the main view into a global variable. Then run
-
-    temp1.getStateProvider().stores.earthquakes.items
-
-Look at a record's `title` and `position`. Both coordinates must be finite numbers. If the feed's schema ever
-changes, this is the place to check: the map cannot place a marker whose position is undefined.
-
-</details>
-
-<details>
-<summary>Use the OpenStreetMaps component</summary>
-
-Replace the top table with a map centered on Iceland. Import the wrapper from your installed engine, just as
-you imported the container and table earlier.
-
-```javascript readonly
-{
-    module: OpenStreetMaps,
-    flex: 1,
-    center: {
-        lat: 64.8014187,
-        lng: -18.3096357
-    },
-    zoom: 6
+        data  : {},
+        stores: {
+            earthquakes: {
+                module: Store,
+                model : {
+                    fields: [{
+                        name: 'id'
+                    }, {
+                        name: 'location'
+                    }, {
+                        name: 'magnitude',
+                        type: 'Float'
+                    }, {
+                        name: 'timestamp',
+                        type: 'Date'
+                    }, {
+                        name: 'lat',
+                        type: 'Float'
+                    }, {
+                        name: 'lng',
+                        type: 'Float'
+                    }, {
+                        name   : 'title',
+                        mapping: 'location'
+                    }, {
+                        name     : 'position',
+                        calculate: data => ({lat: data.lat, lng: data.lng})
+                    }]
+                },
+                url         : 'https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes',
+                responseRoot: 'data',
+                autoLoad    : true
+            }
+        }
+    }
 }
+
+export default Neo.setupClass(MainStateProvider);
 ```
 
-If we replace the top table with the map, `view/MainView.mjs` ends up with this content.
+Why each new field matters:
+
+- The feed supplies `lat` and `lng` as strings (`"63.968"`). Declaring `type: 'Float'` converts them to numbers before `calculate` runs, ensuring `position` contains finite `{lat, lng}` numbers.
+- The feed has no `id` property, so `Store` assigns internal keys (`-1`, `-2`, …) on load. Declaring `{name: 'id'}` includes that key when `record.toJSON()` serializes marker payloads to the main thread, allowing `markerClick` to look up `markerStore.get(data.id)`.
+
+Save, refresh, and verify in the `neomjs-app-worker` console:
 
 ```javascript readonly
+const item = Neo.findFirst({ntype: 'earthquakes-main'}).stateProvider.stores.earthquakes.getAt(0);
+item.title    // e.g. "6.9 km SW of Helgafell"
+item.position // e.g. {lat: 63.968, lng: -21.955}
+```
 
+</details>
+
+<details>
+<summary>Mount `OpenStreetMaps` above `EarthquakesGrid`</summary>
+
+Replace the top `EarthquakesGrid` in `apps/earthquakes/view/MainView.mjs` with `OpenStreetMaps` centered on Iceland (`{lat: 64.8014187, lng: -18.3096357}`, `zoom: 6`), giving both components `flex: 1`:
+
+```javascript readonly
+// apps/earthquakes/view/MainView.mjs — step 9 (map without markerStore yet)
 import Container         from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Controller        from './MainViewController.mjs';
-import EarthquakesTable  from './earthquakes/Table.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
 import MainStateProvider from './MainStateProvider.mjs';
 import OpenStreetMaps    from '../../../node_modules/neo.mjs/src/component/wrapper/OpenStreetMaps.mjs';
 
 class MainView extends Container {
     static config = {
-        className: 'Earthquakes.view.MainView',
-        ntype: 'earthquakes-main',
-        controller: {module: Controller},
-        stateProvider: {
-            module: MainStateProvider
-        },
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
+        stateProvider: {module: MainStateProvider},
 
-        layout: { ntype: 'vbox', align: 'stretch' },
-        items: [{
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items : [{
             module: OpenStreetMaps,
-            flex: 1,
+            flex  : 1,
             center: {
                 lat: 64.8014187,
                 lng: -18.3096357
             },
             zoom: 6
-        },{
-            module: EarthquakesTable,
-            bind: {
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
                 store: 'stores.earthquakes'
-            },
-            style: {width: '100%'},
-            wrapperStyle: {
-                height: 'auto' // Because neo-table-wrapper sets height:'100%', which it probably shouldn't
             }
-        }],
+        }]
     }
 }
 
 export default Neo.setupClass(MainView);
 ```
 
-Refresh and look for Iceland, zoom controls and OpenStreetMap attribution. The attribution belongs to the
-tile provider and stays visible. An empty map at this stage is expected: the next step connects its Store.
-
+Save and refresh. Look for Iceland, the `+` / `−` zoom buttons, and the required `© OpenStreetMap contributors` attribution in the bottom-right corner of the map. No pins appear yet because we haven't bound `markerStore`.
 
 </details>
 
 <details>
-<summary>Show the markers</summary>
+<summary>Bind `markerStore` to `stores.earthquakes`</summary>
 
-Bind the map's `markerStore` to the same `stores.earthquakes` used by the table. Each record already has the
-`position` and `title` fields the wrapper needs.
-
-Add this config to the map.
+Add `bind: {markerStore: 'stores.earthquakes'}` to the `OpenStreetMaps` item in `apps/earthquakes/view/MainView.mjs`:
 
 ```javascript readonly
-bind: {
-    markerStore: 'stores.earthquakes'
-}
+        items: [{
+            module: OpenStreetMaps,
+            flex  : 1,
+            center: {
+                lat: 64.8014187,
+                lng: -18.3096357
+            },
+            zoom: 6,
+            bind: {
+                markerStore: 'stores.earthquakes'
+            }
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
+                store: 'stores.earthquakes'
+            }
+        }]
 ```
-Refresh. The table and map now describe the same events from one request. Nearby earthquakes can overlap at
-this zoom, so the visible pins need not look like separate dots for every row. Zoom in to separate a cluster.
 
-In the App Worker console, check the identity of the shared Store:
+Save and refresh. Red earthquake pins appear across Iceland, driven by the exact same single `?fn=earthquakes` request as the grid below! (Nearby tremors along volcanic rifts often overlap at zoom `6`; zoom in to separate clusters.)
+
+<img style="width:80%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/earthquakes/earthquakes-map-and-grid.jpg" alt="OpenStreetMaps markers over Iceland and Neo.grid.Container sharing one Store"/>
+
+In the `neomjs-app-worker` console, verify that the provider, map, and grid all reference the exact same `Store` instance &mdash; and test reloading it:
 
 ```javascript readonly
 const store = Neo.findFirst({ntype: 'earthquakes-main'}).stateProvider.stores.earthquakes;
-const map = Neo.findFirst({ntype: 'openstreetmaps'});
-const table = Neo.findFirst({ntype: 'earthquakes-table'});
+const map   = Neo.findFirst({ntype: 'openstreetmaps'});
+const grid  = Neo.findFirst({ntype: 'earthquakes-grid'});
 
-map.markerStore === store && table.store === store // true
+map.markerStore === store && grid.store === store // true
+
+await store.load() // destroys old pins and renders the fresh load with zero duplicates
 ```
-
-Calling `await store.load()` fetches the current feed again. The wrapper replaces its markers from those
-records; a reload should not leave a second copy of the old pins. An empty feed produces an empty map and table.
 
 </details>
 
@@ -1360,72 +1304,99 @@ records; a reload should not leave a second copy of the old pins. An empty feed 
 
 ## Events
 
-Neo.mjs has an `Neo.core.Observable` class that handles configuring listeners and associated event handler functions.
-All components are observable, and some non-visual classes, like stores, are also observable.
-
-Listeners are set up either declaratively, via the `listeners:{}` config, or procedurally,
-via the `component.on()` method.
+Neo.mjs mixes `Neo.core.Observable` into components and stores so you can subscribe to events declaratively via `listeners: {}` or imperatively via `instance.on()`.
 
 ## Lab. Events
 
 <!-- lab -->
 
-In this lab you'll set up an event handler for the table and map.
+In this final lab you'll attach `rowClick` and `markerClick` listeners and see how mutating a shared `Record` updates the UI instantaneously.
 
 <details>
-<summary>Add a listener to a table row click</summary>
+<summary>Log `rowClick` on the grid and mutate a live record</summary>
 
-The table fires a `rowClick` event with the clicked row's record.
-
-Add this table config:
+`Neo.grid.Container` fires `rowClick` with `{body, data, record}`. Add `listeners` to both items in `apps/earthquakes/view/MainView.mjs`:
 
 ```javascript readonly
-listeners: {
-    rowClick: data => console.log(data.record)
+// apps/earthquakes/view/MainView.mjs — step 10 (complete app with listeners)
+import Container         from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Controller        from './MainViewController.mjs';
+import EarthquakesGrid   from './earthquakes/Grid.mjs';
+import MainStateProvider from './MainStateProvider.mjs';
+import OpenStreetMaps    from '../../../node_modules/neo.mjs/src/component/wrapper/OpenStreetMaps.mjs';
+
+class MainView extends Container {
+    static config = {
+        className    : 'Earthquakes.view.MainView',
+        ntype        : 'earthquakes-main',
+        controller   : {module: Controller},
+        stateProvider: {module: MainStateProvider},
+
+        layout: {ntype: 'vbox', align: 'stretch'},
+        items : [{
+            module: OpenStreetMaps,
+            flex  : 1,
+            center: {
+                lat: 64.8014187,
+                lng: -18.3096357
+            },
+            zoom: 6,
+            bind: {
+                markerStore: 'stores.earthquakes'
+            },
+            listeners: {
+                markerClick: data => console.log(data.data.record)
+            }
+        }, {
+            module: EarthquakesGrid,
+            flex  : 1,
+            bind  : {
+                store: 'stores.earthquakes'
+            },
+            listeners: {
+                rowClick: data => console.log(data.record)
+            }
+        }]
+    }
 }
+
+export default Neo.setupClass(MainView);
 ```
 
-Save and refresh, then click on a table row. If you look at the debugger console you'll see the record being logged.
+Save and refresh, switch the DevTools Console to `neomjs-app-worker`, and click the first row in the grid. You'll see its `Record` logged with `id`, `location`, `magnitude`, `timestamp`, `lat`, `lng`, `title`, and `position`.
 
-Just for fun, expand the logged value and look for the `magnitude` property. If you recall, that's a value from the feed, and one of the things we configured in the store's fields:[].
+Right-click the logged `Record`, choose **Store object as global variable** (`temp1`), and assign a new `magnitude` in the console:
 
-In the console, click on the ellipses by `magnitude` and enter a new value, like 2.5. (Don't enter a larger value, or you may destroy that part of Iceland.)
+```javascript readonly
+temp1.magnitude = 2.5
+```
 
-<img style="width:80%" src="https://s3.amazonaws.com/mjs.neo.learning.images/earthquakes/LogTableClick.png"></img>
+*(Don't enter a much larger value, or you may destroy that part of Iceland &mdash; though as we saw earlier, the test feed itself already tried!)*
 
-After changing the value you should immediately see it reflected in the table row.
+Look at the grid row you clicked: its `Magnitude` cell updates to `2.50` immediately because the record belongs to the reactive `Store` bound to the grid.
 
 </details>
 
 <details>
-<summary>Add a listener to a map event
-</summary>
+<summary>Click a map marker to resolve the same `Record`</summary>
 
-Now add a `markerClick` listener to the OpenStreetMaps component.
+Now click any red pin on the Iceland map. `OpenStreetMaps` sends the clicked feature's `neoId` from the main thread back to `neomjs-app-worker`, looks up `this.markerStore.get(data.id)`, and logs the exact same `Record` instance shown in the grid (`data.data.record === store.get(data.data.id)`).
 
-```javascript readonly
-listeners: {
-    markerClick: data => console.log(data.data.record)
-}
-```
-
-Save, refresh, and confirm that you see the value logged when you click on a map marker.
+From here, moving your `markerClick` and `rowClick` handlers onto `MainViewController.mjs` (for example panning the map via `map.panTo(record.position)` when a user clicks a grid row!) is the natural next step.
 
 </details>
-
-
 
 <!-- /lab -->
 
 ## Summary
 
-Congratulations on completing the tutorial!
+Congratulations on completing the Earthquakes tutorial!
 
-The goals was to give you hands-on coding a simple app to let you get a feel for syntax
-and to introduce some basic Neo.mjs concepts
+You started from an empty `create-app-minimal` shell and built a multi-worker, multi-surface Neo.mjs application while practicing the core building blocks you'll use in every Neo project:
 
-- Declarative, abstract code
-- Class-based coding, and the ability to extend any class, such as `view/earthquakes/Table.mjs`
-- State providers, to share properties and objects, such as the store shared by the table and map
-- Events, specified via `listeners:{}`
-- Controllers, to hold event listeners and other procedural logic
+- **Declarative blueprints** &mdash; configuring layouts, grids, stores, and main-thread wrappers without manual DOM plumbing
+- **Live worker debugging** &mdash; inspecting and mutating live component and record instances inside `neomjs-app-worker`
+- **Class-based modularity** &mdash; extracting `Earthquakes.view.earthquakes.Grid` (`view/earthquakes/Grid.mjs`) for clean reuse
+- **Shared bindable state** &mdash; moving `stores.earthquakes` into `MainStateProvider` so multiple views share one `Store` instance and one network request
+- **Main-thread addon wrappers** &mdash; rendering OpenLayers / OpenStreetMap pins on the main thread while keeping your `Store` and event logic in `neomjs-app-worker`
+- **Reactive records and events** &mdash; handling `rowClick` and `markerClick` against the same `Record` identity
