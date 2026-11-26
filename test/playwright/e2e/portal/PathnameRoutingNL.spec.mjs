@@ -225,7 +225,7 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
         })
     });
 
-    test('canonicalizes /apps/portal/ and /apps/portal/index.html#/examples/grid via 301 + hash upgrade, reloads depth-4 routes, and separates all 21 /examples/<group> routes from /examples/tree/', async ({page, neuralLink}) => {
+    test('canonicalizes /apps/portal/ and /apps/portal/index.html#/examples/grid via 307 + hash upgrade, reloads depth-4 routes, and separates all 21 /examples/<group> routes from /examples/tree/', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 1440, height: 900});
 
         // HTTP-level check across all 21 group routes vs standalone /examples/tree/ directory listing
@@ -245,10 +245,10 @@ test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural
         expect(standaloneDemoRedirect.headers()['location']).toBe('/examples/dialog/?theme=dark');
 
         const aliasRedirect = await page.request.get('/apps/portal/?utm_source=test', {maxRedirects: 0});
-        expect(aliasRedirect.status()).toBe(301);
+        expect(aliasRedirect.status()).toBe(307);
         expect(aliasRedirect.headers()['location']).toBe('/?utm_source=test');
 
-        // Legacy bookmark /apps/portal/index.html#/examples/grid -> 301 to /#/examples/grid -> upgradeHashRoute to /examples/grid
+        // Legacy bookmark /apps/portal/index.html#/examples/grid -> 307 to /#/examples/grid -> upgradeHashRoute to /examples/grid
         await page.goto('/apps/portal/index.html#/examples/grid');
         const app = await neuralLink.connectToApp('Portal');
         await expect(page).toHaveURL(/\/examples\/grid$/);

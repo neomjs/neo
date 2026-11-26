@@ -135,3 +135,23 @@ test('hash mode stays the default: a #/… route boots, and a button moves the h
     await expect.poll(() => shownCard(page)).toBe(card.section2);
     await expect(page).toHaveURL(/\/apps\/route\/index\.html#\/section2$/)
 });
+
+test('hash mode under spaRoot serves / and redirects /apps/route/index.html#/section1 to /#/section1 with the app booted', async ({page}) => {
+    fs.writeFileSync(path.join(root, 'apps/route/index.html'), sourceHtml.replace('<head>', '<head>\n    <base href="/apps/route/">'));
+    fs.writeFileSync(path.join(root, 'apps/route/neo-config.json'), JSON.stringify({...sourceConfig, useServiceWorker: false, useSharedWorkers: false}));
+
+    const spaServer = createFileServer({root, spaRoot: 'apps/route', freshness: {onListening() {}, onRequest() {}}}),
+          spaOrigin = `http://localhost:${await listen(spaServer, {port: 0, strict: true})}`;
+    try {
+        await page.goto(spaOrigin + '/apps/route/index.html#/section1');
+        await expect(page).toHaveURL(spaOrigin + '/#/section1');
+        await expect.poll(() => shownCard(page)).toBe(card.section1);
+
+        await page.getByRole('button', {name: 'Section 2'}).click();
+        await expect.poll(() => shownCard(page)).toBe(card.section2);
+        await expect(page).toHaveURL(spaOrigin + '/#/section2')
+    } finally {
+        spaServer.closeAllConnections();
+        spaServer.close()
+    }
+});

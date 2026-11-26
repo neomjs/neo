@@ -326,12 +326,11 @@ Hash routing (`routerMode: 'hash'`) stays the zero-config default because it wor
 
 ### Configuring `routerMode`, `routerBasePath`, `routerIgnorePaths`, and `<base href>`
 
-Enable `'pathname'` in `neo-config.json` (see `src/DefaultConfig.mjs`) and add `<base href>` in `index.html` so relative asset URLs resolve on nested routes:
+Enable `'pathname'` in `neo-config.json` (see `src/DefaultConfig.mjs`) and add `<base href>` in `index.html` so relative asset URLs and sub-path mounts resolve cleanly:
 
 ```json
 {
     "routerMode"       : "pathname",
-    "routerBasePath"   : "/apps/myapp",
     "routerIgnorePaths": ["/docs/", "^/assets/"]
 }
 ```
@@ -340,7 +339,7 @@ Enable `'pathname'` in `neo-config.json` (see `src/DefaultConfig.mjs`) and add `
 <base href="/apps/myapp/">
 ```
 
-- **`routerBasePath`**: Sub-path prefix stripped before route matching (explicit `''` forces root mounting; when omitted, `DomEvents#resolveRouterBasePath()` adopts the `<base href>` pathname if `location.pathname` starts with it).
+- **`routerBasePath`**: Optional sub-path prefix stripped before route matching. Leave it unset for an app served at `/` or at both its directory (`/apps/myapp/`) and `/` (`spaRoot`): when omitted, `DomEvents#resolveRouterBasePath()` adopts the `<base href>` pathname under `/apps/myapp/...` and resolves to `''` at `/`, so `Neo.Main.setRoute()` and `Neo.Main.editRoute()` keep URL writes inside whichever mount the reader is on. Setting an explicit `routerBasePath` (such as `"/apps/myapp"`, or `""` to force root-only matching) pins every URL write to that prefix, moving a reader on `/` over to `/apps/myapp/...` on the first route edit.
 - **`routerIgnorePaths`**: Prefixes or `^`-anchored regex strings evaluated against the raw pathname after `routerBasePath` *before* trailing-slash canonicalization (`src/util/Route.mjs`). Matched paths and `STATIC_ASSET_EXTENSIONS` keep native browser navigation.
 - **Dist builds**: `dist/esm`, `dist/development`, and `dist/production` transforms (`rewritePathnameConfig` and `rewritePathnameHtml` in `buildScripts/util/esmDistTransforms.mjs`) rewrite `<base href>` (and any non-empty `routerBasePath`, leaving omitted/`''` configs intact for root `spaRoot` mounts) to the emitted output directory without server-side HTML rewriting.
 
@@ -362,7 +361,11 @@ In `SharedWorker` apps with multiple windows, pass an explicit `windowId` to `Ne
 
 ### Local Serving (`fileServer.mjs`) and Hosting Boundary
 
-`buildScripts/util/fileServer.mjs` enables shell fallback for sub-path apps whose on-disk `neo-config.json` sets `"routerMode": "pathname"` while keeping physical files and static assets untouched. In an `npx neo-app` workspace (`neomjs/create-app`), `npm run server-start` calls `fileServer.mjs` `run({open})` with no `spaRoot` configured so workspace browsing at `/` stays unchanged until you opt in. Set `"neo": {"spaRoot": "apps/<app>"}` in `package.json` (as `neomjs/neo` sets for `apps/portal`) to mount a `'pathname'` app at `/`, or override it per run with `--spa-root <dir>` and `--no-spa-root`.
+`buildScripts/util/fileServer.mjs` enables shell fallback for sub-path apps whose on-disk `neo-config.json` sets `"routerMode": "pathname"` while keeping physical files and static assets untouched. In an `npx neo-app` workspace (`neomjs/create-app`), `npm run server-start` calls `fileServer.mjs` `run({open})` with no `spaRoot` configured so workspace browsing at `/` stays unchanged until you opt in. Set `"neo": {"spaRoot": "apps/<app>"}` in `package.json` (as `neomjs/neo` sets for `apps/portal`), or pass `--spa-root <dir>` / `--no-spa-root` per run, to mount an app at `/` in **either** `'hash'` or `'pathname'` mode:
+
+- `/` serves `<spaRoot>/index.html` in both router modes, while deep-path shell fallback stays `'pathname'`-only because `'hash'` apps own no deep server routes.
+- Direct requests to `/<spaRoot>`, `/<spaRoot>/`, and `/<spaRoot>/index.html`, as well as `'pathname'` trailing-slash route canonicalization, answer `307 Temporary Redirect` (preserving `?search` and client `#/...` fragments without permanent browser redirect caching); physical directory trailing-slash redirects stay `301`.
+- Any `spaRoot` app needs `<base href="/<spaRoot>/">` in `index.html` in **both** `'hash'` and `'pathname'` modes so `src/MicroLoader.mjs` resolves `./neo-config.json` and relative assets when the shell is served from `/`. `fileServer.mjs` prints one startup warning naming `<spaRoot>/index.html` when `<base href>` is missing and never rewrites HTML.
 
 The engine router and `fileServer.mjs` handle interactive human-browser routing only. SEO snapshots, status codes, and redirects belong to your deployment's server — `fileServer.mjs` never rewrites HTML or emulates bot snapshots.
 
