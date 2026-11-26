@@ -143,6 +143,7 @@
         {"name": "Creating a Functional Button",                       "parentId": "Tutorials",                                           "id": "tutorials/CreatingAFunctionalButton"},
         {"name": "Routing",                                            "parentId": "Tutorials",                                           "id": "tutorials/Routing"},
         {"name": "Your First Dock Layout",                             "parentId": "Tutorials",                                           "id": "tutorials/DockLayoutsFirstLayout"},
+        {"name": "One Shared State Across Form, Dialog and Window",    "parentId": "Tutorials",                                           "id": "tutorials/SharedStateMultiSurface"},
     {"name": "JavaScript Classes",                                     "parentId": null,                                 "isLeaf": false, "id": "JavaScript",  "collapsed": true},
         {"name": "Classes, Properties, and Methods",                   "parentId": "JavaScript",                                          "id": "javascript/Classes"},
         {"name": "Overriding Methods",                                 "parentId": "JavaScript",                                          "id": "javascript/Overrides"},

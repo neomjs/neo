@@ -171,6 +171,7 @@ const PRIORITIES = new Map([
     ['guides/datahandling/UsingStores'                , 0.8],
     ['guides/datahandling/Timeline'                   , 0.8],
     ['guides/userinteraction/Forms'                   , 0.8],
+    ['tutorials/SharedStateMultiSurface'              , 0.8],
 
     // Internal evidence surfaces (hidden tree entries): registered explicitly at the floor so
     // the guide-authoring convention holds without promoting them in search.

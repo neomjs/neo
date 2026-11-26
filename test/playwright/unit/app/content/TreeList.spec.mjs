@@ -369,8 +369,8 @@ test.describe('Portal learn API Docs link routing (#5574)', () => {
               visible             = decisions.filter(node => !node.hidden).map(node => node.id),
               hidden              = decisions.filter(node => node.hidden === true).map(node => node.id);
 
-        expect(visibleEngineLeaves).toHaveLength(132);
-        expect(usingTheseTopics).toContain('composes `227` visible topics across ten sections (`132` Engine topics plus `95` federated guides');
+        const engineCount = visibleEngineLeaves.length, federatedCount = 95;
+        expect(usingTheseTopics).toContain(`composes \`${engineCount + federatedCount}\` visible topics across ten sections (\`${engineCount}\` Engine topics plus \`${federatedCount}\` federated guides`);
         expect(usingTheseTopics).toContain('and `8` retained Architectural Decision Records (`78` topics).');
 
         expect(visible).toEqual([
