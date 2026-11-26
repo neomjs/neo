@@ -582,6 +582,7 @@
  "Neo.toolbar.Base": "Neo.container.Base",
  "Neo.toolbar.Breadcrumb": "Neo.toolbar.Base",
  "Neo.toolbar.Paging": "Neo.toolbar.Base",
+ "Neo.toolbar.Segmented": "Neo.toolbar.Base",
  "Neo.tooltip.Base": "Neo.container.Base",
  "Neo.tree.Accordion": "Neo.tree.List",
  "Neo.tree.List": "Neo.list.Base",

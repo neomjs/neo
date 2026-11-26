@@ -37,7 +37,28 @@ const hasNavigator = (page, id) => page.evaluate(id => document.getElementById(i
 
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-    await page.waitForSelector(`#${SOURCE}`)
+    await page.waitForSelector(`#${SOURCE}`);
+});
+
+test('a key handled by a nested navigator moves only the inner focus', async ({page}) => {
+    await page.evaluate(() => {
+        const outer = document.createElement('div');
+        outer.id = 'outer-toolbar';
+        outer.innerHTML = '<button>Outer</button><div id="inner-toolbar"><button>One</button><button>Two</button></div>';
+        document.body.appendChild(outer);
+        for (const id of ['outer-toolbar', 'inner-toolbar']) {
+            Neo.main.addon.Navigator.subscribe({id, selector: '#' + id + ' > button', nextKey: 'ArrowRight', previousKey: 'ArrowLeft', wrap: true})
+        }
+    });
+
+    await page.getByRole('button', {name: 'Outer', exact: true}).focus();
+    await page.getByRole('button', {name: 'One', exact: true}).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('button', {name: 'Two', exact: true})).toBeFocused();
+    await page.evaluate(() => {
+        for (const id of ['inner-toolbar', 'outer-toolbar']) Neo.main.addon.Navigator.unsubscribe({id});
+        document.getElementById('outer-toolbar').remove()
+    })
 });
 
 test('a list whose eventSource is not in the DOM neither subscribes nor throws, mounting or unmounting', async ({page}) => {
