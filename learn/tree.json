@@ -139,6 +139,7 @@
     {"name": "Tutorials",                                              "parentId": null,                                 "isLeaf": false, "id": "Tutorials",  "collapsed": true},
         {"name": "Rock Scissors Paper",                                "parentId": "Tutorials",                                           "id": "tutorials/RSP", "hidden": true},
         {"name": "Earthquakes",                                        "parentId": "Tutorials",                                           "id": "tutorials/Earthquakes"},
+        {"name": "Build an Order-Review Desk",                         "parentId": "Tutorials",                                           "id": "tutorials/EnterpriseGrid"},
         {"name": "Todo List",                                          "parentId": "Tutorials",                                           "id": "tutorials/TodoList"},
         {"name": "Creating a Functional Button",                       "parentId": "Tutorials",                                           "id": "tutorials/CreatingAFunctionalButton"},
         {"name": "Observe a Data Pipeline on Both Workers",            "parentId": "Tutorials",                                           "id": "tutorials/DataPipelineWorkers"},

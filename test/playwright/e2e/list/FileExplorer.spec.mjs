@@ -181,5 +181,44 @@ test.describe('File explorer example', () => {
         await expect.poll(async () => (await inside(page, 'logs'))?.length).toBe(366);
         expect(await inside(page, 'logs')).toContain('README.md');
         expect(requests).toHaveLength(1)
+    });
+
+    test('renders Neo.component.EmptyState when no entry is shown across dark/light and narrow layout, then transitions back on selection', async ({page, neuralLink}) => {
+        await page.setViewportSize({width: 360, height: 800});
+        await page.goto(url);
+        const app = await neuralLink.connectToApp('Neo.examples.fileExplorer');
+
+        await expect(page.locator(detail)).toContainText('/src/components/Cart.mjs');
+
+        const [paneInfo]  = await app.queryComponent({className: 'Neo.examples.fileExplorer.DetailPane'}, ['id']),
+              [emptyInfo] = await app.queryComponent({className: 'Neo.component.EmptyState'}, ['id', 'hidden', 'text', 'ui']);
+
+        expect(emptyInfo.properties.hidden).toBe(true);
+        expect(emptyInfo.properties.ui).toBe('plain');
+
+        await app.setProperties(paneInfo.id, {details: null});
+
+        const emptyNode = page.locator(`${detail} .neo-empty-state`);
+        await expect(emptyNode).toBeVisible();
+        await expect(emptyNode.locator('.neo-empty-state-title')).toHaveText('Select a file or a folder to see its details.');
+        await expect(emptyNode.locator('.neo-empty-state-glyph')).toHaveCount(0);
+        await expect(emptyNode.locator('button')).toHaveCount(0);
+
+        const narrowFits = await emptyNode.evaluate(el => ({
+            fits     : el.getBoundingClientRect().right <= window.innerWidth + 0.5,
+            overflowX: el.scrollWidth > el.clientWidth + 1
+        }));
+        expect(narrowFits).toEqual({fits: true, overflowX: false});
+
+        // Switch theme to neo-light and verify empty state remains legible
+        await page.locator('.fe-header .neo-button').last().click();
+        await expect(page.locator('.file-explorer-viewport')).toHaveClass(/neo-theme-neo-light/);
+        await expect(emptyNode).toBeVisible();
+
+        // Clicking an entry transitions cleanly back from EmptyState to populated details
+        await item(page, 'README.md').click();
+        await expect(emptyNode).toHaveCount(0);
+        await expect(page.locator(detail)).toContainText('/README.md');
+        await expect(page.locator(detail)).toContainText('Markdown')
     })
 });
