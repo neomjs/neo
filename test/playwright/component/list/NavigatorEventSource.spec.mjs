@@ -130,3 +130,47 @@ test('clickSelector routes Enter on a focused item to the matching descendant wh
         unmatchedPrevented: false
     })
 });
+
+test('omitted clickSelector preserves native form submit when pressing Enter in a focused text input inside a subscribed item (#22223)', async ({page}) => {
+    await page.evaluate(() => {
+        window.__navFormCounts = {itemClicks: 0, submits: 0};
+
+        const form = document.createElement('form');
+        form.id = 'navigator-omitted-selector-form';
+        form.innerHTML = [
+            '<ul id="navigator-omitted-selector-list">',
+            '  <li id="nav-form-item-1" tabindex="-1">',
+            '    <input id="nav-form-input" type="text" value="alpha">',
+            '  </li>',
+            '</ul>',
+            '<button type="submit">Submit</button>'
+        ].join('');
+        form.addEventListener('submit', e => {
+            e.preventDefault();
+            window.__navFormCounts.submits++
+        });
+        document.body.appendChild(form);
+
+        document.getElementById('nav-form-item-1').addEventListener('click', () => {
+            window.__navFormCounts.itemClicks++
+        });
+
+        Neo.main.addon.Navigator.subscribe({
+            id      : 'navigator-omitted-selector-list',
+            selector: 'li'
+        })
+    });
+
+    await page.locator('#nav-form-input').focus();
+    await page.keyboard.press('Enter');
+
+    const counts = await page.evaluate(() => {
+        Neo.main.addon.Navigator.unsubscribe({id: 'navigator-omitted-selector-list'});
+        document.getElementById('navigator-omitted-selector-form')?.remove();
+        const result = window.__navFormCounts;
+        delete window.__navFormCounts;
+        return result
+    });
+
+    expect(counts).toEqual({itemClicks: 1, submits: 1})
+});

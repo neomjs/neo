@@ -254,11 +254,15 @@ class Navigator extends Base {
             // Click the currently active item if necessary
             case 'Enter':
                 if (data.activeItem && !enterActivatedTags[target.tagName]) {
-                    const clickTarget = data.clickSelector ? data.activeItem.querySelector(data.clickSelector) : data.activeItem;
+                    if (data.clickSelector) {
+                        const clickTarget = data.activeItem.querySelector(data.clickSelector);
 
-                    if (clickTarget) {
-                        keyEvent.preventDefault();
-                        this.clickItem(clickTarget)
+                        if (clickTarget) {
+                            keyEvent.preventDefault();
+                            this.clickItem(clickTarget)
+                        }
+                    } else {
+                        this.clickItem(data.activeItem)
                     }
                 }
         }
