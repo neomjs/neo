@@ -542,5 +542,67 @@ test.describe('Neo.main.addon.GridDragScroll — touch cancellation and multi-co
         expect(addon.activeDrag?.animation, 'ordinary single-finger release still starts momentum').toBeTruthy();
         pumpFrames();
         expect(addon.activeDrag).toBeNull()
+    });
+
+    test('pointercancel and uncancelable compositor touchmove release monitoring and active drag without double-scrolling', async () => {
+        // 1. pointercancel during monitoring clears timer and listeners
+        startTouchOnGrid([touch(13, 120, 200)]);
+        expect(addon.monitorDrag?.id).toBe('touch-grid');
+
+        dispatchDoc('pointercancel', {pointerType: 'touch'});
+        expect(addon.monitorDrag).toBeNull();
+
+        await new Promise(resolve => setTimeout(resolve, 70));
+        expect(addon.activeDrag).toBeNull();
+
+        // 2. Uncancelable touchmove during monitoring releases monitor so timeout cannot arm a parallel drag
+        startTouchOnGrid([touch(14, 120, 200)]);
+        expect(addon.monitorDrag?.id).toBe('touch-grid');
+
+        const uncancelableMonitorMove = Object.assign(new Event('touchmove', {bubbles: true, cancelable: false}), {
+            touches       : [touch(14, 120, 160)],
+            changedTouches: [touch(14, 120, 160)]
+        });
+        documentRef.dispatchEvent(uncancelableMonitorMove);
+        expect(addon.monitorDrag).toBeNull();
+
+        await new Promise(resolve => setTimeout(resolve, 70));
+        expect(addon.activeDrag).toBeNull();
+        expect(grid.bodyElement.scrollTop).toBe(100);
+
+        // 3. pointercancel during active drag clears activeDrag without momentum
+        startTouchOnGrid([touch(15, 120, 260)]);
+        await new Promise(resolve => setTimeout(resolve, 65));
+        dispatchDoc('touchmove', {
+            touches       : [touch(15, 120, 220)],
+            changedTouches: [touch(15, 120, 220)]
+        });
+        dispatchDoc('touchmove', {
+            touches       : [touch(15, 120, 180)],
+            changedTouches: [touch(15, 120, 180)]
+        });
+        expect(addon.activeDrag?.listeners).toBeTruthy();
+        expect(grid.bodyElement.scrollTop).toBe(140);
+
+        dispatchDoc('pointercancel', {pointerType: 'touch'});
+        expect(addon.activeDrag).toBeNull();
+        expect(frames.queue.size).toBe(0);
+
+        // 4. Uncancelable touchmove mid-drag releases activeDrag instead of mutating scrollTop alongside native scroll
+        startTouchOnGrid([touch(16, 120, 260)]);
+        await new Promise(resolve => setTimeout(resolve, 65));
+        dispatchDoc('touchmove', {
+            touches       : [touch(16, 120, 220)],
+            changedTouches: [touch(16, 120, 220)]
+        });
+        expect(addon.activeDrag?.listeners).toBeTruthy();
+
+        const uncancelableDragMove = Object.assign(new Event('touchmove', {bubbles: true, cancelable: false}), {
+            touches       : [touch(16, 120, 170)],
+            changedTouches: [touch(16, 120, 170)]
+        });
+        documentRef.dispatchEvent(uncancelableDragMove);
+        expect(addon.activeDrag).toBeNull();
+        expect(grid.bodyElement.scrollTop).toBe(140)
     })
 });

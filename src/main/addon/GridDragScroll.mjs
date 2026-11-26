@@ -162,10 +162,14 @@ class GridDragScroll extends Base {
     }
 
     /**
-     * @summary Cancels an active touch drag without momentum when the browser cancels the contact.
-     * @param {TouchEvent} event
+     * @summary Cancels an active touch drag without momentum when the browser cancels the contact or pointer stream.
+     * @param {PointerEvent|TouchEvent} event
      */
     onDragCancel(event) {
+        if (event?.type === 'pointercancel' && event.pointerType && event.pointerType !== 'touch') {
+            return
+        }
+
         this.activeDrag?.listeners && this.cancelActiveDrag()
     }
 
@@ -191,8 +195,9 @@ class GridDragScroll extends Base {
                     capture: true,
                     passive: false
                 });
-                document.removeEventListener('touchend',    me.activeDrag.listeners.end,    {capture: true});
-                document.removeEventListener('touchcancel', me.activeDrag.listeners.cancel, {capture: true})
+                document.removeEventListener('touchend',      me.activeDrag.listeners.end,    {capture: true});
+                document.removeEventListener('touchcancel',   me.activeDrag.listeners.cancel, {capture: true});
+                document.removeEventListener('pointercancel', me.activeDrag.listeners.cancel, {capture: true})
             }
 
             const {history, id, registration} = me.activeDrag,
@@ -238,7 +243,12 @@ class GridDragScroll extends Base {
             return
         }
 
-        if (event.type === 'touchmove' && event.cancelable !== false) {
+        if (event.type === 'touchmove') {
+            if (event.cancelable === false) {
+                me.cancelActiveDrag();
+                return
+            }
+
             event.preventDefault() // Disable native scrolling
         }
 
@@ -378,9 +388,10 @@ class GridDragScroll extends Base {
             document.addEventListener('mousemove', me.onMonitorMove, {capture: true});
             document.addEventListener('mouseup',   me.onMonitorEnd,  {capture: true})
         } else {
-            document.addEventListener('touchmove',   me.onMonitorMove, {capture: true, passive: false});
-            document.addEventListener('touchend',    me.onMonitorEnd,  {capture: true});
-            document.addEventListener('touchcancel', me.onMonitorEnd,  {capture: true})
+            document.addEventListener('touchmove',     me.onMonitorMove, {capture: true, passive: false});
+            document.addEventListener('touchend',      me.onMonitorEnd,  {capture: true});
+            document.addEventListener('touchcancel',   me.onMonitorEnd,  {capture: true});
+            document.addEventListener('pointercancel', me.onMonitorEnd,  {capture: true})
         }
 
         me.mouseDownTimeout = setTimeout(() => {
@@ -406,7 +417,7 @@ class GridDragScroll extends Base {
             return
         }
 
-        if (event.type === 'touchmove' && (event.touches?.length ?? 0) > 1) {
+        if (event.type === 'touchmove' && ((event.touches?.length ?? 0) > 1 || event.cancelable === false)) {
             me.onMonitorEnd(event);
             return
         }
@@ -435,19 +446,24 @@ class GridDragScroll extends Base {
     }
 
     /**
-     * @param {MouseEvent|TouchEvent} event
+     * @param {MouseEvent|PointerEvent|TouchEvent} [event]
      */
     onMonitorEnd(event) {
         let me = this;
 
+        if (me.monitorDrag?.inputType === 'touch' && event?.type === 'pointercancel' && event.pointerType && event.pointerType !== 'touch') {
+            return
+        }
+
         clearTimeout(me.mouseDownTimeout);
         me.monitorDrag = null;
 
-        document.removeEventListener('mousemove',   me.onMonitorMove, {capture: true});
-        document.removeEventListener('mouseup',     me.onMonitorEnd,  {capture: true});
-        document.removeEventListener('touchmove',   me.onMonitorMove, {capture: true, passive: false});
-        document.removeEventListener('touchend',    me.onMonitorEnd,  {capture: true});
-        document.removeEventListener('touchcancel', me.onMonitorEnd,  {capture: true})
+        document.removeEventListener('mousemove',     me.onMonitorMove, {capture: true});
+        document.removeEventListener('mouseup',       me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('touchmove',     me.onMonitorMove, {capture: true, passive: false});
+        document.removeEventListener('touchend',      me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('touchcancel',   me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('pointercancel', me.onMonitorEnd,  {capture: true})
     }
 
     /**
@@ -480,11 +496,15 @@ class GridDragScroll extends Base {
         animation && cancelAnimationFrame(animation);
 
         if (listeners) {
-            document.removeEventListener('mousemove',   listeners.move,   {capture: true});
-            document.removeEventListener('mouseup',     listeners.end,    {capture: true});
-            document.removeEventListener('touchmove',   listeners.move,   {capture: true, passive: false});
-            document.removeEventListener('touchend',    listeners.end,    {capture: true});
-            listeners.cancel && document.removeEventListener('touchcancel', listeners.cancel, {capture: true})
+            document.removeEventListener('mousemove',   listeners.move, {capture: true});
+            document.removeEventListener('mouseup',     listeners.end,  {capture: true});
+            document.removeEventListener('touchmove',   listeners.move, {capture: true, passive: false});
+            document.removeEventListener('touchend',    listeners.end,  {capture: true});
+
+            if (listeners.cancel) {
+                document.removeEventListener('touchcancel',   listeners.cancel, {capture: true});
+                document.removeEventListener('pointercancel', listeners.cancel, {capture: true})
+            }
         }
 
         document.body.style.removeProperty('cursor');
@@ -573,9 +593,10 @@ class GridDragScroll extends Base {
             document.addEventListener('mousemove', me.activeDrag.listeners.move, {capture: true});
             document.addEventListener('mouseup',   me.activeDrag.listeners.end,  {capture: true})
         } else {
-            document.addEventListener('touchmove',   me.activeDrag.listeners.move,   {capture: true, passive: false});
-            document.addEventListener('touchend',    me.activeDrag.listeners.end,    {capture: true});
-            document.addEventListener('touchcancel', me.activeDrag.listeners.cancel, {capture: true})
+            document.addEventListener('touchmove',     me.activeDrag.listeners.move,   {capture: true, passive: false});
+            document.addEventListener('touchend',      me.activeDrag.listeners.end,    {capture: true});
+            document.addEventListener('touchcancel',   me.activeDrag.listeners.cancel, {capture: true});
+            document.addEventListener('pointercancel', me.activeDrag.listeners.cancel, {capture: true})
         }
     }
 

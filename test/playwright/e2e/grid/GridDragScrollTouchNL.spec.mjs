@@ -7,21 +7,32 @@ const EXAMPLE_URL = '/examples/grid/orderReviewDesk/index.html',
       OUTSIDE_HDR = '.order-desk-header';
 
 /**
- * @summary Boots the Order Review Desk example with touch input enabled, installs an outside-touch
- * `defaultPrevented` observer on `.order-desk-header`, and connects Neural Link to the live App Worker.
+ * @summary Boots the Order Review Desk example with multi-touch CDP emulation enabled, waits for
+ * `GridDragScroll` registration, installs an outside-touch `defaultPrevented` observer on
+ * `.order-desk-header`, and connects Neural Link to the live App Worker.
  * @param {import('@playwright/test').Page} page
  * @param {Object} neuralLink
  * @returns {Promise<Object>}
  */
 async function bootOrderReviewDeskTouch(page, neuralLink) {
-    const pageErrors = [];
+    const pageErrors = [],
+          cdp        = await page.context().newCDPSession(page);
+
     page.on('pageerror', error => pageErrors.push(error.message));
+
+    await cdp.send('Emulation.setTouchEmulationEnabled', {enabled: true, maxTouchPoints: 5});
+    await page.addInitScript(() => {
+        Object.defineProperty(navigator, 'maxTouchPoints', {configurable: true, get: () => 5})
+    });
 
     await neuralLink.routeConfig(page, config => ({...config, useAiClient: true}));
     await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
     await expect(page.locator(GRID_ROW).first()).toBeVisible({timeout: 30000});
 
     const app = await neuralLink.connectToApp('Neo.examples.grid.orderReviewDesk');
+
+    await expect.poll(() => page.evaluate(() => Neo.main?.addon?.GridDragScroll?.registrations?.size ?? 0))
+        .toBeGreaterThan(0);
 
     await page.evaluate(headerSelector => {
         window.__outsideTouchLog = [];
@@ -45,7 +56,7 @@ async function bootOrderReviewDeskTouch(page, neuralLink) {
           hx        = Math.round(headerBox.x + headerBox.width * 0.35),
           hy        = Math.round(headerBox.y + headerBox.height * 0.5);
 
-    return {app, gx, gy, hx, hy, pageErrors}
+    return {app, cdp, gx, gy, hx, hy, pageErrors}
 }
 
 /**
@@ -83,9 +94,8 @@ const pt = (id, x, y, force = 1) => ({id, x, y, radiusX: 5, radiusY: 5, force});
 
 test.describe('GridDragScroll touch cancellation and multi-contact interruption (Neural Link)', () => {
     test('touchcancel during monitoring or active drag releases listeners without momentum and leaves outside touches unconsumed', async ({page, neuralLink}) => {
-        const {gx, gy, hx, hy, pageErrors} = await bootOrderReviewDeskTouch(page, neuralLink),
-              cdp                          = await page.context().newCDPSession(page),
-              send                         = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
+        const {cdp, gx, gy, hx, hy, pageErrors} = await bootOrderReviewDeskTouch(page, neuralLink),
+              send                              = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
 
         try {
             // Phase 1: Cancel during the monitoring interval, then touch and move outside the grid
@@ -114,7 +124,8 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
 
             // Phase 2: Engage an active touch drag, cancel mid-drag, then touch and move outside the grid
             await send('touchStart', [pt(14, gx, gy)]);
-            await page.waitForTimeout(130);
+            await expect.poll(async () => (await readTouchProbeState(page)).monitorDrag).toBe(true);
+            await page.waitForTimeout(140);
             await send('touchMove',  [pt(14, gx, gy - 35)]);
             await page.waitForTimeout(20);
             await send('touchMove',  [pt(14, gx, gy - 95)]);
@@ -123,6 +134,7 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
             const settledBeforeCancel = (await readTouchProbeState(page)).scrollTop;
 
             await send('touchCancel');
+            await expect.poll(async () => (await readTouchProbeState(page)).activeDrag).toBe(false);
             await page.waitForTimeout(80);
 
             const afterActiveCancel = await readTouchProbeState(page);
@@ -149,14 +161,14 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
     });
 
     test('staggered second contact and partial lift neither fling nor throw, and a fresh single-finger drag still works', async ({page, neuralLink}) => {
-        const {app, gx, gy, hx, hy, pageErrors} = await bootOrderReviewDeskTouch(page, neuralLink),
-              cdp                               = await page.context().newCDPSession(page),
-              send                              = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
+        const {app, cdp, gx, gy, hx, hy, pageErrors} = await bootOrderReviewDeskTouch(page, neuralLink),
+              send                                   = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', {type, touchPoints});
 
         try {
             // 1. Engage contact 13 on the grid
             await send('touchStart', [pt(13, gx, gy)]);
-            await page.waitForTimeout(130);
+            await expect.poll(async () => (await readTouchProbeState(page)).monitorDrag).toBe(true);
+            await page.waitForTimeout(140);
             await send('touchMove',  [pt(13, gx, gy - 30)]);
             await page.waitForTimeout(20);
             await send('touchMove',  [pt(13, gx, gy - 80)]);
@@ -207,7 +219,8 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
 
             // 3. Reverse partial-lift ordering: 21 drags -> 28 joins -> 28 lifts first -> 21 moves and releases
             await send('touchStart', [pt(21, gx, gy)]);
-            await page.waitForTimeout(130);
+            await expect.poll(async () => (await readTouchProbeState(page)).monitorDrag).toBe(true);
+            await page.waitForTimeout(140);
             await send('touchMove',  [pt(21, gx, gy - 35)]);
             await page.waitForTimeout(16);
             await send('touchMove',  [pt(21, gx, gy - 75)]);
@@ -233,7 +246,8 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
 
             // 4. Subsequent fresh single-finger drag and ordinary release still scroll the grid and sync App Worker state
             await send('touchStart', [pt(41, gx, gy)]);
-            await page.waitForTimeout(130);
+            await expect.poll(async () => (await readTouchProbeState(page)).monitorDrag).toBe(true);
+            await page.waitForTimeout(140);
             await send('touchMove',  [pt(41, gx, gy - 40)]);
             await page.waitForTimeout(25);
             await send('touchMove',  [pt(41, gx, gy - 110)]);
