@@ -142,6 +142,7 @@
         {"name": "Build an Order-Review Desk",                         "parentId": "Tutorials",                                           "id": "tutorials/EnterpriseGrid"},
         {"name": "Todo List",                                          "parentId": "Tutorials",                                           "id": "tutorials/TodoList"},
         {"name": "Creating a Functional Button",                       "parentId": "Tutorials",                                           "id": "tutorials/CreatingAFunctionalButton"},
+        {"name": "Observe a Data Pipeline on Both Workers",            "parentId": "Tutorials",                                           "id": "tutorials/DataPipelineWorkers"},
         {"name": "Routing",                                            "parentId": "Tutorials",                                           "id": "tutorials/Routing"},
         {"name": "Your First Dock Layout",                             "parentId": "Tutorials",                                           "id": "tutorials/DockLayoutsFirstLayout"},
     {"name": "JavaScript Classes",                                     "parentId": null,                                 "isLeaf": false, "id": "JavaScript",  "collapsed": true},
