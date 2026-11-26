@@ -3,7 +3,7 @@ import BoardContainer from '../../../src/board/Container.mjs';
 import Component      from '../../../src/component/Base.mjs';
 import Container      from '../../../src/container/Base.mjs';
 import Label          from '../../../src/component/Label.mjs';
-import Segmented      from '../../../src/toolbar/Segmented.mjs';
+import Segmented      from '../../../src/button/Segmented.mjs';
 import StateProvider  from '../../../src/state/Provider.mjs';
 import ThemeSwitcher  from '../../../src/button/ThemeSwitcher.mjs';
 import Toolbar        from '../../../src/toolbar/Base.mjs';

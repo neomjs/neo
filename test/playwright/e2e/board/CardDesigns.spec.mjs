@@ -96,9 +96,9 @@ test.describe('Board cardDesigns example', () => {
             card2       = page.locator('[id$="__card__art-2"]'),
             card3       = page.locator('[id$="__card__art-3"]'),
             card20      = page.locator('[id$="__card__art-20"]'),
-            btnCompact  = page.locator('.neo-segmented-control > .neo-button', {hasText: 'Compact'}),
-            btnStandard = page.locator('.neo-segmented-control > .neo-button', {hasText: 'Standard'}),
-            btnDetailed = page.locator('.neo-segmented-control > .neo-button', {hasText: 'Detailed'});
+            btnCompact  = page.locator('.neo-segmented-button > .neo-button', {hasText: 'Compact'}),
+            btnStandard = page.locator('.neo-segmented-button > .neo-button', {hasText: 'Standard'}),
+            btnDetailed = page.locator('.neo-segmented-button > .neo-button', {hasText: 'Detailed'});
 
         await expect(btnDetailed).toHaveAttribute('aria-pressed', 'true');
         await expect(btnStandard).toHaveAttribute('aria-pressed', 'false');
@@ -178,7 +178,7 @@ test.describe('Board cardDesigns example', () => {
     test('navigates and activates the reusable segmented control without losing Board state', async ({page}) => {
         await page.goto(`${EXAMPLE_URL}?theme=neo-theme-neo-dark`);
 
-        const control  = page.locator('.neo-segmented-control'),
+        const control  = page.locator('.neo-segmented-button'),
               compact  = control.locator(':scope > .neo-button', {hasText: 'Compact'}),
               standard = control.locator(':scope > .neo-button', {hasText: 'Standard'}),
               detailed = control.locator(':scope > .neo-button', {hasText: 'Detailed'}),
@@ -192,7 +192,7 @@ test.describe('Board cardDesigns example', () => {
         expect(await worker.evaluate(id => {
             const component = Neo.getComponent(id);
             return {className: component.className, value: component.value}
-        }, id)).toEqual({className: 'Neo.toolbar.Segmented', value: 'detailed'});
+        }, id)).toEqual({className: 'Neo.button.Segmented', value: 'detailed'});
         await expect(detailed).toHaveAttribute('aria-pressed', 'true');
 
         // Navigation moves focus, while activation alone changes the selected design.

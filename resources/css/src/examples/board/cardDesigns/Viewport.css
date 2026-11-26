@@ -34,7 +34,7 @@
             min-width: 0;
         }
 
-        .editorial-segmented.neo-segmented-control {
+        .editorial-segmented.neo-segmented-button {
             --toolbar-background-color       : var(--editorial-seg-track-bg);
             --button-background-color        : transparent;
             --button-background-color-hover  : var(--editorial-seg-hover-bg);
@@ -277,7 +277,7 @@
                 margin-left: auto;
             }
 
-            .editorial-segmented.neo-segmented-control {
+            .editorial-segmented.neo-segmented-button {
                 display              : grid;
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 order                : 2;

@@ -1,33 +1,35 @@
-import Button         from '../button/Base.mjs';
+import Button         from './Base.mjs';
 import {isDescriptor} from '../core/ConfigSymbols.mjs';
-import Toolbar        from './Base.mjs';
+import Toolbar        from '../toolbar/Base.mjs';
 
 /**
- * @summary A labelled toolbar of mutually exclusive toggle buttons with one bindable value.
+ * @summary A single-choice segmented control. This labelled segmented button group exposes one bindable value.
  * Arrow keys and Home/End move focus between enabled buttons. Enter, Space or a click selects the focused choice.
  * Replace `choices` to change the set. A still-enabled selection survives replacement; otherwise the first
  * enabled choice is selected. An empty or entirely disabled set has value `null`.
  * @example
- *     {module: Segmented, ariaLabel: 'Density', value: 'compact', choices: [
+ *     // From examples/board/cardDesigns/Viewport.mjs
+ *     import Segmented from '../../../src/button/Segmented.mjs';
+ *     const density = {module: Segmented, ariaLabel: 'Density', value: 'compact', choices: [
  *         {value: 'compact', text: 'Compact'}, {value: 'roomy', text: 'Roomy'}
- *     ], listeners: {change: 'onDensityChange'}}
- * @class Neo.toolbar.Segmented
+ *     ], listeners: {change: 'onDensityChange'}};
+ * @class Neo.button.Segmented
  * @extends Neo.toolbar.Base
  */
 class Segmented extends Toolbar {
     static config = {
-        /** @member {String} className='Neo.toolbar.Segmented' */
-        className: 'Neo.toolbar.Segmented',
-        /** @member {String} ntype='segmented-control' */
-        ntype: 'segmented-control',
+        /** @member {String} className='Neo.button.Segmented' */
+        className: 'Neo.button.Segmented',
+        /** @member {String} ntype='segmented-button' */
+        ntype: 'segmented-button',
         /**
          * Accessible name of the choice group.
          * @member {String|null} ariaLabel_=null
          * @reactive
          */
         ariaLabel_: null,
-        /** @member {String[]} baseCls=['neo-toolbar','neo-segmented-control'] */
-        baseCls: ['neo-toolbar', 'neo-segmented-control'],
+        /** @member {String[]} baseCls=['neo-toolbar','neo-segmented-button'] */
+        baseCls: ['neo-toolbar', 'neo-segmented-button'],
         /**
          * Ordered choices, each with a unique string `value`, a text label and an optional boolean `disabled`.
          * @member {Object[]} choices_=[]

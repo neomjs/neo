@@ -1,6 +1,6 @@
 import {setup} from '../../setup.mjs';
 
-const appName = 'ToolbarSegmentedTest';
+const appName = 'SegmentedButtonTest';
 
 setup({appConfig: {name: appName}});
 
@@ -8,9 +8,10 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
-import Segmented     from '../../../../src/toolbar/Segmented.mjs';
+import Segmented     from '../../../../src/button/Segmented.mjs';
 import Container     from '../../../../src/container/Base.mjs';
 import StateProvider from '../../../../src/state/Provider.mjs';
+import Toolbar       from '../../../../src/toolbar/Base.mjs';
 
 const choices = () => [
     {value: 'one', text: 'One'},
@@ -18,7 +19,7 @@ const choices = () => [
     {value: 'off', text: 'Off', disabled: true}
 ];
 
-test.describe('Neo.toolbar.Segmented', () => {
+test.describe('Neo.button.Segmented', () => {
     const owned  = [];
     const create = config => {
         const instance = Neo.create(Segmented, {appName, ...config});
@@ -27,6 +28,17 @@ test.describe('Neo.toolbar.Segmented', () => {
     };
 
     test.afterEach(() => owned.splice(0).forEach(instance => instance.destroy()));
+
+    test('a declarative segmented-button creates the public button class with toolbar navigation', () => {
+        const group = Neo.ntype({ntype: 'segmented-button', appName, choices: choices()});
+        owned.push(group);
+
+        expect(group.constructor).toBe(Segmented);
+        expect(group.className).toBe('Neo.button.Segmented');
+        expect(group).toBeInstanceOf(Toolbar);
+        expect(group.keyboardNavigation).toBe(true);
+        expect(group.value).toBe('one')
+    });
 
     test('initial selection is independent of config order and ignores disabled or unknown values', () => {
         const first   = create({value: 'two', choices: choices()}),

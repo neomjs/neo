@@ -261,7 +261,9 @@ To add a type of your own, register a renderer with `registerCardItem(type, rend
 `src/board/CardItems.mjs`. The renderer receives `(record, item, card)` and returns one vdom node, or `null`.
 
 The [card designs example](../../../examples/board/cardDesigns/Viewport.mjs) changes `cardItems` on the same board.
-Its Compact, Standard and Detailed buttons form a [segmented control](../../../src/toolbar/Segmented.mjs).
+Its Compact, Standard and Detailed choices form a single-choice [segmented button group](../../../src/button/Segmented.mjs).
+The example imports `Segmented` from `../../../src/button/Segmented.mjs` and uses `module: Segmented`.
+Once the module is loaded, declarative configs can use `ntype: 'segmented-button'` for the same segmented control.
 Give the control an `ariaLabel` and an ordered `choices` array of `{value, text, disabled?}`. Bind its `value` or
 listen for `change({value, oldValue})`. A programmatic selection follows the same path as a click. Arrow keys move
 focus between enabled buttons, and Enter or Space selects one. Replacing the choices preserves the selection if it
