@@ -42,26 +42,6 @@ class DateTrigger extends Picker {
     }
 
     /**
-     * @summary Removes the date trigger from sequential keyboard focus while disabled.
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetDisabled(value, oldValue) {
-        let {vdom} = this;
-
-        vdom.tabIndex = value ? -1 : 0;
-
-        if (value) {
-            vdom['aria-disabled'] = true
-        } else {
-            delete vdom['aria-disabled']
-        }
-
-        super.afterSetDisabled(value, oldValue)
-    }
-
-    /**
      * @summary Links the trigger into the owning field's logical component hierarchy so focus movement between input and trigger stays inside the field.
      * @param {Neo.form.field.Base|null} value
      * @param {Neo.form.field.Base|null} oldValue
@@ -73,15 +53,13 @@ class DateTrigger extends Picker {
     }
 
     /**
-     * @summary Activates the date trigger on Enter or Space while enabled without bubbling to the owning field.
+     * @summary Activates the date trigger on Enter or Space without bubbling to the owning field.
      * @param {Object} data
      * @protected
      */
     onTriggerKeyDown(data) {
-        if (!this.disabled && !this.field?.disabled) {
-            data.cancelBubble = true;
-            this.onTriggerClick(data)
-        }
+        data.cancelBubble = true;
+        this.onTriggerClick(data)
     }
 }
 

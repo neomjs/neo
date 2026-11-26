@@ -17,12 +17,6 @@
         border-right: var(--trigger-border-width) solid var(--textfield-border-color);
     }
 
-    &.neo-disabled {
-        cursor        : default;
-        opacity       : 1;
-        pointer-events: none;
-    }
-
     &:hover {
         background-color: var(--trigger-background-color-hover);
         color           : var(--trigger-color-hover);

@@ -421,17 +421,16 @@ class Text extends Field {
     }
 
     /**
-     * @summary Projects boolean `disabled` onto the owning native input element, clears transient focus and hover
-     * classes when disabling, and synchronizes child triggers in a single batched VDOM update.
+     * @summary Projects boolean `disabled` onto the owning native input element while preserving `.neo-disabled`
+     * and clearing transient focus or hover classes in a single VDOM update.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let me          = this,
-            wasSilent   = me.silentVdomUpdate,
-            isDisabled  = Boolean(value),
-            hasTriggers = false,
+        let me         = this,
+            isDisabled = Boolean(value),
+            wasSilent  = me.silentVdomUpdate,
             cls;
 
         me.silentVdomUpdate = true;
@@ -450,34 +449,9 @@ class Text extends Field {
 
         me.changeInputElKey('disabled', isDisabled ? true : null, true);
 
-        if (me.triggers?.length > 0) {
-            me.triggers.forEach(trigger => {
-                if (trigger instanceof BaseTrigger) {
-                    hasTriggers              = true;
-                    trigger.silentVdomUpdate = true;
-                    trigger.disabled         = isDisabled;
-
-                    if (isDisabled && oldValue !== undefined && trigger.showOnHover) {
-                        trigger.isHovered = false;
-                        trigger.hidden    = true
-                    }
-
-                    trigger.silentVdomUpdate = false
-                }
-            })
-        }
-
         me.silentVdomUpdate = wasSilent;
 
         if (!wasSilent && oldValue !== undefined) {
-            if (hasTriggers) {
-                if (me.updateDepth === 1) {
-                    me.updateDepth = 2
-                }
-
-                me.denseUpdate = true
-            }
-
             me.update()
         }
     }
@@ -1202,16 +1176,14 @@ class Text extends Field {
         }
 
         let me                  = this,
-            {appName, windowId} = me,
-            isDisabled          = Boolean(me.disabled);
+            {appName, windowId} = me;
 
         value.forEach((item, index) => {
             if (item.isClass) {
                 value[index] = Neo.create(item, {
                     appName,
-                    disabled: isDisabled,
-                    id      : me.getTriggerId(item.prototype.type),
-                    field   : me,
+                    id   : me.getTriggerId(item.prototype.type),
+                    field: me,
                     windowId
                 })
             } else if (!(item instanceof BaseTrigger)) {
@@ -1225,7 +1197,6 @@ class Text extends Field {
                 }
 
                 value[index] = Neo[item.className ? 'create' : 'ntype']({
-                    disabled: isDisabled,
                     ...item,
                     appName,
                     field: me,
@@ -1545,7 +1516,7 @@ class Text extends Field {
         let me    = this,
             {cls} = me;
 
-        if (!me.readOnly && !me.disabled) {
+        if (!me.readOnly) {
             NeoArray.add(cls, 'neo-focus');
             me.cls = cls;
 
@@ -1649,7 +1620,7 @@ class Text extends Field {
         let me    = this,
             {cls} = me;
 
-        if (!me.readOnly && !me.disabled) {
+        if (!me.readOnly) {
             NeoArray.add(cls, 'neo-hovered');
             me.cls = cls
         }

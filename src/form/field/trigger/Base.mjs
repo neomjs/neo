@@ -80,7 +80,7 @@ class Base extends Component {
         let me = this;
 
         me.addDomListeners(
-            {click: me.onInternalClick, scope: me}
+            {click: me.onTriggerClick, scope: me}
         );
 
         if (me.showOnHover) {
@@ -167,7 +167,7 @@ class Base extends Component {
         let me = this;
 
         me.removeDomListeners(
-            {click: me.onInternalClick, scope: me}
+            {click: me.onTriggerClick, scope: me}
         );
 
         delete me.field;
@@ -176,24 +176,11 @@ class Base extends Component {
     }
 
     /**
-     * @summary Routes DOM clicks to {@link #onTriggerClick} only while both the trigger and its owning field are enabled.
-     * @param {Object} data
-     * @protected
-     */
-    onInternalClick(data) {
-        if (!this.disabled && !this.field?.disabled) {
-            this.onTriggerClick(data)
-        }
-    }
-
-    /**
-     * @summary Reveals hover-scoped triggers only while neither the trigger nor its owning field is disabled.
+     *
      */
     onMouseEnter() {
-        if (!this.disabled && !this.field?.disabled) {
-            this.isHovered = true;
-            this.hidden    = false
-        }
+        this.isHovered = true;
+        this.hidden    = false
     }
 
     /**
@@ -205,7 +192,7 @@ class Base extends Component {
     }
 
     /**
-     * @summary Invokes the trigger handler only while both the trigger and its owning field are enabled.
+     * click domEvent listener
      * @param {Object} data
      * @protected
      */
@@ -213,7 +200,7 @@ class Base extends Component {
         let me    = this,
             scope = me.scope || me;
 
-        if (!me.disabled && !me.field?.disabled && me.handler) {
+        if (me.handler) {
             scope[me.handler].call(scope)
         }
     }

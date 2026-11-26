@@ -19,14 +19,13 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import '../../../../../src/manager/Instance.mjs';
-import Container              from '../../../../../src/container/Base.mjs';
-import StateProvider          from '../../../../../src/state/Provider.mjs';
-import ChipField              from '../../../../../src/form/field/Chip.mjs';
-import CopyToClipboardTrigger from '../../../../../src/form/field/trigger/CopyToClipboard.mjs';
-import DateField              from '../../../../../src/form/field/Date.mjs';
-import TextArea               from '../../../../../src/form/field/TextArea.mjs';
-import TextField              from '../../../../../src/form/field/Text.mjs';
-import VNodeUtil              from '../../../../../src/util/VNode.mjs';
+import ChipField     from '../../../../../src/form/field/Chip.mjs';
+import Container     from '../../../../../src/container/Base.mjs';
+import FormContainer from '../../../../../src/form/Container.mjs';
+import StateProvider from '../../../../../src/state/Provider.mjs';
+import TextArea      from '../../../../../src/form/field/TextArea.mjs';
+import TextField     from '../../../../../src/form/field/Text.mjs';
+import VNodeUtil     from '../../../../../src/util/VNode.mjs';
 
 test.describe('Neo.form.field.Text#afterSetDisabled', () => {
     let instances;
@@ -43,13 +42,14 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
         })
     });
 
-    test('projects disabled onto the native input initially and toggles cleanly in a single VDOM update', async () => {
+    test('projects disabled onto the native input, clears transient focus/hover in one VDOM update, and preserves programmatic APIs', async () => {
         const field = Neo.create(TextField, {
             appName,
-            clearable: true,
-            disabled : true,
-            triggers : [CopyToClipboardTrigger],
-            value    : 'Neo Workspace'
+            clearable           : true,
+            clearToOriginalValue: true,
+            disabled            : true,
+            labelPosition       : 'inline',
+            value               : 'Neo Workspace'
         });
         instances.push(field);
 
@@ -59,8 +59,25 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
         expect(field.cls).toContain('neo-disabled');
         expect(field.getInputEl().disabled).toBe(true);
         expect(VNodeUtil.find(field.vnode, field.getInputElId())?.vnode?.attributes?.disabled).toBe('true');
-        expect(field.getTrigger('clear')?.disabled).toBe(true);
-        expect(field.getTrigger('copyToClipboard')?.disabled).toBe(true);
+
+        // Programmatic field.value write while disabled updates both worker state and rendered VNode
+        field.value = 'Programmatic audit';
+        await field.promiseUpdate();
+        expect(field.value).toBe('Programmatic audit');
+        expect(field.getInputEl().value).toBe('Programmatic audit');
+        expect(field.getInputEl().disabled).toBe(true);
+        expect(VNodeUtil.find(field.vnode, field.getInputElId())?.vnode?.attributes?.value).toBe('Programmatic audit');
+
+        // Callable application APIs (clear, reset) remain operational while disabled
+        field.clear();
+        await field.promiseUpdate();
+        expect(field.value).toBe('Neo Workspace');
+
+        field.value = 'Changed';
+        await field.promiseUpdate();
+        field.reset('Reset while disabled');
+        await field.promiseUpdate();
+        expect(field.value).toBe('Reset while disabled');
 
         let   activeUpdates = 0;
         const origUpdate    = field.update.bind(field);
@@ -71,26 +88,24 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
             return origUpdate(...args)
         };
 
-        // Re-enabling deletes the disabled key from VDOM/VNode and re-enables triggers in one update
+        // Re-enabling deletes the disabled key from VDOM/VNode in one update
         field.disabled = false;
         expect(activeUpdates).toBe(1);
         await field.promiseUpdate();
         expect(field.cls).not.toContain('neo-disabled');
         expect(field.getInputEl().disabled).toBeUndefined();
         expect(VNodeUtil.find(field.vnode, field.getInputElId())?.vnode?.attributes?.disabled).toBeUndefined();
-        expect(field.getTrigger('clear')?.disabled).toBe(false);
-        expect(field.getTrigger('copyToClipboard')?.disabled).toBe(false);
 
-        // Simulate focused + hovered state with a hover-revealed trigger, then disable
+        // Focused + hovered empty inline field clears focus/hover and inline cut-out width on runtime disable
+        field.value               = null;
+        field.centerBorderElWidth = 84;
+        await field.promiseUpdate();
         field.onFocusEnter({path: []});
         field.onMouseEnter({});
-        const clearTrigger = field.getTrigger('clear'),
-              copyTrigger  = field.getTrigger('copyToClipboard');
-        copyTrigger.onMouseEnter();
         await field.promiseUpdate();
         expect(field.cls).toContain('neo-focus');
         expect(field.cls).toContain('neo-hovered');
-        expect(copyTrigger.hidden).toBe(false);
+        expect(field.getCenterBorderEl().width).toBe(84);
 
         activeUpdates  = 0;
         field.disabled = true;
@@ -99,70 +114,78 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
         expect(field.cls).toContain('neo-disabled');
         expect(field.cls).not.toContain('neo-focus');
         expect(field.cls).not.toContain('neo-hovered');
+        expect(field.getCenterBorderEl().width).toBeUndefined();
         expect(field.getInputEl().disabled).toBe(true);
-        expect(VNodeUtil.find(field.vnode, field.getInputElId())?.vnode?.attributes?.disabled).toBe('true');
-        expect(clearTrigger.disabled).toBe(true);
-        expect(copyTrigger.disabled).toBe(true);
-        expect(copyTrigger.hidden).toBe(true);
-
-        // Trigger clicks and hover entries are ignored while disabled
-        copyTrigger.onMouseEnter();
-        expect(copyTrigger.hidden).toBe(true);
-        clearTrigger.onInternalClick({});
-        clearTrigger.onTriggerClick({});
-        expect(field.value).toBe('Neo Workspace');
-
-        field.onFocusEnter({path: []});
-        field.onMouseEnter({});
-        expect(field.cls).not.toContain('neo-focus');
-        expect(field.cls).not.toContain('neo-hovered')
+        expect(VNodeUtil.find(field.vnode, field.getInputElId())?.vnode?.attributes?.disabled).toBe('true')
     });
 
-    test('updates native disabled via StateProvider bindings and preserves readOnly orthogonality', async () => {
-        const host = Neo.create(Container, {
+    test('updates disabled and value via StateProvider bindings and FormContainer#setValues while keeping readOnly separate', async () => {
+        const form = Neo.create(FormContainer, {
             appName,
             stateProvider: {
                 module: StateProvider,
-                data  : {connected: false}
+                data  : {
+                    connected  : false,
+                    projectName: 'Primary window closed'
+                }
             },
             items: [{
                 module   : TextField,
                 clearable: false,
+                name     : 'projectName',
                 reference: 'bound-field',
-                value    : 'Primary window closed',
                 bind     : {
-                    disabled: data => data.connected === false
+                    disabled: data => data.connected === false,
+                    value   : data => data.projectName
                 }
             }, {
                 module   : TextField,
+                disabled : true,
+                name     : 'notes',
+                reference: 'form-disabled-field',
+                value    : 'Initial note'
+            }, {
+                module   : TextField,
                 readOnly : true,
+                name     : 'lockedCopy',
                 reference: 'readonly-field',
                 value    : 'Locked copy'
             }]
         });
-        instances.push(host);
+        instances.push(form);
 
-        await host.initVnode();
-        host.mounted = true;
+        await form.initVnode();
+        form.mounted = true;
 
-        const boundField    = host.getReference('bound-field'),
-              readOnlyField = host.getReference('readonly-field');
+        const boundField        = form.getReference('bound-field'),
+              formDisabledField = form.getReference('form-disabled-field'),
+              readOnlyField     = form.getReference('readonly-field');
 
         expect(boundField.disabled).toBe(true);
         expect(boundField.getInputEl().disabled).toBe(true);
+        expect(boundField.value).toBe('Primary window closed');
         expect(readOnlyField.disabled).toBe(false);
         expect(readOnlyField.getInputEl().readonly).toBe(true);
         expect(readOnlyField.getInputEl().disabled).toBeUndefined();
 
-        host.getStateProvider().setData({connected: true});
+        // StateProvider binding write while disabled updates both model/field value and VNode value
+        form.getStateProvider().setData({projectName: 'Bound update while disabled'});
+        await boundField.promiseUpdate();
+        expect(boundField.disabled).toBe(true);
+        expect(boundField.value).toBe('Bound update while disabled');
+        expect(VNodeUtil.find(boundField.vnode, boundField.getInputElId())?.vnode?.attributes?.value).toBe('Bound update while disabled');
+
+        // FormContainer#setValues updates a disabled field's value and rendered VNode
+        await form.setValues({notes: 'Form setValues while disabled'});
+        await formDisabledField.promiseUpdate();
+        expect(formDisabledField.disabled).toBe(true);
+        expect(formDisabledField.value).toBe('Form setValues while disabled');
+        expect(VNodeUtil.find(formDisabledField.vnode, formDisabledField.getInputElId())?.vnode?.attributes?.value).toBe('Form setValues while disabled');
+
+        form.getStateProvider().setData({connected: true});
         await boundField.promiseUpdate();
         expect(boundField.disabled).toBe(false);
         expect(boundField.getInputEl().disabled).toBeUndefined();
-
-        host.getStateProvider().setData({connected: false});
-        await boundField.promiseUpdate();
-        expect(boundField.disabled).toBe(true);
-        expect(boundField.getInputEl().disabled).toBe(true);
 
         // Disabling and re-enabling a readOnly field leaves readonly intact
         readOnlyField.disabled = true;
@@ -175,7 +198,7 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
         expect(readOnlyField.getInputEl().readonly).toBe(true)
     });
 
-    test('projects disabled onto TextArea across inputTag transitions, Chip subclass chain, and DateTrigger tabIndex', async () => {
+    test('projects disabled onto TextArea across inputTag transitions and Chip subclass chain', async () => {
         const area = Neo.create(TextArea, {
             appName,
             disabled: true,
@@ -185,16 +208,18 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
             appName,
             disabled: true
         });
-        const date = Neo.create(DateField, {
-            appName,
-            disabled: true
-        });
-        instances.push(area, chip, date);
+        instances.push(area, chip);
 
         await area.initVnode();
         area.mounted = true;
 
         expect(area.getInputEl().tag).toBe('textarea');
+        expect(area.getInputEl().disabled).toBe(true);
+
+        area.value = 'Programmatic textarea note';
+        await area.promiseUpdate();
+        expect(area.value).toBe('Programmatic textarea note');
+        expect(area.getInputEl().text).toBe('Programmatic textarea note');
         expect(area.getInputEl().disabled).toBe(true);
 
         area.inputTag = 'input';
@@ -208,11 +233,6 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
 
         expect(chip.getInputEl().disabled).toBe(true);
         chip.disabled = false;
-        expect(chip.getInputEl().disabled).toBeUndefined();
-
-        expect(date.getInputEl().disabled).toBe(true);
-        expect(date.getTrigger('picker')?.vdom.tabIndex).toBe(-1);
-        date.disabled = false;
-        expect(date.getTrigger('picker')?.vdom.tabIndex).toBe(0)
+        expect(chip.getInputEl().disabled).toBeUndefined()
     })
 });

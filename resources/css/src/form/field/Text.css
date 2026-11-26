@@ -228,16 +228,9 @@
             border-color    : var(--textfield-border-color-disabled);
         }
 
-        &:not(.label-inline) > .neo-textfield-input {
-            border-color: var(--textfield-border-color-disabled);
-        }
-
         .neo-textfield-input {
-            background-color       : var(--textfield-input-background-color-disabled);
-            color                  : var(--textfield-input-color-disabled);
-            cursor                 : default;
-            opacity                : 1;
-            -webkit-text-fill-color: currentColor;
+            background-color: var(--textfield-input-background-color-disabled);
+            color           : var(--textfield-input-color-disabled);
         }
 
         .neo-textfield-label {
