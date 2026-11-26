@@ -130,6 +130,10 @@
     @media (max-width: 640px) {
         padding: 16px 16px 28px;
 
+        .portal-examples-search-actions {
+            width: 100%;
+        }
+
         .portal-examples-search-heading h1 {
             font-size: 24px;
         }

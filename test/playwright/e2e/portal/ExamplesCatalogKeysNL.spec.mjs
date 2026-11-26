@@ -70,6 +70,14 @@ test.describe('Portal examples search, selection and row navigation', () => {
         await destination.goto(sharedUrl.href);
         await expect(destination.locator(phoneFind)).toHaveValue(query);
         await expect(destination.locator(results).getByRole('button', {name: 'Open in: ESM build'})).toBeVisible();
+        await expect.poll(() => destination.locator(results).evaluate(panel => {
+            const bounds = panel.getBoundingClientRect();
+
+            return Array.from(panel.querySelectorAll('.portal-examples-search-actions button')).every(button => {
+                const rect = button.getBoundingClientRect();
+                return rect.width > 0 && rect.left >= bounds.left && rect.right <= bounds.right
+            })
+        })).toBe(true);
         await expect(destination.locator(results).getByText('No published examples match', {exact: false})).toBeVisible();
 
         await destination.reload();
@@ -77,7 +85,9 @@ test.describe('Portal examples search, selection and row navigation', () => {
         await destination.evaluate(() => {window.__denyExamplesCopy = true});
         await destination.locator(results).getByRole('button', {name: 'Copy search link'}).click();
         await expect(destination.locator(results).getByRole('status')).toHaveText('Copy this link manually');
-        await expect(destination.getByRole('textbox', {name: 'Search link'})).toHaveValue(sharedUrl.href);
+        const manualLink = destination.getByRole('textbox', {name: 'Search link'});
+        await expect(manualLink).toHaveValue(sharedUrl.href);
+        await expect(manualLink).toHaveJSProperty('readOnly', true);
 
         const history = await historyLength(destination);
         await destination.locator(results).getByRole('button', {name: 'Clear (Esc)'}).click();

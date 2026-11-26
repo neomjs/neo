@@ -107,6 +107,7 @@ class SearchResults extends Container {
             vdom     : {tag: 'p', text: ''}
         }, {
             module       : TextField,
+            clearable    : false,
             cls          : ['portal-examples-search-share-url'],
             flex         : 'none',
             hidden       : true,
