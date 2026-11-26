@@ -5,7 +5,7 @@ and shows the same records in two synchronized views: a buffered grid and an int
 
 You'll build it step by step in a series of labs.
 
-> **Attribution & runtime notes:** Originally authored by **Max Rahder**; updated for Neo.mjs 14 with `Neo.grid.Container`, keyless `OpenStreetMaps`, and App-worker VDOM diffing ([ADR 0043](../agentos/decisions/0043-vdom-diff-placement.md)). You do not need a map API key or billing account, but you **do** need live network access and port `8080`: the app fetches a live earthquake feed (`https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes`, whose CORS policy allows `http://localhost:8080`), and the map addon loads OpenLayers from jsDelivr plus OpenStreetMap tiles.
+> **Attribution & runtime notes:** Originally authored by **Max Rahder**; updated for Neo.mjs 14 with `Neo.grid.Container`, keyless `OpenStreetMaps`, and App-worker VDOM diffing ([ADR 0043](../agentos/decisions/0043-vdom-diff-placement.md)). You do not need a map API key or billing account, but you **do** need live network access: the app fetches a live earthquake feed (`https://nameless-tundra-27404.herokuapp.com/go/?fn=earthquakes` — verified from the default `http://localhost:8080` recipe; check that its `Access-Control-Allow-Origin` header permits your browser origin), and the map addon loads OpenLayers from jsDelivr plus OpenStreetMap tiles.
 
 ## Goals
 
@@ -81,7 +81,7 @@ If the server isn't already running, start it from the root of `workspace`:
 npm run server-start
 ```
 
-That runs Neo's zero-build development file server (`buildScripts/util/fileServer.mjs`) at `http://localhost:8080` and opens your browser. Keep port `8080` free for this tutorial: the live earthquake service we call later sends `Access-Control-Allow-Origin: http://localhost:8080`, so serving from another port will be blocked by browser CORS rules.
+That runs Neo's zero-build development file server (`buildScripts/util/fileServer.mjs`), which defaults to `http://localhost:8080` (the URL used throughout this walkthrough) and steps up to the next free port (such as `8081`) if `8080` is busy. If your server opens on another port, use that origin for the steps below and check DevTools &rarr; **Network** on the first feed request to confirm the server's `Access-Control-Allow-Origin` response header permits your actual browser origin.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/earthquakes/start-server.jpg" alt="Workspace directory listing served by npm run server-start on localhost:8080" style="width:80%"/>
 
@@ -500,7 +500,7 @@ Save and refresh `http://localhost:8080/apps/earthquakes/`:
 
 <img width="80%" src="https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/website/learn/earthquakes/earthquakes-grid.jpg" alt="Earthquakes rendered inside Neo.grid.Container"/>
 
-*(If the grid stays empty, open DevTools &rarr; **Network**: verify your browser URL is `http://localhost:8080/apps/earthquakes/` so the feed's `Access-Control-Allow-Origin: http://localhost:8080` header matches, and check that `nameless-tundra-27404.herokuapp.com` returned HTTP `200`.)*
+*(If the grid stays empty, open DevTools &rarr; **Network**: check that `nameless-tundra-27404.herokuapp.com` returned HTTP `200` and that its `Access-Control-Allow-Origin` response header permits your actual browser origin, such as `http://localhost:8080`.)*
 
 </details>
 
@@ -646,6 +646,7 @@ Notice the four-level relative import (`../../../../node_modules/...`) because t
 - `Grid extends Base` (`Neo.grid.Container`)
 - `ntype: 'earthquakes-grid'` registers a concise alias for layout descriptors and `Neo.findFirst({ntype: 'earthquakes-grid'})` console lookups
 - `columns` belong to the reusable earthquake grid definition, while `flex` and `store` stay configurable per instance
+- Notice that `Grid.mjs` keeps `cellAlign: 'right'` on `magnitude` while omitting the inline sample's `headerAlign: 'auto'`: numeric cells stay right-aligned, while `Neo.grid.header.Button` falls back to its default left-aligned header text (as shown in the two-grid and map screenshots below; add `headerAlign: 'auto'` whenever you want the header label to follow `cellAlign`)
 </details>
 
 <details>
