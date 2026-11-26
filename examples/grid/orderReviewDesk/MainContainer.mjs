@@ -227,7 +227,8 @@ class MainContainer extends Viewport {
                         errorTextMaxValue: ({maxValue}) => `Max ${maxValue} units`,
                         errorTextMinValue: ({minValue}) => `Min ${minValue} unit`,
                         maxValue         : MAX_ORDER_QTY,
-                        minValue         : 1
+                        minValue         : 1,
+                        required         : true
                     }
                 }, {
                     cellAlign: 'right',

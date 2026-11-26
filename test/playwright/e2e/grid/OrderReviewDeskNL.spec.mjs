@@ -43,7 +43,30 @@ test.describe('Order Review Desk workflow (Neural Link)', () => {
         await expect(page.locator('.order-desk-exception-pill')).toHaveText('6 exceptions');
         await expect(page.locator('.order-desk-scope-footer')).toContainText('Session edits live in memory and reset on reload.');
 
-        // 1. Deep jump to ORD-099985 keeps mounted DOM rows viewport-bounded while `orderId` + `Settlement` stay locked
+        // 1. Blank Enter on a valid order keeps the required Quantity editor open; Escape preserves quantity, line total, and exception count
+        const validRecId     = await recordIdOf(page, 'ORD-000001'),
+              initialReceipt = await page.locator('.order-desk-receipt').textContent();
+        await expect(cell(page, 'quantity', validRecId)).toHaveText('4');
+        await expect(cell(page, 'lineTotal', validRecId)).toHaveText('$500.00');
+        await expect(cell(page, 'exceptionReason', validRecId)).toHaveText('OK');
+
+        await cell(page, 'quantity', validRecId).dblclick();
+        await expect.poll(() => editingIn(page, 'quantity', validRecId)).toBe(true);
+        await page.keyboard.press('ControlOrMeta+a');
+        await page.keyboard.press('Backspace');
+        await page.keyboard.press('Enter');
+        await expect.poll(() => editingIn(page, 'quantity', validRecId), {message: 'blank quantity keeps required editor open'}).toBe(true);
+        await expect(page.locator(EDITOR)).toContainText('Required');
+
+        await page.keyboard.press('Escape');
+        await expect(page.locator(EDITOR)).toHaveCount(0);
+        await expect(cell(page, 'quantity', validRecId)).toHaveText('4');
+        await expect(cell(page, 'lineTotal', validRecId)).toHaveText('$500.00');
+        await expect(cell(page, 'exceptionReason', validRecId)).toHaveText('OK');
+        await expect(page.locator('.order-desk-exception-pill')).toHaveText('6 exceptions');
+        await expect(page.locator('.order-desk-receipt')).toHaveText(initialReceipt);
+
+        // 2. Deep jump to ORD-099985 keeps mounted DOM rows viewport-bounded while `orderId` + `Settlement` stay locked
         await page.getByRole('button', {name: 'Jump to ORD-099985'}).click();
         await expect(page.locator(`${GRID} .neo-grid-cell[data-field="orderId"]`).getByText('ORD-099985', {exact: true})).toBeVisible();
 
