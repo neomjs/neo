@@ -9,8 +9,8 @@ mount at once. The second keeps the order number and settlement details in sight
 Both use the order model and deterministic data generator from the **Order Review Desk** example.
 Each preview has its own in-memory Store. Re-running a snippet gives you a fresh set of orders.
 You can work entirely in the page. If you have an engine checkout, the companion's
-`examples/grid/orderReviewDesk/OrderModel.mjs` defines the quantity limit and calculated fields,
-and `orderData.mjs` supplies the orders.
+`examples/grid/orderReviewDesk/orderData.mjs` supplies the orders and their quantity limit.
+`OrderModel.mjs` calculates each order's total and checks its quantity against that limit.
 
 ## Give the grid twenty orders
 
@@ -63,9 +63,10 @@ sampleOrders()
 ```
 
 Switch to **Source**, change `generateOrders(20)` to `generateOrders(100000)`, and open
-**Preview** again. Before running `sampleOrders()`, predict which of its three values must
-grow. Now drag the **grid's vertical scrollbar** to the bottom, wait for the rows to settle,
-and run it again. The last ID should be `ORD-100000`. The mounted count stays close to what
+**Preview** again. Before running `sampleOrders()`, predict which values will change while
+you stay at the top. With the same viewport, the grid can still show the same range of IDs
+using the same row pool. Now drag the **grid's vertical scrollbar** to the bottom, wait for the
+rows to settle, and run it again. The highest ID should be `ORD-100000`. The mounted count stays close to what
 fits in 280 pixels plus a small buffer. The exact count depends on the theme, row height and
 where you stop scrolling. The cells carry the public order numbers. Sorting these zero-padded
 IDs makes the sample independent of the order in which the grid recycles its DOM nodes.
@@ -126,11 +127,12 @@ class MainView extends Grid {
 MainView = Neo.setupClass(MainView);
 ```
 
-Find `ORD-000004` again. Read its price, then double-click **Quantity**, enter `1`, and press
-**Enter**. Predict the total before looking at Settlement. The total is now the price of one unit,
-the status reads **OK**, and the order ID is still the one you selected. Try another edit and press
-**Escape** to keep the previous value. The editor accepts numbers in the range 1–50. The model
-also checks the order's own limit, so an accepted number can still need review.
+Find `ORD-000004` again. It contains 74 units at $95 each, with a limit of 50. Predict the
+total for one unit. Double-click **Quantity**, enter `1`, and press **Enter**. Settlement drops
+from $7,030.00 to $95.00, the status reads **OK**, and the order ID stays in place. Try
+another edit and press **Escape** to keep the previous value. The editor enforces the 1–50
+range for new entries. The model also checks incoming data, which is how the original 74
+appeared in the review queue.
 
 ### Turn the same grid into a repair queue
 
