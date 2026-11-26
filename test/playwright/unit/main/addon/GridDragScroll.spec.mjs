@@ -153,6 +153,22 @@ test.describe('Neo.main.addon.GridDragScroll — the kinetic tail and a grid tha
         expect(addon.activeDrag, 'no drag state survives the tail').toBeNull()
     });
 
+    for (const [motion, endY] of [['stationary', 300], ['moving', 260]]) {
+        test(`a ${motion} touch release with same-millisecond samples keeps the scroll position and schedules no frame`, () => {
+            const registration = fakeRegistration('grid-1'),
+                  time         = Date.now();
+
+            addon.startDrag({id: registration.id, registration}, 100, 300, 'touch');
+            addon.activeDrag.history = [{time, x: 100, y: 300}, {time, x: 100, y: endY}];
+            addon.onDragEnd({type: 'touchend'});
+
+            expect(frames.queue.size).toBe(0);
+            expect(addon.activeDrag).toBeNull();
+            expect(registration.bodyElement.scrollTop).toBe(500);
+            expect(registration.containerElement.scrollLeft).toBe(0)
+        })
+    }
+
     test('unregister during a kinetic tail neither throws nor leaves state behind', () => {
         const registration = fakeRegistration('grid-1');
 
