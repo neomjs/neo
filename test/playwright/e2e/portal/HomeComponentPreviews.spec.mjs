@@ -192,6 +192,35 @@ test.describe('Portal home: the plan and the live grid beside their text', () =>
         expect(atRest[5].color).toBe('rgb(68, 136, 255)');
         await expect(done.locator('.neo-board-card')).toHaveCount(2);
 
+        // Dragging any row in a multi-card column keeps the card flush inside its drag proxy (0 row-offset gap)
+        const todoCards = planning.locator('.neo-board-column', {hasText: 'To do'}).locator('.neo-board-card');
+
+        await expect(todoCards).toHaveCount(3);
+        for (let row = 0; row < 3; row++) {
+            const box = await todoCards.nth(row).boundingBox(),
+                  cx  = box.x + box.width / 2,
+                  cy  = box.y + box.height / 2;
+
+            await page.mouse.move(cx, cy);
+            await page.mouse.down();
+            await page.mouse.move(cx + 16, cy, {steps: 4});
+
+            const proxy     = page.locator('.neo-dragproxy'),
+                  proxyCard = proxy.locator('> .neo-board-card');
+
+            await expect(proxy).toBeVisible();
+            const [proxyBox, innerBox] = await Promise.all([proxy.boundingBox(), proxyCard.boundingBox()]);
+
+            expect(Math.abs(innerBox.x - proxyBox.x), `To do row ${row}: card left matches proxy left`).toBeLessThanOrEqual(1);
+            expect(Math.abs(innerBox.y - proxyBox.y), `To do row ${row}: card top matches proxy top`).toBeLessThanOrEqual(1);
+            expect(Math.abs(innerBox.width - proxyBox.width), `To do row ${row}: card width matches proxy width`).toBeLessThanOrEqual(1);
+            expect(Math.abs(innerBox.height - proxyBox.height), `To do row ${row}: card height matches proxy height`).toBeLessThanOrEqual(1);
+
+            await page.keyboard.press('Escape');
+            await page.mouse.up();
+            await expect(proxy).toHaveCount(0)
+        }
+
         // A card moved to "Done" through the board's writer recolours its bar in the chart
         await app.callMethod(board.id, 'moveCard', [{key: '5', status: 'Done'}]);
 

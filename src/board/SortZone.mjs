@@ -284,7 +284,7 @@ class BoardSortZone extends SortZone {
      * @protected
      */
     async getReleaseTarget({clientX, clientY}) {
-        const {owner} = this, columns = owner.getColumns();
+        const {owner}           = this, columns = owner.getColumns();
         const [board, ...rects] = await owner.getDomRect([owner.id, ...columns.map(column => column.id)]);
         if (!board.width || !board.height || !board.containsPoint(clientX, clientY)) return null;
 
@@ -559,9 +559,10 @@ class BoardSortZone extends SortZone {
     }
 
     /**
-     * @summary Starts a card drag: the card from the path, every column's rect for the hit test, and its column's
-     * body pinned for the sort. When the dragged card belongs to a multi-selection, snapshots rendered selected cards'
-     * rects for the stack proxy's FLIP fly-in and marks the originals with `.neo-board-card-ghost`.
+     * @summary Starts a card drag: snapshots the unpinned card VDOM for the proxy, reads every column's rect for the
+     * hit test, and pins the active column's body for the sort. When the dragged card belongs to a multi-selection,
+     * snapshots rendered selected cards' rects for the stack proxy's FLIP fly-in and marks the originals with
+     * `.neo-board-card-ghost`.
      * @param {Object} data
      */
     async onDragStart(data) {
@@ -599,7 +600,7 @@ class BoardSortZone extends SortZone {
         Object.assign(me, {
             dragCardRects        : rectMap,
             dragComponent        : card,
-            dragElement          : VDomUtil.find(column.body.vdom, card.id)?.vdom || card.vdom,
+            dragElement          : {...me.cloneCardVdom(card.record), id: card.id},
             dragFocusOwner       : card.containsFocus ? card : null,
             dragRecord           : card.record,
             dragRecords,
