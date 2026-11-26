@@ -99,7 +99,7 @@ test.describe('Neo.list.Base#getItemRecordId with a "__" in the list id', () => 
         expect(list.getItemRecordId(list.getItemId(list.store.get('a')))).toBe('a')
     });
 
-    test('a list inside a functional component createVdom() without an id selects on click', async () => {
+    test('a list inside a functional component createVdom() without an id selects on click and fires select', async () => {
         const container = Neo.create(Container, {appName, id: 'list-item-record-id-container'});
 
         await container.initVnode();
@@ -119,13 +119,17 @@ test.describe('Neo.list.Base#getItemRecordId with a "__" in the list id', () => 
         await container.timeout(50);
 
         const child  = [...view.childComponents.values()][0].instance,
-              record = child.store.get('b');
+              record = child.store.get('b'),
+              events = [];
 
         expect(child.id).toContain('__');
 
+        child.on('select', e => events.push(e));
         child.selectionModel.onListClick({currentTarget: child.getItemId(record)});
 
         expect(child.selectionModel.isSelected(child.getItemId(record))).toBe(true);
+        expect(events).toHaveLength(1);
+        expect(events[0].records).toEqual([record]);
 
         container.destroy()
     })
