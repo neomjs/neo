@@ -421,6 +421,42 @@ class Text extends Field {
     }
 
     /**
+     * @summary Projects boolean `disabled` onto the owning native input element while preserving `.neo-disabled`
+     * and clearing transient focus or hover classes in a single VDOM update.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        let me         = this,
+            isDisabled = Boolean(value),
+            wasSilent  = me.silentVdomUpdate,
+            cls;
+
+        me.silentVdomUpdate = true;
+
+        super.afterSetDisabled(value, oldValue);
+
+        if (isDisabled && oldValue !== undefined) {
+            cls = me.cls;
+            NeoArray.remove(cls, ['neo-focus', 'neo-hovered']);
+            me.cls = cls;
+
+            if (me.labelPosition === 'inline' && me.isEmpty()) {
+                delete me.getCenterBorderEl()?.width
+            }
+        }
+
+        me.changeInputElKey('disabled', isDisabled ? true : null, true);
+
+        me.silentVdomUpdate = wasSilent;
+
+        if (!wasSilent && oldValue !== undefined) {
+            me.update()
+        }
+    }
+
+    /**
      * Triggered after the disabledChars config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue

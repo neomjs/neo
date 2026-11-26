@@ -330,4 +330,248 @@ test.describe('Neo.form.field.Text', () => {
         expect(Math.abs((await field.boundingBox()).height - plain.height)).toBeLessThan(1);
         expect(Math.abs((await input.boundingBox()).width - plainInput.width)).toBeLessThan(1);
     });
+
+    for (const type of ['Text', 'TextArea']) {
+        test(`${type} projects native disabled across mount, runtime/bound toggles, and remount while preserving programmatic writes and readOnly focus`, async ({page}) => {
+            await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+            const appWorker = page.workers().find(w => w.url().includes('/worker/App'));
+
+            const container = await appWorker.evaluate(async ({type}) => {
+                const [
+                    {default: Button},
+                    {default: FormContainer},
+                    {default: StateProvider},
+                    {default: FieldModule}
+                ] = await Promise.all([
+                    import('../button/Base.mjs'),
+                    import('../form/Container.mjs'),
+                    import('../state/Provider.mjs'),
+                    import(`../form/field/${type}.mjs`)
+                ]);
+
+                const viewport = Neo.getComponent('component-test-viewport'),
+                      host     = Neo.create(FormContainer, {
+                          appName      : viewport.appName,
+                          parentId     : viewport.id,
+                          windowId     : viewport.windowId,
+                          stateProvider: {
+                              module: StateProvider,
+                              data  : {
+                                  boundValue: 'Bound value',
+                                  locked    : true
+                              }
+                          },
+                          items: [{
+                              module: Button,
+                              text  : 'Before sentinel'
+                          }, {
+                              module       : FieldModule,
+                              clearable    : false,
+                              disabled     : true,
+                              labelPosition: 'left',
+                              labelText    : 'Initial disabled',
+                              name         : 'initialField',
+                              value        : 'Initial value'
+                          }, {
+                              module       : FieldModule,
+                              labelPosition: 'inline',
+                              labelText    : 'Bound disabled',
+                              name         : 'boundField',
+                              bind         : {
+                                  disabled: data => data.locked,
+                                  value   : data => data.boundValue
+                              }
+                          }, {
+                              module   : FieldModule,
+                              readOnly : true,
+                              labelText: 'Read only',
+                              name     : 'readOnlyField',
+                              value    : 'Selectable value'
+                          }]
+                      });
+
+                viewport.add(host);
+
+                return {
+                    boundId   : host.items[2].id,
+                    hostId    : host.id,
+                    initialId : host.items[1].id,
+                    readOnlyId: host.items[3].id,
+                    sentinelId: host.items[0].id
+                }
+            }, {type});
+
+            componentId = container.hostId;
+
+            const selector      = type === 'Text' ? 'input' : 'textarea',
+                  sentinel      = page.locator(`#${container.sentinelId}`),
+                  initialField  = page.locator(`#${container.initialId}`),
+                  initialInput  = initialField.locator(selector),
+                  boundField    = page.locator(`#${container.boundId}`),
+                  boundInput    = boundField.locator(selector),
+                  readOnlyInput = page.locator(`#${container.readOnlyId}`).locator(selector);
+
+            await expect(initialField).toHaveClass(/neo-disabled/);
+            await expect(boundField).toHaveClass(/neo-disabled/);
+            await expect(initialInput).toBeDisabled();
+            await expect(boundInput).toBeDisabled();
+            expect(await initialField.evaluate(el => {
+                const style = getComputedStyle(el);
+                return {opacity: style.opacity, pointerEvents: style.pointerEvents}
+            })).toEqual({opacity: '0.5', pointerEvents: 'none'});
+            expect(await readOnlyInput.evaluate(el => ({disabled: el.disabled, readOnly: el.readOnly}))).toEqual({
+                disabled: false,
+                readOnly: true
+            });
+
+            // Tab from sentinel skips both disabled fields and lands directly on the read-only field
+            await sentinel.focus();
+            await page.keyboard.press('Tab');
+            await expect(initialInput).not.toBeFocused();
+            await expect(boundInput).not.toBeFocused();
+            await expect(readOnlyInput).toBeFocused();
+
+            // Read-only field allows selection while rejecting edits
+            await readOnlyInput.selectText();
+            expect(await readOnlyInput.evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))).toBe('Selectable value');
+            await page.keyboard.type('Attempted edit');
+            await expect(readOnlyInput).toHaveValue('Selectable value');
+
+            // Programmatic field.value, FormContainer#setValues, and StateProvider writes still update the displayed input while disabled
+            await appWorker.evaluate(async ({hostId, initialId}) => {
+                const host  = Neo.getComponent(hostId),
+                      field = Neo.getComponent(initialId);
+                field.value = 'Programmatic direct';
+                await field.promiseUpdate();
+                host.getStateProvider().setData({boundValue: 'Bound while disabled'});
+                await host.setValues({initialField: 'Form write while disabled'})
+            }, container);
+
+            await expect(initialInput).toHaveValue('Form write while disabled');
+            await expect(boundInput).toHaveValue('Bound while disabled');
+            await expect(initialInput).toBeDisabled();
+            await expect(boundInput).toBeDisabled();
+
+            // Remounting a disabled field preserves native disabled on the owning input
+            await appWorker.evaluate(({hostId, initialId}) => {
+                const host  = Neo.getComponent(hostId),
+                      field = Neo.getComponent(initialId);
+                host.remove(field, false)
+            }, container);
+            await expect(initialField).toHaveCount(0);
+
+            await appWorker.evaluate(({hostId, initialId}) => {
+                const host  = Neo.getComponent(hostId),
+                      field = Neo.getComponent(initialId);
+                host.insert(1, field)
+            }, container);
+            await expect(initialInput).toBeVisible();
+            await expect(initialInput).toBeDisabled();
+
+            // Re-enabling via StateProvider and config restores Tab focus, typing, and worker value sync
+            await appWorker.evaluate(({hostId, initialId}) => {
+                Neo.getComponent(initialId).disabled = false;
+                Neo.getComponent(hostId).getStateProvider().setData({locked: false})
+            }, container);
+
+            await expect(initialInput).toBeEnabled();
+            await expect(boundInput).toBeEnabled();
+
+            await sentinel.focus();
+            await page.keyboard.press('Tab');
+            await expect(initialInput).toBeFocused();
+            await initialInput.selectText();
+            await page.keyboard.type('Updated value');
+            await expect(initialInput).toHaveValue('Updated value');
+            await expect.poll(() => appWorker.evaluate(id => Neo.getComponent(id).value, container.initialId)).toBe('Updated value');
+
+            await page.keyboard.press('Tab');
+            await expect(boundInput).toBeFocused();
+            await boundInput.fill('Bound updated');
+            expect(await appWorker.evaluate(id => Neo.getComponent(id).value, container.boundId)).toBe('Bound updated')
+        });
+    }
+
+    test('hash route #disabled=true blocks pointer and Tab keyboard edits while preserving programmatic updates and re-enable', async ({page}) => {
+        await page.goto('/examples/form/field/text/index.html#disabled=true');
+
+        const liveField      = page.locator('.neo-example-container > .neo-textfield'),
+              liveInput      = liveField.locator('input.neo-textfield-input'),
+              stageDisabled  = page.locator('.neo-field-states .neo-textfield.neo-disabled input.neo-textfield-input'),
+              disabledBox    = page.getByRole('checkbox', {name: 'disabled', exact: true}),
+              disabledToggle = page.locator('label').filter({has: disabledBox});
+
+        await expect(liveField).toHaveClass(/neo-disabled/);
+        await expect(liveInput).toHaveValue('Neo Workspace');
+        await expect(liveInput).toBeDisabled();
+        await expect(stageDisabled).toBeDisabled();
+
+        await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+        const appWorker = page.workers().find(w => w.url().includes('/worker/App')),
+              fieldId   = await liveField.getAttribute('id'),
+              inputId   = await liveInput.getAttribute('id');
+
+        expect(await appWorker.evaluate(id => ({
+            disabled: Neo.getComponent(id).disabled,
+            value   : Neo.getComponent(id).value
+        }), fieldId)).toEqual({disabled: true, value: 'Neo Workspace'});
+
+        expect(await liveField.evaluate(el => {
+            const style = getComputedStyle(el);
+            return {opacity: style.opacity, pointerEvents: style.pointerEvents}
+        })).toEqual({opacity: '0.5', pointerEvents: 'none'});
+
+        // 1. Physical pointer click on the input leaves focus on document.body
+        await page.evaluate(() => document.activeElement?.blur?.());
+        const box = await liveInput.boundingBox();
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+        expect(await page.evaluate(() => document.activeElement?.tagName)).toBe('BODY');
+
+        // 2. Tab from document.body (1st Tab + full sweep) never focuses the disabled input; typing changes neither DOM nor worker
+        let reachedDisabledInput = false;
+        for (let i = 0; i < 40; i++) {
+            await page.keyboard.press('Tab');
+            if (await page.evaluate(id => document.activeElement?.id === id, inputId)) {
+                reachedDisabledInput = true;
+                break
+            }
+        }
+        expect(reachedDisabledInput).toBe(false);
+
+        await page.evaluate(() => document.activeElement?.blur?.());
+        await page.keyboard.press('Tab');
+        expect(await page.evaluate(id => document.activeElement?.id === id, inputId)).toBe(false);
+        await page.keyboard.type('Keyboard audit');
+        await expect(liveInput).toHaveValue('Neo Workspace');
+        expect(await appWorker.evaluate(id => Neo.getComponent(id).value, fieldId)).toBe('Neo Workspace');
+
+        // 3. Setting field.value in the App worker while disabled updates both display and worker model
+        await appWorker.evaluate(id => {
+            Neo.getComponent(id).value = 'Programmatic audit'
+        }, fieldId);
+        await expect(liveInput).toHaveValue('Programmatic audit');
+        await expect(liveInput).toBeDisabled();
+        expect(await appWorker.evaluate(id => Neo.getComponent(id).value, fieldId)).toBe('Programmatic audit');
+
+        // 4. Re-enable and type: both display and worker accept 'Enabled audit'
+        await page.evaluate(() => {
+            const sentinel = document.createElement('button');
+            sentinel.id = 'text-example-tab-sentinel';
+            sentinel.textContent = 'Sentinel';
+            document.querySelector('.neo-example-container').prepend(sentinel)
+        });
+        const sentinel = page.locator('#text-example-tab-sentinel');
+
+        await disabledToggle.click();
+        await expect(liveField).not.toHaveClass(/neo-disabled/);
+        await expect(liveInput).toBeEnabled();
+
+        await sentinel.focus();
+        await page.keyboard.press('Tab');
+        await expect(liveInput).toBeFocused();
+        await liveInput.selectText();
+        await page.keyboard.type('Enabled audit');
+        await expect(liveInput).toHaveValue('Enabled audit');
+        await expect.poll(() => appWorker.evaluate(id => Neo.getComponent(id).value, fieldId)).toBe('Enabled audit')
+    });
 });
