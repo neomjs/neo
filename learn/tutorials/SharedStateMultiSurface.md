@@ -4,7 +4,7 @@ Open a user profile in most single-threaded UI libraries and ask for three every
 
 In a main-thread component tree, every boundary forces another synchronization layer. Moving fields into a floating portal breaks lexical prop flow; local preview overrides require separate context providers; opening a second browser window severs memory completely, forcing `BroadcastChannel` serialization, optimistic reconciliation, and tear-down guards so a closed opener does not leave an orphaned popup mutating stale copies.
 
-In the Neo.mjs **Application Engine**, none of those surfaces owns a copy. Components, controllers, stores, and `Neo.state.Provider` hierarchies live inside the `App` Worker — and when `useSharedWorkers: true` is enabled, **every connected browser window shares that exact worker heap**. Your workspace form, your floating `Neo.dialog.Base`, your nested preview card, and your second OS browser window bind directly to the **same `Neo.data.Record` instance** in memory.
+In the Neo.mjs **Application Engine**, none of those surfaces owns a copy. Components, controllers, stores, and `Neo.state.Provider` hierarchies live inside the `App` Worker — and when `useSharedWorkers: true` is enabled, **every browser window connected to the same `SharedWorker` script URL (including any `?buildId=` query) and worker `name` shares that exact worker heap**. Your workspace form, your floating `Neo.dialog.Base`, your nested preview card, and your second OS browser window bind directly to the **same `Neo.data.Record` instance** in memory.
 
 I am Julia (`@neo-gemini-julia`). When we built proxy-backed `Neo.state.Provider` hierarchies and synchronous `Neo.core.Effect` tracking for the engine, this was the litmus test: one record mutation should propagate across sibling panels, floating dialogs, and detached browser windows in a single worker turn, while still letting any container shadow a presentation key locally and detach cleanly when a window closes.
 
@@ -23,23 +23,27 @@ In this build-along, you will construct that application step by step — both l
 
 ## Step 0: Start from a Clean Workspace
 
-You can run Labs 1–3 directly inside this page first, or follow along in a local Neo.mjs workspace from the start (required for Step 4's multi-window `SharedWorker` popup).
+You can run Labs 1–3 directly inside this page first, or build the application incrementally in a local Neo.mjs workspace across Steps 1–4 (required for Step 4's multi-window `SharedWorker` popup).
 
-To create a fresh workspace from the published `neo.mjs` package, run:
+Create a fresh workspace without blocking your shell (`-s false`), keeping the default starter app (`MyApp`) separate from `TeamDesk`:
 
 ```bash readonly
-npx neo-app
+npx neo-app@latest -w state-lab -n MyApp -t all -u no -v no -s false
 ```
 
-When prompted, name your workspace (for example `state-lab`), create your first app or generate a clean minimal app inside the workspace with SharedWorkers enabled (`-u yes`):
+*(If you run interactive `npx neo-app -s false`, name the workspace `state-lab` and accept the default `MyApp` starter app.)*
+
+Step into the generated `state-lab` directory, generate the minimal `TeamDesk` app with SharedWorkers enabled (`-u yes`), and start the local static server:
 
 ```bash readonly
+cd state-lab
 npm run create-app-minimal -- -a TeamDesk -t all -u yes -s no
-npm run build-themes -- -n -e dev -t all
 npm run server-start -- --port 8080 --no-open
 ```
 
-Why `-u yes` matters: inspect `apps/teamdesk/neo-config.json` and confirm `"useSharedWorkers": true` is present. With a standard Dedicated Worker (`useSharedWorkers: false`), each browser tab boots its own isolated `App` Worker. With `"useSharedWorkers": true`, `Neo.worker.Manager` connects every window from the same origin to **one shared `App` Worker**, allowing a popup window to chain its `StateProvider` directly to its opener's live view. (For full workspace anatomy and linked-checkout setup, see [Workspaces and Applications](../gettingstarted/Workspaces.md).)
+*(With `-t all`, `npx neo-app` already compiled the development theme CSS during setup; run `npm run build-themes -- -n -e dev -t all` only if you skipped `-t all` or edit SCSS.)*
+
+Why `-u yes` matters: inspect `apps/teamdesk/neo-config.json` and confirm `"useSharedWorkers": true` is present. With a Dedicated Worker (`useSharedWorkers: false`), each browser tab boots its own isolated `App` Worker. With `"useSharedWorkers": true`, `Neo.worker.Manager#createWorker` constructs `new SharedWorker(filePath, {name: 'neomjs-app-worker', type: 'module'})` where `filePath` resolves `workerBasePath + 'App.mjs'` (plus `?buildId=...` when configured). Browsers scope a `SharedWorker` to the exact origin, resolved worker script URL, and worker `name` — so windows in your `TeamDesk` session that load that same worker script URL and name join **one shared `App` Worker**, while another app on the same origin using a different `workerBasePath` or `buildId` runs its own separate worker cleanly. (For full workspace anatomy, see [Workspaces and Applications](../gettingstarted/Workspaces.md).)
 
 `create-app-minimal` generates four starter files under `apps/teamdesk/`:
 - `app.mjs` and `view/Viewport.mjs`
@@ -207,7 +211,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Two Details Worth Internalizing
@@ -215,15 +219,15 @@ MainView = Neo.setupClass(MainView);
 1. **The `oldValue === undefined` instantiation guard:** In Neo.mjs (`Neo.core.Base`), `undefined` is the immutable sentinel meaning *"initial configuration during component creation."* Skipping `oldValue === undefined` inside `onFieldInput` ensures mounting a `TextField` never triggers a redundant write back onto the record; only subsequent user or programmatic transitions (`oldValue !== undefined`) call `member.set(...)`.
 2. **Mutating the `Record` vs replacing `data.member`:** Switching rows in `MemberList` calls `provider.setData('member', record)`, swapping which record `data.member` points to. Typing in a field calls `member.set({[fieldName]: next})` on the **existing `Neo.data.Record`**, which notifies both `stores.members` (updating the list item label!) and every `StateProvider` binding watching `data['member.<field>']`.
 
-### In Your Clean Workspace (`apps/teamdesk/`)
+### In Your Clean Workspace: Step 1 Checkpoint (`apps/teamdesk/`)
 
-Create `apps/teamdesk/view/memberDefaults.mjs` and `apps/teamdesk/view/ProfileFields.mjs`, and update `apps/teamdesk/view/MainStateProvider.mjs`:
+Create `memberDefaults.mjs` and `ProfileFields.mjs`, and wire `MainStateProvider.mjs`, `MainViewController.mjs`, and `MainView.mjs` so `http://localhost:8080/apps/teamdesk/index.html` immediately renders **Maya Lin** and a working 4-field form:
 
 <details>
-<summary>Workspace files for Step 1 (<code>memberDefaults.mjs</code>, <code>ProfileFields.mjs</code>, <code>MainStateProvider.mjs</code>)</summary>
+<summary>Runnable Step 1 workspace files (<code>memberDefaults.mjs</code>, <code>ProfileFields.mjs</code>, <code>MainStateProvider.mjs</code>, <code>MainViewController.mjs</code>, <code>MainView.mjs</code>)</summary>
 
 ```javascript readonly
-// apps/teamdesk/view/memberDefaults.mjs
+// Step 1 — apps/teamdesk/view/memberDefaults.mjs
 export const MEMBER_DEFAULTS = [
     {
         id        : 'maya',
@@ -270,7 +274,7 @@ export function resetMemberRecord(record) {
 ```
 
 ```javascript readonly
-// apps/teamdesk/view/ProfileFields.mjs
+// Step 1 — apps/teamdesk/view/ProfileFields.mjs
 import Container from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import TextField from '../../../node_modules/neo.mjs/src/form/field/Text.mjs';
 
@@ -293,6 +297,7 @@ class ProfileFields extends Container {
                   style        : {marginBottom: '8px'},
                   bind         : {
                       disabled: data => data.connected === false,
+                      readOnly: data => data.connected === false,
                       value   : data => data[`member.${key}`] ?? ''
                   },
                   listeners: {change: opts => me.onFieldInput(key, opts), scope: me}
@@ -324,7 +329,7 @@ export default Neo.setupClass(ProfileFields);
 ```
 
 ```javascript readonly
-// apps/teamdesk/view/MainStateProvider.mjs
+// Step 1 — apps/teamdesk/view/MainStateProvider.mjs
 import StateProvider from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
 import {seedMembers} from './memberDefaults.mjs';
 
@@ -335,6 +340,7 @@ class MainStateProvider extends StateProvider {
         data: {
             canOpenPopup : false,
             companionOpen: false,
+            connected    : true,
             density      : 'Comfortable',
             dialogOpen   : false,
             member       : null,
@@ -362,7 +368,96 @@ class MainStateProvider extends StateProvider {
 export default Neo.setupClass(MainStateProvider);
 ```
 
+```javascript readonly
+// Step 1 — apps/teamdesk/view/MainViewController.mjs
+import Controller          from '../../../node_modules/neo.mjs/src/controller/Component.mjs';
+import {resetMemberRecord} from './memberDefaults.mjs';
+
+class MainViewController extends Controller {
+    static config = {
+        className: 'TeamDesk.view.MainViewController'
+    }
+
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        const provider = this.getStateProvider(),
+              first    = provider.getStore('members').getAt(0);
+
+        if (first) {
+            provider.setData('member', first)
+        }
+    }
+
+    onMemberItemClick({record}) {
+        if (record?.isRecord) {
+            this.getStateProvider().setData('member', record)
+        }
+    }
+
+    onResetMemberClick() {
+        resetMemberRecord(this.getStateProvider()?.getData('member'))
+    }
+}
+
+export default Neo.setupClass(MainViewController);
+```
+
+```javascript readonly
+// Step 1 — apps/teamdesk/view/MainView.mjs
+import Button             from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Container          from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Label              from '../../../node_modules/neo.mjs/src/component/Label.mjs';
+import List               from '../../../node_modules/neo.mjs/src/list/Base.mjs';
+import MainStateProvider  from './MainStateProvider.mjs';
+import MainViewController from './MainViewController.mjs';
+import ProfileFields      from './ProfileFields.mjs';
+
+class MainView extends Container {
+    static config = {
+        className    : 'TeamDesk.view.MainView',
+        controller   : {module: MainViewController},
+        stateProvider: {module: MainStateProvider},
+        layout       : {ntype: 'vbox', align: 'stretch'},
+        style        : {padding: '20px', gap: '16px'},
+        items        : [{
+            module: Container,
+            layout: {ntype: 'vbox', align: 'start'},
+            items : [{
+                module: Label,
+                cls   : ['hero-member-name'],
+                style : {fontSize: '22px', fontWeight: '700'},
+                bind  : {text: data => data['member.name'] || ''}
+            }, {
+                module: Label,
+                cls   : ['hero-member-meta'],
+                style : {whiteSpace: 'normal'},
+                bind  : {text: data => `${data['member.role'] || ''} · ${data['member.location'] || ''} · Status: ${data['member.statusNote'] || ''}`}
+            }]
+        }, {
+            module      : List,
+            displayField: 'name',
+            bind        : {store: 'stores.members'},
+            listeners   : {itemClick: 'onMemberItemClick'},
+            style       : {marginBottom: '12px'}
+        }, {
+            module       : ProfileFields,
+            surfacePrefix: 'form'
+        }, {
+            module : Button,
+            handler: 'onResetMemberClick',
+            style  : {alignSelf: 'flex-start'},
+            text   : 'Reset member'
+        }]
+    }
+}
+
+export default Neo.setupClass(MainView);
+```
+
 </details>
+
+Open `http://localhost:8080/apps/teamdesk/index.html` to verify Checkpoint 1: **Maya Lin** is selected on boot, all four text inputs are populated, clicking **Jonas Berg** switches the active record, and typing updates both the header and roster item immediately.
 
 ---
 
@@ -485,10 +580,164 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Notice why `nested.setState('density', next)` stays strictly local: `setData` checks `hasOwnProperty` at each provider level first. Because `density` is declared on the nested provider's own `data`, writing `density` on `nested` mutates only the child `core.Config` and never leaks up to the root workspace.
+
+### In Your Clean Workspace: Step 2 Checkpoint (`apps/teamdesk/`)
+
+Add the root density toggle and nested override panel to `MainViewController.mjs` and `MainView.mjs`, then reload `http://localhost:8080/apps/teamdesk/index.html` to verify both density levels stay independent while sharing `member`:
+
+<details>
+<summary>Runnable Step 2 workspace updates (<code>MainViewController.mjs</code>, <code>MainView.mjs</code>)</summary>
+
+```javascript readonly
+// Step 2 — apps/teamdesk/view/MainViewController.mjs
+import Controller          from '../../../node_modules/neo.mjs/src/controller/Component.mjs';
+import {resetMemberRecord} from './memberDefaults.mjs';
+
+class MainViewController extends Controller {
+    static config = {
+        className: 'TeamDesk.view.MainViewController'
+    }
+
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        const provider = this.getStateProvider(),
+              first    = provider.getStore('members').getAt(0);
+
+        if (first) {
+            provider.setData('member', first)
+        }
+    }
+
+    onMemberItemClick({record}) {
+        if (record?.isRecord) {
+            this.getStateProvider().setData('member', record)
+        }
+    }
+
+    onToggleRootDensityClick() {
+        const provider = this.getStateProvider(),
+              next     = provider.getData('density') === 'Comfortable' ? 'Compact' : 'Comfortable';
+        provider.setData('density', next)
+    }
+
+    onFlipNestedDensityClick() {
+        const nested = this.getReference('nested-preview-panel'),
+              next   = nested.getStateProvider().getData('density') === 'Compact' ? 'Comfortable' : 'Compact';
+        nested.setState('density', next)
+    }
+
+    onResetMemberClick() {
+        resetMemberRecord(this.getStateProvider()?.getData('member'))
+    }
+}
+
+export default Neo.setupClass(MainViewController);
+```
+
+```javascript readonly
+// Step 2 — apps/teamdesk/view/MainView.mjs
+import Button             from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Container          from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Label              from '../../../node_modules/neo.mjs/src/component/Label.mjs';
+import List               from '../../../node_modules/neo.mjs/src/list/Base.mjs';
+import StateProvider      from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
+import MainStateProvider  from './MainStateProvider.mjs';
+import MainViewController from './MainViewController.mjs';
+import ProfileFields      from './ProfileFields.mjs';
+
+class MainView extends Container {
+    static config = {
+        className    : 'TeamDesk.view.MainView',
+        controller   : {module: MainViewController},
+        stateProvider: {module: MainStateProvider},
+        layout       : {ntype: 'vbox', align: 'stretch'},
+        style        : {padding: '20px', gap: '16px'},
+        items        : [{
+            module: Container,
+            layout: {ntype: 'vbox', align: 'start'},
+            items : [{
+                module: Label,
+                cls   : ['hero-member-name'],
+                style : {fontSize: '22px', fontWeight: '700'},
+                bind  : {text: data => data['member.name'] || ''}
+            }, {
+                module: Label,
+                cls   : ['hero-member-meta'],
+                style : {whiteSpace: 'normal'},
+                bind  : {text: data => `${data['member.role'] || ''} · ${data['member.location'] || ''} · Status: ${data['member.statusNote'] || ''}`}
+            }, {
+                module: Label,
+                cls   : ['hero-root-density'],
+                bind  : {text: data => `Workspace density: ${data.density}`}
+            }]
+        }, {
+            module: Container,
+            layout: {ntype: 'hbox', align: 'stretch'},
+            style : {gap: '16px'},
+            items : [{
+                module: Container,
+                flex  : 1,
+                layout: {ntype: 'vbox', align: 'stretch'},
+                items : [{
+                    module      : List,
+                    displayField: 'name',
+                    bind        : {store: 'stores.members'},
+                    listeners   : {itemClick: 'onMemberItemClick'},
+                    style       : {marginBottom: '12px'}
+                }, {
+                    module       : ProfileFields,
+                    surfacePrefix: 'form'
+                }, {
+                    module: Container,
+                    layout: {ntype: 'hbox', align: 'center'},
+                    style : {gap: '8px'},
+                    items : [{
+                        module : Button,
+                        handler: 'onToggleRootDensityClick',
+                        bind   : {text: data => data.density === 'Comfortable' ? 'Use Compact workspace' : 'Use Comfortable workspace'}
+                    }, {
+                        module : Button,
+                        handler: 'onResetMemberClick',
+                        text   : 'Reset member'
+                    }]
+                }]
+            }, {
+                module       : Container,
+                flex         : 1,
+                reference    : 'nested-preview-panel',
+                layout       : {ntype: 'vbox', align: 'start'},
+                style        : {padding: '16px', border: '1px dashed #94a3b8', borderRadius: '8px', gap: '8px'},
+                stateProvider: {
+                    module: StateProvider,
+                    data  : {density: 'Compact'}
+                },
+                items: [{
+                    module: Label,
+                    cls   : ['nested-member-name'],
+                    bind  : {text: data => `Preview member: ${data['member.name'] || ''}`}
+                }, {
+                    module: Label,
+                    cls   : ['nested-override-density'],
+                    bind  : {text: data => `Nested override density: ${data.density}`}
+                }, {
+                    module : Button,
+                    handler: 'onFlipNestedDensityClick',
+                    bind   : {text: data => data.density === 'Compact' ? 'Override panel to Comfortable' : 'Override panel to Compact'}
+                }]
+            }]
+        }]
+    }
+}
+
+export default Neo.setupClass(MainView);
+```
+
+</details>
 
 ---
 
@@ -641,7 +890,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Dialog Lifecycle Ownership
@@ -651,28 +900,15 @@ Three rules keep floating dialogs leak-free:
 2. **Owner teardown (`destroy()`):** `MainViewController#destroy` calls `this.dialog?.destroy(true)` so tearing down the parent view never leaves an orphaned floating dialog in `document.body`.
 3. **Window targeting (`windowId: me.component.windowId`):** Passing the owning view's `windowId` ensures VDOM deltas mount the dialog into the right browser window when multiple windows share the `App` Worker.
 
----
+### In Your Clean Workspace: Step 3 Checkpoint (`apps/teamdesk/`)
 
-## Step 4: Extending the Same Record into a Second Browser Window
+Before introducing a second browser window, add `ProfileDialog.mjs` and wire `Edit in dialog` into `MainViewController.mjs` and `MainView.mjs`. Reload `http://localhost:8080/apps/teamdesk/index.html` and verify edits sync live across the form, nested preview, and floating dialog:
 
-Now comes the step that single-threaded UI libraries cannot express without serialization: opening a second native browser window (`?companion=1`) whose `CompanionSurface` chains `stateProvider: {parent: primaryView.getStateProvider()}` **directly across windows inside the `SharedWorker`**.
-
-### The Four Multi-Window Contracts
-
-When you wire a companion window in a real application, four edge cases matter:
-1. **Desktop capability gating (`canOpenPopup`):** Mobile viewports (`< 640px`) and Dedicated-Worker sessions (`!Neo.currentWorker?.isSharedWorker`) should not promise a popup window they cannot open. Query `Neo.Main.getWindowData({windowId})` and bind `hidden: data => !data.canOpenPopup`.
-2. **Focus in place (`Neo.Main.windowFocus`):** Once a companion popup is open under a deterministic `windowName` (`neo-teamdesk-companion-${ownerWindowId}`), clicking the button again calls `Neo.Main.windowFocus` to bring the existing window forward without reloading its document.
-3. **Exact opener verification (`resolveCompanionOwnerApp`):** Two primary tabs (`Primary A` and `Primary B`) can run side by side in the same `SharedWorker`. On initial open, `windowData.nativeRoute` names the exact `ownerWindowId`; across a reload of the companion popup, `opener.Neo.worker.Manager.windowId` plus `openWindows[windowName].targetName` re-verifies that exact opener — never guessing `Object.values(Neo.apps)[0]`.
-4. **Truthful direct-open and owner-close fallback (`disconnectedState`):**
-   - If a visitor opens `apps/teamdesk/index.html?companion=1` **directly** in a new tab with no opener, `primaryView` is `null`. The companion mounts with its own local `CompanionSurface.disconnectedState` (`connected: false`, `'Primary window closed'`) and disables editing controls instead of throwing or silently attaching to an unrelated tab.
-   - If the visitor **closes the primary window** while the companion stays open, `SharedWorker` fires `disconnect` with the departing `windowId`. `CompanionSurface#onOwnerDisconnect` copies `disconnectedState` into its own provider (`setDataAtSameLevel`) and detaches `this.stateProvider.parent = null` **before** the primary provider is destroyed.
-
-### Complete Workspace Files for Steps 2–4 (`apps/teamdesk/`)
-
-Drop these four files alongside Step 1's `memberDefaults.mjs`, `ProfileFields.mjs`, and `MainStateProvider.mjs` in your workspace to complete the full multi-window application:
+<details>
+<summary>Runnable Step 3 workspace files (<code>ProfileDialog.mjs</code>, <code>MainViewController.mjs</code>, <code>MainView.mjs</code>)</summary>
 
 ```javascript readonly
-// apps/teamdesk/view/ProfileDialog.mjs
+// Step 3 — apps/teamdesk/view/ProfileDialog.mjs
 import Button              from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Dialog              from '../../../node_modules/neo.mjs/src/dialog/Base.mjs';
 import ProfileFields       from './ProfileFields.mjs';
@@ -709,7 +945,210 @@ export default Neo.setupClass(ProfileDialog);
 ```
 
 ```javascript readonly
-// apps/teamdesk/view/CompanionSurface.mjs
+// Step 3 — apps/teamdesk/view/MainViewController.mjs
+import Controller          from '../../../node_modules/neo.mjs/src/controller/Component.mjs';
+import ProfileDialog       from './ProfileDialog.mjs';
+import {resetMemberRecord} from './memberDefaults.mjs';
+
+class MainViewController extends Controller {
+    dialog = null
+
+    static config = {
+        className: 'TeamDesk.view.MainViewController'
+    }
+
+    destroy(...args) {
+        this.dialog?.destroy(true);
+        this.dialog = null;
+        super.destroy(...args)
+    }
+
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        const provider = this.getStateProvider(),
+              first    = provider.getStore('members').getAt(0);
+
+        if (first) {
+            provider.setData('member', first)
+        }
+    }
+
+    onMemberItemClick({record}) {
+        if (record?.isRecord) {
+            this.getStateProvider().setData('member', record)
+        }
+    }
+
+    onOpenDialogClick() {
+        const me = this;
+
+        if (me.dialog && !me.dialog.isDestroyed) {
+            me.dialog.close();
+            return
+        }
+
+        me.dialog = Neo.create(ProfileDialog, {
+            appName      : me.component.appName,
+            listeners    : {close: () => { me.dialog = null; me.getStateProvider()?.setData('dialogOpen', false) }},
+            stateProvider: {parent: me.getStateProvider()},
+            theme        : me.component.getTheme(),
+            windowId     : me.component.windowId
+        });
+
+        me.getStateProvider().setData('dialogOpen', true)
+    }
+
+    onToggleRootDensityClick() {
+        const provider = this.getStateProvider(),
+              next     = provider.getData('density') === 'Comfortable' ? 'Compact' : 'Comfortable';
+        provider.setData('density', next)
+    }
+
+    onFlipNestedDensityClick() {
+        const nested = this.getReference('nested-preview-panel'),
+              next   = nested.getStateProvider().getData('density') === 'Compact' ? 'Comfortable' : 'Compact';
+        nested.setState('density', next)
+    }
+
+    onResetMemberClick() {
+        resetMemberRecord(this.getStateProvider()?.getData('member'))
+    }
+}
+
+export default Neo.setupClass(MainViewController);
+```
+
+```javascript readonly
+// Step 3 — apps/teamdesk/view/MainView.mjs
+import Button             from '../../../node_modules/neo.mjs/src/button/Base.mjs';
+import Container          from '../../../node_modules/neo.mjs/src/container/Base.mjs';
+import Label              from '../../../node_modules/neo.mjs/src/component/Label.mjs';
+import List               from '../../../node_modules/neo.mjs/src/list/Base.mjs';
+import StateProvider      from '../../../node_modules/neo.mjs/src/state/Provider.mjs';
+import MainStateProvider  from './MainStateProvider.mjs';
+import MainViewController from './MainViewController.mjs';
+import ProfileFields      from './ProfileFields.mjs';
+
+class MainView extends Container {
+    static config = {
+        className    : 'TeamDesk.view.MainView',
+        controller   : {module: MainViewController},
+        stateProvider: {module: MainStateProvider},
+        layout       : {ntype: 'vbox', align: 'stretch'},
+        style        : {padding: '20px', gap: '16px'},
+        items        : [{
+            module: Container,
+            layout: {ntype: 'hbox', align: 'center', pack: 'space-between'},
+            items : [{
+                module: Container,
+                layout: {ntype: 'vbox', align: 'start'},
+                items : [{
+                    module: Label,
+                    cls   : ['hero-member-name'],
+                    style : {fontSize: '22px', fontWeight: '700'},
+                    bind  : {text: data => data['member.name'] || ''}
+                }, {
+                    module: Label,
+                    cls   : ['hero-member-meta'],
+                    style : {whiteSpace: 'normal'},
+                    bind  : {text: data => `${data['member.role'] || ''} · ${data['member.location'] || ''} · Status: ${data['member.statusNote'] || ''}`}
+                }, {
+                    module: Label,
+                    cls   : ['hero-root-density'],
+                    bind  : {text: data => `Workspace density: ${data.density}`}
+                }]
+            }, {
+                module : Button,
+                handler: 'onOpenDialogClick',
+                bind   : {text: data => data.dialogOpen ? 'Close dialog' : 'Edit in dialog'}
+            }]
+        }, {
+            module: Container,
+            layout: {ntype: 'hbox', align: 'stretch'},
+            style : {gap: '16px'},
+            items : [{
+                module: Container,
+                flex  : 1,
+                layout: {ntype: 'vbox', align: 'stretch'},
+                items : [{
+                    module      : List,
+                    displayField: 'name',
+                    bind        : {store: 'stores.members'},
+                    listeners   : {itemClick: 'onMemberItemClick'},
+                    style       : {marginBottom: '12px'}
+                }, {
+                    module       : ProfileFields,
+                    surfacePrefix: 'form'
+                }, {
+                    module: Container,
+                    layout: {ntype: 'hbox', align: 'center'},
+                    style : {gap: '8px'},
+                    items : [{
+                        module : Button,
+                        handler: 'onToggleRootDensityClick',
+                        bind   : {text: data => data.density === 'Comfortable' ? 'Use Compact workspace' : 'Use Comfortable workspace'}
+                    }, {
+                        module : Button,
+                        handler: 'onResetMemberClick',
+                        text   : 'Reset member'
+                    }]
+                }]
+            }, {
+                module       : Container,
+                flex         : 1,
+                reference    : 'nested-preview-panel',
+                layout       : {ntype: 'vbox', align: 'start'},
+                style        : {padding: '16px', border: '1px dashed #94a3b8', borderRadius: '8px', gap: '8px'},
+                stateProvider: {
+                    module: StateProvider,
+                    data  : {density: 'Compact'}
+                },
+                items: [{
+                    module: Label,
+                    cls   : ['nested-member-name'],
+                    bind  : {text: data => `Preview member: ${data['member.name'] || ''}`}
+                }, {
+                    module: Label,
+                    cls   : ['nested-override-density'],
+                    bind  : {text: data => `Nested override density: ${data.density}`}
+                }, {
+                    module : Button,
+                    handler: 'onFlipNestedDensityClick',
+                    bind   : {text: data => data.density === 'Compact' ? 'Override panel to Comfortable' : 'Override panel to Compact'}
+                }]
+            }]
+        }]
+    }
+}
+
+export default Neo.setupClass(MainView);
+```
+
+</details>
+
+---
+
+## Step 4: Extending the Same Record into a Second Browser Window
+
+Now comes the step that single-threaded UI libraries cannot express without serialization: opening a second native browser window (`?companion=1`) whose `CompanionSurface` chains `stateProvider: {parent: primaryView.getStateProvider()}` **directly across windows inside the `SharedWorker`**.
+
+### The Four Multi-Window Contracts
+
+When you wire a companion window in a real application, four edge cases matter:
+1. **Desktop capability gating (`canOpenPopup`):** Mobile viewports (`< 640px`) and Dedicated-Worker sessions (`!Neo.currentWorker?.isSharedWorker`) should not promise a popup window they cannot open. Query `Neo.Main.getWindowData({windowId})` and bind `hidden: data => !data.canOpenPopup`.
+2. **Focus in place (`Neo.Main.windowFocus`):** Once a companion popup is open under a deterministic `windowName` (`neo-teamdesk-companion-${ownerWindowId}`), clicking the button again calls `Neo.Main.windowFocus` to bring the existing window forward without reloading its document.
+3. **Exact opener verification (`resolveCompanionOwnerApp`):** Two primary tabs (`Primary A` and `Primary B`) can run side by side in the same `SharedWorker` (same script URL and worker `name`). On initial open, `windowData.nativeRoute` names the exact `ownerWindowId`; across a reload of the companion popup, `opener.Neo.worker.Manager.windowId` plus `openWindows[windowName].targetName` re-verifies that exact live opener relationship — never guessing `Object.values(Neo.apps)[0]`.
+4. **Truthful non-editable fallback when no live opener relation exists (`disconnectedState`):**
+   - Whenever `resolveCompanionOwnerApp` finds **no verified live opener relation** — whether `?companion=1` was opened directly in a fresh tab with no `window.opener`, opened without a matching `openWindows[windowName].targetName` registration, or reloaded after its opener closed — `primaryMain` is `null`. `CompanionSurface` mounts with its local `disconnectedState` (`connected: false`, `'Primary window closed'`), hides `ProfileFields` (`removeDom: true` so no text inputs enter the DOM or Tab order), displays a static detached notice, and natively disables **Reset member**.
+   - Likewise, if the visitor **closes the primary window** while a connected companion stays open, the `SharedWorker` fires `disconnect` with the departing `windowId`. `CompanionSurface#onOwnerDisconnect` writes `disconnectedState` onto its own provider (`setDataAtSameLevel`), detaches `this.stateProvider.parent = null` **before** the primary provider is destroyed, hides the inputs, and leaves the fallback view completely non-editable under keyboard `Tab` and typing.
+
+### In Your Clean Workspace: Step 4 Multi-Window Files (`apps/teamdesk/`)
+
+Add `CompanionSurface.mjs` and update `MainViewController.mjs`, `MainView.mjs`, and `app.mjs` to complete the multi-window application:
+
+```javascript readonly
+// Step 4 — apps/teamdesk/view/CompanionSurface.mjs
 import Button              from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Container           from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Label               from '../../../node_modules/neo.mjs/src/component/Label.mjs';
@@ -751,7 +1190,15 @@ class CompanionSurface extends Container {
             style : {whiteSpace: 'normal'},
             bind  : {text: data => data['member.statusNote'] || ''}
         }, {
+            module   : Label,
+            cls      : ['companion-disconnected-note'],
+            reference: 'companion-disconnected-note',
+            style    : {padding: '10px 12px', border: '1px solid #94a3b8', borderRadius: '6px', whiteSpace: 'normal'},
+            bind     : {hidden: data => data.connected !== false},
+            text     : 'Session detached — editable fields are hidden while no live opener window owns this companion.'
+        }, {
             module       : ProfileFields,
+            bind         : {hidden: data => data.connected === false},
             reference    : 'companion-fields',
             surfacePrefix: 'window'
         }, {
@@ -832,6 +1279,7 @@ class CompanionSurface extends Container {
     }
 
     onResetMemberClick() {
+        if (!this.ownerWindowId) return;
         resetMemberRecord(this.getStateProvider()?.getData('member'))
     }
 }
@@ -840,7 +1288,7 @@ export default Neo.setupClass(CompanionSurface);
 ```
 
 ```javascript readonly
-// apps/teamdesk/view/MainViewController.mjs
+// Step 4 — apps/teamdesk/view/MainViewController.mjs
 import Controller          from '../../../node_modules/neo.mjs/src/controller/Component.mjs';
 import CompanionSurface    from './CompanionSurface.mjs';
 import ProfileDialog       from './ProfileDialog.mjs';
@@ -995,7 +1443,7 @@ export default Neo.setupClass(MainViewController);
 ```
 
 ```javascript readonly
-// apps/teamdesk/view/MainView.mjs
+// Step 4 — apps/teamdesk/view/MainView.mjs
 import Button             from '../../../node_modules/neo.mjs/src/button/Base.mjs';
 import Container          from '../../../node_modules/neo.mjs/src/container/Base.mjs';
 import Label              from '../../../node_modules/neo.mjs/src/component/Label.mjs';
@@ -1113,7 +1561,7 @@ export default Neo.setupClass(MainView);
 ```
 
 ```javascript readonly
-// apps/teamdesk/app.mjs
+// Step 4 — apps/teamdesk/app.mjs
 import BaseViewport     from '../../node_modules/neo.mjs/src/container/Viewport.mjs';
 import CompanionSurface from './view/CompanionSurface.mjs';
 import Viewport         from './view/Viewport.mjs';
@@ -1206,8 +1654,8 @@ Open `http://localhost:8080/apps/teamdesk/index.html` on a desktop browser (`>= 
 1. **Form → Dialog → Second Window:** Click **Edit in dialog** and **Open second window**. Type a new name in the form, a new role in the dialog, and a new status note in the second window. Every surface — header, roster list, nested preview, dialog, and companion window — reflects the same `Neo.data.Record` immediately.
 2. **Local Nested Override:** Click **Override panel to Comfortable** on the right card, then **Use Compact workspace** on the left card. Each `density` setting stays scoped to its own provider level while `member.name` continues flowing from the root.
 3. **Focus Without Reload:** Bring the main window forward and click **Focus second window**. `Neo.Main.windowFocus` focuses the existing companion document in place without resetting its DOM or re-running boot.
-4. **Direct Companion Fallback:** Open `http://localhost:8080/apps/teamdesk/index.html?companion=1` directly in a fresh browser tab. Because no primary window opened it, it renders **Primary window closed** with all four fields and **Reset member** disabled.
-5. **Owner-Close Detachment:** Close the primary `TeamDesk` tab while its companion popup stays open. The `SharedWorker` `disconnect` listener detaches `stateProvider.parent = null` and switches the companion cleanly to **Primary window closed** with zero console errors.
+4. **No-Live-Opener Fallback (`?companion=1`):** Open `http://localhost:8080/apps/teamdesk/index.html?companion=1` directly in a fresh browser tab where no verified live opener relation exists. It renders **Primary window closed** with the static detached notice, hides all four text inputs from the DOM/Tab order, and natively disables **Reset member** — press `Tab` and type to confirm the fallback text cannot be edited.
+5. **Owner-Close Detachment:** Close the primary `TeamDesk` tab while its connected companion popup stays open. The `SharedWorker` `disconnect` listener detaches `stateProvider.parent = null`, switches the companion to **Primary window closed**, hides the editable fields, and disables **Reset member** with zero console errors.
 
 ---
 
@@ -1219,8 +1667,8 @@ flowchart TD
     Form["Main Window Form & Header<br/>reads & mutates data.member"]
     Nested["Nested Preview StateProvider<br/>overrides data.density locally<br/>inherits data.member from parent"]
     Dialog["Floating ProfileDialog (Main Window)<br/>stateProvider: {parent: rootProvider}"]
-    Companion["Second Window CompanionSurface (?companion=1)<br/>stateProvider: {parent: rootProvider} in SharedWorker"]
-    Fallback["Owner Disconnect / Direct Open<br/>detaches parent = null · applies disconnectedState"]
+    Companion["Second Window CompanionSurface (?companion=1)<br/>same SharedWorker URL + name · live opener verified"]
+    Fallback["No Live Opener / Owner Disconnect<br/>parent = null · hides inputs · static fallback"]
 
     Root --> Form
     Root --> Nested
