@@ -81,11 +81,14 @@ class Component extends List {
     }
 
     /**
+     * @summary The inverse of `getItemId()`: strips the `${this.id}__` prefix, since the list id itself may contain `__`.
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId = vnodeId.split('__')[1];
+        let prefix = `${this.id}__`,
+            itemId = vnodeId.startsWith(prefix) ? vnodeId.slice(prefix.length) : vnodeId.split('__')[1];
+
         return this.store.getKey(this.store.getAt(parseInt(itemId)))
     }
 
