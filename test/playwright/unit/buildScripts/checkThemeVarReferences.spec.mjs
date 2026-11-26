@@ -88,12 +88,22 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         expect(collect({root, runtimeProperties: {'--fa-style-family-classic': 'Font Awesome'}})).toEqual([]);
     });
 
-    test('FIRES: a runtime row that no theme reads any more', () => {
+    test('FIRES: a runtime row that no stylesheet reads any more', () => {
         const root = makeTree({'theme-a/Text.css': ':where(.neo-theme-a) {--x-gap: 1px}'});
 
         expect(collect({root, runtimeProperties: {'--gone': 'nothing reads it'}})).toEqual([
-            '[stale-runtime] no theme reads --gone any more, so remove its runtime row'
+            '[stale-runtime] no stylesheet reads --gone any more, so remove its runtime row'
         ]);
+    });
+
+    test('PASSES: a runtime row that only a structural rule reads, with or without a fallback, is not stale', () => {
+        const root = makeTree({
+            'src/tree/List.css' : '.neo-tree-list .neo-list-item {padding-left: calc(var(--neo-tree-level) * 1em)}',
+            'src/grid/Body.css' : '.neo-grid-row {transition-duration: var(--neo-duration, 300ms)}',
+            'theme-a/Global.css': ':where(.neo-theme-a) {--x-gap: 1px}'
+        });
+
+        expect(collect({root, runtimeProperties: {'--neo-duration': 'set from JavaScript', '--neo-tree-level': 'set from JavaScript'}})).toEqual([]);
     });
 
     test('FAILS CLOSED: a root without src/ or theme directories is a failure, never a vacuous green', () => {

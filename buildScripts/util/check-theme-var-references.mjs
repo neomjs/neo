@@ -10,24 +10,17 @@
  * Each theme resolves against its own files plus `resources/css/src`, because a page loads one theme.
  * A reference with a fallback is the author's explicit choice and is skipped. Definitions count
  * wherever they appear: the guard catches names that nothing defines, not scoping mistakes.
+ * The runtime list and the stylesheet reading are shared with `theme-census` through `themeCss.mjs`.
  */
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import isEntryModule   from './isEntryModule.mjs';
+import fs                                      from 'node:fs';
+import path                                    from 'node:path';
+import {fileURLToPath}                         from 'node:url';
+import isEntryModule                           from './isEntryModule.mjs';
+import {RUNTIME_PROPERTIES, cssFiles, readCss} from './themeCss.mjs';
 
 const
     repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
-    cssRoot  = path.join(repoRoot, 'resources/css'),
-
-    /**
-     * Properties a theme may read without defining them, because a third-party stylesheet sets them.
-     * Each row must still be read somewhere, so the list cannot outlive its reason.
-     * @type {Object<String,String>}
-     */
-    RUNTIME_PROPERTIES = {
-        '--fa-style-family-classic': 'Font Awesome sets it in its own stylesheet'
-    };
+    cssRoot  = path.join(repoRoot, 'resources/css');
 
 /**
  * The trees this guard reads, as repo-relative globs (the form a workflow `paths:` filter takes).
@@ -38,32 +31,19 @@ export const SCAN_SURFACE = Object.freeze(
 );
 
 /**
- * @param {String} dir
- * @returns {String[]} Every `.css` file below `dir`, sorted.
- */
-function cssFiles(dir) {
-    return fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => {
-        const full = path.join(dir, entry.name);
-
-        return entry.isDirectory() ? cssFiles(full) : entry.name.endsWith('.css') ? [full] : []
-    }).sort()
-}
-
-/**
- * @summary A stylesheet without its comments, line breaks kept so that line numbers still match.
- * @param {String} file
- * @returns {String}
- */
-function readCss(file) {
-    return fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\n]/g, ''))
-}
-
-/**
  * @param {String[]} files
  * @returns {Set<String>} Every custom property the files declare.
  */
 function definitionsIn(files) {
     return new Set(files.flatMap(file => [...readCss(file).matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1])))
+}
+
+/**
+ * @param {String[]} files
+ * @returns {Set<String>} Every custom property the files read, with or without a fallback.
+ */
+function readsIn(files) {
+    return new Set(files.flatMap(file => [...readCss(file).matchAll(/var\(\s*(--[\w-]+)/g)].map(match => match[1])))
 }
 
 /**
@@ -85,8 +65,10 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
     }
 
     const
-        shared   = definitionsIn(cssFiles(srcDir)),
-        read     = new Set(),
+        srcFiles = cssFiles(srcDir),
+        shared   = definitionsIn(srcFiles),
+        // a runtime row stays alive while any stylesheet reads it, structural rules included
+        read     = readsIn(srcFiles),
         failures = [];
 
     for (const theme of themes) {
@@ -95,13 +77,13 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
             defined = definitionsIn(files),
             missing = new Map();
 
+        readsIn(files).forEach(name => read.add(name));
+
         for (const file of files) {
             const css = readCss(file);
 
             for (const match of css.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
                 const name = match[1];
-
-                read.add(name);
 
                 if (!defined.has(name) && !shared.has(name) && !(name in runtimeProperties)) {
                     const sites = missing.get(name) || [];
@@ -116,7 +98,7 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
     }
 
     for (const name of Object.keys(runtimeProperties)) {
-        read.has(name) || failures.push(`[stale-runtime] no theme reads ${name} any more, so remove its runtime row`)
+        read.has(name) || failures.push(`[stale-runtime] no stylesheet reads ${name} any more, so remove its runtime row`)
     }
 
     return failures

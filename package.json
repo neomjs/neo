@@ -57,6 +57,7 @@
         "test-e2e"                             : "playwright test -c test/playwright/playwright.config.e2e.mjs",
         "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
         "test-unit-tz"                         : "playwright test -c test/playwright/playwright.config.unit-tz.mjs",
+        "theme-census"                         : "node ./buildScripts/util/theme-census.mjs",
         "watch-themes"                         : "node ./buildScripts/helpers/watchThemes.mjs"
     },
     "keywords"       : [
