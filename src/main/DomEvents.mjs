@@ -180,6 +180,8 @@ class DomEvents extends Base {
             me.upgradeHashRoute(true);
             me.#lastRoute    = me.getRouteKey();
             me.#lastFragment = location.hash?.length > 1 ? location.hash.substring(1) : ''
+        } else {
+            me.recordHashSearchEntry(true)
         }
 
         // Unsupported browsers keep the measurements made with their currently available fonts.
@@ -469,9 +471,12 @@ class DomEvents extends Base {
         }
 
         if (Neo.config.routerMode !== 'pathname') {
+            const search = me.getHashEntrySearch();
+
             return {
                 hash: me.parseHash(hashString),
                 hashString,
+                ...(search ? {search} : {}),
                 windowId
             }
         }
@@ -488,6 +493,37 @@ class DomEvents extends Base {
             query,
             search,
             windowId
+        }
+    }
+
+    /**
+     * @summary Reads raw page search only while the corresponding hash history entry is active.
+     * @returns {String}
+     * @protected
+     */
+    getHashEntrySearch() {
+        const entry = globalThis.history?.state?.neoHashSearchEntry;
+
+        return entry && entry === location.href ? location.search.substring(1) : ''
+    }
+
+    /**
+     * @summary Associates a hash document's search with its entry. Native hash links retain the document search,
+     * so their new entries carry an empty association even after reload.
+     * @param {Boolean} [boot=false]
+     * @protected
+     */
+    recordHashSearchEntry(boot=false) {
+        const {history, location} = globalThis,
+              state               = history?.state;
+
+        if (location?.search && location.hash?.startsWith('#/') &&
+            (state === null || Neo.isObject(state) && !Object.hasOwn(state, 'neoHashSearchEntry'))) {
+            try {
+                history.replaceState({...state, neoHashSearchEntry: boot ? location.href : null}, '')
+            } catch {
+                // Restricted history must not prevent routing the current document.
+            }
         }
     }
 
@@ -839,6 +875,8 @@ class DomEvents extends Base {
 
         if (Neo.config.routerMode === 'pathname') {
             me.upgradeHashRoute()
+        } else {
+            me.recordHashSearchEntry()
         }
 
         me.sendRoute()
@@ -1423,12 +1461,15 @@ class DomEvents extends Base {
             return
         }
 
+        const search = me.getHashEntrySearch();
+
         Manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
                 appNames: Manager.appNames,
                 hash    : me.parseHash(hashString),
                 hashString,
+                ...(search ? {search} : {}),
                 windowId: Manager.windowId
             }
         })
@@ -1449,7 +1490,10 @@ class DomEvents extends Base {
                     nextUrl   = `${location.pathname}${location.search}${cleanHash}`;
 
                 if (`${location.pathname}${location.search}${location.hash}` !== nextUrl) {
-                    history.replaceState(history.state, '', nextUrl);
+                    const state = history.state;
+
+                    history.replaceState(state?.neoHashSearchEntry ? {...state, neoHashSearchEntry: null} : state, '', nextUrl);
+                    me.recordHashSearchEntry();
                     me.sendRoute()
                 }
                 return

@@ -4,6 +4,7 @@ import Example      from '../../model/Example.mjs';
 import ExampleStore from '../../store/Examples.mjs';
 import List         from './List.mjs';
 import StringUtil   from '../../../../src/util/String.mjs';
+import TextField    from '../../../../src/form/field/Text.mjs';
 
 /**
  * @summary Cross-group search results view inside `.portal-examples-stage`: renders live catalog matches grouped under
@@ -47,7 +48,7 @@ class SearchResults extends Container {
     }
 
     /**
-     * @summary Builds the results header (summary, Clear button, build selector), empty message and group container.
+     * @summary Builds the results header, share feedback, empty message and group container.
      * @protected
      */
     createItems() {
@@ -86,10 +87,33 @@ class SearchResults extends Container {
                     text     : 'Clear (Esc)',
                     ui       : 'secondary'
                 }, {
+                    module : Button,
+                    flex   : 'none',
+                    handler: 'onCopySearchLink',
+                    iconCls: 'fa fa-link',
+                    text   : 'Copy search link',
+                    ui     : 'secondary'
+                }, {
                     ...me.buildControl,
                     flex: 'none'
                 }]
             }]
+        }, {
+            ntype    : 'component',
+            cls      : ['portal-examples-search-share-status'],
+            flex     : 'none',
+            reference: 'search-share-status',
+            role     : 'status',
+            vdom     : {tag: 'p', text: ''}
+        }, {
+            module       : TextField,
+            cls          : ['portal-examples-search-share-url'],
+            flex         : 'none',
+            hidden       : true,
+            labelPosition: 'top',
+            labelText    : 'Search link',
+            readOnly     : true,
+            reference    : 'search-share-url'
         }, {
             ntype    : 'component',
             cls      : ['portal-examples-search-empty'],
@@ -181,6 +205,23 @@ class SearchResults extends Container {
      */
     getLists() {
         return this.getGroupsContainer().items.flatMap(group => group.items.filter(item => item instanceof List))
+    }
+
+    /**
+     * @summary Announces copy feedback and exposes the selectable URL when the write was unconfirmed.
+     * @param {String} [message='']
+     * @param {String} [url='']
+     */
+    setShareFeedback(message='', url='') {
+        const status = this.down({reference: 'search-share-status'}),
+              field  = this.down({reference: 'search-share-url'});
+
+        if (status.vdom.text !== message) {
+            status.vdom.text = message;
+            status.update()
+        }
+
+        field.set({hidden: !url, value: url})
     }
 
     /**

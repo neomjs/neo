@@ -149,6 +149,31 @@ test.afterEach(() => {
 });
 
 test.describe('Portal examples overview and group pages', () => {
+    for (const value of ['date', '']) {
+        test(`a delayed shared catalog keeps a newer ${value ? 'Find edit' : 'Clear'}`, async () => {
+            const view       = createView(),
+                  controller = view.getController(),
+                  store      = view.getCatalogStore(),
+                  load       = Promise.withResolvers();
+
+            store.isLoaded = false;
+            store.load     = () => load.promise;
+
+            const route = controller.onExamplesRoute({itemId: 'grid'}, {search: 'find=drag&catalogMode=dist_esm'});
+
+            expect(view.findQuery).toBe('drag');
+            expect(view.catalogMode).toBe('dist_esm');
+
+            value ? controller.onFindFieldChange({value}) : controller.clearFind();
+            store.isLoaded = true;
+            load.resolve();
+            await route;
+
+            expect(view.findQuery).toBe(value);
+            expect(controller.getOpenRoute()).toBe('/examples/grid')
+        })
+    }
+
     test('an initial shared ESM selection renders ESM destinations on the group pages', () => {
         const view = createView(catalog, 'dist_esm');
 

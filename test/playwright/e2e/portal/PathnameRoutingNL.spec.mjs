@@ -4,6 +4,7 @@ import {fileURLToPath}                   from 'node:url';
 import {extractExampleFamilyDefinitions} from '../../../../buildScripts/docs/seo/seoJson.mjs';
 import {createFileServer, listen}        from '../../../../buildScripts/util/fileServer.mjs';
 import {expect, test}                    from '../../fixtures.mjs';
+import {expectOpenPage}                  from '../utils/portalExamplesCatalog.mjs';
 
 const REPO_ROOT     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'),
       EXAMPLES_VIEW = new URL('../../../../apps/portal/view/examples/MainContainer.mjs', import.meta.url),
@@ -29,6 +30,63 @@ async function isViewMounted(app, className) {
 }
 
 test.describe('Portal pathname routing (un-mocked spaRoot + SharedWorker, Neural Link)', () => {
+    for (const mode of ['pathname', 'hash']) {
+        test(`restores an Examples share entry at a ${mode} mount without reapplying it on ordinary links (#22238)`, async ({page}) => {
+            const server = createFileServer({root: REPO_ROOT, spaRoot: false, freshness: {onListening() {}, onRequest() {}}}),
+                  port   = await listen(server, {port: 0, strict: true}),
+                  origin = `http://localhost:${port}`,
+                  target = new URL(mode === 'hash' ? '/apps/portal/index.html' : '/apps/portal/examples/grid', origin),
+                  find   = page.locator('.portal-examples-sidebar:visible .portal-examples-find-field input');
+
+            try {
+                if (mode === 'hash') {
+                    target.hash = '/examples/grid';
+                    await page.route(url => url.pathname === '/apps/portal/neo-config.json', async route => {
+                        const response = await route.fetch();
+                        await route.fulfill({response, json: {...await response.json(), routerMode: 'hash'}})
+                    })
+                }
+
+                target.searchParams.set('find', 'drag');
+                target.searchParams.set('catalogMode', 'dist_esm');
+                await page.setViewportSize({width: 1440, height: 900});
+                await page.goto(target.href);
+                await expect(find).toHaveValue('drag');
+                await expect(page.locator('.portal-examples-search-results:visible').getByRole('heading', {level: 1})).toContainText('matching examples');
+                await page.reload();
+                await expect(find).toHaveValue('drag');
+
+                await page.evaluate(() => Neo.Main.setRoute({value: '/examples/forms'}));
+                await expectOpenPage(page, 'Forms & Fields');
+                await expect(find).toHaveValue('');
+                await page.evaluate(() => Neo.Main.setRoute({value: '/examples/grid'}));
+                await expectOpenPage(page, 'Grid & Table');
+                await expect(find).toHaveValue('');
+
+                await page.reload();
+                await expectOpenPage(page, 'Grid & Table');
+                await expect(find).toHaveValue('');
+
+                await page.goBack();
+                await expectOpenPage(page, 'Forms & Fields');
+                await page.goBack();
+                await expect(page).toHaveURL(target.href);
+                await expect(find).toHaveValue('drag');
+
+                if (mode === 'hash') {
+                    await page.evaluate(() => Neo.Main.setRoute({replace: true, value: '/examples/forms'}));
+                    await expectOpenPage(page, 'Forms & Fields');
+                    await page.evaluate(() => Neo.Main.setRoute({replace: true, value: '/examples/grid'}));
+                    await expectOpenPage(page, 'Grid & Table');
+                    await expect(find).toHaveValue('')
+                }
+            } finally {
+                server.closeAllConnections();
+                server.close()
+            }
+        })
+    }
+
     test('boots at / with useSharedWorkers: true, routes /learn, ?query editRoute, #section fragments, Cmd/Ctrl+Click, and Logo Home without reload', async ({page, neuralLink}) => {
         await page.setViewportSize({width: 1440, height: 900});
 

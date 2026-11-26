@@ -44,6 +44,16 @@
         white-space  : nowrap;
     }
 
+    .portal-examples-search-share-status {
+        color : var(--portal-examples-text-muted);
+        margin: 0;
+    }
+
+    .portal-examples-search-share-status:not(:empty),
+    .portal-examples-search-share-url {
+        margin-bottom: 12px;
+    }
+
     .portal-examples-search-empty {
         background-color: var(--portal-examples-bg-raised);
         border          : 1px solid var(--portal-examples-border);
