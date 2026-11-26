@@ -61,7 +61,7 @@ The navigation structure of the learning base is defined in [`learn/tree.json`](
 | 3 | **Getting Started** | [`learn/gettingstarted/`](./gettingstarted/Workspaces.md) | Workspaces, component blueprints, config reactivity, and debugging |
 | 4 | **Brain Interface, Fleet & Agent Tooling** | [`learn/agentos/`](./agentos/FleetManagerArchitecture.md) | Fleet Manager, Cockpit, Neural Link, Skills, Seat Memory, and retained ADRs |
 | 5 | **Guides** | [`learn/guides/`](./guides/fundamentals/CodebaseOverview.md) | 8 groups: Fundamentals, Core Engine, UI Building Blocks (dock layouts), Data Handling, User Interaction, Testing, Specific Features, and Advanced |
-| 6 | **Tutorials** | [`learn/tutorials/`](./tutorials/DockLayoutsFirstLayout.md) | End-to-end builds ([order-review desk](./tutorials/EnterpriseGrid.md), `DockLayoutsFirstLayout`, `TodoList`, `Earthquakes`, `CreatingAFunctionalButton`, `Routing`) |
+| 6 | **Tutorials** | [`learn/tutorials/`](./tutorials/DockLayoutsFirstLayout.md) | End-to-end builds ([order-review desk](./tutorials/EnterpriseGrid.md), [data-pipeline worker lab](./tutorials/DataPipelineWorkers.md), `DockLayoutsFirstLayout`, `TodoList`, `Earthquakes`, `CreatingAFunctionalButton`, `Routing`) |
 | 7 | **JavaScript Classes** | [`learn/javascript/`](./javascript/Classes.md) | Modern ES module class inheritance, private fields, and `Neo.setupClass` |
 | 8 | **Engine vs Frameworks** | [`learn/comparisons/`](./comparisons/Overview.md) | Architectural comparisons against React, Angular, Vue, Solid, Svelte, and Ext JS |
 | 9 | **Glossary** | [`learn/Glossary.md`](./Glossary.md) | Definitions of engine and Agent OS primitives (`OMT`, `VDOM`, `VNode`, `RMA`, `Neural Link`) |
