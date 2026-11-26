@@ -20,7 +20,8 @@ import {isManagedRoutePath, normalizeRoutePathname, STATIC_ASSET_EXTENSIONS} fro
  * while every other dot-path stays closed (`.git`, `.env`). The development-theme freshness check
  * warns when served CSS trails its sources.
  * Pathname apps opt into shell fallback through their on-disk neo-config.json. An optional
- * package.json neo.spaRoot mounts an app at '/', with --spa-root and --no-spa-root overriding it.
+ * package.json neo.spaRoot mounts an app at '/' in either router mode (deep paths stay pathname-only),
+ * with --spa-root and --no-spa-root overriding it and a startup warning when its index.html lacks <base href>.
  * Static files and missing asset requests keep their normal file-server behavior; HTML is never rewritten.
  *
  * It listens on every interface, so a phone on the LAN reaches it by IP, and answers only a `Host`
@@ -89,6 +90,30 @@ export function isAllowedHost(host = '') {
  * @returns {String}
  */
 const escapeHtml = text => text.replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`);
+
+/**
+ * @summary Returns whether `html` declares an uncommented `<base ... href=>` tag without mutating or sanitizing HTML.
+ * @param {String} html
+ * @returns {Boolean}
+ */
+function hasBaseHref(html) {
+    let cursor = 0;
+
+    while (cursor < html.length) {
+        const comment = html.indexOf('<!--', cursor),
+              slice   = html.slice(cursor, comment === -1 ? html.length : comment);
+
+        if (/<base\b[^>]*\bhref\s*=/i.test(slice)) return true;
+        if (comment === -1) return false;
+
+        const end = html.indexOf('-->', comment + 4);
+        if (end === -1) return false;
+
+        cursor = end + 3
+    }
+
+    return false
+}
 
 /**
  * @summary Ends a response with a status and a body.
@@ -215,9 +240,11 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
         path.isAbsolute(spaRoot) || spaRoot.includes('\\') || spaRoot.split('/').some(part => part.startsWith('.')))) {
         throw new Error('neo.spaRoot must be a directory relative to the served root')
     }
-    const rootMount   = spaRoot ? '/' + spaRoot.replace(/\/+$/, '') : null,
-          configCache = new Map();
-    if (rootMount && !fs.statSync(path.join(root, spaRoot, 'index.html')).isFile()) {
+    const cleanSpaRoot = spaRoot ? spaRoot.replace(/\/+$/, '') : null,
+          rootMount    = cleanSpaRoot ? '/' + cleanSpaRoot : null,
+          rootIndex    = cleanSpaRoot ? path.join(root, cleanSpaRoot, 'index.html') : null,
+          configCache  = new Map();
+    if (rootIndex && !fs.statSync(rootIndex).isFile()) {
         throw new Error('neo.spaRoot must contain index.html')
     }
     const releaseNotesRoot = getEngineReleaseNotesRoot(root),
@@ -314,7 +341,7 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
         const rootAlias = rootMount && [rootMount, rootMount + '/', rootMount + '/index.html'].includes(decoded),
               redirect  = pathname => {
                   response.setHeader('Location', pathname + url.search);
-                  return send(response, 301, 'Moved Permanently')
+                  return send(response, 307, 'Temporary Redirect')
               };
 
         // Physical files win, except the root app's own shell alias, which must canonicalize to '/'.
@@ -338,6 +365,10 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
             const index = path.join(app.directory, 'index.html'), indexStat = await fs.promises.stat(index).catch(() => null);
             return indexStat?.isFile() ? sendFile(request, response, index, indexStat) : send(response, 404, 'Not Found')
         }
+        if (rootDirectory && decoded === '/' && rootConfig?.routerMode !== 'pathname') {
+            const index = path.join(rootDirectory, 'index.html'), indexStat = await fs.promises.stat(index).catch(() => null);
+            return indexStat?.isFile() ? sendFile(request, response, index, indexStat) : send(response, 404, 'Not Found')
+        }
 
         if (stat?.isDirectory()) {
             if (!url.pathname.endsWith('/')) {
@@ -358,9 +389,24 @@ export function createFileServer({root = process.cwd(), freshness = createDevelo
         serve(request, response).catch(() => response.headersSent ? response.destroy() : send(response, 500, 'Internal Server Error'))
     });
 
+    let baseWarned = false;
+
     server.on('listening', () => {
         freshness.onListening();
-        if (rootMount) console.log(`[file-server] spaRoot ${spaRoot} mounted at /`)
+        if (rootMount) {
+            console.log(`[file-server] spaRoot ${spaRoot} mounted at /`);
+            if (!baseWarned) {
+                baseWarned = true;
+                try {
+                    if (!hasBaseHref(fs.readFileSync(rootIndex, 'utf8'))) {
+                        console.warn(
+                            `[file-server] WARNING: ${cleanSpaRoot}/index.html has no <base href>; ` +
+                            `add <base href="${rootMount}/"> so ./neo-config.json and relative assets resolve at /`
+                        )
+                    }
+                } catch {}
+            }
+        }
     });
 
     return server

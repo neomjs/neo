@@ -33,7 +33,7 @@ test.describe('fileServer pathname mounts', () => {
         write('package.json', {neo: {spaRoot: 'apps/portal'}});
         for (const folder of ['apps/route', 'apps/portal', 'dist/production/apps/route']) {
             write(`${folder}/neo-config.json`, {routerMode: 'pathname', routerIgnorePaths: ['/examples/tree/']});
-            write(`${folder}/index.html`, `<!doctype html><title>${folder}</title>`)
+            write(`${folder}/index.html`, `<!doctype html><head><base href="/${folder}/"></head><title>${folder}</title>`)
         }
         write('apps/hash/neo-config.json', {routerMode: 'hash'});
         write('apps/hash/index.html', '<title>hash</title>');
@@ -77,10 +77,10 @@ test.describe('fileServer pathname mounts', () => {
         expect(await rawStatus(base, '/apps/route/%2e%2e/%2e%2e/.env')).toBe(404)
     });
 
-    test('root app aliases redirect before the physical index can be served, preserving search', async () => {
+    test('root app aliases redirect with 307 before the physical index can be served, preserving search', async () => {
         for (const alias of ['/apps/portal', '/apps/portal/', '/apps/portal/index.html']) {
             const response = await fetch(`${base}${alias}?view=compact`, {redirect: 'manual'});
-            expect(response.status, alias).toBe(301);
+            expect(response.status, alias).toBe(307);
             expect(response.headers.get('location')).toBe('/?view=compact')
         }
         expect(await (await fetch(`${base}/learn/Introduction`)).text()).toContain('<title>apps/portal</title>');
@@ -125,8 +125,81 @@ test.describe('fileServer pathname mounts', () => {
         expect(standaloneDocs.status).toBe(200);
         expect(await standaloneDocs.text()).toContain('<title>standalone-docs</title>');
         expect(missingDocs.status).toBe(404);
-        expect(canonical.status).toBe(301);
+        expect(canonical.status).toBe(307);
         expect(canonical.headers.get('location')).toBe('/apps/route/users/42?x=1')
+    });
+
+    test('hash-mode spaRoot serves index.html at /, 307-redirects aliases preserving #/x to /#/x, and keeps deep paths 404', async () => {
+        write('apps/hashroot/neo-config.json', {appPath: 'apps/hashroot/app.mjs', mainPath: './main.mjs'});
+        write('apps/hashroot/app.mjs', 'export const booted = true;');
+        write('apps/hashroot/index.html', '<!doctype html><head><base href="/apps/hashroot/"></head><title>hashroot</title>');
+
+        const isolated = createFileServer({root, spaRoot: 'apps/hashroot', freshness: quiet}),
+              url      = `http://localhost:${await listen(isolated, {port: 0, strict: true})}`;
+        try {
+            const rootGet  = await fetch(url + '/'),
+                  rootHead = await fetch(url + '/', {method: 'HEAD'}),
+                  rootHtml = await rootGet.text();
+            expect(rootGet.status).toBe(200);
+            expect(rootHtml).toContain('<title>hashroot</title>');
+            expect(rootHead.status).toBe(200);
+            expect(await rootHead.text()).toBe('');
+
+            for (const alias of ['/apps/hashroot', '/apps/hashroot/', '/apps/hashroot/index.html']) {
+                const redirect = await fetch(`${url}${alias}?theme=dark`, {redirect: 'manual'});
+                expect(redirect.status, alias).toBe(307);
+                expect(redirect.headers.get('location')).toBe('/?theme=dark')
+            }
+
+            // Simulate browser navigation to /apps/hashroot/index.html#/x: HTTP 307 -> /, fragment preserved as /#/x,
+            // and MicroLoader resolves ./neo-config.json + appPath via <base href="/apps/hashroot/">.
+            const initial = new URL(`${url}/apps/hashroot/index.html#/x`),
+                  hop     = await fetch(initial, {redirect: 'manual'}),
+                  landed  = new URL(hop.headers.get('location'), initial);
+            landed.hash        = initial.hash;
+            const landedDoc    = await (await fetch(landed)).text(),
+                  baseHref     = landedDoc.match(/<base\s+href="([^"]+)"/i)?.[1],
+                  documentBase = new URL(baseHref, landed),
+                  bootConfig   = await (await fetch(new URL('./neo-config.json', documentBase))).json(),
+                  bootModule   = await (await fetch(new URL(bootConfig.appPath, landed.origin))).text();
+
+            expect(hop.status).toBe(307);
+            expect(landed.pathname + landed.hash).toBe('/#/x');
+            expect(landedDoc).toContain('<title>hashroot</title>');
+            expect(bootConfig.appPath).toBe('apps/hashroot/app.mjs');
+            expect(bootModule).toContain('export const booted = true;');
+            expect((await fetch(url + '/x')).status).toBe(404);
+            expect(await (await fetch(url + '/examples/tree/')).text()).toContain('item.txt')
+        } finally {
+            isolated.closeAllConnections();
+            isolated.close()
+        }
+    });
+
+    test('prints one startup warning naming <spaRoot>/index.html when <base href> is missing, and none when present', async () => {
+        write('apps/nobase/neo-config.json', {appPath: 'apps/nobase/app.mjs'});
+        write('apps/nobase/index.html', '<!doctype html><!-- <base href="/apps/nobase/"> --><title>nobase</title>');
+
+        const warnings     = [],
+              originalWarn = console.warn;
+        console.warn = (...args) => warnings.push(args.join(' '));
+        let missingServer, validServer;
+        try {
+            missingServer = createFileServer({root, spaRoot: 'apps/nobase', freshness: quiet});
+            await listen(missingServer, {port: 0, strict: true});
+            expect(warnings).toHaveLength(1);
+            expect(warnings[0]).toContain('apps/nobase/index.html');
+            expect(warnings[0]).toContain('<base href="/apps/nobase/">');
+
+            warnings.length = 0;
+            validServer = createFileServer({root, spaRoot: 'apps/portal', freshness: quiet});
+            await listen(validServer, {port: 0, strict: true});
+            expect(warnings).toEqual([])
+        } finally {
+            console.warn = originalWarn;
+            missingServer?.closeAllConnections(); missingServer?.close();
+            validServer?.closeAllConnections(); validServer?.close()
+        }
     });
 
     test('fallback retains native range, validator, method and Host behavior', async () => {
