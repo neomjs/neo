@@ -1,10 +1,10 @@
 # VDOM Engine: VDom Worker
 
-The VDom worker runs stage 3 of [the VDOM engine](./Overview.md), the diff: each payload becomes deltas and a new
-vnode. The diff runs in the VDom worker by default, and inside the App worker with `useVdomWorker: false`
-([default][config-vdom-worker], [VDom worker][vdom-import], [App worker][app-import-helper]). Nothing on this page
-depends on that placement: the diff reads only its payload and keeps no tree state between calls. Every line reference
-points at `dev` commit `73e6207999`.
+Stage 3 of [the VDOM engine](./Overview.md) is the diff: each payload becomes deltas and a new vnode. By default
+(`useVdomWorker: false`), the diff runs inside the App worker; setting `useVdomWorker: true` runs this same module in
+the VDom worker ([default][config-vdom-worker], [App worker][app-import-helper], [VDom worker][vdom-import]). Nothing
+on this page depends on that placement: the diff reads only its payload and keeps no tree state between calls. Line
+reference anchors point at `dev` commit `73e6207999`, except [`DefaultConfig.useVdomWorker`][config-vdom-worker] at `845524aad5`.
 
 ```mermaid
 flowchart TD
@@ -83,7 +83,7 @@ mounts itself, the Main thread turns that reply into one `insertNode` ([auto-mou
 - With the VDom worker, the payload is copied in once, and the deltas and vnodes are copied out twice: to the Main
   thread, then on to the App worker.
 
-[config-vdom-worker]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/DefaultConfig.mjs#L416-L419
+[config-vdom-worker]: https://github.com/neomjs/neo/blob/845524aad5be56ac56f3c4f213f0d063d6baa7bf/src/DefaultConfig.mjs#L414-L424
 [vdom-import]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/VDom.mjs#L44-L57
 [app-import-helper]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/App.mjs#L828
 [helper-batch]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/vdom/Helper.mjs#L868-L920

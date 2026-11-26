@@ -412,13 +412,16 @@ const DefaultConfig = {
      */
     useTaskWorker: false,
     /**
-     * False will create the vdom.Helper within the App worker (experimental!)
-     * @default true
+     * Per ADR 0043 [not-ticket-ref: accepted decision record required by config contract]
+     * (`learn/agentos/decisions/0043-vdom-diff-placement.md`), `false` runs `Neo.vdom.Helper` inside the
+     * App worker and starts no VDom worker. Set `useVdomWorker: true` in `neo-config.json` to opt back into the
+     * separate VDom worker; `true` stays supported until Phase 3.
+     * @default false
      * @memberOf! module:Neo
      * @name config.useVdomWorker
      * @type Boolean
      */
-    useVdomWorker: true,
+    useVdomWorker: false,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
      * @default '14.0.0'

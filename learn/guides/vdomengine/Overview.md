@@ -4,8 +4,8 @@ Every visible change in a Neo application takes one path. A component edits its 
 computes the smallest set of DOM operations, the deltas, that turns the current DOM into the new one. The Main thread
 writes them.
 
-This page maps that path. Three pages describe each thread's part closely enough to change it safely. Every line
-reference in this set points at `dev` commit `73e6207999`.
+This page maps that path. Three pages describe each thread's part closely enough to change it safely. Line
+reference anchors in this set point at `dev` commit `73e6207999`, except [`DefaultConfig.useVdomWorker`][config-vdom-worker] at `845524aad5`.
 
 ## Five stages
 
@@ -13,14 +13,15 @@ reference in this set points at `dev` commit `73e6207999`.
 |---|---|---|
 | 1. Collection | A change becomes a pending update, joins an ancestor's pending update, or waits behind an overlapping one | App worker |
 | 2. Batching | One update snapshots its own scope and every update that joined it, as payloads that share no node | App worker |
-| 3. Diff | Each payload's `vdom` is compared with its `vnode`, producing deltas and a new `vnode` | VDom worker |
+| 3. Diff | Each payload's `vdom` is compared with its `vnode`, producing deltas and a new `vnode` | App worker |
 | 4. Apply | The deltas are written to the DOM in the next frame | Main thread |
 | 5. Sync back | The new vnodes are adopted, promises settle, and the updates that waited start | App worker |
 
 The stages are the design; the threads are placement. Stage 3 reads nothing but its payload and the configured
-renderer, because the VDom worker keeps no tree state between calls ([`Helper#update`][helper-update]). With `useVdomWorker: false`, the same
-diff already runs inside the App worker ([import][app-import-helper], [default][config-vdom-worker]). The stages,
-payloads and deltas stay the same, and only the transport changes.
+renderer, because the diff keeps no tree state between calls ([`Helper#update`][helper-update]). By default
+(`useVdomWorker: false`), it runs inside the App worker ([default][config-vdom-worker], [import][app-import-helper]);
+setting `useVdomWorker: true` places the same diff in a dedicated VDom worker. The stages, payloads and deltas stay the
+same, and only the transport changes.
 
 ## The triangle
 
@@ -53,13 +54,13 @@ flowchart TD
 The deltas reach the DOM one hop earlier than a round trip through the App worker would allow, and the App worker
 never adopts a vnode for DOM that was not written.
 
-Without the VDom worker, the triangle becomes a line. The App worker diffs locally, sends only the deltas to the Main
-thread with `Neo.applyDeltas()`, and the Main thread acknowledges the write ([send][vl-two-thread],
+Without the VDom worker (the default), the triangle becomes a line. The App worker diffs locally, sends only the deltas
+to the Main thread with `Neo.applyDeltas()`, and the Main thread acknowledges the write ([send][vl-two-thread],
 [framing][app-apply-deltas], [receive][mgr-update-action]). The vnodes never leave the App worker.
 
-The default path has no App worker → Main thread deltas edge. Deltas from the App worker straight to the Main thread are
-either the line above or manual `Neo.applyDeltas()` calls, which skip stages 1–3 and 5. The
-[App worker](./AppWorker.md) page covers them under *Writing the DOM directly*.
+With `useVdomWorker: true`, normal updates take the triangle above rather than the App worker → Main thread deltas edge;
+deltas sent from the App worker straight to the Main thread are manual `Neo.applyDeltas()` calls, which skip stages 1–3
+and 5. The [App worker](./AppWorker.md) page covers manual `Neo.applyDeltas()` calls under *Writing the DOM directly*.
 
 ## Read next
 
@@ -83,7 +84,7 @@ Using the engine rather than changing it: [Asymmetric VDOM Updates](../fundament
 [helper-update]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/vdom/Helper.mjs#L843-L866
 [helper-remote]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/vdom/Helper.mjs#L28-L34
 [app-import-helper]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/App.mjs#L828
-[config-vdom-worker]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/DefaultConfig.mjs#L416-L419
+[config-vdom-worker]: https://github.com/neomjs/neo/blob/845524aad5be56ac56f3c4f213f0d063d6baa7bf/src/DefaultConfig.mjs#L414-L424
 [vl-send]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/mixin/VdomLifecycle.mjs#L570
 [vdom-channel]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/VDom.mjs#L34-L42
 [app-register-port]: https://github.com/neomjs/neo/blob/73e620799910041c267820ae3122cdd0746759e3/src/worker/App.mjs#L852-L866

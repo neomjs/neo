@@ -1437,7 +1437,7 @@ test.describe('Tests scope classifier — version-only release stamps vs foundat
         const configSettingRuntime = createRuntime({
             files            : ['src/DefaultConfig.mjs', 'apps/portal/view/home/FooterContainer.mjs'],
             baseDefaultConfig: defaultConfigWith('13.4.0'),
-            headDefaultConfig: defaultConfigWith('14.0.0').replace('useVdomWorker: true,', 'useVdomWorker: false,')
+            headDefaultConfig: defaultConfigWith('14.0.0').replace('useVdomWorker: false,', 'useVdomWorker: true,')
         });
         await executeScript(scopeScript(), configSettingRuntime);
         expect(outputsOf(configSettingRuntime)).toMatchObject({run_components: 'true', run_e2e: 'true'});
