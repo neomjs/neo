@@ -30,9 +30,12 @@ const
             '    --src-gap       : 2px;',
             '    --src-color     : #abcdef;',
             '    gap             : var(--src-gap);',
+            '    caret-color     : var(--caret, #00ff00);',
             '    /* width        : var(--commented-read); */',
             '}'
         ].join('\n'),
+        // a block's last declaration without its `;`
+        'src/component/Timer.css'        : '@keyframes t {\n    to {\n        --neo-timer-current: 0\n    }\n}\n.neo-timer {width: var(--neo-timer-current);}',
         'src/apps/demo/Main.css'         : '.demo-main {color: var(--app-ghost)}',
         'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px;}',
         'theme-x-dark/apps/demo/Main.css': ':where(.neo-theme-x-dark) {--demo-panel-bg: #101010;}',
@@ -59,7 +62,7 @@ const
             '    --button-light-only      : 1px;',
             '}'
         ].join('\n'),
-        'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--button-background-color: #123456;}'
+        'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--button-background-color: #123456}'
     };
 
 test.describe('theme-census — the shape of the theme tree, as counts anyone can re-run', () => {
@@ -134,18 +137,19 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         expect(unread.apps.component).toEqual(['--demo-panel-bg']);
     });
 
-    test('6: a structural read without a fallback that nothing declares, once per name; a fallback, a structural declaration and a runtime row each excuse it', () => {
-        const {themes} = collect({root, runtimeProperties: runtime});
+    test('6: a structural read without a fallback that nothing declares, once per name; a fallback, a structural or theme declaration (with or without its `;`) and a runtime row each excuse it', () => {
+        const census = collect({root, runtimeProperties: runtime}), {themes} = census;
 
+        expect(census.runtime).toEqual(['--neo-tree-level']);
         expect(themes['theme-x-dark'].unresolved).toEqual({engine: ['--ghost-margin', '--mixed-read'], apps: ['--app-ghost'], examples: []});
         expect(themes['theme-solo'].unresolved.engine).toEqual(['--button-text-color', '--ghost-margin', '--mixed-read']);
         expect(collect({root, runtimeProperties: {}}).themes['theme-x-dark'].unresolved.engine).toContain('--neo-tree-level');
     });
 
-    test('7: colour literals in structural rules, per engine file, outside custom-property declarations', () => {
+    test('7: colour literals in structural rules, per engine file, outside custom-property declarations: bare, or inside a var() fallback', () => {
         expect(collect({root, runtimeProperties: runtime}).structural).toEqual({
-            files         : {engine: 1, apps: 1, examples: 0},
-            colourLiterals: {'button/Base.css': 2}
+            files         : {engine: 2, apps: 1, examples: 0},
+            colourLiterals: {'button/Base.css': {bare: 2, inFallback: 1}}
         });
     });
 
@@ -163,7 +167,9 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
 
         expect(markdown.startsWith('# Theme census: `fixture/css`')).toBe(true);
         expect(markdown.match(/^## \d\. /gm)).toHaveLength(8);
-        expect(markdown).toContain('| `button/Base.css` | 2 |');
+        expect(markdown).toContain('Set at runtime, so not counted: `--neo-tree-level`.');
+        expect(markdown).toContain('3 in 1 files: 2 bare, 1 inside a `var()` fallback');
+        expect(markdown).toContain('| `button/Base.css` | 2 | 1 |');
     });
 
     test('CLI: --json prints the object for the tree --root names', () => {

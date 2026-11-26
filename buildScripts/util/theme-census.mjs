@@ -13,8 +13,10 @@
  * worth enforcing becomes its own guard once the design system names it.
  *
  * Reading rules: comments are stripped (`themeCss.mjs`, shared with the theme guards); a declaration is
- * `--name: value;`; a read is `var(--name` followed by `,` (a fallback) or `)` (none); a colour literal
- * is a hex colour or an `rgb()` / `rgba()` / `hsl()` / `hsla()` call. A theme or structural file below
+ * `--name: value` ended by `;` or by the block's `}`; a read is `var(--name` followed by `,` (a fallback)
+ * or `)` (none); a colour literal is a hex colour or an `rgb()` / `rgba()` / `hsl()` / `hsla()` call, and
+ * section 7 tells the bare ones from those inside a `var()` fallback, which a theme reaches by setting the
+ * property. A theme or structural file below
  * `apps/` or `examples/` belongs to that area, every other one to `engine`. A name declared more than
  * once in an area takes its first declaration in sorted file order, and section 1 counts those names
  * and the ones declared again with another value. A full theme is one of a light and dark pair, named
@@ -24,17 +26,17 @@
  *     npm run theme-census -- --json         the census object
  *     npm run theme-census -- --root <dir>   another tree holding src/ and theme-* directories
  */
-import fs                                      from 'node:fs';
-import path                                    from 'node:path';
-import {fileURLToPath}                         from 'node:url';
-import isEntryModule                           from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, readCss} from './themeCss.mjs';
+import fs                                                     from 'node:fs';
+import path                                                   from 'node:path';
+import {fileURLToPath}                                        from 'node:url';
+import isEntryModule                                          from './isEntryModule.mjs';
+import {RUNTIME_PROPERTIES, cssFiles, readCss, stripVarCalls} from './themeCss.mjs';
 
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
     AREAS       = ['engine', 'apps', 'examples'],
     LAYERS      = ['palette', 'sem', 'cmp', 'component'],
-    DECLARATION = /(?<![\w-])(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+);/g,
+    DECLARATION = /(?<![\w-])(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g,
     READ        = /var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])/g,
     COLOUR      = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g,
     // the primitive scales and the `--core-*` aliases a theme's palette declares
@@ -178,7 +180,8 @@ function namingOf(names) {
  * @param {Object} [options]
  * @param {String} [options.root=resources/css] Holds `src/` and the `theme-*` directories.
  * @param {Object<String,String>} [options.runtimeProperties=RUNTIME_PROPERTIES] Read although no CSS declares them.
- * @returns {Object} `{themes, pairs, shared, structural}`, plain JSON.
+ * @returns {Object} `{runtime, themes, pairs, shared, structural}`, plain JSON; `runtime` names the
+ * runtime-set properties this census excused.
  */
 export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES} = {}) {
     const
@@ -220,8 +223,9 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
     }
 
     return {
+        runtime: Object.keys(runtimeProperties).sort(),
         themes,
-        pairs: pairs.map(({dark, light}) => ({
+        pairs  : pairs.map(({dark, light}) => ({
             dark,
             light,
             layers: Object.fromEntries(LAYERS.map(layer => {
@@ -244,9 +248,13 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
             files         : src.files,
             colourLiterals: Object.fromEntries(Object.entries(src.css)
                 .filter(([, {area}]) => area === 'engine')
-                .map(([file, {text}]) => [file, colourCount(text.replace(DECLARATION, ''))])
-                .filter(([, count]) => count > 0)
-                .sort(([fileA, countA], [fileB, countB]) => countB - countA || fileA.localeCompare(fileB)))
+                .map(([file, {text}]) => {
+                    const rules = text.replace(DECLARATION, ''), bare = colourCount(stripVarCalls(rules));
+
+                    return [file, {bare, inFallback: colourCount(rules) - bare}]
+                })
+                .filter(([, {bare, inFallback}]) => bare + inFallback > 0)
+                .sort(([fileA, a], [fileB, b]) => b.bare - a.bare || b.inFallback - a.inFallback || fileA.localeCompare(fileB)))
         }
     }
 }
@@ -280,7 +288,9 @@ export function renderCensus(census, label = 'resources/css') {
         names     = Object.keys(census.themes),
         layerHead = ['Palette', '`--sem-*`', '`--cmp-*`', 'Component'],
         literals  = Object.entries(census.structural.colourLiterals),
-        runtime   = Object.keys(RUNTIME_PROPERTIES).map(property => `\`${property}\``).join(', ');
+        bare      = literals.reduce((sum, [, counts]) => sum + counts.bare, 0),
+        fallback  = literals.reduce((sum, [, counts]) => sum + counts.inFallback, 0),
+        runtime   = census.runtime.map(property => `\`${property}\``).join(', ') || 'none';
 
     return [
         `# Theme census: \`${label}\``,
@@ -319,8 +329,8 @@ export function renderCensus(census, label = 'resources/css') {
             return [name, ...AREAS.map(area => unresolved[area].length), unresolved.engine.slice(0, 8).map(property => `\`${property}\``).join(', ') || '—']
         })),
         '## 7. Colour literals in structural rules (engine files)',
-        `${literals.reduce((sum, [, count]) => sum + count, 0)} in ${literals.length} files.`,
-        table(['File', 'Literals'], literals.map(([file, count]) => [`\`${file}\``, count])),
+        `${bare + fallback} in ${literals.length} files: ${bare} bare, ${fallback} inside a \`var()\` fallback, which a theme overrides by setting the property.`,
+        table(['File', 'Bare', 'Inside a `var()` fallback'], literals.map(([file, {bare: own, inFallback}]) => [`\`${file}\``, own, inFallback])),
         '## 8. Naming (engine component names)',
         table(['Theme', 'A background', 'A text colour', 'An icon colour', 'State word last', 'State word elsewhere'], names.map(name => {
             const {background, text, icon, state} = census.themes[name].naming;

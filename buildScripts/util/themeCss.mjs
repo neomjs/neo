@@ -1,11 +1,11 @@
 /**
  * @module buildScripts/util/themeCss
- * @summary The stylesheet reading the theme tools share: the walk over a tree, the comment strip, and
- * the custom properties CSS may read although no CSS declares them.
+ * @summary The stylesheet reading the theme tools share: the walk over a tree, the comment strip, the
+ * `var()` strip, and the custom properties CSS may read although no CSS declares them.
  *
- * `check-theme-var-references` and `theme-census` read `resources/css` with regular expressions over
- * comment-stripped text, not through a CSS parser. One copy of that reading keeps a guard's verdict and
- * the census's counts about the same tree.
+ * `check-theme-var-references`, `check-theme-surfaces` and `theme-census` read `resources/css` with
+ * regular expressions over comment-stripped text, not through a CSS parser. One copy of that reading
+ * keeps a guard's verdict and the census's counts about the same tree.
  */
 import fs   from 'node:fs';
 import path from 'node:path';
@@ -45,4 +45,34 @@ export function cssFiles(dir) {
  */
 export function readCss(file) {
     return fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, comment => comment.replace(/[^\n]/g, ''))
+}
+
+/**
+ * @summary Removes balanced `var()` calls, fallbacks included, so that what remains is the CSS no custom
+ * property can change: a literal inside a fallback is one a theme reaches by setting the property.
+ * @param {String} value
+ * @returns {String}
+ */
+export function stripVarCalls(value) {
+    let index;
+
+    while ((index = value.indexOf('var(')) !== -1) {
+        let depth = 0,
+            end   = -1;
+
+        for (let i = index + 3; i < value.length; i++) {
+            if (value[i] === '(') {
+                depth++
+            } else if (value[i] === ')' && --depth === 0) {
+                end = i;
+                break
+            }
+        }
+
+        value = end === -1
+            ? value.slice(0, index) + value.slice(index + 3)
+            : value.slice(0, index) + value.slice(end + 1)
+    }
+
+    return value
 }
