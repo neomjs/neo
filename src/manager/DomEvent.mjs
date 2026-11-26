@@ -29,6 +29,10 @@ const handlerMap = {
     mousemove  : 'onMouseMove',
     mouseup    : 'onMouseUp',
     scroll     : 'onScroll',
+    touchcancel: 'onTouchCancel',
+    touchend   : 'onTouchEnd',
+    touchmove  : 'onTouchMove',
+    touchstart : 'onTouchStart',
     wheel      : 'onWheel'
 };
 
@@ -54,6 +58,8 @@ const globalDomEvents = [
     'neonavigate',
     'scroll',
     'selectionchange',
+    'touchcancel',
+    'touchend',
     'touchmove',
     'touchstart',
     'wheel'
@@ -768,6 +774,7 @@ class DomEvent extends Base {
                             delegate      : domListener.delegate || value.delegate || (vnodeId === 'document.body' ? DomEvent.documentBodyDelegate : '#' + (component.vdom.id || component.id)),
                             eventName     : key,
                             id            : component.vdom.id || component.id, // honor wrapper nodes
+                            local         : domListener.local || value.local || false,
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
