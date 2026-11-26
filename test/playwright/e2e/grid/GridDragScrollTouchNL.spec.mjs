@@ -34,6 +34,8 @@ async function bootOrderReviewDeskTouch(page, neuralLink) {
     await expect.poll(() => page.evaluate(() => Neo.main?.addon?.GridDragScroll?.registrations?.size ?? 0))
         .toBeGreaterThan(0);
 
+    await settleFrames(page);
+
     await page.evaluate(headerSelector => {
         window.__outsideTouchLog = [];
         const header = document.querySelector(headerSelector);
@@ -88,6 +90,17 @@ async function clearOutsideTouchLog(page) {
     await page.evaluate(() => {
         window.__outsideTouchLog = []
     })
+}
+
+/**
+ * @summary Waits two animation frames so compositor layer commits and scroll flushes settle.
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<void>}
+ */
+async function settleFrames(page) {
+    await page.evaluate(() => new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+    }))
 }
 
 const pt = (id, x, y, force = 1) => ({id, x, y, radiusX: 5, radiusY: 5, force});
@@ -174,6 +187,7 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
             await send('touchMove',  [pt(13, gx, gy - 80)]);
 
             await expect.poll(async () => (await readTouchProbeState(page)).scrollTop).toBeGreaterThan(30);
+            await settleFrames(page);
             const scrollAtSecondContact = (await readTouchProbeState(page)).scrollTop;
 
             // 2. Add contact 27 while 13 is dragging, wait past arming delay, move both, then lift only 13
@@ -183,6 +197,7 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
             await page.waitForTimeout(16);
             await send('touchMove',  [pt(13, gx, gy - 160), pt(27, gx + 90, gy - 80)]);
 
+            await expect.poll(async () => (await readTouchProbeState(page)).scrollTop).toBe(scrollAtSecondContact + 80);
             const scrollBeforePartialLift = (await readTouchProbeState(page)).scrollTop;
             expect(scrollBeforePartialLift).toBeGreaterThan(scrollAtSecondContact);
 
@@ -225,9 +240,14 @@ test.describe('GridDragScroll touch cancellation and multi-contact interruption 
             await page.waitForTimeout(16);
             await send('touchMove',  [pt(21, gx, gy - 75)]);
             await expect.poll(async () => (await readTouchProbeState(page)).scrollTop).toBeGreaterThan(after27Release.scrollTop);
+            await settleFrames(page);
+            const scrollAt28Contact = (await readTouchProbeState(page)).scrollTop;
 
             await send('touchStart', [pt(21, gx, gy - 75), pt(28, gx + 80, gy)]);
+            await send('touchMove',  [pt(21, gx, gy - 95), pt(28, gx + 80, gy - 20)]);
+            await page.waitForTimeout(16);
             await send('touchMove',  [pt(21, gx, gy - 115), pt(28, gx + 80, gy - 40)]);
+            await expect.poll(async () => (await readTouchProbeState(page)).scrollTop).toBe(scrollAt28Contact + 40);
             const scrollBeforeReverseLift = (await readTouchProbeState(page)).scrollTop;
 
             await send('touchEnd',   [pt(28, gx + 80, gy - 40, 0)]);
