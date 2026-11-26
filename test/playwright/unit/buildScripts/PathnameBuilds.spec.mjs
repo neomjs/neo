@@ -30,12 +30,16 @@ for (const tier of ['esm', 'development', 'production']) {
             write('node_modules/neo.mjs/package.json', '{"name":"neo.mjs","version":"0.0.0","type":"module"}');
             write('node_modules/neo.mjs/src/worker/App.mjs', 'self.buildFixture = true;');
             write('src/MicroLoader.mjs', 'export const fixture = true;');
-            for (const name of ['portal', 'camelCase', 'hash']) {
+            for (const name of ['portal', 'camelCase', 'spaRootApp', 'hash']) {
                 const html = '<!DOCTYPE html><html><head><base href="/source/"><title>build fixture</title></head><body></body></html>';
                 write(`apps/${name}/index.html`, html);
                 write(`apps/${name}/app.mjs`, 'export default {};');
-                write(`apps/${name}/neo-config.json`, JSON.stringify({appPath: `../../apps/${name}/app.mjs`,
-                    basePath: '../../', routerMode: name === 'hash' ? 'hash' : 'pathname', routerBasePath: '/source'}))
+                write(`apps/${name}/neo-config.json`, JSON.stringify({
+                    appPath   : `../../apps/${name}/app.mjs`,
+                    basePath  : '../../',
+                    routerMode: name === 'hash' ? 'hash' : 'pathname',
+                    ...(name === 'spaRootApp' ? {} : {routerBasePath: '/source'})
+                }))
             }
             if (tier === 'esm') {
                 execFileSync(process.execPath, [path.join(repo, 'buildScripts/build/esmodules.mjs')],
@@ -54,12 +58,16 @@ for (const tier of ['esm', 'development', 'production']) {
                     });`;
                 execFileSync(process.execPath, ['--input-type=module', '-e', script], {cwd: root, stdio: 'pipe', timeout: 50000})
             }
-            for (const name of ['portal', 'camelCase', 'hash']) {
+            for (const name of ['portal', 'camelCase', 'spaRootApp', 'hash']) {
                 const config   = JSON.parse(read(`apps/${name}/neo-config.json`)),
                       document = parse(read(`apps/${name}/index.html`)),
                       head     = document.childNodes.find(node => node.tagName === 'html').childNodes.find(node => node.tagName === 'head'),
                       href     = head.childNodes.find(node => node.tagName === 'base').attrs.find(attr => attr.name === 'href').value;
-                expect(config.routerBasePath).toBe(name === 'hash' ? '/source' : `/dist/${tier}/apps/${name}`);
+                if (name === 'spaRootApp') {
+                    expect(Object.hasOwn(config, 'routerBasePath')).toBe(false)
+                } else {
+                    expect(config.routerBasePath).toBe(name === 'hash' ? '/source' : `/dist/${tier}/apps/${name}`)
+                }
                 expect(href).toBe(name === 'hash' ? '/source/' : `/dist/${tier}/apps/${name}/`)
             }
             server = createFileServer({root, freshness: {onListening() {}, onRequest() {}}});

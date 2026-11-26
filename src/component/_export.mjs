@@ -3,10 +3,11 @@ import BoxLabel          from './BoxLabel.mjs';
 import Chip              from './Chip.mjs';
 import Circle            from './Circle.mjs';
 import DateSelector      from './DateSelector.mjs';
+import EmptyState        from './EmptyState.mjs';
 import Gallery           from './Gallery.mjs';
 import Helix             from './Helix.mjs';
 import Label             from './Label.mjs';
 import MonthYearSelector from './MonthYearSelector.mjs';
 import Sparkline         from './Sparkline.mjs';
 
-export {Component, BoxLabel, Chip, Circle, DateSelector, Gallery, Helix, Label, MonthYearSelector, Sparkline};
+export {Component, BoxLabel, Chip, Circle, DateSelector, EmptyState, Gallery, Helix, Label, MonthYearSelector, Sparkline};

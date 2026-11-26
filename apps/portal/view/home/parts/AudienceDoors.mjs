@@ -196,7 +196,7 @@ class AudienceDoors extends BaseContainer {
                                 cls: ['portal-door-proof'],
                                 cn : [{
                                     tag : 'a',
-                                    href: '#/news/pulls/15123',
+                                    href: '/news/pulls/15123',
                                     cn  : [
                                         {tag: 'span', text: 'Proof: cross-family PR #15123 record'},
                                         {tag: 'i', cls: ['fa', 'fa-arrow-right'], 'aria-hidden': true}
@@ -250,7 +250,7 @@ class AudienceDoors extends BaseContainer {
                                 cls: ['portal-door-proof'],
                                 cn : [{
                                     tag : 'a',
-                                    href: '#/learn/benefits/Introduction',
+                                    href: '/learn/benefits/Introduction',
                                     cn  : [
                                         {tag: 'span', text: 'Proof: architectural essay with primary receipts'},
                                         {tag: 'i', cls: ['fa', 'fa-arrow-right'], 'aria-hidden': true}

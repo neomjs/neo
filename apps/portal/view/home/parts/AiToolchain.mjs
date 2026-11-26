@@ -56,7 +56,7 @@ class AiToolchain extends BaseContainer {
                 items : [{
                     module : ContentBox,
                     header : 'Neural Link',
-                    route  : '#/learn/agentos/NeuralLink',
+                    route  : '/learn/agentos/NeuralLink',
                     content: [
                         'Possession interface for running apps.',
                         'Inspect semantic runtime state.',

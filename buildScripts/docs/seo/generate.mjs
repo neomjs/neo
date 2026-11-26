@@ -166,6 +166,7 @@ const PRIORITIES = new Map([
     ['guides/uibuildingblocks/WebDesktops'            , 0.8],
     ['guides/testing/DockLayoutsTesting'              , 0.8],
     ['tutorials/DockLayoutsFirstLayout'               , 0.8],
+    ['tutorials/EnterpriseGrid'                       , 0.8],
     ['guides/datahandling/Grids'                      , 0.8],
     ['guides/datahandling/Tables'                     , 0.8],
     ['guides/datahandling/UsingStores'                , 0.8],

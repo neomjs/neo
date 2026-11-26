@@ -1,5 +1,6 @@
 import Button       from '../../../../src/button/Base.mjs';
 import Container    from '../../../../src/container/Base.mjs';
+import EmptyState   from '../../../../src/component/EmptyState.mjs';
 import Example      from '../../model/Example.mjs';
 import ExampleStore from '../../store/Examples.mjs';
 import List         from './List.mjs';
@@ -116,18 +117,16 @@ class SearchResults extends Container {
             readOnly     : true,
             reference    : 'search-share-url'
         }, {
-            ntype    : 'component',
-            cls      : ['portal-examples-search-empty'],
-            flex     : 'none',
-            hidden   : true,
-            reference: 'search-empty',
-            vdom     : {
-                tag: 'div',
-                cn : [
-                    {tag: 'p', cls: ['portal-examples-search-empty-title'], text: 'No published examples match your query in the selected build.'},
-                    {tag: 'p', cls: ['portal-examples-search-empty-hint'],  text: 'Try a capability term such as drag, date, grid or dashboard, or press Escape to return.'}
-                ]
-            }
+            module       : EmptyState,
+            actionHandler: 'onClearFind',
+            actionIconCls: 'fa fa-xmark',
+            actionText   : 'Clear (Esc)',
+            cls          : ['portal-examples-search-empty'],
+            description  : 'Try a capability term such as drag, date, grid or dashboard, or press Escape to return.',
+            flex         : 'none',
+            hidden       : true,
+            reference    : 'search-empty',
+            text         : 'No published examples match your query in the selected build.'
         }, {
             module   : Container,
             cls      : ['portal-examples-search-groups'],
@@ -191,7 +190,8 @@ class SearchResults extends Container {
      */
     clearResults() {
         this.getGroupsContainer().removeAll(true);
-        this.down({reference: 'search-empty'}).hidden = true
+        this.down({reference: 'search-clear-button'}).hidden = false;
+        this.down({reference: 'search-empty'}).hidden        = true
     }
 
     /**
@@ -244,13 +244,15 @@ class SearchResults extends Container {
         heading.vdom.cn[1].text = totalMatches > 0
             ? `${totalMatches} ${exampleWord} in ${groupCount} ${groupWord}`
             : `No matches for "${query}"`;
-        heading.vdom.cn[2].text = totalMatches > 0
+        heading.vdom.cn[2].removeDom = totalMatches === 0;
+        heading.vdom.cn[2].text      = totalMatches > 0
             ? `Showing live examples matching "${query}" across titles, captions, group names and keywords.`
-            : `No live examples match "${query}".`;
+            : '';
         heading.update();
 
         groupsContainer.removeAll(true);
-        me.down({reference: 'search-empty'}).hidden = totalMatches > 0;
+        me.down({reference: 'search-clear-button'}).hidden = totalMatches === 0;
+        me.down({reference: 'search-empty'}).hidden        = totalMatches > 0;
 
         if (groups.length > 0) {
             groupsContainer.add(groups.map(({definition, records}) => {

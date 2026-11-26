@@ -227,5 +227,25 @@ test.describe('SharedWorker route-href windowId call-site audit (#22175)', () =>
             expect(isManagedRoutePath(standalone, ignorePaths, ''), standalone).toBe(false);
             expect(isManagedRoutePath(`/apps/portal${standalone}`, ignorePaths, '/apps/portal'), `/apps/portal${standalone}`).toBe(false)
         }
+    });
+
+    test('apps/portal/view/**/*.mjs contains zero legacy #/... route literals (#22229)', async () => {
+        const files      = await fg(['apps/portal/view/**/*.mjs'], {cwd: repoRoot}),
+              violations = [];
+
+        expect(files.length).toBeGreaterThan(30);
+
+        for (const relFile of files.sort()) {
+            const code = fs.readFileSync(path.join(repoRoot, relFile), 'utf8'),
+                  ast  = acorn.parse(code, {ecmaVersion: 'latest', locations: true, sourceType: 'module'});
+
+            walkAst(ast, node => {
+                if (node.type === 'Literal' && typeof node.value === 'string' && node.value.startsWith('#/') && node.value.length > 2) {
+                    violations.push(`${relFile}:${node.loc.start.line} ${JSON.stringify(node.value)}`)
+                }
+            })
+        }
+
+        expect(violations).toEqual([])
     })
 });

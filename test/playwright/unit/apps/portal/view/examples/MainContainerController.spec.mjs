@@ -790,8 +790,16 @@ test.describe('Portal examples overview and group pages', () => {
         controller.onSelectBuild({id: 'devmode'});
         expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount - 1} examples…  /`);
         expect(matchedIds()).toEqual([]);
-        expect(searchResults.down({reference: 'search-empty'}).hidden).toBe(false);
+        const emptyState = searchResults.down({reference: 'search-empty'});
+        expect(emptyState.className).toBe('Neo.component.EmptyState');
+        expect(emptyState.hidden).toBe(false);
+        expect(searchResults.down({reference: 'search-clear-button'}).hidden).toBe(true);
+        expect(emptyState.text).toBe('No published examples match your query in the selected build.');
+        expect(emptyState.description).toBe('Try a capability term such as drag, date, grid or dashboard, or press Escape to return.');
+        expect(emptyState.actionText).toBe('Clear (Esc)');
+        expect(emptyState.actionHandler).toBe('onClearFind');
         controller.onSelectBuild({id: 'dist_prod'});
+        expect(searchResults.down({reference: 'search-clear-button'}).hidden).toBe(false);
         expect(view.getSidebarFindField().placeholderText).toBe(`Search ${publishedCount} examples…  /`);
         expect(matchedIds()).toEqual(['liquid-glass']);
 

@@ -155,7 +155,7 @@ class Markdown extends Component {
 
     /**
      * Triggered after the windowId config got changed.
-     * Re-renders Markdown HTML only when the new window resolves internal `#/` ticket or content links
+     * Re-renders Markdown HTML only when the new window resolves internal `#/` or `/` ticket or content links
      * to a different href target (`routerMode` or `routerBasePath` change), preserving live embedded
      * components across same-config window moves and initial `windowId` assignment.
      * @param {String|null} value
@@ -170,9 +170,10 @@ class Markdown extends Component {
 
         if (value != null && me.value) {
             const
-                issuesChanged = me.replaceTicketIds && me.issuesUrl?.startsWith('#/') &&
+                isInternalRoute = url => Boolean(url?.startsWith('#/') || (url?.startsWith('/') && !url.startsWith('//'))),
+                issuesChanged   = me.replaceTicketIds && isInternalRoute(me.issuesUrl) &&
                     StringUtil.toRouteHref(me.issuesUrl, oldValue) !== StringUtil.toRouteHref(me.issuesUrl, value),
-                contentChanged = me.contentRoute?.startsWith('#/') &&
+                contentChanged  = isInternalRoute(me.contentRoute) &&
                     StringUtil.toRouteHref(me.contentRoute, oldValue) !== StringUtil.toRouteHref(me.contentRoute, value);
 
             if (issuesChanged || contentChanged) {
@@ -414,8 +415,9 @@ class Markdown extends Component {
 
             content = content.replace(regexTicketId, (match, prefix, id) => {
                 const
-                    issuesUrl  = me.issuesUrl.startsWith('#/') ? StringUtil.toRouteHref(me.issuesUrl, windowId) : me.issuesUrl,
-                    isInternal = issuesUrl.startsWith('#') || (windowConfig.routerMode === 'pathname' && issuesUrl.startsWith('/')),
+                    isRoute    = Boolean(me.issuesUrl?.startsWith('#/') || (me.issuesUrl?.startsWith('/') && !me.issuesUrl.startsWith('//'))),
+                    issuesUrl  = isRoute ? StringUtil.toRouteHref(me.issuesUrl, windowId) : me.issuesUrl,
+                    isInternal = issuesUrl.startsWith('#') || (windowConfig.routerMode === 'pathname' && issuesUrl.startsWith('/') && !issuesUrl.startsWith('//')),
                     url        = issuesUrl + id,
                     target     = isInternal ? '' : ' target="_blank"';
 

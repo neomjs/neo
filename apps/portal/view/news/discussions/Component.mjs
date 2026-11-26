@@ -32,9 +32,9 @@ class Component extends ContentComponent {
          */
         cls: ['portal-news-discussions-component'],
         /**
-         * @member {String} issuesUrl='#/news/tickets/'
+         * @member {String} issuesUrl='/news/tickets/'
          */
-        issuesUrl: '#/news/tickets/',
+        issuesUrl: '/news/tickets/',
         /**
          * @member {String} repoUserUrl='https://github.com/'
          */
