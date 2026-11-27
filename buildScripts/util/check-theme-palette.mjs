@@ -3,7 +3,7 @@
  * @module buildScripts/util/check-theme-palette
  * @summary Holds every theme palette to its measurable rules: a grade has one lightness in every slot, a
  * slot's grades descend in lightness, the text, border and focus-ring pairs meet their contrast floors in each
- * scheme the theme declares, and every palette declares the same `--neo-` names as every other.
+ * scheme the theme declares, and every palette declares the same palette and role names as every other.
  *
  * A palette is a theme class for which a sheet declares a `--neo-palette-*` name. A theme without one is not
  * written against the roles yet: it is skipped, and it declares no colour role but the scheme. This check
@@ -331,6 +331,13 @@ function isMeasured(name) {
 }
 
 /**
+ * A palette or role name by its shape: `--neo-palette-…`, or `--neo-<category>-…` with one of the thirteen role
+ * categories. Every engine custom property carries `--neo-`, so the prefix alone names no role.
+ * @type {RegExp}
+ */
+const PALETTE_OR_ROLE = /^--neo-(?:palette|color|space|control|font|line-height|letter-spacing|radius|border-width|focus-ring|opacity|elevation|duration|ease)-/;
+
+/**
  * Every place a sheet spells a custom property as a declaration (`--name:`) or a registration
  * (`@property --name {`). A `var()` read is followed by neither, and a query such as
  * `@container style(--name: value)` writes the name behind an opening parenthesis.
@@ -608,7 +615,7 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
 }
 
 /**
- * @summary Holds every palette to one set of names: a `--neo-` name that one theme class declares and
+ * @summary Holds every palette to one set of names: a palette or role name that one theme class declares and
  * another lacks fails once, so an override written against one theme reaches every theme.
  * @param {Object} data
  * @param {Object[]} data.declared Each `{names: String[], relPath: String, themeClass: String}`
@@ -666,7 +673,7 @@ function checkCascade({declarations, failures, relPath, themeClass, values}) {
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
  * @returns {{failures: String[], names: Number, palettes: String[]}} `palettes` names each checked theme class
- * with its scheme; `names` counts the distinct `--neo-` names they declare
+ * with its scheme; `names` counts the distinct palette and role names they declare
  */
 export function inspectThemePalettes({root = repoRoot} = {}) {
     const
@@ -765,7 +772,7 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         checkCascade({declarations, failures, relPath, themeClass, values});
 
         palettes.push(`${themeClass} (${declarations.get(SCHEME) ?? 'no scheme'})`);
-        declared.push({names: [...declarations.keys()].filter(name => name.startsWith('--neo-')), relPath, themeClass});
+        declared.push({names: [...declarations.keys()].filter(name => PALETTE_OR_ROLE.test(name)), relPath, themeClass});
         checkPalette({declarations, failures, relPath, themeClass})
     }
 

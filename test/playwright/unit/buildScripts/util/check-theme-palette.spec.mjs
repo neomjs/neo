@@ -145,7 +145,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
     test('a palette without a scheme fails, and a theme without a palette is skipped', () => {
         const {failures, palettes} = plant(
             css => css.replace(/\.neo-theme-neo-(?:light|dark)\s*\{--neo-color-scheme:[^}]+\}\n/g, ''),
-            {'theme-old/Global.css': ':root .neo-theme-old { --button-background-color: #fff; }'}
+            {'theme-old/Global.css': ':root .neo-theme-old { --neo-button-background-color: #fff; }'}
         );
 
         expect(palettes).toEqual(['neo-theme-neo-light (no scheme)', 'neo-theme-neo-dark (no scheme)']);
@@ -471,7 +471,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
     test('a name a second theme adds fails once, and a component variable is not compared', () => {
         const {failures} = plantSecond(css => css.replace(
             '--neo-radius-large',
-            '--button-border-radius: 4px;\n    --neo-radius-pill: 999px;\n    --neo-radius-large'
+            '--neo-button-border-radius: 4px;\n    --neo-radius-pill: 999px;\n    --neo-radius-large'
         ));
 
         expect(failures).toEqual([
