@@ -135,6 +135,7 @@
  "Neo.board.SortZone": "Neo.draggable.container.SortZone",
  "Neo.button.Base": "Neo.component.Base",
  "Neo.button.Effect": "Neo.component.Base",
+ "Neo.button.FloatingAction": "Neo.button.Base",
  "Neo.button.Menu": "Neo.button.Split",
  "Neo.button.Segmented": "Neo.toolbar.Base",
  "Neo.button.Split": "Neo.button.Base",
