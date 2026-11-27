@@ -1,3 +1,4 @@
 :root .neo-theme-dark { /* .neo-popover */
     --neo-popover-box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+    --neo-popover-border-radius : 4px;
 }

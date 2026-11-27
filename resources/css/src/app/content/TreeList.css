@@ -72,7 +72,7 @@
     }
 
     .neo-list-item {
-        border-radius   : 8px;
+        border-radius   : var(--neo-app-content-tree-list-item-border-radius);
         font-size       : 16px;
         margin-right    : 0 !important;
         padding         : 0 3px 0 calc(var(--neo-tree-list-indent-base) + (var(--neo-tree-list-level) * var(--neo-tree-list-indent-step))) !important;

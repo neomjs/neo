@@ -5,4 +5,6 @@
     --neo-desktop-app-window-glyph-color     : #fff;
     --neo-desktop-app-window-icon-color      : rgba(226, 232, 240, .72);
     --neo-desktop-app-window-box-shadow          : 0 30px 80px -20px rgba(2, 6, 23, .70);
+    --neo-desktop-app-window-border-radius   : 16px;
+    --neo-desktop-app-window-icon-border-radius : 7px;
 }

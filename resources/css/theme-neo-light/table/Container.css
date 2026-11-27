@@ -11,4 +11,5 @@
     --neo-table-container-scrollbar-thumb-background-hover   : rgba(0, 0, 0, 0.4);
     --neo-table-container-scrollbar-thumb-inactive-background: rgba(0, 0, 0, 0.05);
     --neo-table-container-scrollbar-track-background         : rgba(0, 0, 0, 0.1);
+    --neo-table-container-scrollbar-border-radius            : 5px;
 }

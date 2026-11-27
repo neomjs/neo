@@ -6,4 +6,5 @@
     --neo-toast-shadow-color            : rgba(255, 255, 255, 0.15);
     --neo-toast-success-background-color: #b7e6ad;
     --neo-toast-success-color           : #124108;
+    --neo-toast-border-radius           : 0.5rem;
 }

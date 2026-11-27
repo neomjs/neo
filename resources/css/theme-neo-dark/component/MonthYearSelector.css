@@ -1,0 +1,4 @@
+:where(.neo-theme-neo-dark) { /* .neo-monthyearselector */
+    --neo-dateselector-cell-border-radius: 4px;
+    --neo-dateselector-nav-border-radius : 4px;
+}

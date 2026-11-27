@@ -91,8 +91,7 @@
         }
 
         &::-webkit-scrollbar-track {
-            -webkit-border-radius:5px;
-            border-radius:5px;
+            border-radius:var(--neo-table-container-scrollbar-border-radius);
             background:var(--neo-table-container-scrollbar-track-background);
 
             &:vertical {
@@ -101,8 +100,7 @@
         }
 
         &::-webkit-scrollbar-thumb {
-            -webkit-border-radius:5px;
-            border-radius:5px;
+            border-radius:var(--neo-table-container-scrollbar-border-radius);
             background:var(--neo-table-container-scrollbar-thumb-background);
         }
 

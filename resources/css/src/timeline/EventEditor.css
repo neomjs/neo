@@ -64,7 +64,7 @@
         --neo-button-color-hover : var(--neo-timeline-editor-accent-contrast-color, #0f141b);
         background                : var(--neo-timeline-editor-accent-color, #5eead4);
         border-color              : var(--neo-timeline-editor-accent-color, #5eead4);
-        border-radius             : 6px;
+        border-radius             : var(--neo-timeline-editor-button-border-radius);
         color                     : var(--neo-timeline-editor-accent-contrast-color, #0f141b);
         font-weight               : 600;
     }
@@ -75,7 +75,7 @@
         --neo-button-color-hover : var(--neo-timeline-editor-color, #e3e8f0);
         background                : var(--neo-timeline-editor-cancel-background, #232c3a);
         border-color              : var(--neo-timeline-editor-border-color, #2b3545);
-        border-radius             : 6px;
+        border-radius             : var(--neo-timeline-editor-button-border-radius);
         color                     : var(--neo-timeline-editor-color, #e3e8f0);
     }
 }

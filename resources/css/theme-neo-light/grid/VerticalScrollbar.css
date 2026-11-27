@@ -3,4 +3,5 @@
     --neo-grid-scrollbar-thumb-color : rgba(0, 0, 0, 0.4);
     --neo-grid-scrollbar-touch-width : 40px;
     --neo-grid-scrollbar-width       : 16px;
+    --neo-grid-scrollbar-thumb-border-radius : 16px;
 }

@@ -8,4 +8,5 @@
     --neo-gantt-milestone-stroke       : var(--neo-cyber-gold);
     --neo-gantt-task-proxy-box-shadow      : 0 5px 18px rgba(0, 0, 0, .28);
     --neo-gantt-task-proxy-milestone-filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .32));
+    --neo-gantt-milestone-label-border-radius : 3px;
 }

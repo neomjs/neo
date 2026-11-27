@@ -202,7 +202,7 @@
 .neo-event-border-all-sides {
     .neo-event,
     .neo-allday-event {
-        border-radius: 3px;
+        border-radius: var(--neo-event-border-radius);
 
         &.neo-blue {
             border: 1px solid var(--neo-event-blue-color);

@@ -4,4 +4,6 @@
         radial-gradient(1000px 700px at 15% 15%, rgba(100, 181, 246, .14), transparent 60%),
         radial-gradient(900px 700px at 85% 90%, rgba(100, 181, 246, .08), transparent 60%),
         linear-gradient(160deg, #2b2b2b 0%, #323232 50%, #262626 100%);
+    --neo-desktop-window-dwelling-border-radius : 8px;
+    --neo-desktop-window-dwelling-marker-border-radius : 2px;
 }

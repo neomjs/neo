@@ -18,7 +18,7 @@
     padding       : 0.4rem;
     gap           : 0.5rem;
     border        : 1px solid var(--neo-fileuploadfield-border-color);
-    border-radius : 2px;
+    border-radius : var(--neo-fileuploadfield-border-radius);
 
     /* Space for any error message */
     margin-bottom : 2.5rem;
@@ -33,7 +33,7 @@
             bottom         : -2px;
             left           : -2px;
             border         : 1px solid var(--neo-fileuploadfield-border-color-focus);
-            border-radius  : 3px;
+            border-radius  : var(--neo-fileuploadfield-border-radius-focus);
         }
     }
 

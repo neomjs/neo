@@ -4,10 +4,11 @@
  * @summary Counts the shape of the theme tree so that a number deciding the design system comes from one
  * instrument any reviewer can re-run, instead of a private script per seat.
  *
- * Eight sections: custom properties per layer, what an engine component value is made of, what a light
+ * Nine sections: custom properties per layer, what an engine component value is made of, what a light
  * and dark pair differ in, the component names every full theme declares, declarations no CSS reads,
- * structural reads without a fallback that nothing declares, colour literals in structural rules, and
- * the words that name a background, a text colour, an icon colour and a state.
+ * structural reads without a fallback that nothing declares, colour literals and corner radius literals
+ * in structural rules (`radiusLiterals` in `themeCss.mjs`, the reading `check-theme-radius-literals`
+ * enforces), and the words that name a background, a text colour, an icon colour and a state.
  *
  * A report, not a guard: a finding never fails the run, and there is no baseline and no workflow. A rule
  * worth enforcing becomes its own guard once the design system names it.
@@ -26,12 +27,12 @@
  *     npm run theme-census -- --json         the census object
  *     npm run theme-census -- --root <dir>   another tree holding src/ and theme-* directories
  */
-import fs                                                                           from 'node:fs';
-import path                                                                         from 'node:path';
-import {fileURLToPath}                                                              from 'node:url';
-import isEntryModule                                                                from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
-import {kindOf}                                                                     from './themeNameShapes.mjs';
+import fs                                                                                           from 'node:fs';
+import path                                                                                         from 'node:path';
+import {fileURLToPath}                                                                              from 'node:url';
+import isEntryModule                                                                                from './isEntryModule.mjs';
+import {RUNTIME_PROPERTIES, cssFiles, radiusLiterals, readCss, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
+import {kindOf}                                                                                     from './themeNameShapes.mjs';
 
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
@@ -344,7 +345,11 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
                     return [file, {bare, inFallback: colourCount(rules) - bare}]
                 })
                 .filter(([, {bare, inFallback}]) => bare + inFallback > 0)
-                .sort(([fileA, a], [fileB, b]) => b.bare - a.bare || b.inFallback - a.inFallback || fileA.localeCompare(fileB)))
+                .sort(([fileA, a], [fileB, b]) => b.bare - a.bare || b.inFallback - a.inFallback || fileA.localeCompare(fileB))),
+            radiusLiterals: Object.entries(src.css)
+                .filter(([, {area}]) => area === 'engine')
+                .flatMap(([file, {text}]) => radiusLiterals(text).map(literal => ({file, ...literal})))
+                .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
         }
     }
 }
@@ -380,6 +385,7 @@ export function renderCensus(census, label = 'resources/css') {
         literals  = Object.entries(census.structural.colourLiterals),
         bare      = literals.reduce((sum, [, counts]) => sum + counts.bare, 0),
         fallback  = literals.reduce((sum, [, counts]) => sum + counts.inFallback, 0),
+        radii     = census.structural.radiusLiterals,
         runtime   = census.runtime.map(property => `\`${property}\``).join(', ') || 'none';
 
     return [
@@ -421,7 +427,10 @@ export function renderCensus(census, label = 'resources/css') {
         '## 7. Colour literals in structural rules (engine files)',
         `${bare + fallback} in ${literals.length} files: ${bare} bare, ${fallback} inside a \`var()\` fallback, which a theme overrides by setting the property.`,
         table(['File', 'Bare', 'Inside a `var()` fallback'], literals.map(([file, {bare: own, inFallback}]) => [`\`${file}\``, own, inFallback])),
-        '## 8. Naming (engine component names)',
+        '## 8. Corner radius literals in structural rules (engine files)',
+        `${radii.length} in ${new Set(radii.map(({file}) => file)).size} file(s); \`check-theme-radius-literals\` names the ones that stay by design.`,
+        table(['File', 'Line', 'Property', 'Value'], radii.map(({file, line, property, value}) => [`\`${file}\``, line, `\`${property}\``, `\`${value}\``])),
+        '## 9. Naming (engine component names)',
         table(['Theme', 'A background', 'A text colour', 'An icon colour', 'State word last', 'State word elsewhere'], names.map(name => {
             const {background, text, icon, state} = census.themes[name].naming;
 

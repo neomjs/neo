@@ -29,4 +29,5 @@
     --neo-tab-button-text-font-size                 : var(--neo-button-text-font-size);
     --neo-tab-button-text-font-weight               : var(--neo-button-text-font-weight);
     --neo-tab-button-text-transform                 : none;
+    --neo-tab-button-close-border-radius            : 2px;
 }

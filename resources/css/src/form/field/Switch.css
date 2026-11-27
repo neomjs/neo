@@ -1,7 +1,7 @@
 .neo-switchfield {
     .neo-switchfield-input {
         background-color: var(--neo-switchfield-off-background-color);
-        border-radius   : 999px;
+        border-radius   : var(--neo-switchfield-track-border-radius);
         height          : var(--neo-switchfield-height);
         margin          : 0;
         position        : relative;

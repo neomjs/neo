@@ -21,4 +21,5 @@
     --neo-event-yellow-border-color          : rgb( 255, 204,   0);
     --neo-event-yellow-color                 : rgb( 255, 215,   0);
     --neo-event-yellow-color-focus           : rgb( 255, 215,   0);
+    --neo-event-border-radius                : 3px;
 }

@@ -1,7 +1,7 @@
 .neo-toast {
     align-items     : center;
     background-color: var(--neo-toast-background-color);
-    border-radius   : 0.5rem;
+    border-radius   : var(--neo-toast-border-radius);
     box-shadow      : 0 0.25rem 0.5rem var(--neo-toast-shadow-color);
     color           : var(--neo-toast-color);
     display         : flex;

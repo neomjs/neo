@@ -10,7 +10,7 @@
         display: flex;
 
         .neo-org-avatar {
-            border-radius: 4px;
+            border-radius: var(--neo-github-orgs-avatar-border-radius);
             height       : 20px;
             width        : 20px;
         }

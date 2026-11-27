@@ -24,7 +24,7 @@
 
     .neo-carousel-inner {
         background-color: var(--neo-carousel-inner-background-color);
-        border-radius   : 5px;
+        border-radius   : var(--neo-carousel-inner-border-radius);
         color           : var(--neo-carousel-inner-color);
         flex            : 1 1 auto;
         min-height      : 0;

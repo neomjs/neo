@@ -79,6 +79,7 @@ jobs:
           {"name": "theme palette",             "run": "node ./buildScripts/util/check-theme-palette.mjs"},
           {"name": "theme value files",         "run": "node ./buildScripts/util/check-theme-value-files.mjs"},
           {"name": "theme var references",      "run": "node ./buildScripts/util/check-theme-var-references.mjs"},
+          {"name": "theme radius literals",     "run": "node ./buildScripts/util/check-theme-radius-literals.mjs"},
           {"name": "examples body only",        "run": "npm run check-examples-body-only"},
           {"name": "theme surfaces",            "run": "npm run check-theme-surfaces"},
           {"name": "front door fingerprint",    "run": "node ./buildScripts/util/check-front-door-fingerprint.mjs"},

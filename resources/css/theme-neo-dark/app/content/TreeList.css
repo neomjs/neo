@@ -2,4 +2,5 @@
     --neo-app-content-treelist-bold-color        : inherit;
     --neo-app-content-treelist-meta-color        : var(--neo-white-off);
     --neo-app-content-treelist-ticket-title-color: var(--neo-white-off);
+    --neo-app-content-tree-list-item-border-radius : 8px;
 }

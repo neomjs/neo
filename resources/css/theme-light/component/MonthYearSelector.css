@@ -1,0 +1,4 @@
+:root .neo-theme-light { /* .neo-monthyearselector */
+    --neo-dateselector-cell-border-radius: 4px;
+    --neo-dateselector-nav-border-radius : 4px;
+}

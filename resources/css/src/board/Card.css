@@ -106,7 +106,7 @@
         align-items    : center;
         background     : transparent;
         border         : 0;
-        border-radius  : 4px;
+        border-radius  : var(--neo-board-icon-button-border-radius);
         color          : var(--neo-board-card-muted-color);
         cursor         : pointer;
         display        : inline-flex;
@@ -145,7 +145,7 @@
 
     .neo-board-card-tag {
         background   : var(--neo-board-badge-background);
-        border-radius: 999px;
+        border-radius: var(--neo-board-card-tag-border-radius);
         color        : var(--neo-board-badge-color);
         font-size    : 0.78em;
         line-height  : 1;
@@ -154,7 +154,7 @@
 
     .neo-board-card-progress {
         background   : var(--neo-board-track-background);
-        border-radius: 999px;
+        border-radius: var(--neo-board-card-progress-border-radius);
         height       : 4px;
         overflow     : hidden;
     }
@@ -167,7 +167,7 @@
     .neo-board-card-due-date {
         align-items         : center;
         border              : 1px solid var(--neo-board-card-border-color-hover);
-        border-radius       : 4px;
+        border-radius       : var(--neo-board-card-due-date-border-radius);
         color               : var(--neo-board-badge-color);
         display             : inline-flex;
         flex                : 0 0 auto;
@@ -268,7 +268,7 @@
         align-items    : center;
         background     : var(--neo-board-accent-color);
         border         : 2px solid var(--neo-board-card-background);
-        border-radius  : 999px;
+        border-radius  : var(--neo-board-badge-border-radius);
         box-shadow     : var(--neo-board-card-box-shadow);
         /* Each theme's accent sits opposite its background in lightness, so the background reads on it */
         color          : var(--neo-board-background);

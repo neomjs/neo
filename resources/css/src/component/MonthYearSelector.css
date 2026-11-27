@@ -75,7 +75,7 @@
     .neo-month,
     .neo-year {
         align-items    : center;
-        border-radius  : 4px;
+        border-radius  : var(--neo-dateselector-cell-border-radius);
         cursor         : pointer;
         display        : flex;
         justify-content: center;
@@ -115,7 +115,7 @@
 
     .neo-monthyearselector-button {
         border       : 1px solid var(--neo-dateselector-border-color);
-        border-radius: 4px;
+        border-radius: var(--neo-dateselector-nav-border-radius);
         cursor       : pointer;
         padding      : 2px 12px;
 

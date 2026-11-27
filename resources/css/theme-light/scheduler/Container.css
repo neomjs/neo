@@ -7,4 +7,6 @@
     --neo-scheduler-bar-violet-background      : #ede9fe;
     --neo-scheduler-bar-violet-border-color  : #6d28d9;
     --neo-scheduler-drag-preview-box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
+    --neo-scheduler-bar-handle-border-radius   : 2px;
+    --neo-scheduler-drag-preview-border-radius : 4px;
 }

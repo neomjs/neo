@@ -48,6 +48,37 @@ export function readCss(file) {
 }
 
 /**
+ * A corner radius: `border-radius`, a corner longhand, either with a vendor prefix, or a custom
+ * property named `--*-border-radius[-<state>]`. The lookbehind keeps a custom property's name from
+ * matching as its `border-radius` tail.
+ * @type {RegExp}
+ */
+const RADIUS_DECLARATION = /(?<![\w-])((?:-(?:webkit|moz)-)?border(?:-(?:top|bottom)-(?:left|right)|-(?:start|end)-(?:start|end))?-radius|--[\w-]*-border-radius(?:-[\w-]+)?)\s*:\s*([^;{}]+)/gi;
+
+/**
+ * @summary The corner radii of a stylesheet that hold a literal length, which no theme can reach.
+ *
+ * A value is a literal when it holds a length and no `var()`. `0`, the CSS-wide keywords and values
+ * made of percentages only pass: a circle is shape by construction, not a theme's choice.
+ * `theme-census` (section 8) and `check-theme-radius-literals` read structural rules through it.
+ * @param {String} css A stylesheet as `readCss` returns it
+ * @returns {Object[]} `{line, property, value}` per literal, in source order
+ */
+export function radiusLiterals(css) {
+    const literals = [];
+
+    for (const match of css.matchAll(RADIUS_DECLARATION)) {
+        const value = match[2].trim().replace(/\s*!important$/i, '');
+
+        if (!/var\(/i.test(value) && /\d*\.?\d+(?:px|r?em|ex|ch|vw|vh|vmin|vmax|cm|mm|in|pt|pc)\b/i.test(value) && !/^(?:0(?:px)?\s*)+$/.test(value)) {
+            literals.push({line: css.slice(0, match.index).split('\n').length, property: match[1], value})
+        }
+    }
+
+    return literals
+}
+
+/**
  * @summary Removes balanced `var()` calls, fallbacks included, so that what remains is the CSS no custom
  * property can change: a literal inside a fallback is one a theme reaches by setting the property.
  * @param {String} value

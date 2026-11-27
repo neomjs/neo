@@ -14,7 +14,7 @@
 
     .neo-list-item:not(.neo-list-header) {
         align-items   : center;
-        border-radius : 16px;
+        border-radius : var(--neo-desktop-launcher-item-border-radius);
         display       : flex;
         flex-direction: column;
         gap           : 8px;
@@ -33,7 +33,7 @@
     .neo-desktop-app-icon {
         align-items    : center;
         background     : linear-gradient(145deg, color-mix(in srgb, var(--neo-desktop-app-color) 70%, white), var(--neo-desktop-app-color) 55%, color-mix(in srgb, var(--neo-desktop-app-color) 82%, black));
-        border-radius  : 16px;
+        border-radius  : var(--neo-desktop-launcher-icon-border-radius);
         box-shadow     : 0 10px 24px -10px color-mix(in srgb, var(--neo-desktop-app-color) 75%, transparent), inset 0 1px 0 var(--neo-desktop-launcher-icon-highlight-color);
         color          : var(--neo-desktop-launcher-icon-color);
         display        : flex;
@@ -146,7 +146,7 @@ body.neo-drag-active:has(.neo-desktop-launcher-proxy.neo-sort-drop-rejected) {
     .neo-desktop-launcher,
     .neo-desktop-launcher-proxy {
         .neo-desktop-app-icon {
-            border-radius: 14px;
+            border-radius: var(--neo-desktop-launcher-compact-icon-border-radius);
             font-size    : 21px;
             height       : 48px;
             width        : 48px;

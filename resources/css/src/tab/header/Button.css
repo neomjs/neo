@@ -39,7 +39,7 @@
 
     .neo-tab-close {
         align-items        : center;
-        border-radius      : 2px;
+        border-radius      : var(--neo-tab-button-close-border-radius);
         color              : var(--neo-tab-button-color);
         cursor             : pointer;
         display            : inline-flex;

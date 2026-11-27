@@ -1,3 +1,4 @@
 :root .neo-theme-light { /* .neo-grid-column-menu */
     --neo-grid-column-menu-box-shadow: 0 4px 16px rgba(0, 0, 0, .25);
+    --neo-grid-column-menu-border-radius : 4px;
 }

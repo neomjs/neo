@@ -37,7 +37,7 @@
 .neo-grid-column-menu-hint {
     background-color: var(--neo-grid-header-button-background-color);
     border          : 1px solid var(--neo-grid-header-button-border-right-color);
-    border-radius   : 4px;
+    border-radius   : var(--neo-grid-column-menu-border-radius);
     box-shadow      : var(--neo-grid-column-menu-box-shadow);
     padding         : 8px;
 

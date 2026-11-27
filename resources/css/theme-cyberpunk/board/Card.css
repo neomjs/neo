@@ -1,0 +1,7 @@
+:root .neo-theme-cyberpunk { /* .neo-board-card */
+    --neo-board-icon-button-border-radius  : 4px;
+    --neo-board-badge-border-radius        : 999px;
+    --neo-board-card-tag-border-radius     : 999px;
+    --neo-board-card-progress-border-radius: 999px;
+    --neo-board-card-due-date-border-radius: 4px;
+}

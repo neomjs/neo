@@ -167,4 +167,5 @@
     --neo-button-size-large-font-size               : 15px;
     --neo-button-size-large-height                  : initial;
     --neo-button-size-large-padding                 : 9px 16px;
+    --neo-button-badge-border-radius                : 5px;
 }

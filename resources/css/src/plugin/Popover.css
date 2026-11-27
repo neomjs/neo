@@ -2,7 +2,7 @@
 .neo-popover[popover] {
     background-color: var(--neo-global-background-color);
     border          : none;
-    border-radius   : 4px;
+    border-radius   : var(--neo-popover-border-radius);
     box-shadow      : var(--neo-popover-box-shadow);
     color           : inherit;
     inset           : auto;

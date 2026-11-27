@@ -54,7 +54,7 @@
 
     .neo-board-lane-count {
         background          : var(--neo-board-badge-background);
-        border-radius       : 999px;
+        border-radius       : var(--neo-board-badge-border-radius);
         color               : var(--neo-board-badge-color);
         font-size           : 0.85em;
         font-variant-numeric: tabular-nums;
@@ -65,7 +65,7 @@
     .neo-board-lane-collapse {
         background   : transparent;
         border       : 0;
-        border-radius: 4px;
+        border-radius: var(--neo-board-icon-button-border-radius);
         color        : inherit;
         cursor       : pointer;
         font         : inherit;

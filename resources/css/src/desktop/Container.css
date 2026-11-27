@@ -28,14 +28,14 @@
             }
             &::before {
                 border       : 2px solid currentColor;
-                border-radius: 8px;
+                border-radius: var(--neo-desktop-window-dwelling-border-radius);
                 inset        : 4px;
                 opacity      : .75;
             }
             &::after {
                 animation       : neo-desktop-return-dwell var(--neo-desktop-return-dwell) linear calc(-1 * var(--neo-desktop-return-offset)) forwards;
                 background-color: currentColor;
-                border-radius   : 2px;
+                border-radius   : var(--neo-desktop-window-dwelling-marker-border-radius);
                 bottom          : 4px;
                 height          : 4px;
                 left            : 10px;

@@ -16,4 +16,7 @@
     --neo-markdown-table-border         : lightgray;
     --neo-markdown-table-header-background-color      : #f8f8f8;
     --neo-markdown-color           : var(--neo-sem-color-text-neutral-default);
+    --neo-markdown-border-radius        : 8px;
+    --neo-markdown-code-block-border-radius : 4px;
+    --neo-markdown-table-border-radius  : 4px;
 }
