@@ -47,7 +47,7 @@ Measured on `dev` at `5ff17dedc8`:
    | `press` | `press:start`, `press:end`, `press:cancel` |
    | `pan`, `pinch`, `rotate` | `<family>:start`, `<family>:move`, `<family>:end`, `<family>:cancel` |
 
-   No gesture name is in `globalDomEvents`, and a unit test asserts it. Each gesture has exactly one `start`, then any number of `move`s, then exactly one `end` or `cancel`, and nothing after. `pinch` and `rotate` may run at once on one node, each in its own order.
+   No gesture name is in `globalDomEvents`, and a unit test asserts it. `tap` and `swipe` are single terminal events: no phase, and nothing before or after them. A phased gesture has exactly one `start`, then any number of `move`s, then exactly one `end` or `cancel`, and nothing after; `press` has no `move`. `pinch` and `rotate` may run at once on one node, each in its own order.
 
 3. **One payload, in CSS pixels and milliseconds.**
 
@@ -59,13 +59,18 @@ Measured on `dev` at `5ff17dedc8`:
    | `contacts` | the active contacts as `{id, x, y}`; `id` counts from 0 within the gesture and is never `Touch.identifier` |
    | `changed` | the ids whose state changed in this event |
    | `x`, `y` | the focal point, the centroid of the active contacts, relative to the target's border box |
-   | `elapsed` | ms since `start` |
+   | `elapsed` | ms since the gesture's first contact went down |
+
+   Every value is finite on every event. When the last contact lifts or cancels, `end` and `cancel` carry an empty `contacts`, the lifted ids in `changed`, and `x`/`y` at the last focal point.
 
    Per family: `tap` adds `count` (repeats) and `contactCount` (the chord). `press:end` adds `duration`. `pan` adds `deltaX`/`deltaY` (total), `stepX`/`stepY` (since the previous event) and `velocityX`/`velocityY` in px/ms. `swipe` adds `direction` (`left`, `right`, `up`, `down`) and both velocities. `pinch` adds `scale`, the distance ratio, starting at 1. `rotate` adds `rotation` in signed degrees, starting at 0, positive clockwise. When the contact count changes, totals keep their values and the focal, distance and angle baselines are taken again, so nothing jumps. `pinch` and `rotate` end when fewer than two contacts remain; a `pan` continues on the survivor.
 
-4. **Per-node registration with an explicit release.** Gesture names take their own branch in App's listener mount, as `resize` does. A listener on a gesture name makes App fetch the Main gesture addon with `getAddon` and call `register({componentId, id, windowId, events})`. App calls `unregister` when the listener is removed and when the component unmounts (`resetMountedDomListeners`). The addon recognizes only on registered nodes and delivers through the same Main → App event message DragDrop uses. It is not a default main-thread addon, so an app without a gesture listener never loads it and gets zero recognition messages by construction.
+4. **Per-node registration with an explicit release.** Gesture names take their own branch in App's listener mount, as `resize` does. A listener on a gesture name makes App fetch the Main gesture addon with `getAddon` and call `register({componentId, id, windowId, events})`. App calls `unregister` when the listener is removed and when the component unmounts (`resetMountedDomListeners`). Registrations are counted per window, component and event name: several listeners register once, and the last removal unregisters. The addon recognizes only on registered nodes and delivers through the same Main → App event message DragDrop uses. It is not a default main-thread addon, so an app without a gesture listener never loads it and gets zero recognition messages by construction.
 
-5. **Target and capture.** A gesture belongs to the innermost registered node, subscribed to that family, that contains the first contact's start point. An ancestor subscribed to the same family receives nothing for that gesture. A later contact joins only if it starts inside the owning node. Touch keeps its start target. Pen and mouse take `setPointerCapture` from `start` until the terminal phase.
+5. **One recognition owner, logical delivery.**
+   - **Recognition is scoped to DOM.** A gesture belongs to the innermost registered node, subscribed to that family, that contains the first contact's start point in the owning window. Only that node's recognizer tracks the contacts, and only its motion owner moves anything. A later contact joins only if it starts inside the owning node. Touch keeps its start target. Pen and mouse take `setPointerCapture` from `start` until the terminal phase.
+   - **Delivery is logical.** The recognized event fires through App's `DomEvent.fire` along `ComponentManager.getParentPath`. A logical ancestor with a listener for the same name receives it too, under the usual `bubble` rules, and neither recognizes nor moves anything.
+   - **A portalled child needs its own registration.** A child rendered under `body` lies outside its logical parent's DOM subtree, so a subscription on the parent alone recognizes nothing on that child.
 
 6. **Teardown cancels without commit.** An open gesture ends in `cancel`, once and with nothing after it, when any of these happens:
    - its node is unregistered or removed from the document;
@@ -81,7 +86,7 @@ Measured on `dev` at `5ff17dedc8`:
 
 8. **One recognized stream, measured beside the raw one.** `move` phases are coalesced to at most one per animation frame per gesture. Each carries the latest contacts and totals, plus the steps summed since the previous event. `start`, `end`, `cancel`, `tap` and `swipe` are never coalesced or dropped. Raw touch forwarding is unchanged by this record: a raw listener still receives its stream. The DevIndex run reports Main → App messages per contact move in four cases: raw-only, semantic-only, both and neither. Demand-gating the raw forwards would change default traffic for every app, so it is a separate decision after the physical comparison.
 
-9. **Activation stays native.** Recognizers never call `preventDefault` on `touchend` or `click`. `tap` observes a tap; the native `click` stays the activation and fires exactly once. On a drag source, `press` yields to the drag: when the sensor arms the drag, the press ends in `press:cancel`.
+9. **Activation stays native.** Recognizers never call `preventDefault` on `touchend` or `click`. `tap` observes a tap; the native `click` stays the activation and fires exactly once. On a drag source, `press` yields to the drag: when the sensor arms the drag, the press ends in `press:cancel`. A press that has reached `press:start` owns the hold, so the recognizer prevents the `contextmenu` that follows for that contact. A node without a `press` subscription keeps the native context menu.
 
 10. **One contact trace, two named providers.** A replay request carries the target, the provider and a bounded list of frames:
 
@@ -89,19 +94,36 @@ Measured on `dev` at `5ff17dedc8`:
     {target, provider, frames: [{t, contacts: [{id, x, y, state}]}]}
     ```
 
-    - **Trace fields:** `target` is a component or node id in the owning window. `t` counts ms from the first frame. `x` and `y` are target-relative CSS px. `id` is a stable contact label. `state` is `down`, `move`, `up` or `cancel`.
+    - **Trace fields:** the request names its app session and window. `target` is a component or node id, resolved in that window only. `t` counts ms from the first frame. `x` and `y` are target-relative CSS px. `id` is a stable contact label. `state` is `down`, `move`, `up` or `cancel`.
+    - **Frames are snapshots, not deltas.** A frame lists only the contacts that change, each at its absolute position. A contact a frame leaves out keeps its last position.
+    - **Sequences and terminals:** a trace may hold several contact sequences, and a sequence ends when no contact is down. The result lists each sequence's terminal (`end`, `cancel` or `none`) in order. The trace-wide `terminal` is the last sequence's.
     - **Presets:** `swipe`, `hold`, `pinch` and `rotate` expand to traces.
     - **Bounds:** limits on frames, duration and contacts are enforced in the schema; the implementing leaf sets them.
     - **Providers:** `engine` and `browser`.
       - `engine`: EventSimulator synthesizes the events in the owning window. It proves recognizer phases and App outcomes. Its events are untrusted, so it cannot prove native scroll, zoom, capture or browser ownership.
       - `browser`: an attached browser-input driver, such as CDP in the Playwright fixture. It proves browser arbitration.
       - A provider that cannot run returns `unavailable` and never falls back to the other.
-    - **Result:** `{provider, trusted, observed, phases, terminal}`.
+    - **Result:** `{provider, trusted, observed, phases, sequences, terminal}`.
       - `observed`: the active and changed ids per frame.
       - `phases`: the recognized events, where they are observable.
-      - `terminal`: `end`, `cancel` or `none`.
+      - `sequences`: each sequence's terminal, in order.
+      - `terminal`: the last sequence's terminal.
 
       Component and Store state are asserted separately.
+    - **Worked example:** the eight-transition trace of the [receipt](https://github.com/neomjs/neo/discussions/22259#discussioncomment-19961766).
+
+      | Frame | Transition | Active | Changed | Sequence |
+      |---|---|---|---|---|
+      | 0 | A down | A | A | 1 opens |
+      | 1 | B down | A, B | B | |
+      | 2 | B up | A | B | |
+      | 3 | A moves | A | A | |
+      | 4 | A cancels | none | A | 1 ends: `cancel` |
+      | 5 | C down | C | C | 2 opens |
+      | 6 | C moves | C | C | |
+      | 7 | C up | none | C | 2 ends: `end` |
+
+      Both providers observe all eight transitions; `engine` reports `trusted: false` and `browser` reports `trusted: true`. The result is `sequences: ['cancel', 'end']`, `terminal: 'end'`.
     - **Surfaces:**
       - Engine: `InteractionService#driveGesture` calls `EventSimulator.driveGesture`. It shares `driveDrag`'s mutex and cancels its open contacts in `finally` on timeout, unmount or window loss.
       - Playwright: the fixture's `nlApp.driveGesture()` supports both providers.
