@@ -54,6 +54,7 @@ export const INVITATIONS = Object.freeze({
 const
     BADGE_ROOT      = 'https://neomjs.com/badges',
     ENGINE_PATHS    = Object.freeze(['src/', 'apps/', 'examples/', 'resources/css/']),
+    ENGINE_REPO     = 'https://github.com/neomjs/neo',
     GENERIC_LABELS  = new Set([...CURATED_LABELS, 'ai', 'bug', 'documentation', 'enhancement']),
     HEADS_UP_PREFIX = '<!-- contributor-heads-up:',
     MARKER_PREFIX   = '<!-- merge-comment:',
@@ -168,13 +169,17 @@ export function nextIssues({closedLabels = [], candidates = [], seed = ''}) {
 }
 
 /**
- * @summary The invitation for a pull request that changed `paths`: engine paths invite its author to see the engine
- * run, anything else to take the agents' working rules along.
+ * @summary The invitation for a pull request that changed `paths` in the repository at `repoUrl`: the Engine's own
+ * paths invite its author to see the engine run; anything else, a sibling repository's app included, to take the
+ * agents' working rules along.
  * @param {String[]} [paths=[]]
+ * @param {String}   [repoUrl=ENGINE_REPO] e.g. `https://github.com/neomjs/neo-agent-institution`
  * @returns {String}
  */
-export function invitation(paths = []) {
-    return paths.some(file => ENGINE_PATHS.some(prefix => String(file).startsWith(prefix))) ? INVITATIONS.engine : INVITATIONS.skills
+export function invitation(paths = [], repoUrl = ENGINE_REPO) {
+    return repoUrl === ENGINE_REPO && paths.some(file => ENGINE_PATHS.some(prefix => String(file).startsWith(prefix)))
+        ? INVITATIONS.engine
+        : INVITATIONS.skills
 }
 
 /**
@@ -292,7 +297,7 @@ function renderNext(issues, repoUrl) {
  * @param {Object[]} [options.candidates=[]] See {@link nextIssues}
  * @param {String[]} [options.closedLabels=[]] See {@link nextIssues}
  * @param {String[]} [options.paths=[]] The files the pull request changed
- * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`
+ * @param {String} options.repoUrl e.g. `https://github.com/neomjs/neo`, which also picks the {@link invitation}
  * @param {String|null} [options.badgesSince=BADGES_SINCE]
  * @param {Boolean} [options.folderWritten=false] Whether the workflow found the account's badge folder on Pages main
  * @param {Number[]|null} [options.optOut=null] The ids on the Pages opt-out list (see {@link parseOptOut}), or null
@@ -334,7 +339,7 @@ export function decideMergeComment({pullRequest, mergedBefore, comments = [], ca
         count === 1 && badgeUrl ? renderBadge(pullRequest.user, badgeUrl, Boolean(writtenUrl))
             : writtenUrl && `**Your badge** at ${writtenUrl} shows the new rung once a scheduled run has counted this merge.`,
         nextLine,
-        invitation(paths),
+        invitation(paths, repoUrl),
         'A star helps others find the project.'
     ] : [
         `Merged. ${standingLine}` + (writtenUrl ? ` Your record and badge: ${writtenUrl}` : ''),
