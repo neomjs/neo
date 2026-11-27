@@ -1,0 +1,543 @@
+{
+  "browser": "158.0.8127.38",
+  "deviceScaleFactor": 1,
+  "modes": {
+    "neo-light": {
+      "rootScheme": "light",
+      "dominantCheckoutPixel": "#ffffff",
+      "checkout": {
+        "button": 32,
+        "input": 25,
+        "buttonPadding": "12px",
+        "buttonRadius": "8px",
+        "buttonFont": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 11
+          }
+        ],
+        "headingFont": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "loadedLocalRoboto": false
+      },
+      "primary": {
+        "height": 32,
+        "padding": "12px",
+        "radius": "8px",
+        "declaredFont": "\"Source Sans 3\", sans-serif",
+        "usedFont": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 7
+          }
+        ],
+        "paint": [
+          "#3e63dd",
+          2619
+        ],
+        "text": "rgb(255, 255, 255)",
+        "ripple": {
+          "color": "color(srgb 1 1 1 / 0.3)",
+          "animation": "ripple",
+          "duration": "0.4s"
+        }
+      },
+      "dense": {
+        "gridHeader": {
+          "height": 29,
+          "padding": "12px"
+        },
+        "tabButton": {
+          "height": 48,
+          "padding": "16px"
+        },
+        "toolbarButton": {
+          "height": 32,
+          "padding": "12px"
+        },
+        "smallButton": {
+          "height": 24,
+          "padding": "8px"
+        },
+        "fieldInput": {
+          "height": 25,
+          "padding": "6px"
+        }
+      },
+      "selected": "oklch(0.875 0.061 267)",
+      "primaryStates": {
+        "hover": {
+          "background": "oklch(0.47 0.17 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 3px",
+          "opacity": "1"
+        },
+        "active": {
+          "background": "oklch(0.39 0.14 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 3px",
+          "opacity": "1"
+        },
+        "focus": {
+          "background": "oklch(0.544 0.191 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "rgb(250, 250, 250) 0px 0px 0px 4px inset",
+          "outline": "rgb(62, 99, 221) solid 2px",
+          "opacity": "1"
+        },
+        "pressed": {
+          "background": "oklch(0.39 0.14 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 2px",
+          "opacity": "1"
+        },
+        "disabled": {
+          "background": "oklch(0.875 0.012 270)",
+          "text": "oklch(0.79 0.021 270)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 3px",
+          "opacity": "1"
+        }
+      }
+    },
+    "material-light": {
+      "rootScheme": "light",
+      "dominantCheckoutPixel": "#ffffff",
+      "checkout": {
+        "button": 40,
+        "input": 56,
+        "buttonPadding": "24px",
+        "buttonRadius": "9999px",
+        "buttonFont": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ],
+        "headingFont": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "loadedLocalRoboto": true
+      },
+      "primary": {
+        "height": 40,
+        "padding": "24px",
+        "radius": "9999px",
+        "declaredFont": "Roboto, sans-serif",
+        "usedFont": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 7
+          }
+        ],
+        "paint": [
+          "#6750a4",
+          3966
+        ],
+        "text": "rgb(255, 255, 255)",
+        "ripple": {
+          "color": "color(srgb 1 1 1 / 0.12)",
+          "animation": "ripple",
+          "duration": "0.4s"
+        }
+      },
+      "dense": {
+        "gridHeader": {
+          "height": 29,
+          "padding": "0px"
+        },
+        "tabButton": {
+          "height": 15,
+          "padding": "0px"
+        },
+        "toolbarButton": {
+          "height": 17,
+          "padding": "0px"
+        },
+        "smallButton": {
+          "height": 32,
+          "padding": "12px"
+        },
+        "fieldInput": {
+          "height": 56,
+          "padding": "0px"
+        }
+      },
+      "selected": "oklch(0.835 0.095 298)",
+      "primaryStates": {
+        "hover": {
+          "background": "oklch(0.405 0.134 292.6)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 3px",
+          "opacity": "1"
+        },
+        "active": {
+          "background": "oklch(0.405 0.134 292.6)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 3px",
+          "opacity": "1"
+        },
+        "focus": {
+          "background": "oklch(0.496 0.13 293.7)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "rgb(255, 255, 255) 0px 0px 0px 4px inset",
+          "outline": "rgb(0, 0, 0) solid 2px",
+          "opacity": "1"
+        },
+        "pressed": {
+          "background": "oklch(0.405 0.134 292.6)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 2px",
+          "opacity": "1"
+        },
+        "disabled": {
+          "background": "rgba(0, 0, 0, 0.12)",
+          "text": "oklch(0.745 0.013 313.2)",
+          "boxShadow": "none",
+          "outline": "rgb(0, 0, 0) none 3px",
+          "opacity": "1"
+        }
+      }
+    },
+    "neo-dark": {
+      "rootScheme": "dark",
+      "dominantCheckoutPixel": "#0d0f12",
+      "checkout": {
+        "button": 32,
+        "input": 25,
+        "buttonPadding": "12px",
+        "buttonRadius": "8px",
+        "buttonFont": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 11
+          }
+        ],
+        "headingFont": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "loadedLocalRoboto": true
+      },
+      "primary": {
+        "height": 32,
+        "padding": "12px",
+        "radius": "8px",
+        "declaredFont": "\"Source Sans 3\", sans-serif",
+        "usedFont": [
+          {
+            "familyName": "Helvetica",
+            "postScriptName": "Helvetica-Bold",
+            "isCustomFont": false,
+            "glyphCount": 7
+          }
+        ],
+        "paint": [
+          "#3e63dd",
+          2619
+        ],
+        "text": "rgb(255, 255, 255)",
+        "ripple": {
+          "color": "color(srgb 1 1 1 / 0.3)",
+          "animation": "ripple",
+          "duration": "0.4s"
+        }
+      },
+      "dense": {
+        "gridHeader": {
+          "height": 29,
+          "padding": "10px"
+        },
+        "tabButton": {
+          "height": 48,
+          "padding": "16px"
+        },
+        "toolbarButton": {
+          "height": 32,
+          "padding": "12px"
+        },
+        "smallButton": {
+          "height": 24,
+          "padding": "8px"
+        },
+        "fieldInput": {
+          "height": 25,
+          "padding": "6px"
+        }
+      },
+      "selected": "oklch(0.28 0.095 267)",
+      "primaryStates": {
+        "hover": {
+          "background": "oklch(0.47 0.17 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 3px",
+          "opacity": "1"
+        },
+        "active": {
+          "background": "oklch(0.39 0.14 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 3px",
+          "opacity": "1"
+        },
+        "focus": {
+          "background": "oklch(0.544 0.191 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "rgb(13, 15, 18) 0px 0px 0px 4px inset",
+          "outline": "rgb(62, 99, 221) solid 2px",
+          "opacity": "1"
+        },
+        "pressed": {
+          "background": "oklch(0.39 0.14 267)",
+          "text": "rgb(255, 255, 255)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 2px",
+          "opacity": "1"
+        },
+        "disabled": {
+          "background": "oklch(0.28 0.022 270)",
+          "text": "oklch(0.544 0.042 270)",
+          "boxShadow": "none",
+          "outline": "rgb(240, 241, 244) none 3px",
+          "opacity": "1"
+        }
+      }
+    },
+    "material-dark": {
+      "rootScheme": "dark",
+      "dominantCheckoutPixel": "#121212",
+      "checkout": {
+        "button": 40,
+        "input": 56,
+        "buttonPadding": "24px",
+        "buttonRadius": "9999px",
+        "buttonFont": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 11
+          }
+        ],
+        "headingFont": [
+          {
+            "familyName": "Times",
+            "postScriptName": "Times-Bold",
+            "isCustomFont": false,
+            "glyphCount": 19
+          }
+        ],
+        "loadedLocalRoboto": true
+      },
+      "primary": {
+        "height": 40,
+        "padding": "24px",
+        "radius": "9999px",
+        "declaredFont": "Roboto, sans-serif",
+        "usedFont": [
+          {
+            "familyName": "Roboto",
+            "postScriptName": "Roboto-Medium",
+            "isCustomFont": true,
+            "glyphCount": 7
+          }
+        ],
+        "paint": [
+          "#d0bcff",
+          3966
+        ],
+        "text": "oklch(0.33 0.135 291.2)",
+        "ripple": {
+          "color": "color(srgb 0.224329 0.123886 0.452413 / 0.12)",
+          "animation": "ripple",
+          "duration": "0.4s"
+        }
+      },
+      "dense": {
+        "gridHeader": {
+          "height": 29,
+          "padding": "0px"
+        },
+        "tabButton": {
+          "height": 15,
+          "padding": "0px"
+        },
+        "toolbarButton": {
+          "height": 17,
+          "padding": "0px"
+        },
+        "smallButton": {
+          "height": 32,
+          "padding": "12px"
+        },
+        "fieldInput": {
+          "height": 56,
+          "padding": "0px"
+        }
+      },
+      "selected": "oklch(0.496 0.13 293.7)",
+      "primaryStates": {
+        "hover": {
+          "background": "oklch(0.745 0.13 295.7)",
+          "text": "oklch(0.33 0.135 291.2)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 3px",
+          "opacity": "1"
+        },
+        "active": {
+          "background": "oklch(0.745 0.13 295.7)",
+          "text": "oklch(0.33 0.135 291.2)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 3px",
+          "opacity": "1"
+        },
+        "focus": {
+          "background": "oklch(0.835 0.095 298)",
+          "text": "oklch(0.33 0.135 291.2)",
+          "boxShadow": "rgb(18, 18, 18) 0px 0px 0px 4px inset",
+          "outline": "rgb(255, 255, 255) solid 2px",
+          "opacity": "1"
+        },
+        "pressed": {
+          "background": "oklch(0.745 0.13 295.7)",
+          "text": "oklch(0.33 0.135 291.2)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 2px",
+          "opacity": "1"
+        },
+        "disabled": {
+          "background": "rgba(255, 255, 255, 0.12)",
+          "text": "oklch(0.496 0.012 305.2)",
+          "boxShadow": "none",
+          "outline": "rgb(255, 255, 255) none 3px",
+          "opacity": "1"
+        }
+      }
+    }
+  },
+  "nested": [
+    {
+      "outer": "neo-light",
+      "inner": "material-dark",
+      "scope": "cell",
+      "mismatches": []
+    },
+    {
+      "outer": "neo-light",
+      "inner": "material-dark",
+      "scope": "button",
+      "mismatches": []
+    },
+    {
+      "outer": "material-dark",
+      "inner": "neo-light",
+      "scope": "cell",
+      "mismatches": []
+    },
+    {
+      "outer": "material-dark",
+      "inner": "neo-light",
+      "scope": "button",
+      "mismatches": []
+    },
+    {
+      "outer": "neo-dark",
+      "inner": "material-light",
+      "scope": "cell",
+      "mismatches": []
+    },
+    {
+      "outer": "neo-dark",
+      "inner": "material-light",
+      "scope": "button",
+      "mismatches": []
+    },
+    {
+      "outer": "material-light",
+      "inner": "neo-dark",
+      "scope": "cell",
+      "mismatches": []
+    },
+    {
+      "outer": "material-light",
+      "inner": "neo-dark",
+      "scope": "button",
+      "mismatches": []
+    }
+  ],
+  "comparisonSheets": [
+    "checkout-light-comparison.png",
+    "checkout-dark-comparison.png",
+    "equality-light-comparison.png",
+    "equality-dark-comparison.png",
+    "primary-comparison.png"
+  ],
+  "checkoutViewport": "1320 × 820 CSS px",
+  "checkoutSource": "examples/form/checkout/index.html",
+  "fixtureSource": "test/playwright/component/apps/theme-equality/index.html",
+  "fixtureConditions": "Real app and themed controls. Only the benchmark wrappers were rearranged to expose all 12 selected cells at their natural size; product control styles were untouched. All four sets of mapped stylesheets were loaded together. Hover, active and focus were forced through Chrome DevTools. Pressed and disabled used the equality benchmark CSS-state classes. Ripple was measured during the real click-created animation.",
+  "switcherRoundTrip": true,
+  "modeOrder": [
+    "neo-light",
+    "material-light",
+    "material-dark",
+    "neo-dark",
+    "neo-light"
+  ],
+  "pageErrors": 0,
+  "nonSuccessHttpResponses": 0,
+  "sources": {
+    "resources/css/theme-material/Global.css": "5559769252b091ad46813ac32a887009a4be4065f29b3052977f04cec115330b",
+    "resources/css/theme-material/button/Base.css": "7e116ff7074a2d58c7f8d347086ba404fc29946ab9a6a20825e4ded8b0c3a8be",
+    "resources/css/theme-material/form/field/Text.css": "ef5e4e7c9542e54b6716afe60c07984c0476953b60c4d78c0ccbb2d5117fe7f1",
+    "examples/form/checkout/neo-config.json": "ed0c46d272f9d5165276af90ba450a3dabb9a853ec805976e9f5c1238d4d73d9",
+    "examples/form/checkout/index.html": "ff1192c914981ef3100130d0970f8f5750118f769690b3aafaf4b8e2408685c9",
+    "examples/form/checkout/resources/fonts/roboto/roboto-latin.woff2": "1404ca348bd75ef836f4dd8b6f2cc719458642d1237c368296b2fc652dca47dc",
+    "test/playwright/component/apps/theme-equality/index.html": "60df9e5303d4eabd3a37dc46378d1b943082984daa4e0e38600b650ac0d2dda7",
+    "resources/theme-map.json": "91b0b0fa147694de04eacef0bd075c37b9cf1ee00ccd79f522eb76ac6c3c495a"
+  },
+  "limitations": [
+    "The Chromium font backend on this host substituted Helvetica Bold for the Neo Source Sans 3 declaration. Material button text used the locally served Roboto Medium file.",
+    "Material relies on the browser canvas for the page background. The unbound checkout card, field fill, field outline, and typography still make its form hard to scan. Material headings use the platform serif fallback.",
+    "Material grid headers have no horizontal padding. Its tab and toolbar buttons measure 15px and 17px tall, and its grid progress bars are unpainted in the gallery."
+  ],
+  "images": {
+    "checkout-light-comparison.png": "b6cf4093b45e9034cca5a7d49db55a88a10ce4d1b915749256b1ff80c2ab42d4",
+    "checkout-dark-comparison.png": "3519b537de89d04df363fa25c3f4e80e9869aff7435a12d7eaeef9820e411594",
+    "equality-light-comparison.png": "6b89604b0af6c863f6aae3a734ec02978f4416454d30bd0553ba06eb658cd588",
+    "equality-dark-comparison.png": "51d0c473c30a2c27796a510e690adbd709056e0f70757ce4f7f88b266fb0afc9",
+    "primary-comparison.png": "fed455938a0e4d6bade5f0d044f9127b94496700c96e6970cda599666c87e67f"
+  }
+}
