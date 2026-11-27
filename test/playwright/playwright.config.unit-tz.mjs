@@ -48,7 +48,6 @@ export default defineConfig({
         '**/selection/DateSelectorModel.spec.mjs',
         '**/examples/grid/cellEditing/MainStore.spec.mjs'
     ],
-    fullyParallel: true,
     ...buildUnitRunPolicy({isCI}),
     use     : {trace: 'on-first-retry'},
     projects: [{
