@@ -1337,7 +1337,7 @@ test.describe('Tests scope classifier — version-only release stamps vs foundat
         'test/playwright/unit/buildScripts/docs/RebuildContentIndexesAndSeo.spec.mjs'
     ];
 
-    test('replaying the v14 release PR keeps Portal E2E selection on its reachable shards instead of all 18, logs per-file decisions, and preserves unit and build rules', async () => {
+    test('replaying the v14 release PR keeps Portal E2E selection on its reachable shards instead of the full matrix, logs per-file decisions, and preserves unit and build rules', async () => {
         const runtime = createRuntime({
             files            : v14ReleaseFiles,
             basePkg          : {name: 'neo.mjs', version: '13.4.0', dependencies: {leftpad: '1.0.0'}, scripts: {'build:all': 'a'}},
@@ -1373,7 +1373,7 @@ test.describe('Tests scope classifier — version-only release stamps vs foundat
         expect(selected.reasons).toEqual([]);
         expect(selectOut).toContain('e2e_selection=selected\n');
         expect(selectOut).toContain('run_e2e=true\n');
-        expect(selectOut).toContain('e2e_engine_shards=[4]\n');
+        expect(selectOut).toContain('e2e_engine_shards=[5]\n');
         expect(selectOut).not.toContain(`e2e_engine_shards=[${FULL_SHARDS.engine}]`);
 
         const selectedPaths = (/^e2e_engine_paths=(.+)$/m.exec(selectOut)?.[1] || '').split(' ').filter(Boolean);
