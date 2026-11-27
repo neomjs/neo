@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo.mjs Theme Computed-Style Equality Stage</title>
+    <style>
+        body {
+            margin: 0;
+        }
+        .neo-eq-stage-grid {
+            display              : grid;
+            gap                  : 12px;
+            grid-template-columns: repeat(3, 440px);
+            padding              : 12px;
+        }
+        .neo-eq-cell {
+            align-items: flex-start;
+            contain    : layout style;
+            display    : flex;
+            min-height : 48px;
+            overflow   : hidden;
+            padding    : 4px;
+            position   : relative;
+            width      : 440px;
+        }
+    </style>
+</head>
+<body>
+    <script src="../../../../../src/MicroLoader.mjs" type="module"></script>
+</body>
+</html>

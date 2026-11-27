@@ -1,0 +1,9 @@
+{
+    "appPath"         : "test/playwright/component/apps/theme-equality/app.mjs",
+    "basePath"        : "../../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "IntersectionObserver", "Navigator", "ResizeObserver", "Stylesheet"],
+    "themes"          : [],
+    "useSharedWorkers": false
+}

@@ -460,3 +460,7 @@ Imagine you are showing a complex component, like a grid, for the first time. Th
 To prevent this, the `updateVdom()` method in `src/mixin/VdomLifecycle.mjs` contains a crucial check. It looks at the `Neo.worker.App` instance to see if any theme files are currently being loaded (`countLoadingThemeFiles > 0`). If they are, it will pause the VDOM update for the component and listen for a `themeFilesLoaded` event. Once all pending CSS files have been loaded, the VDOM update is automatically resumed.
 
 This elegant mechanism ensures that a component's DOM is only mounted or updated after its required styles are in place, leading to a smoother and more professional user experience.
+
+## 11. Verifying Paint Parity Across Theme Changes
+
+When refactoring token layers, renaming custom properties, or moving shared rules across theme folders, visual inspection alone misses subtle one-step colour shifts and hidden interaction states (`hover`, `active`, `focus`, `selected`, `pressed`, `disabled`, `invalid`, `readonly`). Save a copy of the baseline `dist/development/css` tree before editing, rebuild themes after your change, and run `npm run theme-equality -- --base <base-tree> --head dist/development/css` (passing `--expected <expected-diffs.json>` when a change intentionally alters specific component properties). The headless runner mounts the engine's component matrix across all five shipped themes, compares resolved `getComputedStyle` values for painted properties, and exits non-zero on any undeclared paint difference or unmet expected change.
