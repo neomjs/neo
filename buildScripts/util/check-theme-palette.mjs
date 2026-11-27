@@ -568,7 +568,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
     const
         folders = [...new Set(Object.values(collectThemeClassMap([cssRoot])).flat())].sort(),
         themes  = new Map(),
-        theme   = themeClass => themes.get(themeClass) ?? themes.set(themeClass, {sheets: [], values: new Map()}).get(themeClass);
+        theme   = themeClass => themes.get(themeClass) ??
+            themes.set(themeClass, {conditional: [], sheets: [], values: new Map()}).get(themeClass);
 
     // Every sheet first, then every class: more than one folder can serve a class.
     for (const folder of folders) {
@@ -576,16 +577,13 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             file    = path.join(cssRoot, folder, 'Global.css'),
             relPath = path.relative(root, file).replaceAll('\\', '/'),
             sheets  = readThemeDeclarations(readCss(file), (themeClass, name, value, conditions) => {
-                const {values} = theme(themeClass);
+                const {conditional, values} = theme(themeClass);
 
                 if (!conditions.length) {
                     values.has(name) || values.set(name, new Map());
                     values.get(name).has(value) || values.get(name).set(value, relPath)
                 } else if (name.startsWith('--neo-')) {
-                    failures.add(
-                        `[conditional] ${relPath} declares ${name} for .${themeClass} inside ${conditions.join(' ')}; ` +
-                        `this check reads no condition and cannot tell when that value paints`
-                    )
+                    conditional.push({conditions, name, relPath})
                 }
             });
 
@@ -594,9 +592,19 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         }
     }
 
-    for (const [themeClass, {sheets, values}] of themes) {
+    for (const [themeClass, {conditional, sheets, values}] of themes) {
         const [palette, second] = sheets.filter(({declarations}) =>
             [...declarations.keys()].some(name => name.startsWith('--neo-palette-')));
+
+        // A theme without a palette keeps its exemption. A palette declared under a condition is still one.
+        if (palette || conditional.some(({name}) => name.startsWith('--neo-palette-'))) {
+            for (const {conditions, name, relPath} of conditional) {
+                failures.add(
+                    `[conditional] ${relPath} declares ${name} for .${themeClass} inside ${conditions.join(' ')}; ` +
+                    `this check reads no condition and cannot tell when that value paints`
+                )
+            }
+        }
 
         if (!palette) {
             continue

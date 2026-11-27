@@ -207,6 +207,24 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             .toEqual(under('@media print', '--neo-color-scheme'))
     });
 
+    test('a theme without a palette keeps its exemption under a condition, and a palette declared only there fails', () => {
+        expect(inspect({
+            'theme-neo/Global.css': source,
+            'theme-old/Global.css': '.neo-theme-old { @media print { --neo-button-color: red; } }'
+        }).failures).toEqual([]);
+
+        const {failures, palettes} = inspect({
+            'theme-neo/Global.css' : source,
+            'theme-only/Global.css': '@media screen { .neo-theme-only { --neo-palette-white: #fff; } }'
+        });
+
+        expect(palettes).toHaveLength(2);
+        expect(failures).toEqual([
+            '[conditional] resources/css/theme-only/Global.css declares --neo-palette-white for .neo-theme-only inside ' +
+            '@media screen; this check reads no condition and cannot tell when that value paints'
+        ])
+    });
+
     test('a nested rule that gives a name a second value fails like a flat one, before and after a nested block', () => {
         const
             override = '--neo-color-text-default: var(--neo-color-background-canvas);',
