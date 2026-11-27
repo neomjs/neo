@@ -9,6 +9,10 @@ import path                      from 'path';
 import postcss                   from 'postcss';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
+import {
+    collectThemeClassMap,
+    isCssTargetFolder
+}                                from '../util/themeCss.mjs';
 import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
@@ -23,9 +27,14 @@ const
     cssPath          = 'resources/css/',
     frameworkCssPath = path.resolve(neoPath, cssPath),
     cssRoots         = themeCssRoots(cwd, {insideNeo}),
-    cssFolders       = cssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
     themeMapFile     = 'resources/theme-map.json',
-    themeFolders     = [...new Set(cssFolders.filter(folder => folder.includes('theme')))],
+    themeFolders     = [...new Set(cssRoots.flatMap(root => {
+        if (!fs.existsSync(root)) return [];
+
+        return fs.readdirSync(root, {withFileTypes: true})
+            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(root, entry.name))
+            .map(entry => entry.name)
+    }))],
     questions        = [];
 
 program
@@ -274,9 +283,12 @@ if (programOpts.info) {
         // The only legitimate seed is the ENGINE's map in a workspace build (cwd !== neoPath), which
         // keeps engine components resolvable (guide §8); a workspace's own previous output fossilizes
         // identically and is not a seed either.
-        themeMap = cwd !== neoPath && fs.existsSync(path.resolve(neoPath, themeMapFile))
+        const engineSeedMap = cwd !== neoPath && fs.existsSync(path.resolve(neoPath, themeMapFile))
             ? requireJson(path.resolve(neoPath, themeMapFile))
-            : {};
+            : null;
+
+        themeMap        = engineSeedMap ? structuredClone(engineSeedMap) : {};
+        themeMap.themes = collectThemeClassMap(activeRoots, engineSeedMap?.themes);
 
         // dist/development
         if (env === 'all' || env === 'dev') {

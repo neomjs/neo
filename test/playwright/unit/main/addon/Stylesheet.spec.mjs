@@ -92,3 +92,131 @@ test.describe('Neo.main.addon.Stylesheet#createStyleSheet', () => {
         await expect(promise).resolves.toBeUndefined()
     });
 });
+
+test.describe('Neo.main.addon.Stylesheet map-driven loading and variable updates', () => {
+    let originalConfig;
+
+    test.beforeEach(() => {
+        originalConfig      = Neo.clone(Neo.config, true);
+        globalThis.document = documentRef;
+        documentRef.styleSheets = []
+    });
+
+    test.afterEach(() => {
+        createdLinks.length = 0;
+        Neo.config          = originalConfig
+    });
+
+    test('addThemeFiles requests src, theme-base, and a dual-scheme folder once each, warning once on an unmapped class', async () => {
+        const warnings = [],
+              origWarn = console.warn;
+
+        console.warn = msg => warnings.push(msg);
+
+        try {
+            Neo.config = {
+                ...Neo.config,
+                appPath    : 'apps/portal/app.mjs',
+                basePath   : '../../',
+                environment: 'development',
+                themes     : ['neo-theme-neo-dark', 'neo-theme-neo-light', 'neo-theme-unmapped']
+            };
+
+            const instance = Object.create(Stylesheet.prototype);
+
+            instance.themeMap       = {
+                'neo-theme-neo-dark' : ['theme-neo'],
+                'neo-theme-neo-light': ['theme-neo']
+            };
+            instance.unmappedThemes = new Set();
+            instance.createStyleSheet = ({href}) => {
+                createdLinks.push({href});
+                documentRef.styleSheets.push({href});
+                return Promise.resolve()
+            };
+
+            await instance.addThemeFiles({
+                className: 'Neo.Global',
+                folders  : ['src', 'theme-base', 'theme-dark', 'theme-neo']
+            });
+
+            await instance.addThemeFiles({
+                className: 'Neo.button.Base',
+                folders  : ['src', 'theme-base', 'theme-dark', 'theme-neo']
+            });
+
+            expect(createdLinks.map(l => l.href)).toEqual([
+                '../../dist/development/css/src/Global.css',
+                '../../dist/development/css/theme-base/Global.css',
+                '../../dist/development/css/theme-neo/Global.css',
+                '../../dist/development/css/src/button/Base.css',
+                '../../dist/development/css/theme-base/button/Base.css',
+                '../../dist/development/css/theme-neo/button/Base.css'
+            ]);
+
+            expect(warnings).toHaveLength(1);
+            expect(warnings[0]).toContain('neo-theme-unmapped')
+        } finally {
+            console.warn = origWarn
+        }
+    });
+
+    test('setCssVariable skips null-href style sheets, walks layer blocks, and updates mapped folders per scheme', () => {
+        const makeRule = (selectorText, vars) => {
+            const store = new Map(Object.entries(vars));
+
+            return {
+                selectorText,
+                style: {
+                    getPropertyValue: key => store.get(key) ?? '',
+                    setProperty     : (key, value, priority) => store.set(key, priority ? `${value} !${priority}` : value)
+                },
+                store
+            }
+        };
+
+        const neoLightRule = makeRule('.neo-theme-neo-light', {'--probe-color': '#ffffff'}),
+              neoDarkRule  = makeRule('.neo-theme-neo-dark',  {'--probe-color': '#000000'}),
+              classicRule  = makeRule(':root .neo-theme-dark', {'--probe-color': '#323232'});
+
+        documentRef.styleSheets = [
+            // Runtime-inserted <style> element whose href is null
+            {
+                href    : null,
+                cssRules: [makeRule('.dynamic', {'--probe-color': '#999999'})]
+            },
+            // Shared folder serving both Neo schemes inside an @layer block
+            {
+                href    : 'https://cdn.test/dist/development/css/theme-neo/Global.css',
+                cssRules: [{
+                    cssRules: [neoLightRule, neoDarkRule]
+                }]
+            },
+            // Classic theme inside an @layer block
+            {
+                href    : 'https://cdn.test/dist/development/css/theme-dark/Global.css',
+                cssRules: [{
+                    cssRules: [classicRule]
+                }]
+            }
+        ];
+
+        const instance = Object.create(Stylesheet.prototype);
+
+        instance.themeMap       = {
+            'neo-theme-dark'     : ['theme-dark'],
+            'neo-theme-neo-dark' : ['theme-neo'],
+            'neo-theme-neo-light': ['theme-neo']
+        };
+        instance.unmappedThemes = new Set();
+
+        expect(instance.setCssVariable({key: 'probe-color', theme: 'neo-theme-neo-dark',  value: '#112233'})).toBe(true);
+        expect(instance.setCssVariable({key: '--probe-color', theme: 'neo-theme-neo-light', value: '#ddeeff'})).toBe(true);
+        expect(instance.setCssVariable({key: '--probe-color', theme: 'neo-theme-dark',      value: '#445566'})).toBe(true);
+        expect(instance.setCssVariable({key: '--undeclared',  theme: 'neo-theme-neo-dark',  value: '#000000'})).toBe(false);
+
+        expect(neoDarkRule.store.get('--probe-color')).toBe('#112233');
+        expect(neoLightRule.store.get('--probe-color')).toBe('#ddeeff');
+        expect(classicRule.store.get('--probe-color')).toBe('#445566')
+    });
+});

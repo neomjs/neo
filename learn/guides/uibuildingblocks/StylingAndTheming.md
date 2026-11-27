@@ -209,7 +209,16 @@ Two things worth knowing about the failure mode itself:
 
 ## 4. CSS File & Namespace Mapping
 
-For the automatic lazy-loading of theme files to work, it is **critical** that the path of a CSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
+For the automatic lazy-loading of theme files to work, it is **critical** that the path of a CSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention — together with the theme class selectors declared in each theme folder's `Global.css` — to generate `resources/theme-map.json`.
+
+```mermaid
+flowchart TD
+    GlobalCss["Theme Global.css selectors (.neo-theme-*)"] --> ThemeBuild["build-themes / watch-themes"]
+    ComponentCss["src, theme-base & theme-* component sheets"] --> ThemeBuild
+    ThemeBuild --> ThemeMap["resources/theme-map.json (themes: class -> folders + class namespaces)"]
+    ThemeMap --> AppWorker["Neo.worker.App (resolves window themes & class chains)"]
+    AppWorker --> StylesheetAddon["Neo.main.addon.Stylesheet (requests src, theme-base & mapped folders once)"]
+```
 
 ### Engine Components
 
@@ -359,14 +368,14 @@ Start from an existing theme with the theme generator. It gives you the base's v
     The generated value sheets are yours to edit. Later changes to the base theme are not copied automatically; shared values such as the motion vocabulary still come from `src/Global.css`.
 
 3.  **Configure Your Application:**
-    In your `neo-config.json`, add your new theme to the `themes` array. The first theme in the array becomes the default theme for the application.
+    In your `neo-config.json`, add your new theme class (the `.neo-theme-*` selector declared in its `Global.css`) to the `themes` array. The first theme in the array becomes the default theme for the application.
 
     ```json readonly
     {
         "themes": ["neo-theme-my-awesome-theme"]
     }
     ```
-    **Note:** The `neo-` prefix is required, and your folder name should not include it (e.g., folder `theme-foo` becomes `neo-theme-foo` in the config).
+    **Note:** Theme classes are resolved to folders through the `themes` map in `resources/theme-map.json`, derived directly from the selectors declared in each folder's `Global.css` rather than by stripping prefixes from the class name. A single folder whose `Global.css` declares both a light and a dark theme class serves both classes and is requested once.
 
 4.  **Build Your New Theme:**
     Run the full theme build process to copy your new theme's sheets into `dist` and, critically, to update the `theme-map.json` file to include it.
@@ -415,7 +424,9 @@ The `npm run build-themes` command is the main script for a full theme build. It
 3.  Places the output into the `dist/<environment>/css/` directory.
 4.  Generates a critical file: `resources/theme-map.json`.
 
-The `theme-map.json` file creates a mapping between every class name and the themes that have custom styles for it. This file is the key to the lazy loading mechanism.
+The `theme-map.json` file records two things in one artifact:
+- **`themes` (`class → folders`):** Maps every `.neo-theme-*` class selector declared in a folder's `Global.css` to the folder(s) that serve it. A theme class with no entry in `themes` loads no theme sheets and logs a single warning.
+- **Class namespaces (`Neo.*`, `apps.*`):** Lists which folders (`src`, `theme-base`, and theme folders) provide a sheet for each component or view class.
 
 A full build **regenerates** the map from the effective CSS tree on every run — it does not merge the previous map, so deleting or renaming a CSS file removes its key on the next build. The one merge that remains is the workspace overlay (§8): a workspace build seeds from the *engine's* map so engine components stay resolvable, then overlays the workspace's own scan.
 
@@ -425,7 +436,7 @@ For development, you can use `npm run watch-themes`. Content changes to existing
 
 Run `npm run build-themes -- -n -e dev -t all` once before starting the watcher. The watcher refuses to start when the development CSS or generated map is missing, stale, incomplete, or borrowed through a symbolic link.
 
-Structural events use a wider source-census reconciliation. Adding or renaming an entry builds every newly discovered or stale output; deleting or renaming an entry removes retired CSS and source maps; and each structural pass replaces both development copies of `theme-map.json` from the effective framework-plus-workspace CSS tree. A sheet the build cannot parse fails loudly instead of silently retaining stale CSS.
+Structural events use a wider source-census reconciliation. Adding or renaming an entry builds every newly discovered or stale output; deleting or renaming an entry removes retired CSS and source maps; and each structural pass replaces both development copies of `theme-map.json` from the effective engine-plus-workspace CSS tree. A sheet the build cannot parse fails loudly instead of silently retaining stale CSS.
 
 ## 10. Lazy Loading in Action
 
@@ -433,9 +444,9 @@ You do not need to manually include any theme CSS files in your application's `i
 
 Here's how it works:
 
-1.  When the application starts, the `worker.App` loads the `theme-map.json` file.
-2.  When a component is about to be created, the engine checks the `theme-map.json` to see if the active theme has a specific CSS file for that component.
-3.  If it does, it sends a message to the `main.addon.Stylesheet` (in the main thread) to dynamically create a `<link>` tag for that CSS file and add it to the document's `<head>`.
+1.  When the application starts, `worker.App` loads `resources/theme-map.json`, syncs the `themes` (`class → folders`) table to `main.addon.Stylesheet`, and queues `Neo.Global` ahead of component stylesheets.
+2.  When a component is created, `worker.App` walks its prototype chain against `theme-map.json` and sends the available folders to `main.addon.Stylesheet#addThemeFiles`.
+3.  `Stylesheet` admits `src` and `theme-base` unconditionally and resolves the application's configured `themes` classes through the `themes` map, requesting each folder's `Global.css` and per-component sheet once. `Neo.setCssVariable` resolves target sheets through the same map, walks into `@layer` blocks, and skips inline `<style>` elements.
 4.  The browser then loads the CSS file.
 
 This process ensures that you only ever load the CSS that is actually needed for the components currently in your application, which can significantly improve initial load times.
