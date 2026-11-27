@@ -574,4 +574,154 @@ test.describe('Neo.form.field.Text', () => {
         await expect(liveInput).toHaveValue('Enabled audit');
         await expect.poll(() => appWorker.evaluate(id => Neo.getComponent(id).value, fieldId)).toBe('Enabled audit')
     });
+
+    for (const type of ['Text', 'TextArea']) {
+        test(`${type} live readOnly toggle reflects native readOnly and HTML attribute while keeping focus, selection, and programmatic writes`, async ({page}) => {
+            componentId = await createTextField(page, {
+                importPath: `../form/field/${type}.mjs`,
+                ntype     : type === 'Text' ? 'textfield' : 'textarea',
+                value     : 'Editable seed'
+            });
+
+            await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+            const appWorker = page.workers().find(w => w.url().includes('/worker/App')),
+                  selector  = type === 'Text' ? 'input' : 'textarea',
+                  field     = page.locator(`#${componentId}`),
+                  input     = field.locator(selector);
+
+            await expect(input).toHaveValue('Editable seed');
+
+            await appWorker.evaluate(id => {
+                Neo.getComponent(id).readOnly = true
+            }, componentId);
+
+            await expect(field).toHaveClass(/neo-readonly/);
+            await expect.poll(() => input.evaluate(el => ({
+                disabled: el.disabled,
+                expando : Object.hasOwn(el, 'readonly'),
+                hasAttr : el.hasAttribute('readonly'),
+                readOnly: el.readOnly
+            }))).toEqual({
+                disabled: false,
+                expando : false,
+                hasAttr : true,
+                readOnly: true
+            });
+
+            await input.focus();
+            await expect(input).toBeFocused();
+            await input.selectText();
+            expect(await input.evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))).toBe('Editable seed');
+
+            await page.keyboard.press('End');
+            await page.keyboard.type('X');
+            await expect(input).toHaveValue('Editable seed');
+            expect(await appWorker.evaluate(id => Neo.getComponent(id).value, componentId)).toBe('Editable seed');
+
+            await appWorker.evaluate(id => {
+                Neo.getComponent(id).value = 'Programmatic update'
+            }, componentId);
+            await expect(input).toHaveValue('Programmatic update');
+
+            await appWorker.evaluate(id => {
+                Neo.getComponent(id).readOnly = false
+            }, componentId);
+
+            await expect(field).not.toHaveClass(/neo-readonly/);
+            await expect.poll(() => input.evaluate(el => ({
+                expando : Object.hasOwn(el, 'readonly'),
+                hasAttr : el.hasAttribute('readonly'),
+                readOnly: el.readOnly
+            }))).toEqual({
+                expando : false,
+                hasAttr : false,
+                readOnly: false
+            });
+
+            await input.focus();
+            await page.keyboard.press('End');
+            await page.keyboard.type('!');
+            await expect(input).toHaveValue('Programmatic update!');
+            await expect.poll(() => appWorker.evaluate(id => Neo.getComponent(id).value, componentId)).toBe('Programmatic update!')
+        });
+    }
+
+    test('text example readOnly checkbox and #readOnly=true reload sync native readOnly, HTML attribute, displayed value, and worker state', async ({page}) => {
+        await page.goto('/examples/form/field/text/index.html');
+
+        const liveField      = page.locator('.neo-example-container > .neo-textfield'),
+              liveInput      = liveField.locator('input.neo-textfield-input'),
+              readOnlyBox    = page.getByRole('checkbox', {name: 'readOnly', exact: true}),
+              readOnlyToggle = page.locator('label').filter({has: readOnlyBox});
+
+        await expect(liveInput).toHaveValue('Neo Workspace');
+        await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+        let appWorker = page.workers().find(w => w.url().includes('/worker/App')),
+            fieldId   = await liveField.getAttribute('id');
+
+        // 1. Toggle readOnly ON via example checkbox: native input rejects typing while keeping focus/selection & programmatic writes
+        await readOnlyToggle.click();
+        await expect(readOnlyBox).toBeChecked();
+        await expect(liveField).toHaveClass(/neo-readonly/);
+        await expect.poll(() => liveInput.evaluate(el => ({
+            expando : Object.hasOwn(el, 'readonly'),
+            hasAttr : el.hasAttribute('readonly'),
+            readOnly: el.readOnly
+        }))).toEqual({
+            expando : false,
+            hasAttr : true,
+            readOnly: true
+        });
+
+        await liveInput.focus();
+        await expect(liveInput).toBeFocused();
+        await page.keyboard.press('End');
+        await page.keyboard.type('X');
+        await expect(liveInput).toHaveValue('Neo Workspace');
+        expect(await appWorker.evaluate(id => ({
+            readOnly: Neo.getComponent(id).readOnly,
+            value   : Neo.getComponent(id).value
+        }), fieldId)).toEqual({readOnly: true, value: 'Neo Workspace'});
+
+        await appWorker.evaluate(id => {
+            Neo.getComponent(id).value = 'Server pushed'
+        }, fieldId);
+        await expect(liveInput).toHaveValue('Server pushed');
+
+        // 2. Fresh load at #readOnly=true, then uncheck readOnly: native input becomes editable again and clears attribute
+        await page.goto('/examples/form/field/text/index.html#readOnly=true');
+        await page.reload();
+        await expect(liveField).toHaveClass(/neo-readonly/);
+        await expect(readOnlyBox).toBeChecked();
+        await expect.poll(() => liveInput.evaluate(el => ({
+            hasAttr : el.hasAttribute('readonly'),
+            readOnly: el.readOnly
+        }))).toEqual({hasAttr: true, readOnly: true});
+
+        await expect.poll(() => page.workers().some(w => w.url().includes('/worker/App'))).toBe(true);
+        appWorker = page.workers().find(w => w.url().includes('/worker/App'));
+        fieldId   = await liveField.getAttribute('id');
+
+        await readOnlyToggle.click();
+        await expect(readOnlyBox).not.toBeChecked();
+        await expect(liveField).not.toHaveClass(/neo-readonly/);
+        await expect.poll(() => liveInput.evaluate(el => ({
+            expando : Object.hasOwn(el, 'readonly'),
+            hasAttr : el.hasAttribute('readonly'),
+            readOnly: el.readOnly
+        }))).toEqual({
+            expando : false,
+            hasAttr : false,
+            readOnly: false
+        });
+
+        await liveInput.focus();
+        await page.keyboard.press('End');
+        await page.keyboard.type(' v2');
+        await expect(liveInput).toHaveValue('Neo Workspace v2');
+        await expect.poll(() => appWorker.evaluate(id => ({
+            readOnly: Neo.getComponent(id).readOnly,
+            value   : Neo.getComponent(id).value
+        }), fieldId)).toEqual({readOnly: false, value: 'Neo Workspace v2'})
+    });
 });
