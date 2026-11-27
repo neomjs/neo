@@ -119,8 +119,8 @@
                 outline: 0;
 
                 .neo-cell-content {
-                    background-color: #1c60a0;
-                    color           : #fff;
+                    background-color: var(--c-y-cell-content-background-color-focus);
+                    color           : var(--c-y-cell-content-color-focus);
                     font-weight     : 900;
                 }
             }

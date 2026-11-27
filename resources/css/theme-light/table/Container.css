@@ -1,10 +1,14 @@
 :root .neo-theme-light { /* .neo-table-container */
-    --table-container-border-color              : #ddd;
-    --table-container-cell-background-color     : #fff;
-    --table-container-cell-background-color-even: #f2f2f2;
-    --table-container-cell-border-bottom        : 1px solid #ddd;
-    --table-container-cell-height               : 32px;
-    --table-container-cell-padding              : 2px 10px 2px;
-    --table-container-color                     : #666;
-    --table-container-header-cell-border-bottom : 1px solid #ddd;
+    --table-container-border-color                       : #ddd;
+    --table-container-cell-background-color              : #fff;
+    --table-container-cell-background-color-even         : #f2f2f2;
+    --table-container-cell-border-bottom                 : 1px solid #ddd;
+    --table-container-cell-height                        : 32px;
+    --table-container-cell-padding                       : 2px 10px 2px;
+    --table-container-color                              : #666;
+    --table-container-header-cell-border-bottom          : 1px solid #ddd;
+    --table-container-scrollbar-thumb-background         : rgba(0, 0, 0, 0.2);
+    --table-container-scrollbar-thumb-background-hover   : rgba(0, 0, 0, 0.4);
+    --table-container-scrollbar-thumb-background-inactive: rgba(0, 0, 0, 0.05);
+    --table-container-scrollbar-track-background         : rgba(0, 0, 0, 0.1);
 }

@@ -1,0 +1,4 @@
+:where(.neo-theme-neo-dark) { /* .neo-grid-cell */
+    --grid-cell-animated-negative-background-color: rgb(218 54 51 / 60%);
+    --grid-cell-animated-positive-background-color: rgb(35 134 54 / 60%);
+}

@@ -1,6 +1,7 @@
 :root .neo-theme-dark { /* .neo-grid-cell */
     --grid-cell-progress-active-color : #5d83a7;
     --grid-cell-progress-border-radius: 2px;
+    --grid-cell-progress-box-shadow   : 0 2px 5px rgba(0, 0, 0, 0.25) inset;
     --grid-cell-progress-height       : 10px;
     --grid-cell-progress-track-color  : #333;
 }

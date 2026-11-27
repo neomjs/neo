@@ -64,7 +64,7 @@
             }
 
             &.neo-focus {
-                color  : #fff;
+                color  : var(--c-m-event-color-focus);
                 outline: 0;
 
                 .neo-event-time,
