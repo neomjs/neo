@@ -13,7 +13,7 @@ import {resolveCallback} from '../util/Function.mjs';
  * `EmptyState` intentionally extends `Neo.component.Base` with a native `<button>` rather than `Neo.container.Base`
  * composing `Neo.button.Base`: text-only and `removeDom`-toggled empty states pay zero container layout or child
  * component lifecycle cost, while `.neo-empty-state-action` inherits Neo's `--button-*` sizing/typography cascade and
- * `--cmp-button-secondary-*` surface tokens so it matches neighbouring `Neo.button.Base` controls on the same surface.
+ * `--button-secondary-*` surface tokens so it matches neighbouring `Neo.button.Base` controls on the same surface.
  * Pointer clicks and keyboard activation (`Enter` / `Space`) share the browser's native button path, invoke
  * `actionHandler` via `resolveCallback`, and emit the semantic `action` event. Pass `ui: 'plain'` when embedding
  * inside a surface that already draws its own border and padding.

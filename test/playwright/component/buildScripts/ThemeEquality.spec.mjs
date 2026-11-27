@@ -19,7 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * @summary End-to-end headless Chromium and CLI verification of `runThemeEquality`:
  * 1. Compares two independently produced theme builds across all 5 themes and both scopes (`0` differences).
  * 2. Exercises both checkout-root (with JavaScript `src/`) and direct CSS-root inputs, plus multi-part text+glyph isolation.
- * 3. Exercises SwitchField knob (`::before`) + hovered track, Dialog header button hover (`--cmp-*` alias), Chip close-button hover, Table row-ancestor hover, and classic `theme-dark` `scoped`-only flips.
+ * 3. Exercises SwitchField knob (`::before`) + hovered track, Dialog header button hover, Chip close-button hover, Table row-ancestor hover, and classic `theme-dark` `scoped`-only flips.
  * 4. Verifies server cleanup and non-zero CLI exit without hanging when Chromium startup fails.
  */
 test.describe('theme-equality headless Chromium integration', () => {
@@ -122,7 +122,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(partialExpected.unexpectedDiffs).toEqual(glyphDiffs)
     });
 
-    test('catches SwitchField knob/hover, Dialog header button hover (--cmp-* alias), Chip close-button hover, Table row-ancestor hover, and classic theme-dark scoped-only flips', async () => {
+    test('catches SwitchField knob/hover, Dialog header button hover, Chip close-button hover, Table row-ancestor hover, and classic theme-dark scoped-only flips', async () => {
         test.setTimeout(120000);
 
         const base = makeTempCheckout(),
@@ -139,7 +139,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(switchNext).not.toBe(switchOrig);
         fs.writeFileSync(switchFile, switchNext);
 
-        // 2. Dialog header button hover (`--dialog-header-button-background-color-hover` reading `--cmp-button-ghost-surface-hover`)
+        // 2. Dialog header button hover (`--dialog-header-button-background-color-hover` reading `--sem-color-surface-neutral-hover`)
         const dialogFile = path.join(head.cssDir, 'theme-neo-light/dialog/Base.css'),
               dialogOrig = fs.readFileSync(dialogFile, 'utf8'),
               dialogNext = dialogOrig.replace(

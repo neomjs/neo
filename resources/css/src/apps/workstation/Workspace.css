@@ -90,7 +90,7 @@
         --dock-edge-rail-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
         --dock-edge-rail-overflow  : hidden;
 
-        /* The stock theme floors every `.neo-button` at `min-width: var(--cmp-button-height)` (48px)
+        /* The stock theme floors every `.neo-button` at `min-width: var(--height-48)` (48px)
            through `:root .neo-theme-* .neo-button` — a (0,3,0) selector that TIES the shared rail
            override and wins on load order alone. On the 14px vertical rail that floor defeats the
            cross-axis stretch and pushes the rotated label span outside the clipped strip: the rail

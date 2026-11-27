@@ -1,12 +1,12 @@
 :where(.neo-theme-neo-dark) {
     /* .neo-button – Styles that will be inherited by ALL button styles */
-    --button-margin                             : var(--cmp-button-gap);
+    --button-margin                             : var(--sem-spacing-xxsmall);
     --button-text-font-family                   : var(--core-fontfamily-sans);
     --button-text-font-weight                   : var(--core-fontweight-semibold);
     --button-text-line-height                   : inherit;
     --button-text-transform                     : none;
-    --button-border-radius                      : var(--cmp-button-borderradius);
-    --button-border-width                       : var(--cmp-button-borderwidth);
+    --button-border-radius                      : var(--sem-borderradius-large);
+    --button-border-width                       : 1px;
     --button-badge-background-color             : var(--sem-color-fg-neutral-contrast);
     --button-badge-color                        : var(--sem-color-fg-neutral-inverted);
     --button-badge-margin-left                  : -10px;
@@ -14,18 +14,18 @@
 
     /* {module: Button; ui: null (neutral application control)} ––––––––––––––––––––––––––––
        Background Color */
-    --button-background-color                   : var(--cmp-button-secondary-surface-default);
-    --button-background-color-active            : var(--cmp-button-secondary-surface-active);
-    --button-background-color-disabled          : var(--cmp-button-secondary-surface-disabled);
-    --button-background-color-hover             : var(--cmp-button-secondary-surface-hover);
+    --button-background-color                   : transparent;
+    --button-background-color-active            : var(--sem-color-surface-neutral-active);
+    --button-background-color-disabled          : var(--sem-color-surface-disabled);
+    --button-background-color-hover             : var(--sem-color-surface-neutral-hover);
     --button-background-color-pressed           : var(--sem-color-surface-primary-background);
 
     /* Border */
-    --button-border                             : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-border-active                      : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-border-disabled                    : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled);
-    --button-border-hover                       : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-border-pressed                     : var(--cmp-button-borderwidth) solid var(--sem-color-surface-primary-default);
+    --button-border                             : 1px solid var(--sem-color-border-default);
+    --button-border-active                      : 1px solid var(--sem-color-border-default);
+    --button-border-disabled                    : 1px solid var(--sem-color-border-subtle);
+    --button-border-hover                       : 1px solid var(--sem-color-border-default);
+    --button-border-pressed                     : 1px solid var(--sem-color-surface-primary-default);
 
     /* Text Color */
     --button-text-color                         : var(--sem-color-text-neutral-default);
@@ -52,11 +52,11 @@
 
     /* {module: Button; ui: --primary} –––––––––––––––––––––––––––––––––––––––––––––––––––––
        Background Color */
-    --button-primary-background-color           : var(--cmp-button-primary-surface-default);
-    --button-primary-background-color-active    : var(--cmp-button-primary-surface-active);
-    --button-primary-background-color-disabled  : var(--cmp-button-primary-surface-disabled);
-    --button-primary-background-color-hover     : var(--cmp-button-primary-surface-hover);
-    --button-primary-background-color-pressed   : var(--cmp-button-primary-surface-active);
+    --button-primary-background-color           : var(--sem-color-surface-primary-default);
+    --button-primary-background-color-active    : var(--sem-color-surface-primary-active);
+    --button-primary-background-color-disabled  : var(--sem-color-bg-primary-disabled);
+    --button-primary-background-color-hover     : var(--sem-color-surface-primary-hover);
+    --button-primary-background-color-pressed   : var(--sem-color-surface-primary-active);
 
     /* Border */
     --button-primary-border                     : none;
@@ -66,17 +66,17 @@
     --button-primary-border-pressed             : none;
 
     /* Text Color */
-    --button-primary-text-color                 : var(--cmp-button-primary-text-default);
-    --button-primary-text-color-hover           : var(--cmp-button-primary-text-default);
-    --button-primary-text-color-active          : var(--cmp-button-primary-text-default);
-    --button-primary-text-color-disabled        : var(--cmp-button-primary-text-disabled);
+    --button-primary-text-color                 : var(--sem-color-text-neutral-contrast);
+    --button-primary-text-color-hover           : var(--sem-color-text-neutral-contrast);
+    --button-primary-text-color-active          : var(--sem-color-text-neutral-contrast);
+    --button-primary-text-color-disabled        : var(--sem-color-text-disabled);
     --button-primary-text-color-pressed         : var(--sem-color-text-neutral-contrast);
 
     /* Icon Color */
-    --button-primary-glyph-color                : var(--cmp-button-primary-text-default);
-    --button-primary-glyph-color-hover          : var(--cmp-button-primary-text-default);
-    --button-primary-glyph-color-active         : var(--cmp-button-primary-text-default);
-    --button-primary-glyph-color-disabled       : var(--cmp-button-primary-text-disabled);
+    --button-primary-glyph-color                : var(--sem-color-text-neutral-contrast);
+    --button-primary-glyph-color-hover          : var(--sem-color-text-neutral-contrast);
+    --button-primary-glyph-color-active         : var(--sem-color-text-neutral-contrast);
+    --button-primary-glyph-color-disabled       : var(--sem-color-text-disabled);
     --button-primary-glyph-color-pressed        : var(--sem-color-text-neutral-contrast);
 
     --button-primary-background-image           : none;
@@ -87,18 +87,18 @@
 
     /* {module: Button; ui: --secondary}  ––––––––––––––––––––––––––––––––––––––––––––––––––
        Background Color */
-    --button-secondary-background-color         : var(--cmp-button-secondary-surface-default);
-    --button-secondary-background-color-hover   : var(--cmp-button-secondary-surface-hover);
-    --button-secondary-background-color-active  : var(--cmp-button-secondary-surface-active);
-    --button-secondary-background-color-disabled: var(--cmp-button-secondary-surface-disabled);
+    --button-secondary-background-color         : transparent;
+    --button-secondary-background-color-hover   : var(--sem-color-surface-neutral-hover);
+    --button-secondary-background-color-active  : var(--sem-color-surface-neutral-active);
+    --button-secondary-background-color-disabled: var(--sem-color-surface-disabled);
     --button-secondary-background-color-pressed : var(--sem-color-surface-primary-background);
 
     /* Border */
-    --button-secondary-border                   : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-secondary-border-hover             : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-secondary-border-active            : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-default);
-    --button-secondary-border-disabled          : var(--cmp-button-borderwidth) solid var(--cmp-button-secondary-border-disabled);
-    --button-secondary-border-pressed           : var(--cmp-button-borderwidth) solid var(--sem-color-surface-primary-default);
+    --button-secondary-border                   : 1px solid var(--sem-color-border-default);
+    --button-secondary-border-hover             : 1px solid var(--sem-color-border-default);
+    --button-secondary-border-active            : 1px solid var(--sem-color-border-default);
+    --button-secondary-border-disabled          : 1px solid var(--sem-color-border-subtle);
+    --button-secondary-border-pressed           : 1px solid var(--sem-color-surface-primary-default);
 
     /* Text Color */
     --button-secondary-text-color               : var(--sem-color-text-neutral-default);
@@ -123,11 +123,11 @@
 
     /* {module: Button; ui: --ghost}  –––––––––––––––––––––––––––––––––––––––––––––––––––––--
        Background Color */
-    --button-ghost-background-color             : var(--cmp-button-ghost-surface-default);
-    --button-ghost-background-color-hover       : var(--cmp-button-ghost-surface-hover);
-    --button-ghost-background-color-active      : var(--cmp-button-ghost-surface-active);
-    --button-ghost-background-color-disabled    : var(--cmp-button-ghost-surface-disabled);
-    --button-ghost-background-color-pressed     : var(--cmp-button-primary-surface-default);
+    --button-ghost-background-color             : transparent;
+    --button-ghost-background-color-hover       : var(--sem-color-surface-neutral-hover);
+    --button-ghost-background-color-active      : var(--sem-color-surface-neutral-active);
+    --button-ghost-background-color-disabled    : var(--sem-color-surface-disabled);
+    --button-ghost-background-color-pressed     : var(--sem-color-surface-primary-default);
 
     /* Border */
     --button-ghost-border                       : none;
@@ -148,7 +148,7 @@
     --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-disabled         : var(--sem-color-text-disabled);
-    --button-ghost-glyph-color-pressed          : var(--sem-color-text-neutral-contrast);
+    --button-ghost-glyph-color-pressed          : var(--sem-color-icon-neutral-contrast);
 
     --button-ghost-background-image             : none;
     --button-ghost-badge-background-color       : transparent;
@@ -163,7 +163,7 @@
     --button-tertiary-background-color-hover    : transparent;
     --button-tertiary-background-color-active   : transparent;
     --button-tertiary-background-color-disabled : transparent;
-    --button-tertiary-background-color-pressed  : var(--cmp-button-primary-surface-default);
+    --button-tertiary-background-color-pressed  : var(--sem-color-surface-primary-default);
 
     /* Border */
     --button-tertiary-border                    : none;
@@ -199,7 +199,7 @@
 }
 
 /* The three sizes a button's `size` config picks. The large one is the design system's call to action
-   (--cmp-button-height), for a button alone on a wide page. */
+   (--height-48), for a button alone on a wide page. */
 :where(.neo-theme-neo-dark) {
     --button-size-small-font-size : 0.75rem;
     --button-size-small-height    : var(--height-24);
@@ -208,8 +208,8 @@
     --button-size-medium-height   : var(--height-32);
     --button-size-medium-padding  : 0 var(--sem-spacing-small);
     --button-size-large-font-size : var(--core-fontsize-label);
-    --button-size-large-height    : var(--cmp-button-height);
-    --button-size-large-padding   : 0 var(--cmp-button-spacinghorizontal);
+    --button-size-large-height    : var(--height-48);
+    --button-size-large-padding   : 0 var(--sem-spacing-medium);
 }
 
 /* A button without a size is an app control: medium. A toolbar keeps this size under an ancestor that raises it, as

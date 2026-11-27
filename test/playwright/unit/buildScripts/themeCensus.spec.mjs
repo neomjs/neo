@@ -84,7 +84,7 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         fs.rmSync(tmpRoot, {recursive: true, force: true});
     });
 
-    test('CONTROL: the live tree is read, the Neo pair is found, and no runtime-set property is reported', async () => {
+    test('CONTROL: the live tree is read, the Neo pair is found, no --cmp-* token remains, and no runtime-set property is reported', async () => {
         const
             {RUNTIME_PROPERTIES} = await import('../../../../buildScripts/util/themeCss.mjs'),
             census               = collect();
@@ -97,6 +97,14 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
 
         for (const name of census.pairs.flatMap(pair => [pair.dark, pair.light])) {
             expect(census.themes[name].unresolved.engine, name).toEqual([]);
+        }
+
+        for (const [themeName, theme] of Object.entries(census.themes)) {
+            expect(theme.properties.engine.cmp, `${themeName} engine --cmp-*`).toBe(0);
+            expect(theme.properties.apps.cmp, `${themeName} apps --cmp-*`).toBe(0);
+            expect(theme.properties.examples.cmp, `${themeName} examples --cmp-*`).toBe(0);
+            expect(theme.composition.cmp, `${themeName} component values via --cmp-*`).toBe(0);
+        }
         }
     });
 

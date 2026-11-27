@@ -558,7 +558,7 @@
 
 /* Scoped to 0,4,0 (tab) and 0,5,0 (label) on purpose: the neo themes pin `.neo-button` to a fixed
    physical `height: var(--button-height)` (= 48px, at 0,1,0) and to
-   `min-width: var(--cmp-button-height)` through `:root .neo-theme-* .neo-button` — a 0,3,0
+   `min-width: var(--height-48)` through `:root .neo-theme-* .neo-button` — a 0,3,0
    selector. That floor clamps a vertical rail tab to a 48px hit box (68-99px labels overflow and
    overlap their neighbors) and defeats the `--dock-edge-rail-size` cross-axis stretch on every edge; the generic
    button margin and padding (0,1,0 source-order tie the rail always lost) shrink or inflate the

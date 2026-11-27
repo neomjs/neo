@@ -25,9 +25,9 @@
     --tab-inline-button-text-font-weight           : var(--sem-typo-label-small-fontWeight);
 
     /* Standalone explicitly names the theme's existing free-standing treatment. */
-    --tab-standalone-button-border-radius          : var(--cmp-tab-borderradius);
+    --tab-standalone-button-border-radius          : var(--sem-borderradius-large);
     --tab-standalone-button-gap                    : 0;
-    --tab-standalone-button-height                 : var(--cmp-tab-height);
-    --tab-standalone-button-height-pressed         : var(--cmp-tab-height);
-    --tab-standalone-button-padding                : 7px var(--cmp-tab-spacinghorizontal) 6px;
+    --tab-standalone-button-height                 : var(--sem-height-xlarge);
+    --tab-standalone-button-height-pressed         : var(--sem-height-xlarge);
+    --tab-standalone-button-padding                : 7px var(--sem-spacing-medium) 6px;
 }

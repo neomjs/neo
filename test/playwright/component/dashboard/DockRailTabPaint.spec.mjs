@@ -9,7 +9,7 @@ import {test, expect} from '@playwright/test';
  * variables resolve.
  *
  * The regression it exists for is concrete. The neo themes floor every `.neo-button` at
- * `min-width: var(--cmp-button-height)` (48px). On a 14px vertical rail that floor pushes the
+ * `min-width: var(--height-48)` (48px). On a 14px vertical rail that floor pushes the
  * rotated label outside the clipped strip and the tab renders as an empty pill. Both consuming
  * apps had been carrying their own higher-specificity `min-width: 0` to escape it; the engine now
  * owns that release, so nothing app-side is left to prove it still works.
