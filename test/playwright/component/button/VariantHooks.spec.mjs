@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 /**
  * @summary A Button variant re-values the generic variables on its own element, so both hooks of the design system
@@ -13,7 +14,7 @@ const THEMES   = ['neo-theme-neo-light', 'neo-theme-neo-dark', 'neo-theme-light'
 let componentIds = [];
 
 /**
- * Links each theme's Button values, and the Neo themes' Global.css, then waits for them
+ * Links each theme's Button values and Global sheets, then waits for them
  * @param {Object} page
  */
 const loadThemeStylesheets = page => page.evaluate(async hrefs => {
@@ -29,14 +30,7 @@ const loadThemeStylesheets = page => page.evaluate(async hrefs => {
             document.head.appendChild(link)
         })
     }
-}, THEMES.flatMap(theme => {
-    const directory = theme.replace('neo-theme-', 'theme-'),
-          files     = [`/dist/development/css/${directory}/button/Base.css`];
-
-    theme.includes('-neo-') && files.unshift(`/dist/development/css/${directory}/Global.css`);
-
-    return files
-}));
+}, themeSheetHrefs(THEMES, ['button.Base']));
 
 /**
  * Replaces the document theme without keeping a competing theme ancestor
