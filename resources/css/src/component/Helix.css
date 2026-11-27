@@ -1,6 +1,6 @@
 .neo-helix {
-    background-color: #000;
-    border          : 1px solid #3c3f41;
+    background-color: var(--helix-background-color);
+    border          : 1px solid var(--helix-border-color);
     display         : flex;
     font-family     : var(--neo-font-family);
     margin          : 0;
@@ -69,7 +69,7 @@
 
     .neo-helix-item {
         backface-visibility: visible;
-        background-color   : rgba(73, 160, 154, 0.35);
+        background-color   : var(--helix-item-background-color);
         height             : 160px;
         overflow           : hidden;
         width              : 120px;
@@ -81,13 +81,13 @@
 
         &.neo-selected {
             border-radius: 10px !important;
-            box-shadow   : 0 0 35px #61DFE5;
+            box-shadow   : var(--helix-item-box-shadow-selected);
             opacity      : 1 !important;
         }
 
         .contact-item {
             border-radius: 3px;
-            box-shadow   : 0 0 12px rgba(231, 254, 237, 0.6);
+            box-shadow   : var(--helix-contact-item-box-shadow);
             height       : 160px;
             width        : 120px;
         }
@@ -99,6 +99,6 @@
         left        : 0;
         position    : absolute;
         right       : 0;
-        text-shadow : 0 0 10px #61DFE5;
+        text-shadow : var(--helix-contact-name-text-shadow);
     }
 }

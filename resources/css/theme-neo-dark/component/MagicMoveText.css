@@ -1,0 +1,4 @@
+:where(.neo-theme-neo-dark) { /* .neo-magic-move-text */
+    --magic-move-text-background-color: #000;
+    --magic-move-text-color           : #fff;
+}
