@@ -23,19 +23,33 @@ class Gesture extends Base {
          * @protected
          */
         mixins: [Observable],
+        /** @member {Number} panDistance=6 Minimum translation in CSS px before pan starts. */
+        panDistance: 6,
         /** @member {Boolean} preloadFilesDelay=false */
         preloadFilesDelay: false,
         /**
          * @member {Object} remote
          * @protected
          */
-        remote: {app: ['register', 'unregister']}
+        remote: {app: ['register', 'unregister']},
+        /** @member {Number} swipeDirectionRatio=1.2 Required dominant-to-cross-axis travel ratio. */
+        swipeDirectionRatio: 1.2,
+        /** @member {Number} swipeDistance=30 Minimum travel in CSS px on the dominant axis. */
+        swipeDistance: 30,
+        /** @member {Number} swipeReleaseWindow=120 Time window in ms for measuring release velocity. */
+        swipeReleaseWindow: 120,
+        /** @member {Number} swipeVelocity=0.25 Minimum release velocity on the dominant axis in px/ms. */
+        swipeVelocity: 0.25
     }
 
     /** @member {Document} #document */
     #document = globalThis.document
     /** @member {Map} #nodes */
     #nodes = new Map()
+    /** @member {WeakMap} #translationClaims */
+    #translationClaims = new WeakMap()
+    /** @member {Boolean} #observingTranslation */
+    #observingTranslation = false
     /** @member {Map} #touchSequences */
     #touchSequences = new Map()
     /** @member {Map} #pointerSequences */
@@ -68,6 +82,11 @@ class Gesture extends Base {
 
         const families = new Set(events.map(name => name.split(':')[0])),
               previous = owners.get(componentId);
+
+        if (!this.#observingTranslation && (families.has('pan') || families.has('swipe'))) {
+            this.#observingTranslation = true;
+            this.on('contact', this.trackTranslation, this)
+        }
 
         if (previous && previous.registrationId === registrationId) {
             previous.families = families;
@@ -292,7 +311,7 @@ class Gesture extends Base {
                 // An uncancelable TouchEvent is also possible on an eligible horizontal stroke.
                 // Pointer cancellation ends the claim; Touch still owns the physical cohort's lifetime.
                 if (sequence) {
-                    this.cancelSequence(sequence);
+                    this.cancelSequence(sequence, event.timeStamp);
                     this.syncObserver()
                 }
             } else if (type === 'pointerup') {
@@ -378,7 +397,8 @@ class Gesture extends Base {
                 continue
             }
 
-            const changedIds = [];
+            const changedIds = [],
+                  release    = claim.family === 'swipe' && kind === 'end' ? [] : null;
 
             for (const contact of changed) {
                 const {identifier, target} = contact;
@@ -388,7 +408,10 @@ class Gesture extends Base {
                 }
 
                 if (ids.has(identifier)) {
-                    changedIds.push(ids.get(identifier));
+                    const id = ids.get(identifier);
+
+                    changedIds.push(id);
+                    release?.push({id, x: contact.clientX, y: contact.clientY});
 
                     if (kind === 'end' || kind === 'cancel') {
                         ids.delete(identifier)
@@ -401,7 +424,7 @@ class Gesture extends Base {
             }
 
             if (kind === 'cancel') {
-                this.cancelClaim(claim, changedIds);
+                this.cancelClaim(claim, changedIds, timeStamp);
                 continue
             }
 
@@ -419,7 +442,9 @@ class Gesture extends Base {
             }
 
             claim.frame = {changed: changedIds, contacts, elapsed: sequence.elapsed, pointerType: sequence.pointerType, trusted: sequence.trusted};
-            this.fire('contact', {claim, kind, ...claim.frame});
+            this.fire('contact', {claim, kind, ...claim.frame, ...(release && {
+                lifted: release.map(({id, x, y}) => ({id, x: x - left, y: y - top}))
+            })});
 
             if (!contacts.length) {
                 sequence.claims.delete(claim.family);
@@ -436,9 +461,11 @@ class Gesture extends Base {
      * @summary Cancels an owner exactly once and removes it from the current physical sequence.
      * @param {Object} claim
      * @param {Number[]} [changed]
+     * @param {Number} [timeStamp] Native time, or the owning window's clock for lifecycle cancellation.
      * @protected
      */
-    cancelClaim(claim, changed=[...claim.ids.values()]) {
+    cancelClaim(claim, changed=[...claim.ids.values()], timeStamp=this.#document.defaultView?.performance?.now() ?? performance.now()) {
+        claim.sequence.elapsed = Math.max(claim.sequence.elapsed, timeStamp - claim.sequence.startedAt);
         claim.sequence.claims.delete(claim.family);
         claim.live  = false;
         claim.frame = {changed, contacts: [], elapsed: claim.sequence.elapsed, pointerType: claim.sequence.pointerType, trusted: claim.sequence.trusted};
@@ -452,11 +479,12 @@ class Gesture extends Base {
 
     /**
      * @param {Object} sequence
+     * @param {Number} [timeStamp]
      * @protected
      */
-    cancelSequence(sequence) {
+    cancelSequence(sequence, timeStamp) {
         for (const claim of sequence.claims.values()) {
-            this.cancelClaim(claim)
+            this.cancelClaim(claim, undefined, timeStamp)
         }
 
         this.releaseCapture(sequence)
@@ -532,6 +560,179 @@ class Gesture extends Base {
             this.#observer?.disconnect();
             this.#observer = null
         }
+    }
+
+    /**
+     * @summary Routes an admitted contact sample to its translation recognizer.
+     * @param {Object} frame
+     * @protected
+     */
+    trackTranslation(frame) {
+        if (frame.claim.family === 'pan') {
+            this.trackPan(frame)
+        } else if (frame.claim.family === 'swipe') {
+            this.trackSwipe(frame)
+        }
+    }
+
+    /**
+     * @summary Accumulates translation around the current centroid and rebases on contact changes.
+     * @param {Object} frame
+     * @protected
+     */
+    trackPan({claim, kind, contacts, changed, elapsed}) {
+        let state = this.#translationClaims.get(claim);
+
+        if (kind === 'cancel' || !contacts.length) {
+            if (!state) return;
+
+            this.#translationClaims.delete(claim);
+            if (state.raf !== null) this.#document.defaultView.cancelAnimationFrame(state.raf);
+
+            if (state.started) {
+                this.publishPan(claim, state, kind === 'cancel' ? 'cancel' : 'end', {
+                    changed : changed.flatMap(id => state.ids.has(id) ? [state.ids.get(id)] : []),
+                    contacts: [],
+                    elapsed : elapsed - state.begin
+                })
+            }
+
+            return
+        }
+
+        const x       = contacts.reduce((total, point) => total + point.x / contacts.length, 0),
+              y       = contacts.reduce((total, point) => total + point.y / contacts.length, 0),
+              members = new Set(contacts.map(point => point.id));
+
+        if (!state) {
+            state = {
+                begin  : elapsed, deltaX: 0, deltaY: 0, elapsed, ids: new Map(), members,
+                pending: new Set(), raf: null, sentX: 0, sentY: 0, started: false, velocityX: 0, velocityY: 0, x, y
+            };
+            this.#translationClaims.set(claim, state)
+        }
+
+        const sameMembers = members.size === state.members.size && contacts.every(point => state.members.has(point.id)),
+              dt          = elapsed - state.elapsed,
+              dx          = sameMembers ? x - state.x : 0,
+              dy          = sameMembers ? y - state.y : 0;
+
+        Object.assign(state, {
+            deltaX   : state.deltaX + dx, deltaY: state.deltaY + dy, elapsed, members,
+            velocityX: dt > 0 ? dx / dt : 0, velocityY: dt > 0 ? dy / dt : 0, x, y
+        });
+
+        state.contacts = contacts.map(point => {
+            if (!state.ids.has(point.id)) state.ids.set(point.id, state.ids.size);
+            return {...point, id: state.ids.get(point.id)}
+        });
+
+        if (!state.started) {
+            if (Math.hypot(state.deltaX, state.deltaY) >= this.panDistance) {
+                state.started = this.publishPan(claim, state, 'start', {
+                    changed: changed.flatMap(id => state.ids.has(id) ? [state.ids.get(id)] : [])
+                })
+            }
+
+            return
+        }
+
+        changed.forEach(id => {if (state.ids.has(id)) state.pending.add(state.ids.get(id))});
+
+        if (state.raf === null) {
+            state.raf = this.#document.defaultView.requestAnimationFrame(() => {
+                state.raf = null;
+                if (this.#translationClaims.get(claim) !== state) return;
+
+                const changed = [...state.pending];
+                state.pending.clear();
+                this.publishPan(claim, state, 'move', {changed})
+            })
+        }
+    }
+
+    /**
+     * @summary Emits one pan phase, with steps measured from the previous published phase.
+     * @param {Object} claim
+     * @param {Object} state
+     * @param {String} phase
+     * @param {Object} change Phase-specific contact data.
+     * @returns {Boolean}
+     * @protected
+     */
+    publishPan(claim, state, phase, change) {
+        const {begin, contacts, deltaX, deltaY, elapsed, sentX, sentY, velocityX, velocityY, x, y} = state,
+              sent                                                                                 = this.publish(claim, `pan:${phase}`, {
+                  contacts, deltaX, deltaY, elapsed: elapsed - begin, stepX: deltaX - sentX, stepY: deltaY - sentY,
+                  velocityX: Number.isFinite(velocityX) ? velocityX : 0,
+                  velocityY: Number.isFinite(velocityY) ? velocityY : 0,
+                  x, y, ...change
+              });
+
+        if (sent) {
+            state.sentX = deltaX;
+            state.sentY = deltaY
+        }
+
+        return sent
+    }
+
+    /**
+     * @summary Reports a single directional swipe at the observed one-contact lift position.
+     * A steady hold or a reversal before release cannot qualify from old velocity samples.
+     * @param {Object} frame
+     * @protected
+     */
+    trackSwipe({claim, kind, contacts, elapsed, lifted=[]}) {
+        let state = this.#translationClaims.get(claim);
+
+        if (kind === 'cancel') {
+            this.#translationClaims.delete(claim);
+            return
+        }
+
+        if (contacts.length) {
+            if (!state) {
+                state = {begin: elapsed, origin: contacts[0], samples: [], single: contacts.length === 1};
+                this.#translationClaims.set(claim, state)
+            }
+
+            state.single &&= contacts.length === 1;
+            if (!state.single) return;
+
+            state.samples = state.samples.filter(sample => elapsed - sample.elapsed <= this.swipeReleaseWindow).slice(-31);
+            state.samples.push({...contacts[0], elapsed});
+            return
+        }
+
+        this.#translationClaims.delete(claim);
+
+        const point = lifted[0];
+
+        if (!state?.single || kind !== 'end' || point?.id !== state.origin.id) return;
+
+        const recent = state.samples.find(sample => elapsed - sample.elapsed <= this.swipeReleaseWindow && elapsed > sample.elapsed);
+
+        if (!recent) return;
+
+        const dx         = point.x - state.origin.x, dy = point.y - state.origin.y,
+              dt         = elapsed - recent.elapsed,
+              velocityX  = (point.x - recent.x) / dt,
+              velocityY  = (point.y - recent.y) / dt,
+              horizontal = Math.abs(dx) >= Math.abs(dy),
+              main       = horizontal ? dx : dy,
+              cross      = horizontal ? dy : dx,
+              speed      = horizontal ? velocityX : velocityY;
+
+        if (!Number.isFinite(velocityX) || !Number.isFinite(velocityY) || Math.abs(main) < this.swipeDistance ||
+            Math.abs(main) < this.swipeDirectionRatio * Math.abs(cross) || speed * Math.sign(main) < this.swipeVelocity) {
+            return
+        }
+
+        const direction = horizontal ? (main > 0 ? 'right' : 'left') : (main > 0 ? 'down' : 'up');
+
+        this.publish(claim, 'swipe', {changed: [0], contacts: [], direction, elapsed: elapsed - state.begin,
+            velocityX, velocityY, x: point.x, y: point.y})
     }
 
     /**
