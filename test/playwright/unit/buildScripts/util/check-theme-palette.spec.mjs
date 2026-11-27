@@ -458,7 +458,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             '@media (min-width: 0px); this check reads no condition and cannot tell when that value paints'
         ]);
 
-        // `src/Global.css` refuses unconditional motion roles, whose normal values live in a theme's Global.css,
+        // `src/Global.css` refuses unconditional motion roles (normal values live in each theme's Global.css)
         // and refuses any selector list where at least one effective arm reaches the bare theme or root.
         for (const [selector, role] of [
             [':where([class^="neo-theme-"])',             '--neo-duration-fast'],
