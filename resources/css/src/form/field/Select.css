@@ -33,7 +33,6 @@
         border-radius              : var(--selectfield-border-radius);
         box-sizing                 : border-box;
         color                      : var(--selectfield-color);
-        color-scheme               : var(--neo-color-scheme);
         cursor                     : pointer;
         font                       : var(--selectfield-input-font);
         height                     : calc(var(--selectfield-input-height) + var(--selectfield-border-width) * 2);
@@ -129,7 +128,6 @@
                     border-radius   : var(--selectfield-border-radius);
                     box-shadow      : var(--selectfield-picker-box-shadow);
                     color           : var(--selectfield-option-color);
-                    color-scheme    : var(--neo-color-scheme);
                     font            : var(--selectfield-input-font);
                     margin-block    : 2px;
                     padding         : 4px 0;

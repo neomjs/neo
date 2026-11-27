@@ -67,6 +67,11 @@
     }
 }
 
+/* Active scheme per themed root and nested scope; native controls, scrollbars, embedded frames and light-dark() inherit it. */
+[class*="neo-theme-"] {
+    color-scheme: var(--neo-color-scheme);
+}
+
 /* Global element typography — structure, so it lives here rather than in a theme value file (#18232,
    batch 5 of #18145). Every declaration reads a token and falls back to `revert`, which is the whole
    contract: a family that declares the token gets its value, a family that does not gets the UA
