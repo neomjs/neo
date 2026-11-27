@@ -17,6 +17,10 @@ class EditUserDialog extends Dialog {
         className     : 'Neo.examples.grid.nestedRecordFields.EditUserDialog',
         closeAction   : 'hide',
         cls           : ['neo-edit-partner-dialog'],
+        /**
+         * @member {Boolean} keepInBoundary=true
+         * @reactive
+         */
         keepInBoundary: true,
         keys          : {
             Enter : 'onKeyDownEnter',

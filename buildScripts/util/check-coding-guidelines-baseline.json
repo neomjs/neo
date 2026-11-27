@@ -1944,37 +1944,16 @@
   "src/functional/component/Base.mjs": {
     "static-config-order": ["FunctionalBase.ntype"]
   },
-  "src/gantt/Cascade.mjs": {
-    "missing-config-jsdoc": ["Cascade.className"]
-  },
   "src/gantt/CascadeMotion.mjs": {
-    "compact-jsdoc-loss": ["CascadeMotion.destroy"],
     "no-private-methods": ["CascadeMotion.#paint","CascadeMotion.#step"]
   },
-  "src/gantt/Column.mjs": {
-    "missing-config-jsdoc": ["Column.className"]
-  },
   "src/gantt/Container.mjs": {
-    "compact-jsdoc-loss": ["Container.baseCls","Container.cascadeDependencies_","Container.className","Container.dependencyCreation_","Container.dependencyStore_","Container.motion","Container.ntype","Container.taskColumns_","Container.useWorkingTime_"],
-    "local-reactive-tag": ["Container.cascadeDependencies_","Container.dependencyCreation_","Container.dependencyStore_","Container.taskColumns_","Container.useWorkingTime_"],
-    "no-private-methods": ["Container.#ensureKeyboardLinkStatus","Container.#motion","Container.#moveCascade","Container.#publishServiceResult","Container.#publishTaskChange","Container.#setKeyboardLinkSource","Container.#usesService"],
-    "static-config-order": ["Container.barMarginPct"]
-  },
-  "src/gantt/DependencyLayer.mjs": {
-    "compact-jsdoc-loss": ["DependencyLayer.destroy","DependencyLayer.highlightedDependencySet","DependencyLayer.releaseOwnedInput"],
-    "redundant-vdom-div": ["DependencyLayer.config._vdom"],
-    "static-config-order": ["DependencyLayer.axisLeft_","DependencyLayer.dependencyStore_"]
+    "no-private-methods": ["Container.#ensureKeyboardLinkStatus","Container.#motion","Container.#moveCascade","Container.#publishServiceResult","Container.#publishTaskChange","Container.#setKeyboardLinkSource","Container.#usesService"]
   },
   "src/gantt/DependencyStore.mjs": {
     "no-private-methods": ["DependencyStore.#clearEndpointIndex","DependencyStore.#ensureEndpointIndex","DependencyStore.#hasValidEndpointIndex","DependencyStore.#lookupEdges"]
   },
-  "src/gantt/EventDragZone.mjs": {
-    "missing-config-jsdoc": ["GanttEventDragZone.className","GanttEventDragZone.moveInMainThread","GanttEventDragZone.useProxy"],
-    "static-config-order": ["GanttEventDragZone.moveInMainThread"]
-  },
   "src/gantt/TaskStore.mjs": {
-    "compact-jsdoc-loss": ["TaskStore.getBookingRecords","TaskStore.onBookingMutation","TaskStore.onBookingRecordChange","TaskStore.onBookingRowsChange","TaskStore.onBookingSourceMutate","TaskStore.onBookingUpdateKey","TaskStore.rollupParents_"],
-    "local-reactive-tag": ["TaskStore.rollupParents_"],
     "no-private-methods": ["TaskStore.#getBookingRecords","TaskStore.#summary"]
   },
   "src/grid/Body.mjs": {
