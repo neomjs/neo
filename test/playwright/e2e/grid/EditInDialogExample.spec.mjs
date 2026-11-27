@@ -1,4 +1,5 @@
-import {expect, test} from '../../fixtures.mjs';
+import {expect, test}                 from '../../fixtures.mjs';
+import {runDedicatedWorkerNeuralLink} from '../../dedicatedWorkerNeuralLink.mjs';
 
 /**
  * @summary `examples/grid/nestedRecordFields`: renders >= 20 partner records with nested `user.*` and `address.*`
@@ -16,6 +17,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
         const firstRow = page.locator('.neo-grid-row').first();
         await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara', {timeout: 30000});
         await expect(firstRow.locator('.neo-grid-cell[data-field="address.country"]')).toHaveText('Nigeria');
+        await expect(page.locator('.neo-edit-dialog-floating-edit')).toBeHidden();
 
         const ariaRowCount = Number(await page.getByRole('grid').getAttribute('aria-rowcount'));
         expect(ariaRowCount).toBeGreaterThanOrEqual(21); // 1 header row + >= 20 data rows (28 records)
@@ -174,5 +176,85 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(dialog).toBeHidden();
         await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
         await expect(editBtn).toBeFocused()
+    })
+});
+
+test.describe('Compact floating contact action', () => {
+    test.use({hasTouch: true});
+
+    test('edits the current selection and returns focus to the floating opener', async ({browser, context, page}) => {
+        await page.setViewportSize({width: 390, height: 844});
+
+        await runDedicatedWorkerNeuralLink({browser, context, page}, async adapter => {
+            await page.goto(URL);
+
+            const action = page.getByRole('button', {name: 'Edit contact', exact: true}),
+                  rows   = page.locator('.neo-grid-row'),
+                  name   = rows.nth(2).locator('.neo-grid-cell[data-field="user.firstname"]'),
+                  dialog = page.locator('.neo-dialog'),
+                  input  = dialog.locator('input.neo-textfield-input').first(),
+                  app    = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
+                  [view] = await app.queryComponent({ntype: 'grid-view'}, ['selectedRows']);
+
+            await expect(name).toHaveText('Mei-Ling');
+            await expect(action).toBeVisible();
+
+            const placement = await action.evaluate(el => {
+                const actionRect = el.getBoundingClientRect(),
+                      gridRect   = document.querySelector('.neo-grid-container').getBoundingClientRect();
+
+                return {
+                    clearsGrid: actionRect.top >= gridRect.bottom,
+                    fits      : actionRect.left >= 0 && actionRect.right <= innerWidth && actionRect.bottom <= innerHeight,
+                    height    : actionRect.height
+                }
+            });
+
+            expect(placement).toMatchObject({clearsGrid: true, fits: true});
+            expect(placement.height).toBeGreaterThanOrEqual(44);
+
+            await name.tap();
+            await action.tap();
+            await expect(input).toBeFocused();
+            await expect(input).toHaveValue('Mei-Ling');
+
+            const [editor] = await app.queryComponent({className: 'Neo.examples.grid.nestedRecordFields.EditUserDialog'},
+                ['animateTargetId', 'record.id']);
+
+            expect(editor.properties).toMatchObject({
+                animateTargetId: await page.locator('.neo-edit-dialog-floating-edit').getAttribute('id'),
+                'record.id'    : 'p03'
+            });
+
+            await input.fill('Uncommitted draft');
+            await dialog.getByRole('button', {name: 'Cancel', exact: true}).click();
+            await expect(dialog).toBeHidden();
+            await expect(name).toHaveText('Mei-Ling');
+            await expect(action).toBeFocused();
+
+            await action.press('Enter');
+            await expect(input).toBeFocused();
+            await expect(input).toHaveValue('Mei-Ling');
+            await input.fill('Escape draft');
+            await page.keyboard.press('Escape');
+            await expect(dialog).toBeHidden();
+            await expect(name).toHaveText('Mei-Ling');
+            await expect(action).toBeFocused();
+
+            await action.press('Space');
+            await expect(input).toBeFocused();
+            await input.fill('Mei');
+            await dialog.getByRole('button', {name: 'Save', exact: true}).click();
+            await expect(dialog).toBeHidden();
+            await expect(name).toHaveText('Mei');
+            await expect(rows.first().locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
+            await expect(action).toBeFocused();
+
+            await name.tap();
+            await expect.poll(async () => (await app.getComponent(view.id, ['selectedRows'])).selectedRows).toEqual([]);
+            await action.tap();
+            await expect(dialog).toBeHidden();
+            await expect(page.getByText('Select a row to edit a contact.', {exact: true})).toBeVisible()
+        })
     })
 });
