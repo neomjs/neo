@@ -2,6 +2,7 @@ import ClassSystemUtil    from '../util/ClassSystem.mjs';
 import Component          from '../component/Base.mjs';
 import SchedulerContainer from '../scheduler/Container.mjs';
 import TimeAxis           from '../timeline/TimeAxis.mjs';
+import {isDescriptor}     from '../core/ConfigSymbols.mjs';
 import Body               from './Body.mjs';
 import Cascade            from './Cascade.mjs';
 import CascadeMotion      from './CascadeMotion.mjs';
@@ -26,6 +27,24 @@ const GanttColumn = Column, GanttBody = Body,
  * @extends Neo.scheduler.Container
  */
 class Container extends SchedulerContainer {
+    /**
+     * The scheduler's relay descriptors with the dependency layer as a further target: `layer` names the layer
+     * config a chart config feeds. {@link #relayTimelineConfig} is the one place that writes those inputs.
+     * @member {Object} timelineRelays
+     * @static
+     */
+    static timelineRelays = Neo.merge(Neo.clone(SchedulerContainer.timelineRelays, true), {
+        appName        : {layer: 'appName'},
+        bufferPx       : {layer: 'bufferPx'},
+        dependencyStore: {layer: 'dependencyStore'},
+        endDateField   : {layer: 'endDateField'},
+        rowHeight      : {layer: 'rowHeight'},
+        startDateField : {layer: 'startDateField'},
+        store          : {layer: 'taskStore'},
+        timeAxis       : {layer: 'timeAxis'},
+        windowId       : {layer: 'windowId'}
+    })
+
     static config = {
         /**
          * @member {String} className='Neo.gantt.Container'
@@ -72,8 +91,18 @@ class Container extends SchedulerContainer {
          * @reactive
          */
         dependencyCreation_: false,
-        /** @member {Object|null} dependencyLayerConfig=null Overrides for the dependency overlay. */
-        dependencyLayerConfig: null,
+        /**
+         * Overrides for the dependency overlay, merged deep: a subclass or an instance changes one key, or the
+         * layer class through `module`. Applied once, when {@link #ensureDependencyLayer} creates the layer.
+         * Reactive so that an instance config merges too: a plain config merges only between classes.
+         * @member {Object|null} dependencyLayerConfig_={[isDescriptor]:true,merge:'deep',value:null}
+         * @reactive
+         */
+        dependencyLayerConfig_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * Dependency records.
          * @member {Neo.gantt.DependencyStore|Object|null} dependencyStore_=null
@@ -256,7 +285,7 @@ class Container extends SchedulerContainer {
      */
     afterSetAppName(value, oldValue) {
         super.afterSetAppName(value, oldValue);
-        if (this.dependencyLayer) this.dependencyLayer.appName = value
+        this.relayTimelineConfig('appName', value, oldValue)
     }
 
     /**
@@ -268,17 +297,6 @@ class Container extends SchedulerContainer {
     afterSetBarDraggable(value, oldValue) {
         super.afterSetBarDraggable(value, oldValue);
         if (!value && this.isConstructed && this.dependencyCreation) this.ensureEventDragZone()
-    }
-
-    /**
-     * @summary Forwards axis buffer changes to the overlay.
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetBufferPx(value, oldValue) {
-        super.afterSetBufferPx(value, oldValue);
-        if (oldValue !== undefined && this.dependencyLayer) { this.dependencyLayer.bufferPx = value; this.syncDependencyLayer() }
     }
 
     /**
@@ -317,7 +335,8 @@ class Container extends SchedulerContainer {
             value.on(listeners);
             this.#dependencyCleanups.push(() => value.un(listeners))
         }
-        if (this.dependencyLayer) { this.dependencyLayer.dependencyStore = value; this.syncDependencyLayer() }
+        this.relayTimelineConfig('dependencyStore', value, oldValue);
+        this.syncScheduleHighlights();
         if (oldValue && oldValue !== value && this.#ownedDependencies.has(oldValue)) oldValue.destroy()
     }
 
@@ -329,8 +348,11 @@ class Container extends SchedulerContainer {
      */
     afterSetEndDateField(value, oldValue) {
         super.afterSetEndDateField(value, oldValue);
-        if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
-        if (this.dependencyLayer) { this.dependencyLayer.endDateField = value; this.syncDependencyLayer() }
+
+        if (oldValue !== undefined) {
+            this.#analysis?.invalidateSchedule();
+            this.syncScheduleHighlights()
+        }
     }
 
     /**
@@ -352,7 +374,7 @@ class Container extends SchedulerContainer {
      */
     afterSetRowHeight(value, oldValue) {
         super.afterSetRowHeight(value, oldValue);
-        if (this.dependencyLayer) { this.dependencyLayer.rowHeight = value; this.syncDependencyLayer() }
+        this.relayTimelineConfig('rowHeight', value, oldValue)
     }
 
     /**
@@ -380,8 +402,11 @@ class Container extends SchedulerContainer {
      */
     afterSetStartDateField(value, oldValue) {
         super.afterSetStartDateField(value, oldValue);
-        if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
-        if (this.dependencyLayer) { this.dependencyLayer.startDateField = value; this.syncDependencyLayer() }
+
+        if (oldValue !== undefined) {
+            this.#analysis?.invalidateSchedule();
+            this.syncScheduleHighlights()
+        }
     }
 
     /**
@@ -426,7 +451,8 @@ class Container extends SchedulerContainer {
             this.#storeCleanups.push(() => value.un(listeners))
         }
         if (this.eventDragZone) this.eventDragZone.store = value;
-        if (this.dependencyLayer) { this.dependencyLayer.taskStore = value; this.syncDependencyLayer() }
+        this.relayTimelineConfig('store', value, oldValue);
+        this.syncScheduleHighlights();
         if (oldValue && oldValue !== value && this.#ownedTasks.has(oldValue)) oldValue.destroy()
     }
 
@@ -449,7 +475,11 @@ class Container extends SchedulerContainer {
     afterSetTimeAxis(value, oldValue) {
         super.afterSetTimeAxis(value, oldValue);
         if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
-        if (this.dependencyLayer) { this.dependencyLayer.timeAxis = value; this.bindTimelineSubscriptions(); this.syncDependencyLayer() }
+
+        if (this.dependencyLayer) {
+            this.bindTimelineSubscriptions();
+            this.syncScheduleHighlights()
+        }
     }
 
     /**
@@ -469,14 +499,14 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Forwards viewport size changes to the overlay.
+     * @summary Sends the width the timeline column now shows to the overlay.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
     afterSetViewportWidth(value, oldValue) {
         super.afterSetViewportWidth(value, oldValue);
-        if (oldValue !== undefined && this.dependencyLayer) { this.dependencyLayer.viewportWidth = value; this.syncDependencyLayer() }
+        if (oldValue !== undefined) this.syncDependencyLayerGeometry()
     }
 
     /**
@@ -487,7 +517,7 @@ class Container extends SchedulerContainer {
      */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
-        if (this.dependencyLayer) this.dependencyLayer.windowId = value
+        this.relayTimelineConfig('windowId', value, oldValue)
     }
 
     /**
@@ -543,19 +573,21 @@ class Container extends SchedulerContainer {
                 this.syncDependencyLayer()
             }))
         }
-        if (this.headerToolbar) this.#cleanups.push(this.observeConfig(this.headerToolbar, 'scrollLeft', value => {
+        if (this.headerToolbar) this.#cleanups.push(this.observeConfig(this.headerToolbar, 'scrollLeft', () => {
             this.#cascadeMotion?.end();
-            if (this.dependencyLayer) this.dependencyLayer.scrollLeft = value || 0
+            this.syncDependencyLayerGeometry()
         }))
         if (body) {
             // A column moving before or after the timeline moves the axis: the rebuild's second event carries the
             // geometry, and a live column resize moves it in place
-            let syncAxisLeft = () => {if (this.dependencyLayer) this.dependencyLayer.axisLeft = this.timelineColumn?.axisLeft || 0},
-                listeners    = {cellPositionsChange: syncAxisLeft, isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
-                onPositions  = ({addedItems}) => {if (addedItems?.length) syncAxisLeft()};
+            let syncGeometry = () => this.syncDependencyLayerGeometry(),
+                listeners    = {cellPositionsChange: syncGeometry, isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
+                onPositions  = ({addedItems}) => {if (addedItems?.length) syncGeometry()};
             body.on(listeners);
             body.columnPositions.on('mutate', onPositions);
-            this.#cleanups.push(() => body.isDestroyed || (body.un(listeners), body.columnPositions.un('mutate', onPositions)))
+            // The width the column shows follows the body's, which the column reads for its bars too
+            this.#cleanups.push(this.observeConfig(body, 'containerWidth', syncGeometry),
+                () => body.isDestroyed || (body.un(listeners), body.columnPositions.un('mutate', onPositions)))
         }
     }
 
@@ -698,7 +730,8 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Creates the dependency overlay and mounts it in the center body.
+     * @summary Returns the dependency overlay, creating it on first use from the chart's values and
+     * {@link #dependencyLayerConfig}. The center body mounts it: see {@link Neo.gantt.Body#createRowPool}.
      * @returns {Neo.gantt.DependencyLayer}
      */
     ensureDependencyLayer() {
@@ -710,6 +743,7 @@ class Container extends SchedulerContainer {
                 appName        : me.appName,
                 bufferPx       : me.bufferPx,
                 dependencyStore: me.dependencyStore,
+                drawnSpans     : me.drawnSpans,
                 endDateField   : me.endDateField,
                 id             : `${me.id}__dependency-layer`,
                 parentId       : me.body?.id || me.id,
@@ -720,14 +754,7 @@ class Container extends SchedulerContainer {
                 viewportWidth  : me.viewportWidth,
                 windowId       : me.windowId,
                 ...me.dependencyLayerConfig
-            });
-            me.dependencyLayer.drawnSpans = me.drawnSpans
-        }
-
-        let rootCn = me.body?.getVdomRoot?.()?.cn;
-
-        if (Array.isArray(rootCn) && !rootCn.some(node => node?.componentId === me.dependencyLayer.id)) {
-            rootCn.push(me.dependencyLayer.createVdomReference())
+            })
         }
 
         return me.dependencyLayer
@@ -1295,6 +1322,26 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary Relays a chart config as the scheduler does, then to the dependency layer where
+     * {@link Neo.gantt.Container.timelineRelays} names a `layer` config for it.
+     * @param {String} configName The chart config that changed
+     * @param {*}      value      Its new value
+     * @param {*}      oldValue   Its previous value
+     * @protected
+     */
+    relayTimelineConfig(configName, value, oldValue) {
+        super.relayTimelineConfig(configName, value, oldValue);
+
+        let me    = this,
+            layer = me.dependencyLayer,
+            key   = me.constructor.timelineRelays[configName]?.layer;
+
+        if (key && layer) {
+            layer[key] = value
+        }
+    }
+
+    /**
      * @summary Recomputes task spans and reachable dependencies when {@link #useWorkingTime} changes, publishing through the writer.
      * @param {Boolean} [useWorking=Boolean(this.useWorkingTime)] Target working-calendar mode.
      * @param {Boolean} [wasWorking=!useWorking]                  Prior working-calendar mode.
@@ -1428,29 +1475,65 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Updates the dependency layer from the current chart geometry.
+     * @summary Draws the dependency layer after the data in the chart's stores or on its axis changed: sends the
+     * current geometry and highlights, then projects once.
      * @returns {Object[]} The projected arrow descriptors
      */
     syncDependencyLayer() {
-        let layer = this.ensureDependencyLayer();
-        if (!layer) return [];
-        let highlights = this.#analysis?.getHighlights() || {},
-            dependencyIds;
-        if (this.#analysis) {
-            let taskIds = highlights.taskIds || [];
-            dependencyIds = highlights.dependencyIds || [];
-            if (this.timelineColumn && !Neo.isEqual(this.timelineColumn.highlightedRecordIds, taskIds)) {
-                this.timelineColumn.highlightedRecordIds = [...taskIds]
+        let me    = this,
+            layer = me.ensureDependencyLayer();
+
+        me.syncDependencyLayerGeometry();
+
+        // A changed highlight set re-projects by itself
+        return me.syncScheduleHighlights() ? layer.arrows : layer.project()
+    }
+
+    /**
+     * @summary Sends the timeline column's geometry to the dependency layer: where the axis starts in its
+     * scrolling region, how far that region has scrolled, and the width the column shows. The one writer of
+     * those three inputs.
+     * @protected
+     */
+    syncDependencyLayerGeometry() {
+        let me     = this,
+            column = me.timelineColumn;
+
+        me.dependencyLayer?.set({
+            axisLeft     : column?.axisLeft || 0,
+            scrollLeft   : me.headerToolbar?.scrollLeft || 0,
+            viewportWidth: column?.effectiveViewportWidth || me.viewportWidth
+        })
+    }
+
+    /**
+     * @summary Applies the registered analysis' highlights to the timeline column and the dependency layer.
+     * @returns {Boolean} True when the layer's highlights changed, which re-projects it
+     * @protected
+     */
+    syncScheduleHighlights() {
+        let me       = this,
+            analysis = me.#analysis,
+            column   = me.timelineColumn,
+            layer    = me.dependencyLayer,
+            changed  = false;
+
+        if (analysis) {
+            let highlights    = analysis.getHighlights() || {},
+                dependencyIds = highlights.dependencyIds || [],
+                taskIds       = highlights.taskIds || [];
+
+            if (column && !Neo.isEqual(column.highlightedRecordIds, taskIds)) {
+                column.highlightedRecordIds = [...taskIds]
+            }
+
+            if (layer && !Neo.isEqual(layer.highlightedDependencyIds, dependencyIds)) {
+                layer.highlightedDependencyIds = [...dependencyIds];
+                changed = true
             }
         }
-        layer.set({axisLeft: this.timelineColumn?.axisLeft || 0, bufferPx: this.bufferPx, dependencyStore: this.dependencyStore, endDateField: this.endDateField,
-            rowHeight: this.rowHeight, scrollLeft: this.headerToolbar?.scrollLeft || 0, startDateField: this.startDateField,
-            taskStore: this.store, timeAxis: this.timeAxis, viewportWidth: this.timelineColumn?.effectiveViewportWidth || this.viewportWidth});
-        if (dependencyIds && !Neo.isEqual(layer.highlightedDependencyIds, dependencyIds)) {
-            layer.highlightedDependencyIds = [...dependencyIds];
-            return layer.arrows
-        }
-        return layer.project()
+
+        return changed
     }
 
     /**

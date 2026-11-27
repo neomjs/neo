@@ -191,18 +191,39 @@ class DependencyLayer extends Component {
      * @protected
      */
     afterSetAxisLeft(value, oldValue) {
-        if (oldValue !== undefined && this.isConstructed) {
-            this.project()
-        }
+        this.onInputChange(oldValue)
     }
 
     /**
-     * @summary Releases an owned input when its replacement is installed.
+     * @summary Re-projects the arrows for the new overscan.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetBufferPx(value, oldValue) {
+        this.onInputChange(oldValue)
+    }
+
+    /**
+     * @summary Releases an owned store when its replacement is installed, and draws the new store's links.
      * @param {Neo.gantt.DependencyStore|null} value
      * @param {Neo.gantt.DependencyStore|null} oldValue
      * @protected
      */
-    afterSetDependencyStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
+    afterSetDependencyStore(value, oldValue) {
+        this.releaseOwnedInput(value, oldValue);
+        this.onInputChange(oldValue)
+    }
+
+    /**
+     * @summary Re-projects the arrows from the new end-date field.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEndDateField(value, oldValue) {
+        this.onInputChange(oldValue)
+    }
 
     /**
      * @summary Updates `#highlightedDependencySet` and re-projects arrows when `highlightedDependencyIds` changes.
@@ -215,9 +236,17 @@ class DependencyLayer extends Component {
             Array.isArray(value) ? value.map(id => String(id)) : []
         );
 
-        if (oldValue !== undefined && this.isConstructed) {
-            this.project()
-        }
+        this.onInputChange(oldValue)
+    }
+
+    /**
+     * @summary Re-projects the arrows at the new row height.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRowHeight(value, oldValue) {
+        this.onInputChange(oldValue)
     }
 
     /**
@@ -234,20 +263,49 @@ class DependencyLayer extends Component {
     }
 
     /**
-     * @summary Releases an owned input when its replacement is installed.
+     * @summary Re-projects the arrows from the new start-date field.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetStartDateField(value, oldValue) {
+        this.onInputChange(oldValue)
+    }
+
+    /**
+     * @summary Releases an owned store when its replacement is installed, and draws the new store's tasks.
      * @param {Neo.gantt.TaskStore|null} value
      * @param {Neo.gantt.TaskStore|null} oldValue
      * @protected
      */
-    afterSetTaskStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
+    afterSetTaskStore(value, oldValue) {
+        this.releaseOwnedInput(value, oldValue);
+        this.onInputChange(oldValue)
+    }
 
     /**
-     * @summary Releases an owned input when its replacement is installed.
+     * @summary Releases an owned axis when its replacement is installed, and draws on the new axis.
      * @param {Neo.timeline.TimeAxis|null} value
      * @param {Neo.timeline.TimeAxis|null} oldValue
      * @protected
      */
-    afterSetTimeAxis(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
+    afterSetTimeAxis(value, oldValue) {
+        this.releaseOwnedInput(value, oldValue);
+        this.onInputChange(oldValue)
+    }
+
+    /**
+     * @summary Re-projects the arrows only when the new visible width leaves the projected buffer window, as a
+     * scroll does.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetViewportWidth(value, oldValue) {
+        if (oldValue !== undefined && this.isConstructed && this.needsReprojection(this.scrollLeft, value)) {
+            this.project()
+        }
+    }
 
     /**
      * @summary Coerces `dependencyStore` config objects into a {@link Neo.gantt.DependencyStore} instance.
@@ -377,6 +435,18 @@ class DependencyLayer extends Component {
             timeAxis          : this.timeAxis,
             viewportWidth     : viewportWidth || 1200
         })
+    }
+
+    /**
+     * @summary Re-projects the arrows after one of the layer's inputs changed. The first assignment of an input
+     * and a write before the layer is constructed draw nothing: {@link #construct} projects once.
+     * @param {*} oldValue The input's previous value; `undefined` marks its first assignment
+     * @protected
+     */
+    onInputChange(oldValue) {
+        if (oldValue !== undefined && this.isConstructed) {
+            this.project()
+        }
     }
 
     /**
