@@ -1279,11 +1279,17 @@ test.describe('SortZone drag end after the drop destroyed the owner', () => {
      * @returns {Object}
      */
     function spyComponent(id, writes, isDestroyed) {
-        const component = {dragResortable: true, id, isDestroyed};
+        const component = {dragResortable: true, id, isDestroyed, removeCls: Component.prototype.removeCls};
+        let cls = ['neo-no-animation', 'keep-toolbar-class'];
 
         ['cls', 'style', 'wrapperStyle'].forEach(key => Object.defineProperty(component, key, {
-            get: () => key === 'cls' ? ['neo-no-animation'] : {},
-            set: () => writes.push(`${id}.${key}`)
+            get: () => key === 'cls' ? [...cls] : {},
+            set: value => {
+                if (key === 'cls') {
+                    cls = value
+                }
+                writes.push(`${id}.${key}`)
+            }
         }));
 
         return component
@@ -1335,6 +1341,7 @@ test.describe('SortZone drag end after the drop destroyed the owner', () => {
         await Promise.resolve();
 
         expect(destroyed.writes, 'nothing is written onto destroyed components').toEqual([]);
-        expect(live.writes, 'the control: the live toolbar gets its cls written').toContain('toolbar.cls')
+        expect(live.writes.filter(key => key === 'toolbar.cls')).toHaveLength(1);
+        expect(live.zone.owner.cls).toEqual(['keep-toolbar-class'])
     })
 });

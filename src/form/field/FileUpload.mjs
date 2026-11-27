@@ -432,13 +432,12 @@ class FileUpload extends Field {
      */
     onInputValueChange({ files }) {
         const
-            me           = this,
-            {cls, types} = me,
-            body         = me.vdom.cn[1];
+            me      = this,
+            {types} = me,
+            body    = me.vdom.cn[1];
 
         if (files.length) {
-            NeoArray.remove(cls, 'neo-field-empty');
-            me.cls = cls;
+            me.removeCls('neo-field-empty');
 
             const
                 file     = files.item(0),
@@ -689,12 +688,9 @@ class FileUpload extends Field {
 
     afterSetDocument(document) {
         if (document) {
-            const
-                me    = this,
-                {cls} = me;
+            const me = this;
 
-            NeoArray.remove(cls, 'neo-field-empty');
-            me.cls = cls;
+            me.removeCls('neo-field-empty');
 
             me.documentId = document.id;
             me.fileSize = me.formatSize(document.size);

@@ -1,6 +1,5 @@
 import Splitter     from '../../../component/Splitter.mjs';
 import Operations   from '../model/Operations.mjs';
-import NeoArray     from '../../../util/Array.mjs';
 
 /**
  * @summary Dock splitter affordance: generic Splitter mechanics, one dock-document semantic commit.
@@ -200,12 +199,10 @@ class DockSplitter extends Splitter {
      */
     afterSetOrientation(value, oldValue) {
         let me          = this,
-            orientation = me.getValidatedOrientation(value),
-            cls         = me.cls || [];
+            orientation = me.getValidatedOrientation(value);
 
         if (oldValue) {
-            NeoArray.remove(cls, `neo-dashboard-dock-splitter-${oldValue}`);
-            me.cls = cls
+            me.removeCls(`neo-dashboard-dock-splitter-${oldValue}`)
         }
 
         // dock 'horizontal' (side-by-side children) = a vertical divider bar

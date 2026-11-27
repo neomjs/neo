@@ -11,6 +11,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
+import Component      from '../../../../../../../src/component/Base.mjs';
 import SortZone       from '../../../../../../../src/draggable/grid/header/toolbar/SortZone.mjs';
 
 /**
@@ -280,6 +281,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
             owner         = {
                 addDomListeners: () => {},
                 cls            : [],
+                removeCls      : Component.prototype.removeCls,
                 dragResortable : true,
                 items          : [dragComponent],
                 on             : () => {},
@@ -318,6 +320,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
             owner         = {
                 addDomListeners: () => {},
                 cls            : [],
+                removeCls      : Component.prototype.removeCls,
                 dragResortable : true,
                 gridContainer  : {
                     body   : {createViewData: () => calls.push('createViewData')},
@@ -375,6 +378,7 @@ test.describe('Neo.draggable.grid.header.toolbar.SortZone', () => {
             owner         = {
                 addDomListeners   : () => {},
                 cls               : [],
+                removeCls         : Component.prototype.removeCls,
                 dragResortable    : true,
                 gridContainer,
                 id                : 'center-header-toolbar',
