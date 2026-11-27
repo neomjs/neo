@@ -44,6 +44,11 @@
         min-width : 0;
     }
 
+    .neo-edit-dialog-compact-instructions,
+    .neo-edit-dialog-floating-edit.neo-button {
+        display: none;
+    }
+
     @media (max-width: 600px) {
         gap    : 10px;
         padding: 10px;
@@ -60,6 +65,29 @@
         .neo-edit-dialog-toolbar.neo-toolbar .neo-button {
             font-size: 11px;
             padding  : 4px 7px;
+        }
+
+        .neo-edit-dialog-row-instructions {
+            display: none;
+        }
+
+        .neo-edit-dialog-compact-instructions {
+            display: inline;
+        }
+
+        .neo-grid-container {
+            margin-block-end: calc(56px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .neo-edit-dialog-floating-edit.neo-button {
+            border-radius   : 999px;
+            display         : flex;
+            inset-block-end : calc(12px + env(safe-area-inset-bottom, 0px));
+            inset-inline-end: 12px;
+            min-height      : 44px;
+            padding-inline  : 16px;
+            position        : fixed;
+            z-index         : 10;
         }
     }
 }

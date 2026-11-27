@@ -115,5 +115,28 @@ test.describe('Theme Neo roles — one sheet serves the light class, the dark cl
         expect(painted.onLight.island, 'dark island on a light page').toBe(painted.literal.dark);
         expect(painted.onDark.page,    'dark page').toBe(painted.literal.dark);
         expect(painted.onDark.island,  'dark island on a dark page').toBe(painted.literal.dark)
+    });
+
+    test('a theme controls normal duration and reduced motion still collapses the transition', async ({page}) => {
+        const role = '--neo-duration-fast';
+
+        await page.emulateMedia({reducedMotion: 'no-preference'});
+
+        const duration = () => page.evaluate(role => {
+            const probe = document.createElement('div');
+            probe.style.transitionDuration = `var(${role})`;
+            document.body.appendChild(probe);
+
+            const value = getComputedStyle(probe).transitionDuration;
+            probe.remove();
+            return value
+        }, role);
+
+        await expect.poll(duration).toBe('0.12s');
+        await page.addStyleTag({content: `@layer neo.roles { .neo-theme-neo-light { ${role}: 90ms; } }`});
+        await expect.poll(duration).toBe('0.09s');
+
+        await page.emulateMedia({reducedMotion: 'reduce'});
+        await expect.poll(duration).toBe('0s')
     })
 });

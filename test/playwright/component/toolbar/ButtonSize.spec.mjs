@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 /**
  * @summary A toolbar's buttons take the size of the nearest theme. In the neo themes that is the compact 32 px, under
@@ -14,13 +15,8 @@ const NEO_THEMES = ['neo-theme-neo-dark', 'neo-theme-neo-light'];
  * @param {Object} page
  */
 async function loadStylesheets(page) {
-    const themes = ['theme-neo-dark', 'theme-neo-light', 'theme-dark', 'theme-light'],
-          hrefs  = [
-              ...themes.flatMap(dir => [
-                  ...dir.startsWith('theme-neo-') ? [`/dist/development/css/${dir}/Global.css`] : [],
-                  `/dist/development/css/${dir}/button/Base.css`,
-                  `/dist/development/css/${dir}/toolbar/Base.css`
-              ]),
+    const hrefs = [
+              ...themeSheetHrefs([...NEO_THEMES, 'neo-theme-dark', 'neo-theme-light'], ['button.Base', 'toolbar.Base']),
               '/dist/development/css/src/button/Base.css',
               '/dist/development/css/src/toolbar/Base.css',
               '/dist/development/css/src/desktop/Taskbar.css',

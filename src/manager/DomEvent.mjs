@@ -32,6 +32,14 @@ const handlerMap = {
     wheel      : 'onWheel'
 };
 
+const gestureEvents = new Set([
+    'tap', 'swipe',
+    'press:start', 'press:end', 'press:cancel',
+    'pan:start', 'pan:move', 'pan:end', 'pan:cancel',
+    'pinch:start', 'pinch:move', 'pinch:end', 'pinch:cancel',
+    'rotate:start', 'rotate:move', 'rotate:end', 'rotate:cancel'
+]);
+
 const globalDomEvents = [
     'change',
     'click',
@@ -109,6 +117,15 @@ class DomEvent extends Base {
     mountTimeouts = {}
 
     /**
+     * The desired and acknowledged Main registrations for each mounted component and window.
+     * @member {Map} #gestureRegistrations
+     * @private
+     */
+    #gestureRegistrations = new Map()
+    /** @member {Number} #nextGestureRegistrationId=0 */
+    #nextGestureRegistrationId = 0
+
+    /**
      * Registers a native ResizeObserver for a specific component listener.
      *
      * **Architectural Note on Delegation:**
@@ -155,6 +172,11 @@ class DomEvent extends Base {
             bubble      = true,
             data        = event.data || {},
             {eventName} = event;
+
+        if (data.gestureOwner) {
+            me.fireGesture(eventName, data, event.windowId);
+            return
+        }
 
         // Bypass standard bubbling for explicitly mapped resize events from the Main Thread registry
         if (eventName === 'resize' && Array.isArray(data.componentIds)) {
@@ -295,6 +317,154 @@ class DomEvent extends Base {
             } else if (eventName === 'drag:cancel' && data.crossWindow) {
                 // Escape in a window that owns no gesture: a cross-window drag may belong to another one
                 Neo.manager.DragCoordinator?.cancelCrossWindowGesture({windowId: event.windowId})
+            }
+        }
+    }
+
+    /**
+     * @summary Validates the single Main owner before delivering a semantic phase to App listeners.
+     * @param {String} eventName
+     * @param {Object} data
+     * @param {String} windowId
+     * @protected
+     */
+    fireGesture(eventName, data, windowId) {
+        const {componentId, id, registrationId} = data.gestureOwner,
+              state                             = this.#gestureRegistrations.get(JSON.stringify([componentId, windowId])),
+              entry                             = state?.desired.get(id),
+              {gestureId, phase}                = data;
+
+        if (!gestureEvents.has(eventName) || !entry || entry.registrationId !== registrationId) {
+            return
+        }
+
+        const {active, component} = state;
+        let   delivery            = active.get(gestureId),
+            isLive;
+
+        if (phase === 'start') {
+            if (delivery || component.disabled) {
+                return
+            }
+
+            delivery = {data, eventName, recipients: new Set()};
+            active.set(gestureId, delivery)
+        } else if (phase) {
+            if (!delivery) {
+                return
+            }
+
+            if (phase === 'end' || phase === 'cancel') {
+                active.delete(gestureId)
+            } else {
+                Object.assign(delivery, {data, eventName})
+            }
+        }
+
+        if (phase === 'start' || phase === 'move') {
+            isLive = () => active.get(gestureId) === delivery
+        }
+
+        try {
+            this.invokeGestureListeners(component, eventName, data, delivery, isLive)
+        } finally {
+            if (phase === 'start') {
+                delivery.recipients = null
+            }
+        }
+    }
+
+    /**
+     * @summary Starts at the recognition owner and preserves logical delegation and bubbling.
+     * @param {Neo.component.Base} component
+     * @param {String} eventName
+     * @param {Object} data
+     * @param {Object} [delivery]
+     * @param {Function} [isLive] Rechecked after each callback that can revoke the owner.
+     * @protected
+     */
+    invokeGestureListeners(component, eventName, data, delivery, isLive) {
+        if (component.isDestroyed) {
+            return
+        }
+
+        const path       = ComponentManager.getParentPath(data.path.map(node => node.id)),
+              ownerIndex = path.indexOf(component.id),
+              owners     = ownerIndex === -1 ? [component.id, ...ComponentManager.getParentPath([component.id]).slice(1)] : path.slice(ownerIndex);
+
+        for (const componentId of owners) {
+            if (isLive?.() === false) {
+                break
+            }
+
+            // Synchronous release inside start only cancels recipients reached so far.
+            if (data.phase === 'cancel' && delivery?.recipients && !delivery.recipients.has(componentId)) {
+                continue
+            }
+
+            const isOwner = componentId === component.id,
+                  target  = isOwner ? component : Neo.getComponent(componentId);
+
+            if (!target || (target.disabled && data.phase !== 'cancel')) {
+                break
+            }
+
+            if (data.phase === 'start') {
+                delivery.recipients.add(componentId)
+            }
+
+            const predicate = listener => isLive?.() !== false && (!isOwner || listener.vnodeId === data.gestureOwner.id);
+
+            if (!this.invokeListeners(target, this.items[componentId]?.[eventName], data, path, eventName, predicate) || data.cancelBubble) {
+                break
+            }
+        }
+    }
+
+    /**
+     * @summary Cancels open gestures when their App registration or the owning window disappears.
+     * @param {Object} state
+     * @param {Map} desired
+     * @protected
+     */
+    cancelReleasedGestures(state, desired) {
+        for (const [gestureId, delivery] of state.active) {
+            const {data, eventName}    = delivery,
+                  {id, registrationId} = data.gestureOwner,
+                  entry                = desired.get(id),
+                  family               = eventName.split(':')[0];
+
+            if (entry?.registrationId !== registrationId || ![...entry.events].some(name => name.startsWith(`${family}:`))) {
+                const type = `${family}:cancel`;
+
+                state.active.delete(gestureId);
+
+                try {
+                    this.invokeGestureListeners(state.component, type, {
+                        ...data,
+                        cancelBubble: false,
+                        changed     : data.contacts.map(contact => contact.id),
+                        contacts    : [],
+                        phase       : 'cancel',
+                        type
+                    }, delivery)
+                } catch (error) {
+                    console.error('DomEvent: Gesture cancellation listener failed', error)
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary Ends App-side gesture state when Main can no longer deliver a window's terminal phase.
+     * @param {String} windowId
+     */
+    releaseWindowGestures(windowId) {
+        for (const [key, state] of this.#gestureRegistrations) {
+            if (state.windowId === windowId) {
+                state.desired = new Map();
+                this.#gestureRegistrations.delete(key);
+                this.cancelReleasedGestures(state, state.desired)
             }
         }
     }
@@ -488,13 +658,17 @@ class DomEvent extends Base {
         }
 
         if (listeners) {
+            if (component.mounted && !component.isDestroying && !component.isDestroyed) {
+                me.syncGestureRegistrations(component, listeners, true)
+            }
+
             Object.entries(listeners).forEach(([eventName, value]) => {
                 value.forEach(event => {
                     eventName = event.eventName;
 
                     if (eventName === 'resize') {
                         me.addResizeObserver(component, event)
-                    } else if (eventName && !event.mounted && (event.local || !globalDomEvents.includes(eventName))) {
+                    } else if (eventName && !gestureEvents.has(eventName) && !event.mounted && (event.local || !globalDomEvents.includes(eventName))) {
                         event.mounted = true;
 
                         let options = {};
@@ -646,6 +820,8 @@ class DomEvent extends Base {
         let me        = this,
             listeners = me.items[component.id];
 
+        me.syncGestureRegistrations(component);
+
         if (listeners) {
             Object.entries(listeners).forEach(([eventName, value]) => {
                 value.forEach(event => {
@@ -781,6 +957,8 @@ class DomEvent extends Base {
                 })
             });
 
+            me.syncGestureRegistrations(component, me.items[component.id]);
+
             if (component.mounted && domListeners?.length > 0) {
                 if (me.mountTimeouts[component.id]) {
                     clearTimeout(me.mountTimeouts[component.id])
@@ -796,6 +974,131 @@ class DomEvent extends Base {
             }
         } else {
             Logger.logError('Component.domListeners have to be an array', component)
+        }
+    }
+
+    /**
+     * @summary Reconciles gesture phase listeners with one registration per component and DOM node.
+     * Removal takes effect on the current registrations immediately. Adding a node or phase waits for
+     * the normal DOM mount path. Replacing a callback for an existing phase keeps its registration.
+     * @param {Neo.component.Base} component
+     * @param {Object} [listeners] Omit to release the component's registrations.
+     * @param {Boolean} [mount=false] Allow new registrations on the DOM mount path.
+     * @protected
+     */
+    syncGestureRegistrations(component, listeners, mount=false) {
+        const {id: componentId, windowId} = component,
+              key                         = JSON.stringify([componentId, windowId]),
+              previous                    = this.#gestureRegistrations.get(key),
+              replacing                   = previous && previous.component !== component,
+              desired                     = new Map();
+
+        if (replacing && !mount) {
+            return
+        }
+
+        if (listeners && (mount || previous)) {
+            for (const [eventName, handlers] of Object.entries(listeners)) {
+                if (!gestureEvents.has(eventName)) {
+                    continue
+                }
+
+                for (const {vnodeId} of handlers) {
+                    if (mount || previous.desired.get(vnodeId)?.events.has(eventName)) {
+                        if (!desired.has(vnodeId)) {
+                            const registrationId = (!replacing && previous?.desired.get(vnodeId)?.registrationId) || ++this.#nextGestureRegistrationId;
+
+                            desired.set(vnodeId, {events: new Set(), registrationId})
+                        }
+
+                        desired.get(vnodeId).events.add(eventName)
+                    }
+                }
+            }
+        }
+
+        if (!previous && desired.size === 0) {
+            return
+        }
+
+        const state = previous ?? {active: new Map(), applied: new Map(), component, componentId, windowId};
+
+        state.desired = desired;
+        this.#gestureRegistrations.set(key, state);
+        this.cancelReleasedGestures(state, desired);
+        state.component = component;
+
+        state.flight ??= this.flushGestureRegistrations(key, state)
+    }
+
+    /**
+     * @summary Serializes registration and release across async addon loading and component remounts.
+     * @param {String} key
+     * @param {Object} state
+     * @protected
+     */
+    async flushGestureRegistrations(key, state) {
+        const {applied, componentId, windowId} = state,
+              worker                           = Neo.currentWorker;
+
+        // A listener can disappear before the lazy import starts or while it is pending.
+        await Promise.resolve();
+
+        try {
+            let desired;
+
+            do {
+                if (this.#gestureRegistrations.get(key) !== state) {
+                    return
+                }
+
+                if (worker?.isWindowDeparted?.(windowId)) {
+                    this.#gestureRegistrations.delete(key);
+                    return
+                }
+
+                if (!state.addon && state.desired.size > 0) {
+                    state.addon = await worker.getAddon('Gesture', windowId);
+
+                    if (!state.addon) {
+                        throw new Error('Gesture addon was not registered in Main')
+                    }
+
+                    continue
+                }
+
+                desired = state.desired;
+
+                for (const [id, existing] of applied) {
+                    if (!desired.has(id)) {
+                        await state.addon.unregister({componentId, id, registrationId: existing.registrationId, windowId});
+                        applied.delete(id)
+                    }
+                }
+
+                for (const [id, {events, registrationId}] of desired) {
+                    const existing = applied.get(id);
+
+                    if (desired !== state.desired) {
+                        break
+                    }
+
+                    if (existing?.registrationId !== registrationId || existing.events.size !== events.size || [...events].some(name => !existing.events.has(name))) {
+                        await state.addon.register({componentId, events: [...events], id, registrationId, windowId});
+                        applied.set(id, {events, registrationId})
+                    }
+                }
+            } while (desired !== state.desired);
+
+            if (applied.size === 0 && state.desired.size === 0) {
+                this.#gestureRegistrations.delete(key)
+            }
+        } catch (error) {
+            if (!worker?.isWindowDeparted?.(windowId)) {
+                console.error('DomEvent: Could not reconcile gesture listeners', error)
+            }
+        } finally {
+            state.flight = null
         }
     }
 

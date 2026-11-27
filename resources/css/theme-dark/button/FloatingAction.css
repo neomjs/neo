@@ -1,0 +1,19 @@
+:root .neo-theme-dark { /* .neo-floating-action-button */
+    --neo-floating-action-button-background-color          : #64b5f6;
+    --neo-floating-action-button-background-color-active   : #42a5f5;
+    --neo-floating-action-button-background-color-hover    : #90caf9;
+    --neo-floating-action-button-border-radius             : 16px;
+    --neo-floating-action-button-box-shadow                : 0 4px 12px rgba(0, 0, 0, .5);
+    --neo-floating-action-button-box-shadow-hover          : 0 6px 16px rgba(0, 0, 0, .6);
+    --neo-floating-action-button-color                     : #282828;
+    --neo-floating-action-button-font-size                 : 1rem;
+    --neo-floating-action-button-font-weight               : 600;
+    --neo-floating-action-button-gap                       : 12px;
+    --neo-floating-action-button-glyph-font-size           : 24px;
+    --neo-floating-action-button-height                    : 56px;
+    --neo-floating-action-button-inset                     : 16px;
+    --neo-floating-action-button-padding-inline            : 16px;
+    --neo-floating-action-button-text-max-width            : 16rem;
+    --neo-floating-action-button-transition-duration       : 200ms;
+    --neo-floating-action-button-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

@@ -12,8 +12,9 @@ import {extractThemeClasses}       from '../../../../buildScripts/util/themeCss.
 const repoRoot      = fileURLToPath(new URL('../../../../', import.meta.url)),
       createPath    = path.join(repoRoot, 'buildScripts/create/theme.mjs'),
       buildPath     = path.join(repoRoot, 'buildScripts/build/themes.mjs'),
+      // A theme is a folder whose Global.css declares a theme class, so theme-base is none
       shippedThemes = fs.readdirSync(path.join(repoRoot, 'resources/css'), {withFileTypes: true})
-          .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-'))
+          .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-') && fs.existsSync(path.join(repoRoot, 'resources/css', entry.name, 'Global.css')))
           .map(entry => entry.name).sort();
 
 test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', () => {
@@ -105,6 +106,9 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
             fs.cpSync(path.join(repoRoot, 'resources/css', theme), path.join(engineRoot, 'resources/css', theme), {recursive: true});
         }
 
+        // The base's widget sheet is planted, so the generator's contract does not follow which packages moved to theme-base
+        write(path.join(engineRoot, 'resources/css/theme-neo-dark/button/Base.css'), ':where(.neo-theme-neo-dark) {\n    --neo-button-background-color: #000;\n}\n');
+
         for (const sheet of ['Global.css', 'button/Base.css']) {
             fs.mkdirSync(path.dirname(path.join(engineRoot, 'resources/css/src', sheet)), {recursive: true});
             fs.copyFileSync(path.join(repoRoot, 'resources/css/src', sheet), path.join(engineRoot, 'resources/css/src', sheet));
@@ -127,8 +131,7 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(after.map(([file]) => file)).toEqual(before.map(([file]) => file));
         expect(read(path.join(target, 'Global.css'))).toContain(':where(.neo-theme-acme)');
         expect(read(path.join(target, 'Global.css'))).toMatch(/--neo-core-fontfamily-sans\s*:/);
-        // The motion vocabulary belongs to every theme root through the Engine's src/Global.css, never to a snapshot
-        expect(read(path.join(target, 'Global.css'))).not.toContain('--neo-duration-fast');
+        expect(read(path.join(target, 'Global.css'))).toMatch(/--neo-duration-fast\s*:\s*120ms/);
         expect(read(path.join(target, 'button/Base.css'))).toContain(':where(.neo-theme-acme)');
         expect(snapshot(base)).toEqual(before);
     });
@@ -153,7 +156,9 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(global).toMatch(/--neo-color-scheme\s*:\s*dark/);
         expect(global).toMatch(/--neo-core-fontfamily-sans\s*:/);
         expect(global).not.toContain('.neo-theme-neo-dark');
-        expect(structural).toMatch(/--neo-duration-fast\s*:\s*120ms/);
+        expect(global).toMatch(/--neo-duration-fast\s*:\s*120ms/);
+        expect(structural).toMatch(/--neo-duration-fast\s*:\s*0ms/);
+        expect(structural).not.toMatch(/--neo-duration-fast\s*:\s*120ms/);
         expect(button).toContain(':where(.neo-theme-acme)');
         expect(button).toMatch(/--neo-button-background-color\s*:/);
         expect(button).not.toContain('.neo-theme-neo-dark');
@@ -231,6 +236,24 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
             expect(originals.length).toBeGreaterThan(0);
             expect(classes.length).toBeGreaterThan(0);
             expect(entries(target)).toEqual(originals);
+
+            const motionRoles = new Set([
+                '--neo-duration-fast', '--neo-duration-base', '--neo-duration-panel', '--neo-duration-stage',
+                '--neo-duration-stagger', '--neo-ease-out', '--neo-ease-in'
+            ]);
+            const declarations = postcss.parse(read(path.join(target, 'Global.css')));
+
+            for (const name of retarget.values()) {
+                const declared = new Set();
+                declarations.walkRules(rule => {
+                    if (rule.selector.includes(`.${name}`)) {
+                        rule.each(node => {
+                            if (node.type === 'decl' && motionRoles.has(node.prop)) declared.add(node.prop);
+                        });
+                    }
+                });
+                expect(declared, `${baseTheme}: ${name} motion roles`).toEqual(motionRoles);
+            }
 
             for (const entry of originals) {
                 expect(cssShape(read(path.join(target, entry))), `${baseTheme}/${entry}`).toEqual(

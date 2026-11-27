@@ -1,4 +1,5 @@
-import {test, expect} from '@playwright/test';
+import {test, expect}    from '@playwright/test';
+import {themeSheetHrefs} from '../../util/themeSheets.mjs';
 
 /**
  * @summary The tab drag proxy must render at the density of the header the tab came from.
@@ -43,22 +44,7 @@ const
  * @returns {Promise<void>}
  */
 async function loadThemeStylesheets(page) {
-    const hrefs = THEMES.flatMap(theme => {
-        const directory = theme.replace('neo-theme-', 'theme-'),
-              files     = [
-                  `/dist/development/css/${directory}/button/Base.css`,
-                  `/dist/development/css/${directory}/tab/Container.css`,
-                  `/dist/development/css/${directory}/tab/header/Button.css`,
-                  `/dist/development/css/${directory}/toolbar/Base.css`
-              ];
-
-        if (directory.startsWith('theme-neo-')) {
-            // The neo themes' design tokens live in their Global sheet
-            files.unshift(`/dist/development/css/${directory}/Global.css`)
-        }
-
-        return files
-    });
+    const hrefs = themeSheetHrefs(THEMES, ['button.Base', 'tab.Container', 'tab.header.Button', 'toolbar.Base']);
 
     await page.evaluate(async list => {
         await Promise.all(list.map(href => new Promise(resolve => {

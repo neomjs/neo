@@ -1216,7 +1216,7 @@ class App extends Base {
     /**
      * @summary Retires a port as the base does, and with it the canvas waits that exact port admitted. When it was the
      * window's last port, that window leaves its canvas group too, so only its own canvas waits reject — as its
-     * departure — and a sibling keeps waiting. Its focus history and pending leave retire at this same boundary,
+     * departure — and a sibling keeps waiting. Its focus history and active gestures retire at this boundary,
      * before disconnect listeners can rescue a component into a different window.
      * @param {Object} portEntry
      * @returns {Boolean} True when the entry was live and removed
@@ -1238,7 +1238,8 @@ class App extends Base {
                     canvasGroup: group,
                     windowId
                 });
-                FocusManager.removeWindow(windowId)
+                FocusManager.removeWindow(windowId);
+                DomEventManager.releaseWindowGestures(windowId)
             }
         }
 

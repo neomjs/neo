@@ -5,8 +5,7 @@ import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
- * @summary Partner-directory grid example demonstrating modal dialog editing of nested `user` and `address` record
- * fields with modified-cell highlighting, keyboard navigation, responsive mobile sizing, and Reset.
+ * @summary Partner-directory grid with modal editing of nested contact fields from row actions and a compact floating action.
  * @class Neo.examples.grid.nestedRecordFields.Viewport
  * @extends Neo.container.Viewport
  */
@@ -31,9 +30,17 @@ class Viewport extends BaseViewport {
                     cn: [
                         {tag: 'h1', cls: ['neo-edit-dialog-title'], text: 'Edit a Row in a Dialog'},
                         {
-                            tag : 'p',
-                            cls : ['neo-edit-dialog-subtitle'],
-                            text: 'Press Edit in any row (or focus Edit and press Enter / Space) to open the form; Save updates nested contact and address fields and highlights modified cells.'
+                            tag: 'p',
+                            cls: ['neo-edit-dialog-subtitle'],
+                            cn : [{
+                                tag : 'span',
+                                cls : ['neo-edit-dialog-row-instructions'],
+                                text: 'Press Edit in any row (or focus Edit and press Enter / Space) to open the form; Save updates nested contact and address fields and highlights modified cells.'
+                            }, {
+                                tag : 'span',
+                                cls : ['neo-edit-dialog-compact-instructions'],
+                                text: 'Use Edit in a row, or select a row and choose Edit contact.'
+                            }]
                         }
                     ]
                 }
@@ -91,6 +98,13 @@ class Viewport extends BaseViewport {
                 {dataField: 'role',            text: 'Role',         width: 165},
                 {dataField: 'date',            text: 'Renewal Date', width: 130}
             ]
+        }, {
+            module : Button,
+            cls    : ['neo-edit-dialog-floating-edit'],
+            handler: 'onFloatingEditClick',
+            iconCls: 'fas fa-pen',
+            text   : 'Edit contact',
+            ui     : 'primary'
         }]
     }
 }

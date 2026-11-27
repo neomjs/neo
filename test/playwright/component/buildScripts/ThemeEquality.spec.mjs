@@ -79,7 +79,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         const base = makeTempCheckout(),
               head = makeTempCheckout();
 
-        const targetFile = path.join(head.cssDir, 'theme-neo-light/button/Base.css'),
+        const targetFile = path.join(head.cssDir, 'theme-base/button/Base.css'),
               original   = fs.readFileSync(targetFile, 'utf8'),
               mutated    = original
                   .replace(/--neo-button-primary-color\s*:\s*[^;]+;/, '--neo-button-primary-color: rgb(251, 13, 199);')
@@ -421,7 +421,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(matchedPortable.diffs).toEqual([])
     });
 
-    test('preserves Neo Dark pressed ghost glyph semantic binding when text and icon contrast tokens diverge', async ({page}) => {
+    test('binds the Neo Dark ghost glyph to its roles: text-strong on hover, text-on-accent when pressed', async ({page}) => {
         await page.goto('/test/playwright/component/apps/theme-switcher/index.html?theme=neo-theme-neo-dark');
 
         const button = page.locator('#theme-switcher-test-viewport.neo-theme-neo-dark .neo-button-ghost').first();
@@ -429,8 +429,8 @@ test.describe('theme-equality headless Chromium integration', () => {
 
         await page.evaluate(() => {
             const root = document.getElementById('theme-switcher-test-viewport');
-            root.style.setProperty('--neo-sem-color-text-neutral-contrast', 'rgb(230, 15, 25)');
-            root.style.setProperty('--neo-sem-color-icon-neutral-contrast', 'rgb(10, 190, 25)');
+            root.style.setProperty('--neo-color-text-on-accent', 'rgb(230, 15, 25)');
+            root.style.setProperty('--neo-color-text-strong', 'rgb(10, 190, 25)');
         });
 
         await button.hover();

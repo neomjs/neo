@@ -34,30 +34,10 @@
     cursor: w-resize !important;
 }
 
-/* The product motion vocabulary — the ONLY sanctioned duration/easing source for product-surface
-   choreography, declared once here for every theme root (an element carrying a `neo-theme-*` class),
-   including the themes of workspaces and packages. Mode-invariant by design: motion does not change
-   with color mode, so ONE authority feeds all skins (a per-theme copy would be a divergence trap).
-   Domain tiers consume these through var() aliases — the dashboard dock's --dock-transition-* set is
-   the recorded pattern — and a call-site duration/easing literal is a contract violation.
-
-   The vocabulary is four duration tiers + a stagger + two easings. Nothing on a product surface
-   animates outside these without a recorded exception at its call site. List/grid entrances stagger
-   per item with a cap of 8 — the rest arrive together (scale-at-a-glance, never a parade). */
+/* Themes declare their normal motion roles in Global.css. These rules collapse every duration
+   in every themed scope for reduced motion, after the theme layers. A surface retaining a
+   legibility crossfade records the exception at its call site. */
 :where([class^="neo-theme-"], [class*=" neo-theme-"]) {
-    --neo-duration-fast   : 120ms; /* hover/press micro-feedback */
-    --neo-duration-base   : 200ms; /* state transitions: chips, badges, fills */
-    --neo-duration-panel  : 280ms; /* panel/pane movement, dock snaps */
-    --neo-duration-stage  : 400ms; /* window-level choreography: promote, adopt */
-    --neo-duration-stagger: 24ms;  /* list/grid entrance stagger per item (cap 8) */
-
-    --neo-ease-out: cubic-bezier(0.22, 1, 0.36, 1);   /* everything entering or settling */
-    --neo-ease-in : cubic-bezier(0.55, 0, 0.55, 0.2); /* exits */
-
-    /* Vocabulary-level reduced-motion collapse: every duration goes instant HERE, so
-       consumer tiers inherit the accessibility contract without per-surface overrides.
-       A surface keeping a legibility crossfade under reduced motion is a recorded
-       exception at its own call site — never a change to this collapse. */
     @media (prefers-reduced-motion: reduce) {
         --neo-duration-fast   : 0ms;
         --neo-duration-base   : 0ms;

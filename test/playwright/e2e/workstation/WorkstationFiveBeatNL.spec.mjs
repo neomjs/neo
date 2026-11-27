@@ -2007,6 +2007,16 @@ test.describe('Workstation — the five-beat multi-window journey', () => {
             [...viewport.classList].filter(name => name.startsWith('neo-theme-'))
         )).toEqual(['neo-theme-neo-dark']);
 
+        if (!filmTake) {
+            const close   = page.locator('.workstation-dock-host').getByRole('button', {name: /^close$/i}).first(),
+                  tooltip = page.locator('.neo-tooltip').filter({hasText: /^Close$/});
+
+            // The tooltip mounts under body and needs the retained header action's worker theme.
+            await close.hover();
+            await expect(tooltip).toBeVisible();
+            await expect(tooltip).toHaveClass(/\bneo-theme-neo-dark\b/)
+        }
+
         // The heartbeat moved FORWARD — nothing reloaded, nothing recreated.
         expect(await readHeartbeat(app, wsId)).toBeGreaterThan(heartbeatBefore);
         expect(pageErrors).toEqual([])
