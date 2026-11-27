@@ -17,6 +17,12 @@ class EditUserDialog extends Dialog {
         className     : 'Neo.examples.grid.nestedRecordFields.EditUserDialog',
         closeAction   : 'hide',
         cls           : ['neo-edit-partner-dialog'],
+        /**
+         * Keeps the dialog inside its boundary container when the window narrows while it is open
+         * ({@link Neo.dialog.Base#keepInBoundary}).
+         * @member {Boolean} keepInBoundary=true
+         * @reactive
+         */
         keepInBoundary: true,
         keys          : {
             Enter : 'onKeyDownEnter',
