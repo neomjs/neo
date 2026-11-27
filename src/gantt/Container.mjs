@@ -788,13 +788,24 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Discards a keyboard endpoint whose row was recycled.
+     * @summary Discards a keyboard endpoint whose task is gone or whose row was recycled. An endpoint armed before its
+     * row rendered, as a configured one is, binds to that row once it exists.
      */
     checkKeyboardLinkSource() {
-        let source = this.keyboardLinkSource;
-        if (source && (!this.resolveTaskRecord(source.record) || source.row?.record !== source.record ||
-            this.timelineColumn?.getBarNodeId(source.row.vdom, this.store.getKey(source.record)) !== source.barId)) {
-            this.keyboardLinkSource = null
+        let me     = this,
+            source = me.keyboardLinkSource;
+
+        if (!source) return;
+
+        if (!me.resolveTaskRecord(source.record)) {
+            me.keyboardLinkSource = null
+        } else if (!source.row) {
+            if (me.body?.items.some(item => item.record === source.record)) {
+                me.keyboardLinkSource = {barId: source.barId, record: source.record}
+            }
+        } else if (source.row.record !== source.record ||
+            me.timelineColumn?.getBarNodeId(source.row.vdom, me.store.getKey(source.record)) !== source.barId) {
+            me.keyboardLinkSource = null
         }
     }
 
