@@ -73,11 +73,13 @@ test.describe('buildScripts/util/themeCssLayers (#22297)', () => {
                   '.neo-theme-custom .local { --widget: 4px; }',
                   '.neo-theme-custom { &.state { --widget: 5px; } }',
                   '.neo-theme-custom { --widget: 6px; color: red; }',
-                  ':root .neo-theme-custom { --widget: 7px; }'
+                  ':root .neo-theme-custom { --widget: 7px; }',
+                  ':where(:root .neo-theme-custom) { --widget: 8px; }',
+                  ':root .outer .neo-theme-custom { --widget: 9px; }'
               ].join('\n'),
               result = await postcss([cascadeLayerPlugin({layer: 'neo.theme', boundaries})])
                   .process(source, {from: 'Widget.css', map: {inline: false}}),
-              [dark, light, custom, qualified, nested, mixed, legacy] = result.root.nodes[1].nodes;
+              [dark, light, custom, qualified, nested, mixed, legacy, legacyWhere, descendant] = result.root.nodes[1].nodes;
 
         for (const [i, scope] of [dark, light, custom].entries()) {
             expect(scope.params).toBe(`(${boundaries[i]}) to (:is(${boundaries.join(', ')}))`);
@@ -89,7 +91,11 @@ test.describe('buildScripts/util/themeCssLayers (#22297)', () => {
         expect(qualified.selector).toBe('.neo-theme-custom .local');
         expect(nested.first.selector).toBe('&.state');
         expect(mixed.last.prop).toBe('color');
-        expect(legacy.selector).toBe(':root .neo-theme-custom');
+        expect(legacy.params).toBe(`(:root .neo-theme-custom) to (:is(${boundaries.join(', ')}))`);
+        expect(legacy.first.selector).toBe(':scope.neo-theme-custom, :scope .neo-theme-scope');
+        expect(legacyWhere.params).toBe(legacy.params);
+        expect(legacyWhere.first.selector).toBe(':where(:scope.neo-theme-custom, .neo-theme-scope)');
+        expect(descendant.selector).toBe(':root .outer .neo-theme-custom');
         expect(result.map.toJSON().sources).toEqual(['Widget.css'])
     });
 

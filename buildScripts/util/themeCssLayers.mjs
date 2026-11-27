@@ -74,15 +74,19 @@ function scopeWidgetBindings(root, boundaries, AtRule) {
         if (rule.type !== 'rule' || !rule.nodes.every(node => node.type === 'comment' ||
             (node.type === 'decl' && node.prop.startsWith('--')))) continue;
 
-        const where = rule.selector.match(/^:where\(([^()]*)\)$/),
-              names = (where ? where[1] : rule.selector).split(',').map(name => name.trim());
+        const where  = rule.selector.match(/^:where\(([^()]*)\)$/),
+              owners = (where ? where[1] : rule.selector).split(',').map(owner => owner.trim()),
+              names  = owners.map(owner => owner.replace(/^:root\s+/, ''));
 
         if (!names.every(name => boundaries.includes(name))) continue;
 
-        for (const name of new Set(names)) {
-            const scope    = new AtRule({name: 'scope', params: `(${name}) to (${limit})`, source: rule.source}),
-                  selector = where ? `:where(:scope${name}, .neo-theme-scope)` : `:where(:scope)${name}, .neo-theme-scope`;
+        for (const [i, owner] of owners.entries()) {
+            const name  = names[i],
+                  scope = new AtRule({name: 'scope', params: `(${owner}) to (${limit})`, source: rule.source});
 
+            let selector = `:where(:scope)${name}, .neo-theme-scope`;
+            if (where) selector = `:where(:scope${name}, .neo-theme-scope)`;
+            else if (owner !== name) selector = `:scope${name}, :scope .neo-theme-scope`;
             rule.before(scope.append(rule.clone({selector})))
         }
         rule.remove()
