@@ -271,11 +271,21 @@ class Container extends SchedulerContainer {
      */
     construct(config) {
         super.construct(config);
-        this.ensureDependencyLayer();
-        if (this.dependencyCreation) this.ensureKeyboardLinkStatus();
-        if (this.dependencyCreation && !this.barDraggable) this.ensureEventDragZone();
-        this.bindTimelineSubscriptions();
-        this.syncDependencyLayer()
+
+        let me     = this,
+            source = me.keyboardLinkSource;
+
+        me.ensureDependencyLayer();
+        if (me.dependencyCreation) me.ensureKeyboardLinkStatus();
+        if (me.dependencyCreation && !me.barDraggable) me.ensureEventDragZone();
+        me.bindTimelineSubscriptions();
+        me.syncDependencyLayer();
+
+        // An endpoint armed by config arms again now that its row and the live region exist
+        if (source) {
+            me.keyboardLinkSource = null;
+            me.keyboardLinkSource = source
+        }
     }
 
     /**
@@ -383,10 +393,12 @@ class Container extends SchedulerContainer {
      * @protected
      */
     afterSetKeyboardLinkSource(value, oldValue) {
-        if (!value && !oldValue) return;
+        let me = this;
 
-        let me    = this,
-            title = value && (value.record[me.titleField] || me.store.getKey(value.record));
+        // A configured endpoint waits for the live region: construct() arms it again once that exists
+        if ((!value && !oldValue) || !me.#keyboardLinkStatus) return;
+
+        let title = value && (value.record[me.titleField] || me.store.getKey(value.record));
 
         me.#keyboardLinkStatus.text = value
             ? `Link from ${title}. Focus the destination and press L, or press Escape to cancel.` : '';
@@ -908,14 +920,14 @@ class Container extends SchedulerContainer {
      * @summary Proposes an edit to the schedule service, which writes it, and publishes a committed receipt. A
      * pending decision is awaited: a later commit is published while the service, the stores and the task still
      * match.
-     * @param {Neo.gantt.Container.GanttTaskEdit} edit         The edit, with its changed fields
-     * @param {Object}                            edit.updates The changed fields {@link #buildTaskUpdates} returned
+     * @param {Neo.gantt.Container.GanttTaskEdit}            edit         The edit, with its changed fields
+     * @param {Neo.gantt.Container.GanttScheduleService|null} edit.service The service {@link #moveTask} read once for the edit
+     * @param {Object}                                       edit.updates The changed fields {@link #buildTaskUpdates} returned
      * @returns {Neo.gantt.Container.GanttScheduleReceipt} The service's receipt
      * @protected
      */
-    consultScheduleService({meta, record, updates}) {
+    consultScheduleService({meta, record, service, updates}) {
         let me       = this,
-            service  = me.schedule,
             proposal = {...updates},
             result;
 
@@ -1292,14 +1304,16 @@ class Container extends SchedulerContainer {
             return null
         }
 
-        let refusal = me.refuseTaskEdit({...edit, updates});
+        // One read of the service: the one that admits the edit decides it, even if its admission replaces the schedule
+        let service = me.schedule,
+            refusal = me.refuseTaskEdit({...edit, service, updates});
 
         if (refusal) {
             return refusal
         }
 
-        if (me.isServiceTask(record)) {
-            return me.consultScheduleService({...edit, updates})
+        if (me.isServiceTask(record, service)) {
+            return me.consultScheduleService({...edit, service, updates})
         }
 
         let written = me.writeTaskEdit({...edit, updates});
@@ -1455,14 +1469,14 @@ class Container extends SchedulerContainer {
     /**
      * @summary Refuses an edit the chart cannot take: a derived phase's dates or progress, or an edit while the
      * schedule service describes other stores.
-     * @param {Neo.gantt.Container.GanttTaskEdit} edit         The edit, with its changed fields
-     * @param {Object}                            edit.updates The changed fields {@link #buildTaskUpdates} returned
+     * @param {Neo.gantt.Container.GanttTaskEdit}            edit         The edit, with its changed fields
+     * @param {Neo.gantt.Container.GanttScheduleService|null} edit.service The service {@link #moveTask} read once for the edit
+     * @param {Object}                                       edit.updates The changed fields {@link #buildTaskUpdates} returned
      * @returns {Object|null} A refusal receipt, or null
      * @protected
      */
-    refuseTaskEdit({endField, pctField, record, startField, updates}) {
-        let me      = this,
-            service = me.schedule;
+    refuseTaskEdit({endField, pctField, record, service, startField, updates}) {
+        let me = this;
 
         if (me.store?.isDerivedParent?.(record) && [startField, endField, pctField, 'duration'].some(key => key in updates)) {
             return {status: 'refused', message: 'This phase takes its dates and progress from its tasks.'}
@@ -1642,6 +1656,7 @@ class Container extends SchedulerContainer {
                 meta,
                 minMs        : me.getMinimumTaskDuration({axis, record}),
                 prevSpan,
+                record,
                 useWorking
             },
             span        = [startMs, endMs];
@@ -1881,6 +1896,7 @@ class Container extends SchedulerContainer {
  * @property {Object}                     meta          The edit's gesture source, resize edge and switches
  * @property {Number}                     minMs         The task's minimum duration
  * @property {Number[]}                   prevSpan      The task's `[startMs, endMs]` before the edit
+ * @property {Neo.data.Model}             record        The edited task, for a policy that differs per task
  * @property {Boolean}                    useWorking    True when durations count working time
  */
 

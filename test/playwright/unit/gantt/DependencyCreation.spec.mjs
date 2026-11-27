@@ -5,6 +5,7 @@ import '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
 import Gantt              from '../../../../src/gantt/Container.mjs';
 import GanttEventDragZone from '../../../../src/gantt/EventDragZone.mjs';
+import TaskStore          from '../../../../src/gantt/TaskStore.mjs';
 
 const appName = 'GanttDependencyCreationTest';
 setup({neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: false, useDomApiRenderer: false},
@@ -149,6 +150,30 @@ test('the configured zone admits its custom finish terminal while task movement 
     } finally {
         gantt.destroy();store.destroy();dependencyStore.destroy();
         if (!timeAxis.isDestroyed) timeAxis.destroy()
+    }
+});
+
+test('an endpoint armed by config announces itself once the chart exists, as a later assignment does', () => {
+    const store  = Neo.create(TaskStore, {data: [{id: 'a', title: 'Alpha', isLeaf: true, parentId: null, startDate: new Date('2026-11-12T08:00:00Z'), endDate: new Date('2026-11-12T16:00:00Z')}]}),
+          record = store.get('a'),
+          status = () => gantt.items.find(item => item.cls?.includes('neo-gantt-link-status')).text,
+          gantt  = Neo.create(Gantt, {appName, store, dependencyStore: {data: []}, dependencyCreation: true,
+              keyboardLinkSource: {record, barId: 'bar-a'}, timeAxis: {start: '2026-11-11', end: '2026-11-19'}});
+
+    try {
+        expect(gantt.isKeyboardLinkSource(record, 'bar-a')).toBe(true);
+        expect(status()).toContain('Link from Alpha');
+        gantt.onBarKeyDown({key: 'Escape'});
+        expect(gantt.isKeyboardLinkSource(record, 'bar-a')).toBe(false);
+        expect(status()).toBe('');
+        gantt.keyboardLinkSource = {record, barId: 'bar-a'};
+        expect(status()).toContain('Link from Alpha');
+        gantt.cancelKeyboardLink();
+        expect(status()).toBe('')
+    } finally {
+        const {dependencyStore, timeAxis} = gantt;
+        gantt.destroy();
+        for (const owned of [store, dependencyStore, timeAxis]) if (!owned.isDestroyed) owned.destroy()
     }
 });
 

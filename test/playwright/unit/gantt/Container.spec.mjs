@@ -771,4 +771,39 @@ test.describe('Neo.gantt.Container', () => {
         dependencyStore.destroy();
         taskStore.destroy()
     });
+
+    test('the service that admits an edit decides it, even when its admission replaces the schedule', () => {
+        const taskStore       = Neo.create(TaskStore, {data: [{id: 'a', parentId: null, isLeaf: true, startDate: '2026-11-09T02:00:00Z', endDate: '2026-11-09T04:00:00Z'}]}),
+              dependencyStore = Neo.create(DependencyStore, {data: []}),
+              otherStore      = Neo.create(TaskStore, {data: []}),
+              calls           = [],
+              service         = (name, store, replace) => ({
+                  dependencyStore,
+                  store,
+                  handlesTask() { gantt.schedule = replace(); return true },
+                  moveTask()    { calls.push(name); return {status: 'refused', message: name} }
+              });
+
+        gantt = Neo.create(GanttContainer, {appName, store: taskStore, dependencyStore,
+            timeAxis: {start: '2026-11-09', end: '2026-11-10', timeZone: 'UTC'}});
+
+        try {
+            // Admission clears the schedule, then installs a service bound to other stores
+            for (const replace of [() => null, () => service('B', otherStore, () => null)]) {
+                calls.length   = 0;
+                gantt.schedule = service('A', taskStore, replace);
+                expect(gantt.moveTask('a', {startDate: '2026-11-09T05:00:00Z', endDate: '2026-11-09T07:00:00Z'}))
+                    .toEqual({status: 'refused', message: 'A'});
+                expect(calls).toEqual(['A']);
+                expect(taskStore.get('a').startDate.toISOString()).toBe('2026-11-09T02:00:00.000Z')
+            }
+        } finally {
+            gantt.schedule = null;
+            gantt.destroy();
+            gantt = null;
+            dependencyStore.destroy();
+            otherStore.destroy();
+            taskStore.destroy()
+        }
+    });
 });
