@@ -152,6 +152,13 @@ class Circle extends Component {
     }
 
     /**
+     * Cancels proxy setup if the item gesture ends before the zone is ready.
+     * @member {AbortController|null}
+     * @protected
+     */
+    dragStartAbortController = null;
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -684,14 +691,27 @@ class Circle extends Component {
     }
 
     /**
-     * @param data
+     * @summary Stops any pending proxy setup and clears Circle's gesture state.
+     * @protected
      */
-    onDragEnd(data) {
-        console.log('onDragEnd', data)
+    resetDragStart() {
+        this.dragStartAbortController?.abort();
+        this.dragStartAbortController = null;
+        this.isDragging               = false
     }
 
     /**
-     * @param data
+     * @summary Finishes the item gesture and lets the zone remove its drag proxy.
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        this.resetDragStart();
+        this.dragZone?.dragEnd(data)
+    }
+
+    /**
+     * @summary Starts a zone for the item gesture and gives its async setup the gesture's abort signal.
+     * @param {Object} data
      */
     onDragStart(data) {
         console.log('onDragStart', data)
@@ -699,23 +719,25 @@ class Circle extends Component {
         let me           = this,
             wrapperStyle = me.wrapperStyle || {};
 
-        me.isDragging = true;
-
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module         : DragZone,
                 appName        : me.appName,
                 bodyCursorStyle: 'move !important',
                 dragElement    : me.vdom,
-                dragProxyConfig: {vdom: me.getProxyVdom()},
                 owner          : me,
                 useProxyWrapper: false,
                 windowId       : me.windowId,
                 ...me.dragZoneConfig
-            })
+            });
+
+            me.dragZone.on('dragCancel', me.resetDragStart, me)
         }
 
-        me.dragZone.dragStart(data);
+        me.dragStartAbortController?.abort();
+        me.dragStartAbortController = new AbortController();
+        me.isDragging               = true;
+        me.dragZone.dragStart(data, me.dragStartAbortController.signal);
 
         wrapperStyle.opacity = 0.7;
 
