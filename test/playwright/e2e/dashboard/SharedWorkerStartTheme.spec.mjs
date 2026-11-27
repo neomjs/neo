@@ -47,7 +47,7 @@ test('a tile opened in its own window follows its dashboard switched to Neo Dark
     await page.goto('/examples/dashboard/sortable/index.html');
     await expectTheme(page, LIGHT, 'dashboard at start');
 
-    await page.locator('.neo-theme-switcher').first().click();
+    await page.locator('.neo-themeswitcher').first().click();
     await expectTheme(page, DARK, 'dashboard after the switch');
 
     // The dashboard's popupUrl passes the tile's current theme as `?theme=`

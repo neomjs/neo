@@ -55,7 +55,7 @@
         .project-title { font-size: 15px; }
         .project-subtitle { display: none; }
         .project-control { font-size: 11px; min-height: 28px; padding: 0 8px; }
-        .neo-theme-switcher { order: 1; }
+        .neo-themeswitcher { order: 1; }
         .project-zoom-group { gap: 4px; order: 2; }
         .project-save-status { font-size: 10px; margin-left: auto; order: 3; }
     }

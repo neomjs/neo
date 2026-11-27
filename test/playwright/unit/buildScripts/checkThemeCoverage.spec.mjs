@@ -85,4 +85,28 @@ test.describe('check-theme-coverage — baselined zero-coverage guard', () => {
         expect(failures).toHaveLength(1);
         expect(failures[0]).toContain('[surface]');
     });
+
+    test('MAP & THEME-BASE: resolves multi-folder neo-theme-neo-* mappings and shared theme-base coverage via root + themeMapPath', () => {
+        const root    = fs.mkdtempSync(path.join(tmpRoot, 'theme-coverage-map-')),
+              mapPath = path.join(root, '../theme-map.json'),
+              write   = (rel, css) => {
+                  const full = path.join(root, rel);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, css, 'utf8')
+              };
+
+        write('src/button/Base.css', '.neo-button {}');
+        write('src/grid/Body.css', '.neo-grid {}');
+        write('theme-base/button/Base.css', '[class*="neo-theme-"] { --button-color: #111; }');
+        write('shared-neo/Global.css', '.neo-theme-neo-light { --neo-color-scheme: light; } .neo-theme-neo-dark { --neo-color-scheme: dark; }');
+        write('shared-neo/grid/Body.css', '.neo-theme-neo-light, .neo-theme-neo-dark { --grid-bg: #000; }');
+        fs.writeFileSync(mapPath, JSON.stringify({
+            themes: {
+                'neo-theme-neo-dark' : ['shared-neo'],
+                'neo-theme-neo-light': ['shared-neo']
+            }
+        }), 'utf8');
+
+        expect(collectThemeCoverageFailures({baseline: {}, root, themeMapPath: mapPath})).toEqual([]);
+    });
 });

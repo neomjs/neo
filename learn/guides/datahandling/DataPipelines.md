@@ -101,7 +101,7 @@ class Example extends Container {
         }]
     }
 }
-Example = Neo.setupClass(Example);
+export default Neo.setupClass(Example);
 ```
 
 ---
@@ -226,7 +226,7 @@ class Example extends Container {
         }]
     }
 }
-Example = Neo.setupClass(Example);
+export default Neo.setupClass(Example);
 ```
 
 ### Unsolicited Pushes & UI Reactivity

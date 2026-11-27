@@ -114,7 +114,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 A pane never learns about layout. `editor` is a plain component with an `html` string, and it renders the same in a dock, in a container, or in a window on another screen.

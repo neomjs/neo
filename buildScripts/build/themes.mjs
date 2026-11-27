@@ -10,8 +10,8 @@ import postcss                   from 'postcss';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 import {
-    collectThemeClassMap,
-    isCssTargetFolder
+    isCssTargetFolder,
+    resolveThemeClassMap
 }                                from '../util/themeCss.mjs';
 import {
     cascadeLayer,
@@ -36,7 +36,7 @@ const
         if (!fs.existsSync(root)) return [];
 
         return fs.readdirSync(root, {withFileTypes: true})
-            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(root, entry.name))
+            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(cssRoots, entry.name))
             .map(entry => entry.name)
     }))],
     questions        = [];
@@ -295,7 +295,11 @@ if (programOpts.info) {
             : null;
 
         themeMap        = engineSeedMap ? structuredClone(engineSeedMap) : {};
-        themeMap.themes = collectThemeClassMap(activeRoots, engineSeedMap?.themes);
+        themeMap.themes = resolveThemeClassMap({
+            cssRoots           : activeRoots,
+            includeWorkspaceMap: false,
+            seedThemes         : engineSeedMap?.themes
+        });
 
         // dist/development
         if (env === 'all' || env === 'dev') {

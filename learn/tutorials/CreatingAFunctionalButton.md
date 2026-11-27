@@ -151,7 +151,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 This example demonstrates the full power of the functional component model. You can quickly create reusable, reactive,

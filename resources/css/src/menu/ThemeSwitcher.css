@@ -1,4 +1,4 @@
-.neo-theme-switcher-menu [role="menuitemradio"]::after {
+.neo-themeswitcher-menu [role="menuitemradio"]::after {
     border             : solid currentColor;
     border-width       : 0 2px 2px 0;
     box-sizing         : border-box;
@@ -11,6 +11,6 @@
     width              : 5px;
 }
 
-.neo-theme-switcher-menu [role="menuitemradio"][aria-checked="true"]::after {
+.neo-themeswitcher-menu [role="menuitemradio"][aria-checked="true"]::after {
     visibility: visible;
 }

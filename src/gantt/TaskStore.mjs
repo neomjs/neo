@@ -16,7 +16,6 @@ const derivedFields = ['startDate', 'endDate', 'percentDone'];
  * @see Neo.gantt.Container
  */
 class TaskStore extends TreeStore {
-
     static config = {
         /**
          * @member {String} className='Neo.gantt.TaskStore'
@@ -29,26 +28,93 @@ class TaskStore extends TreeStore {
          */
         ntype: 'gantt-task-store',
         /**
-         * @member {String} keyProperty='id'
-         */
-        keyProperty: 'id',
-        /**
          * @member {Neo.data.Model} model=TaskModel
          * @reactive
          */
         model: TaskModel,
         /**
-         * @member {Boolean} rollupParents_=false Derive phase spans and elapsed-duration-weighted leaf progress.
-         * Zero-duration work has no weight; an empty phase keeps its stored values. @reactive
+         * Derive phase spans and elapsed-duration-weighted leaf progress.
+         * Zero-duration work has no weight; an empty phase keeps its stored values.
+         * @member {Boolean} rollupParents_=false
+         * @reactive
          */
         rollupParents_: false
     }
 
-    #rollingUp = false
-    #rollupListeners = null
-    #bookingStore = null
+    /**
+     * The listeners that keep the booking view in step with this store, null until the view exists.
+     * @member {Object|null} #bookingListeners=null
+     * @private
+     */
     #bookingListeners = null
+    /**
+     * Counts the `mutate` events the booking view has settled. {@link #splice} compares it to find a write that
+     * fired none.
+     * @member {Number} #bookingMutationVersion=0
+     * @private
+     */
     #bookingMutationVersion = 0
+    /**
+     * The flat view of structural leaves that {@link #getBookingStore} owns, null until it is first asked for.
+     * @member {Neo.timeline.store.Events|null} #bookingStore=null
+     * @private
+     */
+    #bookingStore = null
+    /**
+     * True while this store writes the phases a rollup planned, so that write starts no further rollup.
+     * @member {Boolean} #rollingUp=false
+     * @private
+     */
+    #rollingUp = false
+    /**
+     * The listeners that keep derived phases in step, null while `rollupParents` is off.
+     * @member {Object|null} #rollupListeners=null
+     * @private
+     */
+    #rollupListeners = null
+
+    /**
+     * @summary Recomputes the plan when the opt-in policy is enabled.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRollupParents(value, oldValue) {
+        if (oldValue !== undefined && this.isConstructed) {
+            this.syncRollupListeners();
+            if (value) this.rollupParentTasks()
+        }
+    }
+
+    /**
+     * @summary Retires the owned booking view and detaches its source listeners.
+     */
+    destroy() {
+        if (this.#bookingListeners) this.un(this.#bookingListeners);
+        this.#bookingListeners = null;
+        if (this.#bookingStore && !this.#bookingStore.isDestroyed) this.#bookingStore.destroy();
+        this.#bookingStore = null;
+        super.destroy()
+    }
+
+    /**
+     * @summary Reads canonical structural leaves, including those under collapsed or filtered phases.
+     * @returns {Object[]}
+     * @private
+     */
+    #getBookingRecords() {
+        let result = [],
+            walk   = children => {
+                for (let record of children) {
+                    let key      = this.getKey(record),
+                        children = this.getChildren(key);
+                    if (children.length) walk(children);
+                    else if (record.isLeaf !== false) result.push(record)
+                }
+            };
+        walk(this.getChildren());
+        return result
+    }
 
     /**
      * @summary Returns the owned flat booking view, independent of tree expansion and with its own filters.
@@ -61,7 +127,7 @@ class TaskStore extends TreeStore {
         let view = this.#bookingStore;
 
         if (!view || view.isDestroyed) {
-            const config = Neo.clone(this.model.originalConfig || {}, true, true);
+            let config = Neo.clone(this.model.originalConfig || {}, true, true);
             delete config.id;
             delete config.storeId;
             delete config.ntype;
@@ -79,273 +145,16 @@ class TaskStore extends TreeStore {
         return view
     }
 
-    /** @summary Reads canonical structural leaves, including those under collapsed or filtered phases. @returns {Object[]} */
-    #getBookingRecords() {
-        const result = [], walk = children => {
-            for (const record of children) {
-                const key = this.getKey(record), children = this.getChildren(key);
-                if (children.length) walk(children);
-                else if (record.isLeaf !== false) result.push(record)
-            }
-        };
-        walk(this.getChildren());
-        return result
-    }
-
-    /** @summary Reconciles the view after structural writes, including silent and hidden writes. */
-    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
-        const version = this.#bookingMutationVersion,
-            result    = super.splice(index, removeCountOrToRemoveArray, toAddArray, silent);
-        if (version === this.#bookingMutationVersion) this.onBookingMutation(silent);
-        return result
-    }
-
-    /** @summary Settles structural membership before source observers, ignoring visibility-only mutations. @param {Object} event */
-    onBookingSourceMutate({addedItems=[], removedItems=[]}) {
-        const view = this.#bookingStore;
-        if (!view || view.isDestroyed) return;
-        this.#bookingMutationVersion++;
-        const differs = item => {
-            const key = this.getKey(item), current = view.getRow(key), canonical = this.get(key);
-            return current ? current !== canonical : canonical?.isLeaf !== false && !!canonical
-        };
-        if (addedItems.some(differs) || removedItems.some(differs)) this.onBookingMutation()
-    }
-
-    /** @summary Reconciles membership only when structural leaves have actually changed. @param {Boolean} [silent=false] */
-    onBookingMutation(silent=false) {
-        const view = this.#bookingStore;
-        if (!view || view.isDestroyed) return;
-
-        const records = this.#getBookingRecords(), next = new Map(records.map(record => [this.getKey(record), record])),
-            current   = (view.allItems || view).items,
-            removed   = current.filter(record => next.get(this.getKey(record)) !== record),
-            added     = records.filter(record => view.getRow(this.getKey(record)) !== record);
-
-        if (removed.length || added.length) view.splice(null, removed, added, silent)
-    }
-
-    /** @summary Forwards edits of borrowed records so view filters and consumers react. @param {Object} event */
-    onBookingRecordChange(event) {
-        const view = this.#bookingStore;
-        if (!view || view.isDestroyed) return;
-        if (event.fields?.some(field => (typeof field === 'string' ? field : field.name) === 'isLeaf')) {
-            this.onBookingMutation()
-        }
-        if (view.getRow(this.getKey(event.record)) === event.record) {
-            view.onRecordChange(event)
-        }
-    }
-
-    /** @summary Relays a canonical batch receipt for rows held by the view. @param {Object} event */
-    onBookingRowsChange(event) {
-        const view = this.#bookingStore;
-        if (!view || view.isDestroyed) return;
-        const keys = (event.keys || []).filter(key => view.getRow(key));
-        if (keys.length) view.fire('rowsChange', {...event, keys, scope: view})
-    }
-
-    /** @summary Re-keys a borrowed record after the canonical store commits its key. @param {Object} event */
-    onBookingUpdateKey({item, oldKey, newKey}) {
-        const view = this.#bookingStore;
-        if (!view || view.isDestroyed || (view.allItems || view).map.get(oldKey) !== item) return;
-
-        for (const collection of [view, view.allItems].filter(Boolean)) {
-            if (collection.map.get(oldKey) === item) {
-                collection.map.delete(oldKey);
-                collection.map.set(newKey, item)
-            }
-        }
-        view.onRecordChange({record: item, model: this.model,
-            fields: [{name: this.getKeyProperty(), oldValue: oldKey, value: newKey}]});
-        view.fire('updateKey', {item, oldKey, newKey, scope: view})
-    }
-
-    /** @summary Retires the owned booking view and detaches its source listeners. */
-    destroy() {
-        if (this.#bookingListeners) this.un(this.#bookingListeners);
-        this.#bookingListeners = null;
-        if (this.#bookingStore && !this.#bookingStore.isDestroyed) this.#bookingStore.destroy();
-        this.#bookingStore = null;
-        super.destroy()
-    }
-
-    /** @summary Recomputes the plan when the opt-in policy is enabled. */
-    afterSetRollupParents(value, oldValue) {
-        if (oldValue !== undefined && this.isConstructed) {
-            this.syncRollupListeners();
-            if (value) this.rollupParentTasks()
-        }
-    }
-
-    /** @summary A parent is derived only while the policy is enabled and it has structural children. */
-    isDerivedParent(record) {
-        return !!(this.rollupParents && record && this.getChildren(this.getKey(record)).length)
-    }
-
-    /** @summary Subscribes once to direct edits and structural changes, independent of chart count. */
-    onConstructed() {
-        super.onConstructed();
-        this.syncRollupListeners();
-        if (this.rollupParents) this.rollupParentTasks()
-    }
-
-    /** @summary Attaches derivation only while the opt-in policy is enabled. */
-    syncRollupListeners() {
-        if (this.#rollupListeners) this.un(this.#rollupListeners);
-        this.#rollupListeners = this.rollupParents ? {recordChange: this.onRollupRecordChange,
-            mutate: this.onRollupMutation, load: this.onRollupMutation, scope: this} : null;
-        if (this.#rollupListeners) this.on(this.#rollupListeners)
-    }
-
-    /** @summary Recomputes for direct schedule-field edits; batch rows settle on rowsChange. */
-    onRollupRecordChange({fields, record}) {
-        if (!this.isUpdatingRows && (!Array.isArray(fields) || fields.some(field =>
-            derivedFields.includes(typeof field === 'string' ? field : field.name)))) {
-            this.rollupParentTasks(record)
-        }
-    }
-
-    /** @summary Recomputes after a structural change or reload. */
-    onRollupMutation() {
-        if (!this.isUpdatingRows) this.rollupParentTasks()
-    }
-
-    /**
-     * @summary Returns leaf work and the structural envelope for a subtree, regardless of visibility.
-     * @param {Object} record Task record.
-     * @returns {Object} Envelope and weighted completion.
-     */
-    #summary(record, cache, pending) {
-        if (cache.has(record)) return cache.get(record);
-        const children = this.getChildren(this.getKey(record));
-        let result;
-        if (children.length) {
-            result = {start: Infinity, end: -Infinity, weight: 0, completed: 0};
-            for (const child of children) {
-                const part = this.#summary(child, cache, pending);
-                result.start = Math.min(result.start, part.start);
-                result.end = Math.max(result.end, part.end);
-                result.weight += part.weight;
-                result.completed += part.completed
-            }
-        } else {
-            const values     = pending.get(record) || {},
-                  startValue = Object.hasOwn(values, 'startDate') ? values.startDate : record.startDate,
-                  endValue   = Object.hasOwn(values, 'endDate') ? values.endDate : record.endDate,
-                  progress   = Object.hasOwn(values, 'percentDone') ? values.percentDone : record.percentDone,
-                  start      = startValue == null ? NaN : new Date(startValue).getTime(),
-                  end        = endValue == null ? NaN : new Date(endValue).getTime(),
-                  valid      = Number.isFinite(start) && Number.isFinite(end) && end >= start,
-                  weight     = valid ? end - start : 0,
-                  percent    = Number.isFinite(progress) ? progress : 0;
-            result = {start: valid ? start : Infinity, end: valid ? end : -Infinity, weight, completed: weight * percent}
-        }
-        cache.set(record, result);
-        return result
-    }
-
-    /**
-     * @summary Plans one phase using pending leaf values without mutating records.
-     * @param {Object} record Parent task.
-     * @param {Map} [pending] Staged model fields keyed by task.
-     * @param {Map} [cache] Subtree summaries for this set of staged fields.
-     * @returns {Object|null} Changed parent receipt.
-     */
-    planParentRollup(record, pending=new Map(), cache=new Map()) {
-        if (!this.isDerivedParent(record)) return null;
-        const total  = this.#summary(record, cache, pending), changes = {}, previous = {};
-        const values = {percentDone: total.weight ? total.completed / total.weight : 0};
-        if (Number.isFinite(total.start) && Number.isFinite(total.end)) {
-            values.startDate = new Date(total.start);
-            values.endDate = new Date(total.end)
-        }
-        for (const [field, value] of Object.entries(values)) {
-            const old = record[field], same = value instanceof Date ? old instanceof Date && old.getTime() === value.getTime() : old === value;
-            if (!same) { previous[field] = old; changes[field] = value }
-        }
-        if (!Object.keys(changes).length) return null;
-        return {record, previous, changes}
-    }
-
-    /**
-     * @summary Plans phases bottom-up, optionally limited to the ancestors of changed records.
-     * @param {Map} [pending] Staged values keyed by record.
-     * @param {Object[]} [changed] Changed records, or omitted for the whole tree.
-     * @returns {Object[]}
-     */
-    planParentRollups(pending=new Map(), changed) {
-        if (!this.rollupParents) return [];
-        const parents = [], cache = new Map(), affected = changed ? new Set() : null;
-        if (affected) {
-            for (const record of changed) {
-                let node = record;
-                while (node && !affected.has(node)) {
-                    affected.add(node);
-                    node = node.parentId == null || node.parentId === 'root' ? null : this.get(node.parentId)
-                }
-            }
-        }
-        // A subtree enters the cache after its children, giving every receipt its dependency order.
-        for (const record of affected || this.getChildren()) this.#summary(record, cache, pending);
-        for (const record of cache.keys()) {
-            if (affected && !affected.has(record)) continue;
-            const receipt = this.planParentRollup(record, pending, cache);
-            if (receipt) parents.push(receipt)
-        }
-        return parents
-    }
-
-    /** @summary Adds derived phase writes to the same prepared batch as edited tasks. */
-    writeRows(rows) {
-        const scheduled = this.rollupParents && !this.#rollingUp &&
-            rows.filter(({values}) => derivedFields.some(field => Object.hasOwn(values, field)));
-        if (scheduled?.length) {
-            // getChildren hydrates Turbo rows. Bind staged inputs to those same identities before planning.
-            for (const row of rows) row.item = this.get(row.key) || row.item;
-            const pending  = new Map(rows.map(({item, values}) => [item, values])),
-                  existing = new Map(rows.map(row => [row.item, row]));
-            for (const {item, values} of scheduled) {
-                if (this.isDerivedParent(item)) {
-                    for (const field of derivedFields) delete values[field]
-                }
-            }
-            const changed = scheduled.map(({item}) => item);
-            for (const {record, changes} of this.planParentRollups(pending, changed)) {
-                const row = existing.get(record);
-                if (row) Object.assign(row.values, changes);
-                else rows.push({item: record, key: this.getKey(record), values: changes})
-            }
-        }
-        return super.writeRows(rows)
-    }
-
-    /**
-     * @summary Updates phases bottom-up, or just a changed task's ancestors, and returns changed receipts.
-     * @param {Object} [changed] A changed task, when the hierarchy itself has not changed.
-     * @returns {Object[]}
-     */
-    rollupParentTasks(changed) {
-        if (!this.rollupParents || this.#rollingUp || this.isUpdatingRows) return [];
-        const parents = this.planParentRollups(new Map(), changed ? [changed] : undefined);
-        this.#rollingUp = true;
-        try {
-            if (parents.length) this.updateRows(parents.map(({record, changes}) => ({key: this.getKey(record), values: changes})))
-        } finally { this.#rollingUp = false }
-        return parents
-    }
-
     /**
      * @summary Returns visible tree rows in a range, or structural leaf bookings for an explicit resource.
-     * @param {Date|Number|String} start Range start (inclusive)
-     * @param {Date|Number|String} end Range end (exclusive for positive-duration intervals)
+     * @param {Date|Number|String} start             Range start (inclusive)
+     * @param {Date|Number|String} end               Range end (exclusive for positive-duration intervals)
      * @param {String|Number|null} [resourceId=null] When present, filters canonical leaf bookings by resource.
      * @returns {Neo.gantt.TaskModel[]}
      */
     getRangeRecords(start, end, resourceId=null) {
         if (resourceId != null) return this.getBookingStore().getRangeRecords(start, end, resourceId);
-        const
-            me      = this,
+        let me      = this,
             startMs = start instanceof Date ? start.getTime() : new Date(start).getTime(),
             endMs   = end   instanceof Date ? end.getTime()   : new Date(end).getTime(),
             result  = [],
@@ -356,13 +165,12 @@ class TaskStore extends TreeStore {
         }
 
         for (let i = 0; i < count; i++) {
-            const record = me.getAt(i);
+            let record = me.getAt(i);
             if (!record) {
                 continue
             }
 
-            const
-                recStart = record.startDate instanceof Date ? record.startDate.getTime() : new Date(record.startDate).getTime(),
+            let recStart = record.startDate instanceof Date ? record.startDate.getTime() : new Date(record.startDate).getTime(),
                 recEnd   = record.endDate   instanceof Date ? record.endDate.getTime()   : new Date(record.endDate).getTime();
 
             if (Events.intersectsRange(recStart, recEnd, startMs, endMs)) {
@@ -371,6 +179,290 @@ class TaskStore extends TreeStore {
         }
 
         return result
+    }
+
+    /**
+     * @summary A parent is derived only while the policy is enabled and it has structural children.
+     * @param {Object} record Task record
+     * @returns {Boolean}
+     */
+    isDerivedParent(record) {
+        return !!(this.rollupParents && record && this.getChildren(this.getKey(record)).length)
+    }
+
+    /**
+     * @summary Reconciles membership only when structural leaves have actually changed.
+     * @param {Boolean} [silent=false] True reconciles the view without its `mutate` event
+     */
+    onBookingMutation(silent=false) {
+        let view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+
+        let records = this.#getBookingRecords(),
+            next    = new Map(records.map(record => [this.getKey(record), record])),
+            current = (view.allItems || view).items,
+            removed = current.filter(record => next.get(this.getKey(record)) !== record),
+            added   = records.filter(record => view.getRow(this.getKey(record)) !== record);
+
+        if (removed.length || added.length) view.splice(null, removed, added, silent)
+    }
+
+    /**
+     * @summary Forwards edits of borrowed records so view filters and consumers react.
+     * @param {Object} event The store's `recordChange` event
+     */
+    onBookingRecordChange(event) {
+        let view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+        if (event.fields?.some(field => (typeof field === 'string' ? field : field.name) === 'isLeaf')) {
+            this.onBookingMutation()
+        }
+        if (view.getRow(this.getKey(event.record)) === event.record) {
+            view.onRecordChange(event)
+        }
+    }
+
+    /**
+     * @summary Relays a canonical batch receipt for rows held by the view.
+     * @param {Object} event The store's `rowsChange` event
+     */
+    onBookingRowsChange(event) {
+        let view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+        let keys = (event.keys || []).filter(key => view.getRow(key));
+        if (keys.length) view.fire('rowsChange', {...event, keys, scope: view})
+    }
+
+    /**
+     * @summary Settles structural membership before source observers, ignoring visibility-only mutations.
+     * @param {Object}   event                   The store's `mutate` event
+     * @param {Object[]} [event.addedItems=[]]   The items that entered the visible rows
+     * @param {Object[]} [event.removedItems=[]] The items that left them
+     */
+    onBookingSourceMutate({addedItems=[], removedItems=[]}) {
+        let view = this.#bookingStore;
+        if (!view || view.isDestroyed) return;
+        this.#bookingMutationVersion++;
+        let differs = item => {
+            let key       = this.getKey(item),
+                current   = view.getRow(key),
+                canonical = this.get(key);
+            return current ? current !== canonical : canonical?.isLeaf !== false && !!canonical
+        };
+        if (addedItems.some(differs) || removedItems.some(differs)) this.onBookingMutation()
+    }
+
+    /**
+     * @summary Re-keys a borrowed record after the canonical store commits its key.
+     * @param {Object}        event        The store's `updateKey` event
+     * @param {Object}        event.item   The re-keyed record
+     * @param {String|Number} event.oldKey Its key before the commit
+     * @param {String|Number} event.newKey Its key after the commit
+     */
+    onBookingUpdateKey({item, oldKey, newKey}) {
+        let view = this.#bookingStore;
+        if (!view || view.isDestroyed || (view.allItems || view).map.get(oldKey) !== item) return;
+
+        for (let collection of [view, view.allItems].filter(Boolean)) {
+            if (collection.map.get(oldKey) === item) {
+                collection.map.delete(oldKey);
+                collection.map.set(newKey, item)
+            }
+        }
+        view.onRecordChange({record: item, model: this.model,
+            fields: [{name: this.getKeyProperty(), oldValue: oldKey, value: newKey}]});
+        view.fire('updateKey', {item, oldKey, newKey, scope: view})
+    }
+
+    /**
+     * @summary Subscribes once to direct edits and structural changes, independent of chart count.
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.syncRollupListeners();
+        if (this.rollupParents) this.rollupParentTasks()
+    }
+
+    /**
+     * @summary Recomputes after a structural change or reload.
+     */
+    onRollupMutation() {
+        if (!this.isUpdatingRows) this.rollupParentTasks()
+    }
+
+    /**
+     * @summary Recomputes for direct schedule-field edits; batch rows settle on rowsChange.
+     * @param {Object} event          The store's `recordChange` event
+     * @param {Array}  [event.fields] The changed fields, by name or as `{name}`; without them every field counts as changed
+     * @param {Object} event.record   The edited task
+     */
+    onRollupRecordChange({fields, record}) {
+        if (!this.isUpdatingRows && (!Array.isArray(fields) || fields.some(field =>
+            derivedFields.includes(typeof field === 'string' ? field : field.name)))) {
+            this.rollupParentTasks(record)
+        }
+    }
+
+    /**
+     * @summary Plans one phase using pending leaf values without mutating records.
+     * @param {Object} record    Parent task.
+     * @param {Map}    [pending] Staged model fields keyed by task.
+     * @param {Map}    [cache]   Subtree summaries for this set of staged fields.
+     * @returns {Object|null} Changed parent receipt.
+     */
+    planParentRollup(record, pending=new Map(), cache=new Map()) {
+        if (!this.isDerivedParent(record)) return null;
+        let total    = this.#summary(record, cache, pending),
+            changes  = {},
+            previous = {},
+            values   = {percentDone: total.weight ? total.completed / total.weight : 0};
+        if (Number.isFinite(total.start) && Number.isFinite(total.end)) {
+            values.startDate = new Date(total.start);
+            values.endDate = new Date(total.end)
+        }
+        for (let [field, value] of Object.entries(values)) {
+            let old  = record[field],
+                same = value instanceof Date ? old instanceof Date && old.getTime() === value.getTime() : old === value;
+            if (!same) { previous[field] = old; changes[field] = value }
+        }
+        if (!Object.keys(changes).length) return null;
+        return {record, previous, changes}
+    }
+
+    /**
+     * @summary Plans phases bottom-up, optionally limited to the ancestors of changed records.
+     * @param {Map}      [pending] Staged values keyed by record.
+     * @param {Object[]} [changed] Changed records, or omitted for the whole tree.
+     * @returns {Object[]}
+     */
+    planParentRollups(pending=new Map(), changed) {
+        if (!this.rollupParents) return [];
+        let parents  = [],
+            cache    = new Map(),
+            affected = changed ? new Set() : null;
+        if (affected) {
+            for (let record of changed) {
+                let node = record;
+                while (node && !affected.has(node)) {
+                    affected.add(node);
+                    node = node.parentId == null || node.parentId === 'root' ? null : this.get(node.parentId)
+                }
+            }
+        }
+        // A subtree enters the cache after its children, giving every receipt its dependency order.
+        for (let record of affected || this.getChildren()) this.#summary(record, cache, pending);
+        for (let record of cache.keys()) {
+            if (affected && !affected.has(record)) continue;
+            let receipt = this.planParentRollup(record, pending, cache);
+            if (receipt) parents.push(receipt)
+        }
+        return parents
+    }
+
+    /**
+     * @summary Updates phases bottom-up, or just a changed task's ancestors, and returns changed receipts.
+     * @param {Object} [changed] A changed task, when the hierarchy itself has not changed.
+     * @returns {Object[]}
+     */
+    rollupParentTasks(changed) {
+        if (!this.rollupParents || this.#rollingUp || this.isUpdatingRows) return [];
+        let parents = this.planParentRollups(new Map(), changed ? [changed] : undefined);
+        this.#rollingUp = true;
+        try {
+            if (parents.length) this.updateRows(parents.map(({record, changes}) => ({key: this.getKey(record), values: changes})))
+        } finally { this.#rollingUp = false }
+        return parents
+    }
+
+    /**
+     * @summary Reconciles the view after structural writes, including silent and hidden writes.
+     * @param {Number|null}     index                        Passed on to the tree store
+     * @param {Number|Object[]} [removeCountOrToRemoveArray] Passed on to the tree store
+     * @param {Object|Object[]} [toAddArray]                 Passed on to the tree store
+     * @param {Boolean}         [silent=false]               True writes without `mutate`; the view is then reconciled silently too
+     * @returns {Object} An object containing the addedItems & removedItems arrays
+     */
+    splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
+        let version = this.#bookingMutationVersion,
+            result  = super.splice(index, removeCountOrToRemoveArray, toAddArray, silent);
+        if (version === this.#bookingMutationVersion) this.onBookingMutation(silent);
+        return result
+    }
+
+    /**
+     * @summary Returns leaf work and the structural envelope for a subtree, regardless of visibility.
+     * @param {Object} record  Task record.
+     * @param {Map}    cache   Subtree summaries computed so far, by record
+     * @param {Map}    pending Staged field values by record, which win over a record's own
+     * @returns {Object} Envelope and weighted completion.
+     * @private
+     */
+    #summary(record, cache, pending) {
+        if (cache.has(record)) return cache.get(record);
+        let children = this.getChildren(this.getKey(record)),
+            result;
+        if (children.length) {
+            result = {start: Infinity, end: -Infinity, weight: 0, completed: 0};
+            for (let child of children) {
+                let part = this.#summary(child, cache, pending);
+                result.start = Math.min(result.start, part.start);
+                result.end = Math.max(result.end, part.end);
+                result.weight += part.weight;
+                result.completed += part.completed
+            }
+        } else {
+            let values     = pending.get(record) || {},
+                startValue = Object.hasOwn(values, 'startDate') ? values.startDate : record.startDate,
+                endValue   = Object.hasOwn(values, 'endDate') ? values.endDate : record.endDate,
+                progress   = Object.hasOwn(values, 'percentDone') ? values.percentDone : record.percentDone,
+                start      = startValue == null ? NaN : new Date(startValue).getTime(),
+                end        = endValue == null ? NaN : new Date(endValue).getTime(),
+                valid      = Number.isFinite(start) && Number.isFinite(end) && end >= start,
+                weight     = valid ? end - start : 0,
+                percent    = Number.isFinite(progress) ? progress : 0;
+            result = {start: valid ? start : Infinity, end: valid ? end : -Infinity, weight, completed: weight * percent}
+        }
+        cache.set(record, result);
+        return result
+    }
+
+    /**
+     * @summary Attaches derivation only while the opt-in policy is enabled.
+     */
+    syncRollupListeners() {
+        if (this.#rollupListeners) this.un(this.#rollupListeners);
+        this.#rollupListeners = this.rollupParents ? {recordChange: this.onRollupRecordChange,
+            mutate: this.onRollupMutation, load: this.onRollupMutation, scope: this} : null;
+        if (this.#rollupListeners) this.on(this.#rollupListeners)
+    }
+
+    /**
+     * @summary Adds derived phase writes to the same prepared batch as edited tasks.
+     * @param {Object[]} rows One per row: `{item, key, values}`
+     * @returns {Error[]} The errors subscribers threw while the records published
+     * @protected
+     */
+    writeRows(rows) {
+        let scheduled = this.rollupParents && !this.#rollingUp &&
+            rows.filter(({values}) => derivedFields.some(field => Object.hasOwn(values, field)));
+        if (scheduled?.length) {
+            // getChildren hydrates Turbo rows. Bind staged inputs to those same identities before planning.
+            for (let row of rows) row.item = this.get(row.key) || row.item;
+            let pending  = new Map(rows.map(({item, values}) => [item, values])),
+                existing = new Map(rows.map(row => [row.item, row])),
+                changed  = scheduled.map(({item}) => item);
+            for (let {item, values} of scheduled) {
+                if (this.isDerivedParent(item)) {
+                    for (let field of derivedFields) delete values[field]
+                }
+            }
+            for (let {record, changes} of this.planParentRollups(pending, changed)) {
+                let row = existing.get(record);
+                if (row) Object.assign(row.values, changes);
+                else rows.push({item: record, key: this.getKey(record), values: changes})
+            }
+        }
+        return super.writeRows(rows)
     }
 }
 

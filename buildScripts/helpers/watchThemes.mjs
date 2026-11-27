@@ -5,8 +5,8 @@ import path            from 'node:path';
 import postcss         from 'postcss';
 import isEntryModule   from '../util/isEntryModule.mjs';
 import {
-    collectThemeClassMap,
-    isCssTargetFolder
+    isCssTargetFolder,
+    resolveThemeClassMap
 }                      from '../util/themeCss.mjs';
 import {
     cascadeLayer,
@@ -99,12 +99,14 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             })
     }
 
-    getThemeSourceRoots(repoRoot).forEach(cssRoot => {
+    const roots = getThemeSourceRoots(repoRoot);
+
+    roots.forEach(cssRoot => {
         fs.readdirSync(cssRoot, {withFileTypes: true})
             .filter(entry => (
                 entry.isDirectory() &&
                 !entry.isSymbolicLink() &&
-                isCssTargetFolder(cssRoot, entry.name)
+                isCssTargetFolder(roots, entry.name)
             ))
             .sort((a, b) => a.name.localeCompare(b.name))
             .forEach(entry => visit(path.join(cssRoot, entry.name), entry.name))
@@ -138,7 +140,10 @@ function addToThemeMap(themeMap, entry) {
  */
 function createDevelopmentThemeMap(census, {repoRoot = REPO_ROOT} = {}) {
     const themeMap = {
-        themes: collectThemeClassMap(getThemeSourceRoots(repoRoot))
+        themes: resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        })
     };
 
     census.forEach(entry => addToThemeMap(themeMap, entry));
@@ -238,7 +243,10 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
             continue
         }
 
-        const expectedThemes = collectThemeClassMap(getThemeSourceRoots(repoRoot));
+        const expectedThemes = resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        });
 
         census.forEach(entry => {
             if (!themeMapHasEntry(themeMap, entry)) {

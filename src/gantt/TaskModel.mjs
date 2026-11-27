@@ -27,6 +27,7 @@ class TaskModel extends TreeModel {
         ntype: 'gantt-task-model',
         /**
          * @member {Object[]} fields
+         * @reactive
          */
         fields: [
             ...timelineFields,

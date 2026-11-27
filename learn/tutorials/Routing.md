@@ -62,7 +62,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 At this point, you should see a toolbar and the "Home View". The other two views exist but are not visible because the
@@ -151,7 +151,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Now, if you manually change the URL hash in your browser's address bar (e.g., add `#/about` to the end of the URL),
@@ -229,7 +229,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Now, clicking the buttons in the toolbar will update the URL hash, which in turn triggers the correct handler in your
@@ -311,7 +311,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Now, when you click the "User: John" or "User: Jane" buttons, the `onUserRoute` handler is called.

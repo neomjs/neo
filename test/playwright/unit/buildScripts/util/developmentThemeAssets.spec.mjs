@@ -37,15 +37,16 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
 
     function materialize(root, mtimeMs=Date.now()) {
         writeFile(root, 'resources/theme-map.json', mtimeMs, JSON.stringify({
-            Neo: {Global: ['src', 'theme-neo-dark']}
+            Neo   : {Global: ['src', 'theme-neo-dark']},
+            themes: {'neo-theme-neo-dark': ['theme-neo-dark']}
         }));
         writeFile(root, 'dist/development/css/src/Global.css', mtimeMs);
         writeFile(root, 'dist/development/css/theme-neo-dark/Global.css', mtimeMs)
     }
 
     function seedSources(root, mtimeMs=1000) {
-        writeFile(root, 'resources/css/src/Global.css', mtimeMs);
-        writeFile(root, 'resources/css/theme-neo-dark/Global.css', mtimeMs)
+        writeFile(root, 'resources/css/src/Global.css', mtimeMs, '.neo-body {}');
+        writeFile(root, 'resources/css/theme-neo-dark/Global.css', mtimeMs, ':where(.neo-theme-neo-dark) { --x: 1; }')
     }
 
     test.afterAll(() => {
@@ -77,7 +78,8 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         seedSources(root, 1000);
         materialize(root, 2000);
         writeFile(root, 'resources/theme-map.json', 3000, JSON.stringify({
-            Neo: {Global: ['src']} // fresh, parseable, non-empty — but theme-neo-dark is not reachable
+            Neo   : {Global: ['src']}, // fresh, parseable, non-empty — but theme-neo-dark is not reachable
+            themes: {'neo-theme-neo-dark': ['theme-neo-dark']}
         }));
 
         const state = inspectDevelopmentThemeAssets({repoRoot: root});
@@ -120,7 +122,8 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
                 builds++;
                 materialize(root, 4000);
                 writeFile(root, 'resources/theme-map.json', 4000, JSON.stringify({
-                    Neo: {Global: ['src', 'theme-neo-dark'], button: {Base: ['src']}}
+                    Neo   : {Global: ['src', 'theme-neo-dark'], button: {Base: ['src']}},
+                    themes: {'neo-theme-neo-dark': ['theme-neo-dark']}
                 }))
             },
             logger: {log() {}}
@@ -138,7 +141,8 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
         materialize(root, 2000);
         writeFile(root, 'resources/theme-map.json', 2000, JSON.stringify({
             'Neo.apps.agentos.RetiredPanel': ['src', 'theme-neo-dark'],
-            Neo                            : {Global: ['src', 'theme-neo-dark']}
+            Neo                            : {Global: ['src', 'theme-neo-dark']},
+            themes                         : {'neo-theme-neo-dark': ['theme-neo-dark']}
         }));
 
         const state = inspectDevelopmentThemeAssets({repoRoot: root});

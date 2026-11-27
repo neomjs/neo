@@ -92,6 +92,16 @@
             "onFailure": "block"
           }
         ]
+      },
+      {
+        "matcher": "^(Write|Edit)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env node \"$(git rev-parse --show-toplevel)/.claude/hooks/contentSkillGuardHook.mjs\"",
+            "timeout": 5
+          }
+        ]
       }
     ]
   }

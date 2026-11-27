@@ -43,7 +43,7 @@ class MainView extends TabContainer {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 The `items` are the content cards. Each item's `header` describes its corresponding tab button; it is not

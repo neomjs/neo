@@ -16,7 +16,9 @@ process.env.UNIT_TEST_MODE = 'true';
  * annotations a reviewer reads on a red run, `list` writes one line per test — the `✓` pass marks the
  * defect ledger's producer reads from a green run's log to observe a unit test recover, which a dot
  * progress line cannot name — and `json` writes the report the failure-only artifact carries. Locally
- * the report alone is kept; the runner's own terminal output is the developer's reader.
+ * the report alone is kept; the runner's own terminal output is the developer's reader. `fullyParallel`
+ * stays `false` so `workers` parallelize across `.spec.mjs` files while keeping each file's tests
+ * contiguous with its module-level `setup()` overrides.
  * @param {Object} options
  * @param {Boolean} options.isCI
  * @returns {Object}
@@ -29,6 +31,7 @@ export function buildUnitRunPolicy({isCI}) {
     return {
         failOnFlakyTests: isCI,
         forbidOnly      : isCI,
+        fullyParallel   : false,
         reporter,
         retries         : isCI ? 2 : 0,
         workers         : isCI ? 4 : undefined
@@ -45,7 +48,6 @@ export default defineConfig({
     // be distinguished from a missing one at a zero offset - so on the UTC runner this tier uses, it
     // would fail by design rather than pass emptily. The partition is stated in both configs.
     testIgnore   : ['**/form/field/DateSubmitValue.spec.mjs'],
-    fullyParallel: true,
     ...buildUnitRunPolicy({isCI}),
     use     : {trace: 'on-first-retry'},
     projects: [{

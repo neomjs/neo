@@ -453,7 +453,7 @@ export async function applyTileTheme(offered, scheme, themeOf, next) {
 /**
  * @summary Runs in the page: the theme the app shows, the first of its `Neo.config.themes` on `<body>` or inside it, or
  * `null` before one is applied. A body viewport carries its theme on `<body>` itself, and a theme switch's own
- * `neo-theme-switcher` class is no theme.
+ * `neo-themeswitcher` class is no theme.
  * @returns {String|null}
  */
 function shownTheme() {
