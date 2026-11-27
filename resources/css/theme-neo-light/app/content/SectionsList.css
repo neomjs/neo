@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-light) {
+    --app-content-sections-item-color: var(--sem-color-text-neutral-subdued);
+}

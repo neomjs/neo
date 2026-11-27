@@ -43,8 +43,9 @@
                         }
                     }
 
+                    /* No item or folder icon. Not by `content`: `tree/List.css` sets the folder icon !important */
                     .neo-list-item-content:before {
-                        content: unset !important;
+                        display: none;
                     }
 
                     &.neo-list-folder {
@@ -52,17 +53,9 @@
                             content: "\f078" !important;
                         }
 
-                        .neo-list-item-content:before {
-                            content: unset !important;
-                        }
-
                         &.neo-folder-open {
                             .neo-list-item-content:after {
                                 content: "\f054" !important;
-                            }
-
-                            .neo-list-item-content:before {
-                                content: unset !important;
                             }
                         }
                     }
@@ -116,10 +109,6 @@
                     font-size   : 14px;
                     width       : 25px;
                     padding-top : 4px;
-                }
-
-                &:before {
-                    content: unset !important;
                 }
             }
         }

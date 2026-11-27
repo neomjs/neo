@@ -75,10 +75,6 @@
     .neo-task-worker-input {
         height: auto;
         margin: 0;
-
-        input {
-            min-height: 36px;
-        }
     }
 
     .neo-progress-wrapper {

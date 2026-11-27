@@ -1,8 +1,8 @@
-import Base from './Base.mjs';
+import Base      from './Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
- * main.addon.HighlightJS requires this file
  * @class Neo.main.addon.Stylesheet
  * @extends Neo.main.addon.Base
  */
@@ -68,9 +68,7 @@ class Stylesheet extends Base {
                     faPath = neoConfig.basePath.substring(6) + 'resources/fontawesome-free/css/all.min.css'
                 }
 
-                this.createStyleSheet({
-                    href: faPath
-                })
+                DomAccess.loadStylesheet(faPath)
             }
 
             if (neoConfig.themes.length > 0 && neoConfig.themes[0] !== '') {
