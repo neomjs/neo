@@ -75,7 +75,9 @@ Measured on `dev` at `5ff17dedc8`:
 
    When App loses a window, it cancels every gesture still open there. A consumer restores its last committed state on `cancel` wherever it keeps one.
 
-7. **The browser keeps what it takes.** A contact sequence becomes browser-owned on a `pointercancel` for any of its pointers, or on a `touchmove` with `cancelable` false. A browser-owned sequence starts no gesture, and a gesture already open in it ends in `cancel`. This holds until every contact has lifted; only a fresh sequence starts a gesture again. Two contacts alone never imply recognition: a second finger joining a page scroll on Circle starts no `rotate`.
+7. **The browser keeps what it takes.** A contact sequence becomes browser-owned when the browser sends `pointercancel` for any of its pointers. An uncancelable `touchmove` is not that signal. With passive observers on a `pan-y` surface, a horizontal stroke the browser leaves alone arrives uncancelable too ([Emmy's control](https://github.com/neomjs/neo/discussions/22259#discussioncomment-19962224)). That stroke sent 5 uncancelable moves, no `pointercancel` and a `pointerup`, and scrolled 0 px. The vertical stroke sent one `pointercancel` and scrolled 134 px.
+
+   A browser-owned sequence starts no gesture, and a gesture already open in it ends in `cancel`. Ownership holds until the last contact of the sequence physically lifts; only a fresh sequence starts a gesture again. Two contacts alone never imply recognition: a second finger joining a page scroll on Circle starts no `rotate` ([Euclid's late-join run](https://github.com/neomjs/neo/discussions/22259#discussioncomment-19962152)).
 
 8. **One recognized stream, measured beside the raw one.** `move` phases are coalesced to at most one per animation frame per gesture. Each carries the latest contacts and totals, plus the steps summed since the previous event. `start`, `end`, `cancel`, `tap` and `swipe` are never coalesced or dropped. Raw touch forwarding is unchanged by this record: a raw listener still receives its stream. The DevIndex run reports Main → App messages per contact move in four cases: raw-only, semantic-only, both and neither. Demand-gating the raw forwards would change default traffic for every app, so it is a separate decision after the physical comparison.
 
@@ -111,6 +113,7 @@ Measured on `dev` at `5ff17dedc8`:
 - **One recognizer on the body or on every element.** It costs recognition on every touch with no subscriber.
 - **`addDomListener` as the subscription.** It has no removal, so a recognizer holding contacts would outlive its node's listener.
 - **Gesture names in `globalDomEvents`.** The body would forward them in every app, and there would be no per-node registration.
+- **An uncancelable `touchmove` as the ownership signal.** It also arrives on strokes the browser leaves alone, so it would cancel Helix's horizontal pan.
 - **`touch-action: none` on the whole grid.** It stopped every quick stroke in [Ada's Chromium control](https://github.com/neomjs/neo/discussions/22259#discussioncomment-19949561). A grid arm without panning runs only with a monitor that starts JS scrolling at contact.
 - **Replay through the Engine only, or through the browser only.** Engine-synthesized input cannot prove browser arbitration. Browser-only replay requires a browser attachment that a peer may not have ([Julia's options](https://github.com/neomjs/neo/discussions/22259#discussioncomment-19934123)).
 - **A recognizer library as a dependency.** Hammer's recognizer composition is prior art. Recognition runs in a Main addon and delivers through Neo's event path.
@@ -136,7 +139,7 @@ Adaptive components such as the sheet and the floating action button start on to
 - **Acceptance cases, one per implementing leaf.**
   1. No gesture name is in `globalDomEvents`, and an app without a gesture listener never loads the addon.
   2. Unmounting Helix mid-pinch emits `pinch:cancel` once and then nothing; depth keeps its last committed value.
-  3. A second finger joining a browser-owned scroll on Circle starts no `rotate`. This holds in both lift orders, and a fresh sequence afterwards rotates.
+  3. A second finger joining a browser-owned scroll on Circle starts no `rotate`. This holds in both lift orders, and a fresh sequence afterwards rotates. A horizontal stroke on a `pan-y` Helix, with uncancelable moves and no `pointercancel`, still recognizes `pan`.
   4. Messages per contact move on DevIndex, reported for the four subscriber cases.
   5. A staggered lift and a cancel replay through `engine` (MCP and fixture) and `browser` with the same observed transitions. Without a browser driver, the `browser` provider reports `unavailable`.
   6. A tap on a button inside a `tap`-registered node produces exactly one `click`.
