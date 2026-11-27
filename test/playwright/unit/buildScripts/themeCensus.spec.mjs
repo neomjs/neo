@@ -62,6 +62,7 @@ const
             '    --button-light-only      : 1px;',
             '}'
         ].join('\n'),
+        'theme-solo/Global.css'     : ':where(.neo-theme-solo) {}',
         'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--button-background-color: #123456}'
     };
 
@@ -179,6 +180,29 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
     });
 
     test('FAILS CLOSED: a root without src/ or theme directories throws, never an empty census', () => {
-        expect(() => collect({root: path.join(tmpRoot, 'does-not-exist')})).toThrow(/needs src\/ and at least one theme-\* directory/);
+        expect(() => collect({root: path.join(tmpRoot, 'does-not-exist')})).toThrow(/needs src\/ and at least one mapped theme directory/);
+    });
+
+    test('MAP READERS: resolves non-theme-* folders from theme-map.json, excludes theme-base as a standalone theme, and credits theme-base shared declarations', () => {
+        const mapFixtureRoot = path.join(tmpRoot, 'mapped/resources/css'),
+              mapPath        = path.join(tmpRoot, 'mapped/resources/theme-map.json'),
+              writeCss       = (rel, css) => {
+                  const full = path.join(mapFixtureRoot, rel);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, css, 'utf8')
+              };
+
+        writeCss('src/button/Base.css', '.neo-button { color: var(--button-color); gap: var(--button-gap); }');
+        writeCss('theme-base/button/Base.css', '[class*="neo-theme-"] { --button-color: var(--sem-text); }');
+        writeCss('brand-skin/Global.css', ':where(.neo-theme-brand) { --sem-text: #111111; }');
+        writeCss('brand-skin/button/Base.css', ':where(.neo-theme-brand) { --button-gap: 4px; }');
+        writeCss('theme-decoy/button/Base.css', '.decoy { --unused: 1px; }');
+        fs.writeFileSync(mapPath, JSON.stringify({themes: {'neo-theme-brand': ['brand-skin']}}), 'utf8');
+
+        const census = collect({root: mapFixtureRoot});
+
+        expect(Object.keys(census.themes)).toEqual(['brand-skin']);
+        expect(census.themes['brand-skin'].unresolved.engine).toEqual([]);
+        expect(census.themes['brand-skin'].unread.engine.sem).toEqual([])
     });
 });

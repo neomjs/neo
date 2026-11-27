@@ -32,7 +32,7 @@ const
         if (!fs.existsSync(root)) return [];
 
         return fs.readdirSync(root, {withFileTypes: true})
-            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(root, entry.name))
+            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(cssRoots, entry.name))
             .map(entry => entry.name)
     }))],
     questions        = [];

@@ -239,6 +239,32 @@ test.describe('check-theme-surfaces.mjs — Workstation theme contract (#17922)'
             }));
 
             expect(failures.filter(f => f.startsWith('[completeness]'))).toEqual([])
+        });
+
+        test('resolves Workstation skin files through root + themeMapPath without hardcoded theme-neo-* folder names', () => {
+            const cssRoot = path.join(tmpRoot, 'mapped/resources/css'),
+                  mapPath = path.join(tmpRoot, 'mapped/resources/theme-map.json'),
+                  write   = (rel, body) => {
+                      const target = path.join(cssRoot, rel);
+                      fs.mkdirSync(path.dirname(target), {recursive: true});
+                      fs.writeFileSync(target, body, 'utf8')
+                  };
+
+            write('neo-dark-folder/apps/workstation/Viewport.css', clean.dark);
+            write('neo-light-folder/apps/workstation/Viewport.css', clean.light);
+            write('src/apps/workstation/Viewport.css', clean.views['Viewport.css']);
+            fs.writeFileSync(mapPath, JSON.stringify({
+                themes: {
+                    'neo-theme-neo-dark' : ['neo-dark-folder'],
+                    'neo-theme-neo-light': ['neo-light-folder']
+                }
+            }), 'utf8');
+
+            expect(collectThemeSurfaceFailures({
+                modeInvariant: new Set(),
+                root         : cssRoot,
+                themeMapPath : mapPath
+            })).toEqual([])
         })
     })
 });

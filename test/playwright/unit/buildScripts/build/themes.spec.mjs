@@ -118,19 +118,28 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         };
 
         writeSource(root, 'apps/demo/Widget.css');
-        writeThemeSource(engineRoot, 'theme-neo-dark',  'button/Base.css');
-        writeThemeSource(engineRoot, 'theme-neo-light', 'button/Base.css');
-        writeThemeSource(root,       'theme-neo-dark',  'apps/demo/Widget.css');
-        writeThemeSource(root,       'theme-workspace', 'apps/demo/Widget.css');
+        writeThemeSource(engineRoot, 'theme-neo-dark',      'Global.css');
+        writeThemeSource(engineRoot, 'theme-neo-light',     'Global.css');
+        fs.writeFileSync(path.join(engineRoot, 'resources/css/theme-neo-dark/Global.css'),  ':where(.neo-theme-neo-dark) { --x: 1; }\n',  'utf8');
+        fs.writeFileSync(path.join(engineRoot, 'resources/css/theme-neo-light/Global.css'), ':where(.neo-theme-neo-light) { --x: 1; }\n', 'utf8');
+        writeThemeSource(engineRoot, 'theme-neo-dark',      'button/Base.css');
+        writeThemeSource(engineRoot, 'theme-neo-light',     'button/Base.css');
+        writeThemeSource(root,       'theme-neo-dark',      'apps/demo/Widget.css');
+        fs.mkdirSync(path.join(root, 'resources/css/theme-workspace'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'resources/css/theme-workspace/Global.css'), ':where(.neo-theme-workspace) { --x: 1; }\n', 'utf8');
+        writeThemeSource(root,       'theme-workspace',     'apps/demo/Widget.css');
+        writeThemeSource(root,       'not-a-theme-helper',  'apps/demo/Ignored.css');
 
         const helpOutput = execFileSync('node', [scriptPath, '--help'], {cwd: root, encoding: 'utf8', stdio: 'pipe'});
         expect(helpOutput).toContain('all, theme-neo-dark, theme-neo-light, theme-workspace');
+        expect(helpOutput).not.toContain('not-a-theme-helper');
 
         runBuild(root);
 
         const map = readMap(root);
         expect(map.Neo.button.Base).toEqual(expect.arrayContaining(['theme-neo-dark', 'theme-neo-light']));
         expect(map.apps.demo.Widget).toEqual(expect.arrayContaining(['src', 'theme-neo-dark', 'theme-workspace']));
+        expect(map.apps.demo.Ignored).toBeUndefined();
     });
 
     test('a workspace builds the sheets of a declaring dependency, ignores non-declaring and unlisted packages, and lets the workspace overlay same-path files (#20260)', () => {
@@ -184,9 +193,11 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         };
 
         // Engine supplies theme-neo-light; declaring package adds src + theme-neo-dark; workspace overlays Shared.css
+        writeFile(engineRoot,    'resources/css/theme-neo-light/Global.css',            ':where(.neo-theme-neo-light) { --x: 1; }\n');
         writeFile(engineRoot,    'resources/css/theme-neo-light/button/Base.css',       '.neo-btn { color: white; }\n');
         writeFile(declaringRoot, 'resources/css/src/apps/ext/Row.css',                  '.ext-row { color: green; }\n');
         writeFile(declaringRoot, 'resources/css/src/apps/ext/Shared.css',               '.ext-shared { color: green; }\n');
+        writeFile(declaringRoot, 'resources/css/theme-neo-dark/Global.css',             ':where(.neo-theme-neo-dark) { --x: 1; }\n');
         writeFile(declaringRoot, 'resources/css/theme-neo-dark/apps/ext/Row.css',       '.ext-row { color: cyan; }\n');
         writeFile(plainRoot,     'resources/css/src/apps/plain/Ignored.css',            '.plain { color: red; }\n');
         writeFile(unlistedRoot,  'resources/css/src/apps/unlisted/Ignored.css',         '.unlisted { color: red; }\n');

@@ -26,11 +26,11 @@
  *     npm run theme-census -- --json         the census object
  *     npm run theme-census -- --root <dir>   another tree holding src/ and theme-* directories
  */
-import fs                                                     from 'node:fs';
-import path                                                   from 'node:path';
-import {fileURLToPath}                                        from 'node:url';
-import isEntryModule                                          from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, readCss, stripVarCalls} from './themeCss.mjs';
+import fs                                                                          from 'node:fs';
+import path                                                                        from 'node:path';
+import {fileURLToPath}                                                             from 'node:url';
+import isEntryModule                                                               from './isEntryModule.mjs';
+import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeFolders, stripVarCalls} from './themeCss.mjs';
 
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
@@ -178,29 +178,33 @@ function namingOf(names) {
 /**
  * @summary Counts the theme tree under `root`. Pure over the filesystem: no logging, no exit.
  * @param {Object} [options]
- * @param {String} [options.root=resources/css] Holds `src/` and the `theme-*` directories.
+ * @param {String} [options.root=resources/css] Holds `src/` and the mapped theme directories.
  * @param {Object<String,String>} [options.runtimeProperties=RUNTIME_PROPERTIES] Read although no CSS declares them.
+ * @param {String} [options.themeMapPath] Optional `theme-map.json` path override.
  * @returns {Object} `{runtime, themes, pairs, shared, structural}`, plain JSON; `runtime` names the
  * runtime-set properties this census excused.
  */
-export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES} = {}) {
+export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES, themeMapPath} = {}) {
     const
-        srcDir = path.join(root, 'src'),
-        names  = fs.existsSync(root) ? fs.readdirSync(root).filter(name => name.startsWith('theme-')).sort() : [];
+        srcDir  = path.join(root, 'src'),
+        baseDir = path.join(root, 'theme-base'),
+        names   = resolveThemeFolders({root, themeMapPath});
 
     // reading nothing must never look like a tree without findings
     if (!names.length || !fs.existsSync(srcDir)) {
-        throw new Error(`theme-census: ${root} needs src/ and at least one theme-* directory`)
+        throw new Error(`theme-census: ${root} needs src/ and at least one mapped theme directory`)
     }
 
     const
-        src       = readTree(srcDir),
-        trees     = Object.fromEntries(names.map(name => [name, readTree(path.join(root, name))])),
-        readNames = new Set([src, ...Object.values(trees)].flatMap(tree => AREAS.flatMap(area => [...tree.reads[area].keys()]))),
-        srcNames  = new Set(AREAS.flatMap(area => [...src.declared[area].keys()])),
-        pairs     = names.filter(name => /dark$/.test(name) && names.includes(name.replace(/dark$/, 'light'))).map(dark => ({dark, light: dark.replace(/dark$/, 'light')})),
-        full      = pairs.flatMap(({dark, light}) => [dark, light]).sort(),
-        themes    = {};
+        src         = readTree(srcDir),
+        themeBase   = fs.existsSync(baseDir) ? readTree(baseDir) : null,
+        trees       = Object.fromEntries(names.map(name => [name, readTree(path.join(root, name))])),
+        sharedTrees = themeBase ? [src, themeBase] : [src],
+        readNames   = new Set([...sharedTrees, ...Object.values(trees)].flatMap(tree => AREAS.flatMap(area => [...tree.reads[area].keys()]))),
+        srcNames    = new Set(sharedTrees.flatMap(tree => AREAS.flatMap(area => [...tree.declared[area].keys()]))),
+        pairs       = names.filter(name => /dark$/.test(name) && names.includes(name.replace(/dark$/, 'light'))).map(dark => ({dark, light: dark.replace(/dark$/, 'light')})),
+        full        = pairs.flatMap(({dark, light}) => [dark, light]).sort(),
+        themes      = {};
 
     for (const name of names) {
         const

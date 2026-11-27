@@ -7,9 +7,14 @@ import postcss           from 'postcss';
 import selectorParser    from 'postcss-selector-parser';
 import {fileURLToPath}   from 'node:url';
 import {parseArgs}       from 'node:util';
-import {themeCssRoots}   from '../util/themeCssRoots.mjs';
+import {
+    resolveThemeClassMap,
+    resolveThemeFolders
+}                           from '../util/themeCss.mjs';
+import {themeCssRoots}      from '../util/themeCssRoots.mjs';
 
-const themePattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const folderNamePattern  = /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      destinationPattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
  * @summary The theme source roots the generator reads ({@link themeCssRoots}). It recognises the Engine
@@ -24,36 +29,67 @@ function themeRoots(cwd) {
 }
 
 /**
- * @summary Lists selectable base themes across Engine, component packages and workspace.
+ * @summary Lists selectable base themes across Engine, component packages and workspace via `theme-map.json`
+ * and `Global.css` `.neo-theme-*` class declarations, excluding `src` and `theme-base`.
  * @param {String} cwd Workspace or Engine repository root.
  * @returns {String[]}
  */
 export function listThemes(cwd) {
-    return [...new Set(themeRoots(cwd).flatMap(root => fs.existsSync(root)
-        ? fs.readdirSync(root, {withFileTypes: true})
-            .filter(entry => entry.isDirectory() && themePattern.test(entry.name))
-            .map(entry => entry.name)
-        : []))].sort();
+    return resolveThemeFolders({cssRoots: themeRoots(cwd)});
 }
 
 /**
- * @summary Retargets a theme's selectors to the new theme class. Relative `@import` URLs need no
+ * @summary Builds the selector-class replacement map for `baseTheme` → `themeName` from the resolved
+ * `class → folders` theme map, preserving `-light` / `-dark` scheme suffixes when a single base folder
+ * declares multiple theme classes.
+ * @param {Object<String, String[]>} classMap Resolved `class → folders` map.
+ * @param {String} baseTheme Existing base theme folder name.
+ * @param {String} themeName Destination theme folder name (`theme-<slug>`).
+ * @returns {Map<String, String>}
+ */
+function buildClassReplacementMap(classMap, baseTheme, themeName) {
+    const baseClasses = Object.entries(classMap)
+              .filter(([, folders]) => folders.includes(baseTheme))
+              .map(([themeClass]) => themeClass)
+              .sort(),
+          slug         = themeName.replace(/^theme-/, ''),
+          targetPrefix = `neo-theme-${slug}`,
+          replacements = new Map();
+
+    if (baseClasses.length === 1) {
+        replacements.set(baseClasses[0], targetPrefix);
+        return replacements
+    }
+
+    for (const baseClass of baseClasses) {
+        const schemeMatch = baseClass.match(/-(light|dark)$/);
+
+        replacements.set(
+            baseClass,
+            schemeMatch ? `${targetPrefix}-${schemeMatch[1]}` : `${targetPrefix}-${baseClass.replace(/^neo-theme-/, '')}`
+        )
+    }
+
+    return replacements
+}
+
+/**
+ * @summary Retargets a theme's selectors to the new theme class(es). Relative `@import` URLs need no
  * rewrite: the browser resolves them against the built sheet, and the build mirrors the source tree.
  * @param {String} content CSS source.
  * @param {String} source Original file.
- * @param {String} baseRoot Original theme directory.
- * @param {String} destination Generated theme directory.
+ * @param {Map<String, String>} replacements Base class → target class map.
  * @returns {String}
  */
-function retargetCss(content, source, baseRoot, destination) {
-    const baseClass = `neo-${path.basename(baseRoot)}`,
-          newClass  = `neo-${path.basename(destination)}`,
-          root      = postcss.parse(content, {from: source});
+function retargetCss(content, source, replacements) {
+    const root = postcss.parse(content, {from: source});
 
     root.walkRules(rule => {
-        if (rule.selector.includes(baseClass)) {
+        if ([...replacements.keys()].some(baseClass => rule.selector.includes(baseClass))) {
             rule.selector = selectorParser(selectors => selectors.walkClasses(node => {
-                if (node.value === baseClass) node.value = newClass;
+                if (replacements.has(node.value)) {
+                    node.value = replacements.get(node.value)
+                }
             })).processSync(rule.selector);
         }
     });
@@ -65,22 +101,31 @@ function retargetCss(content, source, baseRoot, destination) {
  * @summary Creates an editable theme snapshot without changing existing themes or application config.
  * @param {Object} options
  * @param {String} options.cwd Workspace or Engine repository root.
- * @param {String} options.baseTheme Existing theme folder, e.g. theme-neo-dark.
+ * @param {String} options.baseTheme Existing theme folder resolved from the theme map, e.g. theme-neo-dark.
  * @param {String} options.themeName New theme folder, e.g. theme-acme.
  * @returns {String} Absolute generated theme directory.
  */
 export function generateTheme({cwd, baseTheme, themeName}) {
     cwd = fs.realpathSync(cwd);
 
-    for (const name of [baseTheme, themeName]) {
-        if (typeof name !== 'string' || !themePattern.test(name)) {
-            throw new Error('Theme names must use theme- followed by lowercase letters, numbers and single hyphens.');
-        }
+    if (typeof themeName !== 'string' || !destinationPattern.test(themeName) || themeName === 'theme-base') {
+        throw new Error('Theme names must use theme- followed by lowercase letters, numbers and single hyphens.');
     }
 
-    const roots       = themeRoots(cwd),
-          destination = path.join(cwd, 'resources/css', themeName),
-          files       = new Map();
+    if (typeof baseTheme !== 'string' || !folderNamePattern.test(baseTheme) || baseTheme === 'src' || baseTheme === 'theme-base') {
+        throw new Error(`Invalid base theme folder: ${baseTheme}`);
+    }
+
+    const roots        = themeRoots(cwd),
+          classMap     = resolveThemeClassMap({cssRoots: roots}),
+          knownThemes  = resolveThemeFolders({cssRoots: roots}),
+          replacements = buildClassReplacementMap(classMap, baseTheme, themeName),
+          destination  = path.join(cwd, 'resources/css', themeName),
+          files        = new Map();
+
+    if (!knownThemes.includes(baseTheme) || replacements.size === 0) {
+        throw new Error(`Unknown base theme: ${baseTheme}`);
+    }
 
     for (const root of roots) {
         if (fs.existsSync(path.join(root, themeName))) {
@@ -113,7 +158,7 @@ export function generateTheme({cwd, baseTheme, themeName}) {
             } else if (entry.isFile()) {
                 const content = fs.readFileSync(source);
                 files.set(relative, source.endsWith('.css')
-                    ? retargetCss(content.toString('utf8'), source, baseRoot, destination)
+                    ? retargetCss(content.toString('utf8'), source, replacements)
                     : content);
             } else {
                 throw new Error(`Unsupported theme source: ${source}`);

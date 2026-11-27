@@ -9,7 +9,7 @@ import path           from 'path';
  * control anchors the rest: a guard that cannot pass on the tree it guards is ceremony.
  */
 test.describe('check-theme-var-references — every fallback-free var() in a theme resolves', () => {
-    let collect, tmpRoot;
+    let SCAN_SURFACE, collect, tmpRoot;
 
     /**
      * @param {Object<String,String>} files Root-relative path → CSS. A `src/` sheet is always planted.
@@ -27,7 +27,7 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     };
 
     test.beforeAll(async () => {
-        ({collectThemeVarReferenceFailures: collect} = await import('../../../../buildScripts/util/check-theme-var-references.mjs'));
+        ({SCAN_SURFACE, collectThemeVarReferenceFailures: collect} = await import('../../../../buildScripts/util/check-theme-var-references.mjs'));
         tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-theme-vars-'));
     });
 
@@ -35,12 +35,16 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         fs.rmSync(tmpRoot, {recursive: true, force: true});
     });
 
-    test('CONTROL: the live tree passes', () => {
+    test('CONTROL: the live tree passes and SCAN_SURFACE uses no theme-* wildcard', () => {
         expect(collect()).toEqual([]);
+        expect(SCAN_SURFACE.some(entry => entry.includes('theme-*'))).toBe(false);
     });
 
     test('FIRES: a property nothing defines, named with its theme, file and line', () => {
-        const root = makeTree({'theme-a/form/Text.css': ':where(.neo-theme-a) {\n    --x-border: var(--red-500);\n}'});
+        const root = makeTree({
+            'theme-a/Global.css'   : ':where(.neo-theme-a) {}',
+            'theme-a/form/Text.css': ':where(.neo-theme-a) {\n    --x-border: var(--red-500);\n}'
+        });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([
             '[undefined] theme-a reads --red-500, which nothing defines: theme-a/form/Text.css:2'
@@ -58,7 +62,10 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     });
 
     test('PASSES: a reference with a fallback is the author\'s explicit choice', () => {
-        const root = makeTree({'theme-a/Text.css': ':where(.neo-theme-a) {--x-border: var(--red-500, red)}'});
+        const root = makeTree({
+            'theme-a/Global.css': ':where(.neo-theme-a) {}',
+            'theme-a/Text.css'  : ':where(.neo-theme-a) {--x-border: var(--red-500, red)}'
+        });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([]);
     });
@@ -66,6 +73,7 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     test('FIRES: another theme\'s definition does not count, since a page loads one theme', () => {
         const root = makeTree({
             'theme-a/Global.css': ':where(.neo-theme-a) {--red-500: #f00}',
+            'theme-b/Global.css': ':where(.neo-theme-b) {}',
             'theme-b/Text.css'  : ':where(.neo-theme-b) {--x-border: var(--red-500)}'
         });
 
@@ -75,7 +83,10 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     });
 
     test('FIRES: a commented-out definition does not count', () => {
-        const root = makeTree({'theme-a/Text.css': ':where(.neo-theme-a) {\n    /* --red-500: #f00; */\n    --x-border: var(--red-500);\n}'});
+        const root = makeTree({
+            'theme-a/Global.css': ':where(.neo-theme-a) {}',
+            'theme-a/Text.css'  : ':where(.neo-theme-a) {\n    /* --red-500: #f00; */\n    --x-border: var(--red-500);\n}'
+        });
 
         expect(collect({root, runtimeProperties: {}})).toEqual([
             '[undefined] theme-a reads --red-500, which nothing defines: theme-a/Text.css:3'
@@ -83,13 +94,19 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
     });
 
     test('PASSES: a runtime row covers a property a third party sets', () => {
-        const root = makeTree({'theme-a/CheckBox.css': ':where(.neo-theme-a) {--x-font: var(--fa-style-family-classic)}'});
+        const root = makeTree({
+            'theme-a/Global.css'  : ':where(.neo-theme-a) {}',
+            'theme-a/CheckBox.css': ':where(.neo-theme-a) {--x-font: var(--fa-style-family-classic)}'
+        });
 
         expect(collect({root, runtimeProperties: {'--fa-style-family-classic': 'Font Awesome'}})).toEqual([]);
     });
 
     test('FIRES: a runtime row that no stylesheet reads any more', () => {
-        const root = makeTree({'theme-a/Text.css': ':where(.neo-theme-a) {--x-gap: 1px}'});
+        const root = makeTree({
+            'theme-a/Global.css': ':where(.neo-theme-a) {}',
+            'theme-a/Text.css'  : ':where(.neo-theme-a) {--x-gap: 1px}'
+        });
 
         expect(collect({root, runtimeProperties: {'--gone': 'nothing reads it'}})).toEqual([
             '[stale-runtime] no stylesheet reads --gone any more, so remove its runtime row'
@@ -104,6 +121,27 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         });
 
         expect(collect({root, runtimeProperties: {'--neo-duration': 'set from JavaScript', '--neo-tree-level': 'set from JavaScript'}})).toEqual([]);
+    });
+
+    test('MAP & THEME-BASE: checks theme-base role reads against every mapped theme without treating theme-base as a standalone theme', () => {
+        const mapPath = path.join(tmpRoot, 'custom-theme-map.json'),
+              root    = makeTree({
+                  'theme-base/Button.css': '[class*="neo-theme-"] {--button-text: var(--neo-color-text-default)}',
+                  'acme-skin/Global.css' : ':where(.neo-theme-acme) {--neo-color-text-default: #111}',
+                  'beta-skin/Global.css' : ':where(.neo-theme-beta) {}',
+                  'theme-decoy/Text.css' : ':root {--broken: var(--never-defined)}'
+              });
+
+        fs.writeFileSync(mapPath, JSON.stringify({
+            themes: {
+                'neo-theme-acme': ['acme-skin'],
+                'neo-theme-beta': ['beta-skin']
+            }
+        }), 'utf8');
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([
+            '[undefined] beta-skin reads --neo-color-text-default, which nothing defines: theme-base/Button.css:1'
+        ]);
     });
 
     test('FAILS CLOSED: a root without src/ or theme directories is a failure, never a vacuous green', () => {

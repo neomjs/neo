@@ -95,12 +95,14 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             })
     }
 
-    getThemeSourceRoots(repoRoot).forEach(cssRoot => {
+    const roots = getThemeSourceRoots(repoRoot);
+
+    roots.forEach(cssRoot => {
         fs.readdirSync(cssRoot, {withFileTypes: true})
             .filter(entry => (
                 entry.isDirectory() &&
                 !entry.isSymbolicLink() &&
-                isCssTargetFolder(cssRoot, entry.name)
+                isCssTargetFolder(roots, entry.name)
             ))
             .sort((a, b) => a.name.localeCompare(b.name))
             .forEach(entry => visit(path.join(cssRoot, entry.name), entry.name))
