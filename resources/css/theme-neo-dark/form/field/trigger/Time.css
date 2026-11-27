@@ -1,4 +1,0 @@
-:where(.neo-theme-neo-dark) {
-    --neo-trigger-time-background-color-hover: var(--neo-sem-color-surface-primary-default);
-    --neo-trigger-time-pointer-color         : var(--neo-sem-color-icon-neutral-contrast);
-}

@@ -64,9 +64,17 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(failures).toEqual([]);
         expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
-        expect(CONTRAST_PAIRS).toHaveLength(37);
+        expect(CONTRAST_PAIRS).toHaveLength(40);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
+    });
+
+    test('the track meets 3:1 on the canvas and the handle meets 3:1 on the track and accent, in both schemes', () => {
+        const weakTrack = plant(css => setRole(css, '--neo-color-background-track',
+            'light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-800))'));
+
+        expect(weakTrack.failures.filter(failure => failure.includes('--neo-color-background-track on --neo-color-background-canvas'))).toHaveLength(2);
+        expect(weakTrack.failures.filter(failure => failure.includes('--neo-color-background-handle on --neo-color-background-track'))).toHaveLength(1)
     });
 
     test('the strong border meets 3:1 on the canvas and on a field, in both schemes', () => {
@@ -251,7 +259,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             '\n.neo-theme-neo-light { @media print { --button-color: red; } }');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(194)
+        expect(names).toBe(197)
     });
 
     test('a measured name with a second value fails in whichever sheet it sits', () => {
@@ -340,9 +348,9 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             block                = '.neo-theme-neo-light, .neo-theme-neo-dark {',
             {failures, palettes} = plant(css => css.replace(block, '.neo-theme-neo-light, .neo-theme-neo-dark, * {'));
 
-        // The block holds the 85 palette entries and the 43 colour roles; the scheme has a rule of its own.
+        // The block holds the 85 palette entries and the 46 colour roles; the scheme has a rule of its own.
         expect(palettes).toEqual([]);
-        expect(failures).toHaveLength(128);
+        expect(failures).toHaveLength(131);
         expect(failures.every(failure => failure.startsWith('[scope] resources/css/theme-neo/Global.css declares or registers --neo-'))).toBe(true)
     });
 
@@ -386,7 +394,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         });
 
         expect(failures).toEqual([]);
-        expect(names).toBe(194)
+        expect(names).toBe(197)
     });
 
     test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {
@@ -449,13 +457,13 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         )))
     });
 
-    test('CONTROL: a second theme with the same names passes, and the live file declares 194', () => {
+    test('CONTROL: a second theme with the same names passes, and the live file declares 197', () => {
         const {failures, names, palettes} = plantSecond();
 
         expect(failures).toEqual([]);
         expect(palettes).toHaveLength(4);
-        expect(names).toBe(194);
-        expect(inspectThemePalettes().names).toBe(194)
+        expect(names).toBe(197);
+        expect(inspectThemePalettes().names).toBe(197)
     });
 
     test('a name a second theme lacks fails once, with both sides named', () => {
@@ -496,7 +504,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         const {failures, names} = added('font-Demo', '1px');
 
         expect(failures).toEqual([]);
-        expect(names).toBe(194)
+        expect(names).toBe(197)
     });
 
     test('resolveValue follows var() reads and picks the light-dark() side of the scheme', () => {
