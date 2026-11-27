@@ -9,9 +9,14 @@ import DomEvents from '../DomEvents.mjs';
  * and overhead of passing high-frequency messages between workers, resulting in
  * smoother, native-like scrolling performance for both mouse and touch users.
  *
- * It listens for `mousedown` or `touchstart` on the grid body, then attaches global `mousemove` / `touchmove` and
- * `mouseup` / `touchend` listeners to handle the drag operation, supporting "over-drag" (scrolling
- * continues even if the mouse / finger leaves the grid bounds).
+ * It listens for `mousedown` or `touchstart` on the grid body, then attaches global `mousemove` / `mouseup` or
+ * `touchmove`, `touchend`, `touchcancel`, and touch `pointercancel` listeners to handle the drag operation,
+ * supporting "over-drag" (scrolling continues even if the mouse or finger leaves the grid bounds).
+ *
+ * **Multi-Contact Touch Policy:**
+ * One contact owns a touch gesture by `Touch.identifier`; a secondary `touchstart` never rearms monitoring or
+ * replaces active drag state, and a `touchcancel`, touch `pointercancel`, uncancelable `touchmove` (compositor
+ * scroll takeover), or lift while another contact remains pressed ends tracking immediately without momentum.
  *
  * **Kinetic Scrolling:**
  * The addon implements physics-based inertial scrolling. When a user releases a drag with sufficient velocity,
@@ -227,6 +232,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Updates horizontal and vertical scroll positions from the active pointer or tracked touch contact, aborting without momentum if a touch stream becomes uncancelable.
      * @param {MouseEvent|TouchEvent} event
      */
     onDragMove(event) {
@@ -275,6 +281,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Validates a primary press on a registered grid body and arms drag-threshold monitoring for the mouse or single owning touch contact.
      * @param {MouseEvent|TouchEvent} event
      */
     onDragStart(event) {
@@ -406,7 +413,7 @@ class GridDragScroll extends Base {
     }
 
     /**
-     * Detect change in distance, starting drag when both delay and distance requirements are met
+     * @summary Measures elapsed time and travel distance for the monitored contact, promoting into an active drag once both thresholds pass or releasing on multi-touch and uncancelable touch moves.
      * @param {MouseEvent|TouchEvent|Object} event - Object in case it does get trigger via the mouseDownTimeout
      */
     onMonitorMove(event) {
@@ -446,6 +453,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Clears the delay timer and removes all monitoring-phase document listeners.
      * @param {MouseEvent|PointerEvent|TouchEvent} [event]
      */
     onMonitorEnd(event) {
@@ -563,6 +571,7 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @summary Promotes a qualified monitor into an active mouse or touch drag and attaches document-level move, end, and cancel listeners.
      * @param {Object} monitor
      * @param {Number} x
      * @param {Number} y
