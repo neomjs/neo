@@ -495,7 +495,7 @@ class App extends Base {
 
         me.initializedThemeWindows.add(windowId);
 
-        Neo.main.addon.Stylesheet.setThemeMap?.({
+        Neo.main.addon.Stylesheet.setThemeMap({
             themes: cssMap.fileInfo?.themes || {},
             windowId
         });
@@ -1178,8 +1178,8 @@ class App extends Base {
             delete Neo.cssMap?.[windowId];
             delete Neo.windowConfigs?.[windowId];
             delete me.windowAddons[windowId];
-            me.initializedThemeWindows?.delete(windowId);
-            me.themedWindows?.delete(windowId);
+            me.initializedThemeWindows.delete(windowId);
+            me.themedWindows.delete(windowId);
             me.hiddenTick.stop(windowId)
         }
     }
