@@ -1,9 +1,18 @@
+@property --neo-textfield-focus-extent {
+    syntax       : '<percentage>';
+    inherits     : true;
+    initial-value: 0%;
+}
+
 .neo-textfield {
+    --neo-textfield-focus-extent: 0%;
+
     align-items  : center;
     display      : flex;
     height       : calc(var(--neo-textfield-input-height) + var(--neo-textfield-border-width) * 2);
     margin-bottom: 5px;
     margin-top   : 5px;
+    transition   : --neo-textfield-focus-extent var(--neo-textfield-focus-indicator-duration, 0s) var(--neo-ease-out, ease-out);
     white-space  : nowrap;
 
     /* Grid rows need room for both the top label and the input. */
@@ -340,10 +349,12 @@
         }
 
         .neo-label-wrapper {
-            display : flex;
-            height  : calc(var(--neo-textfield-input-height) + var(--neo-textfield-border-width) * 2);
-            position: absolute;
-            width   : 100%;
+            background-color: var(--neo-textfield-label-wrapper-background-color);
+            border-radius   : var(--neo-textfield-border-radius);
+            display         : flex;
+            height          : calc(var(--neo-textfield-input-height) + var(--neo-textfield-border-width) * 2);
+            position        : absolute;
+            width           : 100%;
 
             .neo-center-border {
                 border-bottom: var(--neo-textfield-border-width) solid var(--neo-textfield-border-color);
@@ -406,6 +417,9 @@
     }
 
     .neo-input-wrapper {
+        /* Keep the input and its triggers inside the control when a theme changes the bottom edge. */
+        --neo-textfield-content-height: calc(var(--neo-textfield-input-height) + var(--neo-textfield-border-width) - var(--neo-textfield-border-bottom-width));
+
         align-items     : stretch;
         background-color: var(--neo-textfield-input-background-color);
         border          : var(--neo-textfield-border-width) solid var(--neo-textfield-border-color);
@@ -423,7 +437,7 @@
             flex-grow    : 1;
             flex-shrink  : 1;
             margin       : 0; /* important for Safari => #1125 */
-            min-height   : var(--neo-textfield-input-height);
+            min-height   : var(--neo-textfield-content-height, var(--neo-textfield-input-height));
         }
     }
 
@@ -478,6 +492,39 @@
         display    : inline-block;
         flex       : 0 0 auto;
         user-select: none;
+    }
+
+    > .neo-textfield-input, > .neo-input-wrapper,
+    &.label-inline > .neo-label-wrapper > :is(.neo-left-border, .neo-center-border, .neo-right-border) {
+        border-bottom-width: var(--neo-textfield-border-bottom-width, var(--neo-textfield-border-width));
+    }
+
+    /* Sweep the edge once, including across triggers or the inline label's three border segments. */
+    &:not(.neo-invalid, .neo-readonly, .neo-disabled) {
+        --neo-textfield-focus-paint: linear-gradient(to right,
+            var(--neo-textfield-border-color) calc(50% - var(--neo-textfield-focus-extent)),
+            var(--neo-textfield-focus-indicator-color) 0 calc(50% + var(--neo-textfield-focus-extent)),
+            var(--neo-textfield-border-color) 0);
+
+        &:not(.label-inline) > :is(.neo-textfield-input, .neo-input-wrapper) {
+            border-image-source: var(--neo-textfield-focus-paint);
+            border-image-slice : 1;
+        }
+
+        &.label-inline > .neo-label-wrapper::after {
+            background-image: var(--neo-textfield-focus-paint);
+            bottom          : 0;
+            content         : '';
+            height          : var(--neo-textfield-border-bottom-width, 0px);
+            inset-inline    : 0;
+            pointer-events  : none;
+            position        : absolute;
+            z-index         : 2;
+        }
+
+        &.neo-focus {
+            --neo-textfield-focus-extent: 50%;
+        }
     }
 
     .neo-textfield-sublabel {

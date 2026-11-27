@@ -1,6 +1,7 @@
-import Container from '../container/Base.mjs';
-import Label     from '../component/Label.mjs';
-import VDomUtil  from '../util/VDom.mjs';
+import Container      from '../container/Base.mjs';
+import Label          from '../component/Label.mjs';
+import VDomUtil       from '../util/VDom.mjs';
+import {isThemeClass} from '../util/Theme.mjs';
 
 let
     // When the last shown tooltip of each browser window hid, by windowId
@@ -430,7 +431,7 @@ class Tooltip extends Container {
         }
 
         for (const node of data?.path || []) {
-            theme = node.cls?.find?.(item => item.startsWith('neo-theme-'));
+            theme = node.cls?.find?.(isThemeClass);
 
             if (theme) {
                 return theme

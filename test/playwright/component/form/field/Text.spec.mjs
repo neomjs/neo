@@ -33,6 +33,150 @@ async function captureField(page, field, path) {
         width: box.width + 16, height: box.height + 16}})
 }
 
+async function openThemedViewport(page, themes) {
+    await page.route('**/empty-viewport/neo-config.json', async route => {
+        const response = await route.fetch();
+        await route.fulfill({json: {...await response.json(), themes}})
+    });
+    await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
+    await expect(page.locator('#component-test-viewport')).toBeAttached();
+    await expect(page.locator('body')).toContainClass(themes[0])
+}
+
+test('Material fields paint a single bottom indicator and a nested Neo field keeps its local border width', async ({page}) => {
+    await openThemedViewport(page, ['neo-theme-material-dark', 'neo-theme-neo-light']);
+
+    // Supply ordinary field colors so this geometry check is independent of the form palette migration.
+    const style = {
+        '--neo-textfield-border-color'          : 'rgb(20, 40, 60)',
+        '--neo-textfield-input-background-color': 'var(--neo-color-background-field)'
+    };
+    const mount = async config => page.locator('#' + await createTextField(page, {clearable: false, style, ...config}));
+    const plain = await mount({}),
+          wrapped = await mount({clearable: true, value: 'Clear me'}),
+          inline  = await mount({labelPosition: 'inline'}),
+          legacy  = await mount({theme: 'neo-theme-neo-light', labelPosition: 'inline', style: {'--neo-textfield-border-width': '3px'}});
+
+    const input   = plain.locator('input'),
+          wrapper = wrapped.locator('.neo-input-wrapper'),
+          overlay = inline.locator('.neo-label-wrapper');
+    const segments = overlay.locator(':scope > div');
+    await expect(segments).toHaveCount(3);
+    for (const owner of [input, wrapper, ...await segments.all()]) {
+        await expect(owner).toHaveCSS('border-width', '0px 0px 1px');
+        await expect(owner).toHaveCSS('border-bottom-color', 'rgb(20, 40, 60)')
+    }
+    await expect(input).toHaveCSS('height', '56px');
+    await expect(overlay).toHaveCSS('height', '56px');
+    await expect(input).toHaveCSS('background-color', /^oklch\(0\.33 /);
+    const fill = await input.evaluate(el => getComputedStyle(el).backgroundColor);
+    await expect(overlay).toHaveCSS('background-color', fill);
+    await expect(inline.locator('input')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(inline.locator('input')).toHaveCSS('border-bottom-color', 'rgba(0, 0, 0, 0)');
+
+    await expect(legacy).toHaveClass(/neo-theme-neo-light/);
+    await expect(legacy.locator('.neo-label-wrapper')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(legacy.locator('.neo-left-border')).toHaveCSS('border-width', '3px 0px 3px 3px');
+
+    await expect(wrapper).toHaveCSS('height', '56px');
+    await expect(wrapper.locator('input')).toHaveCSS('border-width', '0px');
+    await expect(wrapper.locator('input')).toHaveCSS('height', '55px');
+    await expect(wrapped.locator('.neo-field-trigger')).toHaveCSS('height', '55px');
+
+    await page.emulateMedia({reducedMotion: 'no-preference'});
+    await expect(input).toHaveCSS('border-image-source', /^linear-gradient/);
+    await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '0%');
+    await expect(plain).toHaveCSS('transition-duration', '0.2s');
+    await input.focus();
+    await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '50%');
+    await expect(legacy.locator('input')).toHaveCSS('border-image-source', 'none');
+    await page.emulateMedia({reducedMotion: 'reduce'});
+    await expect(plain).toHaveCSS('transition-duration', '0s');
+    await input.blur();
+    await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '0%');
+    await page.evaluate(id => Neo.worker.App.setConfigs({id, readOnly: true}), await plain.getAttribute('id'));
+    await expect(input).toHaveCSS('border-image-source', 'none');
+});
+
+for (const [outer, inner] of [
+    ['neo-theme-material-dark', 'neo-theme-neo-light'],
+    ['neo-theme-neo-light', 'neo-theme-material-dark']
+]) {
+    test(`textfield preserves ${inner} across nested containers inside ${outer}`, async ({page, context}) => {
+        const reference    = await context.newPage();
+        const switchedHost = 'neo-theme-neo-dark';
+        await Promise.all([
+            openThemedViewport(page, [outer, inner, switchedHost]),
+            openThemedViewport(reference, [inner, outer, switchedHost])
+        ]);
+
+        const container = async (target, parentId, config = {}) => {
+            const result = await target.evaluate(config => Neo.worker.App.createNeoInstance({
+                importPath: '../container/Base.mjs', ntype: 'container', ...config
+            }), {parentId, ...config});
+            expect(result.success).toBe(true);
+            return result.id
+        };
+        const field = async (target, parentId, labelPosition = 'inline') => {
+            const id = await createTextField(target, {parentId, clearable: false, labelPosition});
+            return target.locator('#' + id)
+        };
+        const surface = locator => locator.evaluate(el => {
+            const input      = getComputedStyle(el.querySelector('input')),
+                  label      = el.querySelector('.neo-label-wrapper'),
+                  overlay    = getComputedStyle(label),
+                  focusPaint = getComputedStyle(label, '::after').backgroundImage !== 'none';
+            return {
+                colorScheme: input.colorScheme, inputHeight: input.height, padding: input.padding,
+                indicator  : input.getPropertyValue('--neo-textfield-border-bottom-width').trim(),
+                overlayFill: overlay.backgroundColor, focusPaint,
+                duration   : getComputedStyle(el).transitionDuration
+            }
+        });
+
+        const viewport   = 'component-test-viewport',
+              host       = await container(page, viewport),
+              island     = await container(page, host, {theme: inner}),
+              descendant = await container(page, island),
+              nested     = await field(page, descendant),
+              standalone = await field(reference, await container(reference, viewport)),
+              roleFill   = 'rgb(24, 64, 96)',
+              scope      = await container(page, descendant, {
+                  cls: ['neo-theme-scope'], style: {'--neo-color-background-field': roleFill}
+              }),
+              scoped        = await field(page, await container(page, scope));
+
+        await expect(page.locator('#' + island)).toContainClass(inner);
+        await expect(page.locator('#' + host)).not.toHaveClass(/neo-theme-/);
+        await expect(page.locator('#' + descendant)).not.toHaveClass(/neo-theme-/);
+        await expect(nested).not.toHaveClass(/neo-theme-/);
+        await expect(scoped).not.toHaveClass(/neo-theme-/);
+        await expect(standalone.locator('input')).toBeVisible();
+        await expect(nested.locator('input')).toBeVisible();
+        // The complete Neo field palette is available today; Material's shared form bindings arrive separately.
+        if (inner === 'neo-theme-neo-light') {
+            const paint = locator => locator.locator('input').evaluate(el => {
+                const {backgroundColor, borderColor, borderWidth, color, font} = getComputedStyle(el);
+                return {backgroundColor, borderColor, borderWidth, color, font}
+            });
+            const plain   = await field(page, descendant, 'left'),
+                  control = await field(reference, viewport, 'left');
+            expect(await paint(plain)).toEqual(await paint(control))
+        }
+        const normal = await surface(standalone);
+        expect(normal.colorScheme).toBe(inner === 'neo-theme-material-dark' ? 'dark' : 'light');
+        expect(normal.focusPaint).toBe(inner === 'neo-theme-material-dark');
+        expect(await surface(nested)).toEqual(normal);
+        const scopedSurface = await surface(scoped);
+        expect(scopedSurface).toEqual({...normal, overlayFill: inner === 'neo-theme-material-dark' ? roleFill : normal.overlayFill});
+        await page.evaluate(({id, theme}) => Neo.worker.App.setConfigs({id, theme}), {id: host, theme: switchedHost});
+        await expect(page.locator('#' + host)).toContainClass(switchedHost);
+        await expect(page.locator('#' + island)).toContainClass(inner);
+        await expect.poll(() => surface(nested)).toEqual(normal);
+        await expect.poll(() => surface(scoped)).toEqual(scopedSurface)
+    });
+}
+
 test.describe('Neo.form.field.Text', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');

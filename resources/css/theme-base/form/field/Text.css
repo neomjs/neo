@@ -1,0 +1,7 @@
+[class*="neo-theme-"] {
+    /* An unset bottom width follows the field's own border width, including local overrides. */
+    --neo-textfield-border-bottom-width           : initial;
+    --neo-textfield-focus-indicator-color         : initial;
+    --neo-textfield-focus-indicator-duration      : 0s;
+    --neo-textfield-label-wrapper-background-color: transparent;
+}

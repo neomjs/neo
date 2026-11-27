@@ -154,6 +154,36 @@ test.describe('buildScripts/helpers/watchThemes (#15585)', () => {
         expect(built).toMatch(/^@layer neo\.vendor, neo\.roles, neo\.base, neo\.theme, neo\.rules, neo\.apps;\s*@layer neo\.theme \{/)
     });
 
+    test('changing the set of theme classes refreshes widget scope limits in both the watcher and a partial build', async () => {
+        const root   = createRoot(), {logger} = createLogger(),
+              widget = 'skin/button/Base.css', global = 'extra/Global.css',
+              output = () => fs.readFileSync(path.join(root, 'dist/development/css', widget), 'utf8'),
+              event  = (type, file) => handleThemeWatchEvent(type, file, {logger, repoRoot: root});
+
+        writeSource(root, 'src/button/Base.css');
+        writeSource(root, 'skin/Global.css', '.neo-theme-skin { --role: red; }');
+        writeSource(root, widget, '.neo-theme-skin { --widget: var(--role); }');
+        await reconcileThemeStructure({logger, repoRoot: root});
+        expect(output()).toContain('to (:is(.neo-theme-skin))');
+
+        writeSource(root, global, '.neo-theme-new { --role: green; }');
+        const partial = spawnSync(process.execPath, [BUILD_SCRIPT, '-n', '-e', 'dev', '-t', 'extra'], {cwd: root});
+        expect(partial.status).toBe(0);
+        expect(output()).toContain('to (:is(.neo-theme-new, .neo-theme-skin))');
+
+        writeSource(root, global, '.neo-theme-renamed { --role: blue; }');
+        expect((await event('change', global)).built).toContain(widget);
+        expect(output()).toContain('to (:is(.neo-theme-renamed, .neo-theme-skin))');
+        expect(output()).not.toContain('.neo-theme-new');
+
+        writeSource(root, global, '.neo-theme-renamed { --role: purple; }');
+        expect((await event('change', global)).built).toEqual([global]);
+
+        fs.rmSync(path.join(root, 'resources/css/extra'), {recursive: true});
+        expect((await event('rename', 'extra')).built).toContain(widget);
+        expect(output()).toContain('to (:is(.neo-theme-skin))')
+    });
+
     test('one structural event reconciles add, rename, delete, source maps, and the exact map', async () => {
         const
             root     = createRoot(),

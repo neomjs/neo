@@ -6,7 +6,7 @@
     display        : flex;
     flex-shrink    : 0;
     font-size      : 14px;
-    height         : var(--neo-textfield-input-height); /* has to be 1px smaller to not overlap the bottom border on hover */
+    height         : var(--neo-textfield-content-height, var(--neo-textfield-input-height));
     justify-content: center;
     line-height    : 26px;
     text-align     : center;

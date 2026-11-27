@@ -1,3 +1,9 @@
 :where(.neo-theme-material-light, .neo-theme-material-dark) {
-    --neo-textfield-input-height: var(--neo-control-height-large);
+    --neo-textfield-border-width                  : 0px;
+    --neo-textfield-border-bottom-width           : var(--neo-border-width-thin);
+    --neo-textfield-focus-indicator-color         : var(--neo-color-focus-ring);
+    --neo-textfield-focus-indicator-duration      : var(--neo-duration-base);
+    --neo-textfield-input-height                  : var(--neo-control-height-large);
+    --neo-textfield-input-padding                 : 0 var(--neo-control-padding-inline-large);
+    --neo-textfield-label-wrapper-background-color: var(--neo-color-background-field);
 }

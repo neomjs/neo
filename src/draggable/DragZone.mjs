@@ -5,6 +5,7 @@ import DragProxyContainer from './DragProxyContainer.mjs';
 import NeoArray           from '../util/Array.mjs';
 import Observable         from '../core/Observable.mjs';
 import VDomUtil           from '../util/VDom.mjs';
+import {isThemeClass}     from '../util/Theme.mjs';
 
 /**
  * @class Neo.draggable.DragZone
@@ -380,7 +381,7 @@ class DragZone extends Base {
         // OUTER boot theme, which is wrong for apps that theme-swap an inner root while
         // `document.body` keeps the boot theme. Pushing both would leave the winner to stylesheet
         // load order.
-        if (component && !config.cls.some(item => item.startsWith('neo-theme-'))) {
+        if (component && !config.cls.some(isThemeClass)) {
             config.cls.push(component.getTheme())
         }
 

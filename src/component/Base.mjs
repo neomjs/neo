@@ -9,6 +9,7 @@ import Style            from '../util/Style.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 import {isDescriptor}   from '../core/ConfigSymbols.mjs';
+import {isThemeClass}   from '../util/Theme.mjs';
 
 const
     addUnits          = value => value == null ? value : isNaN(value) ? value : `${value}px`,
@@ -1681,9 +1682,8 @@ class Component extends Abstract {
      * @returns {String}
      */
     getTheme() {
-        let me         = this,
-            themeMatch = 'neo-theme-',
-            component  = me;
+        let me        = this,
+            component = me;
 
         while (component) {
             if (component.theme) {
@@ -1691,7 +1691,7 @@ class Component extends Abstract {
             }
 
             for (const item of component.cls || []) {
-                if (item.startsWith(themeMatch)) {
+                if (isThemeClass(item)) {
                     return item
                 }
             }

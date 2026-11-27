@@ -65,6 +65,34 @@ test.describe('buildScripts/util/themeCssLayers (#22297)', () => {
         expect(JSON.parse(result.map.toString()).sources).toEqual(['../../../../resources/css/src/Sheet.css'])
     });
 
+    test('flat theme bindings keep their selector weight and split by owner; qualified, nested and mixed rules stay intact', async () => {
+        const boundaries = ['.neo-theme-acme-dark', '.neo-theme-acme-light', '.neo-theme-custom'],
+              source     = [
+                  ':where(.neo-theme-acme-dark, .neo-theme-acme-light) { --widget: var(--role); }',
+                  '.neo-theme-custom { --widget: 3px; }',
+                  '.neo-theme-custom .local { --widget: 4px; }',
+                  '.neo-theme-custom { &.state { --widget: 5px; } }',
+                  '.neo-theme-custom { --widget: 6px; color: red; }',
+                  ':root .neo-theme-custom { --widget: 7px; }'
+              ].join('\n'),
+              result = await postcss([cascadeLayerPlugin({layer: 'neo.theme', boundaries})])
+                  .process(source, {from: 'Widget.css', map: {inline: false}}),
+              [dark, light, custom, qualified, nested, mixed, legacy] = result.root.nodes[1].nodes;
+
+        for (const [i, scope] of [dark, light, custom].entries()) {
+            expect(scope.params).toBe(`(${boundaries[i]}) to (:is(${boundaries.join(', ')}))`);
+            expect(scope.first.source.start.line).toBe(i === 2 ? 2 : 1)
+        }
+        expect(dark.first.selector).toBe(':where(:scope.neo-theme-acme-dark, .neo-theme-scope)');
+        expect(light.first.selector).toBe(':where(:scope.neo-theme-acme-light, .neo-theme-scope)');
+        expect(custom.first.selector).toBe(':where(:scope).neo-theme-custom, .neo-theme-scope');
+        expect(qualified.selector).toBe('.neo-theme-custom .local');
+        expect(nested.first.selector).toBe('&.state');
+        expect(mixed.last.prop).toBe('color');
+        expect(legacy.selector).toBe(':root .neo-theme-custom');
+        expect(result.map.toJSON().sources).toEqual(['Widget.css'])
+    });
+
     test('a sheet that writes @layer itself fails the build', async () => {
         await expect(run('@layer custom {\n    .a {\n        color: red;\n    }\n}\n', 'neo.rules')).rejects.toThrow(/writes no @layer/)
     });

@@ -50,6 +50,46 @@ export function cascadeLayer(root, relativeFile) {
 }
 
 /**
+ * @summary The ordered set of real theme boundaries. A role-only scope keeps its enclosing theme.
+ * @param {Object|null} themes The class-to-folder section of a theme map.
+ * @returns {String[]}
+ */
+export function themeBoundarySelectors(themes) {
+    return Object.keys(themes || {}).filter(name => /^neo-theme-[\w-]+$/.test(name) && name !== 'neo-theme-scope')
+        .sort().map(name => '.' + name)
+}
+
+/**
+ * @summary Re-evaluates a widget's theme bindings against local roles until the next real theme boundary.
+ * Qualified selectors, nested rules and Globals retain their original cascade. One scope per scheme keeps
+ * a CSSOM variable edit local even when the source shares the declarations between light and dark.
+ * @param {Object} root PostCSS root.
+ * @param {String[]} boundaries Real class selectors.
+ * @param {Function} AtRule PostCSS at-rule constructor.
+ */
+function scopeWidgetBindings(root, boundaries, AtRule) {
+    const limit = ':is(' + boundaries.join(', ') + ')';
+
+    for (const rule of [...root.nodes]) {
+        if (rule.type !== 'rule' || !rule.nodes.every(node => node.type === 'comment' ||
+            (node.type === 'decl' && node.prop.startsWith('--')))) continue;
+
+        const where = rule.selector.match(/^:where\(([^()]*)\)$/),
+              names = (where ? where[1] : rule.selector).split(',').map(name => name.trim());
+
+        if (!names.every(name => boundaries.includes(name))) continue;
+
+        for (const name of new Set(names)) {
+            const scope    = new AtRule({name: 'scope', params: `(${name}) to (${limit})`, source: rule.source}),
+                  selector = where ? `:where(:scope${name}, .neo-theme-scope)` : `:where(:scope)${name}, .neo-theme-scope`;
+
+            rule.before(scope.append(rule.clone({selector})))
+        }
+        rule.remove()
+    }
+}
+
+/**
  * @summary PostCSS plugin: wraps a sheet's rules in its cascade layer and starts the sheet with the
  * order statement.
  * @description The plugin moves the syntax tree's nodes into one layer block instead of prepending text,
@@ -58,15 +98,18 @@ export function cascadeLayer(root, relativeFile) {
  * which enters its own layer once.
  * @param {Object} options
  * @param {String} options.layer The sheet's layer, from {@link cascadeLayer}.
+ * @param {String[]} [options.boundaries] Real theme boundary selectors from {@link themeBoundarySelectors}.
  * @returns {Object} The PostCSS plugin.
  */
-export function cascadeLayerPlugin({layer}) {
+export function cascadeLayerPlugin({layer, boundaries = []}) {
     return {
         postcssPlugin: 'neo-cascade-layer',
         Once(root, {AtRule}) {
             root.walkAtRules('layer', node => {
                 throw node.error('A sheet under resources/css writes no @layer: the theme build writes its layer (ADR 0044, I3)')
             });
+
+            if (layer === 'neo.theme' && boundaries.length) scopeWidgetBindings(root, boundaries, AtRule);
 
             // The generated nodes take the sheet's own span, so the map's only source stays the sheet
             const {source} = root,

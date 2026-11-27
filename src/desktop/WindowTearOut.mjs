@@ -3,6 +3,7 @@ import NativeReturnTarget      from './NativeReturnTarget.mjs';
 import NativeVesselTransaction from '../dashboard/dock/window/NativeVesselTransaction.mjs';
 import VesselEmbodiment        from '../dashboard/dock/window/VesselEmbodiment.mjs';
 import {generateUUID}          from '../util/UUID.mjs';
+import {isThemeClass}          from '../util/Theme.mjs';
 
 const reconnectLease = 10_000;
 
@@ -194,7 +195,7 @@ class WindowTearOut extends Base {
             const parent = owner.parent || root,
                   sync   = () => {
                       if (me.#entry !== entry || entry.view !== view || view.isDestroyed) return;
-                      const ownScope = owner.parent || owner.theme || owner.cls?.some(cls => cls.startsWith('neo-theme-'));
+                      const ownScope = owner.parent || owner.theme || owner.cls?.some(isThemeClass);
                       view.theme = (ownScope ? owner : root || owner).getTheme()
                   };
             sync();

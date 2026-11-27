@@ -6,6 +6,40 @@ import {test, expect} from '@playwright/test';
  * in a live browser + App Worker runtime.
  */
 test.describe('Stylesheet theme-map loading and layered setCssVariable', () => {
+    test('editing a compiled Material widget variable updates its role scopes in that scheme only', async ({page}) => {
+        await page.route('**/empty-viewport/neo-config.json', async route => {
+            const response = await route.fetch();
+            await route.fulfill({json: {...await response.json(), themes: ['neo-theme-material-dark', 'neo-theme-material-light']}})
+        });
+        await page.goto('test/playwright/component/apps/empty-viewport/index.html');
+        await expect(page.locator('#component-test-viewport')).toBeAttached();
+
+        const button = await page.evaluate(() => Neo.worker.App.createNeoInstance({
+            importPath: '../button/Base.mjs', ntype: 'button', parentId: 'component-test-viewport', text: 'Theme edit'
+        }));
+        await expect(page.locator('#' + button.id)).toHaveCSS('border-radius', '9999px');
+
+        const actual = await page.evaluate(() => {
+            const key = '--neo-button-border-radius',
+                  set = Neo.main.addon.Stylesheet.setCssVariable({theme: 'neo-theme-material-dark', key, value: '19px'});
+            const read = theme => {
+                const root = document.createElement('div'),
+                      role = document.createElement('div');
+                root.className = theme;
+                role.className = 'neo-theme-scope';
+                root.append(role);
+                document.body.append(root);
+                const values = [root, role].map(node => getComputedStyle(node).getPropertyValue(key).trim());
+                root.remove();
+                return values
+            };
+
+            return {set, dark: read('neo-theme-material-dark'), light: read('neo-theme-material-light')}
+        });
+
+        expect(actual).toEqual({set: true, dark: ['19px', '19px'], light: ['9999px', '9999px']})
+    });
+
     test('loads theme-base and a dual-scheme fixture folder once, and updates layered variables with a runtime <style> sheet present', async ({page}) => {
         const requestedCss = [],
               warnings     = [];
