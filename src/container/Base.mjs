@@ -302,14 +302,13 @@ class Container extends Component {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        // Live items follow a theme change. A raw item config is left to `createItem`, which
-        // resolves its theme with the full precedence — the config's own theme, itemDefaults, the
-        // class default, then this container's; stamping this theme onto the config here would
-        // pre-empt the first three, since `itemDefaults` only fill what is absent.
+        // Live items follow a theme change, including a cleared theme during adoption. `createItem`
+        // resolves a raw config's theme in order: the item's own theme, itemDefaults, the class
+        // default, then this container's. Leave raw configs alone to preserve that precedence.
         //
         // An item still holding the replaced theme was inheriting it; any other theme is the item's
         // own, and overwriting it would make an adopted subtree disagree with a config-built one.
-        value && this.items?.forEach(item => {
+        (value || oldValue !== undefined) && this.items?.forEach(item => {
             const inherited = !item.theme || item.theme === oldValue;
 
             if (inherited && !Neo.isString(item) && Neo.typeOf(item) !== 'Object') {
