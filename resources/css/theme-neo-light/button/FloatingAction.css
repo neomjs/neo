@@ -1,0 +1,19 @@
+:where(.neo-theme-neo-light) {
+    --neo-floating-action-button-background-color          : var(--neo-color-background-accent);
+    --neo-floating-action-button-background-color-active   : var(--neo-color-background-accent-active);
+    --neo-floating-action-button-background-color-hover    : var(--neo-color-background-accent-hover);
+    --neo-floating-action-button-border-radius             : var(--neo-radius-large);
+    --neo-floating-action-button-box-shadow                : var(--neo-elevation-3);
+    --neo-floating-action-button-box-shadow-hover          : var(--neo-elevation-4);
+    --neo-floating-action-button-color                     : var(--neo-color-text-on-accent);
+    --neo-floating-action-button-font-size                 : var(--neo-control-font-size-large);
+    --neo-floating-action-button-font-weight               : var(--neo-font-weight-semibold);
+    --neo-floating-action-button-gap                       : var(--neo-space-3);
+    --neo-floating-action-button-glyph-font-size           : calc(var(--neo-font-size-body) * 1.5);
+    --neo-floating-action-button-height                    : calc(var(--neo-control-height-large) + var(--neo-space-2));
+    --neo-floating-action-button-inset                     : var(--neo-space-4);
+    --neo-floating-action-button-padding-inline            : var(--neo-space-4);
+    --neo-floating-action-button-text-max-width            : calc(var(--neo-space-16) * 4);
+    --neo-floating-action-button-transition-duration       : var(--neo-duration-base);
+    --neo-floating-action-button-transition-timing-function: var(--neo-ease-out);
+}
