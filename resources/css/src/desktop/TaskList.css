@@ -47,7 +47,7 @@
         align-items     : center;
         background-color: var(--desktop-app-color);
         border-radius   : 8px;
-        color           : #fff;
+        color           : var(--desktop-task-list-icon-color);
         display         : flex;
         font-size       : 13px;
         height          : 26px;

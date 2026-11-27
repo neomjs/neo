@@ -8,4 +8,5 @@
     --dialog-header-color                        : var(--cyber-cyan);
     --dialog-icon-color                          : var(--cyber-cyan);
     --dialog-icon-color-hover                    : var(--button-glyph-color-hover);
+    --dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
 }

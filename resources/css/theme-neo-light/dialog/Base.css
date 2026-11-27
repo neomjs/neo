@@ -13,6 +13,7 @@
     --dialog-icon-color                  : var(--purple-500);
     --dialog-header-button-background-color-hover: var(--cmp-button-ghost-surface-hover);
     --dialog-icon-color-hover                    : var(--sem-color-icon-neutral-contrast);
+    --dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
 
     .neo-dialog {
         .neo-header-toolbar {

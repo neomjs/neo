@@ -1,9 +1,10 @@
 :where(.neo-theme-neo-dark) { /* .neo-scheduler */
-    --neo-scheduler-divider-color     : rgba(255, 255, 255, 0.08);
-    --neo-scheduler-bar-emerald-bg    : #13392e;
-    --neo-scheduler-bar-emerald-border: #34d399;
-    --neo-scheduler-bar-amber-bg      : #3f2b14;
-    --neo-scheduler-bar-amber-border  : #fbbf24;
-    --neo-scheduler-bar-violet-bg     : #2d1f47;
-    --neo-scheduler-bar-violet-border : #a78bfa;
+    --neo-scheduler-divider-color      : rgba(255, 255, 255, 0.08);
+    --neo-scheduler-bar-emerald-bg     : #13392e;
+    --neo-scheduler-bar-emerald-border : #34d399;
+    --neo-scheduler-bar-amber-bg       : #3f2b14;
+    --neo-scheduler-bar-amber-border   : #fbbf24;
+    --neo-scheduler-bar-violet-bg      : #2d1f47;
+    --neo-scheduler-bar-violet-border  : #a78bfa;
+    --scheduler-drag-preview-box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
 }

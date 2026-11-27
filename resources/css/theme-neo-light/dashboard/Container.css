@@ -48,4 +48,8 @@
     --agent-dock-proxy-ground         : #ffffff;
     --agent-dock-proxy-shadow         : rgba(90, 107, 128, 0.45);
     --agent-dock-proxy-text           : #1f2733;
+
+    /* The drop chips' shadow, and the Signal-glow chip's. */
+    --dashboard-dock-drop-chip-box-shadow       : 0 2px 8px rgba(0, 0, 0, 0.35);
+    --dashboard-dock-drop-chip-signal-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }

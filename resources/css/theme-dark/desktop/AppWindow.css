@@ -2,6 +2,7 @@
     --desktop-app-window-background-color: var(--neo-background-color, #323232);
     --desktop-app-window-border-color    : var(--dialog-border-color, #3c3f41);
     --desktop-app-window-color           : var(--dialog-header-color, floralwhite);
+    --desktop-app-window-glyph-color     : #fff;
     --desktop-app-window-icon-color      : var(--dialog-icon-color, floralwhite);
     --desktop-app-window-shadow          : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, .4));
 }

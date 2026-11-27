@@ -3,7 +3,7 @@
     background-color: var(--neo-background-color);
     border          : none;
     border-radius   : 4px;
-    box-shadow      : 0 4px 16px rgb(0 0 0 / 30%);
+    box-shadow      : var(--popover-box-shadow);
     color           : inherit;
     inset           : auto;
     margin          : 0;

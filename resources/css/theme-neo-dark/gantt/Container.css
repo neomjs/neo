@@ -6,4 +6,6 @@
     --neo-gantt-summary-border: #94a3b8;
     --neo-gantt-milestone-bg: #3f2b14;
     --neo-gantt-milestone-border: #fbbf24;
+    --gantt-task-proxy-box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
+    --gantt-task-proxy-milestone-filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .32));
 }
