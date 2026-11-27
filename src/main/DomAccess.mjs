@@ -969,21 +969,40 @@ class DomAccess extends Base {
      * @description Every built theme sheet starts with the layer order statement, and `neo.vendor` comes first in it
      * (`LAYER_ORDER` in `buildScripts/util/themeCssLayers.mjs`). So every engine and app layer outranks a vendor rule,
      * whatever its selector weighs: Font Awesome's, Highlight.js's, an editor's or a map's own. A `<link>` cannot name
-     * a layer, so the sheet arrives through `@import … layer(neo.vendor)` in a `<style>` of its own, which settles
-     * when the import does.
+     * a layer, and a strict `style-src` refuses an inline `<style>`. So the sheet loads by `<link>`, then its rules move
+     * into a constructed stylesheet inside `@layer neo.vendor` that the document adopts, and the link is disabled. A
+     * cross-origin sheet hides its rules and stays unlayered, and so does one with an `@import`, which a constructed
+     * stylesheet drops.
      * @param {String} href
      * @param {Object} dataset=null
+     * @param {String} id=null
      * @returns {Promise<void>} Rejects with an Error naming `href` when the sheet fails to load
      */
-    loadStylesheet(href, dataset=null) {
+    loadStylesheet(href, dataset=null, id=null) {
         return new Promise((resolve, reject) => {
-            const style = this.createAndAppendElement('style', {
-                onerror    : () => reject(new Error(`Stylesheet failed to load: ${href}`)),
-                onload     : () => resolve(),
-                textContent: `@import url("${href.replace(/["\\]/g, '\\$&')}") layer(neo.vendor);`
+            const link = this.createAndAppendElement('link', {
+                href,
+                onerror: () => reject(new Error(`Stylesheet failed to load: ${href}`)),
+                onload : () => {
+                    try {
+                        const rules = [...link.sheet.cssRules]; // throws for a cross-origin sheet
+
+                        if (!rules.some(rule => rule instanceof CSSImportRule)) {
+                            const sheet = new CSSStyleSheet({baseURL: link.href});
+
+                            sheet.replaceSync(`@layer neo.vendor {${rules.map(rule => rule.cssText).join('\n')}}`);
+                            document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+                            link.disabled = true
+                        }
+                    } catch {}
+
+                    resolve()
+                },
+                rel    : 'stylesheet'
             });
 
-            dataset && Object.assign(style.dataset, dataset)
+            id      && (link.id = id);
+            dataset && Object.assign(link.dataset, dataset)
         })
     }
 

@@ -93,7 +93,7 @@ class HighlightJS extends Base {
 
         await Promise.all([
             DomAccess.loadScript(me.highlightJsLineNumbersPath),
-            DomAccess.loadStylesheet(me.themePath)
+            DomAccess.loadStylesheet(me.themePath, null, 'hljs-theme')
         ])
     }
 
@@ -132,7 +132,7 @@ class HighlightJS extends Base {
 
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
-        DomAccess.loadStylesheet(switchToTheme)
+        DomAccess.loadStylesheet(switchToTheme, null, 'hljs-theme')
     }
 
     /**
