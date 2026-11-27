@@ -4,3 +4,5 @@ export const onStart = () => Neo.app({
     mainView: Viewport,
     name    : 'Colors'
 });
+
+export default Viewport;

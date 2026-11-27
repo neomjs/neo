@@ -9,3 +9,5 @@ export const onStart = () => Neo.app({
     mainView: {module: MainContainer, theme: resolveStartTheme(Neo.config)},
     name    : 'Covid'
 });
+
+export default MainContainer;
