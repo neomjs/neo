@@ -202,12 +202,11 @@ class Cascade extends Base {
             }
         }
 
-        let topoQueue = taskOrder.filter(id => inDegree.get(id) === 0),
-            processed = new Set(),
-            nextSpans = new Map(),
-            pending   = rollups ? new Map() : null;
-
-        let queueCursor = 0,
+        let topoQueue   = taskOrder.filter(id => inDegree.get(id) === 0),
+            processed   = new Set(),
+            nextSpans   = new Map(),
+            pending     = rollups ? new Map() : null,
+            queueCursor = 0,
             cycleCursor = 0;
 
         while (processed.size < taskOrder.length) {
@@ -241,12 +240,11 @@ class Cascade extends Base {
                 derived                                                   = rollups && chart.store.isDerivedParent(record),
                 phase                                                     = derived ? chart.store.planParentRollup(record, pending) : null,
                 inEdges                                                   = incoming.get(id) || [],
-                ownStartMs                                                = useWorking ? axis.snapToWorkingTime(prevStartMs, 1).getTime() : prevStartMs;
-
-            let prevReqStart  = -Infinity,
-                nextReqStart  = -Infinity,
-                governingEdge = null,
-                governingPred = '';
+                ownStartMs                                                = useWorking ? axis.snapToWorkingTime(prevStartMs, 1).getTime() : prevStartMs,
+                prevReqStart                                              = -Infinity,
+                nextReqStart                                              = -Infinity,
+                governingEdge                                             = null,
+                governingPred                                             = '';
 
             for (let edge of inEdges) {
                 let predId = String(edge.fromId ?? '');
@@ -470,9 +468,8 @@ class Cascade extends Base {
                         }
                     }
                 }
-            };
-
-        let queueCursor = 0,
+            },
+            queueCursor = 0,
             cycleCursor = 0;
         releaseOutgoing(rootId);
 
