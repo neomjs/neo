@@ -140,6 +140,7 @@ vnode does not learn about them. Use it only for DOM the vdom does not describe,
 4. A batch carries the components of one window only.
 5. Every flight leaves the registry on every path: success, failure and destruction. A flight that stays blocks its
    subtree.
+6. A component is mounted only once its vnode is on the DOM ([ADR 0043](../../agentos/decisions/0043-vdom-diff-placement.md) I5).
 
 ## Hot-path cost
 
