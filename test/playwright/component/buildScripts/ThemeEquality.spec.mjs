@@ -1,8 +1,9 @@
-import {test, expect}  from '@playwright/test';
-import fs              from 'node:fs';
-import os              from 'node:os';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {test, expect}            from '@playwright/test';
+import {execFileSync, spawnSync} from 'node:child_process';
+import fs                        from 'node:fs';
+import os                        from 'node:os';
+import path                      from 'node:path';
+import {fileURLToPath}           from 'node:url';
 
 import {
     evaluateExpectedDiffs,
@@ -11,144 +12,229 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       REPO_ROOT = path.resolve(__dirname, '../../../..'),
-      DIST_CSS  = path.join(REPO_ROOT, 'dist/development/css');
+      DIST_CSS  = path.join(REPO_ROOT, 'dist/development/css'),
+      CLI_PATH  = path.join(REPO_ROOT, 'buildScripts/util/theme-equality.mjs');
 
 /**
- * @summary End-to-end headless Chromium verification of `runThemeEquality`:
- * 1. Two independent copies of the same built CSS tree report zero differences across all 5 themes.
- * 2. Mutating one component variable (`--button-primary-background-color-hover`) in one theme (`theme-neo-light`)
- *    reports solely `button[primary]` in `neo-theme-neo-light` at `hover` on `background-color`, and nothing else.
- * 3. Declaring that difference in `expected` passes, whereas declaring an extra difference that did not occur fails.
+ * @summary End-to-end headless Chromium and CLI verification of `runThemeEquality`:
+ * 1. Compares two independently produced theme builds across all 5 themes and both scopes (`0` differences).
+ * 2. Exercises both checkout-root (with JavaScript `src/`) and direct CSS-root inputs, plus multi-part text+glyph isolation.
+ * 3. Exercises SwitchField knob (`::before`) + hovered track, Dialog header button hover (`--cmp-*` alias), and classic `theme-dark` `scoped`-only flips.
+ * 4. Verifies server cleanup and non-zero CLI exit without hanging when Chromium startup fails.
  */
 test.describe('theme-equality headless Chromium integration', () => {
     const tempDirs = [];
 
-    function copyBuiltTree() {
-        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-theme-eq-e2e-'));
-        tempDirs.push(dir);
-        fs.cpSync(DIST_CSS, path.join(dir, 'css'), {recursive: true});
-        fs.copyFileSync(path.join(REPO_ROOT, 'resources/theme-map.json'), path.join(dir, 'theme-map.json'));
-        return path.join(dir, 'css')
+    function makeTempCheckout() {
+        const root   = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-theme-eq-checkout-')),
+              cssDir = path.join(root, 'dist/development/css');
+
+        tempDirs.push(root);
+        // Include a real JavaScript `src/` folder so checkout-root resolution cannot confuse `<root>/src` with CSS `src/`
+        fs.mkdirSync(path.join(root, 'src'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'src/Neo.mjs'), 'export default {};\n');
+
+        fs.mkdirSync(path.dirname(cssDir), {recursive: true});
+        fs.cpSync(DIST_CSS, cssDir, {recursive: true});
+
+        fs.mkdirSync(path.join(root, 'resources'), {recursive: true});
+        fs.copyFileSync(path.join(REPO_ROOT, 'resources/theme-map.json'), path.join(root, 'resources/theme-map.json'));
+
+        return {root, cssDir}
     }
 
     test.afterAll(() => {
         tempDirs.forEach(dir => fs.rmSync(dir, {force: true, recursive: true}))
     });
 
-    test('reports zero differences on two builds of the same commit across all five themes', async () => {
-        test.setTimeout(90000);
+    test('reports zero differences across two independently produced theme builds of the same commit', async () => {
+        test.setTimeout(120000);
 
-        const baseCopy = copyBuiltTree(),
-              headCopy = copyBuiltTree(),
-              result   = await runThemeEquality({base: baseCopy, head: headCopy, repoRoot: REPO_ROOT});
+        // Snapshot the first build (`dist/development/css`), run a fresh independent `build-themes` pass for the second build,
+        // and compare the first build against the live checkout root `.`.
+        const buildOne = makeTempCheckout();
+
+        execFileSync(
+            process.execPath,
+            [path.join(REPO_ROOT, 'buildScripts/build/themes.mjs'), '-n', '-e', 'dev', '-t', 'all'],
+            {cwd: REPO_ROOT, stdio: 'pipe'}
+        );
+
+        const result = await runThemeEquality({
+            base    : buildOne.root,
+            head    : REPO_ROOT,
+            repoRoot: REPO_ROOT
+        });
 
         expect(result.ok).toBe(true);
         expect(result.diffs).toEqual([]);
         expect(result.unexpectedDiffs).toEqual([]);
-        expect(result.totalComparisons).toBeGreaterThan(5000)
+        expect(result.totalComparisons).toBeGreaterThan(50000)
     });
 
-    test('isolates a single component variable mutation in one theme and enforces expected-diff rules', async () => {
-        test.setTimeout(90000);
+    test('detects mutations equivalently via checkout-root and CSS-root inputs and isolates simultaneous multi-part changes', async () => {
+        test.setTimeout(120000);
 
-        const baseCopy   = copyBuiltTree(),
-              headCopy   = copyBuiltTree(),
-              targetFile = path.join(headCopy, 'theme-neo-light/button/Base.css'),
+        const base = makeTempCheckout(),
+              head = makeTempCheckout();
+
+        const targetFile = path.join(head.cssDir, 'theme-neo-light/button/Base.css'),
               original   = fs.readFileSync(targetFile, 'utf8'),
-              mutated    = original.replace(
-                  /--button-primary-background-color-hover\s*:\s*[^;]+;/,
-                  '--button-primary-background-color-hover: rgb(251, 13, 199);'
-              );
+              mutated    = original
+                  .replace(/--button-primary-text-color\s*:\s*[^;]+;/, '--button-primary-text-color: rgb(251, 13, 199);')
+                  .replace(/--button-primary-glyph-color\s*:\s*[^;]+;/, '--button-primary-glyph-color: rgb(3, 244, 202);');
 
         expect(mutated).not.toBe(original);
         fs.writeFileSync(targetFile, mutated);
 
-        // Undeclared mutation fails and names solely the affected component, theme, state, and property
-        const undeclaredRun = await runThemeEquality({base: baseCopy, head: headCopy, repoRoot: REPO_ROOT});
+        const viaCheckoutRoots = await runThemeEquality({
+            base    : base.root,
+            head    : head.root,
+            themes  : ['neo-theme-neo-light'],
+            repoRoot: REPO_ROOT
+        });
 
-        expect(undeclaredRun.ok).toBe(false);
-        expect(undeclaredRun.diffs).toEqual([
-            {
-                component: 'button[primary]',
-                theme    : 'neo-theme-neo-light',
-                scope    : 'inherited',
-                state    : 'hover',
-                property : 'background-color',
-                part     : '.neo-button',
-                base     : expect.any(String),
-                head     : 'rgb(251, 13, 199)'
-            },
-            {
-                component: 'button[primary]',
-                theme    : 'neo-theme-neo-light',
-                scope    : 'scoped',
-                state    : 'hover',
-                property : 'background-color',
-                part     : '.neo-button',
-                base     : expect.any(String),
-                head     : 'rgb(251, 13, 199)'
-            }
-        ]);
+        const viaCssRoots = await runThemeEquality({
+            base    : base.cssDir,
+            head    : head.cssDir,
+            themes  : ['neo-theme-neo-light'],
+            repoRoot: REPO_ROOT
+        });
 
-        // Declaring the exact expected diff passes; declaring a non-existent expected diff fails
-        const passingVerdict = evaluateExpectedDiffs(undeclaredRun.diffs, [{
+        expect(viaCheckoutRoots.ok).toBe(false);
+        expect(viaCssRoots.ok).toBe(false);
+        expect(viaCheckoutRoots.diffs).toEqual(viaCssRoots.diffs);
+
+        const textDiffs  = viaCheckoutRoots.diffs.filter(d => d.part === '.neo-button-text'),
+              glyphDiffs = viaCheckoutRoots.diffs.filter(d => d.part === '.neo-button-glyph');
+
+        expect(textDiffs).toHaveLength(16);
+        expect(glyphDiffs).toHaveLength(16);
+
+        // Declaring ONLY `.neo-button-text` rows as expected must leave all 16 `.neo-button-glyph` rows unexpected
+        const partialExpected = evaluateExpectedDiffs(viaCheckoutRoots.diffs, [{
             component: 'button[primary]',
             theme    : 'neo-theme-neo-light',
-            state    : 'hover',
-            property : 'background-color'
+            part     : '.neo-button-text'
         }]);
-        expect(passingVerdict.ok).toBe(true);
-
-        const unmetVerdict = evaluateExpectedDiffs(undeclaredRun.diffs, [
-            {
-                component: 'button[primary]',
-                theme    : 'neo-theme-neo-light',
-                state    : 'hover',
-                property : 'background-color'
-            },
-            {
-                component: 'button',
-                theme    : 'neo-theme-neo-dark',
-                state    : 'active',
-                property : 'color'
-            }
-        ]);
-        expect(unmetVerdict.ok).toBe(false);
-        expect(unmetVerdict.unmetExpected).toHaveLength(1)
+        expect(partialExpected.ok).toBe(false);
+        expect(partialExpected.matchedDiffs).toEqual(textDiffs);
+        expect(partialExpected.unexpectedDiffs).toEqual(glyphDiffs)
     });
 
-    test('catches custom-property winner flips that occur only when a component carries its own theme scope', async () => {
-        test.setTimeout(90000);
+    test('catches SwitchField knob/hover, Dialog header button hover (--cmp-* alias), and classic theme-dark scoped-only flips', async () => {
+        test.setTimeout(120000);
 
-        const baseCopy  = copyBuiltTree(),
-              headCopy  = copyBuiltTree(),
-              srcRule   = '\n.neo-tooltip { --tooltip-bg: rgb(18, 52, 86); }\n',
-              themeRule = '\n:root .neo-theme-dark { --tooltip-bg: rgb(210, 99, 44); }\n';
+        const base = makeTempCheckout(),
+              head = makeTempCheckout();
 
-        // Both trees share the structural re-declaration on `.neo-tooltip`; only head adds a higher-weight
-        // `:root .neo-theme-dark` theme declaration, which leaves `inherited` (`body.neo-theme-dark .neo-tooltip`)
-        // at `rgb(18, 52, 86)` while flipping `scoped` (`.neo-tooltip.neo-theme-dark`) to `rgb(210, 99, 44)`.
-        fs.appendFileSync(path.join(baseCopy, 'src/tooltip/Base.css'), srcRule);
-        fs.appendFileSync(path.join(headCopy, 'src/tooltip/Base.css'), srcRule);
-        fs.appendFileSync(path.join(headCopy, 'theme-dark/tooltip/Base.css'), themeRule);
+        // 1. SwitchField knob (`::before`) + unchecked & checked hover tracks in Neo Light
+        const switchFile = path.join(head.cssDir, 'theme-neo-light/form/field/Switch.css'),
+              switchOrig = fs.readFileSync(switchFile, 'utf8'),
+              switchNext = switchOrig
+                  .replace(/--switchfield-color-knob\s*:\s*[^;]+;/, '--switchfield-color-knob: rgb(251, 13, 199);')
+                  .replace(/--switchfield-color-off-hovered\s*:\s*[^;]+;/, '--switchfield-color-off-hovered: rgb(3, 244, 202);')
+                  .replace(/--switchfield-color-on-hovered\s*:\s*[^;]+;/, '--switchfield-color-on-hovered: rgb(244, 180, 12);');
+
+        expect(switchNext).not.toBe(switchOrig);
+        fs.writeFileSync(switchFile, switchNext);
+
+        // 2. Dialog header button hover (`--dialog-header-button-background-color-hover` reading `--cmp-button-ghost-surface-hover`)
+        const dialogFile = path.join(head.cssDir, 'theme-neo-light/dialog/Base.css'),
+              dialogOrig = fs.readFileSync(dialogFile, 'utf8'),
+              dialogNext = dialogOrig.replace(
+                  /--dialog-header-button-background-color-hover\s*:\s*[^;]+;/,
+                  '--dialog-header-button-background-color-hover: rgb(220, 40, 90);'
+              );
+
+        expect(dialogNext).not.toBe(dialogOrig);
+        fs.writeFileSync(dialogFile, dialogNext);
+
+        // 3. Classic `theme-dark` scoped-only custom-property winner flip on `.neo-tooltip`
+        const srcTooltipRule   = '\n.neo-tooltip { --tooltip-bg: rgb(18, 52, 86); }\n',
+              themeTooltipRule = '\n:root .neo-theme-dark { --tooltip-bg: rgb(210, 99, 44); }\n';
+
+        fs.appendFileSync(path.join(base.cssDir, 'src/tooltip/Base.css'), srcTooltipRule);
+        fs.appendFileSync(path.join(head.cssDir, 'src/tooltip/Base.css'), srcTooltipRule);
+        fs.appendFileSync(path.join(head.cssDir, 'theme-dark/tooltip/Base.css'), themeTooltipRule);
 
         const result = await runThemeEquality({
-            base    : baseCopy,
-            head    : headCopy,
-            themes  : ['neo-theme-dark'],
+            base    : base.root,
+            head    : head.root,
+            themes  : ['neo-theme-neo-light', 'neo-theme-dark'],
             repoRoot: REPO_ROOT
         });
 
         expect(result.ok).toBe(false);
-        expect(result.diffs).toEqual([{
+
+        // SwitchField knob (`::before`) caught
+        expect(result.diffs).toContainEqual(expect.objectContaining({
+            component: 'switchfield',
+            theme    : 'neo-theme-neo-light',
+            part     : 'input.neo-switchfield-input::before',
+            property : 'background-color',
+            head     : 'rgb(251, 13, 199)'
+        }));
+
+        // SwitchField unchecked & checked hovered tracks caught
+        expect(result.diffs).toContainEqual(expect.objectContaining({
+            component: 'switchfield',
+            theme    : 'neo-theme-neo-light',
+            state    : 'hover',
+            part     : 'input.neo-switchfield-input',
+            property : 'background-color',
+            head     : 'rgb(3, 244, 202)'
+        }));
+        expect(result.diffs).toContainEqual(expect.objectContaining({
+            component: 'switchfield[checked]',
+            theme    : 'neo-theme-neo-light',
+            state    : 'hover',
+            part     : 'input.neo-switchfield-input',
+            property : 'background-color',
+            head     : 'rgb(244, 180, 12)'
+        }));
+
+        // Dialog hovered header button caught
+        expect(result.diffs).toContainEqual(expect.objectContaining({
+            component: 'dialog',
+            theme    : 'neo-theme-neo-light',
+            state    : 'hover',
+            part     : '.neo-header-toolbar .neo-button',
+            property : 'background-color',
+            head     : 'rgb(220, 40, 90)'
+        }));
+
+        // Scoped-only tooltip control caught in `scoped` while `inherited` stays untouched
+        expect(result.diffs.filter(d => d.component === 'tooltip')).toEqual([{
             component: 'tooltip',
             theme    : 'neo-theme-dark',
             scope    : 'scoped',
             state    : 'default',
-            property : 'background-color',
             part     : '.neo-tooltip',
+            property : 'background-color',
             base     : expect.any(String),
             head     : 'rgb(210, 99, 44)'
         }])
+    });
+
+    test('closes the loopback server and exits non-zero promptly when Chromium launch fails', () => {
+        const emptyBrowsersDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-empty-browsers-'));
+        tempDirs.push(emptyBrowsersDir);
+
+        const proc = spawnSync(
+            process.execPath,
+            [CLI_PATH, '--base', REPO_ROOT, '--head', REPO_ROOT, '--themes', 'neo-theme-neo-light'],
+            {
+                cwd     : REPO_ROOT,
+                encoding: 'utf8',
+                env     : {...process.env, PLAYWRIGHT_BROWSERS_PATH: emptyBrowsersDir},
+                timeout : 10000
+            }
+        );
+
+        // Must exit on its own (signal === null, not killed by timeout) with code 1 and a diagnostic on stderr
+        expect(proc.signal).toBeNull();
+        expect(proc.status).toBe(1);
+        expect(proc.stderr).toMatch(/Executable doesn't exist|browserType\.launch/i)
     })
 });

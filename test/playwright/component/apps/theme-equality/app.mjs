@@ -7,6 +7,7 @@ import Breadcrumb            from '../../../../../src/toolbar/Breadcrumb.mjs';
 import Button                from '../../../../../src/button/Base.mjs';
 import Calendar              from '../../../../../src/calendar/view/MainContainer.mjs';
 import CardModel             from '../../../../../src/board/CardModel.mjs';
+import Carousel              from '../../../../../src/component/Carousel.mjs';
 import CheckBox              from '../../../../../src/form/field/CheckBox.mjs';
 import Chip                  from '../../../../../src/component/Chip.mjs';
 import ChipField             from '../../../../../src/form/field/Chip.mjs';
@@ -191,6 +192,21 @@ export const onStart = () => {
 
                 // component
                 cell('box-label',            {module: BoxLabel, text: 'Box label'}),
+                cell('carousel', {
+                    module : Carousel,
+                    width  : 280,
+                    height : 140,
+                    itemTpl: data => [{text: data.name}],
+                    store  : {
+                        module: Store,
+                        model : {fields: [{name: 'id'}, {name: 'name'}]},
+                        data  : [
+                            {id: 'c1', name: 'Slide 1'},
+                            {id: 'c2', name: 'Slide 2'},
+                            {id: 'c3', name: 'Slide 3'}
+                        ]
+                    }
+                }),
                 cell('chip',                 {module: Chip, text: 'Tag', closable: true}),
                 cell('clock',                {module: Clock, showDisc: true, time: '10:10'}),
                 cell('date-selector',        {module: DateSelector, value: '2024-07-21', width: 280, height: 220}),
@@ -254,13 +270,28 @@ export const onStart = () => {
                     }
                 }),
 
-                // dialog (inline DOM shell so modal mask does not cover sibling stage cells)
+                // dialog (inline DOM shell so modal mask does not cover sibling stage cells, with header & footer action buttons)
                 cell('dialog', {
                     module : Panel,
                     cls    : ['neo-dialog', 'neo-panel', 'neo-container'],
-                    width  : 260,
-                    height : 100,
-                    headers: [{dock: 'top', cls: ['neo-header-toolbar'], text: 'Dialog'}],
+                    width  : 280,
+                    height : 130,
+                    headers: [
+                        {
+                            dock : 'top',
+                            cls  : ['neo-header-toolbar'],
+                            items: [
+                                {module: Label, cls: ['neo-panel-header-text'], text: 'Dialog'},
+                                '->',
+                                {module: Button, iconCls: 'fa fa-xmark', ui: 'ghost'}
+                            ]
+                        },
+                        {
+                            dock : 'bottom',
+                            cls  : ['neo-footer-toolbar'],
+                            items: [{module: Button, text: 'Close'}]
+                        }
+                    ],
                     items  : [{module: Component, text: 'Dialog content'}]
                 }),
 
@@ -503,8 +534,8 @@ export const onStart = () => {
                     width : 280,
                     height: 110,
                     items : [
-                        {module: Component, header: {text: 'First'}, text: 'Tab 1'},
-                        {module: Component, header: {text: 'Second'}, text: 'Tab 2'}
+                        {module: Component, header: {iconCls: 'fa fa-folder', text: 'First'}, text: 'Tab 1'},
+                        {module: Component, header: {iconCls: 'fa fa-file', text: 'Second'}, text: 'Tab 2'}
                     ]
                 }),
                 cell('tab-container-inline', {
@@ -513,8 +544,18 @@ export const onStart = () => {
                     width : 280,
                     height: 110,
                     items : [
-                        {module: Component, header: {text: 'Inline A'}, text: 'Body A'},
-                        {module: Component, header: {text: 'Inline B'}, text: 'Body B'}
+                        {module: Component, header: {iconCls: 'fa fa-folder', text: 'Inline A'}, text: 'Body A'},
+                        {module: Component, header: {iconCls: 'fa fa-file', text: 'Inline B'}, text: 'Body B'}
+                    ]
+                }),
+                cell('tab-container-standalone', {
+                    module: TabContainer,
+                    cls   : ['neo-tab-container-standalone'],
+                    width : 280,
+                    height: 110,
+                    items : [
+                        {module: Component, header: {iconCls: 'fa fa-folder', text: 'Standalone A'}, text: 'Body A'},
+                        {module: Component, header: {iconCls: 'fa fa-file', text: 'Standalone B'}, text: 'Body B'}
                     ]
                 }),
 

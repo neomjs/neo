@@ -1,10 +1,11 @@
 /**
  * @module buildScripts/util/themeEqualityMatrix
- * @summary Declarative component, state, property, and engine-package matrix for `theme-equality.mjs`.
+ * @summary Declarative component, state, part, property, and engine-package matrix for `theme-equality.mjs`.
  *
  * Maps every engine directory under `resources/css/src` (excluding `apps/` and `examples/`) to either
  * one or more rendered component/variant cells mounted in `test/playwright/component/apps/theme-equality/`
- * or an explicit architectural reason why no idle rendered instance exists.
+ * (with per-state target selectors and element/pseudo-element parts) or an explicit architectural reason
+ * why no idle rendered instance exists.
  */
 import fs from 'node:fs';
 
@@ -38,6 +39,7 @@ export const PAINTED_PROPERTIES = Object.freeze([
     'background-image',
     'color',
     'border-color',
+    'border-width',
     'outline',
     'outline-offset',
     'box-shadow',
@@ -65,6 +67,25 @@ const FIELD_STATES  = ['default', 'hover', 'focus', 'disabled', 'invalid', 'read
 const FIELD_PARTS   = ['.neo-textfield', '.neo-textfield-label', '.neo-textfield-input'];
 
 /**
+ * @summary Normalizes a declarative part entry (`string` selector or `{selector, pseudo, id?}`) into a canonical descriptor.
+ * @param {String|Object} part Raw part entry from `COMPONENT_MATRIX`.
+ * @returns {Object} Normalized `{id, selector, pseudo}`.
+ */
+export function normalizePartSpec(part) {
+    if (typeof part === 'string') {
+        return {id: part, selector: part, pseudo: null}
+    }
+
+    const pseudo = part.pseudo || null;
+
+    return {
+        id      : part.id || `${part.selector}${pseudo || ''}`,
+        selector: part.selector,
+        pseudo
+    }
+}
+
+/**
  * Representative component and variant probes mounted inside isolated stage cells (`#eq-cell-<cellId>`).
  * @type {Object[]}
  */
@@ -76,7 +97,16 @@ export const COMPONENT_MATRIX = Object.freeze([
         cellId             : 'app-content',
         stateTargetSelector: '.neo-list-item',
         states             : ['default', 'hover', 'selected'],
-        parts              : ['.neo-app-content-container', '.neo-app-content-page-container', '.content-bottom-toolbar', '.neo-app-content-sections-list', '.neo-list-item']
+        parts              : [
+            '.neo-app-content-container',
+            '.neo-app-content-page-container',
+            '.content-bottom-toolbar',
+            '.content-bottom-toolbar .neo-button',
+            {selector: '.content-bottom-toolbar-previous', pseudo: '::before'},
+            {selector: '.content-bottom-toolbar-next',     pseudo: '::before'},
+            '.neo-app-content-sections-list',
+            '.neo-list-item'
+        ]
     },
     // board
     {
@@ -148,9 +178,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'segmented-button',
         package            : 'button',
         cellId             : 'segmented-button',
-        stateTargetSelector: '.neo-button',
+        stateTargetSelector: '.neo-button:not(.pressed)',
         states             : ['default', 'hover', 'pressed', 'disabled'],
-        parts              : ['.neo-segmented-button', '.neo-button', '.neo-button-text']
+        parts              : ['.neo-segmented-button', '.neo-button.pressed', '.neo-button:not(.pressed)', '.neo-button-text']
     },
     {
         id                 : 'split-button',
@@ -158,7 +188,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         cellId             : 'split-button',
         stateTargetSelector: '.neo-trigger-button',
         states             : ['default', 'hover', 'active', 'focus', 'pressed', 'disabled'],
-        parts              : ['.neo-split-button', '.neo-trigger-button']
+        parts              : ['.neo-split-button', '.neo-button', '.neo-trigger-button']
     },
     {
         id                 : 'theme-switcher',
@@ -184,7 +214,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         cellId             : 'live-preview',
         stateTargetSelector: '.neo-code-live-preview',
         states             : ['default'],
-        parts              : ['.neo-code-live-preview', '.live-preview-container', '.neo-tab-header-toolbar', '.neo-tab-body-container']
+        parts              : ['.neo-code-live-preview', '.live-preview-container', '.neo-tab-header-toolbar', '.neo-tab-strip', '.neo-tab-body-container']
     },
     // component
     {
@@ -194,6 +224,21 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-box-label',
         states             : ['default'],
         parts              : ['.neo-box-label']
+    },
+    {
+        id                 : 'carousel',
+        package            : 'component',
+        cellId             : 'carousel',
+        stateTargetSelector: '.neo-carousel-btn',
+        states             : ['default', 'hover'],
+        parts              : [
+            '.neo-carousel',
+            '.neo-carousel-inner',
+            {selector: '.neo-carousel-inner', pseudo: '::before'},
+            {selector: '.neo-carousel-inner', pseudo: '::after'},
+            '.neo-carousel-btn',
+            '.neo-carousel-item'
+        ]
     },
     {
         id                 : 'chip',
@@ -224,7 +269,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'component',
         cellId             : 'empty-state',
         stateTargetSelector: '.neo-empty-state-action',
-        states             : ['default', 'hover', 'focus'],
+        states             : ['default', 'hover', 'active', 'focus'],
         parts              : ['.neo-empty-state', '.neo-empty-state-title', '.neo-empty-state-description', '.neo-empty-state-action']
     },
     {
@@ -380,9 +425,17 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'dialog',
         package            : 'dialog',
         cellId             : 'dialog',
-        stateTargetSelector: '.neo-dialog',
-        states             : ['default'],
-        parts              : ['.neo-dialog', '.neo-header-toolbar']
+        stateTargetSelector: '.neo-header-toolbar .neo-button',
+        states             : ['default', 'hover', 'active'],
+        parts              : [
+            '.neo-dialog',
+            '.neo-header-toolbar',
+            '.neo-panel-header-text',
+            '.neo-header-toolbar .neo-button',
+            '.neo-header-toolbar .neo-button-glyph',
+            '.neo-footer-toolbar',
+            '.neo-footer-toolbar .neo-button'
+        ]
     },
     // filter
     {
@@ -425,7 +478,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-textfield',
         inputSelector      : 'input.neo-textfield-input',
         states             : FIELD_STATES,
-        parts              : ['.neo-textfield', '.neo-textfield-label', '.neo-textfield-sublabel', '.neo-textfield-input', '.neo-field-trigger']
+        parts              : ['.neo-textfield', '.neo-textfield-label', '.neo-textfield-sublabel', '.neo-input-wrapper', '.neo-textfield-input', '.neo-field-trigger']
     },
     {
         id                 : 'textfield[inline]',
@@ -434,7 +487,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-textfield',
         inputSelector      : 'input.neo-textfield-input',
         states             : FIELD_STATES,
-        parts              : ['.neo-textfield', '.neo-textfield-label', '.neo-textfield-input']
+        parts              : ['.neo-textfield', '.neo-textfield-label', '.neo-textfield-input', '.neo-left-border', '.neo-center-border', '.neo-right-border']
     },
     {
         id                 : 'textarea',
@@ -452,7 +505,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-numberfield',
         inputSelector      : 'input.neo-textfield-input',
         states             : FIELD_STATES,
-        parts              : FIELD_PARTS
+        parts              : [...FIELD_PARTS, '.neo-input-wrapper', '.neo-field-trigger']
     },
     {
         id                 : 'searchfield',
@@ -479,7 +532,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-combobox',
         inputSelector      : 'input.neo-textfield-input',
         states             : ['default', 'hover', 'focus', 'disabled', 'invalid'],
-        parts              : ['.neo-combobox', '.neo-textfield-input']
+        parts              : ['.neo-combobox', '.neo-input-wrapper', '.neo-textfield-input', '.neo-field-trigger']
     },
     {
         id                 : 'pickerfield',
@@ -488,7 +541,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-pickerfield',
         inputSelector      : 'input.neo-textfield-input',
         states             : ['default', 'hover', 'focus', 'disabled'],
-        parts              : ['.neo-pickerfield', '.neo-textfield-input']
+        parts              : ['.neo-pickerfield', '.neo-input-wrapper', '.neo-textfield-input', '.neo-field-trigger']
     },
     {
         id                 : 'checkboxfield',
@@ -497,7 +550,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         stateTargetSelector: '.neo-checkboxfield',
         inputSelector      : 'input.neo-checkbox-input',
         states             : ['default', 'hover', 'focus', 'disabled', 'invalid'],
-        parts              : ['.neo-checkboxfield', '.neo-checkbox-icon', '.neo-checkbox-value-label']
+        parts              : ['.neo-checkboxfield', '.neo-checkbox-label', '.neo-checkbox-icon', '.neo-checkbox-value-label']
     },
     {
         id                 : 'checkboxfield[checked]',
@@ -505,26 +558,48 @@ export const COMPONENT_MATRIX = Object.freeze([
         cellId             : 'checkboxfield-checked',
         stateTargetSelector: '.neo-checkboxfield',
         inputSelector      : 'input.neo-checkbox-input',
-        states             : ['default'],
-        parts              : ['.neo-checkboxfield', '.neo-checkbox-icon', '.neo-checkbox-value-label']
+        states             : ['default', 'focus', 'disabled'],
+        parts              : ['.neo-checkboxfield', '.neo-checkbox-label', '.neo-checkbox-icon', '.neo-checkbox-value-label']
     },
     {
         id                 : 'switchfield',
         package            : 'form',
         cellId             : 'switchfield',
         stateTargetSelector: '.neo-switchfield',
-        inputSelector      : 'input.neo-switchfield-input',
-        states             : ['default', 'hover', 'focus', 'disabled'],
-        parts              : ['.neo-switchfield', '.neo-switchfield-input']
+        stateTargets       : {
+            hover   : 'input.neo-switchfield-input',
+            focus   : 'input.neo-switchfield-input',
+            disabled: '.neo-switchfield'
+        },
+        inputSelector: 'input.neo-switchfield-input',
+        states       : ['default', 'hover', 'focus', 'disabled'],
+        parts        : [
+            '.neo-switchfield',
+            'input.neo-switchfield-input',
+            {selector: 'input.neo-switchfield-input', pseudo: '::before'},
+            {selector: 'input.neo-switchfield-input', pseudo: '::after'},
+            '.neo-checkbox-value-label'
+        ]
     },
     {
         id                 : 'switchfield[checked]',
         package            : 'form',
         cellId             : 'switchfield-checked',
         stateTargetSelector: '.neo-switchfield',
-        inputSelector      : 'input.neo-switchfield-input',
-        states             : ['default'],
-        parts              : ['.neo-switchfield', '.neo-switchfield-input']
+        stateTargets       : {
+            hover   : 'input.neo-switchfield-input',
+            focus   : 'input.neo-switchfield-input',
+            disabled: '.neo-switchfield'
+        },
+        inputSelector: 'input.neo-switchfield-input',
+        states       : ['default', 'hover', 'focus', 'disabled'],
+        parts        : [
+            '.neo-switchfield',
+            'input.neo-switchfield-input',
+            {selector: 'input.neo-switchfield-input', pseudo: '::before'},
+            {selector: 'input.neo-switchfield-input', pseudo: '::after'},
+            '.neo-checkbox-value-label'
+        ]
     },
     {
         id                 : 'rangefield',
@@ -583,8 +658,13 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'list',
         cellId             : 'list',
         stateTargetSelector: '.neo-list-item',
-        states             : ['default', 'hover', 'focus', 'selected', 'disabled'],
-        parts              : ['.neo-list-wrapper', '.neo-list', '.neo-list-item']
+        states             : ['default', 'hover', 'active', 'focus', 'selected', 'disabled'],
+        parts              : [
+            '.neo-list-wrapper',
+            '.neo-list',
+            '.neo-list-item',
+            {selector: '.neo-list-item', pseudo: '::before'}
+        ]
     },
     {
         id                 : 'chip-list',
@@ -644,17 +724,49 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'tab-container',
         package            : 'tab',
         cellId             : 'tab-container',
-        stateTargetSelector: '.neo-tab-header-button',
-        states             : ['default', 'hover', 'active', 'focus', 'pressed', 'disabled'],
-        parts              : ['.neo-tab-container', '.neo-tab-header-toolbar', '.neo-tab-header-button', '.neo-tab-strip', '.neo-active-tab-indicator']
+        stateTargetSelector: '.neo-tab-header-button:not(.pressed)',
+        states             : ['default', 'hover', 'active', 'focus', 'disabled'],
+        parts              : [
+            '.neo-tab-container',
+            '.neo-tab-header-toolbar',
+            '.neo-tab-header-button.pressed',
+            '.neo-tab-header-button.pressed .neo-button-text',
+            '.neo-tab-header-button.pressed .neo-button-glyph',
+            '.neo-tab-header-button.pressed .neo-tab-button-indicator',
+            '.neo-tab-header-button:not(.pressed)',
+            '.neo-tab-header-button:not(.pressed) .neo-button-text',
+            '.neo-tab-header-button:not(.pressed) .neo-button-glyph',
+            '.neo-tab-strip',
+            '.neo-active-tab-indicator'
+        ]
     },
     {
         id                 : 'tab-container[inline]',
         package            : 'tab',
         cellId             : 'tab-container-inline',
-        stateTargetSelector: '.neo-tab-header-button',
+        stateTargetSelector: '.neo-tab-header-button:not(.pressed)',
         states             : ['default'],
-        parts              : ['.neo-tab-container', '.neo-tab-header-toolbar']
+        parts              : [
+            '.neo-tab-container',
+            '.neo-tab-header-toolbar',
+            '.neo-tab-header-button.pressed',
+            '.neo-tab-header-button:not(.pressed)',
+            '.neo-button-text'
+        ]
+    },
+    {
+        id                 : 'tab-container[standalone]',
+        package            : 'tab',
+        cellId             : 'tab-container-standalone',
+        stateTargetSelector: '.neo-tab-header-button:not(.pressed)',
+        states             : ['default'],
+        parts              : [
+            '.neo-tab-container',
+            '.neo-tab-header-toolbar',
+            '.neo-tab-header-button.pressed',
+            '.neo-tab-header-button:not(.pressed)',
+            '.neo-button-text'
+        ]
     },
     // table
     {
@@ -688,9 +800,13 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'breadcrumb',
         package            : 'toolbar',
         cellId             : 'breadcrumb',
-        stateTargetSelector: '.neo-button',
+        stateTargetSelector: '.neo-button:first-child',
         states             : ['default', 'hover', 'disabled'],
-        parts              : ['.neo-breadcrumb-toolbar', '.neo-button']
+        parts              : [
+            '.neo-breadcrumb-toolbar',
+            '.neo-button:first-child',
+            {selector: '.neo-button:first-child', pseudo: '::after'}
+        ]
     },
     {
         id                 : 'paging-toolbar',
@@ -716,7 +832,11 @@ export const COMPONENT_MATRIX = Object.freeze([
         cellId             : 'tree-list',
         stateTargetSelector: '.neo-list-item',
         states             : ['default', 'hover', 'focus', 'selected'],
-        parts              : ['.neo-tree-list', '.neo-list-item']
+        parts              : [
+            '.neo-tree-list',
+            '.neo-list-item',
+            {selector: '.neo-list-item-content', pseudo: '::before'}
+        ]
     },
     // util
     {

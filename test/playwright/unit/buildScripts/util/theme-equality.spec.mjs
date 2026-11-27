@@ -9,11 +9,13 @@ import {
     compareSnapshots,
     evaluateExpectedDiffs,
     formatEqualityReport,
-    resolveBuiltTree
+    resolveBuiltTree,
+    validateExpectedRules
 } from '../../../../../buildScripts/util/theme-equality.mjs';
 import {
     COMPONENT_MATRIX,
     ENGINE_PACKAGE_MATRIX,
+    normalizePartSpec,
     PAINTED_PROPERTIES,
     SCOPES,
     STATES,
@@ -25,8 +27,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
       REPO_ROOT = path.resolve(__dirname, '../../../../..');
 
 /**
- * @summary Unit coverage for the computed-style equality matrix, built-tree resolution,
- * snapshot diffing, and expected-difference accounting.
+ * @summary Unit coverage for the computed-style equality matrix, checkout-vs-CSS-root resolution,
+ * part-granular snapshot diffing, and strict expected-difference schema validation.
  */
 test.describe('buildScripts/util/theme-equality', () => {
     const tempDirs = [];
@@ -41,7 +43,7 @@ test.describe('buildScripts/util/theme-equality', () => {
         tempDirs.forEach(dir => fs.rmSync(dir, {force: true, recursive: true}))
     });
 
-    test('matrix covers every engine package under resources/css/src with rendered components or an explicit reason', () => {
+    test('matrix covers every engine package under resources/css/src with normalized element and pseudo-element parts', () => {
         const report = validateEnginePackageMatrix(path.join(REPO_ROOT, 'resources/css/src'));
 
         expect(report.ok, JSON.stringify(report)).toBe(true);
@@ -64,15 +66,31 @@ test.describe('buildScripts/util/theme-equality', () => {
 
         for (const entry of COMPONENT_MATRIX) {
             expect(entry.parts.length).toBeGreaterThan(0);
+            for (const rawPart of entry.parts) {
+                const part = normalizePartSpec(rawPart);
+                expect(part.id.length).toBeGreaterThan(0);
+                expect(part.selector.length).toBeGreaterThan(0);
+                if (part.pseudo) {
+                    expect(['::before', '::after']).toContain(part.pseudo)
+                }
+            }
             for (const state of entry.states) {
                 expect(STATES).toContain(state)
             }
         }
     });
 
-    test('resolveBuiltTree and collectThemeStylesheetUrls order Global.css first, include theme-base, and exclude apps/examples', () => {
+    test('resolveBuiltTree distinguishes a checkout root with JavaScript src/ from a direct CSS root and fails on missing structural or theme sheets', () => {
         const root   = makeTempDir(),
+              jsSrc  = path.join(root, 'src'),
               cssDir = path.join(root, 'dist/development/css');
+
+        // Populate JavaScript `src/` at the checkout root so a naive `existsSync('<root>/src')` check would misfire
+        fs.mkdirSync(jsSrc, {recursive: true});
+        fs.writeFileSync(path.join(jsSrc, 'Neo.mjs'), 'export default {};\n');
+
+        // Before building CSS, resolving the checkout root must fail clearly rather than reading `<root>/src`
+        expect(() => resolveBuiltTree(root, 'development')).toThrow(/missing structural "src\/Global\.css"/);
 
         const write = (rel, content = '/* css */') => {
             const full = path.join(cssDir, rel);
@@ -90,7 +108,8 @@ test.describe('buildScripts/util/theme-equality', () => {
         fs.mkdirSync(path.join(root, 'resources'), {recursive: true});
         fs.writeFileSync(path.join(root, 'resources/theme-map.json'), JSON.stringify({
             themes: {
-                'neo-theme-neo-light': ['theme-neo']
+                'neo-theme-neo-light': ['theme-neo'],
+                'neo-theme-missing'  : ['theme-missing']
             }
         }));
 
@@ -99,6 +118,7 @@ test.describe('buildScripts/util/theme-equality', () => {
 
         expect(fromRepoRoot.cssRoot).toBe(cssDir);
         expect(fromCssDir.cssRoot).toBe(cssDir);
+        expect(fromCssDir.themeMap?.themes?.['neo-theme-neo-light']).toEqual(['theme-neo']);
 
         const urls = collectThemeStylesheetUrls(fromRepoRoot, 'neo-theme-neo-light');
 
@@ -107,10 +127,14 @@ test.describe('buildScripts/util/theme-equality', () => {
             '/__equality_css/src/button/Base.css',
             '/__equality_css/theme-base/button/Base.css',
             '/__equality_css/theme-neo/Global.css'
-        ])
+        ]);
+
+        // Unmapped or missing theme folders must fail closed
+        expect(() => collectThemeStylesheetUrls(fromRepoRoot, 'neo-theme-dark')).toThrow(/not mapped in theme-map\.json/);
+        expect(() => collectThemeStylesheetUrls(fromRepoRoot, 'neo-theme-missing')).toThrow(/resolved insufficient theme stylesheets/)
     });
 
-    test('compareSnapshots reports zero diffs on identical snapshots and isolates single-property changes', () => {
+    test('compareSnapshots emits every changed part/property and evaluateExpectedDiffs enforces part matching and rule schema', () => {
         const makeValues = overrides => Object.fromEntries(
             PAINTED_PROPERTIES.map(prop => [prop, overrides?.[prop] ?? 'initial'])
         );
@@ -119,17 +143,11 @@ test.describe('buildScripts/util/theme-equality', () => {
             'button[primary]': {
                 'neo-theme-neo-light': {
                     inherited: {
-                        default: {'.neo-button': makeValues({'background-color': 'rgb(10, 20, 30)'})},
-                        hover  : {'.neo-button': makeValues({'background-color': 'rgb(20, 30, 40)'})}
-                    },
-                    scoped: {
-                        default: {'.neo-button': makeValues({'background-color': 'rgb(10, 20, 30)'})},
-                        hover  : {'.neo-button': makeValues({'background-color': 'rgb(20, 30, 40)'})}
-                    }
-                },
-                'neo-theme-neo-dark': {
-                    inherited: {
-                        default: {'.neo-button': makeValues({'background-color': 'rgb(50, 60, 70)'})}
+                        default: {
+                            '.neo-button-text' : makeValues({color: 'rgb(10, 20, 30)'}),
+                            '.neo-button-glyph': makeValues({color: 'rgb(10, 20, 30)'}),
+                            '.neo-button-badge': makeValues({color: 'rgb(255, 255, 255)'})
+                        }
                     }
                 }
             }
@@ -138,101 +156,79 @@ test.describe('buildScripts/util/theme-equality', () => {
         const identical = compareSnapshots(base, structuredClone(base));
         expect(identical.diffs).toEqual([]);
 
+        // Mutate BOTH text and glyph colors simultaneously
         const mutated = structuredClone(base);
-        mutated['button[primary]']['neo-theme-neo-light'].scoped.hover['.neo-button']['background-color'] = 'rgb(255, 0, 128)';
+        mutated['button[primary]']['neo-theme-neo-light'].inherited.default['.neo-button-text'].color  = 'rgb(200, 10, 20)';
+        mutated['button[primary]']['neo-theme-neo-light'].inherited.default['.neo-button-glyph'].color = 'rgb(20, 200, 10)';
 
         const changed = compareSnapshots(base, mutated);
-        expect(changed.diffs).toEqual([{
-            component: 'button[primary]',
-            theme    : 'neo-theme-neo-light',
-            scope    : 'scoped',
-            state    : 'hover',
-            property : 'background-color',
-            part     : '.neo-button',
-            base     : 'rgb(20, 30, 40)',
-            head     : 'rgb(255, 0, 128)'
-        }])
-    });
-
-    test('evaluateExpectedDiffs passes declared diffs, fails undeclared diffs, and fails unmet expected diffs', () => {
-        const observed = [{
-            component: 'button[primary]',
-            theme    : 'neo-theme-neo-light',
-            scope    : 'scoped',
-            state    : 'hover',
-            property : 'background-color',
-            part     : '.neo-button',
-            base     : 'rgb(20, 30, 40)',
-            head     : 'rgb(255, 0, 128)'
-        }];
-
-        // Undeclared difference fails
-        const undeclared = evaluateExpectedDiffs(observed, []);
-        expect(undeclared.ok).toBe(false);
-        expect(undeclared.unexpectedDiffs).toHaveLength(1);
-
-        // Matching expected difference passes
-        const declared = evaluateExpectedDiffs(observed, [{
-            component: 'button[primary]',
-            theme    : 'neo-theme-neo-light',
-            scope    : 'scoped',
-            state    : 'hover',
-            property : 'background-color'
-        }]);
-        expect(declared.ok).toBe(true);
-        expect(declared.unexpectedDiffs).toEqual([]);
-        expect(declared.matchedDiffs).toHaveLength(1);
-        expect(declared.unmetExpected).toEqual([]);
-
-        // Mismatched scope fails both unexpectedDiffs and unmetExpected
-        const wrongScope = evaluateExpectedDiffs(observed, [{
-            component: 'button[primary]',
-            theme    : 'neo-theme-neo-light',
-            scope    : 'inherited',
-            state    : 'hover',
-            property : 'background-color'
-        }]);
-        expect(wrongScope.ok).toBe(false);
-        expect(wrongScope.unexpectedDiffs).toHaveLength(1);
-        expect(wrongScope.unmetExpected).toHaveLength(1);
-
-        // Declared expected difference that did not occur fails
-        const unmet = evaluateExpectedDiffs(observed, [
+        expect(changed.diffs).toEqual([
             {
                 component: 'button[primary]',
                 theme    : 'neo-theme-neo-light',
-                state    : 'hover',
-                property : 'background-color'
+                scope    : 'inherited',
+                state    : 'default',
+                part     : '.neo-button-text',
+                property : 'color',
+                base     : 'rgb(10, 20, 30)',
+                head     : 'rgb(200, 10, 20)'
             },
             {
-                component: 'chip',
-                theme    : 'neo-theme-neo-dark',
-                state    : 'focus',
-                property : 'border-color'
+                component: 'button[primary]',
+                theme    : 'neo-theme-neo-light',
+                scope    : 'inherited',
+                state    : 'default',
+                part     : '.neo-button-glyph',
+                property : 'color',
+                base     : 'rgb(10, 20, 30)',
+                head     : 'rgb(20, 200, 10)'
             }
         ]);
-        expect(unmet.ok).toBe(false);
-        expect(unmet.unmetExpected).toEqual([{
-            component: 'chip',
-            theme    : 'neo-theme-neo-dark',
-            state    : 'focus',
-            property : 'border-color'
+
+        // Declaring ONLY `.neo-button-text` must leave `.neo-button-glyph` unexpected
+        const textOnly = evaluateExpectedDiffs(changed.diffs, [{
+            component: 'button[primary]',
+            theme    : 'neo-theme-neo-light',
+            state    : 'default',
+            part     : '.neo-button-text',
+            property : 'color'
         }]);
+        expect(textOnly.ok).toBe(false);
+        expect(textOnly.matchedDiffs).toHaveLength(1);
+        expect(textOnly.unexpectedDiffs).toEqual([changed.diffs[1]]);
+
+        // Declaring an unchanged part (`.neo-button-badge`) must remain unmet
+        const unmetPart = evaluateExpectedDiffs(changed.diffs, [
+            {component: 'button[primary]', part: '.neo-button-text',  property: 'color'},
+            {component: 'button[primary]', part: '.neo-button-glyph', property: 'color'},
+            {component: 'button[primary]', part: '.neo-button-badge', property: 'color'}
+        ]);
+        expect(unmetPart.ok).toBe(false);
+        expect(unmetPart.unexpectedDiffs).toEqual([]);
+        expect(unmetPart.unmetExpected).toEqual([
+            {component: 'button[primary]', part: '.neo-button-badge', property: 'color'}
+        ]);
+
+        // Schema validation rejects misspelled/unknown keys and missing or wildcard `component`
+        expect(() => validateExpectedRules([{componnet: 'nope'}])).toThrow(/Unknown key "componnet"/);
+        expect(() => validateExpectedRules([{theme: 'neo-theme-neo-light'}])).toThrow(/requires a specific non-wildcard "component"/);
+        expect(() => validateExpectedRules([{component: '*'}])).toThrow(/requires a specific non-wildcard "component"/);
 
         const report = formatEqualityReport({
-            ok              : unmet.ok,
+            ok              : unmetPart.ok,
             elapsedMs       : 1234,
             themes          : ['neo-theme-neo-light'],
             scopes          : ['inherited', 'scoped'],
-            componentCount  : 77,
+            componentCount  : COMPONENT_MATRIX.length,
             packageCoverage : {diskPackages: new Array(29)},
-            totalComparisons: 100,
-            diffs           : observed,
-            unexpectedDiffs : unmet.unexpectedDiffs,
-            matchedDiffs    : unmet.matchedDiffs,
-            unmetExpected   : unmet.unmetExpected
+            totalComparisons: changed.totalComparisons,
+            diffs           : changed.diffs,
+            unexpectedDiffs : textOnly.unexpectedDiffs,
+            matchedDiffs    : textOnly.matchedDiffs,
+            unmetExpected   : unmetPart.unmetExpected
         });
-        expect(report).toContain('## Differences');
-        expect(report).toContain('## Unmet Expected Differences')
+        expect(report).toContain('| Component | Theme | Scope | State | Part | Property | Base | Head | Disposition |');
+        expect(report).toContain('`.neo-button-glyph`');
+        expect(report).toContain('`.neo-button-badge`')
     })
 });

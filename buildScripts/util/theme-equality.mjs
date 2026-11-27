@@ -4,9 +4,10 @@
  * @summary Headless computed-style equality runner comparing painted CSS properties across two built theme trees.
  *
  * Mounts the engine's component matrix in headless Chromium across all five themes (`neo-theme-neo-light`,
- * `neo-theme-neo-dark`, `neo-theme-light`, `neo-theme-dark`, `neo-theme-cyberpunk`) and component states
- * (`default`, `hover`, `active`, `focus`, `selected`, `pressed`, `disabled`, `invalid`, `readonly`), compares
- * resolved `getComputedStyle` values between `--base` and `--head`, and exits non-zero on any undeclared
+ * `neo-theme-neo-dark`, `neo-theme-light`, `neo-theme-dark`, `neo-theme-cyberpunk`), both theme-scope passes
+ * (`inherited`, `scoped`), and component states (`default`, `hover`, `active`, `focus`, `selected`, `pressed`,
+ * `disabled`, `invalid`, `readonly`), compares resolved `getComputedStyle` values (including `::before` and
+ * `::after` pseudo-elements) per part between `--base` and `--head`, and exits non-zero on any undeclared
  * difference or any declared expected difference that did not occur.
  *
  *     npm run theme-equality -- --base <base-tree> --head <head-tree>
@@ -24,16 +25,19 @@ import isEntryModule   from './isEntryModule.mjs';
 import {
     COMPONENT_MATRIX,
     ENGINE_PACKAGE_MATRIX,
+    normalizePartSpec,
     PAINTED_PROPERTIES,
     SCOPES,
     THEMES,
     validateEnginePackageMatrix
 } from './themeEqualityMatrix.mjs';
 
-const __filename = fileURLToPath(import.meta.url),
-      __dirname  = path.dirname(__filename),
-      REPO_ROOT  = path.resolve(__dirname, '../..'),
-      MIME_TYPES = Object.freeze({
+const __filename        = fileURLToPath(import.meta.url),
+      __dirname         = path.dirname(__filename),
+      REPO_ROOT         = path.resolve(__dirname, '../..'),
+      ALLOWED_RULE_KEYS = new Set(['component', 'theme', 'scope', 'state', 'part', 'property', 'base', 'head', 'reason']),
+      MATCHED_RULE_KEYS = ['component', 'theme', 'scope', 'state', 'part', 'property', 'base', 'head'],
+      MIME_TYPES        = Object.freeze({
           '.css'  : 'text/css; charset=utf-8',
           '.html' : 'text/html; charset=utf-8',
           '.js'   : 'text/javascript; charset=utf-8',
@@ -42,6 +46,18 @@ const __filename = fileURLToPath(import.meta.url),
           '.svg'  : 'image/svg+xml',
           '.woff2': 'font/woff2'
       });
+
+/**
+ * @summary Checks whether `dir` is a built CSS root containing structural `src/Global.css`.
+ * Distinguishes a built CSS tree from a checkout root whose `<root>/src` contains JavaScript `.mjs` sources.
+ * @param {String} dir Candidate CSS root directory.
+ * @returns {Boolean}
+ */
+function hasBuiltStructuralCss(dir) {
+    const globalCss = path.join(dir, 'src', 'Global.css');
+
+    return fs.existsSync(globalCss) && fs.statSync(globalCss).isFile()
+}
 
 /**
  * @summary Lists all engine `.css` relative paths inside a folder (`Global.css` first, excluding `apps/` and `examples/`).
@@ -89,26 +105,36 @@ function listEngineCssFiles(folderDir) {
 
 /**
  * @summary Resolves a `--base` or `--head` path to its built CSS root and optional `theme-map.json` data.
- * Accepts either a repository/worktree root (`<dir>/dist/<env>/css`) or a built CSS directory (`<dir>/src`).
- * @param {String} inputPath Path to checkout root or built CSS directory.
+ * Prefers `<dir>/dist/<env>/css` when `inputPath` is a repository or worktree root (whose `<dir>/src` holds
+ * JavaScript sources), while retaining direct CSS-root support (`<dir>/src/Global.css`).
+ * @param {String} inputPath Path to checkout/worktree root or built CSS directory.
  * @param {String} [env='development'] Build environment name when `inputPath` is a checkout root.
  * @returns {Object} Resolved `{cssRoot, themeMap, inputPath}`.
  */
 export function resolveBuiltTree(inputPath, env = 'development') {
+    if (typeof inputPath !== 'string' || !inputPath.trim()) {
+        throw new Error('A non-empty --base / --head path is required.')
+    }
+
     const resolved = path.resolve(inputPath),
           asDist   = path.join(resolved, 'dist', env, 'css'),
-          cssRoot  = fs.existsSync(path.join(resolved, 'src')) ? resolved
-                   : fs.existsSync(path.join(asDist, 'src'))   ? asDist
+          cssRoot  = hasBuiltStructuralCss(asDist)   ? asDist
+                   : hasBuiltStructuralCss(resolved) ? resolved
                    : null;
 
     if (!cssRoot) {
-        throw new Error(`Built CSS tree not found at "${resolved}" (expected "<path>/src" or "<path>/dist/${env}/css/src").`)
+        throw new Error(
+            `Built CSS tree missing structural "src/Global.css" at "${resolved}" ` +
+            `(checked "${asDist}" and "${resolved}"). Run "npm run build-themes -- -n -e dev -t all" first.`
+        )
     }
 
     const candidateMaps = [
+        path.join(cssRoot, 'theme-map.json'),
         path.join(resolved, 'theme-map.json'),
+        path.join(resolved, 'resources', 'theme-map.json'),
         path.join(path.dirname(cssRoot), 'resources', 'theme-map.json'),
-        path.join(resolved, 'resources', 'theme-map.json')
+        path.join(path.resolve(cssRoot, '../../..'), 'resources', 'theme-map.json')
     ];
 
     let themeMap = null;
@@ -124,49 +150,83 @@ export function resolveBuiltTree(inputPath, env = 'development') {
 }
 
 /**
- * @summary Resolves the ordered list of built CSS URLs (`/__equality_css/...`) to mount for one theme in a built tree.
- * Loads `src`, `theme-base` (when present), and the folders mapped for `themeClass` (`themeMap.themes[themeClass]`
- * or `themeClass.slice(4)` fallback).
+ * @summary Resolves and validates the ordered list of built CSS URLs (`/__equality_css/...`) to mount for one theme.
+ * Fails closed when structural CSS (`src/Global.css`) is missing or when a requested theme resolves zero theme sheets.
  * @param {Object} tree Resolved tree from `resolveBuiltTree`.
  * @param {String} themeClass Theme class name (e.g. `'neo-theme-neo-light'`).
  * @returns {String[]} Ordered URL paths under `/__equality_css/`.
  */
 export function collectThemeStylesheetUrls(tree, themeClass) {
-    const mappedFolders = Array.isArray(tree.themeMap?.themes?.[themeClass])
-            ? tree.themeMap.themes[themeClass]
-            : [themeClass.startsWith('neo-') ? themeClass.slice(4) : themeClass],
-          folders       = ['src'],
-          urls          = [],
-          seenFolders   = new Set(['src']);
+    if (typeof themeClass !== 'string' || !themeClass.trim()) {
+        throw new Error('Theme class name must be a non-empty string.')
+    }
+
+    const srcFiles = listEngineCssFiles(path.join(tree.cssRoot, 'src'));
+
+    if (!srcFiles.includes('Global.css')) {
+        throw new Error(`Missing built structural "src/Global.css" in "${tree.cssRoot}".`)
+    }
+
+    let mappedFolders;
+
+    if (tree.themeMap?.themes && typeof tree.themeMap.themes === 'object') {
+        mappedFolders = tree.themeMap.themes[themeClass];
+
+        if (!Array.isArray(mappedFolders) || mappedFolders.length === 0) {
+            throw new Error(`Theme "${themeClass}" is not mapped in theme-map.json for "${tree.cssRoot}".`)
+        }
+    } else {
+        mappedFolders = [themeClass.startsWith('neo-') ? themeClass.slice(4) : themeClass]
+    }
+
+    const urls           = srcFiles.map(relFile => `/__equality_css/src/${relFile}`),
+          seenFolders    = new Set(['src']),
+          missingFolders = [];
+    let   themeSheetCount = 0;
 
     if (fs.existsSync(path.join(tree.cssRoot, 'theme-base'))) {
-        folders.push('theme-base');
+        const baseFiles = listEngineCssFiles(path.join(tree.cssRoot, 'theme-base'));
+
+        for (const relFile of baseFiles) {
+            urls.push(`/__equality_css/theme-base/${relFile}`)
+        }
         seenFolders.add('theme-base')
     }
 
     for (const folder of mappedFolders) {
-        if (folder && !seenFolders.has(folder) && fs.existsSync(path.join(tree.cssRoot, folder))) {
-            folders.push(folder);
-            seenFolders.add(folder)
+        if (!folder || seenFolders.has(folder)) {
+            continue
         }
-    }
 
-    for (const folder of folders) {
-        const files = listEngineCssFiles(path.join(tree.cssRoot, folder));
+        const folderPath = path.join(tree.cssRoot, folder);
+
+        if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+            missingFolders.push(folder);
+            continue
+        }
+
+        const files = listEngineCssFiles(folderPath);
+        themeSheetCount += files.length;
 
         for (const relFile of files) {
             urls.push(`/__equality_css/${folder}/${relFile}`)
         }
+
+        seenFolders.add(folder)
+    }
+
+    if (missingFolders.length > 0 || themeSheetCount === 0) {
+        throw new Error(
+            `Theme "${themeClass}" resolved insufficient theme stylesheets in "${tree.cssRoot}" ` +
+            `(expected folder(s): ${mappedFolders.join(', ')}; missing: ${missingFolders.join(', ') || 'none'}; sheets: ${themeSheetCount}).`
+        )
     }
 
     return urls
 }
 
 /**
- * @summary Compares two captured style snapshots and returns sorted property differences.
- * Each component entry is sampled across both `inherited` (theme class on `body`/viewport only) and `scoped`
- * (theme class stamped on the component's own root element per `component.Base#afterSetTheme`) passes; differences
- * are reported per `(component, theme, scope, state, property)` using the first differing part in declared order.
+ * @summary Compares two captured style snapshots and returns every differing `(component, theme, scope, state, part, property)`.
  * @param {Object} baseSnapshot Snapshot map `{[component]: {[theme]: {[scope]: {[state]: {[part]: {[property]: value}}}}}}`.
  * @param {Object} headSnapshot Snapshot map with the same shape.
  * @returns {Object} Comparison summary `{diffs, totalComparisons}`.
@@ -197,10 +257,10 @@ export function compareSnapshots(baseSnapshot, headSnapshot) {
                           headParts = headStates[state] || {},
                           partKeys  = Array.from(new Set([...Object.keys(baseParts), ...Object.keys(headParts)]));
 
-                    for (const property of PAINTED_PROPERTIES) {
-                        totalComparisons++;
+                    for (const part of partKeys) {
+                        for (const property of PAINTED_PROPERTIES) {
+                            totalComparisons++;
 
-                        for (const part of partKeys) {
                             const baseVal = baseParts[part]?.[property] ?? '<missing>',
                                   headVal = headParts[part]?.[property] ?? '<missing>';
 
@@ -210,12 +270,11 @@ export function compareSnapshots(baseSnapshot, headSnapshot) {
                                     theme,
                                     scope,
                                     state,
-                                    property,
                                     part,
+                                    property,
                                     base: baseVal,
                                     head: headVal
-                                });
-                                break
+                                })
                             }
                         }
                     }
@@ -228,15 +287,48 @@ export function compareSnapshots(baseSnapshot, headSnapshot) {
 }
 
 /**
+ * @summary Validates expected-difference rule schemas (`component` required, unknown keys rejected).
+ * @param {Object[]} expectedRules Candidate expected-difference rules.
+ */
+export function validateExpectedRules(expectedRules) {
+    if (!Array.isArray(expectedRules)) {
+        throw new Error('Expected-difference rules must be an array of rule objects.')
+    }
+
+    expectedRules.forEach((rule, index) => {
+        if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+            throw new Error(`Expected-difference rule[${index}] must be a plain object.`)
+        }
+
+        for (const key of Object.keys(rule)) {
+            if (!ALLOWED_RULE_KEYS.has(key)) {
+                throw new Error(
+                    `Unknown key "${key}" in expected-difference rule[${index}] ` +
+                    `(allowed: ${[...ALLOWED_RULE_KEYS].join(', ')}).`
+                )
+            }
+
+            if (rule[key] !== undefined && (typeof rule[key] !== 'string' || !rule[key].trim())) {
+                throw new Error(`Field "${key}" in expected-difference rule[${index}] must be a non-empty string.`)
+            }
+        }
+
+        if (typeof rule.component !== 'string' || !rule.component.trim() || rule.component.trim() === '*') {
+            throw new Error(`Expected-difference rule[${index}] requires a specific non-wildcard "component" string.`)
+        }
+    })
+}
+
+/**
  * @summary Checks whether an observed difference matches a declared expected-difference rule.
- * Wildcard `'*'` or omitted optional fields (`theme`, `scope`, `state`, `property`, `base`, `head`) match any value;
+ * Wildcard `'*'` or omitted optional fields (`theme`, `scope`, `state`, `part`, `property`, `base`, `head`) match any value;
  * `component` is required on every expected rule.
  * @param {Object} diff Observed difference row.
- * @param {Object} rule Expected rule `{component, theme?, scope?, state?, property?, base?, head?}`.
+ * @param {Object} rule Validated expected rule `{component, theme?, scope?, state?, part?, property?, base?, head?, reason?}`.
  * @returns {Boolean}
  */
 function matchesExpectedRule(diff, rule) {
-    for (const field of ['component', 'theme', 'scope', 'state', 'property', 'base', 'head']) {
+    for (const field of MATCHED_RULE_KEYS) {
         const expected = rule[field];
 
         if (expected !== undefined && expected !== '*' && expected !== diff[field]) {
@@ -249,12 +341,14 @@ function matchesExpectedRule(diff, rule) {
 
 /**
  * @summary Evaluates observed differences against declared expected-difference rules.
- * Declared differences pass; undeclared differences fail; declared rules that never occurred also fail.
+ * Validates rule schemas first; declared differences pass, undeclared differences fail, and unmet rules fail.
  * @param {Object[]} diffs Observed differences from `compareSnapshots`.
  * @param {Object[]} [expectedRules=[]] Expected difference rules.
  * @returns {Object} Verdict `{ok, unexpectedDiffs, matchedDiffs, unmetExpected}`.
  */
 export function evaluateExpectedDiffs(diffs, expectedRules = []) {
+    validateExpectedRules(expectedRules);
+
     const matchedRuleIndexes = new Set(),
           unexpectedDiffs    = [],
           matchedDiffs       = [];
@@ -287,7 +381,7 @@ export function evaluateExpectedDiffs(diffs, expectedRules = []) {
 }
 
 /**
- * @summary Formats the equality run result as a Markdown report with diff and unmet-expected tables.
+ * @summary Formats the equality run result as a Markdown report with part-granular diff and unmet-expected tables.
  * @param {Object} result Run output from `runThemeEquality`.
  * @returns {String} Markdown report.
  */
@@ -311,15 +405,15 @@ export function formatEqualityReport(result) {
             ``,
             `## Differences`,
             ``,
-            `| Component | Theme | Scope | State | Property | Base | Head | Disposition |`,
-            `|---|---|---|---|---|---|---|---|`
+            `| Component | Theme | Scope | State | Part | Property | Base | Head | Disposition |`,
+            `|---|---|---|---|---|---|---|---|---|`
         );
 
         const unexpectedSet = new Set(result.unexpectedDiffs);
 
         for (const diff of result.diffs) {
             const disposition = unexpectedSet.has(diff) ? 'undeclared' : 'expected';
-            lines.push(`| \`${diff.component}\` | \`${diff.theme}\` | \`${diff.scope}\` | \`${diff.state}\` | \`${diff.property}\` | \`${diff.base}\` | \`${diff.head}\` | ${disposition} |`)
+            lines.push(`| \`${diff.component}\` | \`${diff.theme}\` | \`${diff.scope}\` | \`${diff.state}\` | \`${diff.part}\` | \`${diff.property}\` | \`${diff.base}\` | \`${diff.head}\` | ${disposition} |`)
         }
     }
 
@@ -328,12 +422,12 @@ export function formatEqualityReport(result) {
             ``,
             `## Unmet Expected Differences`,
             ``,
-            `| Component | Theme | Scope | State | Property |`,
-            `|---|---|---|---|---|`
+            `| Component | Theme | Scope | State | Part | Property |`,
+            `|---|---|---|---|---|---|`
         );
 
         for (const rule of result.unmetExpected) {
-            lines.push(`| \`${rule.component ?? '*'}\` | \`${rule.theme ?? '*'}\` | \`${rule.scope ?? '*'}\` | \`${rule.state ?? '*'}\` | \`${rule.property ?? '*'}\` |`)
+            lines.push(`| \`${rule.component}\` | \`${rule.theme ?? '*'}\` | \`${rule.scope ?? '*'}\` | \`${rule.state ?? '*'}\` | \`${rule.part ?? '*'}\` | \`${rule.property ?? '*'}\` |`)
         }
     }
 
@@ -411,14 +505,39 @@ function startEqualityServer(repoRoot, getActiveTree) {
 }
 
 /**
- * @summary Captures computed styles for every entry in `COMPONENT_MATRIX` across `themes` and `states` for one built tree.
+ * @summary Prepares serializable component descriptors with normalized part specs and per-state target selectors.
+ * @returns {Object[]} Normalized matrix descriptors.
+ */
+function buildNormalizedMatrix() {
+    return COMPONENT_MATRIX.map(entry => ({
+        ...entry,
+        normalizedParts: entry.parts.map(normalizePartSpec),
+        resolvedTargets: {
+            default : entry.stateTargets?.default  || entry.stateTargetSelector,
+            hover   : entry.stateTargets?.hover    || entry.stateTargetSelector,
+            active  : entry.stateTargets?.active   || entry.stateTargetSelector,
+            focus   : entry.stateTargets?.focus    || entry.inputSelector || entry.stateTargetSelector,
+            selected: entry.stateTargets?.selected || entry.stateTargetSelector,
+            pressed : entry.stateTargets?.pressed  || entry.stateTargetSelector,
+            disabled: entry.stateTargets?.disabled || entry.stateTargetSelector,
+            invalid : entry.stateTargets?.invalid  || entry.stateTargetSelector,
+            readonly: entry.stateTargets?.readonly || entry.stateTargetSelector
+        }
+    }))
+}
+
+/**
+ * @summary Captures computed styles for every entry in `COMPONENT_MATRIX` across `themes`, `SCOPES`, and `states`.
  * @param {Object} page Playwright Page instance.
  * @param {Number} port Local server port.
  * @param {Object} tree Resolved built tree.
  * @param {String[]} themes Theme class names to evaluate.
+ * @param {Map<String, String[]>} urlsByTheme Pre-validated stylesheet URLs keyed by theme class.
  * @returns {Promise<Object>} Captured snapshot map.
  */
-async function captureTreeSnapshot(page, port, tree, themes) {
+async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
+    const normalizedEntries = buildNormalizedMatrix();
+
     await page.goto(`http://127.0.0.1:${port}/test/playwright/component/apps/theme-equality/index.html`, {
         waitUntil: 'domcontentloaded'
     });
@@ -428,6 +547,39 @@ async function captureTreeSnapshot(page, port, tree, themes) {
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('DOM.enable');
     await cdp.send('CSS.enable');
+
+    // Mount the first theme's stylesheets before validating pseudo-element `content` so structural `::before`/`::after` rules are active
+    const initialTheme = themes[0];
+    await page.evaluate(async ({themeClass, sheetUrls, allThemes}) => {
+        const viewport = document.getElementById('theme-equality-viewport');
+
+        for (const t of allThemes) {
+            document.body.classList.remove(t);
+            viewport?.classList.remove(t)
+        }
+
+        document.body.classList.add(themeClass);
+        viewport?.classList.add(themeClass);
+
+        const existing = [...document.querySelectorAll('link[data-equality-sheet="true"]')];
+        const loaded   = await Promise.all(sheetUrls.map(href => new Promise((resolve, reject) => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `${href}?t=${encodeURIComponent(themeClass)}`;
+            link.dataset.equalitySheet = 'true';
+            link.onload = () => resolve(link);
+            link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
+            document.head.appendChild(link)
+        })));
+
+        existing.forEach(link => link.remove());
+        void loaded;
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+    }, {
+        themeClass: initialTheme,
+        sheetUrls : urlsByTheme.get(initialTheme),
+        allThemes : THEMES
+    });
 
     const missingSelectors = await page.evaluate(entries => {
         let freeze = document.getElementById('neo-theme-equality-freeze');
@@ -449,24 +601,31 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                 continue
             }
 
-            const stateTarget = cell.querySelector(entry.stateTargetSelector),
-                  focusTarget = entry.inputSelector ? cell.querySelector(entry.inputSelector) : stateTarget;
-
-            if (!stateTarget) {
+            if (!cell.querySelector(entry.stateTargetSelector)) {
                 missing.push(`${entry.id}: missing stateTargetSelector "${entry.stateTargetSelector}"`)
-            } else {
-                stateTarget.setAttribute('data-eq-target-id', entry.id)
             }
 
-            if (!focusTarget) {
+            if (entry.inputSelector && !cell.querySelector(entry.inputSelector)) {
                 missing.push(`${entry.id}: missing inputSelector "${entry.inputSelector}"`)
-            } else {
-                focusTarget.setAttribute('data-eq-focus-id', entry.id)
             }
 
-            for (const partSelector of entry.parts) {
-                if (!cell.querySelector(partSelector)) {
-                    missing.push(`${entry.id}: missing part "${partSelector}"`)
+            for (const state of entry.states) {
+                const stateSel = entry.resolvedTargets[state];
+                if (!cell.querySelector(stateSel)) {
+                    missing.push(`${entry.id}: missing target "${stateSel}" for state "${state}"`)
+                }
+            }
+
+            for (const part of entry.normalizedParts) {
+                const partEl = cell.querySelector(part.selector);
+
+                if (!partEl) {
+                    missing.push(`${entry.id}: missing part "${part.id}"`)
+                } else if (part.pseudo) {
+                    const content = getComputedStyle(partEl, part.pseudo).getPropertyValue('content').trim();
+                    if (!content || content === 'none') {
+                        missing.push(`${entry.id}: pseudo-element part "${part.id}" has unrendered content (${content || 'empty'})`)
+                    }
                 }
             }
 
@@ -476,77 +635,90 @@ async function captureTreeSnapshot(page, port, tree, themes) {
         }
 
         return missing
-    }, COMPONENT_MATRIX);
+    }, normalizedEntries);
 
     if (missingSelectors.length > 0) {
+        await cdp.detach();
         throw new Error(`Unmatched DOM selectors in theme-equality stage:\n- ${missingSelectors.join('\n- ')}`)
     }
 
     const {root}        = await cdp.send('DOM.getDocument', {depth: -1}),
-          targetNodeIds = {},
+          hoverNodeIds  = {},
+          activeNodeIds = {},
           focusNodeIds  = {};
 
-    await Promise.all(COMPONENT_MATRIX.map(async entry => {
-        const safeId = entry.id.replaceAll('"', '\\"');
+    await Promise.all(normalizedEntries.map(async entry => {
+        const cellPrefix = `#eq-cell-${entry.cellId}`;
 
-        if (entry.states.includes('hover') || entry.states.includes('active')) {
+        if (entry.states.includes('hover')) {
             const {nodeId} = await cdp.send('DOM.querySelector', {
                 nodeId  : root.nodeId,
-                selector: `[data-eq-target-id="${safeId}"]`
+                selector: `${cellPrefix} ${entry.resolvedTargets.hover}`
             });
-            if (nodeId) targetNodeIds[entry.id] = nodeId
+            if (nodeId) hoverNodeIds[entry.id] = nodeId
+        }
+
+        if (entry.states.includes('active')) {
+            const {nodeId} = await cdp.send('DOM.querySelector', {
+                nodeId  : root.nodeId,
+                selector: `${cellPrefix} ${entry.resolvedTargets.active}`
+            });
+            if (nodeId) activeNodeIds[entry.id] = nodeId
         }
 
         if (entry.states.includes('focus')) {
             const {nodeId} = await cdp.send('DOM.querySelector', {
                 nodeId  : root.nodeId,
-                selector: `[data-eq-focus-id="${safeId}"]`
+                selector: `${cellPrefix} ${entry.resolvedTargets.focus}`
             });
             if (nodeId) focusNodeIds[entry.id] = nodeId
         }
     }));
 
     const snapshot      = {},
-          hoverEntries  = COMPONENT_MATRIX.filter(e => e.states.includes('hover')),
-          activeEntries = COMPONENT_MATRIX.filter(e => e.states.includes('active')),
-          focusEntries  = COMPONENT_MATRIX.filter(e => e.states.includes('focus')),
+          hoverEntries  = normalizedEntries.filter(e => e.states.includes('hover')),
+          activeEntries = normalizedEntries.filter(e => e.states.includes('active')),
+          focusEntries  = normalizedEntries.filter(e => e.states.includes('focus')),
           DOM_STATES    = ['default', 'selected', 'pressed', 'disabled', 'invalid', 'readonly'];
 
-    for (const entry of COMPONENT_MATRIX) {
+    for (const entry of normalizedEntries) {
         snapshot[entry.id] = {}
     }
 
-    for (const theme of themes) {
-        const urls = collectThemeStylesheetUrls(tree, theme);
+    for (let themeIdx = 0; themeIdx < themes.length; themeIdx++) {
+        const theme = themes[themeIdx],
+              urls  = urlsByTheme.get(theme);
 
-        for (const entry of COMPONENT_MATRIX) {
+        for (const entry of normalizedEntries) {
             snapshot[entry.id][theme] = {}
         }
 
-        await page.evaluate(async ({themeClass, sheetUrls, allThemes}) => {
+        await page.evaluate(async ({themeClass, sheetUrls, allThemes, skipReload}) => {
             const viewport = document.getElementById('theme-equality-viewport');
 
-            for (const t of allThemes) {
-                document.body.classList.remove(t);
-                viewport?.classList.remove(t)
+            if (!skipReload) {
+                for (const t of allThemes) {
+                    document.body.classList.remove(t);
+                    viewport?.classList.remove(t)
+                }
+
+                document.body.classList.add(themeClass);
+                viewport?.classList.add(themeClass);
+
+                const existing = [...document.querySelectorAll('link[data-equality-sheet="true"]')];
+                const loaded   = await Promise.all(sheetUrls.map(href => new Promise((resolve, reject) => {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = `${href}?t=${encodeURIComponent(themeClass)}`;
+                    link.dataset.equalitySheet = 'true';
+                    link.onload = () => resolve(link);
+                    link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
+                    document.head.appendChild(link)
+                })));
+
+                existing.forEach(link => link.remove());
+                void loaded
             }
-
-            document.body.classList.add(themeClass);
-            viewport?.classList.add(themeClass);
-
-            const existing = [...document.querySelectorAll('link[data-equality-sheet="true"]')];
-            const loaded   = await Promise.all(sheetUrls.map(href => new Promise((resolve, reject) => {
-                const link = document.createElement('link');
-                link.rel = 'stylesheet';
-                link.href = `${href}?t=${encodeURIComponent(themeClass)}`;
-                link.dataset.equalitySheet = 'true';
-                link.onload = () => resolve(link);
-                link.onerror = () => reject(new Error(`Failed to load stylesheet: ${href}`));
-                document.head.appendChild(link)
-            })));
-
-            existing.forEach(link => link.remove());
-            void loaded;
 
             const scheme = getComputedStyle(document.body).getPropertyValue('--neo-color-scheme').trim();
             document.documentElement.style.colorScheme = scheme === 'dark' || scheme === 'light' ? scheme : '';
@@ -555,11 +727,12 @@ async function captureTreeSnapshot(page, port, tree, themes) {
         }, {
             themeClass: theme,
             sheetUrls : urls,
-            allThemes : THEMES
+            allThemes : THEMES,
+            skipReload: themeIdx === 0
         });
 
         for (const scope of SCOPES) {
-            for (const entry of COMPONENT_MATRIX) {
+            for (const entry of normalizedEntries) {
                 snapshot[entry.id][theme][scope] = {}
             }
 
@@ -571,22 +744,22 @@ async function captureTreeSnapshot(page, port, tree, themes) {
 
                         roots.forEach(el => el.classList.add(themeClass))
                     }
-                }, {themeClass: theme, entries: COMPONENT_MATRIX})
+                }, {themeClass: theme, entries: normalizedEntries})
             }
 
             try {
                 const domBatch = await page.evaluate(({entries, domStates, props}) => {
-                    const readParts = (cell, partSelectors) => {
+                    const readParts = (cell, parts) => {
                         const partValues = {};
-                        for (const selector of partSelectors) {
-                            const partEl = cell?.querySelector(selector);
+                        for (const part of parts) {
+                            const partEl = cell?.querySelector(part.selector);
                             if (!partEl) continue;
-                            const computed = getComputedStyle(partEl),
+                            const computed = getComputedStyle(partEl, part.pseudo || null),
                                   values   = {};
                             for (const prop of props) {
                                 values[prop] = computed.getPropertyValue(prop).trim()
                             }
-                            partValues[selector] = values
+                            partValues[part.id] = values
                         }
                         return partValues
                     };
@@ -594,16 +767,16 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                     const batchOut = {};
 
                     for (const entry of entries) {
-                        const cell   = document.getElementById(`eq-cell-${entry.cellId}`),
-                              target = cell?.querySelector(entry.stateTargetSelector),
-                              input  = entry.inputSelector ? cell?.querySelector(entry.inputSelector) : null;
+                        const cell  = document.getElementById(`eq-cell-${entry.cellId}`),
+                              input = entry.inputSelector ? cell?.querySelector(entry.inputSelector) : null;
 
                         batchOut[entry.id] = {};
 
                         for (const stateName of domStates) {
                             if (!entry.states.includes(stateName)) continue;
 
-                            const undo     = [];
+                            const target = cell?.querySelector(entry.resolvedTargets[stateName]),
+                                  undo   = [];
                             const addClass = (el, cls) => {
                                 if (el && !el.classList.contains(cls)) {
                                     el.classList.add(cls);
@@ -639,7 +812,7 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                                 }
                             }
 
-                            batchOut[entry.id][stateName] = readParts(cell, entry.parts);
+                            batchOut[entry.id][stateName] = readParts(cell, entry.normalizedParts);
 
                             for (let i = undo.length - 1; i >= 0; i--) {
                                 undo[i]()
@@ -649,7 +822,7 @@ async function captureTreeSnapshot(page, port, tree, themes) {
 
                     return batchOut
                 }, {
-                    entries  : COMPONENT_MATRIX,
+                    entries  : normalizedEntries,
                     domStates: DOM_STATES,
                     props    : PAINTED_PROPERTIES
                 });
@@ -665,20 +838,25 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                         cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses})
                     ));
 
-                    const results = await page.evaluate(({subset, extraCls, props}) => {
-                        const out  = {},
-                              undo = [];
+                    const results = await page.evaluate(({subset, stateKey, extraCls, props}) => {
+                        const out      = {},
+                              undo     = [],
+                              addClass = (el, cls) => {
+                                  if (el && !el.classList.contains(cls)) {
+                                      el.classList.add(cls);
+                                      undo.push(() => el.classList.remove(cls))
+                                  }
+                              };
 
                         for (const entry of subset) {
-                            const cell   = document.getElementById(`eq-cell-${entry.cellId}`),
-                                  target = cell?.querySelector(entry.stateTargetSelector);
+                            const cell        = document.getElementById(`eq-cell-${entry.cellId}`),
+                                  baseTarget  = cell?.querySelector(entry.stateTargetSelector),
+                                  stateTarget = cell?.querySelector(entry.resolvedTargets[stateKey]);
 
-                            if (target) {
-                                for (const cls of extraCls) {
-                                    if (!target.classList.contains(cls)) {
-                                        target.classList.add(cls);
-                                        undo.push(() => target.classList.remove(cls))
-                                    }
+                            for (const cls of extraCls) {
+                                addClass(baseTarget, cls);
+                                if (stateTarget && stateTarget !== baseTarget) {
+                                    addClass(stateTarget, cls)
                                 }
                             }
                         }
@@ -687,15 +865,15 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                             const cell       = document.getElementById(`eq-cell-${entry.cellId}`),
                                   partValues = {};
 
-                            for (const selector of entry.parts) {
-                                const partEl = cell?.querySelector(selector);
+                            for (const part of entry.normalizedParts) {
+                                const partEl = cell?.querySelector(part.selector);
                                 if (!partEl) continue;
-                                const computed = getComputedStyle(partEl),
+                                const computed = getComputedStyle(partEl, part.pseudo || null),
                                       values   = {};
                                 for (const prop of props) {
                                     values[prop] = computed.getPropertyValue(prop).trim()
                                 }
-                                partValues[selector] = values
+                                partValues[part.id] = values
                             }
 
                             out[entry.id] = partValues
@@ -706,7 +884,7 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                         }
 
                         return out
-                    }, {subset: entries, extraCls: extraClasses, props: PAINTED_PROPERTIES});
+                    }, {subset: entries, stateKey: stateName, extraCls: extraClasses, props: PAINTED_PROPERTIES});
 
                     await Promise.all(activeNodes.map(nodeId =>
                         cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: []})
@@ -717,8 +895,8 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                     }
                 };
 
-                await runPseudoBatch('hover', hoverEntries, targetNodeIds, ['hover'], ['neo-hovered']);
-                await runPseudoBatch('active', activeEntries, targetNodeIds, ['active'], []);
+                await runPseudoBatch('hover', hoverEntries, hoverNodeIds, ['hover'], ['neo-hovered']);
+                await runPseudoBatch('active', activeEntries, activeNodeIds, ['active'], []);
                 await runPseudoBatch('focus', focusEntries, focusNodeIds, ['focus', 'focus-visible', 'focus-within'], ['neo-focus', 'neo-focus-keyboard'])
             } finally {
                 if (scope === 'scoped') {
@@ -729,7 +907,7 @@ async function captureTreeSnapshot(page, port, tree, themes) {
 
                             roots.forEach(el => el.classList.remove(themeClass))
                         }
-                    }, {themeClass: theme, entries: COMPONENT_MATRIX})
+                    }, {themeClass: theme, entries: normalizedEntries})
                 }
             }
         }
@@ -740,8 +918,30 @@ async function captureTreeSnapshot(page, port, tree, themes) {
 }
 
 /**
+ * @summary Pre-validates that every requested theme resolves structural and theme CSS files in `tree`.
+ * @param {Object} tree Resolved built tree.
+ * @param {String[]} themes Requested theme class names.
+ * @returns {Map<String, String[]>} Validated stylesheet URLs per theme.
+ */
+function buildValidatedThemeUrlMap(tree, themes) {
+    if (!Array.isArray(themes) || themes.length === 0) {
+        throw new Error('At least one theme class name must be supplied.')
+    }
+
+    const map = new Map();
+
+    for (const theme of themes) {
+        map.set(theme, collectThemeStylesheetUrls(tree, theme))
+    }
+
+    return map
+}
+
+/**
  * @summary Executes a full headless computed-style equality comparison between two built trees.
- * @param {Object} options Run configuration `{base, head, env?, expected?, themes?, repoRoot?}`.
+ * Validates expected rules, structural CSS, and requested theme sheets up front, and closes both
+ * the browser and loopback server on partial startup failures.
+ * @param {Object} options Run configuration `{base, head, env?, expected?, themes?, repoRoot?, executablePath?}`.
  * @returns {Promise<Object>} Full comparison result and verdict.
  */
 export async function runThemeEquality(options) {
@@ -756,15 +956,24 @@ export async function runThemeEquality(options) {
         throw new Error(`Engine package matrix is incomplete: ${JSON.stringify(packageCoverage)}`)
     }
 
-    const baseTree = resolveBuiltTree(options.base, env),
-          headTree = resolveBuiltTree(options.head, env);
+    validateExpectedRules(expectedRules);
 
-    let activeTree = baseTree;
+    const baseTree    = resolveBuiltTree(options.base, env),
+          headTree    = resolveBuiltTree(options.head, env),
+          baseUrlsMap = buildValidatedThemeUrlMap(baseTree, themes),
+          headUrlsMap = buildValidatedThemeUrlMap(headTree, themes);
 
-    const server  = await startEqualityServer(repoRoot, () => activeTree),
-          browser = await chromium.launch({headless: true});
+    let activeTree = baseTree,
+        server     = null,
+        browser    = null;
 
     try {
+        server  = await startEqualityServer(repoRoot, () => activeTree);
+        browser = await chromium.launch({
+            headless: true,
+            ...(options.executablePath ? {executablePath: options.executablePath} : {})
+        });
+
         const context = await browser.newContext({viewport: {width: 1440, height: 900}});
 
         await context.addInitScript(() => {
@@ -787,10 +996,10 @@ export async function runThemeEquality(options) {
         const page = await context.newPage();
 
         activeTree = baseTree;
-        const baseSnapshot = await captureTreeSnapshot(page, server.port, baseTree, themes);
+        const baseSnapshot = await captureTreeSnapshot(page, server.port, baseTree, themes, baseUrlsMap);
 
         activeTree = headTree;
-        const headSnapshot = await captureTreeSnapshot(page, server.port, headTree, themes);
+        const headSnapshot = await captureTreeSnapshot(page, server.port, headTree, themes, headUrlsMap);
 
         await context.close();
 
@@ -813,8 +1022,8 @@ export async function runThemeEquality(options) {
             unmetExpected  : verdict.unmetExpected
         }
     } finally {
-        await browser.close();
-        await server.close()
+        await browser?.close().catch(() => {});
+        await server?.close().catch(() => {})
     }
 }
 
@@ -828,9 +1037,9 @@ export async function main(argv = process.argv) {
 
     program
         .name('theme-equality')
-        .description('Compare computed painted styles across themes and states between two built CSS trees.')
-        .requiredOption('-b, --base <path>', 'Base built CSS folder or checkout root')
-        .option('-h, --head <path>', 'Head built CSS folder or checkout root', path.join(REPO_ROOT, 'dist/development/css'))
+        .description('Compare computed painted styles across themes, scopes, states, and parts between two built CSS trees.')
+        .requiredOption('-b, --base <path>', 'Base built CSS folder or checkout/worktree root')
+        .option('-h, --head <path>', 'Head built CSS folder or checkout/worktree root', REPO_ROOT)
         .option('-e, --env <env>', 'Build environment when --base/--head points to a checkout root', 'development')
         .option('-x, --expected <file>', 'JSON file listing expected difference rules')
         .option('-t, --themes <list>', 'Comma-separated theme class names to compare')

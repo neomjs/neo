@@ -463,4 +463,14 @@ This elegant mechanism ensures that a component's DOM is only mounted or updated
 
 ## 11. Verifying Paint Parity Across Theme Changes
 
-When refactoring token layers, renaming custom properties, or moving shared rules across theme folders, visual inspection alone misses subtle one-step colour shifts and hidden interaction states (`hover`, `active`, `focus`, `selected`, `pressed`, `disabled`, `invalid`, `readonly`). Save a copy of the baseline `dist/development/css` tree before editing, rebuild themes after your change, and run `npm run theme-equality -- --base <base-tree> --head dist/development/css` (passing `--expected <expected-diffs.json>` when a change intentionally alters specific component properties). The headless runner mounts the engine's component matrix across all five shipped themes in both `inherited` (`body`/viewport) and `scoped` (`component.Base#afterSetTheme` on each component's own root) passes, compares resolved `getComputedStyle` values for painted properties, and exits non-zero on any undeclared paint difference or unmet expected change.
+When refactoring token layers, renaming custom properties, or moving shared rules across theme folders, visual inspection alone misses subtle one-step colour shifts and hidden interaction states (`hover`, `active`, `focus`, `selected`, `pressed`, `disabled`, `invalid`, `readonly`). `npm run theme-equality` accepts either a **checkout or worktree root** (resolving `<root>/dist/<env>/css` and `<root>/resources/theme-map.json`) or a **portable built-CSS directory** (`<snapshot>/css` with `theme-map.json` copied beside it at `<snapshot>/theme-map.json` or `<snapshot>/css/theme-map.json` so mapped theme folders resolve identically):
+
+```bash
+# Compare two worktrees directly
+npm run theme-equality -- --base ../neo-base --head .
+
+# Or snapshot dist/development/css + resources/theme-map.json before editing, rebuild, and compare
+npm run theme-equality -- --base /tmp/neo-css-base/css --head . --expected expected-diffs.json
+```
+
+The runner fails fast if `src/Global.css` or any requested theme folder is missing, mounts the engine's component matrix across all five shipped themes in both `inherited` (`body`/viewport) and `scoped` (`component.Base#afterSetTheme` on each component's own root) passes, samples resolved `getComputedStyle` values across declared element and `::before`/`::after` pseudo-element parts, and exits non-zero on any undeclared difference or unmet expected rule (`{component, theme?, scope?, state?, part?, property?, base?, head?, reason?}`).
