@@ -3,7 +3,8 @@ import {test, expect} from '@playwright/test';
 /**
  * The native `<progress>` draws its track in the platform's light or dark palette. Every theme
  * declares which one it is in `--neo-color-scheme` (its `Global.css`), and `src/Global.css` sets
- * `color-scheme: var(--neo-color-scheme)` on `[class*="neo-theme-"]` so `<progress>` inherits it.
+ * `color-scheme: var(--neo-color-scheme)` on `:root:has(> [class*="neo-theme-"]), [class*="neo-theme-"]`
+ * so `<progress>` inherits it.
  *
  * Component tier: the value is a computed style on a live document. The switch swaps the
  * `neo-theme-*` class on the themed nodes, as `dashboard/ThemeColorSchemeStaging.spec.mjs` does,

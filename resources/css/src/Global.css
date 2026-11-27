@@ -67,7 +67,8 @@
     }
 }
 
-/* Active scheme per themed root and nested scope; native controls, scrollbars, embedded frames and light-dark() inherit it. */
+/* Active scheme on a themed body's root and every themed scope; canvas, embedded frames, native controls and light-dark() inherit it. */
+:root:has(> [class*="neo-theme-"]),
 [class*="neo-theme-"] {
     color-scheme: var(--neo-color-scheme);
 }

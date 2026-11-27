@@ -1,10 +1,12 @@
 import {test, expect} from '@playwright/test';
 
 /**
- * @summary Verifies that structural CSS sets `color-scheme: var(--neo-color-scheme)` once on the
- * `[class*="neo-theme-"]` base selector (`resources/css/src/Global.css`), propagating the active
- * theme's declared scheme to themed roots, `<progress>`, `<select>`, `::picker(select)`, `<iframe>`,
- * and `.neo-theme-scope` containers while resetting cleanly at nested theme island boundaries.
+ * @summary Verifies that structural CSS sets `color-scheme: var(--neo-color-scheme)` once on
+ * `:root:has(> [class*="neo-theme-"]), [class*="neo-theme-"]` (`resources/css/src/Global.css`),
+ * propagating the active theme's declared scheme to the document root (`<html>`) when `<body>`
+ * carries a theme class, themed roots, `<progress>`, `<select>`, `::picker(select)`, `<iframe>`,
+ * embedded themed Neo documents, `.neo-theme-scope`, and `Neo.component.Timer` while resetting
+ * cleanly at nested theme island boundaries.
  */
 
 const ALL_THEMES = [
@@ -113,6 +115,14 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
                 style     : {height: '40px', width: '120px'}
             });
 
+            const timerId = await create({
+                dimensions: '6rem',
+                duration  : '20s',
+                importPath: '../component/Timer.mjs',
+                ntype     : 'timer',
+                parentId  : 'component-test-viewport'
+            });
+
             return {
                 progressId,
                 selectId,
@@ -121,20 +131,22 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
                 islandId,
                 islandProgressId,
                 islandSelectId,
-                islandIframeId
+                islandIframeId,
+                timerId
             }
         });
 
         await expect(page.locator(`progress#${createdIds.progressId}`)).toBeVisible();
         await expect(page.locator(`#${createdIds.selectId} select.neo-selectfield-input`)).toBeVisible();
         await expect(page.locator(`iframe#${createdIds.iframeId}`)).toBeVisible();
-        await expect(page.locator(`#${createdIds.islandId} select.neo-selectfield-input`)).toBeVisible()
+        await expect(page.locator(`#${createdIds.islandId} select.neo-selectfield-input`)).toBeVisible();
+        await expect(page.locator(`#${createdIds.timerId} .flip-card-front > button`)).toBeVisible()
     });
 
     test.afterEach(async ({page}) => {
         if (createdIds?.progressId) {
             await page.evaluate(async ids => {
-                for (const key of ['islandId', 'scopeId', 'iframeId', 'selectId', 'progressId']) {
+                for (const key of ['timerId', 'islandId', 'scopeId', 'iframeId', 'selectId', 'progressId']) {
                     if (ids[key]) {
                         await Neo.worker.App.destroyNeoInstance(ids[key])
                     }
@@ -143,7 +155,7 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
         }
     });
 
-    test('sets color-scheme across all five themes, inherits into controls/pickers/iframes, and resets on nested theme islands', async ({page}) => {
+    test('sets color-scheme on document root and themed scopes across all five themes, inherits into controls/pickers/iframes, and resets on nested theme islands', async ({page}) => {
         for (const {theme, scheme, islandTheme, islandScheme} of MATRIX) {
             const snapshot = await page.evaluate(async ({ids, theme, islandTheme}) => {
                 const islandEl = document.getElementById(ids.islandId);
@@ -161,10 +173,13 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
 
                 const outerSelect  = document.querySelector(`#${ids.selectId} select.neo-selectfield-input`),
                       islandSelect = document.querySelector(`#${ids.islandId} select.neo-selectfield-input`),
+                      rootStyle    = getComputedStyle(document.documentElement),
                       bodyStyle    = getComputedStyle(document.body),
                       islandStyle  = getComputedStyle(islandEl);
 
                 return {
+                    rootDeclared  : rootStyle.getPropertyValue('--neo-color-scheme').trim(),
+                    rootUsed      : rootStyle.colorScheme,
                     bodyDeclared  : bodyStyle.getPropertyValue('--neo-color-scheme').trim(),
                     bodyUsed      : bodyStyle.colorScheme,
                     progress      : getComputedStyle(document.getElementById(ids.progressId)).colorScheme,
@@ -181,6 +196,8 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
                 }
             }, {ids: createdIds, theme, islandTheme});
 
+            expect(snapshot.rootDeclared,   `${theme} declares --neo-color-scheme on :root when body is themed`).toBe(scheme);
+            expect(snapshot.rootUsed,       `${theme} sets color-scheme on :root despite nested ${islandTheme} island`).toBe(scheme);
             expect(snapshot.bodyDeclared,   `${theme} declares --neo-color-scheme`).toBe(scheme);
             expect(snapshot.bodyUsed,       `${theme} sets color-scheme on the themed body`).toBe(scheme);
             expect(snapshot.progress,       `${theme} propagates color-scheme to <progress>`).toBe(scheme);
@@ -196,5 +213,91 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
             expect(snapshot.islandPicker,   `${islandTheme} resets color-scheme on nested ::picker(select)`).toBe(islandScheme);
             expect(snapshot.islandIframe,   `${islandTheme} resets color-scheme on nested <iframe>`).toBe(islandScheme)
         }
+    });
+
+    test('propagates root color-scheme inside an embedded themed Neo document while leaving unthemed documents normal', async ({page}) => {
+        const result = await page.evaluate(async ({ids, matrix}) => {
+            const sheetHrefs = [...document.querySelectorAll('link[rel="stylesheet"]')]
+                .map(link => link.href)
+                .filter(href => href.includes('/Global.css'));
+
+            const loadEmbeddedDoc = (iframeEl, bodyClass) => new Promise((resolve, reject) => {
+                const links = sheetHrefs.map(href => `<link rel="stylesheet" href="${href}">`).join('');
+                iframeEl.onload = () => {
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        const doc = iframeEl.contentDocument;
+                        resolve({
+                            outerScheme: getComputedStyle(iframeEl).colorScheme,
+                            rootScheme : getComputedStyle(doc.documentElement).colorScheme,
+                            bodyScheme : getComputedStyle(doc.body).colorScheme
+                        })
+                    }))
+                };
+                iframeEl.onerror = () => reject(new Error('Embedded srcdoc failed to load'));
+                iframeEl.srcdoc  = `<!DOCTYPE html><html><head>${links}</head><body${bodyClass ? ` class="${bodyClass}"` : ''}></body></html>`
+            });
+
+            const iframeEl = document.getElementById(ids.iframeId),
+                  rows     = [];
+
+            for (const {theme, scheme} of matrix) {
+                document.body.className = document.body.className.replace(/neo-theme-[a-z-]+/g, theme);
+                await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+                const themed   = await loadEmbeddedDoc(iframeEl, `neo-body ${theme}`),
+                      unthemed = await loadEmbeddedDoc(iframeEl, '');
+
+                rows.push({theme, scheme, themed, unthemed})
+            }
+
+            return rows
+        }, {ids: createdIds, matrix: MATRIX});
+
+        for (const {theme, scheme, themed, unthemed} of result) {
+            expect(themed.outerScheme,  `${theme} outer <iframe> carries ${scheme}`).toBe(scheme);
+            expect(themed.rootScheme,   `${theme} embedded themed Neo document :root carries ${scheme}`).toBe(scheme);
+            expect(themed.bodyScheme,   `${theme} embedded themed Neo document <body> carries ${scheme}`).toBe(scheme);
+            expect(unthemed.rootScheme, `${theme} embedded unthemed document :root stays normal`).toBe('normal');
+            expect(unthemed.bodyScheme, `${theme} embedded unthemed document <body> stays normal`).toBe('normal')
+        }
+    });
+
+    test('keeps Neo.component.Timer play button legible in neo-theme-neo-dark under dark ButtonText', async ({page}) => {
+        const timerMetrics = await page.evaluate(async ({ids}) => {
+            document.querySelectorAll('[class*="neo-theme-"]').forEach(node => {
+                if (!node.classList.contains('neo-theme-scope')) {
+                    node.className = node.className.replace(/neo-theme-[a-z-]+/g, 'neo-theme-neo-dark')
+                }
+            });
+
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            const btn   = document.querySelector(`#${ids.timerId} .flip-card-front > button`),
+                  style = getComputedStyle(btn),
+                  parse = rgb => rgb.match(/\d+/g).slice(0, 3).map(Number),
+                  lum   = ([r, g, b]) => {
+                      const chan = v => {
+                          const s = v / 255;
+                          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+                      };
+                      return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b)
+                  };
+
+            const fgLum = lum(parse(style.color)),
+                  bgLum = lum(parse(style.backgroundColor)),
+                  ratio = (Math.max(fgLum, bgLum) + 0.05) / (Math.min(fgLum, bgLum) + 0.05);
+
+            return {
+                colorScheme    : style.colorScheme,
+                color          : style.color,
+                backgroundColor: style.backgroundColor,
+                contrastRatio  : Number(ratio.toFixed(2))
+            }
+        }, {ids: createdIds});
+
+        expect(timerMetrics.colorScheme).toBe('dark');
+        expect(timerMetrics.color).toBe('rgb(255, 255, 255)');
+        expect(timerMetrics.backgroundColor).toBe('rgb(31, 87, 84)');
+        expect(timerMetrics.contrastRatio).toBeGreaterThanOrEqual(4.5)
     })
 });
