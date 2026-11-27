@@ -225,20 +225,24 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         ])
     });
 
-    test('a nested rule that gives a name a second value fails like a flat one, before and after a nested block', () => {
-        const
-            override = '--neo-color-text-default: var(--neo-color-background-canvas);',
-            cascade  = [expect.stringMatching(
-                /^\[cascade\] --neo-color-text-default has 2 values for \.neo-theme-neo-light \(resources\/css\/theme-neo\/Global\.css\)/
-            )];
+    test('a declaration after a nested block competes like a flat one, and a nested rule declares no measured name', () => {
+        const override = '--neo-color-text-default: var(--neo-color-background-canvas);';
 
-        expect(plant(css => `.neo-theme-neo-light { .neo-dense & { ${override} } }\n${css}`).failures).toEqual(cascade);
-        expect(plant(css => `.neo-theme-neo-light { @media print { --button-color: red; } ${override} }\n${css}`).failures).toEqual(cascade)
+        expect(plant(css => `.neo-theme-neo-light { @media print { --button-color: red; } ${override} }\n${css}`).failures)
+            .toEqual([expect.stringMatching(
+                /^\[cascade\] --neo-color-text-default has 2 values for \.neo-theme-neo-light \(resources\/css\/theme-neo\/Global\.css\)/
+            )]);
+
+        // A nested rule reaches a subtree, so it is refused also with the value the class has.
+        for (const value of ['var(--neo-color-background-canvas)', source.match(/--neo-color-text-default\s*:\s*([^;]+);/)[1]]) {
+            expect(plant(css => `.neo-theme-neo-light { .neo-dense & { --neo-color-text-default: ${value}; } }\n${css}`).failures)
+                .toEqual([expect.stringMatching(/^\[scope\] resources\/css\/theme-neo\/Global\.css declares or registers --neo-color-text-default /)])
+        }
     });
 
-    test('CONTROL: a nested rule with the same value, a layer, and a component variable under a condition pass', () => {
+    test('CONTROL: a layer, a nested rule with a component variable, and one under a condition pass', () => {
         const {failures, names} = plant(css => css +
-            '\n.neo-theme-neo-light { .neo-dense & { --neo-color-scheme: light; } }' +
+            '\n.neo-theme-neo-light { .neo-dense & { --button-color: red; } }' +
             '\n@layer theme { .neo-theme-neo-light { --neo-color-scheme: light; } }' +
             '\n.neo-theme-neo-light { @media print { --button-color: red; } }');
 
@@ -258,16 +262,15 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         }
     });
 
-    test('a measured name declared where no theme class is read fails as [scope]', () => {
+    test('a measured name declared in a rule that is no theme class itself fails as [scope]', () => {
         const
             override = '--neo-color-text-default: var(--neo-color-background-canvas);',
             scope    = rel => [expect.stringMatching(new RegExp(
-                `^\\[scope\\] resources/css/${rel} declares or registers --neo-color-text-default outside the theme classes this check reads`
+                `^\\[scope\\] resources/css/${rel} declares or registers --neo-color-text-default outside a rule that declares on a theme class itself`
             ))];
 
-        // A rule that reaches every element, one that reads the class off the attribute, and a string that
-        // closes the block for this reader. The browser applies all three.
-        for (const rule of [`* { ${override} }`, `[class~="neo-theme-neo-light"] { ${override} }`, `.neo-theme-neo-light { --probe: "}"; ${override} }`]) {
+        // A rule that reaches every element, and one that reads the class off the attribute.
+        for (const rule of [`* { ${override} }`, `[class~="neo-theme-neo-light"] { ${override} }`]) {
             expect(plant(css => `${css}\n${rule}`).failures).toEqual(scope('theme-neo/Global\\.css'))
         }
 
@@ -279,12 +282,39 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
     test('a rule that names a theme class and reaches past it fails as [scope], also with the value the class has', () => {
         const scope = [expect.stringMatching(
-            /^\[scope\] resources\/css\/theme-neo\/Global\.css declares or registers --neo-color-scheme outside the theme classes this check reads/
+            /^\[scope\] resources\/css\/theme-neo\/Global\.css declares or registers --neo-color-scheme outside a rule that declares on a theme class itself/
         )];
 
-        // One alternative of the list reaches every element, and a class named only in a negation is not reached.
-        for (const rule of ['.neo-theme-neo-light, * { --neo-color-scheme: light; }', ':not(.neo-theme-neo-dark) { --neo-color-scheme: light; }']) {
-            expect(plant(css => `${css}\n${rule}`).failures).toEqual(scope)
+        // A list part that reaches every element, a negation, a sibling, a descendant, and a nested negation.
+        for (const selector of ['.neo-theme-neo-light, *', ':not(.neo-theme-neo-dark)', '.neo-theme-neo-light ~ *', '.neo-theme-neo-light *']) {
+            expect(plant(css => `${css}\n${selector} { --neo-color-scheme: light; }`).failures).toEqual(scope)
+        }
+
+        expect(plant(css => `${css}\n.neo-theme-neo-light { :not(&) { --neo-color-scheme: light; } }`).failures).toEqual(scope)
+    });
+
+    test('a string and a url() are no syntax: a comment mark, a brace or a selector inside one hides nothing', () => {
+        const
+            override = '--neo-color-text-default: var(--neo-color-background-canvas);',
+            cascade  = (name, themeClass) => expect.stringMatching(new RegExp(`^\\[cascade\\] ${name} has 2 values for \\.${themeClass} `));
+
+        // The declaration sits between two comment marks, or behind a brace: it is the last one, so it is measured too.
+        for (const rule of [
+            `.neo-theme-neo-dark { --probe: "/*"; ${override} --probe2: "*/"; }`,
+            `.neo-theme-neo-dark { --probe: url(/*); ${override} --probe2: url(*/); }`,
+            `.neo-theme-neo-dark { --probe: "}"; ${override} }`
+        ]) {
+            const {failures} = plant(css => `${css}\n${rule}`);
+
+            expect(failures).toHaveLength(8);
+            expect(failures).toContainEqual(cascade('--neo-color-text-default', 'neo-theme-neo-dark'));
+            expect(failures.filter(failure => failure.startsWith('[pair]') && failure.includes('.neo-theme-neo-dark (dark)'))).toHaveLength(7)
+        }
+
+        // The string spells another class's rule: the declaration stays the dark class's own.
+        for (const probe of ['"} .neo-theme-neo-light {"', 'url(}.neo-theme-neo-light{)']) {
+            expect(plant(css => `${css}\n.neo-theme-neo-dark { --probe: ${probe}; --neo-color-scheme: light; }`).failures)
+                .toEqual([cascade('--neo-color-scheme', 'neo-theme-neo-dark')])
         }
     });
 

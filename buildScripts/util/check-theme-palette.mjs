@@ -8,21 +8,22 @@
  * A palette is a theme class for which a sheet declares a `--neo-palette-*` name. A theme without one is not
  * written against the roles yet: it is skipped, and it declares no colour role but the scheme. This check
  * models no cascade and reads no condition, so it holds the names it measures, every `--neo-palette-*` and
- * `--neo-color-*` name of a palette, to one reading: one value per theme class, in a rule whose selector list
- * names a theme class in every alternative, under no condition, read from measured names only. It reads
- * every sheet under `resources/css` for that, and any other place that declares or registers such a name
- * fails. A scale role may be re-valued by a scope or a condition, as the reduced-motion collapse does.
+ * `--neo-color-*` name of a palette, to one reading: one value per theme class, declared on the class itself
+ * (`.neo-theme-x`, `:root .neo-theme-x`, or the root that holds it), under no condition, read from measured
+ * names only. It reads every sheet under `resources/css` for that, as syntax alone, and any other place that
+ * declares or registers such a name fails. A scale role may be re-valued by a scope or a condition, as the
+ * reduced-motion collapse does.
  *
- * Three things are outside this check: what a rule that names a theme class reaches beyond that class through
- * a combinator or `:has()`, a value set from JavaScript, and a sheet reached through `@import`. The lightness
- * numbers are each theme's own, so a palette is compared with itself and never with a table. Contrast is
- * measured on the resolved colours and never read off the grade distance: OKLCH lightness is not luminance.
+ * Two things are outside this check: a value set from JavaScript, and a sheet reached through `@import`. The
+ * lightness numbers are each theme's own, so a palette is compared with itself and never with a table.
+ * Contrast is measured on the resolved colours and never read off the grade distance: OKLCH lightness is not
+ * luminance.
  */
-import fs                  from 'node:fs';
-import path                from 'node:path';
-import {fileURLToPath}     from 'node:url';
-import isEntryModule       from './isEntryModule.mjs';
-import {cssFiles, readCss} from './themeCss.mjs';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
+import {cssFiles}      from './themeCss.mjs';
 
 const
     dirname  = path.dirname(fileURLToPath(import.meta.url)),
@@ -338,84 +339,80 @@ function isMeasured(name) {
 const SPELLED = /(?<![\w-]|\(\s*)(--[a-zA-Z0-9_-]+)\s*[:{]/g;
 
 /**
- * @summary Reads a stylesheet without its comments and with each escape that spells a name character written
- * out, so that `.neo-theme-neo-li\67ht` and `--neo-color-text-defaul\74` are read as a browser reads them.
+ * What a brace, a semicolon or a comment mark can hide in: an escape, a comment, a string, an unquoted `url()`.
+ * @type {RegExp}
+ */
+const OPAQUE = /\\[^]|\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"|'(?:\\[^]|[^'\\\n])*'|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)/gi;
+
+/**
+ * @summary Reads a stylesheet as its syntax alone: no comment, every string and unquoted `url()` emptied, and
+ * each escape that spells a name character written out. A brace, a semicolon or a comment mark inside a string
+ * is then no syntax for this check either, and `.neo-theme-neo-li\67ht` is read as a browser reads it.
  * @param {String} file
  * @returns {String}
  */
 function readSheet(file) {
-    return readCss(file).replace(/\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/g, (escape, hex, char) => {
-        const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
+    return fs.readFileSync(file, 'utf8')
+        .replace(OPAQUE, token => ({'\\': token, '/': ' ', '"': '""', '\'': '\'\''})[token[0]] ?? 'url()')
+        .replace(/\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/g, (escape, hex, char) => {
+            const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
 
-        return /[\w-]/.test(spelled) ? spelled : escape
-    })
+            return /[\w-]/.test(spelled) ? spelled : escape
+        })
 }
 
 /**
- * @summary The theme classes a selector names, the structural `neo-theme-scope` aside.
- * @param {String} selector
+ * The selectors that declare on a theme class itself: the class, `:root` before it, and the root that holds
+ * it as a child. Any other selector reaches elements this check cannot name.
+ * @type {RegExp}
+ */
+const OWN_SELECTOR = /^(?::root\s+)?\.(neo-theme-[a-zA-Z0-9_-]+)$|^:root:has\(\s*>\s*\.(neo-theme-[a-zA-Z0-9_-]+)\s*\)$/;
+
+/**
+ * @summary The theme classes a rule declares on: every alternative of its selector list, bare or inside one
+ * `:where()`, has to be such a selector. Empty for any other rule, and for the structural `neo-theme-scope`.
+ * @param {String} header
  * @returns {String[]}
  */
-function themeClassesIn(selector) {
-    return [...selector.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
-        .map(match => match[1])
-        .filter(name => name !== 'neo-theme-scope')
-}
+function ownThemeClasses(header) {
+    const names = (header.match(/^:where\(([^]*)\)$/)?.[1] ?? header).split(',').map(part => {
+        const match = part.trim().match(OWN_SELECTOR);
 
-/**
- * @summary A selector without its `:not(…)` groups: a class named only there is one the rule does not reach.
- * @param {String} selector
- * @returns {String}
- */
-function withoutNegations(selector) {
-    let depth  = 0,
-        result = '';
+        return match?.[1] ?? match?.[2]
+    });
 
-    for (let index = 0; index < selector.length; index++) {
-        if (!depth && selector.startsWith(':not(', index)) {
-            depth  = 1;
-            index += 4
-        } else if (depth) {
-            depth += selector[index] === '(' ? 1 : selector[index] === ')' ? -1 : 0
-        } else {
-            result += selector[index]
-        }
-    }
-
-    return result
+    return names.every(name => name && name !== 'neo-theme-scope') ? [...new Set(names)] : []
 }
 
 /**
  * @summary Reads a comment-free stylesheet into one declaration map per theme class. A declaration belongs
- * to every theme class that its rule, or a rule around it, names in a selector list, and a later one wins.
- * That is no cascade: `onDeclaration` hears every custom property the sheet declares, so a caller can refuse
- * a name that has two values or reaches past the theme classes. A declaration under a condition enters no
- * map, since nothing here reads when it applies.
+ * to the theme classes its rule declares on, and a later one wins. That is no cascade: `onDeclaration` hears
+ * every custom property the sheet declares, so a caller can refuse a name that has two values or sits in any
+ * other rule. A declaration under a condition enters no map, since nothing here reads when it applies.
  * @param {String} css
- * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions, scoped)` once for each
- * custom property declared: `classes` holds the theme classes named around it; `conditions` the at-rules
- * around it other than `@layer`, outermost first; `scoped` is true when every alternative of its selector
- * list, or a rule around it, names a theme class
+ * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions)` once for each custom
+ * property declared: `classes` holds the theme classes its rule declares on, and is empty for a rule of any
+ * other shape and for one nested in a rule; `conditions` holds the at-rules around it other than `@layer`,
+ * outermost first
  * @returns {Map<String, Map<String,String>>}
  */
 export function readThemeDeclarations(css, onDeclaration) {
     const
-        blocks = [{classes: [], conditions: [], scoped: false}],
+        blocks = [{classes: [], conditions: [], inRule: false}],
         themes = new Map();
 
     for (const [, text, mark] of css.matchAll(/([^{};]*)([{};])/g)) {
-        const {classes, conditions, scoped} = blocks.at(-1);
+        const {classes, conditions, inRule} = blocks.at(-1);
 
         if (mark === '{') {
             const
                 header = text.trim(),
-                atRule = header.startsWith('@'),
-                parts  = atRule ? [header] : withoutNegations(header).split(',');
+                atRule = header.startsWith('@');
 
             blocks.push({
-                classes   : [...new Set([...classes, ...parts.flatMap(themeClassesIn)])],
+                classes   : atRule ? classes : inRule ? [] : ownThemeClasses(header),
                 conditions: /^@(?!layer\b)/.test(header) ? [...conditions, header] : conditions,
-                scoped    : atRule ? scoped : scoped || parts.every(part => themeClassesIn(part).length > 0)
+                inRule    : inRule || !atRule
             });
 
             continue
@@ -428,7 +425,7 @@ export function readThemeDeclarations(css, onDeclaration) {
             conditions.length || themes.get(themeClass).set(name, value)
         }
 
-        name && onDeclaration?.(classes, name, value, conditions, scoped);
+        name && onDeclaration?.(classes, name, value, conditions);
 
         mark === '}' && blocks.length > 1 && blocks.pop()
     }
@@ -667,8 +664,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             css     = readSheet(file),
             placed  = new Map(),
             relPath = path.relative(root, file).replaceAll('\\', '/'),
-            sheets  = readThemeDeclarations(css, (classes, name, value, conditions, scoped) => {
-                scoped && placed.set(name, (placed.get(name) ?? 0) + 1);
+            sheets  = readThemeDeclarations(css, (classes, name, value, conditions) => {
+                classes.length && placed.set(name, (placed.get(name) ?? 0) + 1);
 
                 for (const themeClass of classes) {
                     const {conditional, values} = theme(themeClass);
@@ -743,8 +740,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
 
     for (const {name, relPath} of loose) {
         owned.has(name) && failures.add(
-            `[scope] ${relPath} declares or registers ${name} outside the theme classes this check reads; ` +
-            `a palette or colour-role name has one value per theme class, and nothing here can tell what another reaches`
+            `[scope] ${relPath} declares or registers ${name} outside a rule that declares on a theme class itself; ` +
+            `a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches`
         )
     }
 
