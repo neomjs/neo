@@ -50,13 +50,13 @@ body:has(.tree-library.neo-is-dragging) {
     }
 }
 
-/* An icon per level. The rules hang on the tree's own class, so the drag proxy draws the same icon, and name the
-   folder class, so they outrank the theme's folder icons */
+/* An icon per level. The rules hang on the tree's own class, which the drag proxy shares. A folder's icon is the
+   variable the tree's folder rules read, since their !important outranks this layer */
 .neo-tree-list .neo-list-item .neo-list-item-content.tree-track:before {
     content: "\f001";
 }
 
 .neo-tree-list .neo-list-item.neo-list-folder .neo-list-item-content {
-    &.tree-artist:before {content: "\f007" !important; color: color-mix(in srgb, #a855f7 70%, var(--neo-color));}
-    &.tree-album:before  {content: "\f51f" !important; color: color-mix(in srgb, #3b82f6 75%, var(--neo-color));}
+    &.tree-artist:before {--tree-list-folder-icon: "\f007"; color: color-mix(in srgb, #a855f7 70%, var(--neo-color));}
+    &.tree-album:before  {--tree-list-folder-icon: "\f51f"; color: color-mix(in srgb, #3b82f6 75%, var(--neo-color));}
 }
