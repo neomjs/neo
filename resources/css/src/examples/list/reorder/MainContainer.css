@@ -30,6 +30,17 @@
         grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
     }
 
+    /* Read by screen readers, kept off screen */
+    .neo-reorder-status {
+        clip       : rect(0 0 0 0);
+        clip-path  : inset(50%);
+        height     : 1px;
+        overflow   : hidden;
+        position   : absolute;
+        white-space: nowrap;
+        width      : 1px;
+    }
+
     .neo-reorder-panel h2 {
         font-size: 1.1em;
         margin   : 0 0 .75em;
