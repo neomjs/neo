@@ -481,6 +481,24 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         ])
     });
 
+    test('the compared names are the shared classifier\'s: a role of every category is compared, a name it refuses is not', () => {
+        const added = (role, value) => plantSecond(css => css.replace('--neo-radius-large', `${neoName(role)}: ${value};\n    --neo-radius-large`));
+
+        // One role per category, declared by the second theme only.
+        for (const role of ['color-text-extra', 'space-99', 'control-gap-extra', 'font-size-extra', 'line-height-extra', 'letter-spacing-extra',
+            'radius-pill', 'border-width-extra', 'focus-ring-extra', 'opacity-extra', 'elevation-9', 'duration-extra', 'ease-extra']) {
+            expect(added(role, role.startsWith('color-') ? '#fff' : '1px').failures).toEqual([expect.stringMatching(new RegExp(
+                `^\\[names\\] ${neoName(role)} is declared in resources/css/theme-second/Global\\.css `
+            ))])
+        }
+
+        // A role-shaped name the classifier refuses is the prefix guard's to fail; no palette is compared by it.
+        const {failures, names} = added('font-Demo', '1px');
+
+        expect(failures).toEqual([]);
+        expect(names).toBe(194)
+    });
+
     test('resolveValue follows var() reads and picks the light-dark() side of the scheme', () => {
         const declarations = new Map([
             ['--a', 'light-dark(var(--b), var(--c))'],

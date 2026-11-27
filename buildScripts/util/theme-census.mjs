@@ -31,6 +31,7 @@ import path                                                                     
 import {fileURLToPath}                                                              from 'node:url';
 import isEntryModule                                                                from './isEntryModule.mjs';
 import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
+import {kindOf}                                                                     from './themeNameShapes.mjs';
 
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
@@ -41,8 +42,6 @@ const
     COLOUR      = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g,
     // the design system's palette names, and the primitive scales and `--core-*` / `--cyber-*` tokens
     PALETTE     = /^--(?:neo-)?(palette-|core-|gray-|purple-|green-|red-|orange-|yellow-|blue-|spacing-|height-|borderradius-|cyber-|white|black|Transparent)/,
-    // a role is `--neo-<category>-<role>`, the category one of a closed list
-    ROLE        = /^--neo-(color|space|control|font|line-height|letter-spacing|radius|border-width|focus-ring|opacity|elevation|duration|ease)-/,
     SEM         = /^--(?:neo-)?sem-/,
     CMP         = /^--(?:neo-)?cmp-/,
     STATES      = new Set(['hover', 'active', 'disabled', 'pressed', 'selected', 'focus', 'focused', 'checked', 'invalid', 'readonly']),
@@ -58,7 +57,7 @@ const
  * @returns {String} `palette`, `role`, `sem`, `cmp` or `component`
  */
 function layerOf(name) {
-    return SEM.test(name) ? 'sem' : CMP.test(name) ? 'cmp' : PALETTE.test(name) ? 'palette' : ROLE.test(name) ? 'role' : 'component'
+    return SEM.test(name) ? 'sem' : CMP.test(name) ? 'cmp' : PALETTE.test(name) ? 'palette' : kindOf(name) === 'role' ? 'role' : 'component'
 }
 
 /**

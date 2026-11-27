@@ -4,7 +4,7 @@
  * Three kinds of names, told apart by shape:
  *   --neo-palette-<slot>-<grade>             raw material. Only this file reads it.
  *   --neo-<category>-<role>[-<state>]        meaning. The only thing a component variable binds to.
- *   --<component>[-<variant>][-<part>]-<css-property>[-<state>]   usage, in theme-base. The only thing a rule reads.
+ *   --neo-<component>[-<variant>][-<part>]-<css-property>[-<state>]   usage, in theme-base. The only thing a rule reads.
  *
  * One direction: rule -> component variable -> role -> palette.
  * A slot is a function, never a hue, so every theme defines these names and an override written once works on all.

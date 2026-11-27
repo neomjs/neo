@@ -19,11 +19,12 @@
  * are each theme's own, so a palette is compared with itself and never with a table. Contrast is measured on
  * the resolved colours and never read off the grade distance: OKLCH lightness is not luminance.
  */
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import isEntryModule   from './isEntryModule.mjs';
-import {cssFiles}      from './themeCss.mjs';
+import fs                                                        from 'node:fs';
+import path                                                      from 'node:path';
+import {fileURLToPath}                                           from 'node:url';
+import isEntryModule                                             from './isEntryModule.mjs';
+import {cssFiles}                                                from './themeCss.mjs';
+import {PALETTE_EXTRAS, PALETTE_GRADES, SCHEME_PROPERTY, kindOf} from './themeNameShapes.mjs';
 
 const
     dirname  = path.dirname(fileURLToPath(import.meta.url)),
@@ -36,31 +37,16 @@ const
 export const SCAN_SURFACE = Object.freeze(['resources/css/**/*.css']);
 
 /**
- * The eleven palette grades, lightest first.
+ * The eleven palette grades, lightest first: the list `themeNameShapes` owns, under the name callers import.
  * @type {Number[]}
  */
-export const GRADES = Object.freeze([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
-
-/**
- * The palette names outside the grades: two ends and the translucent layers.
- * @type {Set<String>}
- */
-const PALETTE_EXTRAS = new Set([
-    '--neo-palette-white',
-    '--neo-palette-black',
-    '--neo-palette-shade-1',
-    '--neo-palette-shade-2',
-    '--neo-palette-shade-3',
-    '--neo-palette-shade-4',
-    '--neo-palette-tint-1',
-    '--neo-palette-tint-2'
-]);
+export const GRADES = PALETTE_GRADES;
 
 const
     BACKGROUND = '--neo-color-background-',
     BORDER     = '--neo-color-border-',
     CANVAS     = BACKGROUND + 'canvas',
-    SCHEME     = '--neo-color-scheme',
+    SCHEME     = SCHEME_PROPERTY,
     STATUSES   = Object.freeze(['danger', 'warning', 'success', 'info']),
     TEXT       = '--neo-color-text-';
 
@@ -329,13 +315,6 @@ export function resolveValue(value, declarations, scheme) {
 function isMeasured(name) {
     return name.startsWith('--neo-palette-') || name.startsWith('--neo-color-')
 }
-
-/**
- * A palette or role name by its shape: `--neo-palette-…`, or `--neo-<category>-…` with one of the thirteen role
- * categories. Every engine custom property carries `--neo-`, so the prefix alone names no role.
- * @type {RegExp}
- */
-const PALETTE_OR_ROLE = /^--neo-(?:palette|color|space|control|font|line-height|letter-spacing|radius|border-width|focus-ring|opacity|elevation|duration|ease)-/;
 
 /**
  * Every place a sheet spells a custom property as a declaration (`--name:`) or a registration
@@ -772,7 +751,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         checkCascade({declarations, failures, relPath, themeClass, values});
 
         palettes.push(`${themeClass} (${declarations.get(SCHEME) ?? 'no scheme'})`);
-        declared.push({names: [...declarations.keys()].filter(name => PALETTE_OR_ROLE.test(name)), relPath, themeClass});
+        // The names every theme shares are the palette and role names, as the shared classifier tells them.
+        declared.push({names: [...declarations.keys()].filter(name => ['palette', 'role'].includes(kindOf(name))), relPath, themeClass});
         checkPalette({declarations, failures, relPath, themeClass})
     }
 
