@@ -38,7 +38,8 @@ test.describe('Neo.main.DomAccess: a vendor stylesheet loads into the vendor lay
                   rule   = document.adoptedStyleSheets.at(-1).cssRules[0],
                   target = getComputedStyle(document.getElementById('ls-target'));
 
-            return {color: target.color, decoration: target.textDecorationLine, disabled: link.disabled, id: link.id, layer: rule.name, isLayer: rule instanceof CSSLayerBlockRule}
+            // The link keeps a loaded sheet, which callers wait on; only the sheet is disabled
+            return {color: target.color, decoration: target.textDecorationLine, disabled: link.sheet?.disabled, id: link.id, layer: rule.name, isLayer: rule instanceof CSSLayerBlockRule}
         }, vendorUrl);
 
         // The property both sheets set goes to the engine layer; the vendor's own property still paints
@@ -62,6 +63,36 @@ test.describe('Neo.main.DomAccess: a vendor stylesheet loads into the vendor lay
         expect(image).toMatch(/\/test\/playwright\/component\/main\/img\/probe\.png"\)$/)
     });
 
+    test('a swapped href refills the vendor layer, so the old sheet\'s rules leave with it', async ({page}) => {
+        // As the Docs source view swaps #hljs-theme between its light and dark sheets
+        await page.route('**/component/main/__vendor-swap.css', route => route.fulfill({
+            body: '#ls-target {font-style: italic}', contentType: 'text/css'
+        }));
+
+        const result = await page.evaluate(async ([first, second, layer]) => {
+            await Neo.main.DomAccess.loadStylesheet(first, null, 'swap-sheet');
+
+            const link = document.getElementById('swap-sheet');
+
+            // Registered after the loader's onload, so it runs once the loader has handled the new sheet
+            await new Promise(resolve => {
+                link.addEventListener('load', resolve, {once: true});
+                link.setAttribute('href', second)
+            });
+
+            const target = getComputedStyle(document.getElementById('ls-target'));
+
+            return {
+                decoration  : target.textDecorationLine,
+                disabled    : link.sheet.disabled,
+                fontStyle   : target.fontStyle,
+                vendorSheets: document.adoptedStyleSheets.filter(sheet => sheet.cssRules[0]?.name === layer).length
+            }
+        }, [vendorUrl, '/test/playwright/component/main/__vendor-swap.css', LAYER_ORDER[0]]);
+
+        expect(result).toEqual({decoration: 'none', disabled: true, fontStyle: 'italic', vendorSheets: 1})
+    });
+
     test('the positive control: the same sheet by <link> alone is unlayered and beats the engine layer', async ({page}) => {
         await page.evaluate(href => new Promise(resolve => {
             document.head.append(Object.assign(document.createElement('link'), {href, rel: 'stylesheet', onload: resolve}))
@@ -75,7 +106,7 @@ test.describe('Neo.main.DomAccess: a vendor stylesheet loads into the vendor lay
 
         const disabled = await page.evaluate(async () => {
             await Neo.main.DomAccess.loadStylesheet('http://vendor.test/widgets.css', {vendor: 'opaque'});
-            return document.querySelector('[data-vendor="opaque"]').disabled
+            return document.querySelector('[data-vendor="opaque"]').sheet.disabled
         });
 
         expect(disabled).toBe(false);

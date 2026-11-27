@@ -970,37 +970,45 @@ class DomAccess extends Base {
      * (`LAYER_ORDER` in `buildScripts/util/themeCssLayers.mjs`). So every engine and app layer outranks a vendor rule,
      * whatever its selector weighs: Font Awesome's, Highlight.js's, an editor's or a map's own. A `<link>` cannot name
      * a layer, and a strict `style-src` refuses an inline `<style>`. So the sheet loads by `<link>`, then its rules move
-     * into a constructed stylesheet inside `@layer neo.vendor` that the document adopts, and the link is disabled. A
-     * cross-origin sheet hides its rules and stays unlayered, and so does one with an `@import`, which a constructed
-     * stylesheet drops.
+     * into a constructed stylesheet inside `@layer neo.vendor` that the document adopts, and the link's sheet is
+     * disabled. A swapped `href` (the Docs source view's theme toggle) refills that one stylesheet, so the old sheet's
+     * rules leave with it. A cross-origin sheet hides its rules and stays unlayered, and so does one with an `@import`,
+     * which a constructed stylesheet drops.
      * @param {String} href
      * @param {Object} dataset=null
      * @param {String} id=null
      * @returns {Promise<void>} Rejects with an Error naming `href` when the sheet fails to load
      */
     loadStylesheet(href, dataset=null, id=null) {
+        let layered = null; // Every load of this link, the first and each swapped href, fills this one sheet
+
         return new Promise((resolve, reject) => {
             const link = this.createAndAppendElement('link', {
                 href,
                 onerror: () => reject(new Error(`Stylesheet failed to load: ${href}`)),
                 onload : () => {
+                    let text = '';
+
                     try {
                         const rules = [...link.sheet.cssRules]; // throws for a cross-origin sheet
 
                         if (!rules.some(rule => rule instanceof CSSImportRule)) {
-                            const sheet = new CSSStyleSheet(),
-                                  // An adopted sheet resolves a relative url() against the document: a font 404s
-                                  text  = rules.map(rule => rule.cssText).join('\n').replace(
-                                      /url\("(?![a-z][a-z\d+.-]*:|\/|#)([^"]*)"\)/gi,
-                                      (match, url) => `url("${new URL(url, link.href)}")`
-                                  );
-
-                            sheet.replaceSync(`@layer neo.vendor {${text}}`);
-                            document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-                            link.disabled = true
+                            // An adopted sheet resolves a relative url() against the document: a font 404s
+                            text = rules.map(rule => rule.cssText).join('\n').replace(
+                                /url\("(?![a-z][a-z\d+.-]*:|\/|#)([^"]*)"\)/gi,
+                                (match, url) => `url("${new URL(url, link.href)}")`
+                            )
                         }
                     } catch {}
 
+                    if (text && !layered) {
+                        layered = new CSSStyleSheet();
+                        document.adoptedStyleSheets = [...document.adoptedStyleSheets, layered]
+                    }
+
+                    layered?.replaceSync(text && `@layer neo.vendor {${text}}`);
+                    // The sheet, not the link: a disabled link drops its sheet, which callers wait on
+                    link.sheet.disabled = Boolean(text);
                     resolve()
                 },
                 rel    : 'stylesheet'
