@@ -15,6 +15,7 @@ import {
     COMPONENT_MATRIX,
     ENGINE_PACKAGE_MATRIX,
     PAINTED_PROPERTIES,
+    SCOPES,
     STATES,
     THEMES,
     validateEnginePackageMatrix
@@ -56,6 +57,7 @@ test.describe('buildScripts/util/theme-equality', () => {
             'neo-theme-dark',
             'neo-theme-cyberpunk'
         ]);
+        expect(SCOPES).toEqual(['inherited', 'scoped']);
         expect(STATES).toEqual([
             'default', 'hover', 'active', 'focus', 'selected', 'pressed', 'disabled', 'invalid', 'readonly'
         ]);
@@ -116,11 +118,19 @@ test.describe('buildScripts/util/theme-equality', () => {
         const base = {
             'button[primary]': {
                 'neo-theme-neo-light': {
-                    default: {'.neo-button': makeValues({'background-color': 'rgb(10, 20, 30)'})},
-                    hover  : {'.neo-button': makeValues({'background-color': 'rgb(20, 30, 40)'})}
+                    inherited: {
+                        default: {'.neo-button': makeValues({'background-color': 'rgb(10, 20, 30)'})},
+                        hover  : {'.neo-button': makeValues({'background-color': 'rgb(20, 30, 40)'})}
+                    },
+                    scoped: {
+                        default: {'.neo-button': makeValues({'background-color': 'rgb(10, 20, 30)'})},
+                        hover  : {'.neo-button': makeValues({'background-color': 'rgb(20, 30, 40)'})}
+                    }
                 },
                 'neo-theme-neo-dark': {
-                    default: {'.neo-button': makeValues({'background-color': 'rgb(50, 60, 70)'})}
+                    inherited: {
+                        default: {'.neo-button': makeValues({'background-color': 'rgb(50, 60, 70)'})}
+                    }
                 }
             }
         };
@@ -129,12 +139,13 @@ test.describe('buildScripts/util/theme-equality', () => {
         expect(identical.diffs).toEqual([]);
 
         const mutated = structuredClone(base);
-        mutated['button[primary]']['neo-theme-neo-light'].hover['.neo-button']['background-color'] = 'rgb(255, 0, 128)';
+        mutated['button[primary]']['neo-theme-neo-light'].scoped.hover['.neo-button']['background-color'] = 'rgb(255, 0, 128)';
 
         const changed = compareSnapshots(base, mutated);
         expect(changed.diffs).toEqual([{
             component: 'button[primary]',
             theme    : 'neo-theme-neo-light',
+            scope    : 'scoped',
             state    : 'hover',
             property : 'background-color',
             part     : '.neo-button',
@@ -147,6 +158,7 @@ test.describe('buildScripts/util/theme-equality', () => {
         const observed = [{
             component: 'button[primary]',
             theme    : 'neo-theme-neo-light',
+            scope    : 'scoped',
             state    : 'hover',
             property : 'background-color',
             part     : '.neo-button',
@@ -163,6 +175,7 @@ test.describe('buildScripts/util/theme-equality', () => {
         const declared = evaluateExpectedDiffs(observed, [{
             component: 'button[primary]',
             theme    : 'neo-theme-neo-light',
+            scope    : 'scoped',
             state    : 'hover',
             property : 'background-color'
         }]);
@@ -170,6 +183,18 @@ test.describe('buildScripts/util/theme-equality', () => {
         expect(declared.unexpectedDiffs).toEqual([]);
         expect(declared.matchedDiffs).toHaveLength(1);
         expect(declared.unmetExpected).toEqual([]);
+
+        // Mismatched scope fails both unexpectedDiffs and unmetExpected
+        const wrongScope = evaluateExpectedDiffs(observed, [{
+            component: 'button[primary]',
+            theme    : 'neo-theme-neo-light',
+            scope    : 'inherited',
+            state    : 'hover',
+            property : 'background-color'
+        }]);
+        expect(wrongScope.ok).toBe(false);
+        expect(wrongScope.unexpectedDiffs).toHaveLength(1);
+        expect(wrongScope.unmetExpected).toHaveLength(1);
 
         // Declared expected difference that did not occur fails
         const unmet = evaluateExpectedDiffs(observed, [
@@ -198,7 +223,8 @@ test.describe('buildScripts/util/theme-equality', () => {
             ok              : unmet.ok,
             elapsedMs       : 1234,
             themes          : ['neo-theme-neo-light'],
-            componentCount  : 52,
+            scopes          : ['inherited', 'scoped'],
+            componentCount  : 77,
             packageCoverage : {diskPackages: new Array(29)},
             totalComparisons: 100,
             diffs           : observed,

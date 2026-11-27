@@ -16,6 +16,11 @@ export const THEMES = Object.freeze([
     'neo-theme-cyberpunk'
 ]);
 
+export const SCOPES = Object.freeze([
+    'inherited',
+    'scoped'
+]);
+
 export const STATES = Object.freeze([
     'default',
     'hover',
@@ -611,6 +616,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'plugin-resizable',
         package            : 'plugin',
         cellId             : 'plugin-resizable',
+        scopeSelector      : '.neo-resizable, .neo-popover',
         stateTargetSelector: '.neo-resizable',
         states             : ['default'],
         parts              : ['.neo-resizable', '.neo-popover']
@@ -664,6 +670,7 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'timeline',
         package            : 'timeline',
         cellId             : 'timeline',
+        scopeSelector      : '.neo-timeline-event-editor, .neo-timeline-bar',
         stateTargetSelector: '.neo-timeline-event-editor',
         states             : ['default'],
         parts              : ['.neo-timeline-event-editor', '.neo-timeline-cell', '.neo-timeline-bar']

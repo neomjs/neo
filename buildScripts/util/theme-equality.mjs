@@ -25,6 +25,7 @@ import {
     COMPONENT_MATRIX,
     ENGINE_PACKAGE_MATRIX,
     PAINTED_PROPERTIES,
+    SCOPES,
     THEMES,
     validateEnginePackageMatrix
 } from './themeEqualityMatrix.mjs';
@@ -163,9 +164,10 @@ export function collectThemeStylesheetUrls(tree, themeClass) {
 
 /**
  * @summary Compares two captured style snapshots and returns sorted property differences.
- * Each component entry can sample multiple DOM parts; differences are reported per `(component, theme, state, property)`
- * (using the first differing part in declared order so each painted property change on a component emits one clean row).
- * @param {Object} baseSnapshot Snapshot map `{[component]: {[theme]: {[state]: {[part]: {[property]: value}}}}}`.
+ * Each component entry is sampled across both `inherited` (theme class on `body`/viewport only) and `scoped`
+ * (theme class stamped on the component's own root element per `component.Base#afterSetTheme`) passes; differences
+ * are reported per `(component, theme, scope, state, property)` using the first differing part in declared order.
+ * @param {Object} baseSnapshot Snapshot map `{[component]: {[theme]: {[scope]: {[state]: {[part]: {[property]: value}}}}}}`.
  * @param {Object} headSnapshot Snapshot map with the same shape.
  * @returns {Object} Comparison summary `{diffs, totalComparisons}`.
  */
@@ -181,33 +183,40 @@ export function compareSnapshots(baseSnapshot, headSnapshot) {
               themes     = Array.from(new Set([...Object.keys(baseThemes), ...Object.keys(headThemes)]));
 
         for (const theme of themes) {
-            const baseStates = baseThemes[theme] || {},
-                  headStates = headThemes[theme] || {},
-                  states     = Array.from(new Set([...Object.keys(baseStates), ...Object.keys(headStates)]));
+            const baseScopes = baseThemes[theme] || {},
+                  headScopes = headThemes[theme] || {},
+                  scopes     = Array.from(new Set([...Object.keys(baseScopes), ...Object.keys(headScopes)]));
 
-            for (const state of states) {
-                const baseParts = baseStates[state] || {},
-                      headParts = headStates[state] || {},
-                      partKeys  = Array.from(new Set([...Object.keys(baseParts), ...Object.keys(headParts)]));
+            for (const scope of scopes) {
+                const baseStates = baseScopes[scope] || {},
+                      headStates = headScopes[scope] || {},
+                      states     = Array.from(new Set([...Object.keys(baseStates), ...Object.keys(headStates)]));
 
-                for (const property of PAINTED_PROPERTIES) {
-                    totalComparisons++;
+                for (const state of states) {
+                    const baseParts = baseStates[state] || {},
+                          headParts = headStates[state] || {},
+                          partKeys  = Array.from(new Set([...Object.keys(baseParts), ...Object.keys(headParts)]));
 
-                    for (const part of partKeys) {
-                        const baseVal = baseParts[part]?.[property] ?? '<missing>',
-                              headVal = headParts[part]?.[property] ?? '<missing>';
+                    for (const property of PAINTED_PROPERTIES) {
+                        totalComparisons++;
 
-                        if (baseVal !== headVal) {
-                            diffs.push({
-                                component,
-                                theme,
-                                state,
-                                property,
-                                part,
-                                base: baseVal,
-                                head: headVal
-                            });
-                            break
+                        for (const part of partKeys) {
+                            const baseVal = baseParts[part]?.[property] ?? '<missing>',
+                                  headVal = headParts[part]?.[property] ?? '<missing>';
+
+                            if (baseVal !== headVal) {
+                                diffs.push({
+                                    component,
+                                    theme,
+                                    scope,
+                                    state,
+                                    property,
+                                    part,
+                                    base: baseVal,
+                                    head: headVal
+                                });
+                                break
+                            }
                         }
                     }
                 }
@@ -220,14 +229,14 @@ export function compareSnapshots(baseSnapshot, headSnapshot) {
 
 /**
  * @summary Checks whether an observed difference matches a declared expected-difference rule.
- * Wildcard `'*'` or omitted optional fields (`theme`, `state`, `property`, `base`, `head`) match any value;
+ * Wildcard `'*'` or omitted optional fields (`theme`, `scope`, `state`, `property`, `base`, `head`) match any value;
  * `component` is required on every expected rule.
  * @param {Object} diff Observed difference row.
- * @param {Object} rule Expected rule `{component, theme?, state?, property?, base?, head?}`.
+ * @param {Object} rule Expected rule `{component, theme?, scope?, state?, property?, base?, head?}`.
  * @returns {Boolean}
  */
 function matchesExpectedRule(diff, rule) {
-    for (const field of ['component', 'theme', 'state', 'property', 'base', 'head']) {
+    for (const field of ['component', 'theme', 'scope', 'state', 'property', 'base', 'head']) {
         const expected = rule[field];
 
         if (expected !== undefined && expected !== '*' && expected !== diff[field]) {
@@ -289,6 +298,7 @@ export function formatEqualityReport(result) {
         `- **Status:** ${result.ok ? 'PASS' : 'FAIL'}`,
         `- **Elapsed:** ${(result.elapsedMs / 1000).toFixed(2)}s`,
         `- **Themes:** ${result.themes.join(', ')}`,
+        `- **Scopes:** ${(result.scopes || SCOPES).join(', ')}`,
         `- **Components probed:** ${result.componentCount} across ${result.packageCoverage.diskPackages.length} engine packages`,
         `- **Property comparisons:** ${result.totalComparisons}`,
         `- **Undeclared differences:** ${result.unexpectedDiffs.length}`,
@@ -301,15 +311,15 @@ export function formatEqualityReport(result) {
             ``,
             `## Differences`,
             ``,
-            `| Component | Theme | State | Property | Base | Head | Disposition |`,
-            `|---|---|---|---|---|---|---|`
+            `| Component | Theme | Scope | State | Property | Base | Head | Disposition |`,
+            `|---|---|---|---|---|---|---|---|`
         );
 
         const unexpectedSet = new Set(result.unexpectedDiffs);
 
         for (const diff of result.diffs) {
             const disposition = unexpectedSet.has(diff) ? 'undeclared' : 'expected';
-            lines.push(`| \`${diff.component}\` | \`${diff.theme}\` | \`${diff.state}\` | \`${diff.property}\` | \`${diff.base}\` | \`${diff.head}\` | ${disposition} |`)
+            lines.push(`| \`${diff.component}\` | \`${diff.theme}\` | \`${diff.scope}\` | \`${diff.state}\` | \`${diff.property}\` | \`${diff.base}\` | \`${diff.head}\` | ${disposition} |`)
         }
     }
 
@@ -318,12 +328,12 @@ export function formatEqualityReport(result) {
             ``,
             `## Unmet Expected Differences`,
             ``,
-            `| Component | Theme | State | Property |`,
-            `|---|---|---|---|`
+            `| Component | Theme | Scope | State | Property |`,
+            `|---|---|---|---|---|`
         );
 
         for (const rule of result.unmetExpected) {
-            lines.push(`| \`${rule.component ?? '*'}\` | \`${rule.theme ?? '*'}\` | \`${rule.state ?? '*'}\` | \`${rule.property ?? '*'}\` |`)
+            lines.push(`| \`${rule.component ?? '*'}\` | \`${rule.theme ?? '*'}\` | \`${rule.scope ?? '*'}\` | \`${rule.state ?? '*'}\` | \`${rule.property ?? '*'}\` |`)
         }
     }
 
@@ -459,6 +469,10 @@ async function captureTreeSnapshot(page, port, tree, themes) {
                     missing.push(`${entry.id}: missing part "${partSelector}"`)
                 }
             }
+
+            if (cell.querySelectorAll(entry.scopeSelector || ':scope > *').length === 0) {
+                missing.push(`${entry.id}: missing scopeSelector "${entry.scopeSelector || ':scope > *'}"`)
+            }
         }
 
         return missing
@@ -509,7 +523,7 @@ async function captureTreeSnapshot(page, port, tree, themes) {
             snapshot[entry.id][theme] = {}
         }
 
-        const domBatch = await page.evaluate(async ({themeClass, sheetUrls, allThemes, entries, domStates, props}) => {
+        await page.evaluate(async ({themeClass, sheetUrls, allThemes}) => {
             const viewport = document.getElementById('theme-equality-viewport');
 
             for (const t of allThemes) {
@@ -537,155 +551,188 @@ async function captureTreeSnapshot(page, port, tree, themes) {
             const scheme = getComputedStyle(document.body).getPropertyValue('--neo-color-scheme').trim();
             document.documentElement.style.colorScheme = scheme === 'dark' || scheme === 'light' ? scheme : '';
 
-            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-            const readParts = (cell, partSelectors) => {
-                const partValues = {};
-                for (const selector of partSelectors) {
-                    const partEl = cell?.querySelector(selector);
-                    if (!partEl) continue;
-                    const computed = getComputedStyle(partEl),
-                          values   = {};
-                    for (const prop of props) {
-                        values[prop] = computed.getPropertyValue(prop).trim()
-                    }
-                    partValues[selector] = values
-                }
-                return partValues
-            };
-
-            const batchOut = {};
-
-            for (const entry of entries) {
-                const cell   = document.getElementById(`eq-cell-${entry.cellId}`),
-                      target = cell?.querySelector(entry.stateTargetSelector),
-                      input  = entry.inputSelector ? cell?.querySelector(entry.inputSelector) : null;
-
-                batchOut[entry.id] = {};
-
-                for (const stateName of domStates) {
-                    if (!entry.states.includes(stateName)) continue;
-
-                    const undo     = [];
-                    const addClass = (el, cls) => {
-                        if (el && !el.classList.contains(cls)) {
-                            el.classList.add(cls);
-                            undo.push(() => el.classList.remove(cls))
-                        }
-                    };
-                    const setAttr = (el, name, val) => {
-                        if (!el) return;
-                        const had  = el.hasAttribute(name),
-                              prev = el.getAttribute(name);
-                        el.setAttribute(name, val);
-                        undo.push(() => had ? el.setAttribute(name, prev) : el.removeAttribute(name))
-                    };
-
-                    if (target) {
-                        if (stateName === 'selected') {
-                            addClass(target, 'neo-selected');
-                            setAttr(target, 'aria-selected', 'true')
-                        } else if (stateName === 'pressed') {
-                            addClass(target, 'pressed');
-                            setAttr(target, 'aria-pressed', 'true')
-                        } else if (stateName === 'disabled') {
-                            addClass(target, 'neo-disabled');
-                            setAttr(target, 'disabled', '');
-                            if (input) setAttr(input, 'disabled', '')
-                        } else if (stateName === 'invalid') {
-                            addClass(target, 'neo-invalid');
-                            setAttr(target, 'aria-invalid', 'true')
-                        } else if (stateName === 'readonly') {
-                            addClass(target, 'neo-readonly');
-                            setAttr(target, 'readonly', '');
-                            if (input) setAttr(input, 'readonly', '')
-                        }
-                    }
-
-                    batchOut[entry.id][stateName] = readParts(cell, entry.parts);
-
-                    for (let i = undo.length - 1; i >= 0; i--) {
-                        undo[i]()
-                    }
-                }
-            }
-
-            return batchOut
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
         }, {
             themeClass: theme,
             sheetUrls : urls,
-            allThemes : THEMES,
-            entries   : COMPONENT_MATRIX,
-            domStates : DOM_STATES,
-            props     : PAINTED_PROPERTIES
+            allThemes : THEMES
         });
 
-        for (const [entryId, stateMap] of Object.entries(domBatch)) {
-            Object.assign(snapshot[entryId][theme], stateMap)
-        }
+        for (const scope of SCOPES) {
+            for (const entry of COMPONENT_MATRIX) {
+                snapshot[entry.id][theme][scope] = {}
+            }
 
-        const runPseudoBatch = async (stateName, entries, nodeMap, forcedPseudoClasses, extraClasses) => {
-            const activeNodes = entries.map(e => nodeMap[e.id]).filter(Boolean);
+            if (scope === 'scoped') {
+                await page.evaluate(({themeClass, entries}) => {
+                    for (const entry of entries) {
+                        const cell  = document.getElementById(`eq-cell-${entry.cellId}`),
+                              roots = cell ? cell.querySelectorAll(entry.scopeSelector || ':scope > *') : [];
 
-            await Promise.all(activeNodes.map(nodeId =>
-                cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses})
-            ));
+                        roots.forEach(el => el.classList.add(themeClass))
+                    }
+                }, {themeClass: theme, entries: COMPONENT_MATRIX})
+            }
 
-            const results = await page.evaluate(({subset, extraCls, props}) => {
-                const out  = {},
-                      undo = [];
+            try {
+                const domBatch = await page.evaluate(({entries, domStates, props}) => {
+                    const readParts = (cell, partSelectors) => {
+                        const partValues = {};
+                        for (const selector of partSelectors) {
+                            const partEl = cell?.querySelector(selector);
+                            if (!partEl) continue;
+                            const computed = getComputedStyle(partEl),
+                                  values   = {};
+                            for (const prop of props) {
+                                values[prop] = computed.getPropertyValue(prop).trim()
+                            }
+                            partValues[selector] = values
+                        }
+                        return partValues
+                    };
 
-                for (const entry of subset) {
-                    const cell   = document.getElementById(`eq-cell-${entry.cellId}`),
-                          target = cell?.querySelector(entry.stateTargetSelector);
+                    const batchOut = {};
 
-                    if (target) {
-                        for (const cls of extraCls) {
-                            if (!target.classList.contains(cls)) {
-                                target.classList.add(cls);
-                                undo.push(() => target.classList.remove(cls))
+                    for (const entry of entries) {
+                        const cell   = document.getElementById(`eq-cell-${entry.cellId}`),
+                              target = cell?.querySelector(entry.stateTargetSelector),
+                              input  = entry.inputSelector ? cell?.querySelector(entry.inputSelector) : null;
+
+                        batchOut[entry.id] = {};
+
+                        for (const stateName of domStates) {
+                            if (!entry.states.includes(stateName)) continue;
+
+                            const undo     = [];
+                            const addClass = (el, cls) => {
+                                if (el && !el.classList.contains(cls)) {
+                                    el.classList.add(cls);
+                                    undo.push(() => el.classList.remove(cls))
+                                }
+                            };
+                            const setAttr = (el, name, val) => {
+                                if (!el) return;
+                                const had  = el.hasAttribute(name),
+                                      prev = el.getAttribute(name);
+                                el.setAttribute(name, val);
+                                undo.push(() => had ? el.setAttribute(name, prev) : el.removeAttribute(name))
+                            };
+
+                            if (target) {
+                                if (stateName === 'selected') {
+                                    addClass(target, 'neo-selected');
+                                    setAttr(target, 'aria-selected', 'true')
+                                } else if (stateName === 'pressed') {
+                                    addClass(target, 'pressed');
+                                    setAttr(target, 'aria-pressed', 'true')
+                                } else if (stateName === 'disabled') {
+                                    addClass(target, 'neo-disabled');
+                                    setAttr(target, 'disabled', '');
+                                    if (input) setAttr(input, 'disabled', '')
+                                } else if (stateName === 'invalid') {
+                                    addClass(target, 'neo-invalid');
+                                    setAttr(target, 'aria-invalid', 'true')
+                                } else if (stateName === 'readonly') {
+                                    addClass(target, 'neo-readonly');
+                                    setAttr(target, 'readonly', '');
+                                    if (input) setAttr(input, 'readonly', '')
+                                }
+                            }
+
+                            batchOut[entry.id][stateName] = readParts(cell, entry.parts);
+
+                            for (let i = undo.length - 1; i >= 0; i--) {
+                                undo[i]()
                             }
                         }
                     }
+
+                    return batchOut
+                }, {
+                    entries  : COMPONENT_MATRIX,
+                    domStates: DOM_STATES,
+                    props    : PAINTED_PROPERTIES
+                });
+
+                for (const [entryId, stateMap] of Object.entries(domBatch)) {
+                    Object.assign(snapshot[entryId][theme][scope], stateMap)
                 }
 
-                for (const entry of subset) {
-                    const cell       = document.getElementById(`eq-cell-${entry.cellId}`),
-                          partValues = {};
+                const runPseudoBatch = async (stateName, entries, nodeMap, forcedPseudoClasses, extraClasses) => {
+                    const activeNodes = entries.map(e => nodeMap[e.id]).filter(Boolean);
 
-                    for (const selector of entry.parts) {
-                        const partEl = cell?.querySelector(selector);
-                        if (!partEl) continue;
-                        const computed = getComputedStyle(partEl),
-                              values   = {};
-                        for (const prop of props) {
-                            values[prop] = computed.getPropertyValue(prop).trim()
+                    await Promise.all(activeNodes.map(nodeId =>
+                        cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses})
+                    ));
+
+                    const results = await page.evaluate(({subset, extraCls, props}) => {
+                        const out  = {},
+                              undo = [];
+
+                        for (const entry of subset) {
+                            const cell   = document.getElementById(`eq-cell-${entry.cellId}`),
+                                  target = cell?.querySelector(entry.stateTargetSelector);
+
+                            if (target) {
+                                for (const cls of extraCls) {
+                                    if (!target.classList.contains(cls)) {
+                                        target.classList.add(cls);
+                                        undo.push(() => target.classList.remove(cls))
+                                    }
+                                }
+                            }
                         }
-                        partValues[selector] = values
+
+                        for (const entry of subset) {
+                            const cell       = document.getElementById(`eq-cell-${entry.cellId}`),
+                                  partValues = {};
+
+                            for (const selector of entry.parts) {
+                                const partEl = cell?.querySelector(selector);
+                                if (!partEl) continue;
+                                const computed = getComputedStyle(partEl),
+                                      values   = {};
+                                for (const prop of props) {
+                                    values[prop] = computed.getPropertyValue(prop).trim()
+                                }
+                                partValues[selector] = values
+                            }
+
+                            out[entry.id] = partValues
+                        }
+
+                        for (let i = undo.length - 1; i >= 0; i--) {
+                            undo[i]()
+                        }
+
+                        return out
+                    }, {subset: entries, extraCls: extraClasses, props: PAINTED_PROPERTIES});
+
+                    await Promise.all(activeNodes.map(nodeId =>
+                        cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: []})
+                    ));
+
+                    for (const [entryId, partValues] of Object.entries(results)) {
+                        snapshot[entryId][theme][scope][stateName] = partValues
                     }
+                };
 
-                    out[entry.id] = partValues
+                await runPseudoBatch('hover', hoverEntries, targetNodeIds, ['hover'], ['neo-hovered']);
+                await runPseudoBatch('active', activeEntries, targetNodeIds, ['active'], []);
+                await runPseudoBatch('focus', focusEntries, focusNodeIds, ['focus', 'focus-visible', 'focus-within'], ['neo-focus', 'neo-focus-keyboard'])
+            } finally {
+                if (scope === 'scoped') {
+                    await page.evaluate(({themeClass, entries}) => {
+                        for (const entry of entries) {
+                            const cell  = document.getElementById(`eq-cell-${entry.cellId}`),
+                                  roots = cell ? cell.querySelectorAll(entry.scopeSelector || ':scope > *') : [];
+
+                            roots.forEach(el => el.classList.remove(themeClass))
+                        }
+                    }, {themeClass: theme, entries: COMPONENT_MATRIX})
                 }
-
-                for (let i = undo.length - 1; i >= 0; i--) {
-                    undo[i]()
-                }
-
-                return out
-            }, {subset: entries, extraCls: extraClasses, props: PAINTED_PROPERTIES});
-
-            await Promise.all(activeNodes.map(nodeId =>
-                cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: []})
-            ));
-
-            for (const [entryId, partValues] of Object.entries(results)) {
-                snapshot[entryId][theme][stateName] = partValues
             }
-        };
-
-        await runPseudoBatch('hover', hoverEntries, targetNodeIds, ['hover'], ['neo-hovered']);
-        await runPseudoBatch('active', activeEntries, targetNodeIds, ['active'], []);
-        await runPseudoBatch('focus', focusEntries, focusNodeIds, ['focus', 'focus-visible', 'focus-within'], ['neo-focus', 'neo-focus-keyboard'])
+        }
     }
 
     await cdp.detach();
@@ -755,6 +802,7 @@ export async function runThemeEquality(options) {
             ok             : verdict.ok,
             elapsedMs,
             themes,
+            scopes         : [...SCOPES],
             componentCount : COMPONENT_MATRIX.length,
             packageMatrix  : ENGINE_PACKAGE_MATRIX,
             packageCoverage,

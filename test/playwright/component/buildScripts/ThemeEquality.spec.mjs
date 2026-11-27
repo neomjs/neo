@@ -67,15 +67,28 @@ test.describe('theme-equality headless Chromium integration', () => {
         const undeclaredRun = await runThemeEquality({base: baseCopy, head: headCopy, repoRoot: REPO_ROOT});
 
         expect(undeclaredRun.ok).toBe(false);
-        expect(undeclaredRun.diffs).toEqual([{
-            component: 'button[primary]',
-            theme    : 'neo-theme-neo-light',
-            state    : 'hover',
-            property : 'background-color',
-            part     : '.neo-button',
-            base     : expect.any(String),
-            head     : 'rgb(251, 13, 199)'
-        }]);
+        expect(undeclaredRun.diffs).toEqual([
+            {
+                component: 'button[primary]',
+                theme    : 'neo-theme-neo-light',
+                scope    : 'inherited',
+                state    : 'hover',
+                property : 'background-color',
+                part     : '.neo-button',
+                base     : expect.any(String),
+                head     : 'rgb(251, 13, 199)'
+            },
+            {
+                component: 'button[primary]',
+                theme    : 'neo-theme-neo-light',
+                scope    : 'scoped',
+                state    : 'hover',
+                property : 'background-color',
+                part     : '.neo-button',
+                base     : expect.any(String),
+                head     : 'rgb(251, 13, 199)'
+            }
+        ]);
 
         // Declaring the exact expected diff passes; declaring a non-existent expected diff fails
         const passingVerdict = evaluateExpectedDiffs(undeclaredRun.diffs, [{
@@ -102,5 +115,40 @@ test.describe('theme-equality headless Chromium integration', () => {
         ]);
         expect(unmetVerdict.ok).toBe(false);
         expect(unmetVerdict.unmetExpected).toHaveLength(1)
+    });
+
+    test('catches custom-property winner flips that occur only when a component carries its own theme scope', async () => {
+        test.setTimeout(90000);
+
+        const baseCopy  = copyBuiltTree(),
+              headCopy  = copyBuiltTree(),
+              srcRule   = '\n.neo-tooltip { --tooltip-bg: rgb(18, 52, 86); }\n',
+              themeRule = '\n:root .neo-theme-dark { --tooltip-bg: rgb(210, 99, 44); }\n';
+
+        // Both trees share the structural re-declaration on `.neo-tooltip`; only head adds a higher-weight
+        // `:root .neo-theme-dark` theme declaration, which leaves `inherited` (`body.neo-theme-dark .neo-tooltip`)
+        // at `rgb(18, 52, 86)` while flipping `scoped` (`.neo-tooltip.neo-theme-dark`) to `rgb(210, 99, 44)`.
+        fs.appendFileSync(path.join(baseCopy, 'src/tooltip/Base.css'), srcRule);
+        fs.appendFileSync(path.join(headCopy, 'src/tooltip/Base.css'), srcRule);
+        fs.appendFileSync(path.join(headCopy, 'theme-dark/tooltip/Base.css'), themeRule);
+
+        const result = await runThemeEquality({
+            base    : baseCopy,
+            head    : headCopy,
+            themes  : ['neo-theme-dark'],
+            repoRoot: REPO_ROOT
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.diffs).toEqual([{
+            component: 'tooltip',
+            theme    : 'neo-theme-dark',
+            scope    : 'scoped',
+            state    : 'default',
+            property : 'background-color',
+            part     : '.neo-tooltip',
+            base     : expect.any(String),
+            head     : 'rgb(210, 99, 44)'
+        }])
     })
 });
