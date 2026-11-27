@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
  * @module buildScripts/util/check-theme-palette
- * @summary Holds every theme palette to its two measurable rules: each grade has its table lightness in
- * every slot, and the text, border and focus-ring pairs meet their contrast floors in each scheme the
- * theme declares.
+ * @summary Holds every theme palette to its three measurable rules: a grade has one lightness in every
+ * slot, a slot's grades descend in lightness, and the text, border and focus-ring pairs meet their contrast
+ * floors in each scheme the theme declares.
  *
  * A palette is a theme class whose `Global.css` declares a `--neo-palette-*` name. A theme without one is
- * not written against the roles yet and is skipped. Contrast is measured on the resolved colours and never
+ * not written against the roles yet and is skipped. The lightness numbers are each theme's own, so a palette
+ * is compared with itself and never with a table. Contrast is measured on the resolved colours and never
  * read off the grade distance: OKLCH lightness is not luminance.
  */
 import fs                              from 'node:fs';
@@ -26,22 +27,10 @@ const
 export const SCAN_SURFACE = Object.freeze(['resources/css/*/Global.css']);
 
 /**
- * The OKLCH lightness of each palette grade, the same in every slot.
- * @type {Object<String,Number>}
+ * The eleven palette grades, lightest first.
+ * @type {Number[]}
  */
-export const GRADE_LIGHTNESS = Object.freeze({
-    50 : 0.985,
-    100: 0.960,
-    200: 0.875,
-    300: 0.790,
-    400: 0.700,
-    500: 0.610,
-    600: 0.544,
-    700: 0.470,
-    800: 0.390,
-    900: 0.280,
-    950: 0.168
-});
+export const GRADES = Object.freeze([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
 
 /**
  * The palette names outside the grades: two ends and the translucent layers.
@@ -67,8 +56,8 @@ const
     TEXT       = '--neo-color-text-';
 
 /**
- * How far a grade may sit from its table lightness. An `oklch()` literal states its lightness; a hex or
- * rgb value carries 8-bit rounding.
+ * How far one slot's reading of a grade may sit from another's. An `oklch()` literal states its lightness;
+ * a hex or rgb value carries 8-bit rounding.
  * @type {Object<String,Number>}
  */
 const TOLERANCE = Object.freeze({
@@ -109,6 +98,8 @@ export const CONTRAST_PAIRS = Object.freeze([
         [BORDER + status,      CANVAS,                         3]
     ]),
     [BORDER + 'accent',        CANVAS,                         3],
+    [BORDER + 'strong',        CANVAS,                         3],
+    [BORDER + 'strong',        BACKGROUND + 'field',           3],
     ['--neo-color-focus-ring', CANVAS,                         3]
 ]);
 
@@ -330,8 +321,42 @@ export function readThemeDeclarations(css) {
 }
 
 /**
- * @summary Checks one theme class's palette: the grades against the lightness table, and the pairs
- * against their floors in the scheme the class declares.
+ * @summary Whether two slots read one grade at the same lightness. Two stated OKLCH lightnesses have to
+ * match; each converted colour adds its 8-bit rounding.
+ * @param {{lightness: Number, literal: Boolean}} a
+ * @param {{lightness: Number, literal: Boolean}} b
+ * @returns {Boolean}
+ */
+function sameLightness(a, b) {
+    const allowed = a.literal && b.literal ? TOLERANCE.literal : TOLERANCE.converted * (a.literal || b.literal ? 1 : 2);
+
+    return Math.abs(a.lightness - b.lightness) <= allowed
+}
+
+/**
+ * @summary Picks, among the slots of one grade, the reading most slots share. The first declared wins a tie.
+ * @param {Object[]} entries
+ * @returns {Object}
+ */
+function commonReading(entries) {
+    let best      = entries[0],
+        bestCount = 0;
+
+    for (const candidate of entries) {
+        const count = entries.filter(entry => sameLightness(entry, candidate)).length;
+
+        if (count > bestCount) {
+            best      = candidate;
+            bestCount = count
+        }
+    }
+
+    return best
+}
+
+/**
+ * @summary Checks one theme class's palette: one lightness per grade across its slots, each slot's descent,
+ * and the pairs against their floors in the scheme the class declares.
  * @param {Object} data
  * @param {Map<String,String>} data.declarations
  * @param {Set<String>} data.failures
@@ -340,7 +365,9 @@ export function readThemeDeclarations(css) {
  */
 function checkPalette({declarations, failures, relPath, themeClass}) {
     const
+        grades = new Map(),
         scheme = declarations.get(SCHEME),
+        slots  = new Map(),
         color  = name => {
             const resolved = declarations.has(name) ? resolveValue(declarations.get(name), declarations, scheme) : null;
 
@@ -348,26 +375,55 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
         };
 
     for (const [name] of declarations) {
-        const grade = PALETTE_EXTRAS.has(name) ? undefined : name.match(/^--neo-palette-[a-z]+-(\d+)$/)?.[1];
+        const match = PALETTE_EXTRAS.has(name) ? null : name.match(/^--neo-palette-([a-z]+)-(\d+)$/);
 
-        if (grade === undefined) {
+        if (!match) {
             continue
         }
 
         const
-            parsed = color(name),
-            target = GRADE_LIGHTNESS[grade];
+            grade  = Number(match[2]),
+            parsed = color(name);
 
-        if (target === undefined) {
-            failures.add(`[grade] ${relPath} declares ${name}; ${grade} is not a grade of the lightness table`)
+        if (!GRADES.includes(grade)) {
+            failures.add(`[grade] ${relPath} declares ${name}; ${grade} is not one of the eleven grades`)
         } else if (!parsed) {
             failures.add(`[grade] ${relPath} ${name}: cannot read '${declarations.get(name)}' as a colour`)
-        } else if (Math.abs(parsed.lightness - target) > (parsed.literal ? TOLERANCE.literal : TOLERANCE.converted)) {
-            failures.add(
-                `[grade] ${relPath} ${name} has OKLCH lightness ${parsed.lightness.toFixed(3)}; ` +
-                `grade ${grade} is ${target.toFixed(3)} in every slot`
-            )
+        } else {
+            const entry = {grade, lightness: parsed.lightness, literal: parsed.literal, name};
+
+            for (const [group, key] of [[grades, grade], [slots, match[1]]]) {
+                group.has(key) ? group.get(key).push(entry) : group.set(key, [entry])
+            }
         }
+    }
+
+    for (const [grade, entries] of grades) {
+        const common = commonReading(entries);
+
+        for (const entry of entries) {
+            if (!sameLightness(entry, common)) {
+                failures.add(
+                    `[grade] ${relPath} ${entry.name} has OKLCH lightness ${entry.lightness.toFixed(3)}; grade ${grade} ` +
+                    `is ${common.lightness.toFixed(3)} in ${common.name}, and a grade has one lightness in every slot`
+                )
+            }
+        }
+    }
+
+    for (const entries of slots.values()) {
+        entries.sort((a, b) => a.grade - b.grade);
+
+        entries.forEach((entry, index) => {
+            const lighter = entries[index - 1];
+
+            if (lighter && entry.lightness >= lighter.lightness) {
+                failures.add(
+                    `[descent] ${relPath} ${entry.name} has OKLCH lightness ${entry.lightness.toFixed(3)}, not under ` +
+                    `${lighter.name} at ${lighter.lightness.toFixed(3)}; a slot's grades descend in lightness`
+                )
+            }
+        })
     }
 
     if (scheme !== 'light' && scheme !== 'dark') {
@@ -435,8 +491,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
 }
 
 /**
- * @summary Collects every palette failure under `root`: a grade off its table lightness, a pair under its
- * contrast floor, or a pair this check cannot measure.
+ * @summary Collects every palette failure under `root`: a grade that two slots read at different
+ * lightness, a slot that does not descend, a pair under its contrast floor, or a pair this check cannot measure.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
  * @returns {String[]}
@@ -455,7 +511,7 @@ if (isEntryModule(import.meta.url)) {
     }
 
     console.log(
-        `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; every grade at its ` +
-        `table lightness, ${CONTRAST_PAIRS.length} pairs at their floors.`
+        `✓ theme palette — ${palettes.length} palette(s): ${palettes.join(', ') || 'none'}; every grade at one ` +
+        `lightness across its slots, every slot descending, ${CONTRAST_PAIRS.length} pairs at their floors.`
     )
 }

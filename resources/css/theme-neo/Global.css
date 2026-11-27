@@ -168,6 +168,8 @@
     /* border */
     --neo-color-border-default              : light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-800));
     --neo-color-border-subtle               : light-dark(var(--neo-palette-neutral-100), var(--neo-palette-neutral-900));
+    /* border: an edge that has to be seen by itself, as on an outlined field. 3:1 on canvas and on field */
+    --neo-color-border-strong               : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-600));
     --neo-color-border-accent               : var(--neo-palette-accent-600);
     --neo-color-border-danger               : light-dark(var(--neo-palette-danger-600),  var(--neo-palette-danger-400));
     --neo-color-border-warning              : light-dark(var(--neo-palette-warning-600), var(--neo-palette-warning-400));
@@ -232,6 +234,8 @@
     --neo-radius-none                 : 0;
     --neo-radius-small                : 4px;
     --neo-radius-medium               : 8px;
+    --neo-radius-large                : 8px; /* this theme's scale ends at 8px; its two largest steps repeat it */
+    --neo-radius-extra-large          : 8px;
     --neo-radius-full                 : 9999px;
     --neo-border-width-thin           : 1px;
     --neo-border-width-thick          : 2px;

@@ -15,10 +15,10 @@ const
  * change each, so every arm measures a real palette and a planted fault is the only difference.
  */
 test.describe('check-theme-palette.mjs — grade lightness and contrast floors of a theme palette', () => {
-    let CONTRAST_PAIRS, SCAN_SURFACE, inspectThemePalettes, parseColor, resolveValue, source, tmpRoot;
+    let CONTRAST_PAIRS, GRADES, SCAN_SURFACE, inspectThemePalettes, parseColor, resolveValue, source, tmpRoot;
 
     test.beforeAll(async () => {
-        ({CONTRAST_PAIRS, SCAN_SURFACE, inspectThemePalettes, parseColor, resolveValue} = await import(modulePath));
+        ({CONTRAST_PAIRS, GRADES, SCAN_SURFACE, inspectThemePalettes, parseColor, resolveValue} = await import(modulePath));
         source = fs.readFileSync(liveGlobal, 'utf8')
     });
 
@@ -53,8 +53,20 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(failures).toEqual([]);
         expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
-        expect(CONTRAST_PAIRS).toHaveLength(35);
+        expect(CONTRAST_PAIRS).toHaveLength(37);
+        expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/*/Global.css'])
+    });
+
+    test('the strong border meets 3:1 on the canvas and on a field, in both schemes', () => {
+        const {failures} = plant(css => setRole(css, '--neo-color-border-strong',
+            'light-dark(var(--neo-palette-neutral-400), var(--neo-palette-neutral-700))'));
+
+        expect(failures).toHaveLength(4);
+
+        for (const failure of failures) {
+            expect(failure).toMatch(/--neo-color-border-strong on --neo-color-background-(canvas|field) is \d\.\d\d:1; the floor is 3:1$/)
+        }
     });
 
     test('a text role under its floor fails in the scheme where it is weak, with the measured ratio', () => {
@@ -69,21 +81,41 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         }
     });
 
-    test('a grade off its table lightness fails, and the same colour written as hex passes', () => {
+    test('a grade that one slot paints at another lightness fails, and the same colour written as hex passes', () => {
         const off = plant(css => css.replace(/(--neo-palette-accent-600\s*:\s*)oklch\(0\.544/, '$1oklch(0.560'));
 
-        expect(off.failures).toContainEqual(expect.stringMatching(
-            /^\[grade\] resources\/css\/theme-neo\/Global\.css --neo-palette-accent-600 has OKLCH lightness 0\.560; grade 600 is 0\.544/
-        ));
+        expect(off.failures).toContainEqual(
+            '[grade] resources/css/theme-neo/Global.css --neo-palette-accent-600 has OKLCH lightness 0.560; ' +
+            'grade 600 is 0.544 in --neo-palette-neutral-600, and a grade has one lightness in every slot'
+        );
 
         expect(plant(css => setRole(css, '--neo-palette-accent-600', '#3e63dd')).failures).toEqual([])
     });
 
-    test('a grade outside the table fails, and the eight extras are not read as grades', () => {
+    test('a palette with lightness numbers of its own passes when every slot shares them', () => {
+        const {failures} = plant(css => css.replaceAll('oklch(0.790 ', 'oklch(0.800 '));
+
+        expect(failures).toEqual([])
+    });
+
+    test('a slot whose grades do not descend in lightness fails, once per slot', () => {
+        const
+            {failures} = plant(css => css.replaceAll('oklch(0.470 ', 'oklch(0.550 ')),
+            descent    = failures.filter(failure => failure.startsWith('[descent]'));
+
+        expect(failures.some(failure => failure.startsWith('[grade]'))).toBe(false);
+        expect(descent).toHaveLength(7);
+        expect(descent).toContain(
+            '[descent] resources/css/theme-neo/Global.css --neo-palette-accent-700 has OKLCH lightness 0.550, ' +
+            'not under --neo-palette-accent-600 at 0.544; a slot\'s grades descend in lightness'
+        )
+    });
+
+    test('a grade outside the eleven fails, and the eight extras are not read as grades', () => {
         const {failures} = plant(css => css.replace('--neo-palette-accent-600', '--neo-palette-accent-550: oklch(0.58 0.18 267);\n    --neo-palette-accent-600'));
 
         expect(failures).toEqual([
-            '[grade] resources/css/theme-neo/Global.css declares --neo-palette-accent-550; 550 is not a grade of the lightness table'
+            '[grade] resources/css/theme-neo/Global.css declares --neo-palette-accent-550; 550 is not one of the eleven grades'
         ])
     });
 
