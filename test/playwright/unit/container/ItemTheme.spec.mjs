@@ -228,6 +228,49 @@ test.describe('Neo.container.Base — an adopted instance takes the container\'s
         }
     });
 
+    test('a retained subtree clears inherited themes when its destination has no local theme', () => {
+        const light   = Neo.create(Container, {appName, theme: 'neo-theme-neo-light'}),
+              staging = Neo.create(Container, {appName}),
+              tab     = Neo.create(Container, {
+                  appName,
+                  items: [
+                      {module: Container, items: [{module: Component}]},
+                      {module: Component, theme: 'neo-theme-light'}
+                  ]
+              });
+
+        try {
+            light.add(tab);
+
+            const [header, explicit] = tab.items,
+                  [close]            = header.items;
+
+            expect(tab.theme).toBe('neo-theme-neo-light');
+            expect(header.theme).toBe('neo-theme-neo-light');
+            expect(close.theme).toBe('neo-theme-neo-light');
+
+            light.remove(tab, false, true, true);
+            staging.insert(0, tab, true, false);
+
+            expect(tab.theme).toBeNull();
+            expect(header.theme, 'the old inherited theme leaves the retained header').toBeNull();
+            expect(close.theme, 'the old inherited theme leaves the retained action').toBeNull();
+
+            staging.theme = 'neo-theme-neo-dark';
+
+            expect(staging.items[0]).toBe(tab);
+            expect(tab.items[0]).toBe(header);
+            expect(header.items[0]).toBe(close);
+            expect(tab.getTheme()).toBe('neo-theme-neo-dark');
+            expect(header.getTheme()).toBe('neo-theme-neo-dark');
+            expect(close.getTheme()).toBe('neo-theme-neo-dark');
+            expect(explicit.getTheme()).toBe('neo-theme-light')
+        } finally {
+            staging.destroy();
+            light.destroy()
+        }
+    });
+
     test('an adopted instance carrying its own theme keeps it', () => {
         container = Neo.create(Container, {appName, theme: 'neo-theme-neo-dark'});
 

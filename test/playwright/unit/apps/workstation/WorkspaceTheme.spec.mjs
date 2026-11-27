@@ -44,7 +44,8 @@ test.describe('Workstation retained-pane themes', () => {
             await workspace.onDockZoneDocumentChange(result.document);
             await workspace.refreshPromise;
             expect(workspace.paneCache.scale).toBe(pane);
-            expect(pane.theme).toBe(light);
+            expect(pane.getParents()).toContain(workspace);
+            expect(pane.getTheme(), 'the pane still resolves the light scope immediately after the split').toBe(light);
             expect(custom.theme).toBe(explicit);
 
             expect(workspace.setWorkspaceTheme(dark)).toBe(dark);
