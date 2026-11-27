@@ -1,0 +1,261 @@
+/*
+ * Theme Neo: palette and roles, light and dark in one file.
+ *
+ * Three kinds of names, told apart by shape:
+ *   --neo-palette-<slot>-<grade>             raw material. Only this file reads it.
+ *   --neo-<category>-<role>[-<state>]        meaning. The only thing a component variable binds to.
+ *   --neo-<component>[-<variant>][-<part>]-<css-property>[-<state>]   usage, in theme-base. The only thing a rule reads.
+ *
+ * One direction: rule -> component variable -> role -> palette.
+ * A slot is a function, never a hue, so every theme defines these names and an override written once works on all.
+ * A grade has the same lightness in every slot (the table below). Contrast is measured per palette (the contrast
+ * check), never read off the grade distance: OKLCH lightness is not luminance.
+ * light-dark(a, b) picks by the scheme of the element that paints, so a nested dark island needs color-scheme only.
+ */
+.neo-theme-neo-light {--neo-color-scheme: light}
+.neo-theme-neo-dark  {--neo-color-scheme: dark}
+
+.neo-theme-neo-light, .neo-theme-neo-dark {
+    /* ── Palette ──────────────────────────────────────────────────────────────────────────────────────────
+       grade      50    100   200   300   400   500   600   700   800   900   950
+       lightness  0.985 0.960 0.875 0.790 0.700 0.610 0.544 0.470 0.390 0.280 0.168   (OKLCH) */
+    --neo-palette-white               : #fff;
+    --neo-palette-black               : #000;
+    /* shade darkens what is under it, tint lightens it */
+    --neo-palette-shade-1             : rgb(0 0 0 / .05);
+    --neo-palette-shade-2             : rgb(0 0 0 / .1);
+    --neo-palette-shade-3             : rgb(0 0 0 / .16);
+    --neo-palette-shade-4             : rgb(0 0 0 / .5);
+    --neo-palette-tint-1              : rgb(255 255 255 / .05);
+    --neo-palette-tint-2              : rgb(255 255 255 / .1);
+
+    /* neutral: surfaces, text, lines */
+    --neo-palette-neutral-50          : oklch(0.985 0.002 270.0); /* #f9fafb */
+    --neo-palette-neutral-100         : oklch(0.960 0.004 270.0); /* #f1f2f4 */
+    --neo-palette-neutral-200         : oklch(0.875 0.012 270.0); /* #d3d6de */
+    --neo-palette-neutral-300         : oklch(0.790 0.021 270.0); /* #b5bac9 */
+    --neo-palette-neutral-400         : oklch(0.700 0.031 270.0); /* #979eb2 */
+    --neo-palette-neutral-500         : oklch(0.610 0.040 270.0); /* #7a839c */
+    --neo-palette-neutral-600         : oklch(0.544 0.042 270.0); /* #666f89 */
+    --neo-palette-neutral-700         : oklch(0.470 0.040 270.0); /* #525a72 */
+    --neo-palette-neutral-800         : oklch(0.390 0.034 270.0); /* #3e4458 */
+    --neo-palette-neutral-900         : oklch(0.280 0.022 270.0); /* #252834 */
+    --neo-palette-neutral-950         : oklch(0.168 0.008 270.0); /* #0e0f13 */
+
+    /* accent: actions, selection, focus, links */
+    --neo-palette-accent-50           : oklch(0.985 0.007 267.0); /* #f8faff */
+    --neo-palette-accent-100          : oklch(0.960 0.019 267.0); /* #ecf2ff */
+    --neo-palette-accent-200          : oklch(0.875 0.061 267.0); /* #c4d6ff */
+    --neo-palette-accent-300          : oklch(0.790 0.105 267.0); /* #9cb9ff */
+    --neo-palette-accent-400          : oklch(0.700 0.150 267.0); /* #7499fb */
+    --neo-palette-accent-500          : oklch(0.610 0.180 267.0); /* #537aee */
+    --neo-palette-accent-600          : oklch(0.544 0.191 267.0); /* #3e63dd */
+    --neo-palette-accent-700          : oklch(0.470 0.170 267.0); /* #304fb8 */
+    --neo-palette-accent-800          : oklch(0.390 0.140 267.0); /* #233c8f */
+    --neo-palette-accent-900          : oklch(0.280 0.095 267.0); /* #142457 */
+    --neo-palette-accent-950          : oklch(0.168 0.050 267.0); /* #060d24 */
+
+    /* brand: identity marks; a theme without one repeats accent */
+    --neo-palette-brand-50            : oklch(0.985 0.022 161.0); /* #eefff5 */
+    --neo-palette-brand-100           : oklch(0.960 0.060 161.0); /* #d0ffe5 */
+    --neo-palette-brand-200           : oklch(0.875 0.170 161.0); /* #51f8b1 */
+    --neo-palette-brand-300           : oklch(0.790 0.170 161.0); /* #22db96 */
+    --neo-palette-brand-400           : oklch(0.700 0.156 161.0); /* #00bb7e */
+    --neo-palette-brand-500           : oklch(0.610 0.136 161.0); /* #009b68 */
+    --neo-palette-brand-600           : oklch(0.544 0.121 161.0); /* #008558 */
+    --neo-palette-brand-700           : oklch(0.470 0.105 161.0); /* #006c47 */
+    --neo-palette-brand-800           : oklch(0.390 0.087 161.0); /* #005335 */
+    --neo-palette-brand-900           : oklch(0.280 0.060 161.0); /* #03321f */
+    --neo-palette-brand-950           : oklch(0.168 0.035 161.0); /* #01140a */
+
+    /* danger: errors, destructive actions */
+    --neo-palette-danger-50           : oklch(0.985 0.007 26.0); /* #fff8f7 */
+    --neo-palette-danger-100          : oklch(0.960 0.020 26.0); /* #ffedeb */
+    --neo-palette-danger-200          : oklch(0.875 0.065 26.0); /* #fec6c0 */
+    --neo-palette-danger-300          : oklch(0.790 0.110 26.0); /* #f99e95 */
+    --neo-palette-danger-400          : oklch(0.700 0.150 26.0); /* #ed756c */
+    --neo-palette-danger-500          : oklch(0.610 0.190 26.0); /* #de4642 */
+    --neo-palette-danger-600          : oklch(0.544 0.200 26.0); /* #ca2429 */
+    --neo-palette-danger-700          : oklch(0.470 0.170 26.0); /* #a51e21 */
+    --neo-palette-danger-800          : oklch(0.390 0.140 26.0); /* #801618 */
+    --neo-palette-danger-900          : oklch(0.280 0.090 26.0); /* #4c100f */
+    --neo-palette-danger-950          : oklch(0.168 0.050 26.0); /* #200504 */
+
+    /* warning: alerts that need attention */
+    --neo-palette-warning-50          : oklch(0.985 0.011 70.0); /* #fff9f3 */
+    --neo-palette-warning-100         : oklch(0.960 0.029 70.0); /* #ffefdd */
+    --neo-palette-warning-200         : oklch(0.875 0.096 70.0); /* #ffcb8f */
+    --neo-palette-warning-300         : oklch(0.790 0.140 70.0); /* #f3a949 */
+    --neo-palette-warning-400         : oklch(0.700 0.152 70.0); /* #d98b00 */
+    --neo-palette-warning-500         : oklch(0.610 0.132 70.0); /* #b57300 */
+    --neo-palette-warning-600         : oklch(0.544 0.118 70.0); /* #9b6100 */
+    --neo-palette-warning-700         : oklch(0.470 0.102 70.0); /* #7e4f00 */
+    --neo-palette-warning-800         : oklch(0.390 0.085 70.0); /* #613b00 */
+    --neo-palette-warning-900         : oklch(0.280 0.061 70.0); /* #3c2200 */
+    --neo-palette-warning-950         : oklch(0.168 0.038 70.0); /* #190b00 */
+
+    /* success: confirmations */
+    --neo-palette-success-50          : oklch(0.985 0.015 150.0); /* #f3fdf5 */
+    --neo-palette-success-100         : oklch(0.960 0.040 150.0); /* #e0fae4 */
+    --neo-palette-success-200         : oklch(0.875 0.090 150.0); /* #abe7b7 */
+    --neo-palette-success-300         : oklch(0.790 0.140 150.0); /* #72d48a */
+    --neo-palette-success-400         : oklch(0.700 0.170 150.0); /* #37bb62 */
+    --neo-palette-success-500         : oklch(0.610 0.168 150.0); /* #009e48 */
+    --neo-palette-success-600         : oklch(0.544 0.150 150.0); /* #00873c */
+    --neo-palette-success-700         : oklch(0.470 0.130 150.0); /* #006e30 */
+    --neo-palette-success-800         : oklch(0.390 0.105 150.0); /* #045424 */
+    --neo-palette-success-900         : oklch(0.280 0.070 150.0); /* #063215 */
+    --neo-palette-success-950         : oklch(0.168 0.040 150.0); /* #021406 */
+
+    /* info: neutral notices */
+    --neo-palette-info-50             : oklch(0.985 0.008 240.0); /* #f6fbff */
+    --neo-palette-info-100            : oklch(0.960 0.021 240.0); /* #e6f4ff */
+    --neo-palette-info-200            : oklch(0.875 0.060 240.0); /* #b3dcfa */
+    --neo-palette-info-300            : oklch(0.790 0.095 240.0); /* #80c3f2 */
+    --neo-palette-info-400            : oklch(0.700 0.125 240.0); /* #49a8e4 */
+    --neo-palette-info-500            : oklch(0.610 0.140 240.0); /* #008cce */
+    --neo-palette-info-600            : oklch(0.544 0.125 240.0); /* #0077b0 */
+    --neo-palette-info-700            : oklch(0.470 0.108 240.0); /* #006191 */
+    --neo-palette-info-800            : oklch(0.390 0.090 240.0); /* #004a70 */
+    --neo-palette-info-900            : oklch(0.280 0.064 240.0); /* #002c45 */
+    --neo-palette-info-950            : oklch(0.168 0.039 240.0); /* #00111e */
+
+    /* ── Colour roles ─────────────────────────────────────────────────────────────────────────────────────
+       The second word is what the role paints, and it is the property a component variable ends with:
+       …-background-color binds to background, …-color to text, …-border-color to border. */
+
+    /* background: regions */
+    --neo-color-background-canvas           : light-dark(var(--neo-palette-neutral-50),  var(--neo-palette-neutral-950));
+    --neo-color-background-surface          : light-dark(var(--neo-palette-neutral-50),  var(--neo-palette-neutral-950));
+    --neo-color-background-surface-raised   : light-dark(var(--neo-palette-white),       var(--neo-palette-neutral-900));
+    --neo-color-background-field            : light-dark(var(--neo-palette-white),       var(--neo-palette-neutral-950));
+    --neo-color-background-inverse          : light-dark(var(--neo-palette-neutral-950), var(--neo-palette-neutral-50));
+    /* background: what dims the page under a modal surface */
+    --neo-color-background-scrim            : light-dark(var(--neo-palette-shade-3),     var(--neo-palette-shade-4));
+    /* background: a neutral control. Translucent, so one value works on every region */
+    --neo-color-background-neutral-hover    : light-dark(var(--neo-palette-shade-1),     var(--neo-palette-tint-1));
+    --neo-color-background-neutral-active   : light-dark(var(--neo-palette-shade-2),     var(--neo-palette-tint-2));
+    --neo-color-background-disabled         : light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-900));
+    /* background: accent. Solid fills are the same in both schemes; hover and active are the next grades */
+    --neo-color-background-accent           : var(--neo-palette-accent-600);
+    --neo-color-background-accent-hover     : var(--neo-palette-accent-700);
+    --neo-color-background-accent-active    : var(--neo-palette-accent-800);
+    --neo-color-background-accent-subtle    : light-dark(var(--neo-palette-accent-100),  var(--neo-palette-accent-900));
+    /* background: the selected row, the pressed button. Default text stays on it */
+    --neo-color-background-selected         : light-dark(var(--neo-palette-accent-200),  var(--neo-palette-accent-900));
+    /* background: tinted regions for identity marks and the four statuses */
+    --neo-color-background-brand-subtle     : light-dark(var(--neo-palette-brand-100),   var(--neo-palette-brand-900));
+    --neo-color-background-danger-subtle    : light-dark(var(--neo-palette-danger-100),  var(--neo-palette-danger-900));
+    --neo-color-background-warning-subtle   : light-dark(var(--neo-palette-warning-100), var(--neo-palette-warning-900));
+    --neo-color-background-success-subtle   : light-dark(var(--neo-palette-success-100), var(--neo-palette-success-900));
+    --neo-color-background-info-subtle      : light-dark(var(--neo-palette-info-100),    var(--neo-palette-info-900));
+
+    /* text: icons and glyphs take text roles too */
+    --neo-color-text-default                : light-dark(var(--neo-palette-neutral-950), var(--neo-palette-neutral-100));
+    --neo-color-text-strong                 : light-dark(var(--neo-palette-black),       var(--neo-palette-white));
+    --neo-color-text-muted                  : light-dark(var(--neo-palette-neutral-800), var(--neo-palette-neutral-400));
+    --neo-color-text-subtle                 : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-500));
+    --neo-color-text-disabled               : light-dark(var(--neo-palette-neutral-300), var(--neo-palette-neutral-600));
+    --neo-color-text-inverse                : light-dark(var(--neo-palette-white),       var(--neo-palette-black));
+    --neo-color-text-accent                 : light-dark(var(--neo-palette-accent-600),  var(--neo-palette-accent-400));
+    --neo-color-text-on-accent              : var(--neo-palette-white);
+    --neo-color-text-brand                  : light-dark(var(--neo-palette-brand-700),   var(--neo-palette-brand-200));
+    --neo-color-text-danger                 : light-dark(var(--neo-palette-danger-700),  var(--neo-palette-danger-300));
+    --neo-color-text-warning                : light-dark(var(--neo-palette-warning-700), var(--neo-palette-warning-300));
+    --neo-color-text-success                : light-dark(var(--neo-palette-success-700), var(--neo-palette-success-300));
+    --neo-color-text-info                   : light-dark(var(--neo-palette-info-700),    var(--neo-palette-info-300));
+
+    /* border */
+    --neo-color-border-default              : light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-800));
+    --neo-color-border-subtle               : light-dark(var(--neo-palette-neutral-100), var(--neo-palette-neutral-900));
+    /* border: an edge that has to be seen by itself, as on an outlined field. 3:1 on canvas and on field */
+    --neo-color-border-strong               : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-600));
+    --neo-color-border-accent               : var(--neo-palette-accent-600);
+    --neo-color-border-danger               : light-dark(var(--neo-palette-danger-600),  var(--neo-palette-danger-400));
+    --neo-color-border-warning              : light-dark(var(--neo-palette-warning-600), var(--neo-palette-warning-400));
+    --neo-color-border-success              : light-dark(var(--neo-palette-success-600), var(--neo-palette-success-400));
+    --neo-color-border-info                 : light-dark(var(--neo-palette-info-600),    var(--neo-palette-info-400));
+
+    /* focus and shadow. The ring keeps a raised surface's edge visible on a dark canvas */
+    --neo-color-focus-ring                  : light-dark(var(--neo-palette-accent-600),  var(--neo-palette-accent-400));
+    --neo-color-shadow                      : light-dark(var(--neo-palette-shade-3),     var(--neo-palette-shade-4));
+    --neo-color-shadow-ring                 : light-dark(transparent,                    var(--neo-palette-tint-2));
+
+    /* ── Space: step × 4px. An index survives a density change, a pixel name does not ─────────────────── */
+    --neo-space-0-5                   : 2px;
+    --neo-space-1                     : 4px;
+    --neo-space-2                     : 8px;
+    --neo-space-3                     : 12px;
+    --neo-space-4                     : 16px;
+    --neo-space-5                     : 20px;
+    --neo-space-6                     : 24px;
+    --neo-space-8                     : 32px;
+    --neo-space-10                    : 40px;
+    --neo-space-12                    : 48px;
+    --neo-space-16                    : 64px;
+    --neo-space-20                    : 80px;
+    --neo-space-24                    : 96px;
+
+    /* ── Control: one sizing family for button, field, tab, toolbar item and row.
+          A density class re-values this family and nothing else ──────────────────────────────────────── */
+    --neo-control-height-small        : 24px;
+    --neo-control-height-medium       : 32px;
+    --neo-control-height-large        : 48px;
+    --neo-control-padding-inline-small: var(--neo-space-2);
+    --neo-control-padding-inline-medium: var(--neo-space-3);
+    --neo-control-padding-inline-large: var(--neo-space-4);
+    --neo-control-font-size-small     : var(--neo-font-size-caption);
+    --neo-control-font-size-medium    : var(--neo-font-size-small);
+    --neo-control-font-size-large     : var(--neo-font-size-body);
+    --neo-control-gap                 : var(--neo-space-1);
+    --neo-control-radius              : var(--neo-radius-medium);
+    --neo-control-border-width        : var(--neo-border-width-thin);
+
+    /* ── Type: one variable per property, never a font shorthand ──────────────────────────────────────── */
+    --neo-font-family-sans            : 'Source Sans 3', sans-serif;
+    --neo-font-family-mono            : 'Source Code Pro', monospace;
+    --neo-font-smoothing              : antialiased;
+    --neo-font-weight-regular         : 400;
+    --neo-font-weight-medium          : 500;
+    --neo-font-weight-semibold        : 600;
+    --neo-font-weight-bold            : 700;
+    --neo-font-size-caption           : 0.75rem;
+    --neo-font-size-small             : 0.875rem;
+    --neo-font-size-body              : 1rem;
+    --neo-font-size-code              : 0.875rem;
+    --neo-font-size-heading-3         : 1.25rem;
+    --neo-font-size-heading-2         : 1.75rem;
+    --neo-font-size-heading-1         : 2.5rem;
+    --neo-line-height-tight           : 1.2;
+    --neo-line-height-normal          : 1.5;
+    --neo-letter-spacing-heading      : -0.02em;
+
+    /* ── Shape ────────────────────────────────────────────────────────────────────────────────────────── */
+    --neo-radius-none                 : 0;
+    --neo-radius-small                : 4px;
+    --neo-radius-medium               : 8px;
+    --neo-radius-large                : 8px; /* this theme's scale ends at 8px; its two largest steps repeat it */
+    --neo-radius-extra-large          : 8px;
+    --neo-radius-full                 : 9999px;
+    --neo-border-width-thin           : 1px;
+    --neo-border-width-thick          : 2px;
+    --neo-focus-ring-width            : 2px;
+    --neo-focus-ring-offset           : -2px;
+    --neo-opacity-disabled            : 0.5;
+
+    /* ── Elevation: a ring and a shadow, both colours, so light-dark() carries the scheme ──────────────── */
+    --neo-elevation-0                 : none;
+    --neo-elevation-1                 : 0 0 0 1px var(--neo-color-shadow-ring), 0 1px 2px var(--neo-color-shadow);
+    --neo-elevation-2                 : 0 0 0 1px var(--neo-color-shadow-ring), 0 4px 16px var(--neo-color-shadow);
+    --neo-elevation-3                 : 0 0 0 1px var(--neo-color-shadow-ring), 0 12px 32px var(--neo-color-shadow);
+    --neo-elevation-4                 : 0 0 0 1px var(--neo-color-shadow-ring), 0 12px 32px var(--neo-color-shadow), 0 30px 80px -24px var(--neo-color-shadow);
+
+    /* ── Motion: today's vocabulary under its new names. Reduced motion is collapsed once, in src ──────── */
+    --neo-duration-fast               : 120ms; /* hover and press feedback */
+    --neo-duration-base               : 200ms; /* state changes: chips, badges, fills */
+    --neo-duration-panel              : 280ms; /* panels, panes, dock snaps */
+    --neo-duration-stage              : 400ms; /* window-level choreography */
+    --neo-duration-stagger            : 24ms;  /* per item of a list entrance, eight at most */
+    --neo-ease-out                    : cubic-bezier(0.22, 1, 0.36, 1);   /* entering, settling */
+    --neo-ease-in                     : cubic-bezier(0.55, 0, 0.55, 0.2); /* leaving */
+}

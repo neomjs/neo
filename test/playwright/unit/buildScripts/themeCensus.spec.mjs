@@ -37,7 +37,8 @@ const
         // a block's last declaration without its `;`
         'src/component/Timer.css'        : '@keyframes t {\n    to {\n        --neo-timer-current: 0\n    }\n}\n.neo-timer {width: var(--neo-timer-current);}',
         'src/apps/demo/Main.css'         : '.demo-main {color: var(--app-ghost)}',
-        'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--neo-gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px;}',
+        // one palette name and three roles: a role a component value reads, one a role reads, one nothing reads
+        'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--neo-gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px; --neo-palette-white: #fff; --neo-color-text-default: #dddddd; --neo-space-2: 8px; --neo-control-gap: var(--neo-space-2);}',
         'theme-x-dark/apps/demo/Main.css': ':where(.neo-theme-x-dark) {--demo-panel-bg: #101010;}',
         'theme-x-dark/button/Base.css'   : [
             ':where(.neo-theme-x-dark) {',
@@ -47,11 +48,12 @@ const
             '    --button-gap                : var(--neo-gray-100);',
             '    --button-color-hover        : var(--widget-text-color);',
             '    --button-focus-outline-width: 2px;',
+            '    --neo-button-glyph-color    : var(--neo-color-text-default);',
             '    /* --button-ghost: 1px; */',
             '}'
         ].join('\n'),
         'theme-x-dark/button/Split.css': ':where(.neo-theme-x-dark) .neo-split-button {--widget-text-color: #000000;}',
-        'theme-x-light/Global.css'     : ':where(.neo-theme-x-light) {--neo-gray-100: #eeeeee; --sem-surface: #fafafa; --sem-unused: #333333; --cmp-radius: 4px;}',
+        'theme-x-light/Global.css'     : ':where(.neo-theme-x-light) {--neo-gray-100: #eeeeee; --sem-surface: #fafafa; --sem-unused: #333333; --cmp-radius: 4px; --neo-palette-white: #fff; --neo-color-text-default: #222222; --neo-space-2: 8px; --neo-control-gap: var(--neo-space-2);}',
         'theme-x-light/button/Base.css': [
             ':where(.neo-theme-x-light) {',
             '    --neo-button-background-color: var(--sem-surface);',
@@ -59,6 +61,7 @@ const
             '    --neo-button-border-radius   : var(--cmp-radius);',
             '    --button-gap             : var(--neo-gray-100);',
             '    --button-color-hover     : var(--widget-text-color);',
+            '    --neo-button-glyph-color : var(--neo-color-text-default);',
             '    --button-light-only      : 1px;',
             '}'
         ].join('\n'),
@@ -89,9 +92,10 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
             {RUNTIME_PROPERTIES} = await import('../../../../buildScripts/util/themeCss.mjs'),
             census               = collect();
 
+        // Two folders serve each Neo class while its packages move, so that pair is keyed by class
         expect(census.pairs).toEqual([
-            expect.objectContaining({dark: 'theme-dark',     light: 'theme-light'}),
-            expect.objectContaining({dark: 'theme-neo-dark', light: 'theme-neo-light'})
+            expect.objectContaining({dark: 'neo-theme-neo-dark', light: 'neo-theme-neo-light'}),
+            expect.objectContaining({dark: 'theme-dark',         light: 'theme-light'})
         ]);
         expect(Object.values(census.themes).flatMap(theme => Object.values(theme.unresolved).flat()).filter(name => name in RUNTIME_PROPERTIES)).toEqual([]);
 
@@ -111,14 +115,14 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         const theme = collect({root, runtimeProperties: runtime}).themes['theme-x-dark'];
 
         expect(theme.files).toEqual({engine: 3, apps: 1, examples: 0});
-        expect(theme.properties.engine).toEqual({palette: 1, sem: 2, cmp: 1, component: 6, total: 10});
-        expect(theme.properties.apps).toEqual({palette: 0, sem: 0, cmp: 0, component: 1, total: 1});
+        expect(theme.properties.engine).toEqual({palette: 2, role: 3, sem: 2, cmp: 1, component: 7, total: 15});
+        expect(theme.properties.apps).toEqual({palette: 0, role: 0, sem: 0, cmp: 0, component: 1, total: 1});
         expect(theme.redeclared.engine).toEqual({count: 1, conflicting: ['--widget-text-color']});
     });
 
     test('2: an engine component value is made of a role, a component token, the palette, another variable or a literal; the first declaration in file order counts', () => {
         expect(collect({root, runtimeProperties: runtime}).themes['theme-x-dark'].composition).toEqual({
-            sem: 1, cmp: 1, palette: 1, variable: 1, colourLiteral: 1, literal: 1, total: 6
+            role: 1, sem: 1, cmp: 1, palette: 1, variable: 1, colourLiteral: 1, literal: 1, total: 7
         });
     });
 
@@ -127,26 +131,28 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
             dark  : 'theme-x-dark',
             light : 'theme-x-light',
             layers: {
-                palette  : {shared: 1, identical: 0, differ: 1, onlyDark: 0, onlyLight: 0},
+                palette  : {shared: 2, identical: 1, differ: 1, onlyDark: 0, onlyLight: 0},
+                role     : {shared: 3, identical: 2, differ: 1, onlyDark: 0, onlyLight: 0},
                 sem      : {shared: 2, identical: 1, differ: 1, onlyDark: 0, onlyLight: 0},
                 cmp      : {shared: 1, identical: 1, differ: 0, onlyDark: 0, onlyLight: 0},
-                component: {shared: 5, identical: 4, differ: 1, onlyDark: 1, onlyLight: 1}
+                component: {shared: 6, identical: 5, differ: 1, onlyDark: 1, onlyLight: 1}
             }
         }]);
     });
 
     test('4: the component names every full theme declares; a theme without a sibling is not full', () => {
-        expect(collect({root, runtimeProperties: runtime}).shared).toEqual({themes: ['theme-x-dark', 'theme-x-light'], component: 5});
+        expect(collect({root, runtimeProperties: runtime}).shared).toEqual({themes: ['theme-x-dark', 'theme-x-light'], component: 6});
     });
 
-    test('5: declarations no CSS under the root reads, per area and layer', () => {
+    test('5: declarations no CSS under the root reads, per area and layer; a role without a reader is one', () => {
         const {unread} = collect({root, runtimeProperties: runtime}).themes['theme-x-dark'];
 
         expect(unread.engine).toEqual({
-            palette  : [],
+            palette  : ['--neo-palette-white'],
+            role     : ['--neo-control-gap'],
             sem      : ['--sem-unused'],
             cmp      : [],
-            component: ['--button-color-hover', '--button-focus-outline-width', '--button-gap', '--neo-button-border-radius']
+            component: ['--button-color-hover', '--button-focus-outline-width', '--button-gap', '--neo-button-border-radius', '--neo-button-glyph-color']
         });
         expect(unread.apps.component).toEqual(['--demo-panel-bg']);
     });
@@ -171,7 +177,7 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         expect(collect({root, runtimeProperties: runtime}).themes['theme-x-dark'].naming).toEqual({
             background: {'background-color': 1},
             text      : {'text-color': 1, color: 1},
-            icon      : {},
+            icon      : {'glyph-color': 1},
             state     : {last: 1, elsewhere: 1}
         });
     });
@@ -189,7 +195,7 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
     test('CLI: --json prints the object for the tree --root names', () => {
         const census = JSON.parse(execFileSync(process.execPath, [cli, '--json', '--root', root], {encoding: 'utf8'}));
 
-        expect(census.shared).toEqual({themes: ['theme-x-dark', 'theme-x-light'], component: 5});
+        expect(census.shared).toEqual({themes: ['theme-x-dark', 'theme-x-light'], component: 6});
     });
 
     test('FAILS CLOSED: a root without src/ or theme directories throws, never an empty census', () => {

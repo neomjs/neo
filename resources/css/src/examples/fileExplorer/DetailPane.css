@@ -39,7 +39,7 @@
     }
 
     .fe-detail-path {
-        font-family: var(--neo-font-family-mono, ui-monospace, monospace);
+        font-family: ui-monospace, monospace;
         font-size  : 13px;
         margin     : 8px 0 18px;
         opacity    : 0.75;

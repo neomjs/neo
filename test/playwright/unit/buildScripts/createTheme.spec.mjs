@@ -7,6 +7,7 @@ import path                        from 'node:path';
 import {fileURLToPath}             from 'node:url';
 import postcss                     from 'postcss';
 import {generateTheme, listThemes} from '../../../../buildScripts/create/theme.mjs';
+import {extractThemeClasses}       from '../../../../buildScripts/util/themeCss.mjs';
 
 const repoRoot      = fileURLToPath(new URL('../../../../', import.meta.url)),
       createPath    = path.join(repoRoot, 'buildScripts/create/theme.mjs'),
@@ -25,12 +26,12 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
 
     const read = file => fs.readFileSync(file, 'utf8');
 
-    const cssShape = (css, from, to) => {
+    const cssShape = (css, retarget) => {
         const ast = postcss.parse(css);
 
-        if (from) {
+        if (retarget) {
             ast.walkRules(rule => {
-                rule.selector = rule.selector.replace(/\.[a-zA-Z_][\w-]*/g, token => token === `.${from}` ? `.${to}` : token);
+                rule.selector = rule.selector.replace(/\.[a-zA-Z_][\w-]*/g, token => retarget.has(token.slice(1)) ? `.${retarget.get(token.slice(1))}` : token);
             });
         }
 
@@ -212,21 +213,28 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
     });
 
     for (const baseTheme of shippedThemes) {
-        test(`every ${baseTheme} sheet keeps its shape with only the exact theme class retargeted`, () => {
+        test(`every ${baseTheme} sheet keeps its shape with only its theme classes retargeted`, () => {
             const base = path.join(engineRoot, 'resources/css', baseTheme);
             fs.cpSync(path.join(repoRoot, 'resources/css', baseTheme), base, {recursive: true});
             generate({baseTheme});
 
             const target    = path.join(cssRoot, 'theme-acme'),
                   entries   = folder => snapshot(folder).map(([file]) => file).filter(file => file.endsWith('.css')),
-                  originals = entries(base);
+                  originals = entries(base),
+                  // One class becomes the new theme's class; a folder that declares a light and a dark class keeps each scheme suffix
+                  classes   = extractThemeClasses(read(path.join(base, 'Global.css'))),
+                  retarget  = new Map(classes.map(name => [
+                      name,
+                      classes.length === 1 ? 'neo-theme-acme' : `neo-theme-acme-${name.match(/(light|dark)$/)[1]}`
+                  ]));
 
             expect(originals.length).toBeGreaterThan(0);
+            expect(classes.length).toBeGreaterThan(0);
             expect(entries(target)).toEqual(originals);
 
             for (const entry of originals) {
                 expect(cssShape(read(path.join(target, entry))), `${baseTheme}/${entry}`).toEqual(
-                    cssShape(read(path.join(base, entry)), `neo-${baseTheme}`, 'neo-theme-acme')
+                    cssShape(read(path.join(base, entry)), retarget)
                 );
             }
         });
