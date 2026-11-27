@@ -202,9 +202,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         id                 : 'theme-switcher',
         package            : 'button',
         cellId             : 'theme-switcher',
-        stateTargetSelector: '.neo-theme-switcher',
+        stateTargetSelector: '.neo-themeswitcher',
         states             : ['default', 'hover', 'active', 'focus'],
-        parts              : ['.neo-theme-switcher', '.neo-button-glyph']
+        parts              : ['.neo-themeswitcher', '.neo-button-glyph']
     },
     // calendar
     {
