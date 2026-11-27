@@ -145,6 +145,55 @@ test.describe('buildScripts/util/theme-equality', () => {
         expect(() => collectThemeStylesheetUrls(fromRepoRoot, 'neo-theme-missing')).toThrow(/resolved insufficient theme stylesheets/)
     });
 
+    test('collectThemeStylesheetUrls mounts only the sheets a theme map with the Neo class tree names, as the runtime requests', () => {
+        const root   = makeTempDir(),
+              cssDir = path.join(root, 'dist/development/css');
+
+        fs.mkdirSync(path.join(root, 'src'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'src/Neo.mjs'), 'export default {};\n');
+
+        const write = rel => {
+            const full = path.join(cssDir, rel);
+            fs.mkdirSync(path.dirname(full), {recursive: true});
+            fs.writeFileSync(full, '/* css */')
+        };
+
+        write('src/Global.css');
+        write('src/button/Base.css');
+        write('src/examples/button/base/MainContainer.css');
+        write('theme-neo/Global.css');
+        write('theme-neo/button/Base.css');
+
+        // Built sheets whose sources are gone: no leaf of the map names them
+        write('src/component/IconLink.css');
+        write('theme-neo/design-tokens/Core.css');
+
+        fs.mkdirSync(path.join(root, 'resources'), {recursive: true});
+        fs.writeFileSync(path.join(root, 'resources/theme-map.json'), JSON.stringify({
+            themes: {'neo-theme-neo-light': ['theme-neo']},
+            Neo   : {
+                Global  : ['src', 'theme-neo'],
+                button  : {Base: ['src', 'theme-neo']},
+                examples: {button: {base: {MainContainer: ['src']}}}
+            },
+            apps  : {portal: {Viewport: ['src']}}
+        }));
+
+        const tree = resolveBuiltTree(root, 'development');
+
+        expect(collectThemeStylesheetUrls(tree, 'neo-theme-neo-light')).toEqual([
+            '/__equality_css/src/Global.css',
+            '/__equality_css/src/button/Base.css',
+            '/__equality_css/theme-neo/Global.css',
+            '/__equality_css/theme-neo/button/Base.css'
+        ]);
+
+        // A sheet the map names but the build did not write fails closed, naming it
+        fs.rmSync(path.join(cssDir, 'theme-neo/button/Base.css'));
+
+        expect(() => collectThemeStylesheetUrls(tree, 'neo-theme-neo-light')).toThrow(/did not write in ".*theme-neo" \(first: button\/Base\.css\)/)
+    });
+
     test('compareSnapshots emits every changed part/property and evaluateExpectedDiffs enforces part matching and rule schema', () => {
         const makeValues = overrides => Object.fromEntries(
             PAINTED_PROPERTIES.map(prop => [prop, overrides?.[prop] ?? 'initial'])
