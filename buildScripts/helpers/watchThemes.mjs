@@ -5,8 +5,8 @@ import path            from 'node:path';
 import postcss         from 'postcss';
 import isEntryModule   from '../util/isEntryModule.mjs';
 import {
-    collectThemeClassMap,
-    isCssTargetFolder
+    isCssTargetFolder,
+    resolveThemeClassMap
 }                      from '../util/themeCss.mjs';
 import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
@@ -136,7 +136,10 @@ function addToThemeMap(themeMap, entry) {
  */
 function createDevelopmentThemeMap(census, {repoRoot = REPO_ROOT} = {}) {
     const themeMap = {
-        themes: collectThemeClassMap(getThemeSourceRoots(repoRoot))
+        themes: resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        })
     };
 
     census.forEach(entry => addToThemeMap(themeMap, entry));
@@ -236,7 +239,10 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
             continue
         }
 
-        const expectedThemes = collectThemeClassMap(getThemeSourceRoots(repoRoot));
+        const expectedThemes = resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        });
 
         census.forEach(entry => {
             if (!themeMapHasEntry(themeMap, entry)) {

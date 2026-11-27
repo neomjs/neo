@@ -10,8 +10,8 @@ import postcss                   from 'postcss';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
 import {
-    collectThemeClassMap,
-    isCssTargetFolder
+    isCssTargetFolder,
+    resolveThemeClassMap
 }                                from '../util/themeCss.mjs';
 import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
@@ -288,7 +288,11 @@ if (programOpts.info) {
             : null;
 
         themeMap        = engineSeedMap ? structuredClone(engineSeedMap) : {};
-        themeMap.themes = collectThemeClassMap(activeRoots, engineSeedMap?.themes);
+        themeMap.themes = resolveThemeClassMap({
+            cssRoots           : activeRoots,
+            includeWorkspaceMap: false,
+            seedThemes         : engineSeedMap?.themes
+        });
 
         // dist/development
         if (env === 'all' || env === 'dev') {

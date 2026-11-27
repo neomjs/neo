@@ -144,6 +144,31 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         ]);
     });
 
+    test('SPLIT THEME: resolves definitions across all folders mapped to one theme class', () => {
+        const mapPath = path.join(tmpRoot, 'split-theme-map.json'),
+              root    = makeTree({
+                  'split-roles/Global.css'  : ':where(.neo-theme-split) {--brand-ink: #111}',
+                  'split-widgets/Button.css': ':where(.neo-theme-split) {--button-text: var(--brand-ink)}'
+              });
+
+        fs.writeFileSync(mapPath, JSON.stringify({
+            themes: {
+                'neo-theme-split': ['split-roles', 'split-widgets']
+            }
+        }), 'utf8');
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([]);
+
+        fs.writeFileSync(
+            path.join(root, 'split-widgets/Button.css'),
+            ':where(.neo-theme-split) {--button-text: var(--brand-ink); --button-border: var(--missing-border)}'
+        );
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([
+            '[undefined] neo-theme-split reads --missing-border, which nothing defines: split-widgets/Button.css:1'
+        ]);
+    });
+
     test('FAILS CLOSED: a root without src/ or theme directories is a failure, never a vacuous green', () => {
         const failures = collect({root: path.join(tmpRoot, 'does-not-exist')});
 

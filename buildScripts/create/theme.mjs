@@ -8,12 +8,13 @@ import selectorParser    from 'postcss-selector-parser';
 import {fileURLToPath}   from 'node:url';
 import {parseArgs}       from 'node:util';
 import {
+    extractThemeClasses,
     resolveThemeClassMap,
     resolveThemeFolders
 }                           from '../util/themeCss.mjs';
 import {themeCssRoots}      from '../util/themeCssRoots.mjs';
 
-const folderNamePattern  = /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+const baseFolderPattern  = /^[a-z0-9]+(?:[_-][a-z0-9]+)*$/i,
       destinationPattern = /^theme-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /**
@@ -29,30 +30,96 @@ function themeRoots(cwd) {
 }
 
 /**
+ * @summary Resolves the selectable base theme folders and their `.neo-theme-*` selector classes across
+ * `themeRoots(cwd)`, sharing one validation policy between `listThemes` and `generateTheme`.
+ * @param {String} cwd Workspace or Engine repository root.
+ * @returns {{roots: String[], selectable: Map<String, String[]>}}
+ */
+function collectSelectableThemes(cwd) {
+    const roots      = themeRoots(cwd),
+          classMap   = resolveThemeClassMap({cssRoots: roots, includeWorkspaceMap: false}),
+          candidates = resolveThemeFolders({cssRoots: roots, includeWorkspaceMap: false}),
+          selectable = new Map();
+
+    for (const folder of candidates) {
+        if (!baseFolderPattern.test(folder) || folder === 'src' || folder === 'theme-base') {
+            continue
+        }
+
+        let effectiveGlobal = null,
+            hasDirectory    = false,
+            hasSymlink      = false;
+
+        for (const root of roots) {
+            const dirPath = path.join(root, folder);
+
+            if (!fs.existsSync(dirPath)) continue;
+
+            const stat = fs.lstatSync(dirPath);
+
+            if (stat.isSymbolicLink()) {
+                hasSymlink = true;
+                break
+            }
+
+            if (!stat.isDirectory()) continue;
+
+            hasDirectory = true;
+
+            const globalPath = path.join(dirPath, 'Global.css');
+
+            if (fs.existsSync(globalPath)) {
+                const globalStat = fs.lstatSync(globalPath);
+
+                if (globalStat.isSymbolicLink()) {
+                    hasSymlink = true;
+                    break
+                }
+
+                if (globalStat.isFile()) {
+                    effectiveGlobal = globalPath
+                }
+            }
+        }
+
+        if (hasSymlink || !hasDirectory || !effectiveGlobal) {
+            continue
+        }
+
+        const declaredInGlobal = extractThemeClasses(fs.readFileSync(effectiveGlobal, 'utf8')),
+              mappedClasses    = Object.entries(classMap)
+                  .filter(([, folders]) => folders.includes(folder))
+                  .map(([themeClass]) => themeClass)
+                  .sort(),
+              baseClasses      = declaredInGlobal.length > 0 ? declaredInGlobal : mappedClasses;
+
+        if (baseClasses.length > 0) {
+            selectable.set(folder, baseClasses)
+        }
+    }
+
+    return {roots, selectable}
+}
+
+/**
  * @summary Lists selectable base themes across Engine, component packages and workspace via `theme-map.json`
- * and `Global.css` `.neo-theme-*` class declarations, excluding `src` and `theme-base`.
+ * and `Global.css` `.neo-theme-*` class declarations, excluding `src`, `theme-base`, and non-generatable folders.
  * @param {String} cwd Workspace or Engine repository root.
  * @returns {String[]}
  */
 export function listThemes(cwd) {
-    return resolveThemeFolders({cssRoots: themeRoots(cwd)});
+    return [...collectSelectableThemes(fs.realpathSync(cwd)).selectable.keys()].sort();
 }
 
 /**
- * @summary Builds the selector-class replacement map for `baseTheme` → `themeName` from the resolved
- * `class → folders` theme map, preserving `-light` / `-dark` scheme suffixes when a single base folder
- * declares multiple theme classes.
- * @param {Object<String, String[]>} classMap Resolved `class → folders` map.
- * @param {String} baseTheme Existing base theme folder name.
+ * @summary Builds the selector-class replacement map for `baseClasses` → `themeName`, preserving
+ * `-light` / `-dark` scheme suffixes when a single base folder declares multiple theme classes.
+ * @param {String[]} baseClasses Sorted `.neo-theme-*` classes declared by the base theme.
  * @param {String} themeName Destination theme folder name (`theme-<slug>`).
  * @returns {Map<String, String>}
  */
-function buildClassReplacementMap(classMap, baseTheme, themeName) {
-    const baseClasses = Object.entries(classMap)
-              .filter(([, folders]) => folders.includes(baseTheme))
-              .map(([themeClass]) => themeClass)
-              .sort(),
-          slug         = themeName.replace(/^theme-/, ''),
+function buildClassReplacementMap(baseClasses, themeName) {
+    const slug         = themeName.replace(/^theme-/, ''),
           targetPrefix = `neo-theme-${slug}`,
           replacements = new Map();
 
@@ -112,20 +179,20 @@ export function generateTheme({cwd, baseTheme, themeName}) {
         throw new Error('Theme names must use theme- followed by lowercase letters, numbers and single hyphens.');
     }
 
-    if (typeof baseTheme !== 'string' || !folderNamePattern.test(baseTheme) || baseTheme === 'src' || baseTheme === 'theme-base') {
+    if (typeof baseTheme !== 'string' || !baseFolderPattern.test(baseTheme) || baseTheme === 'src' || baseTheme === 'theme-base') {
         throw new Error(`Invalid base theme folder: ${baseTheme}`);
     }
 
-    const roots        = themeRoots(cwd),
-          classMap     = resolveThemeClassMap({cssRoots: roots}),
-          knownThemes  = resolveThemeFolders({cssRoots: roots}),
-          replacements = buildClassReplacementMap(classMap, baseTheme, themeName),
-          destination  = path.join(cwd, 'resources/css', themeName),
-          files        = new Map();
+    const {roots, selectable} = collectSelectableThemes(cwd),
+          baseClasses         = selectable.get(baseTheme),
+          destination         = path.join(cwd, 'resources/css', themeName),
+          files               = new Map();
 
-    if (!knownThemes.includes(baseTheme) || replacements.size === 0) {
+    if (!baseClasses?.length) {
         throw new Error(`Unknown base theme: ${baseTheme}`);
     }
+
+    const replacements = buildClassReplacementMap(baseClasses, themeName);
 
     for (const root of roots) {
         if (fs.existsSync(path.join(root, themeName))) {
@@ -228,9 +295,18 @@ async function main() {
         }
     }
 
-    const destination = generateTheme({cwd, baseTheme: options.base, themeName: options.name});
+    const destination     = generateTheme({cwd, baseTheme: options.base, themeName: options.name}),
+          declaredClasses = extractThemeClasses(fs.readFileSync(path.join(destination, 'Global.css'), 'utf8')),
+          targetClasses   = (declaredClasses.length ? declaredClasses : [`neo-${options.name}`])
+              .map(cls => `"${cls}"`)
+              .join(', ');
+
     console.log(`Created ${destination}`);
-    console.log(`Add "neo-${options.name}" to your application's neo-config.json themes array to select it.`);
+    console.log(
+        declaredClasses.length > 1
+            ? `Add ${targetClasses} to your application's neo-config.json themes array to select them.`
+            : `Add ${targetClasses} to your application's neo-config.json themes array to select it.`
+    );
     console.log(`Build with: node ${path.relative(cwd, fileURLToPath(new URL('../build/themes.mjs', import.meta.url)))} -n -e dev -t ${options.name}`);
 }
 

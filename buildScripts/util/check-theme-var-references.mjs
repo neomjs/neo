@@ -16,7 +16,13 @@ import fs                                                           from 'node:f
 import path                                                         from 'node:path';
 import {fileURLToPath}                                              from 'node:url';
 import isEntryModule                                                from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeFolders} from './themeCss.mjs';
+import {
+    RUNTIME_PROPERTIES,
+    cssFiles,
+    readCss,
+    resolveThemeClassMap,
+    resolveThemeFolders
+}                                                                   from './themeCss.mjs';
 
 const
     repoRoot   = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..'),
@@ -64,12 +70,29 @@ function readsIn(files) {
  */
 export function collectThemeVarReferenceFailures({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES, themeMapPath} = {}) {
     const
-        srcDir  = path.join(root, 'src'),
-        baseDir = path.join(root, 'theme-base'),
-        themes  = resolveThemeFolders({root, themeMapPath});
+        srcDir   = path.join(root, 'src'),
+        baseDir  = path.join(root, 'theme-base'),
+        classMap = resolveThemeClassMap({root, themeMapPath}),
+        groups   = new Map();
+
+    for (const [themeClass, mappedFolders] of Object.entries(classMap)) {
+        const folders = mappedFolders.filter(folder => (
+            folder !== 'src' &&
+            folder !== 'theme-base' &&
+            fs.existsSync(path.join(root, folder))
+        ));
+
+        if (!folders.length) continue;
+
+        const key   = folders.join('\0'),
+              entry = groups.get(key) ?? {classes: [], folders};
+
+        entry.classes.push(themeClass);
+        groups.set(key, entry)
+    }
 
     // Reading nothing must never look like a clean tree.
-    if (!themes.length || !fs.existsSync(srcDir)) {
+    if (!groups.size || !fs.existsSync(srcDir)) {
         return [`[surface] ${root} needs src/ and at least one mapped theme directory, so references cannot be verified`]
     }
 
@@ -81,9 +104,10 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
         read      = readsIn([...srcFiles, ...baseFiles]),
         failures  = [];
 
-    for (const theme of themes) {
+    for (const {classes, folders} of groups.values()) {
         const
-            files   = cssFiles(path.join(root, theme)),
+            label   = folders.length === 1 ? folders[0] : classes.join(' / '),
+            files   = folders.flatMap(folder => cssFiles(path.join(root, folder))),
             defined = definitionsIn(files),
             missing = new Map();
 
@@ -104,7 +128,7 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
             }
         }
 
-        missing.forEach((sites, name) => failures.push(`[undefined] ${theme} reads ${name}, which nothing defines: ${sites.join(', ')}`))
+        missing.forEach((sites, name) => failures.push(`[undefined] ${label} reads ${name}, which nothing defines: ${sites.join(', ')}`))
     }
 
     for (const name of Object.keys(runtimeProperties)) {

@@ -145,22 +145,26 @@ export function readThemeMapFile(themeMapPath) {
 }
 
 /**
- * @summary Resolves the `class → folders` theme map from `resources/theme-map.json` when available
+ * @summary Resolves the `class → folders` theme map from `theme-map.json` seeds when available
  * and merges live `Global.css` `.neo-theme-*` declarations across `cssRoots` (covering fresh CI
  * checkouts before `build-themes`, unbuilt consumer workspaces, and isolated `--root` fixtures).
+ * Build and watcher source-discovery pass `includeWorkspaceMap: false` so a workspace's own stale
+ * generated `resources/theme-map.json` never re-admits a retired local theme folder.
  * @param {Object} [options]
  * @param {String[]} [options.cssRoots] Ordered CSS source roots.
+ * @param {Boolean} [options.includeWorkspaceMap=true] Whether to read `../theme-map.json` beside the final local/workspace root.
  * @param {String} [options.root] Single `resources/css` root shorthand.
  * @param {Object<String, String[]>} [options.seedThemes] Additional seed `class → folders` entries.
  * @param {String} [options.themeMapPath] Explicit `theme-map.json` path override.
  * @returns {Object<String, String[]>} Sorted map of theme class name to sorted folder list.
  */
-export function resolveThemeClassMap({cssRoots, root, seedThemes, themeMapPath} = {}) {
-    const roots    = cssRoots ?? (root ? [root] : []),
-          mapSeeds = {},
-          mapPaths = themeMapPath
+export function resolveThemeClassMap({cssRoots, includeWorkspaceMap=true, root, seedThemes, themeMapPath} = {}) {
+    const roots     = cssRoots ?? (root ? [root] : []),
+          seedRoots = includeWorkspaceMap ? roots : (roots.length > 1 ? roots.slice(0, -1) : []),
+          mapSeeds  = {},
+          mapPaths  = themeMapPath
               ? [themeMapPath]
-              : [...new Set(roots.map(cssRoot => path.resolve(cssRoot, '../theme-map.json')))];
+              : [...new Set(seedRoots.map(cssRoot => path.resolve(cssRoot, '../theme-map.json')))];
 
     for (const candidate of mapPaths) {
         const mapped = readThemeMapFile(candidate);
@@ -189,14 +193,15 @@ export function resolveThemeClassMap({cssRoots, root, seedThemes, themeMapPath} 
  * @param {Object} [options]
  * @param {String[]} [options.cssRoots] Ordered CSS source roots.
  * @param {Boolean} [options.existingOnly=true] Restrict returned folders to directories present in `cssRoots`.
+ * @param {Boolean} [options.includeWorkspaceMap=true] Whether to seed from the local/workspace `theme-map.json`.
  * @param {String} [options.root] Single `resources/css` root shorthand.
  * @param {Object<String, String[]>} [options.seedThemes] Additional seed `class → folders` entries.
  * @param {String} [options.themeMapPath] Explicit `theme-map.json` path override.
  * @returns {String[]}
  */
-export function resolveThemeFolders({cssRoots, existingOnly=true, root, seedThemes, themeMapPath} = {}) {
+export function resolveThemeFolders({cssRoots, existingOnly=true, includeWorkspaceMap=true, root, seedThemes, themeMapPath} = {}) {
     const roots    = cssRoots ?? (root ? [root] : []),
-          classMap = resolveThemeClassMap({cssRoots: roots, seedThemes, themeMapPath}),
+          classMap = resolveThemeClassMap({cssRoots: roots, includeWorkspaceMap, seedThemes, themeMapPath}),
           folders  = [...new Set(Object.values(classMap).flat())]
               .filter(folder => folder !== 'src' && folder !== 'theme-base')
               .sort();
@@ -216,7 +221,8 @@ export function resolveThemeFolders({cssRoots, existingOnly=true, root, seedThem
 
 /**
  * @summary Returns whether a directory under `resources/css` participates in theme builds and censuses:
- * `src`, `theme-base`, or a theme folder resolved through `theme-map.json` / `Global.css` class declarations.
+ * `src`, `theme-base`, or a theme folder resolved through upstream shipped/package `theme-map.json`
+ * seeds and live `Global.css` class declarations (never a stale local workspace `theme-map.json`).
  * @param {String|String[]} cssRootsOrRoot Single `resources/css` directory or ordered CSS roots across workspace layers.
  * @param {String} folderName Direct child directory name.
  * @returns {Boolean}
@@ -228,7 +234,7 @@ export function isCssTargetFolder(cssRootsOrRoot, folderName) {
 
     const roots = Array.isArray(cssRootsOrRoot) ? cssRootsOrRoot : [cssRootsOrRoot];
 
-    return resolveThemeFolders({cssRoots: roots}).includes(folderName)
+    return resolveThemeFolders({cssRoots: roots, includeWorkspaceMap: false}).includes(folderName)
 }
 
 /**

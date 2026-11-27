@@ -272,9 +272,10 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         expect(listThemes(root)).toEqual(['theme-engine']);
     });
 
-    test('retargets mapped non-theme-* and dual-scheme base folders without neo-basename string concatenation, and refuses theme-base', () => {
-        write(path.join(engineRoot, 'resources/css/brand-skin/Global.css'), ':where(.neo-theme-brand) { --brand: 1; }');
-        write(path.join(engineRoot, 'resources/css/brand-skin/button/Base.css'), ':where(.neo-theme-brand) { --button-gap: 4px; }');
+    test('retargets mapped non-theme-* and dual-scheme base folders with one selectable-folder policy and prints the destination\'s actual classes', () => {
+        write(path.join(engineRoot, 'resources/css/brand_v2/Global.css'), ':where(.neo-theme-brand) { --brand: 1; }');
+        write(path.join(engineRoot, 'resources/css/brand_v2/button/Base.css'), ':where(.neo-theme-brand) { --button-gap: 4px; }');
+        write(path.join(engineRoot, 'resources/css/split_widgets/button/Base.css'), ':where(.neo-theme-brand) { --button-pad: 8px; }');
         write(path.join(engineRoot, 'resources/css/shared-neo/Global.css'), [
             '.neo-theme-neo-light { --neo-color-scheme: light; }',
             '.neo-theme-neo-dark  { --neo-color-scheme: dark; }'
@@ -282,27 +283,36 @@ test.describe('buildScripts/create/theme.mjs consumer workspace scaffolding', ()
         write(path.join(engineRoot, 'resources/css/theme-base/button/Base.css'), '[class*="neo-theme-"] { --shared: 1; }');
         write(path.join(engineRoot, 'resources/theme-map.json'), JSON.stringify({
             themes: {
-                'neo-theme-brand'    : ['brand-skin'],
-                'neo-theme-dark'     : ['theme-light'],
+                'neo-theme-brand'    : ['brand_v2', 'split_widgets'],
                 'neo-theme-neo-dark' : ['shared-neo', 'theme-neo-dark'],
                 'neo-theme-neo-light': ['shared-neo']
             }
         }));
 
-        expect(listThemes(root)).toContain('brand-skin');
+        expect(listThemes(root)).toContain('brand_v2');
         expect(listThemes(root)).toContain('shared-neo');
+        expect(listThemes(root)).not.toContain('split_widgets');
         expect(listThemes(root)).not.toContain('theme-base');
 
+        refuseWithoutWrites({baseTheme: 'split_widgets'});
         refuseWithoutWrites({baseTheme: 'theme-base'});
         refuseWithoutWrites({themeName: 'theme-base'});
 
-        generate({baseTheme: 'brand-skin', themeName: 'theme-acme'});
+        generate({baseTheme: 'brand_v2', themeName: 'theme-acme'});
         expect(read(path.join(cssRoot, 'theme-acme/Global.css'))).toContain(':where(.neo-theme-acme)');
         expect(read(path.join(cssRoot, 'theme-acme/button/Base.css'))).toContain(':where(.neo-theme-acme)');
 
-        generate({baseTheme: 'shared-neo', themeName: 'theme-dual'});
+        const dualOut = execFileSync(
+            process.execPath,
+            [createPath, '--name', 'theme-dual', '--base', 'shared-neo', '--noquestions'],
+            {cwd: root, encoding: 'utf8', stdio: 'pipe'}
+        );
+
         expect(read(path.join(cssRoot, 'theme-dual/Global.css'))).toContain('.neo-theme-dual-light');
         expect(read(path.join(cssRoot, 'theme-dual/Global.css'))).toContain('.neo-theme-dual-dark');
+        expect(dualOut).toContain('"neo-theme-dual-dark"');
+        expect(dualOut).toContain('"neo-theme-dual-light"');
+        expect(dualOut).not.toContain('"neo-theme-dual"');
     });
 
     test('noninteractive CLI requires both flags and refuses incomplete input without writes or a prompt', () => {

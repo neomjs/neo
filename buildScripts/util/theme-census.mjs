@@ -26,11 +26,11 @@
  *     npm run theme-census -- --json         the census object
  *     npm run theme-census -- --root <dir>   another tree holding src/ and theme-* directories
  */
-import fs                                                                          from 'node:fs';
-import path                                                                        from 'node:path';
-import {fileURLToPath}                                                             from 'node:url';
-import isEntryModule                                                               from './isEntryModule.mjs';
-import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeFolders, stripVarCalls} from './themeCss.mjs';
+import fs                                                                           from 'node:fs';
+import path                                                                         from 'node:path';
+import {fileURLToPath}                                                              from 'node:url';
+import isEntryModule                                                                from './isEntryModule.mjs';
+import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeClassMap, stripVarCalls} from './themeCss.mjs';
 
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
@@ -176,6 +176,54 @@ function namingOf(names) {
 }
 
 /**
+ * @summary Merges one or more directories loaded for a single theme in folder load order: intra-folder
+ * duplicate declarations keep the first value in sorted file order and count in `redeclared`/`conflicts`,
+ * while a later mapped folder overrides an earlier folder's value for the same property.
+ * @param {String|String[]} dirs
+ * @returns {Object}
+ */
+function readThemeTree(dirs) {
+    const dirList = Array.isArray(dirs) ? dirs : [dirs];
+
+    if (dirList.length === 1) {
+        return readTree(dirList[0])
+    }
+
+    const
+        files      = perArea(() => 0),
+        declared   = perArea(() => new Map()),
+        redeclared = perArea(() => new Set()),
+        conflicts  = perArea(() => new Set()),
+        reads      = perArea(() => new Map()),
+        css        = {};
+
+    for (const dir of dirList) {
+        const part   = readTree(dir),
+              prefix = `${path.basename(dir)}/`;
+
+        for (const area of AREAS) {
+            files[area] += part.files[area];
+            part.redeclared[area].forEach(name => redeclared[area].add(name));
+            part.conflicts[area].forEach(name => conflicts[area].add(name));
+
+            for (const [name, value] of part.declared[area]) {
+                declared[area].set(name, value)
+            }
+
+            for (const [name, bare] of part.reads[area]) {
+                reads[area].set(name, reads[area].get(name) || bare)
+            }
+        }
+
+        for (const [rel, entry] of Object.entries(part.css)) {
+            css[prefix + rel] = entry
+        }
+    }
+
+    return {files, declared, redeclared, conflicts, reads, css}
+}
+
+/**
  * @summary Counts the theme tree under `root`. Pure over the filesystem: no logging, no exit.
  * @param {Object} [options]
  * @param {String} [options.root=resources/css] Holds `src/` and the mapped theme directories.
@@ -186,25 +234,59 @@ function namingOf(names) {
  */
 export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_PROPERTIES, themeMapPath} = {}) {
     const
-        srcDir  = path.join(root, 'src'),
-        baseDir = path.join(root, 'theme-base'),
-        names   = resolveThemeFolders({root, themeMapPath});
+        srcDir           = path.join(root, 'src'),
+        baseDir          = path.join(root, 'theme-base'),
+        classMap         = resolveThemeClassMap({root, themeMapPath}),
+        singleFolderUses = new Map(),
+        classEntries     = Object.entries(classMap)
+            .map(([themeClass, folders]) => [
+                themeClass,
+                folders.filter(folder => (
+                    folder !== 'src' &&
+                    folder !== 'theme-base' &&
+                    fs.existsSync(path.join(root, folder))
+                ))
+            ])
+            .filter(([, folders]) => folders.length > 0);
 
     // reading nothing must never look like a tree without findings
-    if (!names.length || !fs.existsSync(srcDir)) {
+    if (!classEntries.length || !fs.existsSync(srcDir)) {
         throw new Error(`theme-census: ${root} needs src/ and at least one mapped theme directory`)
     }
 
+    for (const [, folders] of classEntries) {
+        if (folders.length === 1) {
+            singleFolderUses.set(folders[0], (singleFolderUses.get(folders[0]) || 0) + 1)
+        }
+    }
+
     const
-        src         = readTree(srcDir),
-        themeBase   = fs.existsSync(baseDir) ? readTree(baseDir) : null,
-        trees       = Object.fromEntries(names.map(name => [name, readTree(path.join(root, name))])),
-        sharedTrees = themeBase ? [src, themeBase] : [src],
-        readNames   = new Set([...sharedTrees, ...Object.values(trees)].flatMap(tree => AREAS.flatMap(area => [...tree.reads[area].keys()]))),
-        srcNames    = new Set(sharedTrees.flatMap(tree => AREAS.flatMap(area => [...tree.declared[area].keys()]))),
-        pairs       = names.filter(name => /dark$/.test(name) && names.includes(name.replace(/dark$/, 'light'))).map(dark => ({dark, light: dark.replace(/dark$/, 'light')})),
-        full        = pairs.flatMap(({dark, light}) => [dark, light]).sort(),
-        themes      = {};
+        keyByClass = new Map(classEntries.map(([themeClass, folders]) => [
+            themeClass,
+            folders.length === 1 && singleFolderUses.get(folders[0]) === 1 ? folders[0] : themeClass
+        ])),
+        entriesByKey = [...classEntries]
+            .map(([themeClass, folders]) => ({folders, key: keyByClass.get(themeClass), themeClass}))
+            .sort((a, b) => a.key.localeCompare(b.key)),
+        names        = entriesByKey.map(entry => entry.key),
+        src          = readTree(srcDir),
+        themeBase    = fs.existsSync(baseDir) ? readTree(baseDir) : null,
+        trees        = Object.fromEntries(entriesByKey.map(({folders, key}) => [
+            key,
+            readThemeTree(folders.map(folder => path.join(root, folder)))
+        ])),
+        sharedTrees  = themeBase ? [src, themeBase] : [src],
+        readNames    = new Set([...sharedTrees, ...Object.values(trees)].flatMap(tree => AREAS.flatMap(area => [...tree.reads[area].keys()]))),
+        srcNames     = new Set(sharedTrees.flatMap(tree => AREAS.flatMap(area => [...tree.declared[area].keys()]))),
+        pairs        = classEntries
+            .filter(([themeClass]) => /dark$/.test(themeClass) && keyByClass.has(themeClass.replace(/dark$/, 'light')))
+            .map(([darkClass]) => ({
+                dark : keyByClass.get(darkClass),
+                light: keyByClass.get(darkClass.replace(/dark$/, 'light'))
+            }))
+            .sort((a, b) => a.dark.localeCompare(b.dark)),
+        full         = [...new Set(pairs.flatMap(({dark, light}) => [dark, light]))].sort(),
+        themes       = {};
 
     for (const name of names) {
         const

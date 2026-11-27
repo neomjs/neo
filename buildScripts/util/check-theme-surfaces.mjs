@@ -32,24 +32,33 @@ const
     ]);
 
 /**
- * @summary Resolves the Workstation theme surface paths from `theme-map.json` and `Global.css`
- * class declarations for `neo-theme-neo-dark` and `neo-theme-neo-light`.
+ * @summary Resolves the Workstation theme surface paths across all folders mapped to
+ * `neo-theme-neo-dark` and `neo-theme-neo-light` via `theme-map.json` and `Global.css` declarations.
  * @param {String} [root=cssRoot] CSS root directory.
  * @param {String} [themeMapPath] Optional `theme-map.json` path override.
- * @returns {{darkPath: String|null, lightPath: String|null, modeInvariant: Set<String>, viewDir: String}}
+ * @returns {{darkPath: String|null, darkPaths: String[], lightPath: String|null, lightPaths: String[],
+ *            modeInvariant: Set<String>, viewDir: String}}
  */
 export function resolveWorkstationSurface(root = cssRoot, themeMapPath) {
-    const classMap = resolveThemeClassMap({root, themeMapPath}),
-          pickSkin = themeClass => {
+    const classMap  = resolveThemeClassMap({root, themeMapPath}),
+          skinPaths = themeClass => {
               const folders    = classMap[themeClass] || [],
-                    candidates = folders.map(folder => path.join(root, folder, 'apps/workstation/Viewport.css'));
+                    candidates = folders.map(folder => path.join(root, folder, 'apps/workstation/Viewport.css')),
+                    existing   = candidates.filter(candidate => fs.existsSync(candidate));
 
-              return candidates.find(candidate => fs.existsSync(candidate)) || candidates[0] || null
-          };
+              return {
+                  all    : existing,
+                  primary: existing.at(-1) || candidates[0] || null
+              }
+          },
+          dark      = skinPaths('neo-theme-neo-dark'),
+          light     = skinPaths('neo-theme-neo-light');
 
     return {
-        darkPath : pickSkin('neo-theme-neo-dark'),
-        lightPath: pickSkin('neo-theme-neo-light'),
+        darkPath  : dark.primary,
+        darkPaths : dark.all,
+        lightPath : light.primary,
+        lightPaths: light.all,
         // The recording pointer keeps its annotation color when the application's skin changes.
         modeInvariant: MODE_INVARIANT,
         viewDir      : path.join(root, 'src/apps/workstation')
@@ -59,17 +68,20 @@ export function resolveWorkstationSurface(root = cssRoot, themeMapPath) {
 const WORKSTATION_SURFACE = Object.freeze(resolveWorkstationSurface());
 
 /**
- * @summary Reads the surface token declarations from one skin.
- * @param {String} file
+ * @summary Reads the surface token declarations across every folder loaded for one skin in cascade order.
+ * @param {String|String[]} files
  * @returns {Map<String,String>}
  */
-function extractTokens(file) {
-    const tokens = new Map();
+function extractTokens(files) {
+    const tokens = new Map(),
+          list   = Array.isArray(files) ? files : [files];
 
-    for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-        const match = line.match(TOKEN_DECLARATION_RE);
+    for (const file of list) {
+        for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+            const match = line.match(TOKEN_DECLARATION_RE);
 
-        match && tokens.set(match[1], match[2].trim())
+            match && tokens.set(match[1], match[2].trim())
+        }
     }
 
     return tokens
@@ -142,9 +154,16 @@ function* walkCss(dir) {
  * @returns {String[]}
  */
 export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
-    const resolved = surface.root ? {...resolveWorkstationSurface(surface.root, surface.themeMapPath), ...surface} : surface;
+    const resolved   = surface.root ? {...resolveWorkstationSurface(surface.root, surface.themeMapPath), ...surface} : surface,
+          darkFiles  = (surface.darkPath && !surface.darkPaths ? [surface.darkPath] : resolved.darkPaths) ?? (resolved.darkPath ? [resolved.darkPath] : []),
+          lightFiles = (surface.lightPath && !surface.lightPaths ? [surface.lightPath] : resolved.lightPaths) ?? (resolved.lightPath ? [resolved.lightPath] : []);
 
-    if (!resolved.darkPath || !resolved.lightPath || !fs.existsSync(resolved.darkPath) || !fs.existsSync(resolved.lightPath)) {
+    if (
+        !darkFiles.length ||
+        !lightFiles.length ||
+        darkFiles.some(file => !fs.existsSync(file)) ||
+        lightFiles.some(file => !fs.existsSync(file))
+    ) {
         return ['[surface] Workstation dark or light skin could not be resolved from the theme map']
     }
 
@@ -152,8 +171,8 @@ export function collectThemeSurfaceFailures(surface = WORKSTATION_SURFACE) {
         failures       = [],
         consumed       = new Set(),
         locallyDefined = new Set(),
-        dark           = extractTokens(resolved.darkPath),
-        light          = extractTokens(resolved.lightPath);
+        dark           = extractTokens(darkFiles),
+        light          = extractTokens(lightFiles);
 
     if (dark.size === 0 && light.size === 0) {
         failures.push('[surface] extracted no Workstation tokens from either skin')
