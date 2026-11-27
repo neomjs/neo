@@ -5,6 +5,7 @@ import '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
 import Gantt              from '../../../../src/gantt/Container.mjs';
 import GanttEventDragZone from '../../../../src/gantt/EventDragZone.mjs';
+import TaskStore          from '../../../../src/gantt/TaskStore.mjs';
 
 const appName = 'GanttDependencyCreationTest';
 setup({neoConfig: {unitTestMode: true, allowVdomUpdatesInTests: false, useDomApiRenderer: false},
@@ -149,6 +150,38 @@ test('the configured zone admits its custom finish terminal while task movement 
     } finally {
         gantt.destroy();store.destroy();dependencyStore.destroy();
         if (!timeAxis.isDestroyed) timeAxis.destroy()
+    }
+});
+
+test('an endpoint armed by config binds to its row once the row renders, as a later assignment does', () => {
+    // A stable body id makes the configured bar id the one the first row renders: `${row.id}__bar__${key}`
+    const store  = Neo.create(TaskStore, {data: [{id: 'a', title: 'Alpha', isLeaf: true, parentId: null, startDate: new Date('2026-11-12T08:00:00Z'), endDate: new Date('2026-11-12T16:00:00Z')}]}),
+          record = store.get('a'),
+          barId  = 'kbd-body__row-0__bar__a',
+          status = () => gantt.items.find(item => item.cls?.includes('neo-gantt-link-status')).text,
+          gantt  = Neo.create(Gantt, {appName, store, body: {id: 'kbd-body'}, dependencyStore: {data: []}, dependencyCreation: true,
+              keyboardLinkSource: {record, barId}, timeAxis: {start: '2026-11-11', end: '2026-11-19', pxPerMinute: 0.05}});
+
+    try {
+        expect(gantt.isKeyboardLinkSource(record, barId)).toBe(true);
+        expect(status()).toContain('Link from Alpha');
+        gantt.body.set({availableHeight: 300, containerWidth: 800});
+        expect(gantt.timelineColumn.getBarNodeId(gantt.body.items[0].vdom, 'a')).toBe(barId);
+        expect(gantt.keyboardLinkSource?.row).toBe(gantt.body.items[0]);
+        gantt.body.createViewData();
+        expect(gantt.isKeyboardLinkSource(record, barId)).toBe(true);
+        expect(status()).toContain('Link from Alpha');
+        gantt.onBarKeyDown({key: 'Escape'});
+        expect(gantt.isKeyboardLinkSource(record, barId)).toBe(false);
+        expect(status()).toBe('');
+        gantt.keyboardLinkSource = {record, barId};
+        expect(status()).toContain('Link from Alpha');
+        gantt.cancelKeyboardLink();
+        expect(status()).toBe('')
+    } finally {
+        const {dependencyStore, timeAxis} = gantt;
+        gantt.destroy();
+        for (const owned of [store, dependencyStore, timeAxis]) if (!owned.isDestroyed) owned.destroy()
     }
 });
 

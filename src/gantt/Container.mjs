@@ -119,6 +119,14 @@ class Container extends SchedulerContainer {
          */
         dependencyStore_: null,
         /**
+         * The armed first endpoint of a keyboard link as `{record, barId, row}`, null while none is armed. Write
+         * `{record, barId}`: {@link #beforeSetKeyboardLinkSource} adds the task's rendered row.
+         * @member {Object|null} keyboardLinkSource_=null
+         * @protected
+         * @reactive
+         */
+        keyboardLinkSource_: null,
+        /**
          * Minimum visible width for a task bar.
          * @member {Number} minBarWidthPx=6
          * @reactive
@@ -208,12 +216,6 @@ class Container extends SchedulerContainer {
      */
     drawnSpans = new Map()
     /**
-     * The armed first endpoint of a keyboard link as `{record, barId, row}`, null while none is armed.
-     * @member {Object|null} #keyboardLinkSource=null
-     * @private
-     */
-    #keyboardLinkSource = null
-    /**
      * The live region that announces the steps of a keyboard link, created once link creation is on.
      * @member {Neo.component.Base|null} #keyboardLinkStatus=null
      * @private
@@ -221,7 +223,7 @@ class Container extends SchedulerContainer {
     #keyboardLinkStatus = null
     /**
      * True while the chart itself writes task dates: its store listeners then leave the overlay and a running
-     * move to the writer.
+     * move to the writer. Only {@link #asTaskWrite} sets it.
      * @member {Boolean} _movingTask=false
      * @protected
      */
@@ -269,11 +271,21 @@ class Container extends SchedulerContainer {
      */
     construct(config) {
         super.construct(config);
-        this.ensureDependencyLayer();
-        if (this.dependencyCreation) this.#ensureKeyboardLinkStatus();
-        if (this.dependencyCreation && !this.barDraggable) this.ensureEventDragZone();
-        this.bindTimelineSubscriptions();
-        this.syncDependencyLayer()
+
+        let me     = this,
+            source = me.keyboardLinkSource;
+
+        me.ensureDependencyLayer();
+        if (me.dependencyCreation) me.ensureKeyboardLinkStatus();
+        if (me.dependencyCreation && !me.barDraggable) me.ensureEventDragZone();
+        me.bindTimelineSubscriptions();
+        me.syncDependencyLayer();
+
+        // An endpoint armed by config arms again now that its row and the live region exist
+        if (source) {
+            me.keyboardLinkSource = null;
+            me.keyboardLinkSource = source
+        }
     }
 
     /**
@@ -282,7 +294,7 @@ class Container extends SchedulerContainer {
      * @protected
      */
     afterSetAnimateCascade(value) {
-        value ? this.#motion().readTokens() : this.#cascadeMotion?.end()
+        value ? this.ensureCascadeMotion().readTokens() : this.#cascadeMotion?.end()
     }
 
     /**
@@ -331,8 +343,8 @@ class Container extends SchedulerContainer {
      */
     afterSetDependencyCreation(value, oldValue) {
         if (oldValue !== undefined && this.isConstructed) {
-            this.#setKeyboardLinkSource(null);
-            if (value) this.#ensureKeyboardLinkStatus();
+            this.keyboardLinkSource = null;
+            if (value) this.ensureKeyboardLinkStatus();
             if (value && !this.eventDragZone) this.ensureEventDragZone();
             this.timelineColumn?.refreshMountedRows()
         }
@@ -375,6 +387,26 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary Announces the armed endpoint in the live region and redraws the rows of the old and the new one.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetKeyboardLinkSource(value, oldValue) {
+        let me = this;
+
+        // A configured endpoint waits for the live region: construct() arms it again once that exists
+        if ((!value && !oldValue) || !me.#keyboardLinkStatus) return;
+
+        let title = value && (value.record[me.titleField] || me.store.getKey(value.record));
+
+        me.#keyboardLinkStatus.text = value
+            ? `Link from ${title}. Focus the destination and press L, or press Escape to cancel.` : '';
+        if (oldValue && oldValue.row?.record === oldValue.record && oldValue.row !== value?.row) oldValue.row.createVdom(false, false);
+        value?.row?.createVdom(false, false)
+    }
+
+    /**
      * @summary A chart that mounts with the transition on reads its motion tier from its node, which exists now.
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -382,7 +414,7 @@ class Container extends SchedulerContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        if (value && this.animateCascade) this.#motion().readTokens()
+        if (value && this.animateCascade) this.ensureCascadeMotion().readTokens()
     }
 
     /**
@@ -406,7 +438,7 @@ class Container extends SchedulerContainer {
         this.#pendingCleanup = null;
         this.#serviceCleanup?.();
         this.#serviceCleanup = value?.onCommit?.(() => {
-            if (this.#usesService(value)) {
+            if (this.usesService(value)) {
                 this.#analysis?.invalidateSchedule();
                 this.syncDependencyLayer()
             }
@@ -532,6 +564,27 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary Runs `write` as the chart's own task write: meanwhile its store listeners leave the overlay and a
+     * running move to the writer. The previous state returns afterwards, also when `write` throws, so a nested
+     * write keeps the outer one's. The shape of {@link Neo.data.Store#asContinuation}.
+     * @param {Function} write Writes task records, or asks the service to
+     * @returns {*} What `write` returns
+     * @protected
+     */
+    asTaskWrite(write) {
+        let me       = this,
+            previous = me._movingTask;
+
+        me._movingTask = true;
+
+        try {
+            return write()
+        } finally {
+            me._movingTask = previous
+        }
+    }
+
+    /**
      * @summary Creates the grid body that mounts the dependency layer.
      * @param {Neo.gantt.Body|Object|null} value
      * @returns {Neo.gantt.Body}
@@ -573,6 +626,18 @@ class Container extends SchedulerContainer {
         let store = ClassSystemUtil.beforeSetInstance(value, DependencyStore);
         if (store !== value) this.#ownedDependencies.add(store);
         return store
+    }
+
+    /**
+     * @summary Completes an armed endpoint with the task's rendered row.
+     * @param {Object|null} value `{record, barId}`, or null to disarm
+     * @returns {Object|null} `{record, barId, row}`, or null
+     * @protected
+     */
+    beforeSetKeyboardLinkSource(value) {
+        let record = value?.record;
+
+        return record ? {barId: value.barId ?? null, record, row: this.body?.items.find(item => item.record === record)} : null
     }
 
     /**
@@ -626,9 +691,89 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary Builds the fields an edit changes: the resolved dates, the completion, the title, the further
+     * `fields`, and the duration a new span gives.
+     * @param {Neo.gantt.Container.GanttTaskEdit} edit      The edit, with its resolved span
+     * @param {Number[]}                          edit.span The `[startMs, endMs]` {@link #resolveTaskDates} returned
+     * @returns {Object} The changed fields, empty when nothing changes
+     * @protected
+     */
+    buildTaskUpdates({axis, changes, endField, keyProp, pctField, prevSpan, record, span, startField, titleField, useWorking}) {
+        let [prevStartMs, prevEndMs] = prevSpan,
+            [startMs, endMs]         = span,
+            prevPct                  = record[pctField] ?? 0,
+            prevTitle                = record[titleField],
+            rawFields                = changes.fields && typeof changes.fields === 'object' && !Array.isArray(changes.fields)
+                ? changes.fields
+                : {},
+            updates                  = {},
+            forbiddenKeys            = new Set([
+                'id', keyProp, 'endDate', 'eventId', 'fields', 'key', 'meta', 'percentDone', 'record', 'startDate', 'taskId', 'title',
+                startField, endField, pctField, titleField
+            ]);
+
+        if (startMs !== prevStartMs) {
+            updates[startField] = new Date(startMs)
+        }
+
+        if (endMs !== prevEndMs) {
+            updates[endField] = new Date(endMs)
+        }
+
+        let rawPctInput = changes.percentDone !== undefined
+            ? changes.percentDone
+            : changes[pctField] !== undefined
+                ? changes[pctField]
+                : rawFields.percentDone !== undefined
+                    ? rawFields.percentDone
+                    : rawFields[pctField];
+
+        if (rawPctInput !== undefined && rawPctInput !== null) {
+            let clampedPct = Math.min(100, Math.max(0, Number(rawPctInput) || 0));
+            if (clampedPct !== prevPct) {
+                updates[pctField] = clampedPct
+            }
+        }
+
+        let rawTitleInput = changes.title !== undefined
+            ? changes.title
+            : changes[titleField] !== undefined
+                ? changes[titleField]
+                : rawFields.title !== undefined
+                    ? rawFields.title
+                    : rawFields[titleField];
+
+        if (rawTitleInput !== undefined && rawTitleInput !== prevTitle) {
+            updates[titleField] = rawTitleInput
+        }
+
+        for (let [fieldKey, fieldVal] of Object.entries(rawFields)) {
+            if (forbiddenKeys.has(fieldKey) || fieldVal === undefined) {
+                continue
+            }
+            if (fieldVal !== record[fieldKey]) {
+                updates[fieldKey] = fieldVal
+            }
+        }
+
+        if ((updates[startField] || updates[endField]) && record.duration !== undefined) {
+            let unit         = String(record.durationUnit || 'hour').toLowerCase(),
+                unitMs       = unit.startsWith('day') ? MS_PER_DAY : unit.startsWith('min') ? MS_PER_MINUTE : MS_PER_HOUR,
+                spanMs       = useWorking ? Math.max(0, axis.diffWorkingMs(startMs, endMs)) : (endMs - startMs),
+                nextDuration = Math.round((spanMs / unitMs) * 100) / 100;
+
+            if (nextDuration !== record.duration) {
+                updates.duration = nextDuration
+            }
+        }
+
+        return updates
+    }
+
+    /**
      * @summary Cancels the active keyboard link gesture.
      */
-    cancelKeyboardLink() { this.#setKeyboardLinkSource(null) }
+    cancelKeyboardLink() { this.keyboardLinkSource = null }
 
     /**
      * @summary Checks whether the configured link affordance accepts the endpoints.
@@ -643,14 +788,70 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Discards a keyboard endpoint whose row was recycled.
+     * @summary Discards a keyboard endpoint whose task is gone or whose row was recycled. An endpoint armed before its
+     * row rendered, as a configured one is, binds to that row once it exists.
      */
     checkKeyboardLinkSource() {
-        let source = this.#keyboardLinkSource;
-        if (source && (!this.resolveTaskRecord(source.record) || source.row?.record !== source.record ||
-            this.timelineColumn?.getBarNodeId(source.row.vdom, this.store.getKey(source.record)) !== source.barId)) {
-            this.#setKeyboardLinkSource(null)
+        let me     = this,
+            source = me.keyboardLinkSource;
+
+        if (!source) return;
+
+        if (!me.resolveTaskRecord(source.record)) {
+            me.keyboardLinkSource = null
+        } else if (!source.row) {
+            if (me.body?.items.some(item => item.record === source.record)) {
+                me.keyboardLinkSource = {barId: source.barId, record: source.record}
+            }
+        } else if (source.row.record !== source.record ||
+            me.timelineColumn?.getBarNodeId(source.row.vdom, me.store.getKey(source.record)) !== source.barId) {
+            me.keyboardLinkSource = null
         }
+    }
+
+    /**
+     * @summary Keeps a resolved span inside the axis, and keeps the minimum duration where the axis bounds the
+     * edit. A moved task keeps its duration; a resized one keeps its other end. With working time, durations
+     * count working time.
+     * @param {Number[]}                             span    The `[startMs, endMs]` resolved so far
+     * @param {Neo.gantt.Container.GanttSpanRequest} request What the edit asks for
+     * @returns {Number[]} The clamped `[startMs, endMs]`
+     * @protected
+     */
+    clampTaskToAxis([startMs, endMs], {axis, hasEndInput, hasStartInput, isEndResize, isMilestone, isStartResize, meta, minMs, prevSpan, useWorking}) {
+        let [prevStartMs, prevEndMs] = prevSpan,
+            axisStartMs              = axis.start.getTime(),
+            axisEndMs                = axis.end.getTime();
+
+        if (useWorking) {
+            let workDurMs = isMilestone ? 0 : Math.max(minMs, axis.diffWorkingMs(startMs, endMs));
+
+            if (startMs < axisStartMs) {
+                startMs = axis.snapToWorkingTime(axisStartMs, 1).getTime();
+                endMs   = axis.addWorkingMs(startMs, workDurMs).getTime()
+            }
+            if (endMs > axisEndMs) {
+                endMs = axisEndMs;
+                if (!isEndResize && !isStartResize) {
+                    startMs = Math.max(axisStartMs, axis.addWorkingMs(endMs, -workDurMs).getTime())
+                }
+            }
+        } else {
+            let durationMs = Math.max(0, endMs - startMs);
+
+            if (isMilestone || (hasStartInput && hasEndInput && meta.source !== 'resize')) {
+                startMs = Math.max(axisStartMs, Math.min(startMs, Math.max(axisStartMs, axisEndMs - durationMs)));
+                endMs   = startMs + durationMs
+            } else if (hasStartInput && !hasEndInput) {
+                endMs   = Math.min(axisEndMs, prevEndMs);
+                startMs = Math.max(axisStartMs, Math.min(startMs, endMs - minMs))
+            } else if (!hasStartInput && hasEndInput) {
+                startMs = Math.max(axisStartMs, prevStartMs);
+                endMs   = Math.min(axisEndMs, Math.max(endMs, startMs + minMs))
+            }
+        }
+
+        return [startMs, endMs]
     }
 
     /**
@@ -727,6 +928,45 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary Proposes an edit to the schedule service, which writes it, and publishes a committed receipt. A
+     * pending decision is awaited: a later commit is published while the service, the stores and the task still
+     * match.
+     * @param {Neo.gantt.Container.GanttTaskEdit}            edit         The edit, with its changed fields
+     * @param {Neo.gantt.Container.GanttScheduleService|null} edit.service The service {@link #moveTask} read once for the edit
+     * @param {Object}                                       edit.updates The changed fields {@link #buildTaskUpdates} returned
+     * @returns {Neo.gantt.Container.GanttScheduleReceipt} The service's receipt
+     * @protected
+     */
+    consultScheduleService({meta, record, service, updates}) {
+        let me       = this,
+            proposal = {...updates},
+            result;
+
+        delete proposal.duration;
+        result = me.asTaskWrite(() => service.moveTask(me.store.getKey(record), proposal));
+
+        if (result?.status === 'committed') {
+            let native = me.publishServiceResult(record, result, meta, true);
+            return {...native, status: 'committed', notificationErrors: result.notificationErrors}
+        }
+
+        if (result?.status === 'pending' && result.pending?.id != null && service.onDecisionSettled) {
+            me.#pendingCleanup?.();
+            let taskId = me.store.getKey(record);
+            me.#pendingCleanup = service.onDecisionSettled(result.pending.id, settled => {
+                me.#pendingCleanup = null;
+                if (settled?.status === 'committed' && (!settled.action || settled.action === 'moveTask') &&
+                    (settled.taskId === undefined || String(settled.taskId) === String(taskId)) &&
+                    me.usesService(service) && me.resolveTaskRecord(record)) {
+                    me.publishServiceResult(record, settled, meta)
+                }
+            })
+        }
+
+        return result
+    }
+
+    /**
      * @summary Releases owned dependencies and all chart subscriptions.
      * @param {...*} args Passed on to the scheduler
      */
@@ -758,6 +998,15 @@ class Container extends SchedulerContainer {
     }
 
     /**
+     * @summary The chart's cascade motion, created on first use.
+     * @returns {Neo.gantt.CascadeMotion}
+     * @protected
+     */
+    ensureCascadeMotion() {
+        return this.#cascadeMotion ??= Neo.create(CascadeMotion, {chart: this})
+    }
+
+    /**
      * @summary Returns the dependency overlay, creating it on first use from the chart's values and
      * {@link #dependencyLayerConfig}. The center body mounts it: see {@link Neo.gantt.Body#createRowPool}.
      * @description `dependencyLayerConfig` overrides the mirrored inputs of {@link #getDependencyLayerInputs} until
@@ -785,13 +1034,59 @@ class Container extends SchedulerContainer {
 
     /**
      * @summary Creates the live region used for keyboard link announcements.
-     * @private
+     * @protected
      */
-    #ensureKeyboardLinkStatus() {
+    ensureKeyboardLinkStatus() {
         this.#keyboardLinkStatus ??= this.add({
             module: Component, cls: ['neo-gantt-link-status'], role: 'status', text: '',
             vdom  : {'aria-live': 'polite', 'aria-atomic': 'true'}
         }, !this.vnodeInitialized)
+    }
+
+    /**
+     * @summary Applies the working-time rules to a resolved span: a resized edge snaps to working time and keeps the
+     * minimum working duration; a moved task keeps its working duration, or takes the one its new dates span.
+     * @param {Number[]}                             span    The `[startMs, endMs]` resolved so far
+     * @param {Neo.gantt.Container.GanttSpanRequest} request What the edit asks for
+     * @returns {Number[]} The `[startMs, endMs]` in working time
+     * @protected
+     */
+    fitTaskToWorkingTime([startMs, endMs], {axis, hasEndInput, isEndResize, isMilestone, isStartResize, minMs, prevSpan}) {
+        let [prevStartMs, prevEndMs] = prevSpan;
+
+        if (isEndResize) {
+            startMs = axis.snapToWorkingTime(prevStartMs, 1).getTime();
+            endMs   = axis.snapToWorkingTime(endMs, -1).getTime();
+
+            if (axis.diffWorkingMs(startMs, endMs) < minMs) {
+                endMs = axis.addWorkingMs(startMs, minMs).getTime()
+            }
+        } else if (isStartResize) {
+            endMs   = axis.snapToWorkingTime(prevEndMs, -1).getTime();
+            startMs = axis.snapToWorkingTime(startMs, 1).getTime();
+
+            if (axis.diffWorkingMs(startMs, endMs) < minMs) {
+                startMs = axis.addWorkingMs(endMs, -minMs).getTime()
+            }
+        } else {
+            let prevWallMs      = Math.max(0, prevEndMs - prevStartMs),
+                prevWorkMs      = Math.max(0, axis.diffWorkingMs(prevStartMs, prevEndMs)),
+                preservedWorkMs = prevWorkMs > 0 ? prevWorkMs : prevWallMs,
+                inputWallMs     = hasEndInput ? Math.max(0, endMs - startMs) : preservedWorkMs,
+                requestedWorkMs = preservedWorkMs;
+
+            if (hasEndInput && Math.abs(inputWallMs - prevWallMs) > 1) {
+                let rawInputWorkMs = Math.max(0, axis.diffWorkingMs(startMs, endMs));
+                requestedWorkMs = rawInputWorkMs > 0 ? rawInputWorkMs : inputWallMs
+            }
+
+            let workingDurationMs = isMilestone ? 0 : Math.max(minMs, requestedWorkMs);
+
+            startMs = axis.snapToWorkingTime(startMs, 1).getTime();
+            endMs   = axis.addWorkingMs(startMs, workingDurationMs).getTime()
+        }
+
+        return [startMs, endMs]
     }
 
     /**
@@ -805,7 +1100,7 @@ class Container extends SchedulerContainer {
     getBarDragContext(zone, path, record) {
         let terminal = zone.getLinkTerminal(path);
         if (terminal ? !this.dependencyCreation : !this.barDraggable || this.store?.isDerivedParent?.(record)) return null;
-        this.#setKeyboardLinkSource(null);
+        this.keyboardLinkSource = null;
         return {terminal: terminal || null}
     }
 
@@ -856,6 +1151,19 @@ class Container extends SchedulerContainer {
     getEventDragZoneDefaults() { return {} }
 
     /**
+     * @summary The shortest span an edit leaves a task: none for a milestone, else {@link #minimumDuration} minutes,
+     * or the axis' snap or 15 when it is unset, and at least one minute.
+     * @param {Object}                     data        The task and its axis
+     * @param {Neo.timeline.TimeAxis|null} data.axis   The chart's time axis
+     * @param {Neo.data.Model}             data.record The edited task
+     * @returns {Number} Milliseconds
+     * @protected
+     */
+    getMinimumTaskDuration({axis, record}) {
+        return record.milestone ? 0 : Math.max(1, this.minimumDuration || axis?.snapMinutes || 15) * MS_PER_MINUTE
+    }
+
+    /**
      * @summary Uses the task-specific timeline column.
      * @returns {Function}
      * @protected
@@ -890,8 +1198,20 @@ class Container extends SchedulerContainer {
      * @returns {Boolean}
      */
     isKeyboardLinkSource(record, barId) {
-        let source = this.#keyboardLinkSource;
+        let source = this.keyboardLinkSource;
         return Boolean(source && source.record === record && source.barId === barId)
+    }
+
+    /**
+     * @summary Checks whether the schedule service writes this task's edits: it offers `moveTask`, and its
+     * `handlesTask`, when present, selects the task.
+     * @param {Neo.data.Model}                                record                   The edited task
+     * @param {Neo.gantt.Container.GanttScheduleService|null} [service=this.schedule] The service to ask
+     * @returns {Boolean}
+     * @protected
+     */
+    isServiceTask(record, service=this.schedule) {
+        return Boolean(service?.moveTask && (!service.handlesTask || service.handlesTask(this.store.getKey(record))))
     }
 
     /**
@@ -907,19 +1227,10 @@ class Container extends SchedulerContainer {
         if (!to || !this.dependencyStore || !this.canLinkTasks(from, to)) return {status: 'refused', reason: 'invalid-endpoints'};
         let edge = {...input, fromId: this.store.getKey(from), toId: this.store.getKey(to)};
         if (this.schedule?.linkTasks) {
-            return this.#usesService(this.schedule) ? this.schedule.linkTasks(edge) :
+            return this.usesService(this.schedule) ? this.schedule.linkTasks(edge) :
                 {status: 'refused', message: 'The service does not match the current stores.'}
         }
         return this.dependencyStore.addFinishToStart(edge, this.store)
-    }
-
-    /**
-     * @summary The chart's cascade motion, created on first use.
-     * @returns {Neo.gantt.CascadeMotion}
-     * @private
-     */
-    #motion() {
-        return this.#cascadeMotion ??= Neo.create(CascadeMotion, {chart: this})
     }
 
     /**
@@ -929,12 +1240,12 @@ class Container extends SchedulerContainer {
      * @param {Object}         previous Its previous values
      * @param {Object[]}       cascaded `{record, previous}` per changed successor
      * @param {Object}         meta     The edit's gesture source
-     * @private
+     * @protected
      */
-    #moveCascade(record, previous, cascaded, meta) {
+    moveCascade(record, previous, cascaded, meta) {
         if (this.animateCascade) {
             let dropped = meta.source === 'drag' || meta.source === 'resize';
-            this.#motion().start(dropped ? cascaded : [{record, previous}, ...cascaded])
+            this.ensureCascadeMotion().start(dropped ? cascaded : [{record, previous}, ...cascaded])
         }
     }
 
@@ -956,6 +1267,9 @@ class Container extends SchedulerContainer {
 
     /**
      * @summary Updates a task and cascades dependent task dates.
+     * @description Runs the edit's steps, each a `@protected` seam: {@link #resolveTaskDates},
+     * {@link #buildTaskUpdates} and {@link #refuseTaskEdit}, then {@link #consultScheduleService} for a task that
+     * {@link #isServiceTask} gives the service, else {@link #writeTaskEdit} and {@link #publishTaskEdit}.
      * @param {Neo.data.Model|String|Number|Object} taskIdOrRecord      Task, key, or an object containing a task key and changes.
      * @param {Object}                              [changes={}]        Start, end, title, completion, or additional fields under `fields`.
      * @param {Object}                              [meta={}]           Source, resize edge, and optional clamp and cascade controls.
@@ -974,268 +1288,55 @@ class Container extends SchedulerContainer {
         }
 
         let axis       = me.timeAxis,
-            startField = me.startDateField   || 'startDate',
-            endField   = me.endDateField     || 'endDate',
-            pctField   = me.percentDoneField || 'percentDone',
-            titleField = me.titleField       || 'title',
-            keyProp    = me.store?.keyProperty || 'id',
-            rawFields  = changes.fields && typeof changes.fields === 'object' && !Array.isArray(changes.fields)
-                ? changes.fields
-                : {},
-            rawPrevStart  = record[startField],
-            rawPrevEnd    = record[endField],
-            prevStartMs   = rawPrevStart instanceof Date ? rawPrevStart.getTime() : new Date(rawPrevStart).getTime(),
-            prevEndMs     = rawPrevEnd   instanceof Date ? rawPrevEnd.getTime()   : new Date(rawPrevEnd).getTime(),
-            prevPct       = record[pctField] ?? 0,
-            prevTitle     = record[titleField],
-            rawStartInput = changes.startDate !== undefined ? changes.startDate : changes[startField],
-            rawEndInput   = changes.endDate   !== undefined ? changes.endDate   : changes[endField],
-            hasStartInput = rawStartInput !== undefined && rawStartInput !== null,
-            hasEndInput   = rawEndInput   !== undefined && rawEndInput   !== null,
-            toMs          = val => {
-                if (val instanceof Date) {
-                    return val.getTime()
-                }
-                if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
-                    return (axis || TimeAxis).parseDayKey(val.trim()).getTime()
-                }
-                return new Date(val).getTime()
+            endField   = me.endDateField   || 'endDate',
+            startField = me.startDateField || 'startDate',
+            edit       = {
+                axis,
+                changes,
+                endField,
+                keyProp   : me.store?.keyProperty || 'id',
+                meta,
+                pctField  : me.percentDoneField || 'percentDone',
+                prevSpan  : [new Date(record[startField]).getTime(), new Date(record[endField]).getTime()],
+                record,
+                startField,
+                titleField: me.titleField || 'title',
+                useWorking: Boolean(me.useWorkingTime && axis?.hasWorkingCalendar())
             },
-            startMs = hasStartInput ? toMs(rawStartInput) : prevStartMs,
-            endMs   = hasEndInput   ? toMs(rawEndInput)   : prevEndMs;
+            span       = me.resolveTaskDates(edit);
 
-        if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+        if (!span) {
             return null
         }
 
-        let isMilestone = Boolean(record.milestone),
-            minMs       = isMilestone ? 0 : Math.max(1, me.minimumDuration || axis?.snapMinutes || 15) * MS_PER_MINUTE,
-            useWorking  = Boolean(me.useWorkingTime && axis?.hasWorkingCalendar());
+        let updates = me.buildTaskUpdates({...edit, span});
 
-        if (isMilestone && (meta.resizeEdge === 'start' || meta.resizeEdge === 'end' || meta.source === 'resize')) {
-            startMs = prevStartMs;
-            endMs   = prevEndMs
-        } else if (hasStartInput || hasEndInput) {
-            if (isMilestone) {
-                if (hasStartInput && !hasEndInput) {
-                    endMs = startMs
-                } else if (!hasStartInput && hasEndInput) {
-                    startMs = endMs
-                }
-            }
-
-            if (useWorking) {
-                let isEndResize   = meta.resizeEdge === 'end'   || (!hasStartInput && hasEndInput),
-                    isStartResize = meta.resizeEdge === 'start' || (hasStartInput && !hasEndInput && meta.source === 'resize');
-
-                if (isEndResize) {
-                    startMs = axis.snapToWorkingTime(prevStartMs, 1).getTime();
-                    endMs   = axis.snapToWorkingTime(endMs, -1).getTime();
-
-                    if (axis.diffWorkingMs(startMs, endMs) < minMs) {
-                        endMs = axis.addWorkingMs(startMs, minMs).getTime()
-                    }
-                } else if (isStartResize) {
-                    endMs   = axis.snapToWorkingTime(prevEndMs, -1).getTime();
-                    startMs = axis.snapToWorkingTime(startMs, 1).getTime();
-
-                    if (axis.diffWorkingMs(startMs, endMs) < minMs) {
-                        startMs = axis.addWorkingMs(endMs, -minMs).getTime()
-                    }
-                } else {
-                    let prevWallMs      = Math.max(0, prevEndMs - prevStartMs),
-                        prevWorkMs      = Math.max(0, axis.diffWorkingMs(prevStartMs, prevEndMs)),
-                        preservedWorkMs = prevWorkMs > 0 ? prevWorkMs : prevWallMs,
-                        inputWallMs     = hasEndInput ? Math.max(0, endMs - startMs) : preservedWorkMs,
-                        requestedWorkMs = preservedWorkMs;
-
-                    if (hasEndInput && Math.abs(inputWallMs - prevWallMs) > 1) {
-                        let rawInputWorkMs = Math.max(0, axis.diffWorkingMs(startMs, endMs));
-                        requestedWorkMs = rawInputWorkMs > 0 ? rawInputWorkMs : inputWallMs
-                    }
-
-                    let workingDurationMs = isMilestone ? 0 : Math.max(minMs, requestedWorkMs);
-
-                    startMs = axis.snapToWorkingTime(startMs, 1).getTime();
-                    endMs   = axis.addWorkingMs(startMs, workingDurationMs).getTime()
-                }
-
-                if (axis && meta.clamp !== false) {
-                    let axisStartMs = axis.start.getTime(),
-                        axisEndMs   = axis.end.getTime(),
-                        workDurMs   = isMilestone ? 0 : Math.max(minMs, axis.diffWorkingMs(startMs, endMs));
-
-                    if (startMs < axisStartMs) {
-                        startMs = axis.snapToWorkingTime(axisStartMs, 1).getTime();
-                        endMs   = axis.addWorkingMs(startMs, workDurMs).getTime()
-                    }
-                    if (endMs > axisEndMs) {
-                        endMs = axisEndMs;
-                        if (!isEndResize && !isStartResize) {
-                            startMs = Math.max(axisStartMs, axis.addWorkingMs(endMs, -workDurMs).getTime())
-                        }
-                    }
-                }
-            } else if (axis && meta.clamp !== false) {
-                let axisStartMs = axis.start.getTime(),
-                    axisEndMs   = axis.end.getTime(),
-                    durationMs  = Math.max(0, endMs - startMs);
-
-                if (isMilestone || (hasStartInput && hasEndInput && meta.source !== 'resize')) {
-                    startMs = Math.max(axisStartMs, Math.min(startMs, Math.max(axisStartMs, axisEndMs - durationMs)));
-                    endMs   = startMs + durationMs
-                } else if (hasStartInput && !hasEndInput) {
-                    endMs   = Math.min(axisEndMs, prevEndMs);
-                    startMs = Math.max(axisStartMs, Math.min(startMs, endMs - minMs))
-                } else if (!hasStartInput && hasEndInput) {
-                    startMs = Math.max(axisStartMs, prevStartMs);
-                    endMs   = Math.min(axisEndMs, Math.max(endMs, startMs + minMs))
-                }
-            } else if (meta.source === 'resize' && endMs < startMs + minMs) {
-                endMs = startMs + minMs
-            } else if (endMs < startMs) {
-                endMs = startMs
-            }
-        }
-
-        let updates       = {},
-            forbiddenKeys = new Set([
-                'id', keyProp, 'endDate', 'eventId', 'fields', 'key', 'meta', 'percentDone', 'record', 'startDate', 'taskId', 'title',
-                startField, endField, pctField, titleField
-            ]);
-
-        if (startMs !== prevStartMs) {
-            updates[startField] = new Date(startMs)
-        }
-
-        if (endMs !== prevEndMs) {
-            updates[endField] = new Date(endMs)
-        }
-
-        let rawPctInput = changes.percentDone !== undefined
-            ? changes.percentDone
-            : changes[pctField] !== undefined
-                ? changes[pctField]
-                : rawFields.percentDone !== undefined
-                    ? rawFields.percentDone
-                    : rawFields[pctField];
-
-        if (rawPctInput !== undefined && rawPctInput !== null) {
-            let clampedPct = Math.min(100, Math.max(0, Number(rawPctInput) || 0));
-            if (clampedPct !== prevPct) {
-                updates[pctField] = clampedPct
-            }
-        }
-
-        let rawTitleInput = changes.title !== undefined
-            ? changes.title
-            : changes[titleField] !== undefined
-                ? changes[titleField]
-                : rawFields.title !== undefined
-                    ? rawFields.title
-                    : rawFields[titleField];
-
-        if (rawTitleInput !== undefined && rawTitleInput !== prevTitle) {
-            updates[titleField] = rawTitleInput
-        }
-
-        for (let [fieldKey, fieldVal] of Object.entries(rawFields)) {
-            if (forbiddenKeys.has(fieldKey) || fieldVal === undefined) {
-                continue
-            }
-            if (fieldVal !== record[fieldKey]) {
-                updates[fieldKey] = fieldVal
-            }
-        }
-
-        if (Object.keys(updates).length === 0) {
+        if (!Object.keys(updates).length) {
             return null
         }
 
-        if (me.store?.isDerivedParent?.(record) && [startField, endField, pctField, 'duration'].some(key => key in updates)) {
-            return {status: 'refused', message: 'This phase takes its dates and progress from its tasks.'}
+        // One read of the service: the one that admits the edit decides it, even if its admission replaces the schedule
+        let service = me.schedule,
+            refusal = me.refuseTaskEdit({...edit, service, updates});
+
+        if (refusal) {
+            return refusal
         }
 
-        if ((updates[startField] || updates[endField]) && record.duration !== undefined) {
-            let unit         = String(record.durationUnit || 'hour').toLowerCase(),
-                unitMs       = unit.startsWith('day') ? MS_PER_DAY : unit.startsWith('min') ? MS_PER_MINUTE : MS_PER_HOUR,
-                spanMs       = useWorking ? Math.max(0, axis.diffWorkingMs(startMs, endMs)) : (endMs - startMs),
-                nextDuration = Math.round((spanMs / unitMs) * 100) / 100;
-
-            if (nextDuration !== record.duration) {
-                updates.duration = nextDuration
-            }
+        if (me.isServiceTask(record, service)) {
+            return me.consultScheduleService({...edit, service, updates})
         }
 
-        let service = me.schedule;
-        if (service && !me.#usesService(service)) {
-            return {status: 'refused', message: 'The service does not match the current stores.'}
-        }
-        if (service?.moveTask && (!service.handlesTask || service.handlesTask(me.store.getKey(record)))) {
-            let proposal = {...updates};
-            delete proposal.duration;
-            me._movingTask = true;
-            let result;
-            try { result = service.moveTask(me.store.getKey(record), proposal) }
-            finally { me._movingTask = false }
-            if (result?.status === 'committed') {
-                let native = me.#publishServiceResult(record, result, meta, true);
-                return {...native, status: 'committed', notificationErrors: result.notificationErrors}
-            }
-            if (result?.status === 'pending' && result.pending?.id != null && service.onDecisionSettled) {
-                me.#pendingCleanup?.();
-                let taskId = me.store.getKey(record);
-                me.#pendingCleanup = service.onDecisionSettled(result.pending.id, settled => {
-                    me.#pendingCleanup = null;
-                    if (settled?.status === 'committed' && (!settled.action || settled.action === 'moveTask') &&
-                        (settled.taskId === undefined || String(settled.taskId) === String(taskId)) &&
-                        me.#usesService(service) && me.resolveTaskRecord(record)) {
-                        me.#publishServiceResult(record, settled, meta)
-                    }
-                })
-            }
-            return result
-        }
+        let written = me.writeTaskEdit({...edit, updates});
 
-        let previous = {};
-        for (let key of Object.keys(updates)) {
-            let val = record[key];
-            previous[key] = val instanceof Date ? new Date(val.getTime()) : val
-        }
-
-        let cascaded = [],
-            cycles   = [],
-            store    = me.store,
-            cascade  = me.cascadeDependencies && meta.cascade !== false && me.dependencyStore && (updates[startField] || updates[endField]);
-        me._movingTask = true;
-        try {
-            if (store.rollupParents) {
-                let pending = new Map([[record, updates]]);
-                cascaded = cascade ? me.cascade.runDependencyCascade(record, cycles, pending) : store.planParentRollups(pending, [record]);
-                store.updateRows([{key: store.getKey(record), values: updates},
-                    ...cascaded.map(item => ({key: store.getKey(item.record), values: item.changes}))])
-            } else {
-                record.set(updates);
-                if (cascade) cascaded = me.cascade.runDependencyCascade(record, cycles)
-            }
-        } finally {
-            me._movingTask = false
-        }
-
-        if (updates[startField] || updates[endField] || cascaded.length) {
-            me.#analysis?.invalidateSchedule();
-            me.#moveCascade(record, previous, cascaded, meta)
-        }
-        me.syncDependencyLayer();
-
-        if (cycles.length > 0) {
-            me.fire('dependencyCycle', {
-                cycles,
-                record
-            })
-        }
-
-        return me.#publishTaskChange(record, updates, previous, cascaded, cycles, meta, startMs, endMs)
+        return me.publishTaskEdit({
+            ...written,
+            meta,
+            moved: Boolean(updates[startField] || updates[endField] || written.cascaded.length),
+            record,
+            span,
+            updates
+        })
     }
 
     /**
@@ -1245,18 +1346,18 @@ class Container extends SchedulerContainer {
      * @protected
      */
     onBarKeyDown(data={}) {
-        if (data.key === 'Escape') this.#setKeyboardLinkSource(null);
+        if (data.key === 'Escape') this.keyboardLinkSource = null;
         if (!this.dependencyCreation || data.altKey || data.ctrlKey || data.metaKey || data.key?.toLowerCase() !== 'l') {
             return super.onBarKeyDown(data)
         }
         let {barNode} = this.extractBarTarget(data.path || data.targetPath || []),
             target    = this.resolveTaskRecord(barNode?.data?.eventId),
-            source    = this.#keyboardLinkSource;
+            source    = this.keyboardLinkSource;
         if (source) {
-            this.#setKeyboardLinkSource(null);
+            this.keyboardLinkSource = null;
             if (target) return this.linkTasks({fromId: source.record, toId: target})
         }
-        else if (this.canLinkTasks(target)) this.#setKeyboardLinkSource(target, barNode.id)
+        else if (this.canLinkTasks(target)) this.keyboardLinkSource = {barId: barNode.id, record: target}
     }
 
     /**
@@ -1277,9 +1378,9 @@ class Container extends SchedulerContainer {
      * @param {Object}                                   meta            The edit's gesture source and resize edge
      * @param {Boolean}                                  [animate=false] True moves the changed tasks when {@link #animateCascade} is on
      * @returns {Object} The published `{updates, cascaded, cycles}`
-     * @private
+     * @protected
      */
-    #publishServiceResult(record, result, meta, animate=false) {
+    publishServiceResult(record, result, meta, animate=false) {
         let convert = (row, fields={}) => Object.fromEntries(Object.entries(fields).map(([key, value]) =>
                 [key, row?.[key] instanceof Date && value != null ? new Date(value) : value])),
             updates  = convert(record, result.updates),
@@ -1288,52 +1389,115 @@ class Container extends SchedulerContainer {
                 let row = this.resolveTaskRecord(item.taskId);
                 return {record: row, changes: convert(row, item.changes), previous: convert(row, item.previous)}
             });
-        if (animate) this.#moveCascade(record, previous, cascaded, meta);
+        if (animate) this.moveCascade(record, previous, cascaded, meta);
         if (!this.#serviceCleanup) { this.#analysis?.invalidateSchedule(); this.syncDependencyLayer() }
-        return this.#publishTaskChange(record, updates, previous, cascaded, result.cycles || [], meta,
-            record[this.startDateField], record[this.endDateField])
+        return this.publishTaskChange({
+            cascaded,
+            cycles: result.cycles || [],
+            meta,
+            previous,
+            record,
+            span  : [record[this.startDateField], record[this.endDateField]],
+            updates
+        })
     }
 
     /**
      * @summary Emits the settled task edit.
-     * @param {Neo.data.Model} record   The edited task
-     * @param {Object}         updates  Its changed fields
-     * @param {Object}         previous The previous values of those fields
-     * @param {Object[]}       cascaded The changed successors with their `record`, `changes` and `previous`
-     * @param {String[]}       cycles   Dependency identifiers found in cycles during the edit
-     * @param {Object}         meta     The edit's action, source and resize edge
-     * @param {Number|Date}    startMs  The edited task's resulting start
-     * @param {Number|Date}    endMs    The edited task's resulting end
+     * @param {Object}         data          The edit to publish
+     * @param {Object[]}       data.cascaded The changed successors with their `record`, `changes` and `previous`
+     * @param {String[]}       data.cycles   Dependency identifiers found in cycles during the edit
+     * @param {Object}         data.meta     The edit's action, source and resize edge
+     * @param {Object}         data.previous The previous values of the changed fields
+     * @param {Neo.data.Model} data.record   The edited task
+     * @param {Array}          data.span     The edited task's resulting `[start, end]`, as times or dates
+     * @param {Object}         data.updates  Its changed fields
      * @returns {Object} `{updates, cascaded, cycles}`
-     * @private
+     * @protected
      */
-    #publishTaskChange(record, updates, previous, cascaded, cycles, meta, startMs, endMs) {
-        let action       = meta.action || (meta.resizeEdge ? 'resize' : 'move'),
-            changesById  = {[this.store.getKey(record)]: updates},
-            previousById = {[this.store.getKey(record)]: previous};
+    publishTaskChange({cascaded, cycles, meta, previous, record, span, updates}) {
+        let me           = this,
+            key          = me.store.getKey(record),
+            changesById  = {[key]: updates},
+            previousById = {[key]: previous};
 
         for (let item of cascaded) {
-            changesById[this.store.getKey(item.record)]  = item.changes;
-            previousById[this.store.getKey(item.record)] = item.previous
+            changesById[me.store.getKey(item.record)]  = item.changes;
+            previousById[me.store.getKey(item.record)] = item.previous
         }
 
-        this.fire('taskChange', {
-            action,
+        me.fire('taskChange', {
+            action      : meta.action || (meta.resizeEdge ? 'resize' : 'move'),
             cascaded,
             changeSource: meta.source || 'api',
             changes     : updates,
             changesById,
             cycles,
-            endDate     : new Date(endMs),
+            endDate     : new Date(span[1]),
             previous,
             previousById,
             record,
             resizeEdge  : meta.resizeEdge || null,
-            startDate   : new Date(startMs),
+            startDate   : new Date(span[0]),
             updates
         });
 
         return {updates, cascaded, cycles}
+    }
+
+    /**
+     * @summary Publishes the chart's own written edit: a moved edit invalidates the analysis and moves the
+     * changed tasks, the overlay redraws, cycles are reported, and the change is published.
+     * @param {Object}         data          The written edit
+     * @param {Object[]}       data.cascaded The changed successors with their `record`, `changes` and `previous`
+     * @param {String[]}       data.cycles   Dependency identifiers found in cycles during the edit
+     * @param {Object}         data.meta     The edit's action, source and resize edge
+     * @param {Boolean}        data.moved    True when the edit changed dates
+     * @param {Object}         data.previous The previous values of the changed fields
+     * @param {Neo.data.Model} data.record   The edited task
+     * @param {Number[]}       data.span     The edited task's resulting `[startMs, endMs]`
+     * @param {Object}         data.updates  Its changed fields
+     * @returns {Object} `{updates, cascaded, cycles}`
+     * @protected
+     */
+    publishTaskEdit({cascaded, cycles, meta, moved, previous, record, span, updates}) {
+        let me = this;
+
+        if (moved) {
+            me.#analysis?.invalidateSchedule();
+            me.moveCascade(record, previous, cascaded, meta)
+        }
+
+        me.syncDependencyLayer();
+
+        if (cycles.length > 0) {
+            me.fire('dependencyCycle', {cycles, record})
+        }
+
+        return me.publishTaskChange({cascaded, cycles, meta, previous, record, span, updates})
+    }
+
+    /**
+     * @summary Refuses an edit the chart cannot take: a derived phase's dates or progress, or an edit while the
+     * schedule service describes other stores.
+     * @param {Neo.gantt.Container.GanttTaskEdit}            edit         The edit, with its changed fields
+     * @param {Neo.gantt.Container.GanttScheduleService|null} edit.service The service {@link #moveTask} read once for the edit
+     * @param {Object}                                       edit.updates The changed fields {@link #buildTaskUpdates} returned
+     * @returns {Object|null} A refusal receipt, or null
+     * @protected
+     */
+    refuseTaskEdit({endField, pctField, record, service, startField, updates}) {
+        let me = this;
+
+        if (me.store?.isDerivedParent?.(record) && [startField, endField, pctField, 'duration'].some(key => key in updates)) {
+            return {status: 'refused', message: 'This phase takes its dates and progress from its tasks.'}
+        }
+
+        if (service && !me.usesService(service)) {
+            return {status: 'refused', message: 'The service does not match the current stores.'}
+        }
+
+        return null
     }
 
     /**
@@ -1392,7 +1556,7 @@ class Container extends SchedulerContainer {
             cycles        = [],
             meta          = {action: 'workingTime', source: 'workingTime'};
 
-        if (service && !me.#usesService(service)) {
+        if (service && !me.usesService(service)) {
             let result = {status: 'refused', message: 'The service does not match the current stores.'};
             me.fire('scheduleResult', {record: null, result});
             return result
@@ -1414,15 +1578,11 @@ class Container extends SchedulerContainer {
                 lastServiceResult = null;
 
             for (let entry of entries) {
-                let key = me.store.getKey(entry.record);
-                if (!service.handlesTask || service.handlesTask(key)) {
-                    me._movingTask = true;
-                    let result;
-                    try { result = service.moveTask(key, {...entry.changes}) }
-                    finally { me._movingTask = false }
+                if (me.isServiceTask(entry.record, service)) {
+                    let result = me.asTaskWrite(() => service.moveTask(me.store.getKey(entry.record), {...entry.changes}));
 
                     if (result?.status === 'committed') {
-                        let native = me.#publishServiceResult(entry.record, result, meta, true);
+                        let native = me.publishServiceResult(entry.record, result, meta, true);
                         lastServiceResult = {...native, status: 'committed', notificationErrors: result.notificationErrors}
                     } else {
                         if (result?.status && result.status !== 'committed') {
@@ -1441,18 +1601,7 @@ class Container extends SchedulerContainer {
             entries.splice(0, entries.length, ...nativeEntries)
         }
 
-        me._movingTask = true;
-        try {
-            if (me.store.rollupParents && !service) {
-                me.store.updateRows(entries.map(({record, changes}) => ({key: me.store.getKey(record), values: changes})))
-            } else {
-                for (let entry of entries) {
-                    entry.record.set(entry.changes)
-                }
-            }
-        } finally {
-            me._movingTask = false
-        }
+        me.writeTaskChanges(entries, Boolean(me.store.rollupParents && !service));
 
         let [first, ...rest] = entries,
             cascaded         = rest.map(({changes, dependencyId, endDate, previous, record, startDate}) => ({
@@ -1464,15 +1613,92 @@ class Container extends SchedulerContainer {
                 startDate
             }));
 
-        me.#analysis?.invalidateSchedule();
-        me.#moveCascade(first.record, first.previous, cascaded, meta);
-        me.syncDependencyLayer();
+        return me.publishTaskEdit({
+            cascaded,
+            cycles,
+            meta,
+            moved   : true,
+            previous: first.previous,
+            record  : first.record,
+            span    : [first.startMs, first.endMs],
+            updates : first.changes
+        })
+    }
 
-        if (cycles.length > 0) {
-            me.fire('dependencyCycle', {cycles, record: first.record})
+    /**
+     * @summary Resolves the span an edit asks for: parses the requested dates, keeps a milestone a point, then
+     * applies {@link #fitTaskToWorkingTime} with working time and {@link #clampTaskToAxis} on an axis, unless
+     * `meta.clamp` is false. Both receive the minimum {@link #getMinimumTaskDuration} returns. A resized milestone
+     * keeps its dates.
+     * @param {Neo.gantt.Container.GanttTaskEdit} edit The edit {@link #moveTask} builds
+     * @returns {Number[]|null} `[startMs, endMs]`, or null when a requested date is not a date
+     * @protected
+     */
+    resolveTaskDates({axis, changes, endField, meta, prevSpan, record, startField, useWorking}) {
+        let me            = this,
+            rawStartInput = changes.startDate !== undefined ? changes.startDate : changes[startField],
+            rawEndInput   = changes.endDate   !== undefined ? changes.endDate   : changes[endField],
+            hasStartInput = rawStartInput !== undefined && rawStartInput !== null,
+            hasEndInput   = rawEndInput   !== undefined && rawEndInput   !== null,
+            toMs          = val => {
+                if (val instanceof Date) {
+                    return val.getTime()
+                }
+                if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+                    return (axis || TimeAxis).parseDayKey(val.trim()).getTime()
+                }
+                return new Date(val).getTime()
+            },
+            startMs       = hasStartInput ? toMs(rawStartInput) : prevSpan[0],
+            endMs         = hasEndInput   ? toMs(rawEndInput)   : prevSpan[1];
+
+        if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+            return null
         }
 
-        return me.#publishTaskChange(first.record, first.changes, first.previous, cascaded, cycles, meta, first.startMs, first.endMs)
+        let isMilestone = Boolean(record.milestone),
+            request     = {
+                axis,
+                hasEndInput,
+                hasStartInput,
+                isEndResize  : meta.resizeEdge === 'end'   || (!hasStartInput && hasEndInput),
+                isMilestone,
+                isStartResize: meta.resizeEdge === 'start' || (hasStartInput && !hasEndInput && meta.source === 'resize'),
+                meta,
+                minMs        : me.getMinimumTaskDuration({axis, record}),
+                prevSpan,
+                record,
+                useWorking
+            },
+            span        = [startMs, endMs];
+
+        if (isMilestone && (meta.resizeEdge === 'start' || meta.resizeEdge === 'end' || meta.source === 'resize')) {
+            return [...prevSpan]
+        }
+
+        if (hasStartInput || hasEndInput) {
+            if (isMilestone && hasStartInput !== hasEndInput) {
+                span = hasStartInput ? [startMs, startMs] : [endMs, endMs]
+            }
+
+            if (useWorking) {
+                span = me.fitTaskToWorkingTime(span, request)
+            }
+
+            if (axis && meta.clamp !== false) {
+                span = me.clampTaskToAxis(span, request)
+            } else if (!useWorking) {
+                let [start, end] = span;
+
+                if (meta.source === 'resize' && end < start + request.minMs) {
+                    span = [start, start + request.minMs]
+                } else if (end < start) {
+                    span = [start, start]
+                }
+            }
+        }
+
+        return span
     }
 
     /**
@@ -1482,25 +1708,6 @@ class Container extends SchedulerContainer {
      */
     resolveTaskRecord(taskIdOrRecord) {
         return this.resolveEventRecord(taskIdOrRecord)
-    }
-
-    /**
-     * @summary Arms or clears the first keyboard link endpoint.
-     * @param {Neo.data.Model|null} record       The task to arm, or null to clear
-     * @param {String|null}         [barId=null] The id of the task's rendered bar
-     * @private
-     */
-    #setKeyboardLinkSource(record, barId=null) {
-        let previous = this.#keyboardLinkSource,
-            row      = record && this.body?.items.find(item => item.record === record),
-            title    = record && (record[this.titleField] || this.store.getKey(record));
-
-        if (!previous && !record) return;
-        this.#keyboardLinkSource = record ? {record, barId, row} : null;
-        this.#keyboardLinkStatus.text = record
-            ? `Link from ${title}. Focus the destination and press L, or press Escape to cancel.` : '';
-        if (previous && previous.row?.record === previous.record && previous.row !== row) previous.row.createVdom(false, false);
-        row?.createVdom(false, false)
     }
 
     /**
@@ -1574,12 +1781,68 @@ class Container extends SchedulerContainer {
      * @summary Checks that an external service still describes the chart's current stores.
      * @param {Neo.gantt.Container.GanttScheduleService|null} service The service to check
      * @returns {Boolean}
-     * @private
+     * @protected
      */
-    #usesService(service) {
+    usesService(service) {
         return Boolean(service && service === this.schedule && !service.isDestroyed &&
             (!('store' in service) || service.store === this.store) &&
             (!('dependencyStore' in service) || service.dependencyStore === this.dependencyStore))
+    }
+
+    /**
+     * @summary Writes `{record, changes}` entries as the chart's own write: in one store batch (`updateRows()`), or
+     * record by record.
+     * @param {Object[]} entries       `{record, changes}` per task
+     * @param {Boolean}  [batch=false] True writes one store batch
+     * @protected
+     */
+    writeTaskChanges(entries, batch=false) {
+        let store = this.store;
+
+        this.asTaskWrite(() => {
+            if (batch) {
+                store.updateRows(entries.map(({changes, record}) => ({key: store.getKey(record), values: changes})))
+            } else {
+                entries.forEach(({changes, record}) => record.set(changes))
+            }
+        })
+    }
+
+    /**
+     * @summary Writes the chart's own edit and its cascade. With store-owned phase dates, the cascade or the phase
+     * rollups are planned first and land in one store batch with the edit; otherwise the edit lands, then the
+     * cascade follows it.
+     * @param {Neo.gantt.Container.GanttTaskEdit} edit         The edit, with its changed fields
+     * @param {Object}                            edit.updates The changed fields {@link #buildTaskUpdates} returned
+     * @returns {Object} `{cascaded, cycles, previous}`: the changed successors, the cycle edges, the previous values
+     * @protected
+     */
+    writeTaskEdit({endField, meta, record, startField, updates}) {
+        let me       = this,
+            store    = me.store,
+            cascade  = me.cascadeDependencies && meta.cascade !== false && me.dependencyStore && (updates[startField] || updates[endField]),
+            cascaded = [],
+            cycles   = [],
+            previous = {},
+            entry    = {changes: updates, record};
+
+        for (let key of Object.keys(updates)) {
+            let val = record[key];
+            previous[key] = val instanceof Date ? new Date(val.getTime()) : val
+        }
+
+        me.asTaskWrite(() => {
+            if (store.rollupParents) {
+                let pending = new Map([[record, updates]]);
+                cascaded = cascade ? me.cascade.runDependencyCascade(record, cycles, pending) : store.planParentRollups(pending, [record]);
+                me.writeTaskChanges([entry, ...cascaded], true)
+            } else {
+                me.writeTaskChanges([entry]);
+                if (cascade) cascaded = me.cascade.runDependencyCascade(record, cycles)
+            }
+        });
+
+        return {cascaded, cycles, previous}
     }
 
     /**
@@ -1628,6 +1891,41 @@ class Container extends SchedulerContainer {
  * @property {String} [action] Originating command on a settled receipt, e.g. `moveTask`.
  * @property {String} [message] Explanation the task editor can display after a refusal.
  * @property {Array<Error|String>} [notificationErrors] Observer errors reported after a committed service edit.
+ */
+
+/**
+ * What {@link Neo.gantt.Container#resolveTaskDates} read from an edit, for {@link Neo.gantt.Container#fitTaskToWorkingTime}
+ * and {@link Neo.gantt.Container#clampTaskToAxis}.
+ * @typedef {Object} GanttSpanRequest
+ * @memberof Neo.gantt.Container
+ * @property {Neo.timeline.TimeAxis|null} axis          The chart's time axis
+ * @property {Boolean}                    hasEndInput   True when the edit asks for an end
+ * @property {Boolean}                    hasStartInput True when the edit asks for a start
+ * @property {Boolean}                    isEndResize   True when a working-time edit moves the end alone
+ * @property {Boolean}                    isMilestone   True for a milestone
+ * @property {Boolean}                    isStartResize True when a working-time edit moves the start alone
+ * @property {Object}                     meta          The edit's gesture source, resize edge and switches
+ * @property {Number}                     minMs         The task's minimum duration
+ * @property {Number[]}                   prevSpan      The task's `[startMs, endMs]` before the edit
+ * @property {Neo.data.Model}             record        The edited task, for a policy that differs per task
+ * @property {Boolean}                    useWorking    True when durations count working time
+ */
+
+/**
+ * The edit {@link Neo.gantt.Container#moveTask} builds once and hands to each of its steps.
+ * @typedef {Object} GanttTaskEdit
+ * @memberof Neo.gantt.Container
+ * @property {Neo.timeline.TimeAxis|null} axis       The chart's time axis
+ * @property {Object}                     changes    The requested changes, with further fields under `fields`
+ * @property {String}                     endField   The task's end date field
+ * @property {String}                     keyProp    The task store's key property
+ * @property {Object}                     meta       The edit's gesture source, resize edge, and clamp and cascade switches
+ * @property {String}                     pctField   The task's completion field
+ * @property {Number[]}                   prevSpan   The task's `[startMs, endMs]` before the edit
+ * @property {Neo.data.Model}             record     The edited task
+ * @property {String}                     startField The task's start date field
+ * @property {String}                     titleField The task's title field
+ * @property {Boolean}                    useWorking True when durations count working time
  */
 
 /**

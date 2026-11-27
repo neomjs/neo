@@ -35,6 +35,26 @@ class CustomScheduler extends Scheduler {
 }
 Neo.setupClass(CustomScheduler);
 
+// Tasks last eight hours at least, and a moved task may run past the axis: two seams, no copy of moveTask
+class EightHourGantt extends Gantt {
+    static config = {className: 'Test.GanttInheritance.EightHourGantt'}
+    getMinimumTaskDuration({record}) { return record.milestone ? 0 : 8 * 3_600_000 }
+    clampTaskToAxis(span, request) {
+        return request.hasStartInput && request.hasEndInput ? span : super.clampTaskToAxis(span, request)
+    }
+}
+Neo.setupClass(EightHourGantt);
+
+// Task b must end by 10:00; every other task clamps as the base does. The request names the task.
+class DeadlineGantt extends Gantt {
+    static config = {className: 'Test.GanttInheritance.DeadlineGantt'}
+    clampTaskToAxis(span, request) {
+        const [startMs, endMs] = super.clampTaskToAxis(span, request);
+        return request.record.id === 'b' ? [startMs, Math.min(endMs, Date.parse('2026-11-09T10:00Z'))] : [startMs, endMs]
+    }
+}
+Neo.setupClass(DeadlineGantt);
+
 test('a subclass controls columns, gesture class, and record store without changing the base', () => {
     const rows = Neo.create(Events, {data: [{id: 8, resourceId: 'r', title: 'Item',
         startDate: '2026-11-09T01:00Z', endDate: '2026-11-09T02:00Z'}]});
@@ -57,6 +77,40 @@ test('a subclass controls columns, gesture class, and record store without chang
         expect(chart.eventDragZone.store).toBe(rows);
         expect(chart.timelineColumn.eventStore).toBeNull()
     } finally { chart.destroy(); rows.destroy(); other.destroy() }
+});
+
+test('a chart subclass changes the minimum duration and the clamp through their seams', () => {
+    const edit = ChartClass => {
+        const tasks = Neo.create(TaskStore, {data: [{id: 'a', isLeaf: true, parentId: null,
+            startDate: '2026-11-09T08:00Z', endDate: '2026-11-09T12:00Z'}]});
+        const chart = Neo.create(ChartClass, {appName, store: tasks, dependencyStore: {}, barDraggable: false,
+            timeAxis: {start: '2026-11-09T00:00Z', end: '2026-11-11T00:00Z'}});
+        try {
+            const task = tasks.get('a'), span = () => [task.startDate.toISOString(), task.endDate.toISOString()];
+            chart.moveTask('a', {endDate: '2026-11-09T09:00Z'}, {source: 'resize', resizeEdge: 'end'});
+            const resized = span();
+            chart.moveTask('a', {startDate: '2026-11-10T20:00Z', endDate: '2026-11-11T04:00Z'});
+            return [resized, span()]
+        } finally { chart.destroy(); tasks.destroy() }
+    };
+
+    // The base keeps 15 minutes and clamps the move to the axis end
+    expect(edit(Gantt)).toEqual([['2026-11-09T08:00:00.000Z', '2026-11-09T09:00:00.000Z'],
+        ['2026-11-10T16:00:00.000Z', '2026-11-11T00:00:00.000Z']]);
+    expect(edit(EightHourGantt)).toEqual([['2026-11-09T08:00:00.000Z', '2026-11-09T16:00:00.000Z'],
+        ['2026-11-10T20:00:00.000Z', '2026-11-11T04:00:00.000Z']])
+});
+
+test('a chart subclass clamps by task through the request alone', () => {
+    const tasks = Neo.create(TaskStore, {data: ['a', 'b'].map(id => ({id, isLeaf: true, parentId: null,
+        startDate: '2026-11-09T08:00Z', endDate: '2026-11-09T09:00Z'}))});
+    const chart = Neo.create(DeadlineGantt, {appName, store: tasks, dependencyStore: {}, barDraggable: false,
+        timeAxis: {start: '2026-11-09T00:00Z', end: '2026-11-11T00:00Z'}});
+    try {
+        for (const id of ['a', 'b']) chart.moveTask(id, {endDate: '2026-11-09T12:00Z'}, {source: 'resize', resizeEdge: 'end'});
+        expect(tasks.get('a').endDate.toISOString()).toBe('2026-11-09T12:00:00.000Z');
+        expect(tasks.get('b').endDate.toISOString()).toBe('2026-11-09T10:00:00.000Z')
+    } finally { chart.destroy(); tasks.destroy() }
 });
 
 test('task and event single-object arguments use their own keys and custom task identities', () => {

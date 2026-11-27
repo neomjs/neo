@@ -1947,9 +1947,6 @@
   "src/gantt/CascadeMotion.mjs": {
     "no-private-methods": ["CascadeMotion.#paint","CascadeMotion.#step"]
   },
-  "src/gantt/Container.mjs": {
-    "no-private-methods": ["Container.#ensureKeyboardLinkStatus","Container.#motion","Container.#moveCascade","Container.#publishServiceResult","Container.#publishTaskChange","Container.#setKeyboardLinkSource","Container.#usesService"]
-  },
   "src/gantt/DependencyStore.mjs": {
     "no-private-methods": ["DependencyStore.#clearEndpointIndex","DependencyStore.#ensureEndpointIndex","DependencyStore.#hasValidEndpointIndex","DependencyStore.#lookupEdges"]
   },
