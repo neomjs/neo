@@ -28,6 +28,9 @@ const
     LIST_URL = `${REPO_URL}/issues?q=${encodeURIComponent('is:issue is:open no:assignee -linked:pr label:"good first issue","help wanted"')}`,
     ENGINE   = ['src/grid/Body.mjs'],
     DOCS     = ['learn/guides/Intro.md'],
+    // A Fleet app file: a sibling repository's `apps/` holds its own app, not the engine
+    FLEET           = ['apps/agentos/util/SpineBanner.mjs'],
+    INSTITUTION_URL = 'https://github.com/neomjs/neo-agent-institution',
     NEXT     = `**Next, if you want one:** #20701 (also \`grid\`) and #20702 are open and unclaimed; a comment on either claims it. [The full list](${LIST_URL}) has more if both are taken by then.`;
 
 const BADGE_URL = 'https://neomjs.com/badges/outside-dev-4242/';
@@ -155,11 +158,14 @@ test.describe('buildScripts/util/contributorStanding', () => {
         expect(nextIssues({candidates, seed: 'alice'})[0].number).not.toBe(nextIssues({candidates, seed: 'bob'})[0].number)
     });
 
-    test('the invitation follows what the pull request changed', () => {
+    test('the invitation follows what the pull request changed, and in which repository', () => {
         expect(invitation(ENGINE)).toBe(INVITATIONS.engine);
         expect(invitation(['resources/css/src/grid/Body.css', 'CONTRIBUTING.md'])).toBe(INVITATIONS.engine);
         expect(invitation(DOCS)).toBe(INVITATIONS.skills);
-        expect(invitation([])).toBe(INVITATIONS.skills)
+        expect(invitation([])).toBe(INVITATIONS.skills);
+        expect(invitation(ENGINE, REPO_URL)).toBe(INVITATIONS.engine);
+        // A sibling's app sits under `apps/` too, and is not the engine
+        expect(invitation(FLEET, INSTITUTION_URL)).toBe(INVITATIONS.skills)
     });
 
     test.describe('decideMergeComment', () => {
@@ -280,7 +286,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
         /**
          * Runs the workflow's script against a stand-in GitHub, recording every query, post and warning.
          */
-        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', folderStatus = 404, incomplete = () => false, inputs, optOutText = '[]', permission = 'read', repo = 'neo', searchError} = {}) => {
+        const run = async ({author = {}, comments = [], eventName = 'pull_request_target', folderStatus = 404, incomplete = () => false, inputs, optOutText = '[]', paths = ENGINE, permission = 'read', repo = 'neo', searchError} = {}) => {
             const calls = {contents: [], inFlight: 0, info: [], peakSearches: 0, permissions: [], posted: [], queries: [], summary: [], warnings: []};
 
             const github = {
@@ -296,7 +302,7 @@ test.describe('buildScripts/util/contributorStanding', () => {
                     },
                     pulls : {
                         get      : async () => ({data: pullRequest(author)}),
-                        listFiles: async () => ({data: ENGINE.map(filename => ({filename}))})
+                        listFiles: async () => ({data: paths.map(filename => ({filename}))})
                     },
                     repos : {
                         // The author can read unless the arm passes a permission, and null answers Not Found
@@ -414,18 +420,22 @@ test.describe('buildScripts/util/contributorStanding', () => {
             expect(raw).toMatch(COMMENT_PERMISSIONS)
         });
 
-        test('a sibling\'s call comments on its own pull request with its own next issues, from the same org-wide count and badge reads', async () => {
-            const calls = await run({repo: 'neo-agent-brain'});
+        test('a sibling\'s call comments on its own pull request with its own next issues and invitation, from the same org-wide count and badge reads', async () => {
+            const [calls, engine] = [await run({paths: FLEET, repo: 'neo-agent-institution'}), await run()];
 
             expect(calls.queries).toEqual([
                 'org:neomjs is:public is:pr is:merged author:Outside-Dev merged:<2026-11-14T10:00:00Z',
-                'repo:neomjs/neo-agent-brain is:issue is:open label:"good first issue" no:assignee -linked:pr',
-                'repo:neomjs/neo-agent-brain is:issue is:open label:"help wanted" no:assignee -linked:pr'
+                'repo:neomjs/neo-agent-institution is:issue is:open label:"good first issue" no:assignee -linked:pr',
+                'repo:neomjs/neo-agent-institution is:issue is:open label:"help wanted" no:assignee -linked:pr'
             ]);
             expect(calls.contents).toEqual(['neomjs/pages@main:badges/optout.json', 'neomjs/pages@main:badges/outside-dev-4242']);
             expect(calls.posted).toHaveLength(1);
-            expect(calls.posted[0]).toMatchObject({issue_number: 20999, owner: 'neomjs', repo: 'neo-agent-brain'});
-            expect(calls.posted[0].body).toBe(comment(0, {repoUrl: 'https://github.com/neomjs/neo-agent-brain'}));
+            expect(calls.posted[0]).toMatchObject({issue_number: 20999, owner: 'neomjs', repo: 'neo-agent-institution'});
+            expect(calls.posted[0].body).toBe(comment(0, {paths: FLEET, repoUrl: INSTITUTION_URL}));
+            // The words a Fleet author reads at a first merge, pinned apart from the renderer, against an Engine control
+            expect(calls.posted[0].body).toContain('**Take it with you:**');
+            expect(calls.posted[0].body).not.toContain('the engine you changed');
+            expect(engine.posted[0].body).toContain('**See it run:** the engine you changed runs live in the browser');
             expect(calls.warnings).toEqual([])
         });
 
