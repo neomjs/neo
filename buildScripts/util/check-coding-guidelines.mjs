@@ -30,6 +30,9 @@ const ROOTS        = ['src', 'apps', 'examples', 'docs/app'],
           'static-config-order' : '§5 (21): Put className first, ntype second, other configs in alphabetical order, then vdom or _vdom.'
       };
 
+/** @summary Tracked input paths consumed by the repository's hook/CI alignment check. */
+export const SCAN_SURFACE = Object.freeze([...ROOTS.map(root => root + '/**/*.mjs'), BASELINE]);
+
 /** @summary Iterates immediate Acorn children without visiting locations and other metadata. */
 function forEachChild(node, fn) {
     for (const value of Object.values(node)) {
