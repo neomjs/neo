@@ -117,7 +117,7 @@ class Viewport extends Container {
     /**
      * @summary Mirrors this viewport's theme onto `document.body`, so both surfaces name one theme.
      *
-     * `main.addon.Stylesheet#addGlobalCss` stamps `Neo.config.themes[0]` onto the body once, on the main
+     * `main.addon.Stylesheet#construct` stamps `Neo.config.themes[0]` onto the body once, on the main
      * thread, before any worker runs — and nothing in the theme path rewrites it afterwards. A root viewport
      * (`parentId === 'document.body'`) that owns `neo-body-viewport` owns this class too; the alternative is
      * a second publisher per app, which is what `apps/shareddialog` had to become as the only `setBodyCls` caller in `src/`.

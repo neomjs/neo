@@ -219,4 +219,46 @@ test.describe('build-themes theme-map regeneration (#17222)', () => {
         expect(fs.existsSync(path.join(root, 'dist/development/css/src/apps/plain/Ignored.css'))).toBe(false);
         expect(fs.existsSync(path.join(root, 'dist/development/css/src/apps/unlisted/Ignored.css'))).toBe(false);
     });
+
+    test('derives class-to-folders from Global.css selectors, admitting theme-base and multi-class folders without name derivation', () => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-themes-class-map-'));
+        fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({
+            bugs   : {url: 'https://example.invalid'},
+            name   : 'neo.mjs-fixture',
+            version: '1.0.0'
+        }));
+
+        const writeCss = (relPath, css) => {
+            const filePath = path.join(root, 'resources/css', relPath);
+            fs.mkdirSync(path.dirname(filePath), {recursive: true});
+            fs.writeFileSync(filePath, css, 'utf8');
+        };
+
+        writeCss('src/Global.css', ':where([class^="neo-theme-"]) { --motion-fast: 120ms; } .neo-theme-scope { color-scheme: var(--neo-color-scheme); }\n');
+        writeCss('src/button/Base.css', '.neo-button { color: var(--button-text-color); }\n');
+        writeCss('theme-base/button/Base.css', '[class*="neo-theme-"] { --button-text-color: var(--neo-color-text-default); }\n');
+        // Folder name intentionally differs from both declared classes, while theme-neo-dark coexists during migration
+        writeCss('shared-neo/Global.css', [
+            '/* .neo-theme-commented-out { --ignored: 1; } */',
+            '.neo-theme-neo-light { --neo-color-scheme: light; }',
+            '.neo-theme-neo-dark  { --neo-color-scheme: dark; }',
+            ':where(.neo-theme-neo-light, .neo-theme-neo-dark) { --neo-color-text-default: #111; }'
+        ].join('\n'));
+        writeCss('shared-neo/button/Base.css', ':where(.neo-theme-neo-light, .neo-theme-neo-dark) { --button-gap: 4px; }\n');
+        writeCss('theme-neo-dark/Global.css', ':where(.neo-theme-neo-dark) { --legacy-dark: 1; }\n');
+        writeCss('theme-dark/Global.css', ':root .neo-theme-dark { --neo-color-scheme: dark; }\n');
+
+        runBuild(root);
+
+        const map = readMap(root);
+
+        expect(map.themes).toEqual({
+            'neo-theme-dark'     : ['theme-dark'],
+            'neo-theme-neo-dark' : ['shared-neo', 'theme-neo-dark'],
+            'neo-theme-neo-light': ['shared-neo']
+        });
+        expect(map.Neo.button.Base).toEqual(['src', 'shared-neo', 'theme-base']);
+        expect(fs.existsSync(path.join(root, 'dist/development/css/theme-base/button/Base.css'))).toBe(true);
+        expect(fs.existsSync(path.join(root, 'dist/development/css/shared-neo/Global.css'))).toBe(true);
+    });
 });

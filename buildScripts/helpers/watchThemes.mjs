@@ -4,6 +4,10 @@ import fs              from 'fs-extra';
 import path            from 'node:path';
 import postcss         from 'postcss';
 import isEntryModule   from '../util/isEntryModule.mjs';
+import {
+    collectThemeClassMap,
+    isCssTargetFolder
+}                      from '../util/themeCss.mjs';
 import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
@@ -96,7 +100,7 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             .filter(entry => (
                 entry.isDirectory() &&
                 !entry.isSymbolicLink() &&
-                (entry.name === 'src' || entry.name.includes('theme'))
+                isCssTargetFolder(cssRoot, entry.name)
             ))
             .sort((a, b) => a.name.localeCompare(b.name))
             .forEach(entry => visit(path.join(cssRoot, entry.name), entry.name))
@@ -122,12 +126,16 @@ function addToThemeMap(themeMap, entry) {
 }
 
 /**
- * @summary Creates the exact nested class-to-theme map for an effective source census.
+ * @summary Creates the exact nested class-to-theme map plus `themes` (class → folders) for an effective source census.
  * @param {Array} census Effective source census.
+ * @param {Object} [options]
+ * @param {String} [options.repoRoot] Repository root.
  * @returns {Object}
  */
-function createDevelopmentThemeMap(census) {
-    const themeMap = {};
+function createDevelopmentThemeMap(census, {repoRoot = REPO_ROOT} = {}) {
+    const themeMap = {
+        themes: collectThemeClassMap(getThemeSourceRoots(repoRoot))
+    };
 
     census.forEach(entry => addToThemeMap(themeMap, entry));
 
@@ -161,7 +169,7 @@ export function regenerateDevelopmentThemeMap({
     census,
     repoRoot = REPO_ROOT
 } = {}) {
-    const themeMap = createDevelopmentThemeMap(census ?? getThemeSourceCensus({repoRoot}));
+    const themeMap = createDevelopmentThemeMap(census ?? getThemeSourceCensus({repoRoot}), {repoRoot});
 
     const serialized = JSON.stringify(themeMap);
 
@@ -226,13 +234,27 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
             continue
         }
 
+        const expectedThemes = collectThemeClassMap(getThemeSourceRoots(repoRoot));
+
         census.forEach(entry => {
             if (!themeMapHasEntry(themeMap, entry)) {
                 mapMissing.push(
                     `${path.relative(repoRoot, mapPath)}: ${entry.className} (${entry.root})`
                 )
             }
-        })
+        });
+
+        for (const [themeClass, folders] of Object.entries(expectedThemes)) {
+            const mapped = themeMap?.themes?.[themeClass];
+
+            for (const folder of folders) {
+                if (!Array.isArray(mapped) || !mapped.includes(folder)) {
+                    mapMissing.push(
+                        `${path.relative(repoRoot, mapPath)}: themes.${themeClass} (${folder})`
+                    )
+                }
+            }
+        }
     }
 
     const symlinked = conservativeState.symlinked ?? [];

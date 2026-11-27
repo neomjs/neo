@@ -247,6 +247,44 @@ test.describe('buildScripts/util/developmentThemeAssets (#15449)', () => {
 
         expect(state.ready).toBe(false);
         expect(state.symlinked).toContain('dist/development/css/src/Global.css')
+    });
+
+    test('a map missing a Global.css theme-class entry is incomplete and triggers one rebuild', async () => {
+        const root   = createRoot();
+        let   builds = 0;
+
+        writeFile(root, 'resources/css/src/Global.css', 1000, '.neo-body { margin: 0; }');
+        writeFile(root, 'resources/css/theme-neo/Global.css', 1000, '.neo-theme-neo-light { --neo-color-scheme: light; } .neo-theme-neo-dark { --neo-color-scheme: dark; }');
+        writeFile(root, 'dist/development/css/src/Global.css', 2000);
+        writeFile(root, 'dist/development/css/theme-neo/Global.css', 2000);
+        writeFile(root, 'resources/theme-map.json', 2000, JSON.stringify({
+            Neo   : {Global: ['src', 'theme-neo']},
+            themes: {'neo-theme-neo-light': ['theme-neo']}
+        }));
+
+        const state = inspectDevelopmentThemeAssets({repoRoot: root});
+
+        expect(state.ready).toBe(false);
+        expect(state.mapMissing).toEqual(['themes.neo-theme-neo-dark (theme-neo)']);
+
+        const result = await ensureDevelopmentThemeAssets({
+            repoRoot: root,
+            build   : async () => {
+                builds++;
+                writeFile(root, 'resources/theme-map.json', 3000, JSON.stringify({
+                    Neo   : {Global: ['src', 'theme-neo']},
+                    themes: {
+                        'neo-theme-neo-dark' : ['theme-neo'],
+                        'neo-theme-neo-light': ['theme-neo']
+                    }
+                }))
+            },
+            logger: {log() {}}
+        });
+
+        expect(result.built).toBe(true);
+        expect(result.state.ready).toBe(true);
+        expect(builds).toBe(1)
     })
 });
 
