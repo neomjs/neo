@@ -50,12 +50,14 @@
         }
     }
 
+    /* The maximized geometry has to beat the dialog's inline position and size, hence !important. A later layer's
+       !important cannot beat it, so a variant or an app re-values these variables on the dialog instead. */
     &.neo-maximized {
-        height   : 98% !important;
-        left     : 1%  !important;
-        top      : 1%  !important;
-        transform: none!important;
-        width    : 98% !important;
+        height   : var(--dialog-maximized-height, 98%) !important;
+        left     : var(--dialog-maximized-left, 1%) !important;
+        top      : var(--dialog-maximized-top, 1%) !important;
+        transform: none !important;
+        width    : var(--dialog-maximized-width, 98%) !important;
 
         &.neo-panel {
             .neo-header-toolbar {
