@@ -33,7 +33,7 @@ test.describe('Neo.manager.DomEvent touch listener mounting', () => {
         Neo.currentWorker             = originalWorker
     });
 
-    test('treats touchend and touchcancel as global body events and maps explicit local touch listeners to TouchDomEvents handlers', () => {
+    test('treats touchstart, touchmove, touchend, and touchcancel as global body events', () => {
         const component = {
             appName,
             domListeners: [
@@ -56,27 +56,25 @@ test.describe('Neo.manager.DomEvent touch listener mounting', () => {
         // Global body listeners already forward touchstart, touchmove, touchend, and touchcancel
         expect(sentMessages).toEqual([]);
 
-        const localComponent = {
+        const nonGlobalComponent = {
             appName,
             domListeners: [
-                {local: true, touchcancel: () => {}},
-                {touchend: {fn: () => {}, local: true}}
+                {animationend: () => {}}
             ],
-            id      : 'cmp-touch-local',
+            id      : 'cmp-non-global',
             mounted : true,
-            vdom    : {id: 'cmp-touch-local'},
+            vdom    : {id: 'cmp-non-global'},
             windowId: 1
         };
 
-        DomEvent.updateDomListeners(localComponent, localComponent.domListeners, []);
-        clearTimeout(DomEvent.mountTimeouts[localComponent.id]);
-        delete DomEvent.mountTimeouts[localComponent.id];
-        DomEvent.mountDomListeners(localComponent);
+        DomEvent.updateDomListeners(nonGlobalComponent, nonGlobalComponent.domListeners, []);
+        clearTimeout(DomEvent.mountTimeouts[nonGlobalComponent.id]);
+        delete DomEvent.mountTimeouts[nonGlobalComponent.id];
+        DomEvent.mountDomListeners(nonGlobalComponent);
 
         expect(sentMessages).toHaveLength(1);
         expect(sentMessages[0].payload.events.map(e => ({handler: e.handler, name: e.name}))).toEqual([
-            {handler: 'onTouchCancel', name: 'touchcancel'},
-            {handler: 'onTouchEnd',    name: 'touchend'}
+            {handler: 'domEventListener', name: 'animationend'}
         ])
     })
 });
