@@ -97,14 +97,21 @@ test.describe('Neo.main.addon.Stylesheet map-driven loading and variable updates
     let originalConfig;
 
     test.beforeEach(() => {
-        originalConfig      = Neo.clone(Neo.config, true);
-        globalThis.document = documentRef;
+        originalConfig          = Neo.clone(Neo.config, true);
+        globalThis.document     = documentRef;
         documentRef.styleSheets = []
     });
 
     test.afterEach(() => {
         createdLinks.length = 0;
-        Neo.config          = originalConfig
+
+        // Mutate in place so cached module references (`const NeoConfig = Neo.config`) stay attached
+        Object.keys(Neo.config).forEach(key => {
+            if (!Object.hasOwn(originalConfig, key)) {
+                delete Neo.config[key]
+            }
+        });
+        Object.assign(Neo.config, originalConfig)
     });
 
     test('addThemeFiles requests src, theme-base, and a dual-scheme folder once each, warning once on an unmapped class', async () => {
@@ -114,13 +121,12 @@ test.describe('Neo.main.addon.Stylesheet map-driven loading and variable updates
         console.warn = msg => warnings.push(msg);
 
         try {
-            Neo.config = {
-                ...Neo.config,
+            Object.assign(Neo.config, {
                 appPath    : 'apps/portal/app.mjs',
                 basePath   : '../../',
                 environment: 'development',
                 themes     : ['neo-theme-neo-dark', 'neo-theme-neo-light', 'neo-theme-unmapped']
-            };
+            });
 
             const instance = Object.create(Stylesheet.prototype);
 
