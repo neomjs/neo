@@ -101,11 +101,6 @@ p {
     line-height: var(--core-lineheight-paragraph, revert);
 }
 
-/* Matches the UA default, so it needs no token: a family declining it would decline to the same value. */
-i, em {
-    font-style: italic;
-}
-
 code:not(.hljs) {
     background-color: var(--global-code-background-color, revert);
     border          : var(--global-code-border, revert);

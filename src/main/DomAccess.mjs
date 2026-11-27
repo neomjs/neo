@@ -226,9 +226,8 @@ class DomAccess extends Base {
 
     /**
      * Shared DOM-element factory: creates an element of the given tag, assigns the props onto it via
-     * Object.assign, and appends it to document.head. The common primitive behind addScript() and
-     * loadScript() (loadStylesheet() can adopt it in a follow-up). Returns the element for any
-     * post-append work the caller needs.
+     * Object.assign, and appends it to document.head. The common primitive behind addScript(),
+     * loadScript() and loadStylesheet(). Returns the element for any post-append work the caller needs.
      * @param {String} tag The element tag, e.g. 'script'.
      * @param {Object} props Properties assigned onto the element.
      * @returns {Element} The created + appended element.
@@ -966,30 +965,25 @@ class DomAccess extends Base {
     }
 
     /**
-     * Include a link into the document.head
+     * @summary Loads a sheet from outside the theme build into the `neo.vendor` cascade layer.
+     * @description Every built theme sheet starts with the layer order statement, and `neo.vendor` comes first in it
+     * (`LAYER_ORDER` in `buildScripts/util/themeCssLayers.mjs`). So every engine and app layer outranks a vendor rule,
+     * whatever its selector weighs: Font Awesome's, Highlight.js's, an editor's or a map's own. A `<link>` cannot name
+     * a layer, so the sheet arrives through `@import … layer(neo.vendor)` in a `<style>` of its own, which settles
+     * when the import does.
      * @param {String} href
      * @param {Object} dataset=null
-     * @returns {Promise<unknown>}
+     * @returns {Promise<void>} Rejects with an Error naming `href` when the sheet fails to load
      */
     loadStylesheet(href, dataset=null) {
-        let link;
-
         return new Promise((resolve, reject) => {
-            link = document.createElement('link');
-
-            Object.assign(link, {
-                href,
-                onerror: reject,
-                onload : resolve,
-                rel    : 'stylesheet',
-                type   : 'text/css'
+            const style = this.createAndAppendElement('style', {
+                onerror    : () => reject(new Error(`Stylesheet failed to load: ${href}`)),
+                onload     : () => resolve(),
+                textContent: `@import url("${href.replace(/["\\]/g, '\\$&')}") layer(neo.vendor);`
             });
 
-            if (dataset) {
-                Object.assign(link.dataset, dataset)
-            }
-
-            document.head.appendChild(link)
+            dataset && Object.assign(style.dataset, dataset)
         })
     }
 

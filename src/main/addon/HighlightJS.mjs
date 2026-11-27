@@ -93,10 +93,7 @@ class HighlightJS extends Base {
 
         await Promise.all([
             DomAccess.loadScript(me.highlightJsLineNumbersPath),
-            Neo.main.addon.Stylesheet.createStyleSheet({
-                id  : 'hljs-theme',
-                href: me.themePath
-            })
+            DomAccess.loadStylesheet(me.themePath)
         ])
     }
 
@@ -135,10 +132,7 @@ class HighlightJS extends Base {
 
         switchToTheme ??= theme;
         this.themePath = switchToTheme;
-        Neo.main.addon.Stylesheet.createStyleSheet({
-            id  : 'hljs-theme',
-            href: switchToTheme
-        })
+        DomAccess.loadStylesheet(switchToTheme)
     }
 
     /**
