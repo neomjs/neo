@@ -232,6 +232,17 @@ class CheckBox extends Field {
     }
 
     /**
+     * @summary Projects the disabled state onto the native input.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        super.afterSetDisabled(value, oldValue);
+        this.changeInputElKey('disabled', value ? true : null)
+    }
+
+    /**
      * Triggered after the error config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
