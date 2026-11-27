@@ -10,6 +10,8 @@
  * Each theme resolves against its own files plus `resources/css/src`, because a page loads one theme.
  * A reference with a fallback is the author's explicit choice and is skipped. Definitions count
  * wherever they appear: the guard catches names that nothing defines, not scoping mistakes.
+ * A `theme-base` declaration that a theme declares again in its own files is that theme's value
+ * (`neo.theme` outranks `neo.base`), so the reads inside it are not checked for that theme.
  * The runtime list and the stylesheet reading are shared with `theme-census` through `themeCss.mjs`.
  */
 import fs                                                           from 'node:fs';
@@ -57,6 +59,18 @@ function definitionsIn(files) {
  */
 function readsIn(files) {
     return new Set(files.flatMap(file => [...readCss(file).matchAll(/var\(\s*(--[\w-]+)/g)].map(match => match[1])))
+}
+
+/**
+ * @param {String} css Comment-free CSS.
+ * @param {Number} index A position inside a declaration's value.
+ * @returns {String|null} The custom property whose declaration holds `index`.
+ */
+function declarationAt(css, index) {
+    const head = css.slice(0, index);
+
+    return head.slice(Math.max(head.lastIndexOf(';'), head.lastIndexOf('{'), head.lastIndexOf('}')) + 1)
+        .match(/^\s*(--[\w-]+)\s*:/)?.[1] ?? null
 }
 
 /**
@@ -114,10 +128,13 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
         readsIn(files).forEach(name => read.add(name));
 
         for (const file of [...baseFiles, ...files]) {
-            const css = readCss(file);
+            const css    = readCss(file),
+                  isBase = baseFiles.includes(file);
 
             for (const match of css.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
                 const name = match[1];
+
+                if (isBase && defined.has(declarationAt(css, match.index))) continue;
 
                 if (!defined.has(name) && !shared.has(name) && !(name in runtimeProperties)) {
                     const sites = missing.get(name) || [];

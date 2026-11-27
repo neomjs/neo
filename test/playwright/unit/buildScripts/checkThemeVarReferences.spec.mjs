@@ -144,6 +144,21 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         ]);
     });
 
+    test('THEME-BASE SHADOWED: a theme declaring the variable itself skips the reads of theme-base\'s declaration, no other', () => {
+        const mapPath = path.join(tmpRoot, 'shadow-theme-map.json'),
+              root    = makeTree({
+                  'theme-base/Button.css': '[class*="neo-theme-"] {\n    --button-text: var(--neo-color-text-default);\n    --button-fill: var(--neo-color-background-accent);\n}',
+                  'classic/Global.css'   : ':where(.neo-theme-classic) {}',
+                  'classic/Button.css'   : ':where(.neo-theme-classic) {--button-text: #111}'
+              });
+
+        fs.writeFileSync(mapPath, JSON.stringify({themes: {'neo-theme-classic': ['classic']}}), 'utf8');
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath})).toEqual([
+            '[undefined] classic reads --neo-color-background-accent, which nothing defines: theme-base/Button.css:3'
+        ]);
+    });
+
     test('SPLIT THEME: resolves definitions across all folders mapped to one theme class', () => {
         const mapPath = path.join(tmpRoot, 'split-theme-map.json'),
               root    = makeTree({
