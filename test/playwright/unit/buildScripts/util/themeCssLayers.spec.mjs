@@ -28,7 +28,8 @@ test.describe('buildScripts/util/themeCssLayers (#22297)', () => {
         expect(cascadeLayer('theme-neo-dark', 'Global.css')).toBe('neo.roles');
         expect(cascadeLayer('theme-base', '/button/Base.css')).toBe('neo.base');
         expect(cascadeLayer('theme-neo-dark', '/button/Base.css')).toBe('neo.theme');
-        expect(cascadeLayer('theme-neo-dark', '/apps/portal/Viewport.css')).toBe('neo.theme');
+        expect(cascadeLayer('theme-neo-dark', '/apps/portal/Viewport.css')).toBe('neo.apps');
+        expect(cascadeLayer('theme-light', 'examples/grid/Viewport.css')).toBe('neo.apps');
         expect(cascadeLayer('src', 'Global.css')).toBe('neo.rules');
         expect(cascadeLayer('src', '/button/Base.css')).toBe('neo.rules');
         expect(cascadeLayer('src', 'apps/portal/Viewport.css')).toBe('neo.apps');

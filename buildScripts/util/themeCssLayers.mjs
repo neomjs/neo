@@ -10,8 +10,8 @@
 /**
  * The cascade layers, weakest first. Every built sheet starts with this order statement, so the order
  * holds whichever sheet arrives first. `neo.vendor` is for vendor sheets loaded from outside
- * `resources/css`, which carry their own layer; `neo.apps` holds the rules of `src/apps` and `src/examples`,
- * so an app's rule wins without `!important`. Rules inserted at runtime stay unlayered and win.
+ * `resources/css`, which carry their own layer; `neo.apps` holds every sheet under an `apps` or `examples`
+ * folder, so an app's rule wins without `!important`. Rules inserted at runtime stay unlayered and win.
  * @type {String[]}
  */
 export const LAYER_ORDER = Object.freeze([
@@ -25,6 +25,8 @@ export const LAYER_ORDER = Object.freeze([
 
 /**
  * @summary Returns the cascade layer of a built sheet from its folder.
+ * @description An app's and an example's sheets sit in `neo.apps` whichever top folder holds them, so an
+ * app's theme projection outranks the engine's theme values by layer, not by selector weight.
  * @param {String} root The sheet's top folder under `resources/css`: `src`, `theme-base` or a theme folder.
  * @param {String} relativeFile The sheet's path inside that folder, e.g. `component/Base.css`.
  * @returns {String} One of {@link LAYER_ORDER}.
@@ -32,8 +34,12 @@ export const LAYER_ORDER = Object.freeze([
 export function cascadeLayer(root, relativeFile) {
     const parts = relativeFile.split(/[\\/]/).filter(Boolean);
 
+    if (parts[0] === 'apps' || parts[0] === 'examples') {
+        return 'neo.apps'
+    }
+
     if (root === 'src') {
-        return parts[0] === 'apps' || parts[0] === 'examples' ? 'neo.apps' : 'neo.rules'
+        return 'neo.rules'
     }
 
     if (root === 'theme-base') {
