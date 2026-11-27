@@ -289,7 +289,7 @@ body:has(.depot-viewport.depot-is-resizing) .neo-scheduler-drag-preview {
                 display: none;
             }
 
-            .neo-theme-switcher {
+            .neo-themeswitcher {
                 margin-left: auto;
                 order      : 2;
             }

@@ -91,7 +91,7 @@ test.describe('One state, every surface (stateProvider/advanced)', () => {
             await expect(page.locator('.sp-hero-pills')).toContainText('Workspace density: Comfortable');
 
             // 5. Switch theme -> both windows switch cleanly with zero console errors
-            await page.locator('.sp-hero .neo-theme-switcher').click();
+            await page.locator('.sp-hero .neo-themeswitcher').click();
             await expect(page.locator('.sp-advanced-viewport')).toHaveClass(/neo-theme-neo-light/);
             await expect(companion.locator('.sp-companion-viewport')).toHaveClass(/neo-theme-neo-light/);
 
@@ -257,7 +257,7 @@ test.describe('One state, every surface (stateProvider/advanced)', () => {
         await expect(page.locator('.sp-try-line')).not.toContainText('second window');
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
-        await page.locator('.sp-hero .neo-theme-switcher').click();
+        await page.locator('.sp-hero .neo-themeswitcher').click();
         await expect(page.locator('.sp-advanced-viewport')).toHaveClass(/neo-theme-neo-light/);
         expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 
