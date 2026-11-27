@@ -971,16 +971,26 @@ class DomAccess extends Base {
      * whatever its selector weighs: Font Awesome's, Highlight.js's, an editor's or a map's own. A `<link>` cannot name
      * a layer, and a strict `style-src` refuses an inline `<style>`. So the sheet loads by `<link>`, then its rules move
      * into a constructed stylesheet inside `@layer neo.vendor` that the document adopts, and the link's sheet is
-     * disabled. A swapped `href` (the Docs source view's theme toggle) refills that one stylesheet, so the old sheet's
-     * rules leave with it. A cross-origin sheet hides its rules and stays unlayered, and so does one with an `@import`,
-     * which a constructed stylesheet drops.
+     * disabled. A swapped `href` refills that one stylesheet, so the old sheet's rules leave with it: the Docs source
+     * view swaps it, and so does a second load under the same `id`, as `HighlightJS#switchTheme` makes. A cross-origin
+     * sheet hides its rules and stays unlayered, and so does one with an `@import`, which a constructed stylesheet drops.
      * @param {String} href
      * @param {Object} dataset=null
      * @param {String} id=null
      * @returns {Promise<void>} Rejects with an Error naming `href` when the sheet fails to load
      */
     loadStylesheet(href, dataset=null, id=null) {
-        let layered = null; // Every load of this link, the first and each swapped href, fills this one sheet
+        let existing = id && document.getElementById(id),
+            layered  = null; // Every load of this link, the first and each swapped href, fills this one sheet
+
+        // A second load under the same id swaps that link's href, so it keeps one link and one vendor sheet
+        if (existing) {
+            return existing.getAttribute('href') === href ? Promise.resolve() : new Promise((resolve, reject) => {
+                existing.addEventListener('error', () => reject(new Error(`Stylesheet failed to load: ${href}`)), {once: true});
+                existing.addEventListener('load',  () => resolve(), {once: true});
+                existing.setAttribute('href', href)
+            })
+        }
 
         return new Promise((resolve, reject) => {
             const link = this.createAndAppendElement('link', {

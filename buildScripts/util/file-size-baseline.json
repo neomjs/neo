@@ -3,5 +3,5 @@
     "src/canvas/GraphScene.mjs": 1085,
     "src/dashboard/dock/Workspace.mjs": 1089,
     "src/data/Store.mjs": 1110,
-    "src/main/DomAccess.mjs": 1023
+    "src/main/DomAccess.mjs": 1031
 }

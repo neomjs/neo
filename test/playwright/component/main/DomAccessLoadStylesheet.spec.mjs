@@ -93,6 +93,31 @@ test.describe('Neo.main.DomAccess: a vendor stylesheet loads into the vendor lay
         expect(result).toEqual({decoration: 'none', disabled: true, fontStyle: 'italic', vendorSheets: 1})
     });
 
+    test('a second load under the same id swaps that link, so light, dark, light leaves one link and one sheet', async ({page}) => {
+        // As Highlight.js#switchTheme loads each theme under the id hljs-theme
+        await page.route('**/component/main/__vendor-swap.css', route => route.fulfill({
+            body: '#ls-target {font-style: italic}', contentType: 'text/css'
+        }));
+
+        const result = await page.evaluate(async ([light, dark, layer]) => {
+            for (const href of [light, dark, light]) {
+                await Neo.main.DomAccess.loadStylesheet(href, null, 'theme-sheet')
+            }
+
+            const target = getComputedStyle(document.getElementById('ls-target'));
+
+            return {
+                decoration  : target.textDecorationLine,
+                fontStyle   : target.fontStyle,
+                links       : document.querySelectorAll('#theme-sheet').length,
+                vendorSheets: document.adoptedStyleSheets.filter(sheet => sheet.cssRules[0]?.name === layer).length
+            }
+        }, [vendorUrl, '/test/playwright/component/main/__vendor-swap.css', LAYER_ORDER[0]]);
+
+        // The dark sheet's italic leaves with it
+        expect(result).toEqual({decoration: 'underline', fontStyle: 'normal', links: 1, vendorSheets: 1})
+    });
+
     test('the positive control: the same sheet by <link> alone is unlayered and beats the engine layer', async ({page}) => {
         await page.evaluate(href => new Promise(resolve => {
             document.head.append(Object.assign(document.createElement('link'), {href, rel: 'stylesheet', onload: resolve}))
