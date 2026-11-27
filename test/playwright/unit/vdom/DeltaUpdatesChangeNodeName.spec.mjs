@@ -101,11 +101,25 @@ function createFakeElement(tagName) {
             return attrMap.get(name) ?? null
         },
 
+        hasAttribute(name) {
+            return attrMap.has(name)
+        },
+
         removeAttribute(name) {
             attrMap.delete(name);
             if (name === 'class') {
                 classSet.clear()
             }
+        },
+
+        toggleAttribute(name, force) {
+            const enabled = force === undefined ? !attrMap.has(name) : Boolean(force);
+            if (enabled) {
+                el.setAttribute(name, '')
+            } else {
+                el.removeAttribute(name)
+            }
+            return enabled
         },
 
         appendChild(child) {
@@ -267,5 +281,53 @@ test.describe('Neo.main.DeltaUpdates — changeNodeName & updateNode rebind', ()
         expect(liveNode.classList.contains('mounted-section')).toBe(true);
         expect(liveNode.innerHTML).toBe('<strong>Updated</strong>');
         expect(oldEl.innerHTML).toBe('')
+    });
+
+    test('updateNode toggles readonly via HTML attribute presence and changeNodeName preserves it via attribute copy while keeping disabled and checked live-state writes intact', () => {
+        const parent = createFakeElement('div'),
+              input  = createFakeElement('input');
+
+        input.setAttribute('id', 'readonly-input');
+        input.disabled = false;
+        input.checked  = false;
+        parent.appendChild(input);
+        nodesById.set('readonly-input', input);
+
+        DeltaUpdates.updateNode({
+            id        : 'readonly-input',
+            attributes: {
+                checked : 'true',
+                disabled: 'true',
+                readonly: 'true'
+            }
+        });
+
+        expect(input.hasAttribute('readonly')).toBe(true);
+        expect(Object.hasOwn(input, 'readonly')).toBe(false);
+        expect(Object.hasOwn(input, 'readOnly')).toBe(false);
+        expect(input.disabled).toBe(true);
+        expect(input.checked).toBe(true);
+
+        const textarea = DeltaUpdates.changeNodeName(input, 'textarea');
+        nodesById.set('readonly-input', textarea);
+
+        expect(textarea.tagName).toBe('TEXTAREA');
+        expect(textarea.hasAttribute('readonly')).toBe(true);
+        expect(Object.hasOwn(textarea, 'readonly')).toBe(false);
+        expect(Object.hasOwn(textarea, 'readOnly')).toBe(false);
+        expect(textarea.disabled).toBe(true);
+
+        DeltaUpdates.updateNode({
+            id        : 'readonly-input',
+            attributes: {
+                disabled: null,
+                readonly: null
+            }
+        });
+
+        expect(textarea.hasAttribute('readonly')).toBe(false);
+        expect(Object.hasOwn(textarea, 'readonly')).toBe(false);
+        expect(Object.hasOwn(textarea, 'readOnly')).toBe(false);
+        expect(textarea.disabled).toBe(false)
     });
 });
