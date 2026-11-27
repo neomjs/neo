@@ -19,7 +19,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
  * @summary End-to-end headless Chromium and CLI verification of `runThemeEquality`:
  * 1. Compares two independently produced theme builds across all 5 themes and both scopes (`0` differences).
  * 2. Exercises both checkout-root (with JavaScript `src/`) and direct CSS-root inputs, plus multi-part text+glyph isolation.
- * 3. Exercises SwitchField knob (`::before`) + hovered track, Dialog header button hover (`--cmp-*` alias), and classic `theme-dark` `scoped`-only flips.
+ * 3. Exercises SwitchField knob (`::before`) + hovered track, Dialog header button hover (`--cmp-*` alias), Chip close-button hover, Table row-ancestor hover, and classic `theme-dark` `scoped`-only flips.
  * 4. Verifies server cleanup and non-zero CLI exit without hanging when Chromium startup fails.
  */
 test.describe('theme-equality headless Chromium integration', () => {
@@ -122,7 +122,7 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(partialExpected.unexpectedDiffs).toEqual(glyphDiffs)
     });
 
-    test('catches SwitchField knob/hover, Dialog header button hover (--cmp-* alias), and classic theme-dark scoped-only flips', async () => {
+    test('catches SwitchField knob/hover, Dialog header button hover (--cmp-* alias), Chip close-button hover, Table row-ancestor hover, and classic theme-dark scoped-only flips', async () => {
         test.setTimeout(120000);
 
         const base = makeTempCheckout(),
@@ -150,7 +150,29 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(dialogNext).not.toBe(dialogOrig);
         fs.writeFileSync(dialogFile, dialogNext);
 
-        // 3. Classic `theme-dark` scoped-only custom-property winner flip on `.neo-tooltip`
+        // 3. Chip close-button hover (`--chip-close-button-color-hover` on `.neo-chip-close-button:hover`)
+        const chipFile = path.join(head.cssDir, 'theme-neo-light/component/Chip.css'),
+              chipOrig = fs.readFileSync(chipFile, 'utf8'),
+              chipNext = chipOrig.replace(
+                  /--chip-close-button-color-hover\s*:\s*[^;]+;/,
+                  '--chip-close-button-color-hover: rgb(251, 13, 199);'
+              );
+
+        expect(chipNext).not.toBe(chipOrig);
+        fs.writeFileSync(chipFile, chipNext);
+
+        // 4. Table row-ancestor hover (`--table-cell-background-color-hover` on `.neo-table-row:hover .neo-table-cell`)
+        const tableFile = path.join(head.cssDir, 'theme-neo-light/table/Body.css'),
+              tableOrig = fs.readFileSync(tableFile, 'utf8'),
+              tableNext = tableOrig.replace(
+                  /--table-cell-background-color-hover\s*:\s*[^;]+;/,
+                  '--table-cell-background-color-hover: rgb(19, 201, 144);'
+              );
+
+        expect(tableNext).not.toBe(tableOrig);
+        fs.writeFileSync(tableFile, tableNext);
+
+        // 5. Classic `theme-dark` scoped-only custom-property winner flip on `.neo-tooltip`
         const srcTooltipRule   = '\n.neo-tooltip { --tooltip-bg: rgb(18, 52, 86); }\n',
               themeTooltipRule = '\n:root .neo-theme-dark { --tooltip-bg: rgb(210, 99, 44); }\n';
 
@@ -204,6 +226,26 @@ test.describe('theme-equality headless Chromium integration', () => {
             head     : 'rgb(220, 40, 90)'
         }));
 
+        // Chip hovered close button caught
+        expect(result.diffs).toContainEqual(expect.objectContaining({
+            component: 'chip',
+            theme    : 'neo-theme-neo-light',
+            state    : 'hover',
+            part     : '.neo-chip-close-button',
+            property : 'color',
+            head     : 'rgb(251, 13, 199)'
+        }));
+
+        // Table cell hovered via `.neo-table-row:hover` ancestor propagation caught
+        expect(result.diffs).toContainEqual(expect.objectContaining({
+            component: 'table',
+            theme    : 'neo-theme-neo-light',
+            state    : 'hover',
+            part     : '.neo-table-cell',
+            property : 'background-color',
+            head     : 'rgb(19, 201, 144)'
+        }));
+
         // Scoped-only tooltip control caught in `scoped` while `inherited` stays untouched
         expect(result.diffs.filter(d => d.component === 'tooltip')).toEqual([{
             component: 'tooltip',
@@ -215,6 +257,54 @@ test.describe('theme-equality headless Chromium integration', () => {
             base     : expect.any(String),
             head     : 'rgb(210, 99, 44)'
         }])
+    });
+
+    test('fails closed when ONLY --chip-close-button-color-hover is mutated in Neo Light', async () => {
+        test.setTimeout(120000);
+
+        const base = makeTempCheckout(),
+              head = makeTempCheckout();
+
+        const chipFile = path.join(head.cssDir, 'theme-neo-light/component/Chip.css'),
+              chipOrig = fs.readFileSync(chipFile, 'utf8'),
+              chipNext = chipOrig.replace(
+                  /--chip-close-button-color-hover\s*:\s*[^;]+;/,
+                  '--chip-close-button-color-hover: rgb(251, 13, 199);'
+              );
+
+        expect(chipNext).not.toBe(chipOrig);
+        fs.writeFileSync(chipFile, chipNext);
+
+        const result = await runThemeEquality({
+            base    : base.root,
+            head    : head.root,
+            themes  : ['neo-theme-neo-light'],
+            repoRoot: REPO_ROOT
+        });
+
+        expect(result.ok).toBe(false);
+        expect(result.unexpectedDiffs.length).toBeGreaterThanOrEqual(2);
+        expect(result.unexpectedDiffs.every(d => d.component === 'chip' && d.part === '.neo-chip-close-button')).toBe(true);
+        expect(result.unexpectedDiffs).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                component: 'chip',
+                theme    : 'neo-theme-neo-light',
+                scope    : 'inherited',
+                state    : 'hover',
+                part     : '.neo-chip-close-button',
+                property : 'color',
+                head     : 'rgb(251, 13, 199)'
+            }),
+            expect.objectContaining({
+                component: 'chip',
+                theme    : 'neo-theme-neo-light',
+                scope    : 'scoped',
+                state    : 'hover',
+                part     : '.neo-chip-close-button',
+                property : 'color',
+                head     : 'rgb(251, 13, 199)'
+            })
+        ]))
     });
 
     test('closes the loopback server and exits non-zero promptly when Chromium launch fails', () => {

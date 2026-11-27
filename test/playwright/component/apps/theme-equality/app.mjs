@@ -207,7 +207,7 @@ export const onStart = () => {
                         ]
                     }
                 }),
-                cell('chip',                 {module: Chip, text: 'Tag', closable: true}),
+                cell('chip',                 {module: Chip, text: 'Tag', iconCls: 'fa fa-tag', closable: true}),
                 cell('clock',                {module: Clock, showDisc: true, time: '10:10'}),
                 cell('date-selector',        {module: DateSelector, value: '2024-07-21', width: 280, height: 220}),
                 cell('empty-state',          {module: EmptyState, text: 'No results', description: 'Adjust filters', actionText: 'Reset'}),

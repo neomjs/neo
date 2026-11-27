@@ -505,7 +505,16 @@ function startEqualityServer(repoRoot, getActiveTree) {
 }
 
 /**
- * @summary Prepares serializable component descriptors with normalized part specs and per-state target selectors.
+ * @summary Normalizes a single selector or selector list into a non-empty array of CSS selectors.
+ * @param {String|String[]} value Raw selector or array of selectors.
+ * @returns {String[]} Selector array.
+ */
+function toSelectorArray(value) {
+    return Array.isArray(value) ? value : [value]
+}
+
+/**
+ * @summary Prepares serializable component descriptors with normalized part specs and per-state target selector arrays.
  * @returns {Object[]} Normalized matrix descriptors.
  */
 function buildNormalizedMatrix() {
@@ -513,15 +522,15 @@ function buildNormalizedMatrix() {
         ...entry,
         normalizedParts: entry.parts.map(normalizePartSpec),
         resolvedTargets: {
-            default : entry.stateTargets?.default  || entry.stateTargetSelector,
-            hover   : entry.stateTargets?.hover    || entry.stateTargetSelector,
-            active  : entry.stateTargets?.active   || entry.stateTargetSelector,
-            focus   : entry.stateTargets?.focus    || entry.inputSelector || entry.stateTargetSelector,
-            selected: entry.stateTargets?.selected || entry.stateTargetSelector,
-            pressed : entry.stateTargets?.pressed  || entry.stateTargetSelector,
-            disabled: entry.stateTargets?.disabled || entry.stateTargetSelector,
-            invalid : entry.stateTargets?.invalid  || entry.stateTargetSelector,
-            readonly: entry.stateTargets?.readonly || entry.stateTargetSelector
+            default : toSelectorArray(entry.stateTargets?.default  || entry.stateTargetSelector),
+            hover   : toSelectorArray(entry.stateTargets?.hover    || entry.stateTargetSelector),
+            active  : toSelectorArray(entry.stateTargets?.active  || entry.stateTargetSelector),
+            focus   : toSelectorArray(entry.stateTargets?.focus    || entry.inputSelector || entry.stateTargetSelector),
+            selected: toSelectorArray(entry.stateTargets?.selected || entry.stateTargetSelector),
+            pressed : toSelectorArray(entry.stateTargets?.pressed  || entry.stateTargetSelector),
+            disabled: toSelectorArray(entry.stateTargets?.disabled || entry.stateTargetSelector),
+            invalid : toSelectorArray(entry.stateTargets?.invalid  || entry.stateTargetSelector),
+            readonly: toSelectorArray(entry.stateTargets?.readonly || entry.stateTargetSelector)
         }
     }))
 }
@@ -610,9 +619,10 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
             }
 
             for (const state of entry.states) {
-                const stateSel = entry.resolvedTargets[state];
-                if (!cell.querySelector(stateSel)) {
-                    missing.push(`${entry.id}: missing target "${stateSel}" for state "${state}"`)
+                for (const stateSel of entry.resolvedTargets[state]) {
+                    if (!cell.querySelector(stateSel)) {
+                        missing.push(`${entry.id}: missing target "${stateSel}" for state "${state}"`)
+                    }
                 }
             }
 
@@ -642,36 +652,79 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
         throw new Error(`Unmatched DOM selectors in theme-equality stage:\n- ${missingSelectors.join('\n- ')}`)
     }
 
-    const {root}        = await cdp.send('DOM.getDocument', {depth: -1}),
-          hoverNodeIds  = {},
-          activeNodeIds = {},
-          focusNodeIds  = {};
+    const {root}         = await cdp.send('DOM.getDocument', {depth: -1}),
+          parentByNodeId = new Map(),
+          hoverNodeIds   = {},
+          activeNodeIds  = {},
+          focusNodeIds   = {};
+
+    const indexDomTree = node => {
+        for (const child of node.children || []) {
+            parentByNodeId.set(child.nodeId, node.nodeId);
+            indexDomTree(child)
+        }
+    };
+    indexDomTree(root);
+
+    const buildPseudoDirectives = (cellNodeId, targetNodeIds, directPseudo, ancestorPseudo) => {
+        const byNode    = new Map();
+        const addPseudo = (id, list) => {
+            let set = byNode.get(id);
+            if (!set) {
+                set = new Set();
+                byNode.set(id, set)
+            }
+            list.forEach(p => set.add(p))
+        };
+
+        for (const targetId of targetNodeIds) {
+            addPseudo(targetId, directPseudo);
+
+            if (ancestorPseudo.length > 0) {
+                let cur = parentByNodeId.get(targetId);
+                while (cur && cur !== cellNodeId) {
+                    addPseudo(cur, ancestorPseudo);
+                    cur = parentByNodeId.get(cur)
+                }
+            }
+        }
+
+        return [...byNode.entries()].map(([nodeId, set]) => ({nodeId, pseudoClasses: [...set]}))
+    };
 
     await Promise.all(normalizedEntries.map(async entry => {
-        const cellPrefix = `#eq-cell-${entry.cellId}`;
+        const cellPrefix = `#eq-cell-${entry.cellId}`,
+              {nodeId: cellNodeId = 0} = await cdp.send('DOM.querySelector', {
+                  nodeId  : root.nodeId,
+                  selector: cellPrefix
+              });
+
+        if (!cellNodeId) return;
+
+        const queryTargets = async selectors => {
+            const ids = await Promise.all(selectors.map(async sel => {
+                const {nodeId} = await cdp.send('DOM.querySelector', {
+                    nodeId  : cellNodeId,
+                    selector: sel
+                });
+                return nodeId
+            }));
+            return ids.filter(Boolean)
+        };
 
         if (entry.states.includes('hover')) {
-            const {nodeId} = await cdp.send('DOM.querySelector', {
-                nodeId  : root.nodeId,
-                selector: `${cellPrefix} ${entry.resolvedTargets.hover}`
-            });
-            if (nodeId) hoverNodeIds[entry.id] = nodeId
+            const ids = await queryTargets(entry.resolvedTargets.hover);
+            if (ids.length) hoverNodeIds[entry.id] = buildPseudoDirectives(cellNodeId, ids, ['hover'], ['hover'])
         }
 
         if (entry.states.includes('active')) {
-            const {nodeId} = await cdp.send('DOM.querySelector', {
-                nodeId  : root.nodeId,
-                selector: `${cellPrefix} ${entry.resolvedTargets.active}`
-            });
-            if (nodeId) activeNodeIds[entry.id] = nodeId
+            const ids = await queryTargets(entry.resolvedTargets.active);
+            if (ids.length) activeNodeIds[entry.id] = buildPseudoDirectives(cellNodeId, ids, ['active'], ['active'])
         }
 
         if (entry.states.includes('focus')) {
-            const {nodeId} = await cdp.send('DOM.querySelector', {
-                nodeId  : root.nodeId,
-                selector: `${cellPrefix} ${entry.resolvedTargets.focus}`
-            });
-            if (nodeId) focusNodeIds[entry.id] = nodeId
+            const ids = await queryTargets(entry.resolvedTargets.focus);
+            if (ids.length) focusNodeIds[entry.id] = buildPseudoDirectives(cellNodeId, ids, ['focus', 'focus-visible', 'focus-within'], ['focus-within'])
         }
     }));
 
@@ -775,8 +828,10 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
                         for (const stateName of domStates) {
                             if (!entry.states.includes(stateName)) continue;
 
-                            const target = cell?.querySelector(entry.resolvedTargets[stateName]),
-                                  undo   = [];
+                            const targets = entry.resolvedTargets[stateName]
+                                      .map(sel => cell?.querySelector(sel))
+                                      .filter(Boolean),
+                                  undo    = [];
                             const addClass = (el, cls) => {
                                 if (el && !el.classList.contains(cls)) {
                                     el.classList.add(cls);
@@ -791,7 +846,7 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
                                 undo.push(() => had ? el.setAttribute(name, prev) : el.removeAttribute(name))
                             };
 
-                            if (target) {
+                            for (const target of targets) {
                                 if (stateName === 'selected') {
                                     addClass(target, 'neo-selected');
                                     setAttr(target, 'aria-selected', 'true')
@@ -831,11 +886,22 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
                     Object.assign(snapshot[entryId][theme][scope], stateMap)
                 }
 
-                const runPseudoBatch = async (stateName, entries, nodeMap, forcedPseudoClasses, extraClasses) => {
-                    const activeNodes = entries.map(e => nodeMap[e.id]).filter(Boolean);
+                const runPseudoBatch = async (stateName, entries, nodeMap, extraClasses) => {
+                    const mergedByNode = new Map();
 
-                    await Promise.all(activeNodes.map(nodeId =>
-                        cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses})
+                    for (const entry of entries) {
+                        for (const {nodeId, pseudoClasses} of (nodeMap[entry.id] || [])) {
+                            let set = mergedByNode.get(nodeId);
+                            if (!set) {
+                                set = new Set();
+                                mergedByNode.set(nodeId, set)
+                            }
+                            pseudoClasses.forEach(cls => set.add(cls))
+                        }
+                    }
+
+                    await Promise.all([...mergedByNode.entries()].map(([nodeId, set]) =>
+                        cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: [...set]})
                     ));
 
                     const results = await page.evaluate(({subset, stateKey, extraCls, props}) => {
@@ -849,21 +915,25 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
                               };
 
                         for (const entry of subset) {
-                            const cell        = document.getElementById(`eq-cell-${entry.cellId}`),
-                                  baseTarget  = cell?.querySelector(entry.stateTargetSelector),
-                                  stateTarget = cell?.querySelector(entry.resolvedTargets[stateKey]);
+                            const cell         = document.getElementById(`eq-cell-${entry.cellId}`),
+                                  baseTarget   = cell?.querySelector(entry.stateTargetSelector),
+                                  stateTargets = entry.resolvedTargets[stateKey]
+                                      .map(sel => cell?.querySelector(sel))
+                                      .filter(Boolean);
 
                             for (const cls of extraCls) {
                                 addClass(baseTarget, cls);
-                                if (stateTarget && stateTarget !== baseTarget) {
-                                    addClass(stateTarget, cls)
+                                for (const stateTarget of stateTargets) {
+                                    if (stateTarget !== baseTarget) {
+                                        addClass(stateTarget, cls)
+                                    }
                                 }
                             }
                         }
 
                         for (const entry of subset) {
-                            const cell       = document.getElementById(`eq-cell-${entry.cellId}`),
-                                  partValues = {};
+                            const cell        = document.getElementById(`eq-cell-${entry.cellId}`),
+                                   partValues = {};
 
                             for (const part of entry.normalizedParts) {
                                 const partEl = cell?.querySelector(part.selector);
@@ -886,7 +956,7 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
                         return out
                     }, {subset: entries, stateKey: stateName, extraCls: extraClasses, props: PAINTED_PROPERTIES});
 
-                    await Promise.all(activeNodes.map(nodeId =>
+                    await Promise.all([...mergedByNode.keys()].map(nodeId =>
                         cdp.send('CSS.forcePseudoState', {nodeId, forcedPseudoClasses: []})
                     ));
 
@@ -895,9 +965,9 @@ async function captureTreeSnapshot(page, port, tree, themes, urlsByTheme) {
                     }
                 };
 
-                await runPseudoBatch('hover', hoverEntries, hoverNodeIds, ['hover'], ['neo-hovered']);
-                await runPseudoBatch('active', activeEntries, activeNodeIds, ['active'], []);
-                await runPseudoBatch('focus', focusEntries, focusNodeIds, ['focus', 'focus-visible', 'focus-within'], ['neo-focus', 'neo-focus-keyboard'])
+                await runPseudoBatch('hover', hoverEntries, hoverNodeIds, ['neo-hovered']);
+                await runPseudoBatch('active', activeEntries, activeNodeIds, []);
+                await runPseudoBatch('focus', focusEntries, focusNodeIds, ['neo-focus', 'neo-focus-keyboard'])
             } finally {
                 if (scope === 'scoped') {
                     await page.evaluate(({themeClass, entries}) => {

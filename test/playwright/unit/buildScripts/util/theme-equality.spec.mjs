@@ -77,7 +77,18 @@ test.describe('buildScripts/util/theme-equality', () => {
             for (const state of entry.states) {
                 expect(STATES).toContain(state)
             }
+            if (entry.stateTargets) {
+                for (const [state, target] of Object.entries(entry.stateTargets)) {
+                    expect(STATES).toContain(state);
+                    const list = Array.isArray(target) ? target : [target];
+                    expect(list.length).toBeGreaterThan(0);
+                    list.forEach(sel => expect(sel.length).toBeGreaterThan(0))
+                }
+            }
         }
+
+        const chipEntry = COMPONENT_MATRIX.find(entry => entry.id === 'chip');
+        expect(chipEntry.stateTargets?.hover).toBe('.neo-chip-close-button')
     });
 
     test('resolveBuiltTree distinguishes a checkout root with JavaScript src/ from a direct CSS root and fails on missing structural or theme sheets', () => {

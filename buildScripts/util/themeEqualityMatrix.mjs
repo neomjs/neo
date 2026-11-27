@@ -96,6 +96,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'app',
         cellId             : 'app-content',
         stateTargetSelector: '.neo-list-item',
+        stateTargets       : {
+            hover: ['.neo-list-item', '.content-bottom-toolbar .neo-button']
+        },
         states             : ['default', 'hover', 'selected'],
         parts              : [
             '.neo-app-content-container',
@@ -187,8 +190,13 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'button',
         cellId             : 'split-button',
         stateTargetSelector: '.neo-trigger-button',
-        states             : ['default', 'hover', 'active', 'focus', 'pressed', 'disabled'],
-        parts              : ['.neo-split-button', '.neo-button', '.neo-trigger-button']
+        stateTargets       : {
+            hover : ['.neo-button:not(.neo-trigger-button)', '.neo-trigger-button'],
+            active: ['.neo-button:not(.neo-trigger-button)', '.neo-trigger-button'],
+            focus : ['.neo-button:not(.neo-trigger-button)', '.neo-trigger-button']
+        },
+        states: ['default', 'hover', 'active', 'focus', 'pressed', 'disabled'],
+        parts : ['.neo-split-button', '.neo-button:not(.neo-trigger-button)', '.neo-trigger-button']
     },
     {
         id                 : 'theme-switcher',
@@ -245,8 +253,12 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'component',
         cellId             : 'chip',
         stateTargetSelector: '.neo-chip',
-        states             : ['default', 'hover', 'focus', 'disabled'],
-        parts              : ['.neo-chip', '.neo-chip-text', '.neo-chip-close-button']
+        stateTargets       : {
+            hover: '.neo-chip-close-button',
+            focus: ['.neo-chip', '.neo-chip-close-button']
+        },
+        states: ['default', 'hover', 'focus', 'disabled'],
+        parts : ['.neo-chip', '.neo-chip-glyph', '.neo-chip-text', '.neo-chip-close-button']
     },
     {
         id                 : 'clock',
@@ -261,6 +273,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'component',
         cellId             : 'date-selector',
         stateTargetSelector: '.neo-cell',
+        stateTargets       : {
+            focus: ['.neo-dateselector', '.neo-cell']
+        },
         states             : ['default', 'hover', 'focus', 'selected', 'disabled'],
         parts              : ['.neo-dateselector', '.neo-cell']
     },
@@ -426,6 +441,10 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'dialog',
         cellId             : 'dialog',
         stateTargetSelector: '.neo-header-toolbar .neo-button',
+        stateTargets       : {
+            hover : ['.neo-header-toolbar .neo-button', '.neo-footer-toolbar .neo-button'],
+            active: ['.neo-header-toolbar .neo-button', '.neo-footer-toolbar .neo-button']
+        },
         states             : ['default', 'hover', 'active'],
         parts              : [
             '.neo-dialog',
@@ -476,6 +495,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'form',
         cellId             : 'textfield',
         stateTargetSelector: '.neo-textfield',
+        stateTargets       : {
+            hover: ['input.neo-textfield-input', '.neo-field-trigger']
+        },
         inputSelector      : 'input.neo-textfield-input',
         states             : FIELD_STATES,
         parts              : ['.neo-textfield', '.neo-textfield-label', '.neo-textfield-sublabel', '.neo-input-wrapper', '.neo-textfield-input', '.neo-field-trigger']
@@ -503,9 +525,12 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'form',
         cellId             : 'numberfield',
         stateTargetSelector: '.neo-numberfield',
-        inputSelector      : 'input.neo-textfield-input',
-        states             : FIELD_STATES,
-        parts              : [...FIELD_PARTS, '.neo-input-wrapper', '.neo-field-trigger']
+        stateTargets       : {
+            hover: ['input.neo-textfield-input', '.neo-spin-button.neo-up']
+        },
+        inputSelector: 'input.neo-textfield-input',
+        states       : FIELD_STATES,
+        parts        : [...FIELD_PARTS, '.neo-input-wrapper', '.neo-field-trigger', '.neo-spin-button.neo-up']
     },
     {
         id                 : 'searchfield',
@@ -521,6 +546,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'form',
         cellId             : 'selectfield',
         stateTargetSelector: '.neo-selectfield',
+        stateTargets       : {
+            hover: '.neo-selectfield-input'
+        },
         inputSelector      : '.neo-selectfield-input',
         states             : ['default', 'hover', 'focus', 'disabled', 'invalid'],
         parts              : ['.neo-selectfield', '.neo-selectfield-label', '.neo-selectfield-input']
@@ -530,6 +558,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'form',
         cellId             : 'combobox',
         stateTargetSelector: '.neo-combobox',
+        stateTargets       : {
+            hover: ['input.neo-textfield-input', '.neo-field-trigger']
+        },
         inputSelector      : 'input.neo-textfield-input',
         states             : ['default', 'hover', 'focus', 'disabled', 'invalid'],
         parts              : ['.neo-combobox', '.neo-input-wrapper', '.neo-textfield-input', '.neo-field-trigger']
@@ -539,6 +570,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'form',
         cellId             : 'pickerfield',
         stateTargetSelector: '.neo-pickerfield',
+        stateTargets       : {
+            hover: ['input.neo-textfield-input', '.neo-field-trigger']
+        },
         inputSelector      : 'input.neo-textfield-input',
         states             : ['default', 'hover', 'focus', 'disabled'],
         parts              : ['.neo-pickerfield', '.neo-input-wrapper', '.neo-textfield-input', '.neo-field-trigger']
@@ -640,6 +674,10 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'grid',
         cellId             : 'grid',
         stateTargetSelector: '.neo-grid-cell',
+        stateTargets       : {
+            hover: ['.neo-grid-cell', '.neo-grid-header-button'],
+            focus: ['.neo-grid-cell', '.neo-grid-header-button']
+        },
         states             : ['default', 'hover', 'focus', 'selected'],
         parts              : ['.neo-grid-container', '.neo-grid-header-button', '.neo-grid-row', '.neo-grid-cell', '.neo-grid-footer-toolbar']
     },
@@ -774,6 +812,9 @@ export const COMPONENT_MATRIX = Object.freeze([
         package            : 'table',
         cellId             : 'table',
         stateTargetSelector: '.neo-table-cell',
+        stateTargets       : {
+            focus: ['.neo-table-cell', '.neo-table-header-button']
+        },
         states             : ['default', 'hover', 'focus', 'selected'],
         parts              : ['.neo-table-container', '.neo-table-header-button', '.neo-table-row', '.neo-table-cell']
     },
