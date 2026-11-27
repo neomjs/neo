@@ -1,3 +1,5 @@
 :root .neo-theme-dark { /* .neo-code-live-preview */
-    --live-preview-container-box-shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+    --live-preview-border-color           : #2b2b2b;
+    --live-preview-container-box-shadow   : rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
+    --live-preview-header-background-color: #3c3f41;
 }
