@@ -14,7 +14,9 @@ export const THEMES = Object.freeze([
     'neo-theme-neo-dark',
     'neo-theme-light',
     'neo-theme-dark',
-    'neo-theme-cyberpunk'
+    'neo-theme-cyberpunk',
+    'neo-theme-material-light',
+    'neo-theme-material-dark'
 ]);
 
 export const SCOPES = Object.freeze([

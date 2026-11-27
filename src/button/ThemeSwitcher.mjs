@@ -52,11 +52,13 @@ class ThemeSwitcher extends Button {
             [isDescriptor]: true,
             merge         : 'shallow',
             value         : {
-                'neo-theme-neo-light': 'Neo Light',
-                'neo-theme-neo-dark' : 'Neo Dark',
-                'neo-theme-light'    : 'Light',
-                'neo-theme-dark'     : 'Dark',
-                'neo-theme-cyberpunk': 'Cyberpunk'
+                'neo-theme-neo-light'     : 'Neo Light',
+                'neo-theme-neo-dark'      : 'Neo Dark',
+                'neo-theme-light'         : 'Light',
+                'neo-theme-dark'          : 'Dark',
+                'neo-theme-cyberpunk'     : 'Cyberpunk',
+                'neo-theme-material-light': 'Material Light',
+                'neo-theme-material-dark' : 'Material Dark'
             }
         },
         /**

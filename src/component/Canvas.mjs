@@ -56,11 +56,13 @@ class Canvas extends Component {
          * @member {Object} themeMap
          */
         themeMap: {
-            'neo-theme-cyberpunk': 'dark',
-            'neo-theme-dark'     : 'dark',
-            'neo-theme-light'    : 'light',
-            'neo-theme-neo-dark' : 'dark',
-            'neo-theme-neo-light': 'light'
+            'neo-theme-cyberpunk'     : 'dark',
+            'neo-theme-dark'          : 'dark',
+            'neo-theme-light'         : 'light',
+            'neo-theme-material-dark' : 'dark',
+            'neo-theme-material-light': 'light',
+            'neo-theme-neo-dark'      : 'dark',
+            'neo-theme-neo-light'     : 'light'
         },
         /**
          * @member {Object} _vdom={tag: 'canvas'}

@@ -1,0 +1,3 @@
+:where(.neo-theme-material-light, .neo-theme-material-dark) {
+    --neo-textfield-input-height: var(--neo-control-height-large);
+}

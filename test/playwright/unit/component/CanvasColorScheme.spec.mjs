@@ -37,11 +37,13 @@ ThemedScope = Neo.setupClass(ThemedScope);
  * test on the name answers `light` for it.
  */
 const SHIPPED_THEMES = [
-    ['neo-theme-cyberpunk', 'dark'],
-    ['neo-theme-dark',      'dark'],
-    ['neo-theme-light',     'light'],
-    ['neo-theme-neo-dark',  'dark'],
-    ['neo-theme-neo-light', 'light']
+    ['neo-theme-cyberpunk',      'dark'],
+    ['neo-theme-dark',           'dark'],
+    ['neo-theme-light',          'light'],
+    ['neo-theme-material-dark',  'dark'],
+    ['neo-theme-material-light', 'light'],
+    ['neo-theme-neo-dark',       'dark'],
+    ['neo-theme-neo-light',      'light']
 ];
 
 test.describe('Neo.component.Canvas#resolveColorScheme', () => {

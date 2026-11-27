@@ -42,11 +42,13 @@ ThemedScope = Neo.setupClass(ThemedScope);
  * rows and the fallback are asserted separately below rather than being read off one another.
  */
 const SHIPPED_THEMES = [
-    ['neo-theme-cyberpunk', 'dark'],
-    ['neo-theme-dark',      'dark'],
-    ['neo-theme-light',     'default'],
-    ['neo-theme-neo-dark',  'dark'],
-    ['neo-theme-neo-light', 'default']
+    ['neo-theme-cyberpunk',      'dark'],
+    ['neo-theme-dark',           'dark'],
+    ['neo-theme-light',          'default'],
+    ['neo-theme-material-dark',  'dark'],
+    ['neo-theme-material-light', 'default'],
+    ['neo-theme-neo-dark',       'dark'],
+    ['neo-theme-neo-light',      'default']
 ];
 
 test.describe('Neo.component.wrapper.Mermaid#resolveTheme', () => {

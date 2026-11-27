@@ -9,20 +9,14 @@ import {test, expect} from '@playwright/test';
  * cleanly at nested theme island boundaries.
  */
 
-const ALL_THEMES = [
-    'neo-theme-neo-dark',
-    'neo-theme-neo-light',
-    'neo-theme-dark',
-    'neo-theme-light',
-    'neo-theme-cyberpunk'
-];
-
 const MATRIX = [
-    {theme: 'neo-theme-neo-dark',  scheme: 'dark',  islandTheme: 'neo-theme-light',     islandScheme: 'light'},
-    {theme: 'neo-theme-dark',      scheme: 'dark',  islandTheme: 'neo-theme-neo-light', islandScheme: 'light'},
-    {theme: 'neo-theme-cyberpunk', scheme: 'dark',  islandTheme: 'neo-theme-light',     islandScheme: 'light'},
-    {theme: 'neo-theme-neo-light', scheme: 'light', islandTheme: 'neo-theme-dark',      islandScheme: 'dark'},
-    {theme: 'neo-theme-light',     scheme: 'light', islandTheme: 'neo-theme-neo-dark',  islandScheme: 'dark'}
+    {theme: 'neo-theme-neo-dark',       scheme: 'dark',  islandTheme: 'neo-theme-light',          islandScheme: 'light'},
+    {theme: 'neo-theme-dark',           scheme: 'dark',  islandTheme: 'neo-theme-neo-light',      islandScheme: 'light'},
+    {theme: 'neo-theme-cyberpunk',      scheme: 'dark',  islandTheme: 'neo-theme-light',          islandScheme: 'light'},
+    {theme: 'neo-theme-neo-light',      scheme: 'light', islandTheme: 'neo-theme-material-dark',  islandScheme: 'dark'},
+    {theme: 'neo-theme-light',          scheme: 'light', islandTheme: 'neo-theme-neo-dark',       islandScheme: 'dark'},
+    {theme: 'neo-theme-material-dark',  scheme: 'dark',  islandTheme: 'neo-theme-material-light', islandScheme: 'light'},
+    {theme: 'neo-theme-material-light', scheme: 'light', islandTheme: 'neo-theme-dark',           islandScheme: 'dark'}
 ];
 
 test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested scope reset', () => {
@@ -37,7 +31,7 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
 
             await route.fulfill({
                 contentType: 'application/json',
-                body       : JSON.stringify({...json, themes: ALL_THEMES})
+                body       : JSON.stringify({...json, themes: MATRIX.map(row => row.theme)})
             })
         });
 
@@ -155,7 +149,7 @@ test.describe('Base [class*="neo-theme-"] color-scheme inheritance and nested sc
         }
     });
 
-    test('sets color-scheme on document root and themed scopes across all five themes, inherits into controls/pickers/iframes, and resets on nested theme islands', async ({page}) => {
+    test('sets color-scheme on document root and themed scopes across shipped themes, inherits into controls/pickers/iframes, and resets on nested theme islands', async ({page}) => {
         for (const {theme, scheme, islandTheme, islandScheme} of MATRIX) {
             const snapshot = await page.evaluate(async ({ids, theme, islandTheme}) => {
                 const islandEl = document.getElementById(ids.islandId);

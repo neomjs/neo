@@ -37,11 +37,13 @@ class Mermaid extends Component {
          * @member {Object} themeMap
          */
         themeMap: {
-            'neo-theme-cyberpunk': 'dark',
-            'neo-theme-dark'     : 'dark',
-            'neo-theme-light'    : 'default',
-            'neo-theme-neo-dark' : 'dark',
-            'neo-theme-neo-light': 'default'
+            'neo-theme-cyberpunk'     : 'dark',
+            'neo-theme-dark'          : 'dark',
+            'neo-theme-light'         : 'default',
+            'neo-theme-material-dark' : 'dark',
+            'neo-theme-material-light': 'default',
+            'neo-theme-neo-dark'      : 'dark',
+            'neo-theme-neo-light'     : 'default'
         },
         /**
          * The mermaid diagram code.

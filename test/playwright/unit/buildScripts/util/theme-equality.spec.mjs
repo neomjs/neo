@@ -57,7 +57,9 @@ test.describe('buildScripts/util/theme-equality', () => {
             'neo-theme-neo-dark',
             'neo-theme-light',
             'neo-theme-dark',
-            'neo-theme-cyberpunk'
+            'neo-theme-cyberpunk',
+            'neo-theme-material-light',
+            'neo-theme-material-dark'
         ]);
         expect(SCOPES).toEqual(['inherited', 'scoped']);
         expect(STATES).toEqual([

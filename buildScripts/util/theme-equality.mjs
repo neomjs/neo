@@ -3,8 +3,7 @@
  * @module buildScripts/util/theme-equality
  * @summary Headless computed-style equality runner comparing painted CSS properties across two built theme trees.
  *
- * Mounts the engine's component matrix in headless Chromium across all five themes (`neo-theme-neo-light`,
- * `neo-theme-neo-dark`, `neo-theme-light`, `neo-theme-dark`, `neo-theme-cyberpunk`), both theme-scope passes
+ * Mounts the engine's component matrix in headless Chromium across the themes in `themeEqualityMatrix`, both theme-scope passes
  * (`inherited`, `scoped`), and component states (`default`, `hover`, `active`, `focus`, `selected`, `pressed`,
  * `disabled`, `invalid`, `readonly`), compares resolved `getComputedStyle` values (including `::before` and
  * `::after` pseudo-elements) per part between `--base` and `--head`, and exits non-zero on any undeclared

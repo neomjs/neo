@@ -131,11 +131,13 @@ class MonacoEditor extends Base {
          * @member {Object} themeMap
          */
         themeMap: {
-            'neo-theme-cyberpunk': 'vs-dark',
-            'neo-theme-dark'     : 'vs-dark',
-            'neo-theme-light'    : 'vs',
-            'neo-theme-neo-dark' : 'vs-dark',
-            'neo-theme-neo-light': 'vs'
+            'neo-theme-cyberpunk'     : 'vs-dark',
+            'neo-theme-dark'          : 'vs-dark',
+            'neo-theme-light'         : 'vs',
+            'neo-theme-material-dark' : 'vs-dark',
+            'neo-theme-material-light': 'vs',
+            'neo-theme-neo-dark'      : 'vs-dark',
+            'neo-theme-neo-light'     : 'vs'
         },
         /**
          * @member {String|String[]} value_=''

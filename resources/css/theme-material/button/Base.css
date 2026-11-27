@@ -1,0 +1,4 @@
+:where(.neo-theme-material-light, .neo-theme-material-dark) {
+    --neo-button-border-radius                  : var(--neo-radius-full);
+    --neo-button-primary-ripple-background-color: color-mix(in srgb, var(--neo-color-text-on-accent) 12%, transparent);
+}

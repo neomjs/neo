@@ -74,11 +74,13 @@ class AmChart extends Component {
          * @member {Object} themeMap
          */
         themeMap: {
-            'neo-theme-cyberpunk': 'dark',
-            'neo-theme-dark'     : 'dark',
-            'neo-theme-light'    : null,
-            'neo-theme-neo-dark' : 'dark',
-            'neo-theme-neo-light': null
+            'neo-theme-cyberpunk'     : 'dark',
+            'neo-theme-dark'          : 'dark',
+            'neo-theme-light'         : null,
+            'neo-theme-material-dark' : 'dark',
+            'neo-theme-material-light': null,
+            'neo-theme-neo-dark'      : 'dark',
+            'neo-theme-neo-light'     : null
         },
         /**
          * @member {Object} _vdom
