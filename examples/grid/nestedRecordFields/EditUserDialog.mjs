@@ -7,16 +7,18 @@ import TextField    from '../../../src/form/field/Text.mjs';
 
 /**
  * @summary Modal form dialog for editing a partner row's nested `user` and `address` fields with explicit Save/Cancel
- * commit semantics, keyboard focus trapping, and focus restoration to the triggering row button.
+ * commit semantics, keyboard focus trapping, focus restoration to the triggering row button, and a position kept
+ * inside the viewport when the window narrows while it is open.
  * @class Neo.examples.grid.nestedRecordFields.EditUserDialog
  * @extends Neo.dialog.Base
  */
 class EditUserDialog extends Dialog {
     static config = {
-        className  : 'Neo.examples.grid.nestedRecordFields.EditUserDialog',
-        closeAction: 'hide',
-        cls        : ['neo-edit-partner-dialog'],
-        keys       : {
+        className     : 'Neo.examples.grid.nestedRecordFields.EditUserDialog',
+        closeAction   : 'hide',
+        cls           : ['neo-edit-partner-dialog'],
+        keepInBoundary: true,
+        keys          : {
             Enter : 'onKeyDownEnter',
             Escape: 'onKeyDownEscape'
         },
