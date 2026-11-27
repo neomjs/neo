@@ -51,6 +51,21 @@ test.describe('Tree tiles', () => {
         await expect(page.locator('.tree-playlist')).toContainText('Playlist · 6 tracks · 22:26')
     });
 
+    test('an artist and an album keep their own icon, open or closed', async ({page}) => {
+        await page.setViewportSize({width: 1440, height: 900});
+        await page.goto('/examples/tree/index.html');
+        await expect(page.locator('.tree-playlist .neo-list-item')).toHaveCount(2);
+
+        const icons = await page.$$eval('.tree-library .neo-list-item-content:is(.tree-artist, .tree-album)', els => [...new Set(els.map(el => [
+            el.classList.contains('tree-artist') ? 'artist' : 'album',
+            el.closest('.neo-list-folder').classList.contains('neo-folder-open') ? 'open' : 'closed',
+            getComputedStyle(el, '::before').content
+        ].join(' ')))].sort());
+
+        // Font Awesome's user and compact disc, not the folder glyphs the tree draws under !important
+        expect(icons).toEqual(['album closed ""', 'album open ""', 'artist closed ""', 'artist open ""'])
+    });
+
     test('the accordion opens a section, names the selected setting, and a phone keeps it in view', async ({page}) => {
         const panel = page.locator('.tree-settings-selection'),
               item  = name => page.locator('.neo-accordion-style li.neo-list-item').filter({hasText: name}).first();

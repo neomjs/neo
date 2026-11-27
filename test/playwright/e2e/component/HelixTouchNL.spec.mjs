@@ -176,4 +176,41 @@ test.describe('Helix multi-touch partial lift and single-finger drag', () => {
         expect(finalState.nl.rotationAngle).toBe(finalState.worker.rotationAngle);
         expect(finalState.nl.translateZ).toBe(finalState.worker.translateZ)
     });
+
+    test('the partial-lift trace replays through simulateEvent, whose contacts arrive as JSON', async ({page, neuralLink}) => {
+        const {app, appWorker, box, helixId, initial} = await bootHelix(page, neuralLink),
+              [{properties: {windowId}}]              = await app.queryComponent({id: helixId}, ['windowId']),
+              dx                                      = 16,
+              dy                                      = -10,
+              contact                                 = (identifier, clientX, clientY) => ({clientX, clientY, identifier}),
+              touchEvent                              = (type, touches, changedTouches) => ({
+                  options : {changedTouches, touches},
+                  targetId: helixId,
+                  type,
+                  windowId: String(windowId)
+              }),
+              down13                                  = contact(13, Math.round(box.x + box.width * 0.35), Math.round(box.y + box.height * 0.5)),
+              down27                                  = contact(27, Math.round(box.x + box.width * 0.55), Math.round(box.y + box.height * 0.55)),
+              moved13                                 = contact(13, down13.clientX + dx, down13.clientY + dy);
+
+        // 13 down, 27 down, lift 27, move 13: synthetic input, so it proves delivery and tracking, not browser arbitration
+        expect(await app.simulateEvent([
+            touchEvent('touchstart', [down13],         [down13]),
+            touchEvent('touchstart', [down13, down27], [down27]),
+            touchEvent('touchend',   [down13],         [down27]),
+            touchEvent('touchmove',  [moved13],        [moved13])
+        ])).toBe(true);
+
+        await expect.poll(async () => (await readHelixGeometry(app, appWorker, helixId)).worker.rotationAngle)
+            .toBe(initial.rotationAngle + dx * 1.5 * initial.mouseWheelDeltaX);
+
+        const afterMove = await readHelixGeometry(app, appWorker, helixId);
+
+        expect(afterMove.worker.finite).toBe(true);
+        expect(afterMove.worker.translateZ).toBe(initial.translateZ + dy * 3 * initial.mouseWheelDeltaY);
+        expect(afterMove.nl.rotationAngle).toBe(afterMove.worker.rotationAngle);
+        expect(afterMove.nl.translateZ).toBe(afterMove.worker.translateZ);
+
+        expect(await app.simulateEvent(touchEvent('touchend', [], [moved13]))).toBe(true)
+    });
 });

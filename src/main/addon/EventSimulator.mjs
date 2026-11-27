@@ -24,6 +24,12 @@ const pointerTypeByMouseType = Object.freeze({
 });
 
 /**
+ * The contact lists of a `TouchEvent`.
+ * @type {String[]}
+ */
+const touchListNames = Object.freeze(['changedTouches', 'targetTouches', 'touches']);
+
+/**
  * @param {{x:Number,y:Number}} a
  * @param {{x:Number,y:Number}} b
  * @returns {Number}
@@ -201,6 +207,9 @@ class EventSimulator extends Base {
      * Constructs and dispatches one native event. The optional creation callback runs before
      * `dispatchEvent()`, allowing an atomic gesture transaction to correlate synchronous
      * `drag:*` lifecycle frames to this exact native Event object.
+     *
+     * A touch event's contact lists arrive from a worker as plain objects, so they become `Touch`
+     * instances here first ({@link #createTouches}).
      * @param {Object} data
      * @param {String|HTMLElement|Document} data.id
      * @param {String} data.type
@@ -219,7 +228,8 @@ class EventSimulator extends Base {
             return {event: null, success: false}
         }
 
-        let event, ctor;
+        let isTouch = false,
+            event, ctor;
 
         // Default bubbling/cancelable if not specified
         if (options.bubbles === undefined)    options.bubbles    = true;
@@ -274,7 +284,8 @@ class EventSimulator extends Base {
             case 'touchend':
             case 'touchmove':
             case 'touchcancel':
-                ctor = typeof TouchEvent !== 'undefined' ? TouchEvent : Event;
+                isTouch = typeof TouchEvent !== 'undefined' && typeof Touch !== 'undefined';
+                ctor    = isTouch ? TouchEvent : Event;
                 break;
             case 'drag':
             case 'dragstart':
@@ -295,7 +306,7 @@ class EventSimulator extends Base {
             // Note: DataTransfer itself is not easily serializable from the worker.
             // We might need a helper to construct it if advanced drag simulation is required.
 
-            event = new ctor(type, options);
+            event = new ctor(type, isTouch ? this.createTouches(options, node) : options);
             onCreate?.(event);
             node.dispatchEvent(event);
             return {event, success: true}
@@ -303,6 +314,49 @@ class EventSimulator extends Base {
             console.error(`EventSimulator: Failed to dispatch event '${type}' on '${id}'`, e);
             return {event: event || null, success: false}
         }
+    }
+
+    /**
+     * @summary Turns the plain contacts of a touch event's lists into `Touch` instances.
+     *
+     * The `TouchEvent` constructor accepts `Touch` objects only, and a `Touch` needs an `EventTarget`
+     * of the window that dispatches it, so only Main can build one. The dispatch node names that
+     * window: its `Touch` constructor builds a contact and its document resolves a contact's `target`
+     * id, so a node inside a same-origin iframe gets contacts of that iframe. Every given field passes
+     * through unchanged, which keeps explicit screen coordinates authoritative. An entry that already
+     * is a `Touch` stays as it is, whichever window built it: each window has its own constructor, so
+     * the test is the object's brand.
+     * @param {Object} options The event options; they are not modified
+     * @param {HTMLElement|Document|Window} node The dispatch node, a contact's target unless it names its own
+     * @returns {Object} The options, with each given contact list holding `Touch` instances
+     * @throws {Error} For a contact whose `target` id resolves to no element
+     * @protected
+     */
+    createTouches(options, node) {
+        const
+            doc    = node.ownerDocument || (node.nodeType === 9 ? node : node.document) || document,
+            view   = doc.defaultView || globalThis,
+            result = {...options};
+
+        touchListNames.forEach(name => {
+            if (Array.isArray(options[name])) {
+                result[name] = options[name].map(contact => {
+                    if (Object.prototype.toString.call(contact) === '[object Touch]') {
+                        return contact
+                    }
+
+                    const target = contact?.target == null ? node : DomAccess.getElement(contact.target, doc);
+
+                    if (!target) {
+                        throw new Error(`Touch target with id '${contact.target}' not found.`)
+                    }
+
+                    return new view.Touch({...contact, target})
+                })
+            }
+        });
+
+        return result
     }
 
     /**

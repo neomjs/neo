@@ -1,27 +1,12 @@
-/* Stays at theme-root weight (0,2,0) deliberately: unlike every other neo value sheet, this one
-   nests a STRUCTURAL rule — `.neo-dialog .neo-header-toolbar .neo-button` sets background-color,
-   height and min-width — which must keep outranking the equal-weight button rules in `src/`.
-   Dropping it to :where() would change paint. The structural half belongs in `src/` per the
-   guide's structure-vs-skin rule; until it moves there, weight is what holds it. */
-:root .neo-theme-neo-light { /* .neo-dialog */
-    --dialog-border-color                : #ddd;
-    --dialog-box-shadow                  : 0 5px 10px rgba(0,0,0,.4);
-    --dialog-footer-button-border-radius: 5px;
-    --dialog-footer-button-height       : 1.7em;
-    --dialog-footer-button-margin-left  : 0.3em;
-    --dialog-header-color                : var(--purple-500);
-    --dialog-icon-color                  : var(--purple-500);
+:where(.neo-theme-neo-light) { /* .neo-dialog */
+    --dialog-border-color                        : #ddd;
+    --dialog-box-shadow                          : 0 5px 10px rgba(0,0,0,.4);
+    --dialog-footer-button-border-radius         : 5px;
+    --dialog-footer-button-height                : 1.7em;
+    --dialog-footer-button-margin-left           : 0.3em;
     --dialog-header-button-background-color-hover: var(--cmp-button-ghost-surface-hover);
+    --dialog-header-color                        : var(--purple-500);
+    --dialog-icon-color                          : var(--purple-500);
     --dialog-icon-color-hover                    : var(--sem-color-icon-neutral-contrast);
     --dialog-modal-mask-background-color         : rgba(100, 100, 100, 0.5);
-
-    .neo-dialog {
-        .neo-header-toolbar {
-            .neo-button {
-                background-color: transparent;
-                height          : unset;
-                min-width       : unset;
-            }
-        }
-    }
 }

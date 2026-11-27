@@ -30,7 +30,8 @@ such as a ring or a glow around the splitter handle, ship as `none` for you to f
 **The theme values layer** lives in each theme tree, under `resources/css/theme-*/dashboard/`. It supplies the colours
 the structure layer reads: the drop-preview accents, the preview ground and line, the drag proxy, the arrival outline,
 and the placeholder a pane leaves behind while it lives in another window. Every shipped theme has one, and every one
-declares at `:where(.neo-theme-*)` weight — zero specificity — so nothing it states can win against a value you project.
+sits in the `neo.theme` cascade layer, below your application's `neo.apps`, so nothing it states can win against a value
+you project.
 
 **Your application layer** owns identity and density: your palette, projected into the `--dock-*` and `--agent-dock-*`
 tokens, and the spacing your product wants. The Workstation, for instance, sets its own reveal ground and tightens the gap
