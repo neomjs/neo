@@ -60,7 +60,8 @@ async function registrationProbe() {
         Neo.overwrites = {Neo: {worker: {App: {singleton: false}}}};
         const {default: App} = await import('./src/worker/App.mjs');
         const receiver = {ports: [], resolveAiClientBoot: App.prototype.resolveAiClientBoot, themeMapFetchStarted: true};
-        Neo.config = {useSharedWorkers: false, useVdomWorker: true, useAiClient: false};
+        Object.keys(Neo.config).forEach(key => delete Neo.config[key]);
+        Object.assign(Neo.config, {useSharedWorkers: false, useVdomWorker: true, useAiClient: false});
         delete Neo.windowConfigs;
         App.prototype.onRegisterNeoConfig.call(receiver, {data: {
             windowId: 'A', url: {base: 'https://example.test/apps/a/', href: 'https://example.test/apps/a/index.html'}
