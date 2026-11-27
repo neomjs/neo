@@ -35,12 +35,14 @@ import {RUNTIME_PROPERTIES, cssFiles, readCss, resolveThemeClassMap, stripVarCal
 const
     cssRoot     = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../resources/css'),
     AREAS       = ['engine', 'apps', 'examples'],
-    LAYERS      = ['palette', 'sem', 'cmp', 'component'],
+    LAYERS      = ['palette', 'role', 'sem', 'cmp', 'component'],
     DECLARATION = /(?<![\w-])(--[A-Za-z0-9_-]+)\s*:\s*([^;{}]+)(?:;|(?=\}))/g,
     READ        = /var\(\s*(--[A-Za-z0-9_-]+)\s*([,)])/g,
     COLOUR      = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g,
-    // the primitive scales and the `--core-*` aliases a theme's palette declares
-    PALETTE     = /^--(core-|gray-|purple-|green-|red-|orange-|yellow-|blue-|spacing-|height-|borderradius-|white|black|Transparent)/,
+    // the design system's palette names, and the primitive scales and `--core-*` aliases of the older tokens
+    PALETTE     = /^--(neo-palette-|core-|gray-|purple-|green-|red-|orange-|yellow-|blue-|spacing-|height-|borderradius-|white|black|Transparent)/,
+    // a role is `--neo-<category>-<role>`, the category one of a closed list
+    ROLE        = /^--neo-(color|space|control|font|line-height|letter-spacing|radius|border-width|focus-ring|opacity|elevation|duration|ease)-/,
     STATES      = new Set(['hover', 'active', 'disabled', 'pressed', 'selected', 'focus', 'focused', 'checked', 'invalid', 'readonly']),
     // per meaning, the first word whose pattern a name matches
     WORDS       = {
@@ -51,10 +53,10 @@ const
 
 /**
  * @param {String} name
- * @returns {String} `palette`, `sem`, `cmp` or `component`
+ * @returns {String} `palette`, `role`, `sem`, `cmp` or `component`
  */
 function layerOf(name) {
-    return name.startsWith('--sem-') ? 'sem' : name.startsWith('--cmp-') ? 'cmp' : PALETTE.test(name) ? 'palette' : 'component'
+    return name.startsWith('--sem-') ? 'sem' : name.startsWith('--cmp-') ? 'cmp' : PALETTE.test(name) ? 'palette' : ROLE.test(name) ? 'role' : 'component'
 }
 
 /**
@@ -146,7 +148,7 @@ function compositionOf(value) {
         return colourCount(value) ? 'colourLiteral' : 'literal'
     }
 
-    return refs.includes('cmp') ? 'cmp' : refs.includes('sem') ? 'sem' : refs.includes('palette') ? 'palette' : 'variable'
+    return refs.includes('cmp') ? 'cmp' : refs.includes('sem') ? 'sem' : refs.includes('palette') ? 'palette' : refs.includes('role') ? 'role' : 'variable'
 }
 
 /**
@@ -293,7 +295,7 @@ export function collectThemeCensus({root = cssRoot, runtimeProperties = RUNTIME_
             tree        = trees[name],
             engine      = inLayer(tree.declared.engine, 'component'),
             themeNames  = new Set(AREAS.flatMap(area => [...tree.declared[area].keys()])),
-            composition = Object.fromEntries(['sem', 'cmp', 'palette', 'variable', 'colourLiteral', 'literal'].map(kind => [kind, 0]));
+            composition = Object.fromEntries(['sem', 'cmp', 'palette', 'role', 'variable', 'colourLiteral', 'literal'].map(kind => [kind, 0]));
 
         engine.forEach(value => composition[compositionOf(value)]++);
 
@@ -372,7 +374,7 @@ function words(counts) {
 export function renderCensus(census, label = 'resources/css') {
     const
         names     = Object.keys(census.themes),
-        layerHead = ['Palette', '`--sem-*`', '`--cmp-*`', 'Component'],
+        layerHead = ['Palette', 'Roles', '`--sem-*`', '`--cmp-*`', 'Component'],
         literals  = Object.entries(census.structural.colourLiterals),
         bare      = literals.reduce((sum, [, counts]) => sum + counts.bare, 0),
         fallback  = literals.reduce((sum, [, counts]) => sum + counts.inFallback, 0),
@@ -388,10 +390,10 @@ export function renderCensus(census, label = 'resources/css') {
             return [name, area, files[area], ...LAYERS.map(layer => properties[area][layer]), properties[area].total, `${redeclared[area].count} (${redeclared[area].conflicting.length})`]
         }))),
         '## 2. What an engine component value is made of',
-        table(['Theme', 'Values', 'via `--sem-*`', 'via `--cmp-*`', 'via palette', 'via another variable', 'Colour literal', 'Other literal'], names.map(name => {
-            const {sem, cmp, palette, variable, colourLiteral, literal, total} = census.themes[name].composition;
+        table(['Theme', 'Values', 'via a role', 'via `--sem-*`', 'via `--cmp-*`', 'via palette', 'via another variable', 'Colour literal', 'Other literal'], names.map(name => {
+            const {role, sem, cmp, palette, variable, colourLiteral, literal, total} = census.themes[name].composition;
 
-            return [name, total, sem, cmp, palette, variable, colourLiteral, literal]
+            return [name, total, role, sem, cmp, palette, variable, colourLiteral, literal]
         })),
         '## 3. Light and dark pairs (engine files)',
         table(['Pair', 'Layer', 'Shared names', 'Identical', 'Differ', 'Only dark', 'Only light'], census.pairs.flatMap(({dark, light, layers}) => LAYERS.map(layer => {
