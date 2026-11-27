@@ -4,6 +4,14 @@ import fs              from 'fs-extra';
 import path            from 'node:path';
 import postcss         from 'postcss';
 import isEntryModule   from '../util/isEntryModule.mjs';
+import {
+    isCssTargetFolder,
+    resolveThemeClassMap
+}                      from '../util/themeCss.mjs';
+import {
+    cascadeLayer,
+    cascadeLayerPlugin
+}                      from '../util/themeCssLayers.mjs';
 import {themeCssRoots} from '../util/themeCssRoots.mjs';
 import {
     DEVELOPMENT_THEME_BUILD_COMMAND,
@@ -91,12 +99,14 @@ export function getThemeSourceCensus({repoRoot = REPO_ROOT} = {}) {
             })
     }
 
-    getThemeSourceRoots(repoRoot).forEach(cssRoot => {
+    const roots = getThemeSourceRoots(repoRoot);
+
+    roots.forEach(cssRoot => {
         fs.readdirSync(cssRoot, {withFileTypes: true})
             .filter(entry => (
                 entry.isDirectory() &&
                 !entry.isSymbolicLink() &&
-                (entry.name === 'src' || entry.name.includes('theme'))
+                isCssTargetFolder(roots, entry.name)
             ))
             .sort((a, b) => a.name.localeCompare(b.name))
             .forEach(entry => visit(path.join(cssRoot, entry.name), entry.name))
@@ -122,12 +132,19 @@ function addToThemeMap(themeMap, entry) {
 }
 
 /**
- * @summary Creates the exact nested class-to-theme map for an effective source census.
+ * @summary Creates the exact nested class-to-theme map plus `themes` (class → folders) for an effective source census.
  * @param {Array} census Effective source census.
+ * @param {Object} [options]
+ * @param {String} [options.repoRoot] Repository root.
  * @returns {Object}
  */
-function createDevelopmentThemeMap(census) {
-    const themeMap = {};
+function createDevelopmentThemeMap(census, {repoRoot = REPO_ROOT} = {}) {
+    const themeMap = {
+        themes: resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        })
+    };
 
     census.forEach(entry => addToThemeMap(themeMap, entry));
 
@@ -161,7 +178,7 @@ export function regenerateDevelopmentThemeMap({
     census,
     repoRoot = REPO_ROOT
 } = {}) {
-    const themeMap = createDevelopmentThemeMap(census ?? getThemeSourceCensus({repoRoot}));
+    const themeMap = createDevelopmentThemeMap(census ?? getThemeSourceCensus({repoRoot}), {repoRoot});
 
     const serialized = JSON.stringify(themeMap);
 
@@ -226,13 +243,30 @@ export function inspectThemeWatcherAssets({repoRoot = REPO_ROOT} = {}) {
             continue
         }
 
+        const expectedThemes = resolveThemeClassMap({
+            cssRoots           : getThemeSourceRoots(repoRoot),
+            includeWorkspaceMap: false
+        });
+
         census.forEach(entry => {
             if (!themeMapHasEntry(themeMap, entry)) {
                 mapMissing.push(
                     `${path.relative(repoRoot, mapPath)}: ${entry.className} (${entry.root})`
                 )
             }
-        })
+        });
+
+        for (const [themeClass, folders] of Object.entries(expectedThemes)) {
+            const mapped = themeMap?.themes?.[themeClass];
+
+            for (const folder of folders) {
+                if (!Array.isArray(mapped) || !mapped.includes(folder)) {
+                    mapMissing.push(
+                        `${path.relative(repoRoot, mapPath)}: themes.${themeClass} (${folder})`
+                    )
+                }
+            }
+        }
     }
 
     const symlinked = conservativeState.symlinked ?? [];
@@ -307,7 +341,7 @@ export function pruneDevelopmentThemeArtifacts({
 
 /**
  * @summary Copies one effective source entry to its development CSS and source-map targets,
- * through autoprefixer as the full theme build does.
+ * through autoprefixer and into its cascade layer, as the full theme build does.
  * @param {Object} entry Effective source census entry.
  * @param {Object} [options]
  * @param {Object} [options.logger] Console-compatible logger.
@@ -317,7 +351,11 @@ async function buildEntry(entry, {logger = console} = {}) {
     const startTime = Date.now();
 
     try {
-        const postcssResult = await postcss([autoprefixer]).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
+        const plugins = [autoprefixer, cascadeLayerPlugin({
+            layer: cascadeLayer(entry.root, path.relative(entry.root, entry.filename))
+        })];
+
+        const postcssResult = await postcss(plugins).process(fs.readFileSync(entry.sourcePath, 'utf8'), {
             from: entry.sourcePath,
             to  : entry.outputPath,
             map : {inline: false}

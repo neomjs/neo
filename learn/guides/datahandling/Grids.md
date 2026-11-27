@@ -52,7 +52,7 @@ class MainView extends Viewport {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 In this example, we create a simple grid with two columns. The `dataField` in each column configuration maps to a
@@ -190,7 +190,7 @@ class MainView extends Viewport {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 This pattern is particularly beneficial for:
@@ -314,7 +314,7 @@ class MainView extends Viewport {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Every column of such a grid gets a text field in its header, which keeps the rows whose value contains what you type
@@ -507,7 +507,7 @@ class MainView extends Viewport {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Initial Sorting
@@ -585,7 +585,7 @@ class MainView extends Viewport {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Each filter object typically has:
@@ -768,7 +768,7 @@ class MainView extends Viewport {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 `editable` is reactive. Turning it off on a column while one of its cells is being edited cancels that edit.

@@ -43,31 +43,37 @@
  * **Sunset:** the guard is permanent — it is the rule's enforcement. The BASELINE retires: when it
  * reaches zero entries the file is deleted and this loader treats a missing baseline as empty.
  */
-import fs              from 'node:fs';
-import path            from 'node:path';
-import {fileURLToPath} from 'node:url';
-import isEntryModule   from './isEntryModule.mjs';
+import fs                    from 'node:fs';
+import path                  from 'node:path';
+import {fileURLToPath}       from 'node:url';
+import isEntryModule         from './isEntryModule.mjs';
+import {resolveThemeFolders} from './themeCss.mjs';
 
 const
-    dirname      = path.dirname(fileURLToPath(import.meta.url)),
-    repoRoot     = path.resolve(dirname, '../..'),
-    themeRoot    = path.join(repoRoot, 'resources/css'),
-    baselinePath = path.join(dirname, 'check-theme-value-files-baseline.json');
+    dirname         = path.dirname(fileURLToPath(import.meta.url)),
+    repoRoot        = path.resolve(dirname, '../..'),
+    themeRoot       = path.join(repoRoot, 'resources/css'),
+    baselinePath    = path.join(dirname, 'check-theme-value-files-baseline.json'),
+    relCssRoot      = path.relative(repoRoot, themeRoot).replaceAll('\\', '/'),
+    relBaselinePath = path.relative(repoRoot, baselinePath).replaceAll('\\', '/'),
+    valueFolders    = [
+        ...(fs.existsSync(path.join(themeRoot, 'theme-base')) ? ['theme-base'] : []),
+        ...resolveThemeFolders({root: themeRoot})
+    ];
 
 /**
  * Every surface whose contents can change this guard's verdict, as globs — the form a workflow
  * `paths:` filter takes, so the sibling alignment spec can hold the mirror to what is actually read.
  *
- * The `theme-*` segment is the collector's own filter, not a convenience: `themeRoot` holds
- * `resources/css/src` too and this guard never opens it. Writing the wider root here would demand a
- * wider mirror than the guard needs. The baseline is a member because it is an INPUT to the verdict
- * — a run that did not re-trigger on a baseline edit would let a file be blessed by editing the
- * record of what exists, with nothing re-reading reality. Every member must be TRACKED.
+ * Theme folders are resolved from `resources/theme-map.json` and `Global.css` class declarations
+ * (plus `theme-base` when present) rather than globbing `theme-*`, and `Global.css` across direct
+ * subdirectories is included so adding or editing a theme's class declaration re-triggers the guard.
  * @type {String[]}
  */
 export const SCAN_SURFACE = Object.freeze([
-    `${path.relative(repoRoot, themeRoot).replaceAll('\\', '/')}/theme-*/**/*.css`,
-    path.relative(repoRoot, baselinePath).replaceAll('\\', '/')
+    ...valueFolders.map(dir => `${relCssRoot}/${dir}/**/*.css`),
+    `${relCssRoot}/*/Global.css`,
+    ...(fs.existsSync(baselinePath) ? [relBaselinePath] : [])
 ]);
 
 /**
@@ -156,46 +162,74 @@ export function findSelectorBlocks(file) {
 }
 
 /**
- * @summary Every `resources/css/theme-*` stylesheet, repo-relative.
+ * @summary Every theme value stylesheet (`theme-base` when present plus mapped themes), relative to `rootRepo`.
+ * @param {Object} [options]
+ * @param {String} [options.repoRoot] Repository root for relative file reporting.
+ * @param {String} [options.root] CSS root holding `src/`, optional `theme-base/`, and mapped theme folders.
+ * @param {String} [options.themeMapPath] Optional `theme-map.json` path override.
  * @returns {String[]}
  */
-export function collectThemeFiles() {
+export function collectThemeFiles({repoRoot: rootRepo = repoRoot, root = themeRoot, themeMapPath} = {}) {
+    if (!fs.existsSync(root)) return [];
+
     const walk = dir => fs.readdirSync(dir, {withFileTypes: true}).flatMap(entry => {
         const full = path.join(dir, entry.name);
 
         return entry.isDirectory() ? walk(full) : entry.name.endsWith('.css') ? [full] : []
     });
 
-    return fs.readdirSync(themeRoot, {withFileTypes: true})
-        .filter(entry => entry.isDirectory() && entry.name.startsWith('theme-'))
-        .flatMap(entry => walk(path.join(themeRoot, entry.name)))
-        .map(file => path.relative(repoRoot, file).replaceAll('\\', '/'))
+    const folders = [
+        ...(fs.existsSync(path.join(root, 'theme-base')) ? ['theme-base'] : []),
+        ...resolveThemeFolders({root, themeMapPath})
+    ];
+
+    return folders
+        .flatMap(folder => walk(path.join(root, folder)))
+        .map(file => path.relative(rootRepo, file).replaceAll('\\', '/'))
         .sort()
 }
 
 /**
  * @summary Reads the baseline, treating a missing file as an empty one (its retired state).
+ * @param {String} [file=baselinePath]
  * @returns {Map<String,Object>}
  */
-export function readBaseline() {
-    if (!fs.existsSync(baselinePath)) return new Map();
+export function readBaseline(file = baselinePath) {
+    if (!file || !fs.existsSync(file)) return new Map();
 
-    return new Map(JSON.parse(fs.readFileSync(baselinePath, 'utf8')).map(entry => [entry.file, entry]))
+    return new Map(JSON.parse(fs.readFileSync(file, 'utf8')).map(entry => [entry.file, entry]))
 }
 
 /**
  * @summary The guard. Returns the (possibly empty) list of failures.
+ * @param {Object} [options]
+ * @param {Map<String,Object>} [options.baseline] Injected baseline map.
+ * @param {String} [options.baselineFile] Optional baseline JSON file path.
+ * @param {String} [options.repoRoot] Repository root for relative file reporting.
+ * @param {String} [options.root] CSS root holding `src/`, optional `theme-base/`, and mapped theme folders.
+ * @param {String} [options.themeMapPath] Optional `theme-map.json` path override.
  * @returns {String[]}
  */
-export function collectThemeValueFileFailures() {
+export function collectThemeValueFileFailures({
+    baseline: injectedBaseline,
+    baselineFile = baselinePath,
+    repoRoot: rootRepo = repoRoot,
+    root = themeRoot,
+    themeMapPath
+} = {}) {
     const
-        baseline = readBaseline(),
+        baseline = injectedBaseline ?? (root === themeRoot ? readBaseline(baselineFile) : new Map()),
+        files    = collectThemeFiles({repoRoot: rootRepo, root, themeMapPath}),
         failures = [],
         seen     = new Set();
 
-    for (const file of collectThemeFiles()) {
+    if (!files.length) {
+        return [`[surface] ${root} holds zero mapped theme value files`]
+    }
+
+    for (const file of files) {
         const
-            blocks   = findSelectorBlocks(path.join(repoRoot, file)),
+            blocks   = findSelectorBlocks(path.join(rootRepo, file)),
             recorded = baseline.get(file);
 
         recorded && seen.add(file);

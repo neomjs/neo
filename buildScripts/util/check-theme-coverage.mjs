@@ -23,13 +23,16 @@
  * `collectThemeCoverageFailures` is pure over the filesystem (injectable paths, no exit/log) so
  * the CLI wrapper and the isolated spec both drive it. All mechanical, not discipline.
  */
-import fs              from 'fs';
-import path            from 'path';
-import {fileURLToPath} from 'url';
-import isEntryModule   from './isEntryModule.mjs';
+import fs                     from 'fs';
+import path                   from 'path';
+import {fileURLToPath}        from 'url';
+import isEntryModule          from './isEntryModule.mjs';
+import {resolveThemeClassMap} from './themeCss.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url)),
-      repoRoot  = path.resolve(__dirname, '../..'),
+const __dirname  = path.dirname(fileURLToPath(import.meta.url)),
+      repoRoot   = path.resolve(__dirname, '../..'),
+      cssRoot    = path.join(repoRoot, 'resources/css'),
+      relCssRoot = path.relative(repoRoot, cssRoot).replaceAll('\\', '/'),
 
       /**
        * The known zero-coverage packages, each with its one-line disposition. Adding a row here is
@@ -41,27 +44,43 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url)),
           filter : 'data-filtering behavior package — renders no user-visible chrome of its own',
           layout : 'flex/grid positioning only — structure, no paint',
           sitemap: 'single-file utility — no chrome of its own'
-      },
-
-      DEFAULT_PATHS = {
-          srcDir  : path.join(repoRoot, 'resources/css/src'),
-          darkDir : path.join(repoRoot, 'resources/css/theme-neo-dark'),
-          lightDir: path.join(repoRoot, 'resources/css/theme-neo-light')
       };
 
 /**
- * The three trees this guard reads, as globs relative to the repository root — the form a workflow
+ * @summary Resolves the `src/`, optional `theme-base/`, and mapped Neo dark/light theme directories
+ * for a CSS root through `theme-map.json` and `Global.css` class declarations.
+ * @param {String} root CSS root directory.
+ * @param {String} [themeMapPath] Optional `theme-map.json` path override.
+ * @returns {{baseDir: String, darkDirs: String[], lightDirs: String[], srcDir: String}}
+ */
+function resolveCoverageDirs(root, themeMapPath) {
+    const classMap = resolveThemeClassMap({root, themeMapPath});
+
+    return {
+        baseDir  : path.join(root, 'theme-base'),
+        darkDirs : (classMap['neo-theme-neo-dark']  || []).map(folder => path.join(root, folder)),
+        lightDirs: (classMap['neo-theme-neo-light'] || []).map(folder => path.join(root, folder)),
+        srcDir   : path.join(root, 'src')
+    }
+}
+
+const DEFAULT_DIRS   = resolveCoverageDirs(cssRoot),
+      trackedFolders = [...new Set([
+          'src',
+          ...(fs.existsSync(DEFAULT_DIRS.baseDir) ? ['theme-base'] : []),
+          ...[...DEFAULT_DIRS.darkDirs, ...DEFAULT_DIRS.lightDirs].map(dir => path.basename(dir))
+      ])];
+
+/**
+ * The trees this guard reads, as globs relative to the repository root — the form a workflow
  * `paths:` filter takes, so the sibling alignment spec can hold this guard's mirror to what it
  * actually reads.
- *
- * DERIVED from {@link DEFAULT_PATHS} rather than restated, because the absolute forms above are what
- * the guard opens and a second hand-written list would be free to disagree with them. Every member
- * must be TRACKED: a workflow filter can only select files CI checks out.
  * @type {String[]}
  */
-export const SCAN_SURFACE = Object.freeze(
-    Object.values(DEFAULT_PATHS).map(dir => `${path.relative(repoRoot, dir)}/**/*.css`)
-);
+export const SCAN_SURFACE = Object.freeze([
+    ...trackedFolders.map(folder => `${relCssRoot}/${folder}/**/*.css`),
+    `${relCssRoot}/*/Global.css`
+]);
 
 /**
  * @param {String} dir
@@ -87,38 +106,58 @@ function hasCss(dir) {
  * @summary Collect every theme-coverage violation for the given tree. Pure over the filesystem —
  * no process.exit, no logging.
  * @param {Object} [options]
- * @param {String} [options.srcDir]   the structure layer root (`resources/css/src`)
- * @param {String} [options.darkDir]  theme-neo-dark root
- * @param {String} [options.lightDir] theme-neo-light root
+ * @param {String} [options.baseDir]      optional shared `theme-base` root
  * @param {Object<String,String>} [options.baseline] known zero-coverage packages → justification
+ * @param {String} [options.darkDir]      single dark theme root shorthand
+ * @param {String[]} [options.darkDirs]   folders mapped to `neo-theme-neo-dark`
+ * @param {String} [options.lightDir]     single light theme root shorthand
+ * @param {String[]} [options.lightDirs]  folders mapped to `neo-theme-neo-light`
+ * @param {String} [options.root]         CSS root directory (`resources/css`)
+ * @param {String} [options.srcDir]       the structure layer root (`resources/css/src`)
+ * @param {String} [options.themeMapPath] optional `theme-map.json` path override
  * @returns {String[]} failure messages (empty array = clean)
  */
 export function collectThemeCoverageFailures({
-    srcDir   = DEFAULT_PATHS.srcDir,
-    darkDir  = DEFAULT_PATHS.darkDir,
-    lightDir = DEFAULT_PATHS.lightDir,
-    baseline = BASELINE_ZERO_COVERAGE
+    baseDir,
+    baseline = BASELINE_ZERO_COVERAGE,
+    darkDir,
+    darkDirs,
+    lightDir,
+    lightDirs,
+    root,
+    srcDir,
+    themeMapPath
 } = {}) {
-    const failures = [];
+    const resolved     = root ? resolveCoverageDirs(root, themeMapPath) : DEFAULT_DIRS,
+          effectiveSrc = srcDir ?? resolved.srcDir,
+          sharedBase   = baseDir ?? (root ? resolved.baseDir : (!darkDir && !lightDir ? resolved.baseDir : null)),
+          darkRoots    = darkDirs ?? (darkDir ? [darkDir] : resolved.darkDirs),
+          lightRoots   = lightDirs ?? (lightDir ? [lightDir] : resolved.lightDirs),
+          failures     = [];
 
     // Fail closed on an unreadable structure root: an empty package list would otherwise report
     // a clean tree by construction — "read nothing" must never look like "clean".
-    if (!fs.existsSync(srcDir)) {
-        return [`[surface] structure root ${srcDir} is missing — coverage cannot be verified`];
+    if (!fs.existsSync(effectiveSrc)) {
+        return [`[surface] structure root ${effectiveSrc} is missing — coverage cannot be verified`];
     }
 
-    const packages = fs.readdirSync(srcDir, {withFileTypes: true})
+    if (darkRoots.length === 0 || lightRoots.length === 0) {
+        return [`[surface] neo-theme-neo-dark or neo-theme-neo-light has no mapped folder — coverage cannot be verified`];
+    }
+
+    const packages = fs.readdirSync(effectiveSrc, {withFileTypes: true})
         .filter(entry => entry.isDirectory())
         .map(entry => entry.name);
 
     // Same fail-closed on a suspiciously empty enumeration (a wrong path yields zero dirs).
     if (packages.length === 0) {
-        return [`[surface] structure root ${srcDir} holds zero packages — coverage cannot be verified`];
+        return [`[surface] structure root ${effectiveSrc} holds zero packages — coverage cannot be verified`];
     }
 
     for (const pkg of packages) {
-        const dark  = hasCss(path.join(darkDir,  pkg)),
-              light = hasCss(path.join(lightDir, pkg));
+        const shared = Boolean(sharedBase && hasCss(path.join(sharedBase, pkg))),
+              dark   = shared || darkRoots.some(dir => hasCss(path.join(dir, pkg))),
+              light  = shared || lightRoots.some(dir => hasCss(path.join(dir, pkg)));
 
         if (dark && light) {
             if (pkg in baseline) {

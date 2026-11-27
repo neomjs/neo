@@ -9,6 +9,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import SplitButton    from '../../../../src/button/Split.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 
 const appName = 'ComponentClsHelpersTest';
@@ -24,23 +25,25 @@ const appName = 'ComponentClsHelpersTest';
  * positive control: it proves the counter can report two, which is the only reason its one for
  * `removeAddCls` means anything.
  */
-test.describe('Neo.component.Base#removeAddCls — one swap, one update', () => {
+test.describe('Neo.component.Base class helpers', () => {
     let component = null,
         updates   = 0;
 
     /**
-     * @summary Builds a component whose `update()` is counted rather than performed.
+     * @summary Builds a component and counts calls to its original `update()` method.
      * @param {String[]} cls
+     * @param {Class} [module=Component]
      * @returns {Neo.component.Base}
      */
-    function create(cls) {
-        const instance = Neo.create(Component, {appName, cls});
+    function create(cls, module=Component) {
+        const instance = Neo.create(module, {appName, cls}),
+              update   = instance.update;
 
         updates = 0;
 
         instance.update = function() {
             updates++;
-            return Component.prototype.update.apply(this, arguments)
+            return update.apply(this, arguments)
         };
 
         return instance
@@ -58,6 +61,43 @@ test.describe('Neo.component.Base#removeAddCls — one swap, one update', () => 
 
         expect(updates).toBe(1);
         expect(component.cls).toEqual(['unrelated', 'size-large'])
+    });
+
+    test('addCls adds multiple root classes in one update', () => {
+        component = create(['unrelated']);
+        component.addCls(['a', 'b']);
+
+        expect(updates).toBe(1);
+        expect(component.cls).toEqual(['unrelated', 'a', 'b']);
+        expect(component.getVdomRoot().cls).toEqual(expect.arrayContaining(['unrelated', 'a', 'b']))
+    });
+
+    test('addWrapperCls adds multiple wrapper classes in one update', () => {
+        component = create(['unrelated'], SplitButton);
+        const root       = component.getVdomRoot(),
+              rootConfig = component.cls,
+              rootCls    = [...root.cls],
+              wrapperCls = [...component.vdom.cls];
+
+        expect(root).not.toBe(component.vdom);
+        component.addWrapperCls(['w1', 'w2']);
+
+        expect(updates).toBe(1);
+        expect(component.wrapperCls).toEqual(['w1', 'w2']);
+        expect(component.vdom.cls).toEqual(expect.arrayContaining([...wrapperCls, 'w1', 'w2']));
+        expect(root.cls).toEqual(rootCls);
+        expect(component.cls).toEqual(rootConfig)
+    });
+
+    test('removeCls removes multiple root classes in one update', () => {
+        component = create(['unrelated', 'a', 'b']);
+        component.removeCls(['a', 'b']);
+
+        expect(updates).toBe(1);
+        expect(component.cls).toEqual(['unrelated']);
+        expect(component.getVdomRoot().cls).toContain('unrelated');
+        expect(component.getVdomRoot().cls).not.toContain('a');
+        expect(component.getVdomRoot().cls).not.toContain('b')
     });
 
     test('the composed form issues two — the control that makes the count meaningful', () => {

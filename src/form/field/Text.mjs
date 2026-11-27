@@ -430,17 +430,14 @@ class Text extends Field {
     afterSetDisabled(value, oldValue) {
         let me         = this,
             isDisabled = Boolean(value),
-            wasSilent  = me.silentVdomUpdate,
-            cls;
+            wasSilent  = me.silentVdomUpdate;
 
         me.silentVdomUpdate = true;
 
         super.afterSetDisabled(value, oldValue);
 
         if (isDisabled && oldValue !== undefined) {
-            cls = me.cls;
-            NeoArray.remove(cls, ['neo-focus', 'neo-hovered']);
-            me.cls = cls;
+            me.removeCls(['neo-focus', 'neo-hovered']);
 
             if (me.labelPosition === 'inline' && me.isEmpty()) {
                 me.#centerBorderRequestId++;
@@ -1554,16 +1551,12 @@ class Text extends Field {
     onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
-            inputEl        = me.getInputEl(),
-            cls;
+            inputEl        = me.getInputEl();
 
         if (!me.readOnly) {
             me.validate(false);
 
-            cls = me.cls; // has to get set after validate()
-
-            NeoArray.remove(cls, 'neo-focus');
-            me.cls = cls;
+            me.removeCls('neo-focus');
 
             if (centerBorderEl && me.isEmpty()) {
                 me.#centerBorderRequestId++;
@@ -1645,12 +1638,10 @@ class Text extends Field {
      * @param {Object} data
      */
     onMouseLeave(data) {
-        let me    = this,
-            {cls} = me;
+        let me = this;
 
         if (!me.readOnly) {
-            NeoArray.remove(cls, 'neo-hovered');
-            me.cls = cls
+            me.removeCls('neo-hovered')
         }
     }
 

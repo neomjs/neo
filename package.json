@@ -29,8 +29,10 @@
         "bundle-monaco"                        : "node ./buildScripts/build/monaco.mjs",
         "bundle-parse5"                        : "node ./buildScripts/build/parse5.mjs",
         "capture-examples"                     : "node ./buildScripts/docs/captureExamples.mjs",
+        "check-theme-class-prefix"             : "node ./buildScripts/util/check-theme-class-prefix.mjs",
         "check-theme-surfaces"                 : "node ./buildScripts/util/check-theme-surfaces.mjs",
         "check-class-module-scope"             : "node ./buildScripts/util/check-class-module-scope.mjs",
+        "check-coding-guidelines"              : "node ./buildScripts/util/check-coding-guidelines.mjs",
         "check-engine-brain-boundary"          : "node ./buildScripts/util/check-engine-brain-boundary.mjs",
         "check-examples-body-only"             : "node ./buildScripts/util/check-examples-body-only.mjs",
         "check-file-sizes"                     : "node ./buildScripts/util/check-file-sizes.mjs",
@@ -58,6 +60,7 @@
         "test-unit"                            : "playwright test -c test/playwright/playwright.config.unit.mjs",
         "test-unit-tz"                         : "playwright test -c test/playwright/playwright.config.unit-tz.mjs",
         "theme-census"                         : "node ./buildScripts/util/theme-census.mjs",
+        "theme-equality"                       : "node ./buildScripts/util/theme-equality.mjs",
         "watch-themes"                         : "node ./buildScripts/helpers/watchThemes.mjs"
     },
     "keywords"       : [
@@ -129,8 +132,8 @@
         "lint-staged"                  : "^17.6.0",
         "marked"                       : "^18.1.0",
         "mermaid"                      : "^12.1.0",
-        "monaco-editor"                : "0.57.0",
-        "neo-agent-skills"             : "2.9.4",
+        "monaco-editor"                : "0.58.0",
+        "neo-agent-skills"             : "2.10.0",
         "parse5"                       : "^8.0.1",
         "postcss"                      : "^8.5.29",
         "postcss-selector-parser"      : "^7.1.7",
@@ -144,7 +147,6 @@
         "ws"                           : "^8.22.0"
     },
     "overrides": {
-        "dompurify": "^3.4.17",
         "gray-matter": {
             "js-yaml": "^3.15.2"
         },
@@ -178,9 +180,17 @@
             "node ./buildScripts/util/check-content-root-derivations.mjs"
         ],
         "{apps,examples,src}/**/*.mjs": [
-            "node ./buildScripts/util/check-class-module-scope.mjs"
+            "node ./buildScripts/util/check-class-module-scope.mjs",
+            "node ./buildScripts/util/check-theme-class-prefix.mjs"
+        ],
+        "{apps,examples}/**/*.html": [
+            "node ./buildScripts/util/check-theme-class-prefix.mjs"
+        ],
+        "{{apps,docs/app,examples,src}/**/*.mjs,buildScripts/util/{check-coding-guidelines.mjs,check-coding-guidelines-baseline.json,codingGuidelinesJsdoc.mjs}}": [
+            "node ./buildScripts/util/check-coding-guidelines.mjs --staged"
         ],
         "resources/css/**/*.css": [
+            "node ./buildScripts/util/check-theme-class-prefix.mjs",
             "node ./buildScripts/util/check-theme-coverage.mjs",
             "node ./buildScripts/util/check-theme-value-files.mjs",
             "node ./buildScripts/util/check-theme-var-references.mjs"

@@ -1,0 +1,6 @@
+:root .neo-theme-light { /* .neo-icon-link */
+    --icon-link-color          : #1c60a0;
+    --icon-link-font-size      : inherit;
+    --icon-link-hover-color    : #144675;
+    --icon-link-text-decoration: none;
+}

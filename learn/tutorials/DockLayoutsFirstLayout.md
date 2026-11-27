@@ -40,7 +40,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 **Drag the divider.** It works, and you did not write a splitter.
@@ -99,7 +99,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Four things to try, in order:

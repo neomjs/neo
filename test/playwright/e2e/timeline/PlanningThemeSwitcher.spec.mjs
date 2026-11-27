@@ -71,7 +71,7 @@ test.describe('Planning & Timeline ThemeSwitcher', () => {
             await page.goto(`/examples/${path}/index.html`);
 
             const
-                switcher = page.locator('.neo-theme-switcher').first(),
+                switcher = page.locator('.neo-themeswitcher').first(),
                 menu     = page.getByRole('menu');
 
             await expect(switcher).toBeVisible();
@@ -116,11 +116,11 @@ test.describe('Planning & Timeline ThemeSwitcher', () => {
                     await expect(editor).toBeHidden()
                 }
 
-                const switcher = page.locator('.neo-theme-switcher').first();
+                const switcher = page.locator('.neo-themeswitcher').first();
                 await expect(switcher, `${path} @ ${width}x${height}`).toBeVisible();
 
                 const check = await page.evaluate(vw => {
-                    const sw  = document.querySelector('.neo-theme-switcher'),
+                    const sw  = document.querySelector('.neo-themeswitcher'),
                           bar = sw?.closest('.neo-toolbar, .meridian-mast');
 
                     if (!sw || !bar) return {ok: false, reason: 'missing switcher or bar'};

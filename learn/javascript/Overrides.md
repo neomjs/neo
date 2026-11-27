@@ -65,10 +65,13 @@ class Human extends Mammal {
     }
     speak(){
         console.log(`Hello! My name is ${this.name}. I am ${this.married?'':'not'} married.`);
-    },
+    }
     yodel(){
         console.log('Yodelay hee hoo!');
-    }}
+    }
+}
+
+export default Neo.setupClass(Human);
 
 const myPerson = Neo.create(Human, {
     name: 'Herbert'
@@ -76,6 +79,4 @@ const myPerson = Neo.create(Human, {
 
 myPerson.speak(); // Logs "Hello! My name is Herbert. I am not married."
 myPerson.yodel(); // Logs "Yodelay hee hoo!"
-
-export default Neo.setupClass(Human);
 ```

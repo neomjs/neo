@@ -62,6 +62,7 @@ const
             '    --button-light-only      : 1px;',
             '}'
         ].join('\n'),
+        'theme-solo/Global.css'     : ':where(.neo-theme-solo) {}',
         'theme-solo/button/Base.css': ':where(.neo-theme-solo) {--button-background-color: #123456}'
     };
 
@@ -83,14 +84,27 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         fs.rmSync(tmpRoot, {recursive: true, force: true});
     });
 
-    test('CONTROL: the live tree is read, the Neo pair is found, and no runtime-set property is reported', async () => {
+    test('CONTROL: the live tree is read, the Neo pair is found, the component-alias layer is empty, and no runtime-set property is reported', async () => {
         const
             {RUNTIME_PROPERTIES} = await import('../../../../buildScripts/util/themeCss.mjs'),
             census               = collect();
 
-        expect(Object.keys(census.themes)).toEqual(expect.arrayContaining(['theme-neo-dark', 'theme-neo-light']));
-        expect(census.pairs).toContainEqual(expect.objectContaining({dark: 'theme-neo-dark', light: 'theme-neo-light'}));
+        expect(census.pairs).toEqual([
+            expect.objectContaining({dark: 'theme-dark',     light: 'theme-light'}),
+            expect.objectContaining({dark: 'theme-neo-dark', light: 'theme-neo-light'})
+        ]);
         expect(Object.values(census.themes).flatMap(theme => Object.values(theme.unresolved).flat()).filter(name => name in RUNTIME_PROPERTIES)).toEqual([]);
+
+        for (const name of census.pairs.flatMap(pair => [pair.dark, pair.light])) {
+            expect(census.themes[name].unresolved.engine, name).toEqual([]);
+        }
+
+        for (const [themeName, theme] of Object.entries(census.themes)) {
+            expect(theme.properties.engine.cmp, `${themeName} engine component aliases`).toBe(0);
+            expect(theme.properties.apps.cmp, `${themeName} apps component aliases`).toBe(0);
+            expect(theme.properties.examples.cmp, `${themeName} examples component aliases`).toBe(0);
+            expect(theme.composition.cmp, `${themeName} component values via aliases`).toBe(0);
+        }
     });
 
     test('1: files and unique properties per area and layer; a commented-out declaration is not one, a declaration again with another value is named', () => {
@@ -179,6 +193,71 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
     });
 
     test('FAILS CLOSED: a root without src/ or theme directories throws, never an empty census', () => {
-        expect(() => collect({root: path.join(tmpRoot, 'does-not-exist')})).toThrow(/needs src\/ and at least one theme-\* directory/);
+        expect(() => collect({root: path.join(tmpRoot, 'does-not-exist')})).toThrow(/needs src\/ and at least one mapped theme directory/);
+    });
+
+    test('MAP READERS: resolves non-theme-* folders from theme-map.json, excludes theme-base as a standalone theme, and credits theme-base shared declarations', () => {
+        const mapFixtureRoot = path.join(tmpRoot, 'mapped/resources/css'),
+              mapPath        = path.join(tmpRoot, 'mapped/resources/theme-map.json'),
+              writeCss       = (rel, css) => {
+                  const full = path.join(mapFixtureRoot, rel);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, css, 'utf8')
+              };
+
+        writeCss('src/button/Base.css', '.neo-button { color: var(--button-color); gap: var(--button-gap); }');
+        writeCss('theme-base/button/Base.css', '[class*="neo-theme-"] { --button-color: var(--sem-text); }');
+        writeCss('brand-skin/Global.css', ':where(.neo-theme-brand) { --sem-text: #111111; }');
+        writeCss('brand-skin/button/Base.css', ':where(.neo-theme-brand) { --button-gap: 4px; }');
+        writeCss('theme-decoy/button/Base.css', '.decoy { --unused: 1px; }');
+        fs.writeFileSync(mapPath, JSON.stringify({themes: {'neo-theme-brand': ['brand-skin']}}), 'utf8');
+
+        const census = collect({root: mapFixtureRoot});
+
+        expect(Object.keys(census.themes)).toEqual(['brand-skin']);
+        expect(census.themes['brand-skin'].unresolved.engine).toEqual([]);
+        expect(census.themes['brand-skin'].unread.engine.sem).toEqual([])
+    });
+
+    test('SPLIT & SUFFIX-FREE PAIRS: merges multi-folder classes into one theme entry and pairs dark/light schemes via mapped class names', () => {
+        const pairRoot = path.join(tmpRoot, 'split-pairs/resources/css'),
+              mapPath  = path.join(tmpRoot, 'split-pairs/resources/theme-map.json'),
+              writeCss = (rel, css) => {
+                  const full = path.join(pairRoot, rel);
+                  fs.mkdirSync(path.dirname(full), {recursive: true});
+                  fs.writeFileSync(full, css, 'utf8')
+              };
+
+        writeCss('src/button/Base.css', '.neo-button { background-color: var(--button-background-color); color: var(--button-color); }');
+        writeCss('obsidian/Global.css', ':where(.neo-theme-brand-dark) { --sem-surface: #111111; }');
+        writeCss('obsidian/button/Base.css', ':where(.neo-theme-brand-dark) { --button-background-color: var(--sem-surface); --button-color: #eeeeee; }');
+        writeCss('alabaster/Global.css', ':where(.neo-theme-brand-light) { --sem-surface: #ffffff; }');
+        writeCss('alabaster/button/Base.css', ':where(.neo-theme-brand-light) { --button-background-color: var(--sem-surface); --button-color: #111111; }');
+        writeCss('split-roles/Global.css', ':where(.neo-theme-split) { --sem-surface: #333333; }');
+        writeCss('split-widgets/button/Base.css', ':where(.neo-theme-split) { --button-background-color: var(--sem-surface); --button-color: #dddddd; }');
+        fs.writeFileSync(mapPath, JSON.stringify({
+            themes: {
+                'neo-theme-brand-dark' : ['obsidian'],
+                'neo-theme-brand-light': ['alabaster'],
+                'neo-theme-split'      : ['split-roles', 'split-widgets']
+            }
+        }), 'utf8');
+
+        const census = collect({root: pairRoot, runtimeProperties: {}});
+
+        expect(Object.keys(census.themes)).toEqual(['alabaster', 'neo-theme-split', 'obsidian']);
+        expect(census.themes['neo-theme-split'].unresolved.engine).toEqual([]);
+        expect(census.themes['neo-theme-split'].unread.engine.sem).toEqual([]);
+        expect(census.pairs).toEqual([
+            expect.objectContaining({
+                dark  : 'obsidian',
+                light : 'alabaster',
+                layers: expect.objectContaining({
+                    sem      : {shared: 1, identical: 0, differ: 1, onlyDark: 0, onlyLight: 0},
+                    component: {shared: 2, identical: 1, differ: 1, onlyDark: 0, onlyLight: 0}
+                })
+            })
+        ]);
+        expect(census.shared).toEqual({themes: ['alabaster', 'obsidian'], component: 2})
     });
 });

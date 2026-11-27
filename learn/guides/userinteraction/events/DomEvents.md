@@ -67,7 +67,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Handler inside the Component Tree
@@ -100,7 +100,7 @@ class MainView extends Container {
         Neo.Main.log({value: `Clicked on ${data.component.id}`})
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Handler inside a ViewController
@@ -143,7 +143,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Listener Options
@@ -177,7 +177,7 @@ class MainView extends Container {
         Neo.Main.log({value: `Clicked on ${data.component.id}`})
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 In case you click on the blue div, no console logs will appear.
@@ -226,7 +226,7 @@ class MainView extends Container {
         Neo.Main.log({value: `Inner Div Click ${data.component.id}`})
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Clicking on the inner (white) div will only trigger the inner listener and you will get one log.
@@ -262,7 +262,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Try it: In case you remove `priority: 2` inside the source view,

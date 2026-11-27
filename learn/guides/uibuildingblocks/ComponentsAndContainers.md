@@ -1,8 +1,8 @@
 # Component and Container Basics
 
-Neo.mjs views are made up of components and containers. 
+Neo.mjs views are made up of components and containers.
 
-A component is a visual widget, such as a button, label, or text field. A container is a visual 
+A component is a visual widget, such as a button, label, or text field. A container is a visual
 collection of components.
 
 `Neo.component.Base` is the base class for all components. It introduces some common features, such as
@@ -15,9 +15,9 @@ event handling, binding, and some life-cycle methods.
 Containers are commonly used, although there are many specialized sub-classes, such as panels and toolbars.
 
 
-Containers have two key properties: 
+Containers have two key properties:
 
-- `items`, which are the components within the container, and 
+- `items`, which are the components within the container, and
 - `layout`, which describes how the items are arranged
 
 ## Neo.component.Base
@@ -43,7 +43,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Components also have an `html`. The `html` property is rarely used, and goes against the abstract philosophy of Neo.mjs, but
@@ -66,13 +66,13 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 
 ## Layout
 
-The `layout` config specifies how components are arranged within a container. Here are examples of 
+The `layout` config specifies how components are arranged within a container. Here are examples of
 some commonly-used layouts.
 
 ### Fit layout
@@ -93,7 +93,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Vbox and hbox
@@ -120,12 +120,12 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Card
 
-A card container has multiple child items, one of which is visible. 
+A card container has multiple child items, one of which is visible.
 
 ```javascript live-preview
 import Button    from '../button/Base.mjs';
@@ -162,13 +162,13 @@ class MainView extends Container {
                 style: {backgroundColor: 'darkseagreen'} // Who came up with these names?
             }, {
                 ntype : 'component',
-                style: {backgroundColor: 'cornflowerblue'} 
+                style: {backgroundColor: 'cornflowerblue'}
             }]
         }]
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 
@@ -210,6 +210,6 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 

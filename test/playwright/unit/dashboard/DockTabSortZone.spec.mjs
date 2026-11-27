@@ -9,6 +9,7 @@ setup({
 import {test, expect}    from '@playwright/test';
 import Neo               from '../../../../src/Neo.mjs';
 import * as core         from '../../../../src/core/_export.mjs';
+import Component         from '../../../../src/component/Base.mjs';
 import DockTabSortZone   from '../../../../src/dashboard/dock/interaction/TabSortZone.mjs';
 import ContainerSortZone from '../../../../src/draggable/container/SortZone.mjs';
 import TabHeaderSortZone from '../../../../src/draggable/tab/header/toolbar/SortZone.mjs';
@@ -909,6 +910,7 @@ test.describe('Neo.dashboard.dock.interaction.TabSortZone', () => {
                       isTabButton    : () => true,
                       items,
                       on             : () => {},
+                      removeCls      : Component.prototype.removeCls,
                       style          : {},
                       up             : () => ({fire: () => {}, moveTo: (from, to) => commits.push([from, to])})
                   },

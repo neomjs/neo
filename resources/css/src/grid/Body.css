@@ -23,8 +23,9 @@
         user-select: none;
     }
 
+    /* A drop target opts out the way it does from the drag shield, `draggable/DragProxyComponent.css` */
     &.neo-is-scrolling * {
-        pointer-events: none !important;
+        pointer-events: var(--drop-target-pointer-events, none) !important;
     }
 
     .neo-grid-body-content {

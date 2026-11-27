@@ -1,6 +1,10 @@
 import {spawn} from 'node:child_process';
 import fs      from 'node:fs';
 import path    from 'node:path';
+import {
+    collectThemeClassMap,
+    isCssTargetFolder
+}              from './themeCss.mjs';
 
 const THEME_BUILD_ARGS = ['run', 'build-themes', '--', '-n', '-e', 'dev', '-t', 'all'];
 
@@ -69,7 +73,7 @@ export function getExpectedDevelopmentCss(repoRoot = REPO_ROOT) {
     if (!fs.existsSync(cssRoot)) return [];
 
     fs.readdirSync(cssRoot, {withFileTypes: true}).forEach(entry => {
-        if (entry.isDirectory() && !entry.isSymbolicLink() && (entry.name === 'src' || entry.name.includes('theme'))) {
+        if (entry.isDirectory() && !entry.isSymbolicLink() && isCssTargetFolder(cssRoot, entry.name)) {
             const targetRoot = path.join(cssRoot, entry.name);
 
             visit(targetRoot, targetRoot)
@@ -117,7 +121,7 @@ export function getExpectedThemeClasses(repoRoot = REPO_ROOT) {
     if (!fs.existsSync(cssRoot)) return [];
 
     fs.readdirSync(cssRoot, {withFileTypes: true}).forEach(entry => {
-        if (entry.isDirectory() && !entry.isSymbolicLink() && (entry.name === 'src' || entry.name.includes('theme'))) {
+        if (entry.isDirectory() && !entry.isSymbolicLink() && isCssTargetFolder(cssRoot, entry.name)) {
             visit(path.join(cssRoot, entry.name), entry.name, '')
         }
     });
@@ -226,7 +230,19 @@ export function inspectDevelopmentThemeAssets({repoRoot = REPO_ROOT} = {}) {
             if (!themeMapHasClass(themeMap, className, root)) {
                 mapMissing.push(`${className} (${root})`)
             }
-        })
+        });
+
+        const expectedThemes = collectThemeClassMap([path.join(repoRoot, 'resources/css')]);
+
+        for (const [themeClass, folders] of Object.entries(expectedThemes)) {
+            const mapped = themeMap.themes?.[themeClass];
+
+            for (const folder of folders) {
+                if (!Array.isArray(mapped) || !mapped.includes(folder)) {
+                    mapMissing.push(`themes.${themeClass} (${folder})`)
+                }
+            }
+        }
     }
 
     if (!hasSymlinkSegment(repoRoot, cssRoot)) {

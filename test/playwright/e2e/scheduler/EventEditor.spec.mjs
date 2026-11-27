@@ -123,7 +123,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
 
         // Two Tabs from the toolbar's last control, its theme switcher, reach the first appointment past the grid's
         // header button; Enter opens it, Cancel closes it
-        await page.locator('.neo-theme-switcher').first().focus();
+        await page.locator('.neo-themeswitcher').first().focus();
         await page.keyboard.press('Tab');
         await page.keyboard.press('Tab');
         expect(await focusedAppointment(page)).toBe('appt-1');
@@ -133,7 +133,7 @@ test.describe('Scheduler event editor example (#21615)', () => {
         await expect(page.locator(EDITOR)).toBeHidden();
         await expect.poll(() => focusedAppointment(page)).toBe('appt-1');
 
-        await page.locator('.neo-theme-switcher').first().click();
+        await page.locator('.neo-themeswitcher').first().click();
         await page.getByRole('menuitemradio', {name: 'Neo Light', exact: true}).click();
         await expect(page.locator('.neo-viewport').first()).toHaveClass(/\bneo-theme-neo-light\b/);
 

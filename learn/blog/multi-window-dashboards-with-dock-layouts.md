@@ -125,7 +125,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 That is a workspace with splitters, a tab group, a resizable left band and a rail pane, and none of the panes knows it is docked. A pane never learns about layout, so the same component renders the same in a dock, in a container, or in a window on another screen. A pane's `module` can also be a function that returns a dynamic import, and then the pane loads the first time someone shows it.

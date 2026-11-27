@@ -210,7 +210,7 @@ test.describe('Examples that start through resolveStartTheme', () => {
             await expect(viewport).toHaveClass(new RegExp(`\\b${DARK}\\b`));
 
             const button = control.text
-                ? page.locator('.neo-button, .neo-theme-switcher').filter({hasText: control.text}).first()
+                ? page.locator('.neo-button, .neo-themeswitcher').filter({hasText: control.text}).first()
                 : page.locator('.issues-theme-button');
 
             await expect(button, 'a dark start offers the light theme').toBeVisible();
@@ -358,7 +358,7 @@ const CUSTOM_TOGGLE_EXAMPLES = [{
     url          : '/examples/dialog/index.html',
     assertControl: async (page, app, expectedTheme, {expectOpenDialog = false} = {}) => {
         const expectedLabel = expectedTheme === DARK ? 'Neo Dark' : 'Neo Light',
-              switcher      = await queryProps(app, {ntype: 'theme-switcher'}, ['ariaLabel', 'text']);
+              switcher      = await queryProps(app, {ntype: 'themeswitcher'}, ['ariaLabel', 'text']);
 
         expect(switcher.text).toBe(expectedLabel);
         expect(switcher.ariaLabel).toBe(`Theme: ${expectedLabel}`);
@@ -378,9 +378,9 @@ const CUSTOM_TOGGLE_EXAMPLES = [{
         }
 
         const label = targetTheme === DARK ? 'Neo Dark' : 'Neo Light',
-              menu  = page.locator('.neo-theme-switcher-menu');
+              menu  = page.locator('.neo-themeswitcher-menu');
 
-        await page.locator('.neo-theme-switcher').first().click();
+        await page.locator('.neo-themeswitcher').first().click();
         await expect(menu).toBeVisible();
         await menu.getByRole('menuitemradio', {name: label, exact: true}).click()
     }
@@ -539,8 +539,8 @@ test.describe('Examples with custom theme toggles (#21973)', () => {
         await expect(page.locator('.neo-dialog')).toBeVisible();
         await expect(page.locator('.neo-dialog')).toHaveClass(new RegExp(`\\b${startTheme}\\b`));
 
-        const menu = page.locator('.neo-theme-switcher-menu');
-        await page.locator('.neo-theme-switcher').first().click();
+        const menu = page.locator('.neo-themeswitcher-menu');
+        await page.locator('.neo-themeswitcher').first().click();
         await expect(menu).toBeVisible();
         await menu.getByRole('menuitemradio', {name: nextLabel, exact: true}).click();
 

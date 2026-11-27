@@ -87,7 +87,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 We use a Container with a stateProvider containing the data props `hello` and `world`.
@@ -142,7 +142,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 We use a Container with a stateProvider containing the data props `hello` and `world`.
@@ -220,7 +220,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 The output of this demo is supposed to exactly look the same like the previous demo.
@@ -283,7 +283,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 Data props inside VMs can be nested. Our stateProvider contains a `user` data prop as an object,
 which contains the nested props `firstname` and `lastname`.
@@ -350,7 +350,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 This example demonstrates how formulas automatically react to changes in their dependencies.
 
@@ -480,7 +480,7 @@ class MainView extends Viewport {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Class based State Providers
@@ -540,7 +540,7 @@ class MainView extends Container {
         layout: {ntype: 'vbox', align: 'start'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Managing Stores with State Providers
@@ -664,7 +664,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 In this example:

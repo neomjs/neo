@@ -1,17 +1,14 @@
-/* `:where()` is deliberate and load-bearing: zero specificity, so an application projecting into
-   this token family at theme-root (`:root .neo-theme-neo-dark { --tooltip-bg: … }`, (0,2,0)) wins
-   by weight instead of by load order — the engine appends per-class theme sheets after the app's
-   own, so an equal-weight declaration here used to win every tie. The shared tooltip stamps the
-   hovered target's theme class on itself, so both rules match the tooltip element and the contest
-   is decided there, not by inheritance. Same pattern as the dock values layer. */
+/* An application projecting into this token family wins by layer, at any weight: this sheet sits in
+   `neo.theme`, the application's in `neo.apps`. The shared tooltip stamps the hovered target's theme
+   class on itself, so both rules match the tooltip element and the contest is decided there, not by
+   inheritance. */
 :where(.neo-theme-neo-dark) { /* .neo-tooltip */
-    /* --tooltip-bg            : var(--cmp-tooltip-bg); */
     --tooltip-bg            : var(--sem-color-surface-primary-default);
     --tooltip-border        : none;
-    --tooltip-borderradius  : var(--cmp-tooltip-borderradius);
+    --tooltip-borderradius  : var(--sem-borderradius-medium);
     --tooltip-boxshadow     : none;
     --tooltip-color         : var(--sem-color-text-neutral-contrast);
     --tooltip-fontsize      : 14px;
-    --tooltip-height        : var(--cmp-tooltip-height);
-    --tooltip-padding       : 2px var(--cmp-tooltip-spacinghorizontal) 0;
+    --tooltip-height        : var(--height-24);
+    --tooltip-padding       : 2px var(--sem-spacing-xsmall) 0;
 }

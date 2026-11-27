@@ -139,5 +139,40 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(dialog).toBeHidden();
         await expect(editBtn).toBeFocused();
         expect(await page.evaluate(() => window.editFocusDialogInDom)).toEqual([false])
+    });
+
+    test('an open dialog stays inside the viewport with its draft and focus when the window narrows (#22319)', async ({page}) => {
+        await page.setViewportSize({width: 1200, height: 850});
+        await page.goto(URL);
+
+        const firstRow  = page.locator('.neo-grid-row').first(),
+              editBtn   = firstRow.locator('.neo-button', {hasText: 'Edit'}),
+              dialog    = page.locator('.neo-dialog'),
+              firstname = dialog.locator('.neo-textfield').filter({hasText: 'First Name'}).locator('input.neo-textfield-input');
+
+        await expect(editBtn).toBeVisible({timeout: 30000});
+        await editBtn.click();
+        await expect(firstname).toBeFocused({timeout: 10000});
+        await firstname.fill('Draft');
+
+        // Narrow only once the open animation has written the dialog's centred position: the first field takes focus
+        // as the dialog mounts, and a resize before the end would let the animation centre it in the narrow window
+        await expect(dialog).not.toHaveClass(/neo-animating/);
+        await page.setViewportSize({width: 390, height: 844});
+
+        // The whole dialog box lies inside the narrowed viewport
+        await expect.poll(() => dialog.evaluate(el => {
+            const {bottom, left, right, top} = el.getBoundingClientRect();
+            return left >= 0 && top >= 0 && right <= window.innerWidth && bottom <= window.innerHeight
+        }), {timeout: 10000}).toBe(true);
+
+        await expect(firstname).toBeFocused();
+        await expect(firstname).toHaveValue('Draft');
+
+        // Escape still discards the draft and hands focus back to the row's Edit button
+        await page.keyboard.press('Escape');
+        await expect(dialog).toBeHidden();
+        await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
+        await expect(editBtn).toBeFocused()
     })
 });

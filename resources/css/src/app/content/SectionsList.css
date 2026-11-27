@@ -6,7 +6,7 @@
     .neo-list-item {
         align-items     : center;
         background-color: transparent;
-        color           : var(--sem-color-text-neutral-subdued);
+        color           : var(--app-content-sections-item-color);
         display         : flex;
         height          : unset;
         margin-bottom   : 0;

@@ -1,22 +1,22 @@
 # Config
 
-As you've probably noticed, Neo.mjs classes have a `static config` property. 
+As you've probably noticed, Neo.mjs classes have a `static config` property.
 
 The config describes properties you can specify as you create an instance of the class.
-Any config in the class, or its ancestors, can be specified. 
+Any config in the class, or its ancestors, can be specified.
 
 ## Simple properties and lifecycle properties
 
-In addition, Neo.mjs uses that information to set up property lifecycle 
+In addition, Neo.mjs uses that information to set up property lifecycle
 methods.
 
 Here's an example of a new component class `Simple` with three config properties:
 
 1. `className` &mdash; used by Neo.mjs to keep track of every class
-2. `foo` &mdash; an instance property 
-2. `bar_` &mdash; another instance property 
+2. `foo` &mdash; an instance property
+2. `bar_` &mdash; another instance property
 
-The `Simple` class introduces syntax. It doesn't have any content, so if you run the code you won't 
+The `Simple` class introduces syntax. It doesn't have any content, so if you run the code you won't
 see anything. We'll change that in the next example.
 
 ```javascript live-preview
@@ -49,7 +49,7 @@ class MainView extends Container {
 
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Detecting when a value changes
@@ -73,7 +73,7 @@ class Simple extends Component {
     }
 
     beforeGetBar(value){
-        return value; // Return whatever you want here. 
+        return value; // Return whatever you want here.
     }
     beforeSetBar(value, oldValue){
         if (value) return value;  // Use value if it's not empty
@@ -99,7 +99,7 @@ class MainView extends Container {
 
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 This time if you run the code you'll see "hi there" in the view. That's because the Simple instance is
@@ -150,7 +150,7 @@ class MainView extends Container {
 
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 The reference for everything on this page, including how `set()` applies several configs at once and how the

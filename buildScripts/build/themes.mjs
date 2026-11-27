@@ -9,6 +9,14 @@ import path                      from 'path';
 import postcss                   from 'postcss';
 import {assertInteractivePrompt} from '../util/assertInteractivePrompt.mjs';
 import {sanitizeInput}           from '../util/sanitizer.mjs';
+import {
+    isCssTargetFolder,
+    resolveThemeClassMap
+}                                from '../util/themeCss.mjs';
+import {
+    cascadeLayer,
+    cascadeLayerPlugin
+}                                from '../util/themeCssLayers.mjs';
 import {themeCssRoots}           from '../util/themeCssRoots.mjs';
 
 const
@@ -23,9 +31,14 @@ const
     cssPath          = 'resources/css/',
     frameworkCssPath = path.resolve(neoPath, cssPath),
     cssRoots         = themeCssRoots(cwd, {insideNeo}),
-    cssFolders       = cssRoots.flatMap(root => fs.existsSync(root) ? fs.readdirSync(root) : []),
     themeMapFile     = 'resources/theme-map.json',
-    themeFolders     = [...new Set(cssFolders.filter(folder => folder.includes('theme')))],
+    themeFolders     = [...new Set(cssRoots.flatMap(root => {
+        if (!fs.existsSync(root)) return [];
+
+        return fs.readdirSync(root, {withFileTypes: true})
+            .filter(entry => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== 'src' && isCssTargetFolder(cssRoots, entry.name))
+            .map(entry => entry.name)
+    }))],
     questions        = [];
 
 program
@@ -210,8 +223,9 @@ if (programOpts.info) {
         }
 
         /**
-         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer, plus cssnano
-         * for esm and production; development output carries a source map back to the source.
+         * @summary Copies each source sheet to `dist/<mode>/css/<target>`, through autoprefixer and into the
+         * cascade layer its folder determines, plus cssnano for esm and production; development output carries
+         * a source map back to the source.
          * @param {Object[]} files
          * @param {String} mode development or production
          * @param {String} target src or a theme
@@ -227,7 +241,9 @@ if (programOpts.info) {
                 let folderPath = path.resolve(cwd, `dist/${mode}/css/${target}/${file.relativePath}`),
                     destPath   = path.resolve(folderPath, `${file.name}.css`);
 
-                const plugins = [autoprefixer];
+                const plugins = [autoprefixer, cascadeLayerPlugin({
+                    layer: cascadeLayer(target, `${file.relativePath}/${file.name}.css`)
+                })];
 
                 if (mode === 'esm' || mode === 'production') {
                     plugins.push(cssnano) // CSSNano works async only
@@ -274,9 +290,16 @@ if (programOpts.info) {
         // The only legitimate seed is the ENGINE's map in a workspace build (cwd !== neoPath), which
         // keeps engine components resolvable (guide §8); a workspace's own previous output fossilizes
         // identically and is not a seed either.
-        themeMap = cwd !== neoPath && fs.existsSync(path.resolve(neoPath, themeMapFile))
+        const engineSeedMap = cwd !== neoPath && fs.existsSync(path.resolve(neoPath, themeMapFile))
             ? requireJson(path.resolve(neoPath, themeMapFile))
-            : {};
+            : null;
+
+        themeMap        = engineSeedMap ? structuredClone(engineSeedMap) : {};
+        themeMap.themes = resolveThemeClassMap({
+            cssRoots           : activeRoots,
+            includeWorkspaceMap: false,
+            seedThemes         : engineSeedMap?.themes
+        });
 
         // dist/development
         if (env === 'all' || env === 'dev') {

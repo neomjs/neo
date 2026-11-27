@@ -209,7 +209,16 @@ Two things worth knowing about the failure mode itself:
 
 ## 4. CSS File & Namespace Mapping
 
-For the automatic lazy-loading of theme files to work, it is **critical** that the path of a CSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention to generate the `theme-map.json`.
+For the automatic lazy-loading of theme files to work, it is **critical** that the path of a CSS file mirrors the namespace of the JavaScript class it styles. The build process uses this convention — together with the theme class selectors declared in each theme folder's `Global.css` — to generate `resources/theme-map.json`.
+
+```mermaid
+flowchart TD
+    GlobalCss["Theme Global.css selectors (.neo-theme-*)"] --> ThemeBuild["build-themes / watch-themes"]
+    ComponentCss["src, theme-base & theme-* component sheets"] --> ThemeBuild
+    ThemeBuild --> ThemeMap["resources/theme-map.json (themes: class -> folders + class namespaces)"]
+    ThemeMap --> AppWorker["Neo.worker.App (resolves window themes & class chains)"]
+    AppWorker --> StylesheetAddon["Neo.main.addon.Stylesheet (requests src, theme-base & mapped folders once)"]
+```
 
 ### Engine Components
 
@@ -301,27 +310,40 @@ The dark theme provides a value for the border variable.
 ```
 The light theme explicitly sets the border variable to `0`. This is called **nullification**. It's critical for nesting. If a light-themed list is placed inside a dark-themed component, this rule ensures the list does not incorrectly inherit the dark theme's 1px border. It actively resets the property defined in the `src` structure.
 
-### Engine Value Sheets Declare at `:where()` Weight
+### Cascade Layers Decide Who Wins
 
-An application projects its own palette into an engine token family at theme-root — `:root .neo-theme-neo-dark { --tooltip-bg: var(--my-panel) }` — and expects to win. Whether it does is a specificity contest, not a load-order one, only if the engine's own value sheet weighs less than the projection. A value sheet that declares at `:root .neo-theme-neo-dark` has the same weight as the projection, (0,2,0), and the tie goes to whichever sheet the browser saw last; the engine appends its per-class theme sheets as components mount, after the application's own, so the engine wins and the projection appears to do nothing.
+The theme build puts every sheet into a cascade layer chosen by its folder, and starts each built sheet with the same order statement, so the order holds whichever sheet the browser loads first. Weakest first:
 
-The engine's value sheets therefore declare at `:where(.neo-theme-neo-dark)` weight — zero specificity — so a projection at theme-root outranks them wherever both match. A component that carries its own theme class (the shared tooltip stamps the hovered target's theme onto itself) is matched by both the engine sheet and the projection, so the contest is decided on that element as well, not left to inheritance.
+| Layer | Sheets |
+|---|---|
+| `neo.vendor` | CSS the engine loads from outside the theme build: Font Awesome, Highlight.js, an editor's or a map's own |
+| `neo.roles` | `theme-<name>/Global.css` |
+| `neo.base` | `theme-base/**` |
+| `neo.theme` | `theme-<name>/<pkg>/**`, a theme's per-widget value sheets |
+| `neo.rules` | `src/**`, the structural rules |
+| `neo.apps` | every sheet under an `apps` or `examples` folder, in `src` or in a theme folder |
+
+A later layer wins over an earlier one whatever the selectors weigh. An application's projection therefore outranks the engine's value sheet at any weight, with no `:where()` arithmetic and no `!important`:
 
 ```css readonly
-/* engine: resources/css/theme-neo-dark/tooltip/Base.css */
+/* engine: resources/css/theme-neo-dark/tooltip/Base.css, layer neo.theme */
 :where(.neo-theme-neo-dark) {
     --tooltip-bg: var(--sem-color-surface-primary-default);
 }
 
-/* application: theme-neo-dark/apps/myapp/Viewport.css */
-:root .neo-theme-neo-dark {
+/* application: theme-neo-dark/apps/myapp/Viewport.css, layer neo.apps */
+.neo-theme-neo-dark {
     --tooltip-bg: var(--myapp-panel-2);
 }
 ```
 
-Every neo value sheet declares at this weight, with one deliberate exception: `dialog/Base.css` nests a structural rule that must keep outranking the equal-weight button rules in `src/`, and says so in the file. Project into the dialog family with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-dialog` — rather than relying on load order; everywhere else, theme-root weight is enough.
+Inside one layer, specificity and source order still decide: an application's rule and its own theme values order by specificity within `neo.apps`.
 
-Which families have moved is a property of the tree, not of this sentence: `grep -rl ':where(.neo-theme-neo-dark)' resources/css/theme-neo-dark` answers it, and stays right without an edit here.
+Three things sit outside the order:
+
+- **Unlayered CSS beats every layer.** Rules inserted at runtime (`util/Css.insertRules`) stay unlayered so they win, and so does a sheet an application links in its own `index.html`.
+- **`!important` inverts the order.** An important declaration in an earlier layer beats one in a later layer, and any layered important declaration beats an unlayered one. An engine `!important` is an invariant no application rule can override; only an inline style can.
+- **No sheet under `resources/css` writes `@layer`.** The build fails a sheet that does: the folder decides the layer, once, in the build.
 
 ### Bad Practice & The Right Way Forward
 
@@ -359,14 +381,14 @@ Start from an existing theme with the theme generator. It gives you the base's v
     The generated value sheets are yours to edit. Later changes to the base theme are not copied automatically; shared values such as the motion vocabulary still come from `src/Global.css`.
 
 3.  **Configure Your Application:**
-    In your `neo-config.json`, add your new theme to the `themes` array. The first theme in the array becomes the default theme for the application.
+    In your `neo-config.json`, add your new theme class (the `.neo-theme-*` selector declared in its `Global.css`) to the `themes` array. The first theme in the array becomes the default theme for the application.
 
     ```json readonly
     {
         "themes": ["neo-theme-my-awesome-theme"]
     }
     ```
-    **Note:** The `neo-` prefix is required, and your folder name should not include it (e.g., folder `theme-foo` becomes `neo-theme-foo` in the config).
+    **Note:** Theme classes are resolved to folders through the `themes` map in `resources/theme-map.json`, derived directly from the selectors declared in each folder's `Global.css` rather than by stripping prefixes from the class name. A single folder whose `Global.css` declares both a light and a dark theme class serves both classes and is requested once.
 
 4.  **Build Your New Theme:**
     Run the full theme build process to copy your new theme's sheets into `dist` and, critically, to update the `theme-map.json` file to include it.
@@ -411,11 +433,13 @@ To turn the CSS sources into the stylesheets the browser loads, Neo.mjs provides
 
 The `npm run build-themes` command is the main script for a full theme build. It:
 1.  Copies every `.css` source in `resources/css`, plus the root each declared package names in `"neo": {"css": "<dir>"}`. There is no compile step: the sources are already plain CSS with native nesting.
-2.  Passes each sheet through `postcss` on the way: `autoprefixer` adds vendor prefixes, and `cssnano` minifies the CSS for the esm and production builds.
+2.  Passes each sheet through `postcss` on the way: `autoprefixer` adds vendor prefixes, the layer plugin wraps the sheet in its folder's cascade layer (§6), and `cssnano` minifies the CSS for the esm and production builds. `watch-themes` runs the same plugin, so a watched save is layered exactly as the full build layers it.
 3.  Places the output into the `dist/<environment>/css/` directory.
 4.  Generates a critical file: `resources/theme-map.json`.
 
-The `theme-map.json` file creates a mapping between every class name and the themes that have custom styles for it. This file is the key to the lazy loading mechanism.
+The `theme-map.json` file records two things in one artifact:
+- **`themes` (`class → folders`):** Maps every `.neo-theme-*` class selector declared in a folder's `Global.css` to the folder(s) that serve it. A theme class with no entry in `themes` loads no theme sheets and logs a single warning.
+- **Class namespaces (`Neo.*`, `apps.*`):** Lists which folders (`src`, `theme-base`, and theme folders) provide a sheet for each component or view class.
 
 A full build **regenerates** the map from the effective CSS tree on every run — it does not merge the previous map, so deleting or renaming a CSS file removes its key on the next build. The one merge that remains is the workspace overlay (§8): a workspace build seeds from the *engine's* map so engine components stay resolvable, then overlays the workspace's own scan.
 
@@ -425,7 +449,7 @@ For development, you can use `npm run watch-themes`. Content changes to existing
 
 Run `npm run build-themes -- -n -e dev -t all` once before starting the watcher. The watcher refuses to start when the development CSS or generated map is missing, stale, incomplete, or borrowed through a symbolic link.
 
-Structural events use a wider source-census reconciliation. Adding or renaming an entry builds every newly discovered or stale output; deleting or renaming an entry removes retired CSS and source maps; and each structural pass replaces both development copies of `theme-map.json` from the effective framework-plus-workspace CSS tree. A sheet the build cannot parse fails loudly instead of silently retaining stale CSS.
+Structural events use a wider source-census reconciliation. Adding or renaming an entry builds every newly discovered or stale output; deleting or renaming an entry removes retired CSS and source maps; and each structural pass replaces both development copies of `theme-map.json` from the effective engine-plus-workspace CSS tree. A sheet the build cannot parse fails loudly instead of silently retaining stale CSS.
 
 ## 10. Lazy Loading in Action
 
@@ -433,9 +457,9 @@ You do not need to manually include any theme CSS files in your application's `i
 
 Here's how it works:
 
-1.  When the application starts, the `worker.App` loads the `theme-map.json` file.
-2.  When a component is about to be created, the engine checks the `theme-map.json` to see if the active theme has a specific CSS file for that component.
-3.  If it does, it sends a message to the `main.addon.Stylesheet` (in the main thread) to dynamically create a `<link>` tag for that CSS file and add it to the document's `<head>`.
+1.  When the application starts, `worker.App` loads `resources/theme-map.json`, syncs the `themes` (`class → folders`) table to `main.addon.Stylesheet`, and queues `Neo.Global` ahead of component stylesheets.
+2.  When a component is created, `worker.App` walks its prototype chain against `theme-map.json` and sends the available folders to `main.addon.Stylesheet#addThemeFiles`.
+3.  `Stylesheet` admits `src` and `theme-base` unconditionally and resolves the application's configured `themes` classes through the `themes` map, requesting each folder's `Global.css` and per-component sheet once. `Neo.setCssVariable` resolves target sheets through the same map, walks into `@layer` blocks, and skips inline `<style>` elements.
 4.  The browser then loads the CSS file.
 
 This process ensures that you only ever load the CSS that is actually needed for the components currently in your application, which can significantly improve initial load times.
@@ -449,3 +473,17 @@ Imagine you are showing a complex component, like a grid, for the first time. Th
 To prevent this, the `updateVdom()` method in `src/mixin/VdomLifecycle.mjs` contains a crucial check. It looks at the `Neo.worker.App` instance to see if any theme files are currently being loaded (`countLoadingThemeFiles > 0`). If they are, it will pause the VDOM update for the component and listen for a `themeFilesLoaded` event. Once all pending CSS files have been loaded, the VDOM update is automatically resumed.
 
 This elegant mechanism ensures that a component's DOM is only mounted or updated after its required styles are in place, leading to a smoother and more professional user experience.
+
+## 11. Verifying Paint Parity Across Theme Changes
+
+When refactoring token layers, renaming custom properties, or moving shared rules across theme folders, visual inspection alone misses subtle one-step colour shifts and hidden interaction states (`hover`, `active`, `focus`, `selected`, `pressed`, `disabled`, `invalid`, `readonly`). `npm run theme-equality` accepts either a **checkout or worktree root** (resolving `<root>/dist/<env>/css` and `<root>/resources/theme-map.json`) or a **portable built-CSS directory** (`<snapshot>/css` with `theme-map.json` copied beside it at `<snapshot>/theme-map.json` or `<snapshot>/css/theme-map.json` so mapped theme folders resolve identically):
+
+```bash
+# Compare two worktrees directly
+npm run theme-equality -- --base ../neo-base --head .
+
+# Or snapshot dist/development/css + resources/theme-map.json before editing, rebuild, and compare
+npm run theme-equality -- --base /tmp/neo-css-base/css --head . --expected expected-diffs.json
+```
+
+The runner fails fast if `src/Global.css` or any requested theme folder is missing, mounts the engine's component matrix across all five shipped themes in both `inherited` (`body`/viewport) and `scoped` (`component.Base#afterSetTheme` on each component's own root) passes, samples resolved `getComputedStyle` values across declared element and `::before`/`::after` pseudo-element parts, and exits non-zero on any undeclared difference or unmet expected rule (`{component, theme?, scope?, state?, part?, property?, base?, head?, reason?}`).
