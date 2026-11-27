@@ -5,18 +5,21 @@
  * slot's grades descend in lightness, the text, border and focus-ring pairs meet their contrast floors in each
  * scheme the theme declares, and every palette declares the same `--neo-` names as every other.
  *
- * A palette is a theme class whose `Global.css` declares a `--neo-palette-*` name. A theme without one is
- * not written against the roles yet and is skipped. A name with two different values for one class fails,
- * in one sheet or across the folders that serve the class: this check models no cascade. A `--neo-` name
- * declared under a condition fails as well: this check reads no condition. The lightness numbers are each
- * theme's own, so a palette is compared with itself and never with a table. Contrast is measured on the
- * resolved colours and never read off the grade distance: OKLCH lightness is not luminance.
+ * A palette is a theme class for which a sheet declares a `--neo-palette-*` name. A theme without one is not
+ * written against the roles yet and is skipped. This check models no cascade and reads no condition, so it
+ * holds the names it measures, every `--neo-palette-*` and `--neo-color-*` name of a palette, to one reading:
+ * one value per theme class, in a rule that names the class, under no condition. It reads every sheet under
+ * `resources/css` for that, and any other place that declares or registers such a name fails. A scale role
+ * may be re-valued by a scope or a condition, as the reduced-motion collapse does. A value set from JavaScript
+ * and a sheet reached through `@import` are outside this check. The lightness numbers are each theme's own,
+ * so a palette is compared with itself and never with a table. Contrast is measured on the resolved colours
+ * and never read off the grade distance: OKLCH lightness is not luminance.
  */
-import fs                              from 'node:fs';
-import path                            from 'node:path';
-import {fileURLToPath}                 from 'node:url';
-import isEntryModule                   from './isEntryModule.mjs';
-import {collectThemeClassMap, readCss} from './themeCss.mjs';
+import fs                  from 'node:fs';
+import path                from 'node:path';
+import {fileURLToPath}     from 'node:url';
+import isEntryModule       from './isEntryModule.mjs';
+import {cssFiles, readCss} from './themeCss.mjs';
 
 const
     dirname  = path.dirname(fileURLToPath(import.meta.url)),
@@ -26,7 +29,7 @@ const
  * Every tracked surface whose contents can change this guard's verdict, as repo-relative globs.
  * @type {String[]}
  */
-export const SCAN_SURFACE = Object.freeze(['resources/css/*/Global.css']);
+export const SCAN_SURFACE = Object.freeze(['resources/css/**/*.css']);
 
 /**
  * The eleven palette grades, lightest first.
@@ -314,13 +317,47 @@ export function resolveValue(value, declarations, scheme) {
 }
 
 /**
- * @summary Reads a comment-free `Global.css` into one declaration map per theme class. A declaration belongs
+ * @summary Whether this check measures a name: a palette entry or a colour role, the scheme included. Only
+ * such a name can change a verdict given here, so only it is held to one reading.
+ * @param {String} name
+ * @returns {Boolean}
+ */
+function isMeasured(name) {
+    return name.startsWith('--neo-palette-') || name.startsWith('--neo-color-')
+}
+
+/**
+ * Every place a sheet spells a custom property as a declaration (`--name:`) or a registration
+ * (`@property --name {`). A `var()` read is followed by neither, and a query such as
+ * `@container style(--name: value)` writes the name behind an opening parenthesis.
+ * @type {RegExp}
+ */
+const SPELLED = /(?<![\w-]|\(\s*)(--[a-zA-Z0-9_-]+)\s*[:{]/g;
+
+/**
+ * @summary Reads a stylesheet without its comments and with each escape that spells a name character written
+ * out, so that `.neo-theme-neo-li\67ht` and `--neo-color-text-defaul\74` are read as a browser reads them.
+ * @param {String} file
+ * @returns {String}
+ */
+function readSheet(file) {
+    return readCss(file).replace(/\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/g, (escape, hex, char) => {
+        const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
+
+        return /[\w-]/.test(spelled) ? spelled : escape
+    })
+}
+
+/**
+ * @summary Reads a comment-free stylesheet into one declaration map per theme class. A declaration belongs
  * to every theme class that its rule, or a rule around it, names in a selector list, and a later one wins.
- * That is no cascade: `onDeclaration` hears every declaration, so a caller can refuse a name that has two
- * values. A declaration under a condition enters no map, since nothing here reads when it applies.
+ * That is no cascade: `onDeclaration` hears every custom property the sheet declares, so a caller can refuse
+ * a name that has two values or sits in no theme class. A declaration under a condition enters no map, since
+ * nothing here reads when it applies.
  * @param {String} css
- * @param {Function} [onDeclaration] Called with `(themeClass, name, value, conditions)` for each declaration
- * read; `conditions` holds the at-rules around it other than `@layer`, outermost first
+ * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions)` once for each custom
+ * property declared: `classes` holds the theme classes named around it, and is empty when none is;
+ * `conditions` holds the at-rules around it other than `@layer`, outermost first
  * @returns {Map<String, Map<String,String>>}
  */
 export function readThemeDeclarations(css, onDeclaration) {
@@ -350,9 +387,10 @@ export function readThemeDeclarations(css, onDeclaration) {
 
         for (const themeClass of name ? classes : []) {
             themes.has(themeClass) || themes.set(themeClass, new Map());
-            conditions.length || themes.get(themeClass).set(name, value);
-            onDeclaration?.(themeClass, name, value, conditions)
+            conditions.length || themes.get(themeClass).set(name, value)
         }
+
+        name && onDeclaration?.(classes, name, value, conditions);
 
         mark === '}' && blocks.length > 1 && blocks.pop()
     }
@@ -395,8 +433,9 @@ function commonReading(entries) {
 }
 
 /**
- * @summary Checks one theme class's palette: every entry a colour this check reads, one lightness per grade
- * across its slots, each slot's descent, and the pairs against their floors in the scheme the class declares.
+ * @summary Checks one theme class's palette: every entry and every colour role a colour this check reads, one
+ * lightness per grade across its slots, each slot's descent, and the pairs against their floors in the scheme
+ * the class declares.
  * @param {Object} data
  * @param {Map<String,String>} data.declarations
  * @param {Set<String>} data.failures
@@ -471,7 +510,16 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
         return
     }
 
-    const canvas = color(CANVAS);
+    const
+        canvas = color(CANVAS),
+        paired = new Set(CONTRAST_PAIRS.flatMap(([foreground, background]) => [foreground, background]));
+
+    // A colour role that no pair measures is read as well: a browser drops a value that is no colour.
+    for (const name of declarations.keys()) {
+        if (name.startsWith('--neo-color-') && name !== SCHEME && !paired.has(name) && !color(name)) {
+            failures.add(`[role] ${relPath} .${themeClass} (${scheme}) ${name}: cannot read '${declarations.get(name)}' as a colour`)
+        }
+    }
 
     for (const [foreground, background, floor] of CONTRAST_PAIRS) {
         const
@@ -525,22 +573,23 @@ function checkNames({declared, failures}) {
 }
 
 /**
- * @summary Refuses a palette or role name that has two different values for one theme class, in one sheet or
- * across the folders that serve the class. This check reads one declaration per name and models no
- * specificity, layer or folder order, so it cannot tell which value the browser paints.
+ * @summary Refuses a measured name that has two different values for one theme class, in whichever sheets
+ * they sit. This check reads one declaration per name and models no specificity, layer or load order, so it
+ * cannot tell which value the browser paints.
  * @param {Object} data
  * @param {Map<String,String>} data.declarations The palette sheet's declarations for the class
  * @param {Set<String>} data.failures
+ * @param {String} data.relPath The palette sheet, named first in a failure
  * @param {String} data.themeClass
  * @param {Map<String, Map<String,String>>} data.values Per name, each value with the sheet that declares it
  */
-function checkCascade({declarations, failures, themeClass, values}) {
+function checkCascade({declarations, failures, relPath, themeClass, values}) {
     for (const name of declarations.keys()) {
         const seen = values.get(name);
 
-        if (name.startsWith('--neo-') && seen.size > 1) {
+        if (isMeasured(name) && seen.size > 1) {
             failures.add(
-                `[cascade] ${name} has ${seen.size} values for .${themeClass} (${[...new Set(seen.values())].join(', ')}); ` +
+                `[cascade] ${name} has ${seen.size} values for .${themeClass} (${[...new Set([relPath, ...seen.values()])].join(', ')}); ` +
                 `this check reads one declaration per name and cannot tell which one the browser paints`
             )
         }
@@ -548,7 +597,8 @@ function checkCascade({declarations, failures, themeClass, values}) {
 }
 
 /**
- * @summary Walks every theme folder's `Global.css`, checks each palette it declares, and compares their names.
+ * @summary Reads every stylesheet under `resources/css`, checks each palette it finds, compares their names,
+ * and refuses a measured name wherever a sheet declares it outside the one reading this check has of it.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
  * @returns {{failures: String[], names: Number, palettes: String[]}} `palettes` names each checked theme class
@@ -559,6 +609,7 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         cssRoot  = path.join(root, 'resources/css'),
         declared = [],
         failures = new Set(),
+        loose    = [],
         palettes = [];
 
     if (!fs.existsSync(cssRoot)) {
@@ -566,26 +617,41 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
     }
 
     const
-        folders = [...new Set(Object.values(collectThemeClassMap([cssRoot])).flat())].sort(),
-        themes  = new Map(),
-        theme   = themeClass => themes.get(themeClass) ??
+        themes = new Map(),
+        theme  = themeClass => themes.get(themeClass) ??
             themes.set(themeClass, {conditional: [], sheets: [], values: new Map()}).get(themeClass);
 
-    // Every sheet first, then every class: more than one folder can serve a class.
-    for (const folder of folders) {
+    // Every sheet first, then every class: any sheet can name a theme class.
+    for (const file of cssFiles(cssRoot)) {
         const
-            file    = path.join(cssRoot, folder, 'Global.css'),
+            css     = readSheet(file),
+            placed  = new Map(),
             relPath = path.relative(root, file).replaceAll('\\', '/'),
-            sheets  = readThemeDeclarations(readCss(file), (themeClass, name, value, conditions) => {
-                const {conditional, values} = theme(themeClass);
+            sheets  = readThemeDeclarations(css, (classes, name, value, conditions) => {
+                classes.length && placed.set(name, (placed.get(name) ?? 0) + 1);
 
-                if (!conditions.length) {
-                    values.has(name) || values.set(name, new Map());
-                    values.get(name).has(value) || values.get(name).set(value, relPath)
-                } else if (name.startsWith('--neo-')) {
-                    conditional.push({conditions, name, relPath})
+                for (const themeClass of classes) {
+                    const {conditional, values} = theme(themeClass);
+
+                    if (!conditions.length) {
+                        values.has(name) || values.set(name, new Map());
+                        values.get(name).has(value) || values.get(name).set(value, relPath)
+                    } else if (isMeasured(name)) {
+                        conditional.push({conditions, name, relPath})
+                    }
                 }
             });
+
+        // What the sheet spells beyond the declarations the reader placed in a theme class.
+        for (const [, name] of css.matchAll(SPELLED)) {
+            const left = placed.get(name) ?? 0;
+
+            if (left) {
+                placed.set(name, left - 1)
+            } else if (isMeasured(name)) {
+                loose.push({name, relPath})
+            }
+        }
 
         for (const [themeClass, declarations] of sheets) {
             theme(themeClass).sheets.push({declarations, relPath})
@@ -616,22 +682,32 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             failures.add(`[cascade] .${themeClass} has a palette in ${relPath} and in ${second.relPath}; a theme class has one`)
         }
 
-        checkCascade({declarations, failures, themeClass, values});
+        checkCascade({declarations, failures, relPath, themeClass, values});
 
         palettes.push(`${themeClass} (${declarations.get(SCHEME) ?? 'no scheme'})`);
         declared.push({names: [...declarations.keys()].filter(name => name.startsWith('--neo-')), relPath, themeClass});
         checkPalette({declarations, failures, relPath, themeClass})
     }
 
-    const names = checkNames({declared, failures});
+    const
+        names = checkNames({declared, failures}),
+        owned = new Set(declared.flatMap(entry => entry.names));
+
+    for (const {name, relPath} of loose) {
+        owned.has(name) && failures.add(
+            `[scope] ${relPath} declares or registers ${name} where this check reads no theme class around it; ` +
+            `a palette or colour-role name has one value per theme class, and nothing here can tell what another reaches`
+        )
+    }
 
     return {failures: [...failures], names, palettes}
 }
 
 /**
- * @summary Collects every palette failure under `root`: a palette entry that is no colour this check reads, a
- * grade that two slots read at different lightness, a slot that does not descend, a pair under its contrast
- * floor or one it cannot measure, a name with two values, and a name declared under a condition.
+ * @summary Collects every palette failure under `root`: a palette entry or a colour role that is no colour
+ * this check reads, a grade that two slots read at different lightness, a slot that does not descend, a pair
+ * under its contrast floor or one it cannot measure, and a measured name with two values, under a condition
+ * or outside a theme class.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
  * @returns {String[]}

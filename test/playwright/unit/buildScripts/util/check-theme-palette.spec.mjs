@@ -64,7 +64,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
         expect(CONTRAST_PAIRS).toHaveLength(37);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
-        expect(SCAN_SURFACE).toEqual(['resources/css/*/Global.css'])
+        expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
     });
 
     test('the strong border meets 3:1 on the canvas and on a field, in both schemes', () => {
@@ -246,6 +246,61 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(names).toBe(194)
     });
 
+    test('a measured name with a second value fails in whichever sheet it sits', () => {
+        const override = ':root .neo-theme-neo-light { --neo-color-text-default: var(--neo-color-background-canvas); }';
+
+        // A component file of the companion folder, one of another theme's folder, and a structural sheet.
+        for (const rel of ['theme-neo-light/button/Base.css', 'theme-light/button/Base.css', 'src/button/Base.css']) {
+            expect(inspect({'theme-neo/Global.css': source, [rel]: override}).failures).toEqual([expect.stringMatching(new RegExp(
+                '^\\[cascade\\] --neo-color-text-default has 2 values for \\.neo-theme-neo-light ' +
+                `\\((?=[^)]*resources/css/theme-neo/Global\\.css)(?=[^)]*resources/css/${rel})`
+            ))])
+        }
+    });
+
+    test('a measured name declared where no theme class is read fails as [scope]', () => {
+        const
+            override = '--neo-color-text-default: var(--neo-color-background-canvas);',
+            scope    = rel => [expect.stringMatching(new RegExp(
+                `^\\[scope\\] resources/css/${rel} declares or registers --neo-color-text-default where this check reads no theme class`
+            ))];
+
+        // A rule that reaches every element, one that reads the class off the attribute, and a string that
+        // closes the block for this reader. The browser applies all three.
+        for (const rule of [`* { ${override} }`, `[class~="neo-theme-neo-light"] { ${override} }`, `.neo-theme-neo-light { --probe: "}"; ${override} }`]) {
+            expect(plant(css => `${css}\n${rule}`).failures).toEqual(scope('theme-neo/Global\\.css'))
+        }
+
+        // A structural sheet that re-binds the role on a subtree, and one that registers the name.
+        for (const rule of [`.neo-button { ${override} }`, '@property --neo-color-text-default { syntax: "<color>"; inherits: false; initial-value: red; }']) {
+            expect(inspect({'theme-neo/Global.css': source, 'src/button/Base.css': rule}).failures).toEqual(scope('src/button/Base\\.css'))
+        }
+    });
+
+    test('an escaped class and an escaped name are read as a browser reads them', () => {
+        const cascade = [expect.stringMatching(/^\[cascade\] --neo-color-text-default has 2 values for \.neo-theme-neo-light /)];
+
+        expect(plant(css => `.neo-theme-neo-li\\67ht { --neo-color-text-default: var(--neo-color-background-canvas); }\n${css}`).failures)
+            .toEqual(cascade);
+
+        expect(plant(css => `.neo-theme-neo-light { --neo-color-text-defaul\\74 : var(--neo-color-background-canvas); }\n${css}`).failures)
+            .toEqual(cascade)
+    });
+
+    test('CONTROL: a scale role re-valued by a scope or a condition passes, and so do a repeated value and a query', () => {
+        const {failures, names} = inspect({
+            'theme-neo/Global.css'           : source,
+            // The reduced-motion collapse as `src` holds it: the class read off the attribute, and a condition.
+            'src/Global.css'                 : ':where([class^="neo-theme-"]) { --neo-duration-fast: 120ms; @media (prefers-reduced-motion: reduce) { --neo-duration-fast: 0ms; } }',
+            'src/board/Container.css'        : '.neo-board { --neo-board-gap: 8px; @media print { --neo-board-gap: 0; } }',
+            'src/grid/Container.css'         : '@container style(--neo-color-scheme: dark) { .neo-grid { --grid-color: red; } }',
+            'theme-neo-light/button/Base.css': ':root .neo-theme-neo-light { --neo-color-scheme: light; --button-color: red; }'
+        });
+
+        expect(failures).toEqual([]);
+        expect(names).toBe(194)
+    });
+
     test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {
         const
             weak    = value => plant(css => setRole(css, '--neo-color-text-strong', value)).failures,
@@ -282,10 +337,28 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         }
     });
 
-    test('a palette entry that no measured pair reads is still read as a colour', () => {
-        expect(plant(css => setRole(css, '--neo-palette-shade-4', 'rgb(0 0 0 / )')).failures).toEqual([
-            `[palette] resources/css/theme-neo/Global.css --neo-palette-shade-4: cannot read 'rgb(0 0 0 / )' as a colour`
-        ])
+    test('a palette entry that no measured pair reads is still read as a colour, and so is each role that reads it', () => {
+        const {failures} = plant(css => setRole(css, '--neo-palette-shade-4', 'rgb(0 0 0 / )'));
+
+        expect(failures).toHaveLength(3);
+        expect(failures).toContain(`[palette] resources/css/theme-neo/Global.css --neo-palette-shade-4: cannot read 'rgb(0 0 0 / )' as a colour`);
+
+        // The dark scheme reads the entry in two roles; the light scheme reads `shade-3` there.
+        for (const role of ['--neo-color-background-scrim', '--neo-color-shadow']) {
+            expect(failures).toContainEqual(expect.stringMatching(new RegExp(
+                `^\\[role\\] resources/css/theme-neo/Global\\.css \\.neo-theme-neo-dark \\(dark\\) ${role}: cannot read `
+            )))
+        }
+    });
+
+    test('a colour role that no measured pair reads is still read as a colour, in each scheme', () => {
+        const {failures} = plant(css => setRole(css, '--neo-color-background-surface', 'rgb(0, 0 0)'));
+
+        expect(CONTRAST_PAIRS.flat()).not.toContain('--neo-color-background-surface');
+        expect(new Set(failures)).toEqual(new Set(['light', 'dark'].map(scheme =>
+            `[role] resources/css/theme-neo/Global.css .neo-theme-neo-${scheme} (${scheme}) --neo-color-background-surface: ` +
+            `cannot read 'rgb(0, 0 0)' as a colour`
+        )))
     });
 
     test('CONTROL: a second theme with the same names passes, and the live file declares 194', () => {
