@@ -87,9 +87,8 @@
                 margin-right: 0.3em;
                 padding     : 0;
 
-                /* The neo themes paint these controls with a structural transparent rule at
-                   theme-root weight, so the hover state is declared here, above it, and a
-                   disabled control keeps no hover state. */
+                /* Theme Neo paints these controls flat with the rule at the end of this file, so the
+                   hover state is declared here, above it, and a disabled control keeps no hover state. */
                 &:hover:not(.neo-disabled) {
                     background-color: var(--dialog-header-button-background-color-hover, transparent);
                 }
@@ -143,4 +142,14 @@
 .neo-focus-trap {
     clip    : rect(0, 0, 0, 0);
     position: absolute;
+}
+
+/* Theme Neo paints the header buttons flat and content-sized. The rule outweighs twelve of the
+   fifteen button background states; the ghost, secondary and tertiary :active states keep theirs
+   through !important. It stays a rule, not tokens, so a new button variant still applies inside a
+   dialog header in every other theme. */
+:is(.neo-theme-neo-dark, .neo-theme-neo-light) .neo-dialog .neo-header-toolbar .neo-button {
+    background-color: transparent;
+    height          : unset;
+    min-width       : unset;
 }
