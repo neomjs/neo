@@ -95,7 +95,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
         await expect(firstRow.locator('.neo-grid-cell[data-field="address.city"]')).not.toHaveClass(/neo-is-modified/)
     });
 
-    test('opens and closes by keyboard, discards on Escape, saves on Enter, and works at 390x844 in both themes', async ({page}) => {
+    test('opens and closes by keyboard, discards on Escape, saves on Enter, and works at 390x844 in both themes', async ({page}, testInfo) => {
         await page.setViewportSize({width: 390, height: 844});
         await page.goto(URL);
 
@@ -115,8 +115,17 @@ test.describe('Grid edit-in-a-dialog example', () => {
             .toEqual({bottom: 844, left: 0, width: 390});
         await expect(dialog).toHaveClass(/\bneo-responsive\b/);
         await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
+        await expect(dialog).toHaveClass(/\bneo-theme-dark\b/);
+        await expect(dialog.getByRole('separator', {name: 'Resize dialog'})).toBeVisible();
+        await expect(dialog.getByRole('button', {name: 'maximize', exact: true})).toHaveCount(0);
 
-        const lastControl = dialog.getByRole('button', {name: 'Save', exact: true});
+        const lastControl = dialog.getByRole('button', {name: 'Save', exact: true}),
+              darkFrame   = testInfo.outputPath('contact-dark-390.png');
+
+        await expect(lastControl).toBeInViewport({ratio: 1});
+        await expect(dialog.getByRole('button', {name: 'Cancel', exact: true})).toBeInViewport({ratio: 1});
+        await page.screenshot({animations: 'disabled', path: darkFrame});
+        await testInfo.attach('Contact editor in Dark at 390 px', {contentType: 'image/png', path: darkFrame});
 
         await lastControl.focus();
         await page.keyboard.press('Tab');
@@ -141,6 +150,7 @@ test.describe('Grid edit-in-a-dialog example', () => {
         // Re-open with Space on focused Edit button, switch theme first to verify light theme too
         await page.locator('.neo-button', {hasText: 'Light Theme'}).click();
         await expect(page.locator('.neo-viewport')).toHaveClass(/neo-theme-light/);
+        await expect(page.getByText('Switched Theme', {exact: true})).toBeHidden({timeout: 10000});
 
         await editBtn.focus();
         await page.keyboard.press('Space');
@@ -150,9 +160,14 @@ test.describe('Grid edit-in-a-dialog example', () => {
         const firstnameInput = dialog.locator('.neo-textfield').filter({hasText: 'First Name'}).locator('input.neo-textfield-input');
         await expect(firstnameInput).toBeFocused({timeout: 5000});
 
+        const lightFrame = testInfo.outputPath('contact-light-390.png');
+        await page.screenshot({animations: 'disabled', path: lightFrame});
+        await testInfo.attach('Contact editor in Light at 390 px', {contentType: 'image/png', path: lightFrame});
+
         // The first open was compact, so this is the Dialog's first use of desktop placement.
         await page.setViewportSize({width: 1200, height: 850});
         await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+        await expect(dialog.getByRole('button', {name: 'maximize', exact: true})).toBeVisible();
         await expect.poll(() => dialog.evaluate(root => {
             const {left, top, right, bottom} = root.getBoundingClientRect();
 
@@ -365,6 +380,117 @@ test.describe('Grid edit-in-a-dialog example', () => {
             await expect(dialog.locator('.neo-resizable')).toHaveCount(0);
             await expect(dialog.locator('.neo-header-toolbar')).not.toHaveClass(/\bneo-draggable\b/);
             expect(await app.getComponent(id, ['draggable', 'resizable'])).toMatchObject({draggable: false, resizable: false})
+        })
+    });
+
+    test('the compact grip previews, cancels and snaps without taking ownership of the desktop height', async ({browser, context, page}) => {
+        await page.setViewportSize({width: 1200, height: 850});
+
+        await runDedicatedWorkerNeuralLink({browser, context, page}, async adapter => {
+            await page.goto(URL);
+
+            const row    = page.locator('.neo-grid-row').first(),
+                  dialog = page.locator('.neo-dialog'),
+                  field  = dialog.locator('input.neo-textfield-input').first(),
+                  grip   = dialog.getByRole('separator', {name: 'Resize dialog'});
+
+            await row.getByRole('button', {name: 'Edit', exact: true}).click();
+            await expect(field).toBeFocused();
+            await expect(dialog).not.toHaveClass(/neo-animating/);
+
+            const app        = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
+                  id         = await dialog.getAttribute('id'),
+                  readEditor = () => app.getComponent(id, ['record.id', 'stateProvider.id']),
+                  readHeight = () => dialog.evaluate(el => {
+                      const {bottom, height} = el.getBoundingClientRect();
+
+                      return {
+                          bottom,
+                          height,
+                          desktop: el.style.height,
+                          preview: el.style.getPropertyValue('--neo-dialog-sheet-preview-height')
+                      }
+                  });
+
+            const editor  = await readEditor(),
+                  {style} = await app.getComponent(id, ['style']);
+
+            await app.setProperties(id, {style: {...style, height: '410px'}});
+            await expect.poll(async () => (await readHeight()).height).toBe(410);
+            const desktop = await dialog.boundingBox();
+
+            await field.fill('Unsaved draft');
+            await page.setViewportSize({width: 390, height: 844});
+            await expect(grip).toBeVisible();
+            await expect(grip).toHaveAttribute('aria-valuenow', '0');
+
+            const low    = await readHeight(),
+                  dragUp = async distance => {
+                      const {x, y, width, height} = await grip.boundingBox();
+
+                      await page.mouse.move(x + width / 2, y + height / 2);
+                      await page.mouse.down();
+                      await page.mouse.move(x + width / 2, y + height / 2 - distance, {steps: 12})
+                  };
+
+            const cdp                   = await context.newCDPSession(page),
+                  {x, y, width, height} = await grip.boundingBox(),
+                  touch                 = (type, distance) => cdp.send('Input.dispatchTouchEvent', {
+                      type,
+                      touchPoints: distance === undefined ? [] : [{x: x + width / 2, y: y + height / 2 - distance}]
+                  });
+
+            try {
+                await touch('touchStart', 0);
+                for (const distance of [30, 60, 90, 120]) {
+                    await touch('touchMove', distance)
+                }
+                await expect.poll(async () => (await readHeight()).height).toBeGreaterThan(low.height + 80);
+                const preview = await readHeight();
+                expect(preview).toMatchObject({bottom: 844, desktop: '410px'});
+                expect(parseFloat(preview.preview)).toBeCloseTo(preview.height, 1);
+                await expect(grip).toHaveAttribute('aria-valuenow', '0');
+
+                await touch('touchCancel');
+                await expect.poll(readHeight).toEqual(low);
+                await expect(dialog).toBeVisible()
+            } finally {
+                await cdp.detach()
+            }
+
+            await dragUp(300);
+            await expect.poll(async () => (await readHeight()).height).toBeGreaterThan(low.height + 200);
+            await page.mouse.up();
+            await expect(grip).toHaveAttribute('aria-valuenow', '1');
+            await expect.poll(async () => (await readHeight()).preview).toBe('');
+            const high = await readHeight();
+            expect(high).toMatchObject({bottom: 844, desktop: '410px'});
+            expect(high.height).toBeGreaterThan(low.height + 300);
+
+            await grip.focus();
+            await grip.press('Home');
+            await expect.poll(readHeight).toEqual(low);
+            await grip.press('ArrowUp');
+            await expect.poll(readHeight).toEqual(high);
+            await grip.press('ArrowDown');
+            await expect.poll(readHeight).toEqual(low);
+            await grip.press('End');
+            await expect.poll(readHeight).toEqual(high);
+            await grip.press('Enter');
+            await expect(dialog).toBeVisible();
+            await expect(grip).toBeFocused();
+            await expect(field).toHaveValue('Unsaved draft');
+            expect(await readEditor()).toEqual(editor);
+            await expect(row.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
+
+            await dragUp(-120);
+            await expect.poll(async () => (await readHeight()).height).toBeLessThan(high.height - 80);
+            await page.setViewportSize({width: 1200, height: 850});
+            await expect(grip).toHaveCount(0);
+            await page.mouse.up();
+            await expect.poll(() => dialog.boundingBox()).toEqual(desktop);
+            expect((await readHeight()).preview).toBe('');
+            await expect(field).toHaveValue('Unsaved draft')
         })
     });
 

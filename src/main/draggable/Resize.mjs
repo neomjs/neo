@@ -124,12 +124,15 @@ class Resize {
               );
 
         if (state.preview && value !== state.lastSize) {
-            state.target.style.setProperty('flex', 'none');
-            state.target.style.setProperty(state.axis, `${value}px`);
+            const {axis, counter, previewProperty, target} = state,
+                  property                                 = previewProperty ?? axis;
 
-            if (state.counter) {
-                state.counter.style.setProperty('flex', 'none');
-                state.counter.style.setProperty(state.axis, `${state.pairTotal - value}px`)
+            !previewProperty && target.style.setProperty('flex', 'none');
+            target.style.setProperty(property, `${value}px`);
+
+            if (counter) {
+                !previewProperty && counter.style.setProperty('flex', 'none');
+                counter.style.setProperty(property, `${state.pairTotal - value}px`)
             }
         }
 
@@ -245,6 +248,9 @@ class Resize {
             }
         }
 
+        const previewProperty = this.resolvePreviewProperty(config.previewProperty),
+              previewKeys     = previewProperty ? [previewProperty] : ['flex', config.axis];
+
         // Conserved-pair mode: a counter target turns the clamp window into the intersection of
         // both members' CSS bounds under a constant pair total, so every previewed frame is a
         // vector the semantic commit can reproduce exactly.
@@ -278,7 +284,7 @@ class Resize {
 
             counterOriginalStyle = {};
 
-            ['flex', config.axis].forEach(key => {
+            previewKeys.forEach(key => {
                 counterOriginalStyle[key] = {
                     priority: counter.style.getPropertyPriority(key),
                     value   : counter.style.getPropertyValue(key)
@@ -288,7 +294,7 @@ class Resize {
 
         const originalStyle = {};
 
-        ['flex', config.axis].forEach(key => {
+        previewKeys.forEach(key => {
             originalStyle[key] = {
                 priority: target.style.getPropertyPriority(key),
                 value   : target.style.getPropertyValue(key)
@@ -314,6 +320,7 @@ class Resize {
             pairTotal,
             parentId             : config.parentId,
             preview              : config.preview === true,
+            previewProperty,
             resizeNext           : config.resizeNext === true,
             startCoordinate,
             startSize,
@@ -463,7 +470,8 @@ class Resize {
                     changed = !current || current.axis !== config.axis || current.parentId !== config.parentId ||
                         current.targetId !== config.targetId || current.counterId !== config.counterTargetId ||
                         current.oppositeId !== config.oppositeId || current.configMinSize !== config.minSize ||
-                        current.counterMinSize !== config.counterMinSize || current.oppositeMinSize !== config.oppositeMinSize;
+                        current.counterMinSize !== config.counterMinSize || current.oppositeMinSize !== config.oppositeMinSize ||
+                        current.previewProperty !== me.resolvePreviewProperty(config.previewProperty);
 
                 if (changed) {
                     me.restoreState(current);
@@ -497,6 +505,16 @@ class Resize {
         }
 
         return null
+    }
+
+    /**
+     * @summary Resolves an optional inline custom property for a resize preview.
+     * @param {String|null|undefined} value
+     * @returns {String|undefined}
+     * @protected
+     */
+    resolvePreviewProperty(value) {
+        return typeof value === 'string' && /^--[-\w\u0080-\u{10ffff}]+$/u.test(value) ? value : undefined
     }
 
     /**

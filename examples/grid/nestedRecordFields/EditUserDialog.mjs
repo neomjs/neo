@@ -157,8 +157,8 @@ class EditUserDialog extends Dialog {
     }
 
     /**
-     * Submits the form on `Enter` inside plain text inputs while leaving buttons and picker fields (`Country`, `Date`)
-     * to their own `Enter` handlers.
+     * Submits the form on `Enter` inside plain text inputs and leaves the sheet grip, buttons and picker fields
+     * (`Country`, `Date`) to handle their own keyboard input.
      * @param {Object} data
      */
     onKeyDownEnter(data) {
@@ -168,6 +168,7 @@ class EditUserDialog extends Dialog {
                 me.down({reference: 'cancel-button'})?.id,
                 me.down({reference: 'country-field'})?.id,
                 me.down({reference: 'date-field'})?.id,
+                me.down({ntype: 'sheet-handle'})?.id,
                 me.headerToolbar?.id
             ];
 

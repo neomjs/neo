@@ -142,6 +142,24 @@ test.describe('Neo.sheet.Handle', () => {
         })
     });
 
+    test('forwards an optional preview property on initial and refreshed registration', () => {
+        const registrations = [];
+
+        addon.registerZone = data => registrations.push(data.resizeConfig);
+
+        const target     = create(Component),
+              nextTarget = create(Component),
+              handle     = create(Handle, {previewProperty: '--sheet-preview-height', target});
+
+        expect(registrations.at(-1)).toMatchObject({previewProperty: '--sheet-preview-height', targetId: target.id});
+
+        handle.target = nextTarget;
+        expect(registrations.at(-1)).toMatchObject({previewProperty: '--sheet-preview-height', targetId: nextTarget.id});
+
+        handle.target = null;
+        expect(registrations.at(-1)).toBeNull()
+    });
+
     test('fires release with the height and velocity Main measured, and settles it once', async () => {
         let target   = create(Component),
             handle   = create(Handle, {target}),

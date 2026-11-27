@@ -207,14 +207,21 @@ test.describe('Neo.main.addon.DragDrop — physical window drag', () => {
 });
 
 test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
-    const createStyle = initial => {
-        const values = new Map(Object.entries(initial));
+    const createStyle = (initial, initialPriorities={}) => {
+        const priorities = new Map(Object.entries(initialPriorities)),
+              values     = new Map(Object.entries(initial));
 
         return {
-            getPropertyPriority: () => '',
+            getPropertyPriority: key => priorities.get(key) || '',
             getPropertyValue   : key => values.get(key) || '',
-            removeProperty     : key => values.delete(key),
-            setProperty        : (key, value) => values.set(key, value)
+            removeProperty     : key => {
+                priorities.delete(key);
+                values.delete(key)
+            },
+            setProperty: (key, value, priority='') => {
+                priorities.set(key, priority);
+                values.set(key, value)
+            }
         }
     };
 
@@ -394,6 +401,77 @@ test.describe('Neo.main.addon.DragDrop — main-thread resize preview', () => {
         });
         expect(resize.state).toBeNull();
         expect(style.getPropertyValue('width')).toBe('210px')
+    });
+
+    test('a custom preview property restores absence and priority without owning desktop styles', () => {
+        const
+            originalGetElement    = DomAccess.getElement,
+            originalGetLayoutRect = DomAccess.getLayoutRect,
+            firstProperty         = '--sheet-preview-height',
+            secondProperty        = '--other-preview-height',
+            style                 = createStyle(
+                {flex: '1 1 auto', height: '410px', [secondProperty]: '300px'},
+                {[secondProperty]: 'important'}
+            ),
+            parent                = {},
+            target                = {style},
+            resize                = new Resize(),
+            path                  = [{id: 'sheet-handle'}],
+            register              = previewProperty => resize.register({
+                dragElementRootId: 'sheet-handle',
+                dragZoneId       : 'sheet-zone',
+                resizeConfig     : {
+                    awaitWorkerSettlement: true,
+                    axis                 : 'height',
+                    parentId             : 'parent',
+                    preview              : true,
+                    previewProperty,
+                    resizeNext           : true,
+                    targetId             : 'target'
+                }
+            });
+
+        DomAccess.getElement    = id => ({parent, target})[id] || null;
+        DomAccess.getLayoutRect = element => ({height: element === parent ? 800 : 300});
+
+        try {
+            register(firstProperty);
+            resize.start(path, {clientY: 300}, 'sheet-zone');
+            expect(resize.apply({clientY: 240})).toBe(360);
+            expect(style.getPropertyValue(firstProperty)).toBe('360px');
+            expect(style.getPropertyValue('height')).toBe('410px');
+            expect(style.getPropertyValue('flex')).toBe('1 1 auto');
+
+            register(secondProperty);
+            expect(style.getPropertyValue(firstProperty), 'refresh restores the first property to absence').toBe('');
+            expect(style.getPropertyValue(secondProperty), 'refresh replays the last pointer frame').toBe('360px');
+            expect(style.getPropertyPriority(secondProperty)).toBe('');
+
+            style.setProperty('height', '420px', 'important');
+            style.setProperty('flex', '1 0 auto');
+
+            const terminal = resize.finish({clientY: 220});
+
+            expect(terminal).toMatchObject({axis: 'height', size: 380, targetId: 'target'});
+            expect(resize.settle({dragZoneId: 'sheet-zone', generation: terminal.generation, restore: true, targetId: 'target'})).toBe(true);
+            expect(style.getPropertyValue(secondProperty)).toBe('300px');
+            expect(style.getPropertyPriority(secondProperty)).toBe('important');
+            expect(style.getPropertyValue('height')).toBe('420px');
+            expect(style.getPropertyPriority('height')).toBe('important');
+            expect(style.getPropertyValue('flex')).toBe('1 0 auto');
+
+            register('--invalid name');
+            resize.start(path, {clientY: 300}, 'sheet-zone');
+            expect(resize.apply({clientY: 240})).toBe(360);
+            expect(style.getPropertyValue('--invalid name')).toBe('');
+            expect(style.getPropertyValue('height')).toBe('360px');
+            expect(resize.cancel()).toBe(true);
+            expect(style.getPropertyValue('height')).toBe('420px');
+            expect(style.getPropertyPriority('height')).toBe('important')
+        } finally {
+            DomAccess.getElement    = originalGetElement;
+            DomAccess.getLayoutRect = originalGetLayoutRect
+        }
     });
 
     test('the terminal reports the release velocity of the timed frames inside the window, positive while growing', () => {
