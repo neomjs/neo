@@ -1,11 +1,11 @@
 # Extending Classes
 
-In theory, a Neo.mjs app could be defined in a single `.mjs` source file. But that would be very hard to 
-maintain, and any reusable configs would have to be duplicated. Instead, each of your views and reusable 
-widgets will be defined as its own class. The result is simpler views which are inherently reusable and easier 
+In theory, a Neo.mjs app could be defined in a single `.mjs` source file. But that would be very hard to
+maintain, and any reusable configs would have to be duplicated. Instead, each of your views and reusable
+widgets will be defined as its own class. The result is simpler views which are inherently reusable and easier
 to test.
 
-Consider this code. It's a panel with a header and a table. The table has a store. 
+Consider this code. It's a panel with a header and a table. The table has a store.
 
 ```javascript live-preview
 import Button from '../button/Base.mjs';
@@ -43,12 +43,12 @@ class MainView extends Panel {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 If you wanted, any of the configs can be refactored into their own class. Here, the button, store, and table
 have been refactored into their own classes, and the main view is using them. The main view is simpler and
-more abstract, and each class can be reused, tested, and maintained independently. 
+more abstract, and each class can be reused, tested, and maintained independently.
 
 ```javascript live-preview
 import Button from '../button/Base.mjs';
@@ -104,7 +104,7 @@ class MainView extends Panel {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 There are several use-cases for creating your own classes:

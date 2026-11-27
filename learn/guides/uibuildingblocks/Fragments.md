@@ -86,7 +86,7 @@ class MainContainer extends FormContainer {
 
         // Atomic Move: Physically transfers the node
         fragment.insert(0, field);
-        
+
         data.component.disabled = true;
         this.getReference('field1').placeholder = 'I am now inside the Fragment!';
     }
@@ -98,13 +98,13 @@ class MainContainer extends FormContainer {
 
         // Atomic Move: Physically transfers the node back
         me.insert(0, field);
-        
+
         data.component.disabled = true;
         this.getReference('field1').placeholder = 'I am back outside!';
     }
 }
 
-MainContainer = Neo.setupClass(MainContainer);
+export default Neo.setupClass(MainContainer);
 ```
 
 ## Cross-Window Capabilities

@@ -94,7 +94,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 #### 2. HBox Layout (`ntype: 'hbox'`)
@@ -150,7 +150,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 #### 3. Card Layout (`ntype: 'card'`)
@@ -222,7 +222,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 #### Lazy Loading with Card Layouts

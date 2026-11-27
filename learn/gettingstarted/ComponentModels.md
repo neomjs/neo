@@ -36,7 +36,7 @@ class MainView extends Container {
         style: {padding: '1em'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 State provider properties are visible down the containment hierarchy:
@@ -108,7 +108,7 @@ class MainView extends Container {
         style: {margin: '1em'}
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 In this case, the main view has three child items of type `MyPanel`, each containing a label.

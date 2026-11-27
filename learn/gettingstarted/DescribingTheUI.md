@@ -70,7 +70,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Interoperability: The Best of Both Worlds
@@ -150,7 +150,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Choosing Your Approach
