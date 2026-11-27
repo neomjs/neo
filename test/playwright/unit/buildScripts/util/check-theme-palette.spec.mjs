@@ -185,6 +185,49 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(palettes).toHaveLength(2)
     });
 
+    test('a name declared under a condition fails with the condition named, nested in the class or around it', () => {
+        const
+            override = '--neo-color-text-default: var(--neo-color-background-canvas);',
+            under    = (condition, name = '--neo-color-text-default') => [expect.stringMatching(new RegExp(
+                `^\\[conditional\\] resources/css/theme-neo/Global\\.css declares ${name} for \\.neo-theme-neo-light inside ${condition};`
+            ))];
+
+        // Active in every viewport: the browser paints the text on its own background.
+        expect(plant(css => `${css}\n.neo-theme-neo-light { @media (min-width: 0px) { ${override} } }`).failures)
+            .toEqual(under('@media \\(min-width: 0px\\)'));
+
+        expect(plant(css => `${css}\n@media (min-width: 0px) { .neo-theme-neo-light { ${override} } }`).failures)
+            .toEqual(under('@media \\(min-width: 0px\\)'));
+
+        expect(plant(css => `${css}\n.neo-theme-neo-light { @supports (color: red) { @media screen { ${override} } } }`).failures)
+            .toEqual(under('@supports \\(color: red\\) @media screen'));
+
+        // The same value is refused as well: a name declared only there would be measured as unconditional.
+        expect(plant(css => `${css}\n.neo-theme-neo-light { @media print { --neo-color-scheme: light; } }`).failures)
+            .toEqual(under('@media print', '--neo-color-scheme'))
+    });
+
+    test('a nested rule that gives a name a second value fails like a flat one, before and after a nested block', () => {
+        const
+            override = '--neo-color-text-default: var(--neo-color-background-canvas);',
+            cascade  = [expect.stringMatching(
+                /^\[cascade\] --neo-color-text-default has 2 values for \.neo-theme-neo-light \(resources\/css\/theme-neo\/Global\.css\)/
+            )];
+
+        expect(plant(css => `.neo-theme-neo-light { .neo-dense & { ${override} } }\n${css}`).failures).toEqual(cascade);
+        expect(plant(css => `.neo-theme-neo-light { @media print { --button-color: red; } ${override} }\n${css}`).failures).toEqual(cascade)
+    });
+
+    test('CONTROL: a nested rule with the same value, a layer, and a component variable under a condition pass', () => {
+        const {failures, names} = plant(css => css +
+            '\n.neo-theme-neo-light { .neo-dense & { --neo-color-scheme: light; } }' +
+            '\n@layer theme { .neo-theme-neo-light { --neo-color-scheme: light; } }' +
+            '\n.neo-theme-neo-light { @media print { --button-color: red; } }');
+
+        expect(failures).toEqual([]);
+        expect(names).toBe(194)
+    });
+
     test('a colour the browser clamps is measured as it paints, and a malformed number fails closed', () => {
         const
             weak    = value => plant(css => setRole(css, '--neo-color-text-strong', value)).failures,
@@ -199,6 +242,32 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         expect(parseColor('rgb(512 512 512)').rgba).toEqual(parseColor('#fff').rgba);
         expect(parseColor('rgb(0 0 .)')).toBeNull();
         expect(parseColor('oklch(1.4 0 0)').lightness).toBe(1)
+    });
+
+    test('rgb() is read in the two forms a browser reads, and a mixed or empty separator fails closed', () => {
+        for (const value of ['rgb(0 0 0)', 'rgb(0, 0, 0)', 'rgb( 0 , 0 , 0 )', 'rgba(0, 0, 0, 1)', 'rgb(0 0 0 / 100%)']) {
+            expect(parseColor(value).rgba).toEqual([0, 0, 0, 1]);
+            expect(plant(css => setRole(css, '--neo-palette-black', value)).failures).toEqual([])
+        }
+
+        for (const value of ['rgb(0, 0 0)', 'rgb(0,,0,0)', 'rgb(0 0, 0)', 'rgb(0 0 0, .5)', 'rgb(0, 0, 0 / .5)']) {
+            expect(parseColor(value)).toBeNull()
+        }
+
+        // The stock black with a separator no browser reads: the entry fails, and so does each pair that reads it.
+        for (const value of ['rgb(0, 0 0)', 'rgb(0,,0,0)']) {
+            const {failures} = plant(css => setRole(css, '--neo-palette-black', value));
+
+            expect(failures).toHaveLength(3);
+            expect(failures).toContain(`[palette] resources/css/theme-neo/Global.css --neo-palette-black: cannot read '${value}' as a colour`);
+            expect(failures.filter(failure => failure.includes('cannot measure'))).toHaveLength(2)
+        }
+    });
+
+    test('a palette entry that no measured pair reads is still read as a colour', () => {
+        expect(plant(css => setRole(css, '--neo-palette-shade-4', 'rgb(0 0 0 / )')).failures).toEqual([
+            `[palette] resources/css/theme-neo/Global.css --neo-palette-shade-4: cannot read 'rgb(0 0 0 / )' as a colour`
+        ])
     });
 
     test('CONTROL: a second theme with the same names passes, and the live file declares 194', () => {

@@ -7,9 +7,10 @@
  *
  * A palette is a theme class whose `Global.css` declares a `--neo-palette-*` name. A theme without one is
  * not written against the roles yet and is skipped. A name with two different values for one class fails,
- * in one sheet or across the folders that serve the class: this check models no cascade. The lightness numbers are each theme's own, so a palette
- * is compared with itself and never with a table. Contrast is measured on the resolved colours and never
- * read off the grade distance: OKLCH lightness is not luminance.
+ * in one sheet or across the folders that serve the class: this check models no cascade. A `--neo-` name
+ * declared under a condition fails as well: this check reads no condition. The lightness numbers are each
+ * theme's own, so a palette is compared with itself and never with a table. Contrast is measured on the
+ * resolved colours and never read off the grade distance: OKLCH lightness is not luminance.
  */
 import fs                              from 'node:fs';
 import path                            from 'node:path';
@@ -200,7 +201,9 @@ function clamp(value, max=1) {
 const
     NUMBER = '[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)',
     OKLCH  = new RegExp(`^oklch\\(\\s*(${NUMBER}%?)\\s+(${NUMBER})\\s+(${NUMBER})(?:deg)?\\s*(?:\\/\\s*(${NUMBER}%?))?\\s*\\)$`),
-    RGB    = new RegExp(`^rgba?\\(\\s*(${NUMBER})[\\s,]+(${NUMBER})[\\s,]+(${NUMBER})\\s*(?:[\\/,]\\s*(${NUMBER}%?))?\\s*\\)$`);
+    // A browser reads two forms: commas throughout, or spaces with `/ alpha`. A mixture is no colour.
+    RGB_COMMAS = new RegExp(`^rgba?\\(\\s*(${NUMBER})\\s*,\\s*(${NUMBER})\\s*,\\s*(${NUMBER})\\s*(?:,\\s*(${NUMBER}%?))?\\s*\\)$`),
+    RGB_SPACES = new RegExp(`^rgba?\\(\\s*(${NUMBER})\\s+(${NUMBER})\\s+(${NUMBER})\\s*(?:\\/\\s*(${NUMBER}%?))?\\s*\\)$`);
 
 /**
  * @summary Parses a resolved CSS colour as a browser paints it: a channel out of range is clamped. Returns
@@ -239,7 +242,7 @@ export function parseColor(text) {
         return {rgba: [...rgb, bytes[3] ?? 1], lightness: oklchLightness(rgb), literal: false}
     }
 
-    if ((match = value.match(RGB))) {
+    if ((match = value.match(RGB_SPACES) || value.match(RGB_COMMAS))) {
         rgb = [match[1], match[2], match[3]].map(channel => clamp(parseFloat(channel), 255) / 255);
 
         return finite({rgba: [...rgb, alphaOf(match[4])], lightness: oklchLightness(rgb), literal: false})
@@ -311,33 +314,47 @@ export function resolveValue(value, declarations, scheme) {
 }
 
 /**
- * @summary Reads a comment-free `Global.css` into one declaration map per theme class. A rule's
- * declarations belong to every theme class its selector list names, and a later rule wins. That is no
- * cascade: `onDeclaration` hears every declaration, so a caller can refuse a name that has two values.
+ * @summary Reads a comment-free `Global.css` into one declaration map per theme class. A declaration belongs
+ * to every theme class that its rule, or a rule around it, names in a selector list, and a later one wins.
+ * That is no cascade: `onDeclaration` hears every declaration, so a caller can refuse a name that has two
+ * values. A declaration under a condition enters no map, since nothing here reads when it applies.
  * @param {String} css
- * @param {Function} [onDeclaration] Called with `(themeClass, name, value)` for each declaration read
+ * @param {Function} [onDeclaration] Called with `(themeClass, name, value, conditions)` for each declaration
+ * read; `conditions` holds the at-rules around it other than `@layer`, outermost first
  * @returns {Map<String, Map<String,String>>}
  */
 export function readThemeDeclarations(css, onDeclaration) {
-    const themes = new Map();
+    const
+        blocks = [{classes: [], conditions: []}],
+        themes = new Map();
 
-    for (const [, header, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-        const classes = new Set([...header.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
-            .map(match => match[1])
-            .filter(name => name !== 'neo-theme-scope'));
+    for (const [, text, mark] of css.matchAll(/([^{};]*)([{};])/g)) {
+        const {classes, conditions} = blocks.at(-1);
 
-        for (const themeClass of classes) {
-            let declarations = themes.get(themeClass);
+        if (mark === '{') {
+            const
+                header = text.trim(),
+                named  = [...header.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
+                    .map(match => match[1])
+                    .filter(name => name !== 'neo-theme-scope');
 
-            if (!declarations) {
-                themes.set(themeClass, declarations = new Map())
-            }
+            blocks.push({
+                classes   : [...new Set([...classes, ...named])],
+                conditions: /^@(?!layer\b)/.test(header) ? [...conditions, header] : conditions
+            });
 
-            for (const [, name, value] of body.matchAll(/(--[a-zA-Z0-9_-]+)\s*:\s*([^;]+)/g)) {
-                declarations.set(name, value.trim());
-                onDeclaration?.(themeClass, name, value.trim())
-            }
+            continue
         }
+
+        const [, name, value] = text.match(/^\s*(--[a-zA-Z0-9_-]+)\s*:\s*([^]+?)\s*$/) ?? [];
+
+        for (const themeClass of name ? classes : []) {
+            themes.has(themeClass) || themes.set(themeClass, new Map());
+            conditions.length || themes.get(themeClass).set(name, value);
+            onDeclaration?.(themeClass, name, value, conditions)
+        }
+
+        mark === '}' && blocks.length > 1 && blocks.pop()
     }
 
     return themes
@@ -378,8 +395,8 @@ function commonReading(entries) {
 }
 
 /**
- * @summary Checks one theme class's palette: one lightness per grade across its slots, each slot's descent,
- * and the pairs against their floors in the scheme the class declares.
+ * @summary Checks one theme class's palette: every entry a colour this check reads, one lightness per grade
+ * across its slots, each slot's descent, and the pairs against their floors in the scheme the class declares.
  * @param {Object} data
  * @param {Map<String,String>} data.declarations
  * @param {Set<String>} data.failures
@@ -398,21 +415,21 @@ function checkPalette({declarations, failures, relPath, themeClass}) {
         };
 
     for (const [name] of declarations) {
-        const match = PALETTE_EXTRAS.has(name) ? null : name.match(/^--neo-palette-([a-z]+)-(\d+)$/);
-
-        if (!match) {
+        if (!name.startsWith('--neo-palette-')) {
             continue
         }
 
         const
-            grade  = Number(match[2]),
+            match  = PALETTE_EXTRAS.has(name) ? null : name.match(/^--neo-palette-([a-z]+)-(\d+)$/),
+            grade  = match && Number(match[2]),
             parsed = color(name);
 
-        if (!GRADES.includes(grade)) {
+        // Every palette entry is read, the extras included: a role that no pair measures can read any of them.
+        if (!parsed) {
+            failures.add(`[palette] ${relPath} ${name}: cannot read '${declarations.get(name)}' as a colour`)
+        } else if (match && !GRADES.includes(grade)) {
             failures.add(`[grade] ${relPath} declares ${name}; ${grade} is not one of the eleven grades`)
-        } else if (!parsed) {
-            failures.add(`[grade] ${relPath} ${name}: cannot read '${declarations.get(name)}' as a colour`)
-        } else {
+        } else if (match) {
             const entry = {grade, lightness: parsed.lightness, literal: parsed.literal, name};
 
             for (const [group, key] of [[grades, grade], [slots, match[1]]]) {
@@ -558,11 +575,18 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         const
             file    = path.join(cssRoot, folder, 'Global.css'),
             relPath = path.relative(root, file).replaceAll('\\', '/'),
-            sheets  = readThemeDeclarations(readCss(file), (themeClass, name, value) => {
+            sheets  = readThemeDeclarations(readCss(file), (themeClass, name, value, conditions) => {
                 const {values} = theme(themeClass);
 
-                values.has(name) || values.set(name, new Map());
-                values.get(name).has(value) || values.get(name).set(value, relPath)
+                if (!conditions.length) {
+                    values.has(name) || values.set(name, new Map());
+                    values.get(name).has(value) || values.get(name).set(value, relPath)
+                } else if (name.startsWith('--neo-')) {
+                    failures.add(
+                        `[conditional] ${relPath} declares ${name} for .${themeClass} inside ${conditions.join(' ')}; ` +
+                        `this check reads no condition and cannot tell when that value paints`
+                    )
+                }
             });
 
         for (const [themeClass, declarations] of sheets) {
@@ -597,8 +621,9 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
 }
 
 /**
- * @summary Collects every palette failure under `root`: a grade that two slots read at different
- * lightness, a slot that does not descend, a pair under its contrast floor, or a pair this check cannot measure.
+ * @summary Collects every palette failure under `root`: a palette entry that is no colour this check reads, a
+ * grade that two slots read at different lightness, a slot that does not descend, a pair under its contrast
+ * floor or one it cannot measure, a name with two values, and a name declared under a condition.
  * @param {Object} [options={}]
  * @param {String} [options.root=repoRoot]
  * @returns {String[]}
