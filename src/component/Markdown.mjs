@@ -98,6 +98,13 @@ class Markdown extends Component {
     activeComponents = []
 
     /**
+     * Mount requests since the running mount pass started, 0 while no pass runs
+     * @member {Number} #mountRequests=0
+     * @private
+     */
+    #mountRequests = 0
+
+    /**
      * @member {Number} #renderId=0
      * @private
      */
@@ -223,6 +230,9 @@ class Markdown extends Component {
 
     /**
      * @summary Creates a child and adopts it only while its render still owns the content.
+     * The child renders nothing yet: its placeholder lives in this component's HTML, so `mountComponents()` renders
+     * and inserts it in one step once that HTML is in the document. A vnode built earlier would mark the child's own
+     * children mounted while nothing of them is in the DOM.
      * @param {Number} renderId
      * @param {Object} config
      * @private
@@ -230,10 +240,11 @@ class Markdown extends Component {
     #createRenderComponent(renderId, config) {
         if (!this.#isCurrentRender(renderId)) return;
 
-        const component = Neo.create(config);
+        const component = Neo.create({...config, autoInitVnode: false, autoMount: false});
 
         if (this.#isCurrentRender(renderId)) {
-            this.activeComponents.push(component)
+            this.activeComponents.push(component);
+            this.mounted && this.mountComponents()
         } else {
             component.destroy()
         }
@@ -474,6 +485,43 @@ class Markdown extends Component {
     }
 
     /**
+     * @summary Inserts the unmounted embedded components once this component's own HTML, which holds their
+     * placeholders, is in the document. The pass flushes this component's update first: an update requested while it
+     * was out of the document can settle at the remount before its HTML is sent. A request arriving during the wait,
+     * such as a newer render's child, makes the pass flush again, because the flight it waited on can predate that
+     * render's HTML. One pass runs at a time and mounts every component active when it lands, so no child receives
+     * two inserts.
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async mountComponents() {
+        let me = this;
+
+        // A running pass flushes again for this request before it mounts
+        if (me.#mountRequests++ > 0) return;
+
+        try {
+            let requests;
+
+            do {
+                requests = me.#mountRequests;
+                await me.promiseUpdate()
+            } while (requests !== me.#mountRequests)
+        } catch (error) {
+            if (error === Neo.isDestroyed) return;
+            throw error
+        } finally {
+            me.#mountRequests = 0
+        }
+
+        if (!me.mounted) return;
+
+        me.activeComponents.forEach(component => {
+            component.mounted || component.isVnodeInitializing || component.initVnode(true)
+        })
+    }
+
+    /**
      * @param {String} tag
      * @param {String} text
      * @param {Number} index
@@ -661,8 +709,6 @@ class Markdown extends Component {
             mermaidDivs   = {},
             baseConfigs   = {
                 appName        : me.appName,
-                autoInitVnode  : true,
-                autoMount      : true,
                 parentComponent: me.parentComponent,
                 theme          : me.theme,
                 windowId
@@ -765,17 +811,17 @@ class Markdown extends Component {
     }
 
     /**
-     * Updates the mounted state of all tracked components.
+     * @summary Mounts the tracked components with this component, or marks them unmounted when it leaves the document.
      * @param {Boolean} mounted
      */
     updateComponentState(mounted) {
-        this.activeComponents.forEach(component => {
-            if (mounted) {
-                component.initVnode(true)
-            } else {
+        if (mounted) {
+            this.mountComponents()
+        } else {
+            this.activeComponents.forEach(component => {
                 component.mounted = false
-            }
-        })
+            })
+        }
     }
 }
 
