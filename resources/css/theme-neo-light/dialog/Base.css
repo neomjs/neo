@@ -4,7 +4,7 @@
     --dialog-footer-button-border-radius         : 5px;
     --dialog-footer-button-height                : 1.7em;
     --dialog-footer-button-margin-left           : 0.3em;
-    --dialog-header-button-background-color-hover: var(--cmp-button-ghost-surface-hover);
+    --dialog-header-button-background-color-hover: var(--sem-color-surface-neutral-hover);
     --dialog-header-color                        : var(--purple-500);
     --dialog-icon-color                          : var(--purple-500);
     --dialog-icon-color-hover                    : var(--sem-color-icon-neutral-contrast);
