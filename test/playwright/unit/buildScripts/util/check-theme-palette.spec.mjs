@@ -64,9 +64,19 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
 
         expect(failures).toEqual([]);
         expect(palettes).toEqual(expect.arrayContaining(['neo-theme-neo-light (light)', 'neo-theme-neo-dark (dark)']));
-        expect(CONTRAST_PAIRS).toHaveLength(37);
+        expect(CONTRAST_PAIRS).toHaveLength(38);
         expect(GRADES).toEqual([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]);
         expect(SCAN_SURFACE).toEqual(['resources/css/**/*.css'])
+    });
+
+    test('background-selected keeps at least a 1.1:1 step on background-accent-subtle in both schemes', () => {
+        const {failures} = plant(css => setRole(css, '--neo-color-background-selected',
+            'light-dark(var(--neo-palette-accent-200), var(--neo-palette-accent-900))'));
+
+        expect(failures).toEqual([
+            '[pair] resources/css/theme-neo/Global.css .neo-theme-neo-dark (dark) ' +
+            '--neo-color-background-selected on --neo-color-background-accent-subtle is 1.00:1; the floor is 1.1:1'
+        ])
     });
 
     test('the strong border meets 3:1 on the canvas and on a field, in both schemes', () => {

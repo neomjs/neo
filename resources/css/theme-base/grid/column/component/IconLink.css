@@ -1,0 +1,7 @@
+/* Grid IconLink cell component, every theme: accent resting link, brand hover (ADR 0044 §5). */
+[class*="neo-theme-"] {
+    --neo-icon-link-color          : var(--neo-color-text-accent);
+    --neo-icon-link-color-hover    : var(--neo-color-text-brand);
+    --neo-icon-link-font-size      : inherit;
+    --neo-icon-link-text-decoration: none;
+}

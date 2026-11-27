@@ -1,0 +1,5 @@
+/* Grid column header menu, every theme: menu elevation and small corner radius. */
+[class*="neo-theme-"] {
+    --neo-grid-column-menu-border-radius: var(--neo-radius-small);
+    --neo-grid-column-menu-box-shadow   : var(--neo-elevation-2);
+}

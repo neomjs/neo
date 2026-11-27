@@ -1,0 +1,18 @@
+/* Grid body, every theme: cell hover, modified indicator, and selection fills/text bound to roles.
+   Row and cell hover stay opaque (`background-accent-subtle`) so pinned `.neo-locked-start` / `.neo-locked-end`
+   columns never turn translucent over horizontally scrolling center cells. */
+[class*="neo-theme-"] {
+    --neo-grid-cell-background-color-hover                    : var(--neo-color-background-accent-subtle);
+    --neo-grid-cell-ismodified-color                          : var(--neo-color-border-warning);
+    --neo-grid-cell-ismodified-size                           : 10px;
+    --neo-grid-cellmodel-cell-background-color-selected       : var(--neo-color-background-selected);
+    --neo-grid-cellmodel-cell-color-selected                  : var(--neo-color-text-default);
+    --neo-grid-cellmodel-column-cell-background-color-selected: var(--neo-color-background-accent-subtle);
+    --neo-grid-cellmodel-column-cell-color-selected           : var(--neo-color-text-default);
+    --neo-grid-cellrowmodel-cell-background-color-selected    : var(--neo-color-background-selected);
+    --neo-grid-cellrowmodel-cell-color-selected               : var(--neo-color-text-default);
+    --neo-grid-cellrowmodel-row-cell-background-color-selected: var(--neo-color-background-accent-subtle);
+    --neo-grid-cellrowmodel-row-cell-color-selected           : var(--neo-color-text-default);
+    --neo-grid-rowmodel-cell-background-color-selected        : var(--neo-color-background-selected);
+    --neo-grid-rowmodel-cell-color-selected                   : var(--neo-color-text-default);
+}

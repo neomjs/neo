@@ -1,0 +1,4 @@
+/* Grid tree column, every theme: subtle connector guide matching the grid lattice border. */
+[class*="neo-theme-"] {
+    --neo-tree-helper-line-color: var(--neo-color-border-default);
+}
