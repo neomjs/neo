@@ -1,0 +1,5 @@
+:root .neo-theme-cyberpunk { /* .neo-markdown-component */
+    --neo-markdown-border-radius           : 8px;
+    --neo-markdown-code-block-border-radius: 4px;
+    --neo-markdown-table-border-radius     : 4px;
+}

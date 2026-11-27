@@ -15,7 +15,7 @@
 
     .neo-list-item {
         align-items  : center;
-        border-radius: 12px;
+        border-radius: var(--neo-desktop-task-border-radius);
         display      : flex;
         gap          : 8px;
         height       : 40px;
@@ -25,7 +25,7 @@
            rounded ends as any label width shrinks to the same centered 6px mark. */
         &::after {
             background-color: var(--neo-desktop-task-list-accent-color);
-            border-radius   : 2px;
+            border-radius   : var(--neo-desktop-task-indicator-border-radius);
             bottom          : 3px;
             content         : '';
             height          : 3px;
@@ -46,7 +46,7 @@
     .neo-desktop-task-icon {
         align-items     : center;
         background-color: var(--neo-desktop-app-color);
-        border-radius   : 8px;
+        border-radius   : var(--neo-desktop-task-icon-border-radius);
         color           : var(--neo-desktop-task-list-icon-color);
         display         : flex;
         font-size       : 13px;

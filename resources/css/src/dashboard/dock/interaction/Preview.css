@@ -24,7 +24,7 @@
     z-index: 25;
 }
 .neo-dock-preview .neo-dock-preview-affordance {
-    border-radius: 3px;
+    border-radius: var(--neo-dock-preview-affordance-border-radius);
     box-sizing: border-box;
     opacity: 0.85;
     pointer-events: none;
@@ -89,7 +89,7 @@
 .neo-dock-preview .neo-dock-preview-split:not(.neo-dock-preview-region),
 .neo-dock-preview .neo-dock-preview-tab-before,
 .neo-dock-preview .neo-dock-preview-tab-after {
-    border-radius: 2px;
+    border-radius: var(--neo-dock-preview-insertion-guide-border-radius);
 }
 .neo-dock-preview .neo-dock-preview-split:not(.neo-dock-preview-region).neo-dock-preview-accepted,
 .neo-dock-preview .neo-dock-preview-tab-before.neo-dock-preview-accepted,

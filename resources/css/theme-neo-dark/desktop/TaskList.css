@@ -4,4 +4,7 @@
     --neo-desktop-task-list-icon-color                  : #fff;
     --neo-desktop-task-list-item-background-color-active: rgba(255, 255, 255, .14);
     --neo-desktop-task-list-item-background-color-hover : rgba(255, 255, 255, .08);
+    --neo-desktop-task-border-radius                    : 12px;
+    --neo-desktop-task-indicator-border-radius          : 2px;
+    --neo-desktop-task-icon-border-radius               : 8px;
 }

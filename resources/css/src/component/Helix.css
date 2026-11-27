@@ -80,13 +80,13 @@
         }
 
         &.neo-selected {
-            border-radius: 10px !important;
+            border-radius: var(--neo-helix-item-border-radius-selected) !important;
             box-shadow   : var(--neo-helix-item-box-shadow-selected);
             opacity      : 1 !important;
         }
 
         .contact-item {
-            border-radius: 3px;
+            border-radius: var(--neo-helix-contact-border-radius);
             box-shadow   : var(--neo-helix-contact-item-box-shadow);
             height       : 160px;
             width        : 120px;

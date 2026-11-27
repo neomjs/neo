@@ -6,4 +6,5 @@
     --neo-carousel-transition-timing     : cubic-bezier(.4, 0, .2, 1);
     --neo-carousel-translate-x           : 0;
     --neo-carousel-translate-y           : 0;
+    --neo-carousel-inner-border-radius   : 5px;
 }

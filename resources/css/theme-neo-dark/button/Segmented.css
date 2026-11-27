@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-dark) { /* .neo-segmented-button */
+    --neo-segmented-button-border-radius: 999px;
+}

@@ -70,7 +70,7 @@
 
     .neo-button-badge {
         background-color: var(--neo-button-badge-background-color);
-        border-radius   : 5px;
+        border-radius   : var(--neo-button-badge-border-radius);
         color           : var(--neo-button-badge-color);
         margin-left     : auto;
         padding         : 3px;

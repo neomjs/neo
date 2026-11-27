@@ -41,7 +41,7 @@ body.neo-has-touch {
             background-clip : padding-box;
             background-color: var(--neo-grid-scrollbar-thumb-color, rgba(128, 128, 128, 0.5));
             border          : 8px solid transparent;
-            border-radius   : 16px;
+            border-radius   : var(--neo-grid-scrollbar-thumb-border-radius);
         }
     }
 }

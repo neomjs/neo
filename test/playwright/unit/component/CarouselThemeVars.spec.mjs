@@ -36,6 +36,7 @@ test.describe('Neo.component.Carousel theme variable files', () => {
             '--neo-carousel-background-color',
             '--neo-carousel-duration',
             '--neo-carousel-inner-background-color',
+            '--neo-carousel-inner-border-radius',
             '--neo-carousel-inner-color',
             '--neo-carousel-transition-timing',
             '--neo-carousel-translate-x',

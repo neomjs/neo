@@ -10,4 +10,5 @@
     --neo-timeline-editor-accent-color         : var(--neo-button-color, #1c60a0);
     --neo-timeline-editor-accent-contrast-color: var(--neo-button-background-color, #ffffff);
     --neo-timeline-editor-cancel-background    : var(--neo-grid-container-cell-background-color-even, #f2f2f2);
+    --neo-timeline-editor-button-border-radius : 6px;
 }

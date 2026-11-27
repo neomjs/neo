@@ -31,12 +31,13 @@ const
             '    --src-color     : #abcdef;',
             '    gap             : var(--src-gap);',
             '    caret-color     : var(--caret, #00ff00);',
+            '    border-radius   : 6px;',
             '    /* width        : var(--commented-read); */',
             '}'
         ].join('\n'),
         // a block's last declaration without its `;`
         'src/component/Timer.css'        : '@keyframes t {\n    to {\n        --neo-timer-current: 0\n    }\n}\n.neo-timer {width: var(--neo-timer-current);}',
-        'src/apps/demo/Main.css'         : '.demo-main {color: var(--app-ghost)}',
+        'src/apps/demo/Main.css'         : '.demo-main {color: var(--app-ghost); border-radius: 8px}',
         // one palette name and three roles: a role a component value reads, one a role reads, one nothing reads
         'theme-x-dark/Global.css'        : ':where(.neo-theme-x-dark) {--neo-gray-100: #111111; --sem-surface: #222222; --sem-unused: #333333; --cmp-radius: 4px; --neo-palette-white: #fff; --neo-color-text-default: #dddddd; --neo-space-2: 8px; --neo-control-gap: var(--neo-space-2);}',
         'theme-x-dark/apps/demo/Main.css': ':where(.neo-theme-x-dark) {--demo-panel-bg: #101010;}',
@@ -169,11 +170,18 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
     test('7: colour literals in structural rules, per engine file, outside custom-property declarations: bare, or inside a var() fallback', () => {
         expect(collect({root, runtimeProperties: runtime}).structural).toEqual({
             files         : {engine: 2, apps: 1, examples: 0},
-            colourLiterals: {'button/Base.css': {bare: 2, inFallback: 1}}
+            colourLiterals: {'button/Base.css': {bare: 2, inFallback: 1}},
+            radiusLiterals: [{file: 'button/Base.css', line: 15, property: 'border-radius', value: '6px'}]
         });
     });
 
-    test('8: the words for a background, a text colour and an icon colour, and where a state word sits', () => {
+    test('8: corner radius literals in structural rules, engine files only, each with its line', () => {
+        expect(collect({root, runtimeProperties: runtime}).structural.radiusLiterals).toEqual([
+            {file: 'button/Base.css', line: 15, property: 'border-radius', value: '6px'}
+        ]);
+    });
+
+    test('9: the words for a background, a text colour and an icon colour, and where a state word sits', () => {
         expect(collect({root, runtimeProperties: runtime}).themes['theme-x-dark'].naming).toEqual({
             background: {'background-color': 1},
             text      : {'text-color': 1, color: 1},
@@ -186,7 +194,8 @@ test.describe('theme-census — the shape of the theme tree, as counts anyone ca
         const markdown = render(collect({root, runtimeProperties: runtime}), 'fixture/css');
 
         expect(markdown.startsWith('# Theme census: `fixture/css`')).toBe(true);
-        expect(markdown.match(/^## \d\. /gm)).toHaveLength(8);
+        expect(markdown.match(/^## \d\. /gm)).toHaveLength(9);
+        expect(markdown).toContain('| `button/Base.css` | 15 | `border-radius` | `6px` |');
         expect(markdown).toContain('Set at runtime, so not counted: `--neo-tree-list-level`.');
         expect(markdown).toContain('3 in 1 files: 2 bare, 1 inside a `var()` fallback');
         expect(markdown).toContain('| `button/Base.css` | 2 | 1 |');

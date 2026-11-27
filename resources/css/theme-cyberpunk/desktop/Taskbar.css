@@ -12,4 +12,7 @@
     --neo-desktop-taskbar-color                         : var(--neo-cyber-color);
     --neo-desktop-taskbar-item-background-color-active  : color-mix(in srgb, var(--neo-cyber-cyan) 16%, transparent);
     --neo-desktop-taskbar-item-background-color-hover   : color-mix(in srgb, var(--neo-cyber-cyan) 8%, transparent);
+    --neo-desktop-start-menu-border-radius              : 14px;
+    --neo-desktop-start-menu-item-border-radius         : 9px;
+    --neo-desktop-taskbar-button-border-radius          : 12px;
 }

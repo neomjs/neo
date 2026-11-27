@@ -12,4 +12,7 @@
     --neo-desktop-taskbar-color                         : var(--neo-global-color, #bbb);
     --neo-desktop-taskbar-item-background-color-active  : rgba(255, 255, 255, .12);
     --neo-desktop-taskbar-item-background-color-hover   : rgba(255, 255, 255, .06);
+    --neo-desktop-start-menu-border-radius              : 14px;
+    --neo-desktop-start-menu-item-border-radius         : 9px;
+    --neo-desktop-taskbar-button-border-radius          : 12px;
 }

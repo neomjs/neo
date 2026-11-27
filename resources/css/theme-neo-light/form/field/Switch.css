@@ -14,4 +14,5 @@
     --neo-switchfield-knobsize           : 20px;
     --neo-switchfield-opacity-disabled   : .5;
     --neo-switchfield-width              : 40px;
+    --neo-switchfield-track-border-radius           : 999px;
 }

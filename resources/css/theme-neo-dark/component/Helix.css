@@ -5,4 +5,6 @@
     --neo-helix-contact-name-text-shadow: 0 0 10px #61dfe5;
     --neo-helix-item-background-color   : rgba(73, 160, 154, 0.35);
     --neo-helix-item-box-shadow-selected: 0 0 35px #61dfe5;
+    --neo-helix-item-border-radius-selected : 10px;
+    --neo-helix-contact-border-radius   : 3px;
 }

@@ -196,6 +196,7 @@
     --neo-button-tertiary-text-decoration           : underline;
     --neo-button-tertiary-text-decoration-color     : var(--neo-sem-color-text-primary-default);
     --neo-button-tertiary-text-underline-offset     : 3px;
+    --neo-button-badge-border-radius                : 5px;
 }
 
 /* The three sizes a button's `size` config picks. The large one is the design system's call to action

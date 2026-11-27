@@ -1,0 +1,3 @@
+:where(.neo-theme-neo-dark) { /* .neo-board-card-editor */
+    --neo-board-editor-button-border-radius: 6px;
+}

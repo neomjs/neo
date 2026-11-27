@@ -4,4 +4,7 @@
     --neo-desktop-task-list-icon-color                  : #fff;
     --neo-desktop-task-list-item-background-color-active: color-mix(in srgb, var(--neo-cyber-cyan) 16%, transparent);
     --neo-desktop-task-list-item-background-color-hover : color-mix(in srgb, var(--neo-cyber-cyan) 8%, transparent);
+    --neo-desktop-task-border-radius                    : 12px;
+    --neo-desktop-task-indicator-border-radius          : 2px;
+    --neo-desktop-task-icon-border-radius               : 8px;
 }

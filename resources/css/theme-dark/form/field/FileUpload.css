@@ -9,4 +9,6 @@
     --neo-fileuploadfield-background-color-active            : #0e0e0e;
     --neo-fileuploadfield-progress-color           : #fff;
     --neo-fileuploadfield-success-color            : rgb(71, 226, 71);
+    --neo-fileuploadfield-border-radius            : 2px;
+    --neo-fileuploadfield-border-radius-focus      : 3px;
 }

@@ -242,7 +242,7 @@
 
     .neo-allday-event {
         align-items  : center;
-        border-radius: 3px;
+        border-radius: var(--neo-event-border-radius);
         cursor       : pointer;
         display      : flex;
         font-size    : .8em;

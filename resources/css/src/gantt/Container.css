@@ -188,7 +188,7 @@
 
         .neo-gantt-milestone-label {
             background   : color-mix(in srgb, var(--neo-grid-cell-background-color, Canvas) 94%, transparent);
-            border-radius: 3px;
+            border-radius: var(--neo-gantt-milestone-label-border-radius);
             color        : var(--neo-grid-cell-color, var(--neo-sem-color-text-neutral-default, CanvasText));
             font-size    : 12px;
             font-weight  : 600;

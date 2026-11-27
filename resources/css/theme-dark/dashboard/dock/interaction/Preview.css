@@ -1,0 +1,4 @@
+:root .neo-theme-dark { /* .neo-dock-preview */
+    --neo-dock-preview-affordance-border-radius     : 3px;
+    --neo-dock-preview-insertion-guide-border-radius: 2px;
+}

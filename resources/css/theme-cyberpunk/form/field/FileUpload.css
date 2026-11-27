@@ -1,0 +1,4 @@
+:root .neo-theme-cyberpunk { /* .neo-file-upload-field */
+    --neo-fileuploadfield-border-radius      : 2px;
+    --neo-fileuploadfield-border-radius-focus: 3px;
+}

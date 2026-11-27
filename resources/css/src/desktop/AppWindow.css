@@ -6,7 +6,7 @@
     backdrop-filter : blur(30px) saturate(160%);
     background-color: var(--neo-desktop-app-window-background-color);
     border          : 1px solid var(--neo-desktop-app-window-border-color);
-    border-radius   : 16px;
+    border-radius   : var(--neo-desktop-app-window-border-radius);
     box-shadow      : var(--neo-desktop-app-window-box-shadow);
     color           : var(--neo-desktop-app-window-color);
     overflow        : hidden;
@@ -37,7 +37,7 @@
 .neo-icon.neo-desktop-app-window-icon {
     align-items     : center;
     background-color: var(--neo-desktop-app-color);
-    border-radius   : 7px;
+    border-radius   : var(--neo-desktop-app-window-icon-border-radius);
     color           : var(--neo-desktop-app-window-glyph-color);
     display         : inline-flex;
     flex            : none;

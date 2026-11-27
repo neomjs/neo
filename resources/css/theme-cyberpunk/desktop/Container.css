@@ -4,4 +4,6 @@
         radial-gradient(1000px 700px at 15% 15%, color-mix(in srgb, var(--neo-cyber-cyan) 16%, transparent), transparent 60%),
         radial-gradient(900px 700px at 85% 90%, color-mix(in srgb, var(--neo-cyber-red) 10%, transparent), transparent 60%),
         linear-gradient(160deg, var(--neo-cyber-background-color) 0%, var(--neo-cyber-alt-background-color) 50%, var(--neo-cyber-background-color) 100%);
+    --neo-desktop-window-dwelling-border-radius : 8px;
+    --neo-desktop-window-dwelling-marker-border-radius : 2px;
 }

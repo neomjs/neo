@@ -3,7 +3,7 @@
     --neo-button-background-color       : transparent;
     --neo-button-background-color-active: var(--neo-desktop-taskbar-item-background-color-active);
     --neo-button-background-color-hover : var(--neo-desktop-taskbar-item-background-color-hover);
-    --neo-button-border-radius          : 12px;
+    --neo-button-border-radius          : var(--neo-desktop-taskbar-button-border-radius);
     --neo-button-glyph-color            : var(--neo-desktop-taskbar-color);
     --neo-button-glyph-color-active     : var(--neo-desktop-taskbar-color);
     --neo-button-glyph-color-hover      : var(--neo-desktop-taskbar-color);
@@ -74,13 +74,13 @@
     --neo-menu-list-item-padding               : 8px 12px;
 
     backdrop-filter: blur(24px) saturate(160%);
-    border-radius  : 14px;
+    border-radius  : var(--neo-desktop-start-menu-border-radius);
     box-shadow     : var(--neo-desktop-start-menu-box-shadow);
     min-width      : 220px;
     padding        : 6px;
 
     .neo-list-item {
-        border-radius: 9px;
+        border-radius: var(--neo-desktop-start-menu-item-border-radius);
         font-size    : 13.5px;
         font-weight  : 500;
     }

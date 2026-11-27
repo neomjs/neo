@@ -1,6 +1,6 @@
 .neo-markdown-component {
     background-color: var(--neo-markdown-background-color);
-    border-radius: 8px;
+    border-radius: var(--neo-markdown-border-radius);
     color: var(--neo-markdown-color);
     letter-spacing: 1px;
     margin: 0 auto;
@@ -131,7 +131,7 @@
 
 .neo-markdown-component pre.hljs {
     border: thin solid var(--neo-markdown-pre-border);
-    border-radius: 4px;
+    border-radius: var(--neo-markdown-code-block-border-radius);
     letter-spacing: 0;
     overflow-x: scroll;
     padding: 12px;
@@ -146,7 +146,7 @@
 .neo-markdown-component .neo-markdown-table-wrapper > table {
     border: 1px solid var(--neo-markdown-table-border);
     border-collapse: separate;
-    border-radius: 4px;
+    border-radius: var(--neo-markdown-table-border-radius);
     border-spacing: 0;
     margin: 1em 0;
     overflow: hidden;
