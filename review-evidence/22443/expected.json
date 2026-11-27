@@ -1,0 +1,3746 @@
+[
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "accordion item border -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "height",
+        "base": "165px",
+        "head": "161px",
+        "reason": "accordion item header height -> control-height-large (50px -> 48px, Epic #22295 rule 16)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(249, 249, 249)",
+        "head": "rgb(255, 255, 255)",
+        "reason": "accordion item header card and title bar fill -> background-surface-raised (Epic #22295 rules 17 & 18)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "accordion item border -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "box-shadow",
+        "base": "rgba(0, 0, 0, 0.1) 0px 4px 16px 0px",
+        "head": "rgba(0, 0, 0, 0) 0px 0px 0px 1px, rgba(0, 0, 0, 0.16) 0px 1px 2px 0px",
+        "reason": "accordion item and arrow box-shadow -> elevation-1 (shadow-ring + 0 1px 2px shadow, Epic #22295 rule 18)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "border-radius",
+        "base": "5px",
+        "head": "4px",
+        "reason": "accordion item and arrow corner radius -> radius-small (5px -> 4px, Epic #22295 rule 16)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-light",
+        "property": "height",
+        "base": "100px",
+        "head": "98px",
+        "reason": "accordion item header height -> control-height-large (50px -> 48px, Epic #22295 rule 16)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "accordion item border -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "height",
+        "base": "165px",
+        "head": "161px",
+        "reason": "accordion item header height -> control-height-large (50px -> 48px, Epic #22295 rule 16)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(40, 44, 55)",
+        "head": "oklch(0.28 0.022 270)",
+        "reason": "accordion item header card and title bar fill -> background-surface-raised (Epic #22295 rules 17 & 18)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "accordion item border -> border-default (and inherited currentColor border sides -> text-default)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "box-shadow",
+        "base": "rgba(0, 0, 0, 0.1) 0px 4px 16px 0px",
+        "head": "rgba(255, 255, 255, 0.1) 0px 0px 0px 1px, rgba(0, 0, 0, 0.5) 0px 1px 2px 0px",
+        "reason": "accordion item and arrow box-shadow -> elevation-1 (shadow-ring + 0 1px 2px shadow, Epic #22295 rule 18)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-radius",
+        "base": "5px",
+        "head": "4px",
+        "reason": "accordion item and arrow corner radius -> radius-small (5px -> 4px, Epic #22295 rule 16)"
+    },
+    {
+        "component": "accordion",
+        "theme": "neo-theme-neo-dark",
+        "property": "height",
+        "base": "100px",
+        "head": "98px",
+        "reason": "accordion item header height -> control-height-large (50px -> 48px, Epic #22295 rule 16)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "app-content",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "breadcrumb",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[ghost]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[primary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[secondary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "button[tertiary]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(0, 0, 0) rgb(221, 221, 221)",
+        "head": "oklch(0.168 0.008 270) oklch(0.168 0.008 270) rgb(221, 221, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "calendar",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(240, 241, 244) rgb(67, 73, 92)",
+        "head": "oklch(0.96 0.004 270) oklch(0.96 0.004 270) rgb(67, 73, 92)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "carousel",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "checkboxfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "0px none rgb(0, 0, 0)",
+        "head": "0px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "chip",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "0px none rgb(240, 241, 244)",
+        "head": "0px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "chipfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "clock",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "combobox",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "container",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dashboard",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "head": "oklch(0.168 0.008 270) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "head": "oklch(0.96 0.004 270) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "date-selector-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgba(15, 23, 42, 0.08) rgb(0, 0, 0) rgb(0, 0, 0)",
+        "head": "rgba(15, 23, 42, 0.08) oklch(0.168 0.008 270) oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(255, 255, 255, 0.1) rgb(240, 241, 244) rgb(240, 241, 244)",
+        "head": "rgba(255, 255, 255, 0.1) oklch(0.96 0.004 270) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "desktop-taskbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(0, 0, 0) rgb(221, 221, 221)",
+        "head": "oklch(0.168 0.008 270) oklch(0.168 0.008 270) rgb(221, 221, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221) rgb(0, 0, 0) rgb(0, 0, 0)",
+        "head": "rgb(221, 221, 221) oklch(0.168 0.008 270) oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(240, 241, 244) rgb(29, 46, 98)",
+        "head": "oklch(0.96 0.004 270) oklch(0.96 0.004 270) rgb(29, 46, 98)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "dialog",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98) rgb(240, 241, 244) rgb(240, 241, 244)",
+        "head": "rgb(29, 46, 98) oklch(0.96 0.004 270) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "fieldset",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "fieldset",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "fieldset",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "fieldset",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "fieldset",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "fieldset",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-boolean",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "filter-number",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "form-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "icon",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "label",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "layout-cube",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(230, 230, 230) rgb(230, 230, 230)",
+        "head": "oklch(0.168 0.008 270) rgb(230, 230, 230) rgb(230, 230, 230)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "live-preview",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(0, 0, 0) rgb(0, 0, 0)",
+        "head": "oklch(0.96 0.004 270) rgb(0, 0, 0) rgb(0, 0, 0)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "numberfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "paging-toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "background-color",
+        "base": "rgb(255, 255, 255)",
+        "head": "oklch(0.985 0.002 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "panel header title -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(102, 102, 102)",
+        "head": "3px none oklch(0.39 0.034 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(102, 102, 102)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "background-color",
+        "base": "rgb(13, 15, 18)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "viewport canvas -> background-canvas and container / accordion-content fill -> background-surface (#22443)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(152, 159, 180)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "panel header title -> text-muted (Epic #22295 rule 17)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(152, 159, 180)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(152, 159, 180)",
+        "head": "3px none oklch(0.7 0.031 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "panel",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(152, 159, 180)",
+        "head": "oklch(0.7 0.031 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "pickerfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "plugin-resizable",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "rangefield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "searchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "segmented-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "selectfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221)",
+        "head": "oklch(0.875 0.012 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(67, 73, 92)",
+        "head": "oklch(0.39 0.034 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "sitemap",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "split-button",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(85, 149, 245)",
+        "head": "oklch(0.168 0.008 270) rgb(85, 149, 245)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "splitter",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(67, 93, 177)",
+        "head": "oklch(0.96 0.004 270) rgb(67, 93, 177)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "switchfield[checked]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "tab-container[standalone]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textarea",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221) rgb(0, 0, 0) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "head": "rgb(221, 221, 221) oklch(0.168 0.008 270) rgb(221, 221, 221) rgb(221, 221, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(0, 0, 0) rgb(221, 221, 221)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.168 0.008 270) rgb(221, 221, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(221, 221, 221) rgb(221, 221, 221) rgb(221, 221, 221) rgb(0, 0, 0)",
+        "head": "rgb(221, 221, 221) rgb(221, 221, 221) rgb(221, 221, 221) oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(165, 42, 42) rgb(0, 0, 0) rgb(165, 42, 42) rgb(165, 42, 42)",
+        "head": "rgb(165, 42, 42) oklch(0.168 0.008 270) rgb(165, 42, 42) rgb(165, 42, 42)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(0, 0, 0) rgb(165, 42, 42)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.168 0.008 270) rgb(165, 42, 42)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(165, 42, 42) rgb(165, 42, 42) rgb(165, 42, 42) rgb(0, 0, 0)",
+        "head": "rgb(165, 42, 42) rgb(165, 42, 42) rgb(165, 42, 42) oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(28, 96, 160) rgb(0, 0, 0) rgb(28, 96, 160) rgb(28, 96, 160)",
+        "head": "rgb(28, 96, 160) oklch(0.168 0.008 270) rgb(28, 96, 160) rgb(28, 96, 160)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(0, 0, 0) rgb(28, 96, 160)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.168 0.008 270) rgb(28, 96, 160)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(28, 96, 160) rgb(28, 96, 160) rgb(28, 96, 160) rgb(0, 0, 0)",
+        "head": "rgb(28, 96, 160) rgb(28, 96, 160) rgb(28, 96, 160) oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(37, 57, 116) rgb(240, 241, 244) rgb(37, 57, 116) rgb(37, 57, 116)",
+        "head": "rgb(37, 57, 116) oklch(0.96 0.004 270) rgb(37, 57, 116) rgb(37, 57, 116)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(240, 241, 244) rgb(37, 57, 116)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.96 0.004 270) rgb(37, 57, 116)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(37, 57, 116) rgb(37, 57, 116) rgb(37, 57, 116) rgb(240, 241, 244)",
+        "head": "rgb(37, 57, 116) rgb(37, 57, 116) rgb(37, 57, 116) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98) rgb(240, 241, 244) rgb(29, 46, 98) rgb(29, 46, 98)",
+        "head": "rgb(29, 46, 98) oklch(0.96 0.004 270) rgb(29, 46, 98) rgb(29, 46, 98)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(240, 241, 244) rgb(29, 46, 98)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.96 0.004 270) rgb(29, 46, 98)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(29, 46, 98) rgb(29, 46, 98) rgb(29, 46, 98) rgb(240, 241, 244)",
+        "head": "rgb(29, 46, 98) rgb(29, 46, 98) rgb(29, 46, 98) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(255, 138, 128) rgb(240, 241, 244) rgb(255, 138, 128) rgb(255, 138, 128)",
+        "head": "rgb(255, 138, 128) oklch(0.96 0.004 270) rgb(255, 138, 128) rgb(255, 138, 128)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(240, 241, 244) rgb(255, 138, 128)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.96 0.004 270) rgb(255, 138, 128)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(255, 138, 128) rgb(255, 138, 128) rgb(255, 138, 128) rgb(240, 241, 244)",
+        "head": "rgb(255, 138, 128) rgb(255, 138, 128) rgb(255, 138, 128) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(48, 67, 132) rgb(240, 241, 244) rgb(48, 67, 132) rgb(48, 67, 132)",
+        "head": "rgb(48, 67, 132) oklch(0.96 0.004 270) rgb(48, 67, 132) rgb(48, 67, 132)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(240, 241, 244) rgb(48, 67, 132)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.96 0.004 270) rgb(48, 67, 132)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(48, 67, 132) rgb(48, 67, 132) rgb(48, 67, 132) rgb(240, 241, 244)",
+        "head": "rgb(48, 67, 132) rgb(48, 67, 132) rgb(48, 67, 132) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(62, 99, 221) rgb(240, 241, 244) rgb(62, 99, 221) rgb(62, 99, 221)",
+        "head": "rgb(62, 99, 221) oklch(0.96 0.004 270) rgb(62, 99, 221) rgb(62, 99, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgba(0, 0, 0, 0) rgb(240, 241, 244) rgb(62, 99, 221)",
+        "head": "rgba(0, 0, 0, 0) oklch(0.96 0.004 270) rgb(62, 99, 221)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "textfield[inline]",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(62, 99, 221) rgb(62, 99, 221) rgb(62, 99, 221) rgb(240, 241, 244)",
+        "head": "rgb(62, 99, 221) rgb(62, 99, 221) rgb(62, 99, 221) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0) rgb(221, 221, 221) rgb(221, 221, 221) rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270) rgb(221, 221, 221) rgb(221, 221, 221) oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244) rgb(29, 46, 98) rgb(29, 46, 98) rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270) rgb(29, 46, 98) rgb(29, 46, 98) oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "timeline",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "border-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "outline",
+        "base": "3px none rgb(0, 0, 0)",
+        "head": "3px none oklch(0.168 0.008 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-light",
+        "property": "text-decoration-color",
+        "base": "rgb(0, 0, 0)",
+        "head": "oklch(0.168 0.008 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "border-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "outline",
+        "base": "3px none rgb(240, 241, 244)",
+        "head": "3px none oklch(0.96 0.004 270)",
+        "reason": "container body text -> text-default (#0e0f13 light, #f1f2f4 dark)"
+    },
+    {
+        "component": "toolbar",
+        "theme": "neo-theme-neo-dark",
+        "property": "text-decoration-color",
+        "base": "rgb(240, 241, 244)",
+        "head": "oklch(0.96 0.004 270)",
+        "reason": "panel / accordion borders -> border-default and inherited currentColor borders/outlines -> text-default / text-muted"
+    }
+]
