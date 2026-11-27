@@ -17,8 +17,21 @@ class DomEvents extends Base {
          */
         className: 'Neo.mixin.DomEvents',
         /**
-         * An array of domListener configs
+         * DOM listener configs. A `tap` listener observes each qualifying release. Its optional
+         * `count` and `contactCount` options filter the repeat index and simultaneous contact count.
+         * Use `click` for button and link activation, including keyboard activation.
+         *
+         * A `press:start` listener can set `holdMs` (default 500) and `moveTolerance` in CSS pixels
+         * (default 8). The highest-priority `press:start` on the node supplies those settings.
+         * The gesture terminates in `press:end` (whose `duration` includes the full hold) or `press:cancel`.
          * @member {Object[]|null} domListeners_=null
+         * @example
+         * domListeners: [{
+         *     tap: {fn: 'onChord', count: 1, contactCount: 2},
+         *     'press:start': {fn: 'onHoldStart', holdMs: 300},
+         *     'press:end': 'onHoldEnd',
+         *     'press:cancel': 'onHoldCancel'
+         * }]
          * @example
          * afterSetStayOnHover(value, oldValue) {
          *     if (value) {
