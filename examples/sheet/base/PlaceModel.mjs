@@ -3,10 +3,10 @@ import Model from '../../../src/data/Model.mjs';
 const icons = {
     Bakery  : 'fa fa-bread-slice',
     Bookshop: 'fa fa-book',
-    Café    : 'fa fa-mug-hot',
-    Market: 'fa fa-store',
-    Museum: 'fa fa-landmark',
-    Park  : 'fa fa-tree'
+    'Café'  : 'fa fa-mug-hot',
+    Market  : 'fa fa-store',
+    Museum  : 'fa fa-landmark',
+    Park    : 'fa fa-tree'
 };
 
 /**
