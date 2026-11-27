@@ -30,6 +30,7 @@ class MainContainer extends Viewport {
             items : [{ntype: 'label', text: 'Tasks'}, '->', {module: ThemeSwitcher, ui: 'secondary'}]
         }, {
             module      : List,
+            cls         : ['neo-floating-action-example-tasks'],
             displayField: 'name',
             flex        : 1,
             id          : listId,
@@ -71,16 +72,25 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Shows only open tasks, or all of them again.
+     * Shows only open tasks, or all of them again. The button shows the active filter even while collapsed to its
+     * icon, and `pressed` tells assistive technology.
+     * @param {Object} data
      */
-    onToggleFilter() {
-        let {store} = this.getItem('tasks');
+    onToggleFilter(data) {
+        let {store}  = this.getItem('tasks'),
+            filtered = !store.filters.length;
 
-        if (store.filters.length) {
-            store.clearFilters()
-        } else {
+        if (filtered) {
             store.filters = [{property: 'done', value: false}]
+        } else {
+            store.clearFilters()
         }
+
+        data.component.set({
+            iconCls: filtered ? 'fa fa-filter-circle-xmark' : 'fa fa-filter',
+            pressed: filtered,
+            text   : filtered ? 'Show all tasks' : 'Show open tasks'
+        })
     }
 }
 
