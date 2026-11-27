@@ -27,7 +27,15 @@ class MainContainer extends Viewport {
         items: [{
             module: Toolbar,
             flex  : 'none',
-            items : [{ntype: 'label', text: 'Tasks'}, '->', {module: ThemeSwitcher, ui: 'secondary'}]
+            items : [{
+                ntype    : 'label',
+                cls      : ['neo-floating-action-example-title'],
+                reference: 'title',
+                text     : 'All tasks'
+            }, '->', {
+                module: ThemeSwitcher,
+                ui    : 'secondary'
+            }]
         }, {
             module      : List,
             cls         : ['neo-floating-action-example-tasks'],
@@ -72,13 +80,16 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * Shows only open tasks, or all of them again. The button shows the active filter even while collapsed to its
-     * icon, and `pressed` tells assistive technology.
+     * Shows only open tasks, or all of them again. The title names the active filter, the button shows it even
+     * while collapsed to its icon, and `pressed` tells assistive technology.
      * @param {Object} data
      */
     onToggleFilter(data) {
-        let {store}  = this.getItem('tasks'),
+        let me       = this,
+            {store}  = me.getItem('tasks'),
             filtered = !store.filters.length;
+
+        me.getItem('title').text = filtered ? 'Open tasks' : 'All tasks';
 
         if (filtered) {
             store.filters = [{property: 'done', value: false}]
