@@ -134,7 +134,7 @@ test.describe('theme-equality headless Chromium integration', () => {
               head = makeTempCheckout();
 
         // 1. SwitchField knob (`::before`) + unchecked & checked hover tracks in Neo Light
-        const switchFile = path.join(head.cssDir, 'theme-neo-light/form/field/Switch.css'),
+        const switchFile = path.join(head.cssDir, 'theme-base/form/field/Switch.css'),
               switchOrig = fs.readFileSync(switchFile, 'utf8'),
               switchNext = switchOrig
                   .replace(/--neo-switchfield-knob-background-color\s*:\s*[^;]+;/, '--neo-switchfield-knob-background-color: rgb(251, 13, 199);')

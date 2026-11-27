@@ -43,19 +43,23 @@ async function openThemedViewport(page, themes) {
     await expect(page.locator('body')).toContainClass(themes[0])
 }
 
+async function fieldContainer(page, parentId, config = {}) {
+    const result = await page.evaluate(config => Neo.worker.App.createNeoInstance({
+        importPath: '../container/Base.mjs', ntype: 'container', ...config
+    }), {parentId, ...config});
+    expect(result.success).toBe(true);
+    return result.id
+}
+
 test('Material fields paint a single bottom indicator and a nested Neo field keeps its local border width', async ({page}) => {
     await openThemedViewport(page, ['neo-theme-material-dark', 'neo-theme-neo-light']);
 
-    // Supply ordinary field colors so this geometry check is independent of the form palette migration.
-    const style = {
-        '--neo-textfield-border-color'          : 'rgb(20, 40, 60)',
-        '--neo-textfield-input-background-color': 'var(--neo-color-background-field)'
-    };
-    const mount = async config => page.locator('#' + await createTextField(page, {clearable: false, style, ...config}));
-    const plain = await mount({}),
+    const mount    = async config => page.locator('#' + await createTextField(page, {clearable: false, ...config}));
+    const neoScope = await fieldContainer(page, 'component-test-viewport', {theme: 'neo-theme-neo-light'});
+    const plain    = await mount({}),
           wrapped = await mount({clearable: true, value: 'Clear me'}),
           inline  = await mount({labelPosition: 'inline'}),
-          legacy  = await mount({theme: 'neo-theme-neo-light', labelPosition: 'inline', style: {'--neo-textfield-border-width': '3px'}});
+          legacy  = await mount({parentId: neoScope, labelPosition: 'inline', style: {'--neo-textfield-border-width': '3px'}});
 
     const input   = plain.locator('input'),
           wrapper = wrapped.locator('.neo-input-wrapper'),
@@ -64,7 +68,9 @@ test('Material fields paint a single bottom indicator and a nested Neo field kee
     await expect(segments).toHaveCount(3);
     for (const owner of [input, wrapper, ...await segments.all()]) {
         await expect(owner).toHaveCSS('border-width', '0px 0px 1px');
-        await expect(owner).toHaveCSS('border-bottom-color', 'rgb(20, 40, 60)')
+        await expect(owner).toHaveCSS('border-bottom-color', /^oklch\(0\.745 /);
+        await expect(owner).toHaveCSS('border-bottom-left-radius', '0px');
+        await expect(owner).toHaveCSS('border-bottom-right-radius', '0px')
     }
     await expect(input).toHaveCSS('height', '56px');
     await expect(overlay).toHaveCSS('height', '56px');
@@ -74,7 +80,7 @@ test('Material fields paint a single bottom indicator and a nested Neo field kee
     await expect(inline.locator('input')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(inline.locator('input')).toHaveCSS('border-bottom-color', 'rgba(0, 0, 0, 0)');
 
-    await expect(legacy).toHaveClass(/neo-theme-neo-light/);
+    await expect(legacy).not.toHaveClass(/neo-theme-/);
     await expect(legacy.locator('.neo-label-wrapper')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(legacy.locator('.neo-left-border')).toHaveCSS('border-width', '3px 0px 3px 3px');
 
@@ -89,9 +95,22 @@ test('Material fields paint a single bottom indicator and a nested Neo field kee
     await expect(plain).toHaveCSS('transition-duration', '0.2s');
     await input.focus();
     await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '50%');
+    await expect(input).toHaveCSS('border-bottom-width', '2px');
+    await expect(input).toHaveCSS('height', '56px');
+    await wrapper.locator('input').focus();
+    await expect(wrapper).toHaveCSS('border-bottom-width', '2px');
+    await expect(wrapper).toHaveCSS('height', '56px');
+    await expect(wrapper.locator('input')).toHaveCSS('height', '54px');
+    await expect(wrapped.locator('.neo-field-trigger')).toHaveCSS('height', '54px');
+    await inline.locator('input').focus();
+    await expect(segments.first()).toHaveCSS('border-bottom-width', '2px');
+    await expect(overlay).toHaveCSS('height', '56px');
     await expect(legacy.locator('input')).toHaveCSS('border-image-source', 'none');
     await page.emulateMedia({reducedMotion: 'reduce'});
     await expect(plain).toHaveCSS('transition-duration', '0s');
+    await expect(overlay.locator('label')).toHaveCSS('transition-duration', '0s');
+    await input.focus();
+    await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '50%');
     await input.blur();
     await expect(plain).toHaveCSS('--neo-textfield-focus-extent', '0%');
     await page.evaluate(id => Neo.worker.App.setConfigs({id, readOnly: true}), await plain.getAttribute('id'));
@@ -110,13 +129,6 @@ for (const [outer, inner] of [
             openThemedViewport(reference, [inner, outer, switchedHost])
         ]);
 
-        const container = async (target, parentId, config = {}) => {
-            const result = await target.evaluate(config => Neo.worker.App.createNeoInstance({
-                importPath: '../container/Base.mjs', ntype: 'container', ...config
-            }), {parentId, ...config});
-            expect(result.success).toBe(true);
-            return result.id
-        };
         const field = async (target, parentId, labelPosition = 'inline') => {
             const id = await createTextField(target, {parentId, clearable: false, labelPosition});
             return target.locator('#' + id)
@@ -125,9 +137,11 @@ for (const [outer, inner] of [
             const input      = getComputedStyle(el.querySelector('input')),
                   label      = el.querySelector('.neo-label-wrapper'),
                   overlay    = getComputedStyle(label),
+                  segment    = getComputedStyle(label.querySelector('.neo-left-border')),
                   focusPaint = getComputedStyle(label, '::after').backgroundImage !== 'none';
             return {
-                colorScheme: input.colorScheme, inputHeight: input.height, padding: input.padding,
+                colorScheme: input.colorScheme, color: input.color, font: input.font,
+                inputHeight: input.height, padding: input.padding, borderColor: segment.borderBottomColor, borderWidth: segment.borderWidth,
                 indicator  : input.getPropertyValue('--neo-textfield-border-bottom-width').trim(),
                 overlayFill: overlay.backgroundColor, focusPaint,
                 duration   : getComputedStyle(el).transitionDuration
@@ -135,16 +149,16 @@ for (const [outer, inner] of [
         });
 
         const viewport   = 'component-test-viewport',
-              host       = await container(page, viewport),
-              island     = await container(page, host, {theme: inner}),
-              descendant = await container(page, island),
+              host       = await fieldContainer(page, viewport),
+              island     = await fieldContainer(page, host, {theme: inner}),
+              descendant = await fieldContainer(page, island),
               nested     = await field(page, descendant),
-              standalone = await field(reference, await container(reference, viewport)),
+              standalone = await field(reference, await fieldContainer(reference, viewport)),
               roleFill   = 'rgb(24, 64, 96)',
-              scope      = await container(page, descendant, {
+              scope      = await fieldContainer(page, descendant, {
                   cls: ['neo-theme-scope'], style: {'--neo-color-background-field': roleFill}
               }),
-              scoped        = await field(page, await container(page, scope));
+              scoped     = await field(page, await fieldContainer(page, scope));
 
         await expect(page.locator('#' + island)).toContainClass(inner);
         await expect(page.locator('#' + host)).not.toHaveClass(/neo-theme-/);
@@ -153,16 +167,16 @@ for (const [outer, inner] of [
         await expect(scoped).not.toHaveClass(/neo-theme-/);
         await expect(standalone.locator('input')).toBeVisible();
         await expect(nested.locator('input')).toBeVisible();
-        // The complete Neo field palette is available today; Material's shared form bindings arrive separately.
-        if (inner === 'neo-theme-neo-light') {
-            const paint = locator => locator.locator('input').evaluate(el => {
-                const {backgroundColor, borderColor, borderWidth, color, font} = getComputedStyle(el);
-                return {backgroundColor, borderColor, borderWidth, color, font}
-            });
-            const plain   = await field(page, descendant, 'left'),
-                  control = await field(reference, viewport, 'left');
-            expect(await paint(plain)).toEqual(await paint(control))
-        }
+        const paint = locator => locator.locator('input').evaluate(el => {
+            const {backgroundColor, borderColor, borderRadius, borderWidth, color, font} = getComputedStyle(el);
+            return {backgroundColor, borderColor, borderRadius, borderWidth, color, font}
+        });
+        const plain       = await field(page, descendant, 'left'),
+              scopedPlain = await field(page, scope, 'left'),
+              control     = await field(reference, viewport, 'left'),
+              normalPaint = await paint(control);
+        expect(await paint(plain)).toEqual(normalPaint);
+        expect(await paint(scopedPlain)).toEqual({...normalPaint, backgroundColor: roleFill});
         const normal = await surface(standalone);
         expect(normal.colorScheme).toBe(inner === 'neo-theme-material-dark' ? 'dark' : 'light');
         expect(normal.focusPaint).toBe(inner === 'neo-theme-material-dark');
@@ -173,7 +187,9 @@ for (const [outer, inner] of [
         await expect(page.locator('#' + host)).toContainClass(switchedHost);
         await expect(page.locator('#' + island)).toContainClass(inner);
         await expect.poll(() => surface(nested)).toEqual(normal);
-        await expect.poll(() => surface(scoped)).toEqual(scopedSurface)
+        await expect.poll(() => surface(scoped)).toEqual(scopedSurface);
+        await expect.poll(() => paint(plain)).toEqual(normalPaint);
+        await expect.poll(() => paint(scopedPlain)).toEqual({...normalPaint, backgroundColor: roleFill})
     });
 }
 

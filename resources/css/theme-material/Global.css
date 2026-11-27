@@ -126,6 +126,9 @@
     --neo-color-background-neutral-hover    : light-dark(var(--neo-palette-shade-1), var(--neo-palette-tint-1));
     --neo-color-background-neutral-active   : light-dark(var(--neo-palette-shade-2), var(--neo-palette-tint-2));
     --neo-color-background-disabled         : light-dark(var(--neo-palette-shade-2), var(--neo-palette-tint-2));
+    --neo-color-background-track            : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-400));
+    --neo-color-background-track-hover      : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-300));
+    --neo-color-background-handle           : light-dark(var(--neo-palette-white), var(--neo-palette-neutral-950));
     /* background: accent. Tone 40 in light, tone 80 in dark; hover and press are the next grade */
     --neo-color-background-accent           : light-dark(var(--neo-palette-accent-500), var(--neo-palette-accent-300));
     --neo-color-background-accent-hover     : light-dark(var(--neo-palette-accent-600), var(--neo-palette-accent-400));

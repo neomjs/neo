@@ -30,13 +30,17 @@
         --neo-selectfield-divider-color: var(--neo-selectfield-border-color);
         background-color           : var(--neo-selectfield-background-color);
         border                     : var(--neo-selectfield-border-width) solid var(--neo-selectfield-border-color);
+        border-width               : var(--neo-selectfield-border-top-width) var(--neo-selectfield-border-inline-width) var(--neo-selectfield-border-bottom-width);
         border-radius              : var(--neo-selectfield-border-radius);
         box-sizing                 : border-box;
         color                      : var(--neo-selectfield-color);
         cursor                     : pointer;
-        font                       : var(--neo-selectfield-input-font);
-        height                     : calc(var(--neo-selectfield-input-height) + var(--neo-selectfield-border-width) * 2);
-        min-height                 : calc(var(--neo-selectfield-input-height) + var(--neo-selectfield-border-width) * 2);
+        font-family                : var(--neo-selectfield-input-font-family);
+        font-size                  : var(--neo-selectfield-input-font-size);
+        font-weight                : var(--neo-selectfield-input-font-weight);
+        height                     : calc(var(--neo-selectfield-input-height) + var(--neo-selectfield-border-top-width) + var(--neo-selectfield-border-bottom-width));
+        line-height                : var(--neo-selectfield-input-line-height);
+        min-height                 : calc(var(--neo-selectfield-input-height) + var(--neo-selectfield-border-top-width) + var(--neo-selectfield-border-bottom-width));
         padding                    : var(--neo-selectfield-input-padding);
         transition                 : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
         width                      : 100%;
@@ -51,8 +55,9 @@
 
         &:focus,
         &:focus-visible {
-            border-color: var(--neo-selectfield-border-color-focus);
-            outline     : none;
+            border-bottom-width: var(--neo-selectfield-border-bottom-width-focus);
+            border-color       : var(--neo-selectfield-border-color-focus);
+            outline            : none;
         }
     }
 
@@ -61,8 +66,9 @@
     }
 
     &.neo-focus:not(.neo-disabled) .neo-selectfield-input {
-        border-color: var(--neo-selectfield-border-color-focus);
-        outline     : none;
+        border-bottom-width: var(--neo-selectfield-border-bottom-width-focus);
+        border-color       : var(--neo-selectfield-border-color-focus);
+        outline            : none;
     }
 
     @supports (appearance: base-select) {
@@ -125,10 +131,13 @@
                     appearance      : base-select;
                     background-color: var(--neo-selectfield-picker-background-color);
                     border          : var(--neo-selectfield-border-width) solid var(--neo-selectfield-picker-border-color);
-                    border-radius   : var(--neo-selectfield-border-radius);
+                    border-radius   : var(--neo-selectfield-picker-border-radius);
                     box-shadow      : var(--neo-selectfield-picker-box-shadow);
                     color           : var(--neo-selectfield-option-color);
-                    font            : var(--neo-selectfield-input-font);
+                    font-family     : var(--neo-selectfield-input-font-family);
+                    font-size       : var(--neo-selectfield-input-font-size);
+                    font-weight     : var(--neo-selectfield-input-font-weight);
+                    line-height     : var(--neo-selectfield-input-line-height);
                     margin-block    : 2px;
                     padding         : 4px 0;
                 }
@@ -138,8 +147,11 @@
                     background-color: transparent;
                     color           : var(--neo-selectfield-option-color);
                     cursor          : pointer;
-                    font            : var(--neo-selectfield-input-font);
+                    font-family     : var(--neo-selectfield-input-font-family);
+                    font-size       : var(--neo-selectfield-input-font-size);
+                    font-weight     : var(--neo-selectfield-input-font-weight);
                     gap             : 6px;
+                    line-height     : var(--neo-selectfield-input-line-height);
                     min-height      : 28px;
                     padding         : 4px 10px;
 

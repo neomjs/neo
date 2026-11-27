@@ -136,6 +136,10 @@
     --neo-color-background-neutral-hover    : light-dark(var(--neo-palette-shade-1),     var(--neo-palette-tint-1));
     --neo-color-background-neutral-active   : light-dark(var(--neo-palette-shade-2),     var(--neo-palette-tint-2));
     --neo-color-background-disabled         : light-dark(var(--neo-palette-neutral-200), var(--neo-palette-neutral-900));
+    /* background: tracks and their handles (switches, range sliders). 3:1 on canvas and handle on track */
+    --neo-color-background-track            : light-dark(var(--neo-palette-neutral-500), var(--neo-palette-neutral-600));
+    --neo-color-background-track-hover      : light-dark(var(--neo-palette-neutral-600), var(--neo-palette-neutral-500));
+    --neo-color-background-handle           : var(--neo-palette-white);
     /* background: accent. Solid fills are the same in both schemes; hover and active are the next grades */
     --neo-color-background-accent           : var(--neo-palette-accent-600);
     --neo-color-background-accent-hover     : var(--neo-palette-accent-700);
