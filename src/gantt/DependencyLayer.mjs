@@ -18,6 +18,9 @@ const ARROW_STUB_PX = 12;
  *
  * The layer replaces the visible arrows and their marker definitions together as one SVG fragment.
  * It escapes record-derived attributes and skips the DOM update when the fragment and its bounds are unchanged.
+ *
+ * An input that changes re-projects the arrows at once; a `set()` of several inputs projects once, after the last
+ * of them.
  * @class Neo.gantt.DependencyLayer
  * @extends Neo.component.Base
  * @see Neo.gantt.Container
@@ -120,6 +123,13 @@ class DependencyLayer extends Component {
      */
     arrows = []
     /**
+     * The {@link #setSilent} calls that are running. While one runs, a changed input leaves its projection to
+     * the end of the batch.
+     * @member {Number} #batchDepth=0
+     * @private
+     */
+    #batchDepth = 0
+    /**
      * In-flight spans by task id that links attach to instead of their tasks' dates. The owning chart shares its
      * {@link Neo.gantt.Container#drawnSpans}, so a link follows a moving bar.
      * @member {Map<String, Number[]>|null} drawnSpans=null
@@ -137,6 +147,12 @@ class DependencyLayer extends Component {
      * @private
      */
     #highlightedDependencySet = new Set()
+    /**
+     * True when an input changed inside a running batch, which projects once when it ends.
+     * @member {Boolean} #needsProjection=false
+     * @private
+     */
+    #needsProjection = false
     /**
      * Instances created from this layer's own configuration.
      * @member {WeakSet} #ownedInputs
@@ -258,7 +274,7 @@ class DependencyLayer extends Component {
      */
     afterSetScrollLeft(value, oldValue) {
         if (oldValue !== undefined && this.isConstructed && this.needsReprojection(value, this.viewportWidth)) {
-            this.project()
+            this.onInputChange(oldValue)
         }
     }
 
@@ -303,7 +319,7 @@ class DependencyLayer extends Component {
      */
     afterSetViewportWidth(value, oldValue) {
         if (oldValue !== undefined && this.isConstructed && this.needsReprojection(this.scrollLeft, value)) {
-            this.project()
+            this.onInputChange(oldValue)
         }
     }
 
@@ -439,13 +455,20 @@ class DependencyLayer extends Component {
 
     /**
      * @summary Re-projects the arrows after one of the layer's inputs changed. The first assignment of an input
-     * and a write before the layer is constructed draw nothing: {@link #construct} projects once.
+     * and a write before the layer is constructed draw nothing: {@link #construct} projects once. An input
+     * written by {@link #setSilent} leaves the projection to the end of that batch.
      * @param {*} oldValue The input's previous value; `undefined` marks its first assignment
      * @protected
      */
     onInputChange(oldValue) {
-        if (oldValue !== undefined && this.isConstructed) {
-            this.project()
+        let me = this;
+
+        if (oldValue !== undefined && me.isConstructed) {
+            if (me.#batchDepth) {
+                me.#needsProjection = true
+            } else {
+                me.project()
+            }
         }
     }
 
@@ -667,6 +690,32 @@ class DependencyLayer extends Component {
         }
 
         return paths
+    }
+
+    /**
+     * @summary Writes several configs as one change, which `set()` does too: inputs among them project the arrows
+     * once, after the last of them, from all the new values.
+     * @param {Object} [values={}] The configs to write
+     */
+    setSilent(values={}) {
+        let me = this;
+
+        me.#batchDepth++;
+
+        try {
+            super.setSilent(values)
+        } finally {
+            me.#batchDepth--
+        }
+
+        if (!me.#batchDepth && me.#needsProjection) {
+            me.#needsProjection = false;
+
+            // Silent like the batch: `set()` sends the update this projection asks for
+            me.silentVdomUpdate = true;
+            me.project();
+            me.silentVdomUpdate = false
+        }
     }
 
     /**

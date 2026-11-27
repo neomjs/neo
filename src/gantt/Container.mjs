@@ -29,7 +29,8 @@ const GanttColumn = Column, GanttBody = Body,
 class Container extends SchedulerContainer {
     /**
      * The scheduler's relay descriptors with the dependency layer as a further target: `layer` names the layer
-     * config a chart config feeds. {@link #relayTimelineConfig} is the one place that writes those inputs.
+     * config a chart config feeds, at the layer's creation ({@link #getDependencyLayerInputs}) and on every later
+     * change ({@link #relayTimelineConfig}).
      * @member {Object} timelineRelays
      * @static
      */
@@ -336,23 +337,18 @@ class Container extends SchedulerContainer {
             this.#dependencyCleanups.push(() => value.un(listeners))
         }
         this.relayTimelineConfig('dependencyStore', value, oldValue);
-        this.syncScheduleHighlights();
         if (oldValue && oldValue !== value && this.#ownedDependencies.has(oldValue)) oldValue.destroy()
     }
 
     /**
-     * @summary Forwards end-field changes and invalidates dependent analysis.
+     * @summary Invalidates dependent analysis, then forwards the end field: the relay draws it with the new highlights.
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetEndDateField(value, oldValue) {
-        super.afterSetEndDateField(value, oldValue);
-
-        if (oldValue !== undefined) {
-            this.#analysis?.invalidateSchedule();
-            this.syncScheduleHighlights()
-        }
+        if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
+        super.afterSetEndDateField(value, oldValue)
     }
 
     /**
@@ -395,18 +391,14 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Forwards start-field changes and invalidates dependent analysis.
+     * @summary Invalidates dependent analysis, then forwards the start field: the relay draws it with the new highlights.
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetStartDateField(value, oldValue) {
-        super.afterSetStartDateField(value, oldValue);
-
-        if (oldValue !== undefined) {
-            this.#analysis?.invalidateSchedule();
-            this.syncScheduleHighlights()
-        }
+        if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
+        super.afterSetStartDateField(value, oldValue)
     }
 
     /**
@@ -452,7 +444,6 @@ class Container extends SchedulerContainer {
         }
         if (this.eventDragZone) this.eventDragZone.store = value;
         this.relayTimelineConfig('store', value, oldValue);
-        this.syncScheduleHighlights();
         if (oldValue && oldValue !== value && this.#ownedTasks.has(oldValue)) oldValue.destroy()
     }
 
@@ -467,19 +458,16 @@ class Container extends SchedulerContainer {
     }
 
     /**
-     * @summary Updates the overlay after an axis replacement.
+     * @summary Invalidates dependent analysis, relays the replaced axis with the new highlights, and follows the
+     * new axis' changes.
      * @param {Neo.timeline.TimeAxis|null} value
      * @param {Neo.timeline.TimeAxis|null} oldValue
      * @protected
      */
     afterSetTimeAxis(value, oldValue) {
-        super.afterSetTimeAxis(value, oldValue);
         if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
-
-        if (this.dependencyLayer) {
-            this.bindTimelineSubscriptions();
-            this.syncScheduleHighlights()
-        }
+        super.afterSetTimeAxis(value, oldValue);
+        if (this.dependencyLayer) this.bindTimelineSubscriptions()
     }
 
     /**
@@ -582,11 +570,16 @@ class Container extends SchedulerContainer {
             // geometry, and a live column resize moves it in place
             let syncGeometry = () => this.syncDependencyLayerGeometry(),
                 listeners    = {cellPositionsChange: syncGeometry, isScrollingChange: ({value}) => value && this.#cascadeMotion?.end()},
-                onPositions  = ({addedItems}) => {if (addedItems?.length) syncGeometry()};
+                onPositions  = ({addedItems}) => {if (addedItems?.length) syncGeometry()},
+                scrollbar    = this.horizontalScrollbar;
             body.on(listeners);
             body.columnPositions.on('mutate', onPositions);
-            // The width the column shows follows the body's, which the column reads for its bars too
-            this.#cleanups.push(this.observeConfig(body, 'containerWidth', syncGeometry),
+            // The width the column shows is the body's less both locked regions'. The scrollbar carries those two
+            // widths as its margins and outlives the locked bodies, which come and go with their columns
+            this.#cleanups.push(
+                this.observeConfig(body,      'containerWidth', syncGeometry),
+                this.observeConfig(scrollbar, 'endWidth',       syncGeometry),
+                this.observeConfig(scrollbar, 'startWidth',     syncGeometry),
                 () => body.isDestroyed || (body.un(listeners), body.columnPositions.un('mutate', onPositions)))
         }
     }
@@ -732,6 +725,9 @@ class Container extends SchedulerContainer {
     /**
      * @summary Returns the dependency overlay, creating it on first use from the chart's values and
      * {@link #dependencyLayerConfig}. The center body mounts it: see {@link Neo.gantt.Body#createRowPool}.
+     * @description `dependencyLayerConfig` overrides the mirrored inputs of {@link #getDependencyLayerInputs} until
+     * the chart config behind one changes. It does not replace the chart's {@link #drawnSpans}: bars and links
+     * read the same in-flight spans.
      * @returns {Neo.gantt.DependencyLayer}
      */
     ensureDependencyLayer() {
@@ -739,21 +735,13 @@ class Container extends SchedulerContainer {
 
         if (!me.dependencyLayer || me.dependencyLayer.isDestroyed) {
             me.dependencyLayer = Neo.create({
-                module         : DependencyLayer,
-                appName        : me.appName,
-                bufferPx       : me.bufferPx,
-                dependencyStore: me.dependencyStore,
-                drawnSpans     : me.drawnSpans,
-                endDateField   : me.endDateField,
-                id             : `${me.id}__dependency-layer`,
-                parentId       : me.body?.id || me.id,
-                rowHeight      : me.rowHeight,
-                startDateField : me.startDateField,
-                taskStore      : me.store,
-                timeAxis       : me.timeAxis,
-                viewportWidth  : me.viewportWidth,
-                windowId       : me.windowId,
-                ...me.dependencyLayerConfig
+                module       : DependencyLayer,
+                id           : `${me.id}__dependency-layer`,
+                parentId     : me.body?.id || me.id,
+                viewportWidth: me.viewportWidth,
+                ...me.getDependencyLayerInputs(),
+                ...me.dependencyLayerConfig,
+                drawnSpans   : me.drawnSpans
             })
         }
 
@@ -796,6 +784,26 @@ class Container extends SchedulerContainer {
             showResourceField: false,
             title            : 'Edit task'
         }
+    }
+
+    /**
+     * @summary Returns the chart values the dependency layer mirrors, keyed by the layer config each one feeds.
+     * @description Reads {@link Neo.gantt.Container.timelineRelays}, as {@link #relayTimelineConfig} does for every
+     * later change: a subclass that points a relay at another layer config moves the layer's first value with it.
+     * @returns {Object}
+     * @protected
+     */
+    getDependencyLayerInputs() {
+        let me     = this,
+            inputs = {};
+
+        for (let [configName, {layer}] of Object.entries(me.constructor.timelineRelays)) {
+            if (layer) {
+                inputs[layer] = me[configName]
+            }
+        }
+
+        return inputs
     }
 
     /**
@@ -1324,6 +1332,8 @@ class Container extends SchedulerContainer {
     /**
      * @summary Relays a chart config as the scheduler does, then to the dependency layer where
      * {@link Neo.gantt.Container.timelineRelays} names a `layer` config for it.
+     * @description The layer takes the value in one write with the registered analysis' highlights, so an input
+     * that changes them is projected once. A hook that invalidates the analysis does so before it relays.
      * @param {String} configName The chart config that changed
      * @param {*}      value      Its new value
      * @param {*}      oldValue   Its previous value
@@ -1332,12 +1342,10 @@ class Container extends SchedulerContainer {
     relayTimelineConfig(configName, value, oldValue) {
         super.relayTimelineConfig(configName, value, oldValue);
 
-        let me    = this,
-            layer = me.dependencyLayer,
-            key   = me.constructor.timelineRelays[configName]?.layer;
+        let key = this.constructor.timelineRelays[configName]?.layer;
 
-        if (key && layer) {
-            layer[key] = value
+        if (key) {
+            this.syncScheduleHighlights({[key]: value})
         }
     }
 
@@ -1508,10 +1516,11 @@ class Container extends SchedulerContainer {
 
     /**
      * @summary Applies the registered analysis' highlights to the timeline column and the dependency layer.
+     * @param {Object} [layerInputs={}] Layer configs to write with the highlights: one write, one projection
      * @returns {Boolean} True when the layer's highlights changed, which re-projects it
      * @protected
      */
-    syncScheduleHighlights() {
+    syncScheduleHighlights(layerInputs={}) {
         let me       = this,
             analysis = me.#analysis,
             column   = me.timelineColumn,
@@ -1528,9 +1537,13 @@ class Container extends SchedulerContainer {
             }
 
             if (layer && !Neo.isEqual(layer.highlightedDependencyIds, dependencyIds)) {
-                layer.highlightedDependencyIds = [...dependencyIds];
-                changed = true
+                layerInputs = {...layerInputs, highlightedDependencyIds: [...dependencyIds]};
+                changed     = true
             }
+        }
+
+        if (layer && Object.keys(layerInputs).length) {
+            layer.set(layerInputs)
         }
 
         return changed

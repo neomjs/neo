@@ -41,6 +41,35 @@ async function unlockTaskColumn(page) {
 }
 
 /**
+ * @summary Presses the resize handle of the Task column's header and moves it by `deltaX`. The pointer stays
+ * down, so the column is in its live resize when this returns.
+ * @param {import('@playwright/test').Page} page
+ * @param {Number} deltaX
+ */
+async function dragTaskColumnEdge(page, deltaX) {
+    // Pinned by id: a drag proxy clones the button
+    const
+        taskId = await page.evaluate(() => [...document.querySelectorAll('.neo-grid-header-button')].find(button => button.innerText.trim() === 'Task').id),
+        task   = page.locator(`[id="${taskId}"]`),
+        box    = await task.boundingBox(),
+        x      = box.x + box.width - 3,
+        y      = box.y + box.height / 2,
+        handle = task.locator('.neo-resizable-right');
+
+    await expect(async () => {
+        await page.mouse.move(x - 30, y);
+        await page.mouse.move(x, y, {steps: 4});
+        await expect(handle).toHaveCount(1, {timeout: 250})
+    }).toPass();
+
+    const hb = await handle.boundingBox();
+
+    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(hb.x + hb.width / 2 + deltaX, hb.y + hb.height / 2, {steps: 12})
+}
+
+/**
  * @summary Measures every rendered link against the bars it joins: it must leave its source bar's right edge
  * and reach its target bar's left edge, at the bars' mid height.
  * @param {import('@playwright/test').Page} page
@@ -114,26 +143,7 @@ test('links stay on their bars while the column before the timeline is being res
     await unlockTaskColumn(page);
     await expect.poll(() => measureLinks(page, LINKS)).toBe('on bars');
 
-    // Pinned by id: a drag proxy clones the button
-    const
-        taskId = await page.evaluate(() => [...document.querySelectorAll('.neo-grid-header-button')].find(button => button.innerText.trim() === 'Task').id),
-        task   = page.locator(`[id="${taskId}"]`),
-        box    = await task.boundingBox(),
-        x      = box.x + box.width - 3,
-        y      = box.y + box.height / 2,
-        handle = task.locator('.neo-resizable-right');
-
-    await expect(async () => {
-        await page.mouse.move(x - 30, y);
-        await page.mouse.move(x, y, {steps: 4});
-        await expect(handle).toHaveCount(1, {timeout: 250})
-    }).toPass();
-
-    const hb = await handle.boundingBox();
-
-    await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(hb.x + hb.width / 2 + 137, hb.y + hb.height / 2, {steps: 12});
+    await dragTaskColumnEdge(page, 137);
 
     // The pointer is still down: the live resize has moved the timeline, and the links must have followed it
     await expect.poll(() => inGantt(page, gantt => gantt.body.columnPositions.get(gantt.timelineDataField)?.x)).toBeGreaterThan(TASK_WIDTH + 100);
@@ -141,6 +151,27 @@ test('links stay on their bars while the column before the timeline is being res
 
     await page.mouse.up();
     await expect.poll(() => measureLinks(page, LINKS)).toBe('on bars')
+});
+
+test('narrowing the locked task column widens the links\' window with the timeline\'s', async ({page}) => {
+    const drawn = () => inGantt(page, gantt => gantt.dependencyLayer.arrows.map(arrow => arrow.data.dependencyId));
+
+    // 760 px leave the timeline 540 px beside the locked task column. Without overscan the links' window ends
+    // there, before the last of LINKS
+    await page.setViewportSize({width: 760, height: 900});
+    await expect.poll(() => inGantt(page, gantt => gantt.timelineColumn.effectiveViewportWidth)).toBeLessThan(600);
+    await inGantt(page, gantt => {gantt.bufferPx = 0});
+    await expect.poll(drawn).toEqual(LINKS.slice(0, -1));
+
+    await dragTaskColumnEdge(page, -120);
+
+    // The pointer is still down, and nothing scrolled: the locked region alone gave the timeline its new width
+    await expect.poll(() => inGantt(page, gantt => gantt.bodyStart.availableWidth)).toBeLessThan(TASK_WIDTH - 100);
+    await expect.poll(() => inGantt(page, gantt => gantt.dependencyLayer.viewportWidth - gantt.timelineColumn.effectiveViewportWidth)).toBe(0);
+    await expect.poll(drawn).toEqual(LINKS);
+
+    await page.mouse.up();
+    await expect.poll(drawn).toEqual(LINKS)
 });
 
 test('the bar and the day under the timeline\'s left edge render when the column before it is wider than the buffer', async ({page}) => {
