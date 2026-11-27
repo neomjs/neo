@@ -262,7 +262,7 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         const
             override = '--neo-color-text-default: var(--neo-color-background-canvas);',
             scope    = rel => [expect.stringMatching(new RegExp(
-                `^\\[scope\\] resources/css/${rel} declares or registers --neo-color-text-default where this check reads no theme class`
+                `^\\[scope\\] resources/css/${rel} declares or registers --neo-color-text-default outside the theme classes this check reads`
             ))];
 
         // A rule that reaches every element, one that reads the class off the attribute, and a string that
@@ -275,6 +275,36 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
         for (const rule of [`.neo-button { ${override} }`, '@property --neo-color-text-default { syntax: "<color>"; inherits: false; initial-value: red; }']) {
             expect(inspect({'theme-neo/Global.css': source, 'src/button/Base.css': rule}).failures).toEqual(scope('src/button/Base\\.css'))
         }
+    });
+
+    test('a rule that names a theme class and reaches past it fails as [scope], also with the value the class has', () => {
+        const scope = [expect.stringMatching(
+            /^\[scope\] resources\/css\/theme-neo\/Global\.css declares or registers --neo-color-scheme outside the theme classes this check reads/
+        )];
+
+        // One alternative of the list reaches every element, and a class named only in a negation is not reached.
+        for (const rule of ['.neo-theme-neo-light, * { --neo-color-scheme: light; }', ':not(.neo-theme-neo-dark) { --neo-color-scheme: light; }']) {
+            expect(plant(css => `${css}\n${rule}`).failures).toEqual(scope)
+        }
+    });
+
+    test('a theme without a palette declares no colour role but the scheme', () => {
+        expect(inspect({
+            'theme-neo/Global.css': source,
+            'theme-old/Global.css': '.neo-theme-old { --neo-color-scheme: dark; --neo-color-text-default: #fff; }'
+        }).failures).toEqual([
+            '[scope] resources/css/theme-old/Global.css declares --neo-color-text-default for .neo-theme-old, which has no palette; ' +
+            'a theme takes its palette and its colour roles together'
+        ])
+    });
+
+    test('a colour role that reads a name outside the measured ones cannot be measured', () => {
+        const {failures} = plant(css => setRole(css, '--neo-color-text-muted', 'var(--text-alias)') +
+            '\n.neo-theme-neo-light, .neo-theme-neo-dark { --text-alias: var(--neo-palette-neutral-600); }');
+
+        // Two pairs read the role, in two schemes.
+        expect(failures).toHaveLength(4);
+        expect(failures.every(failure => failure.includes('--neo-color-text-muted on') && failure.includes('cannot measure'))).toBe(true)
     });
 
     test('an escaped class and an escaped name are read as a browser reads them', () => {

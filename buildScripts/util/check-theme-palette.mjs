@@ -6,14 +6,17 @@
  * scheme the theme declares, and every palette declares the same `--neo-` names as every other.
  *
  * A palette is a theme class for which a sheet declares a `--neo-palette-*` name. A theme without one is not
- * written against the roles yet and is skipped. This check models no cascade and reads no condition, so it
- * holds the names it measures, every `--neo-palette-*` and `--neo-color-*` name of a palette, to one reading:
- * one value per theme class, in a rule that names the class, under no condition. It reads every sheet under
- * `resources/css` for that, and any other place that declares or registers such a name fails. A scale role
- * may be re-valued by a scope or a condition, as the reduced-motion collapse does. A value set from JavaScript
- * and a sheet reached through `@import` are outside this check. The lightness numbers are each theme's own,
- * so a palette is compared with itself and never with a table. Contrast is measured on the resolved colours
- * and never read off the grade distance: OKLCH lightness is not luminance.
+ * written against the roles yet: it is skipped, and it declares no colour role but the scheme. This check
+ * models no cascade and reads no condition, so it holds the names it measures, every `--neo-palette-*` and
+ * `--neo-color-*` name of a palette, to one reading: one value per theme class, in a rule whose selector list
+ * names a theme class in every alternative, under no condition, read from measured names only. It reads
+ * every sheet under `resources/css` for that, and any other place that declares or registers such a name
+ * fails. A scale role may be re-valued by a scope or a condition, as the reduced-motion collapse does.
+ *
+ * Three things are outside this check: what a rule that names a theme class reaches beyond that class through
+ * a combinator or `:has()`, a value set from JavaScript, and a sheet reached through `@import`. The lightness
+ * numbers are each theme's own, so a palette is compared with itself and never with a table. Contrast is
+ * measured on the resolved colours and never read off the grade distance: OKLCH lightness is not luminance.
  */
 import fs                  from 'node:fs';
 import path                from 'node:path';
@@ -349,35 +352,70 @@ function readSheet(file) {
 }
 
 /**
+ * @summary The theme classes a selector names, the structural `neo-theme-scope` aside.
+ * @param {String} selector
+ * @returns {String[]}
+ */
+function themeClassesIn(selector) {
+    return [...selector.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
+        .map(match => match[1])
+        .filter(name => name !== 'neo-theme-scope')
+}
+
+/**
+ * @summary A selector without its `:not(…)` groups: a class named only there is one the rule does not reach.
+ * @param {String} selector
+ * @returns {String}
+ */
+function withoutNegations(selector) {
+    let depth  = 0,
+        result = '';
+
+    for (let index = 0; index < selector.length; index++) {
+        if (!depth && selector.startsWith(':not(', index)) {
+            depth  = 1;
+            index += 4
+        } else if (depth) {
+            depth += selector[index] === '(' ? 1 : selector[index] === ')' ? -1 : 0
+        } else {
+            result += selector[index]
+        }
+    }
+
+    return result
+}
+
+/**
  * @summary Reads a comment-free stylesheet into one declaration map per theme class. A declaration belongs
  * to every theme class that its rule, or a rule around it, names in a selector list, and a later one wins.
  * That is no cascade: `onDeclaration` hears every custom property the sheet declares, so a caller can refuse
- * a name that has two values or sits in no theme class. A declaration under a condition enters no map, since
- * nothing here reads when it applies.
+ * a name that has two values or reaches past the theme classes. A declaration under a condition enters no
+ * map, since nothing here reads when it applies.
  * @param {String} css
- * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions)` once for each custom
- * property declared: `classes` holds the theme classes named around it, and is empty when none is;
- * `conditions` holds the at-rules around it other than `@layer`, outermost first
+ * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions, scoped)` once for each
+ * custom property declared: `classes` holds the theme classes named around it; `conditions` the at-rules
+ * around it other than `@layer`, outermost first; `scoped` is true when every alternative of its selector
+ * list, or a rule around it, names a theme class
  * @returns {Map<String, Map<String,String>>}
  */
 export function readThemeDeclarations(css, onDeclaration) {
     const
-        blocks = [{classes: [], conditions: []}],
+        blocks = [{classes: [], conditions: [], scoped: false}],
         themes = new Map();
 
     for (const [, text, mark] of css.matchAll(/([^{};]*)([{};])/g)) {
-        const {classes, conditions} = blocks.at(-1);
+        const {classes, conditions, scoped} = blocks.at(-1);
 
         if (mark === '{') {
             const
                 header = text.trim(),
-                named  = [...header.matchAll(/\.(neo-theme-[a-zA-Z0-9_-]+)/g)]
-                    .map(match => match[1])
-                    .filter(name => name !== 'neo-theme-scope');
+                atRule = header.startsWith('@'),
+                parts  = atRule ? [header] : withoutNegations(header).split(',');
 
             blocks.push({
-                classes   : [...new Set([...classes, ...named])],
-                conditions: /^@(?!layer\b)/.test(header) ? [...conditions, header] : conditions
+                classes   : [...new Set([...classes, ...parts.flatMap(themeClassesIn)])],
+                conditions: /^@(?!layer\b)/.test(header) ? [...conditions, header] : conditions,
+                scoped    : atRule ? scoped : scoped || parts.every(part => themeClassesIn(part).length > 0)
             });
 
             continue
@@ -390,7 +428,7 @@ export function readThemeDeclarations(css, onDeclaration) {
             conditions.length || themes.get(themeClass).set(name, value)
         }
 
-        name && onDeclaration?.(classes, name, value, conditions);
+        name && onDeclaration?.(classes, name, value, conditions, scoped);
 
         mark === '}' && blocks.length > 1 && blocks.pop()
     }
@@ -445,10 +483,12 @@ function commonReading(entries) {
 function checkPalette({declarations, failures, relPath, themeClass}) {
     const
         grades = new Map(),
+        // A measured name reads measured names only: nothing outside the one reading decides a verdict.
+        known  = new Map([...declarations].filter(([name]) => isMeasured(name))),
         scheme = declarations.get(SCHEME),
         slots  = new Map(),
         color  = name => {
-            const resolved = declarations.has(name) ? resolveValue(declarations.get(name), declarations, scheme) : null;
+            const resolved = known.has(name) ? resolveValue(known.get(name), known, scheme) : null;
 
             return resolved === null ? null : parseColor(resolved)
         };
@@ -627,8 +667,8 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
             css     = readSheet(file),
             placed  = new Map(),
             relPath = path.relative(root, file).replaceAll('\\', '/'),
-            sheets  = readThemeDeclarations(css, (classes, name, value, conditions) => {
-                classes.length && placed.set(name, (placed.get(name) ?? 0) + 1);
+            sheets  = readThemeDeclarations(css, (classes, name, value, conditions, scoped) => {
+                scoped && placed.set(name, (placed.get(name) ?? 0) + 1);
 
                 for (const themeClass of classes) {
                     const {conditional, values} = theme(themeClass);
@@ -642,7 +682,7 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
                 }
             });
 
-        // What the sheet spells beyond the declarations the reader placed in a theme class.
+        // What the sheet spells beyond the declarations the reader placed inside the theme classes.
         for (const [, name] of css.matchAll(SPELLED)) {
             const left = placed.get(name) ?? 0;
 
@@ -673,6 +713,14 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         }
 
         if (!palette) {
+            // Without a palette nothing here measures a colour role, so such a theme declares none but the scheme.
+            for (const [name, seen] of values) {
+                isMeasured(name) && name !== SCHEME && failures.add(
+                    `[scope] ${[...seen.values()][0]} declares ${name} for .${themeClass}, which has no palette; ` +
+                    `a theme takes its palette and its colour roles together`
+                )
+            }
+
             continue
         }
 
@@ -695,7 +743,7 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
 
     for (const {name, relPath} of loose) {
         owned.has(name) && failures.add(
-            `[scope] ${relPath} declares or registers ${name} where this check reads no theme class around it; ` +
+            `[scope] ${relPath} declares or registers ${name} outside the theme classes this check reads; ` +
             `a palette or colour-role name has one value per theme class, and nothing here can tell what another reaches`
         )
     }
