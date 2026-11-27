@@ -11,13 +11,16 @@
  * A reference with a fallback is the author's explicit choice and is skipped. Definitions count
  * wherever they appear: the guard catches names that nothing defines, not scoping mistakes.
  * A `theme-base` declaration that a theme declares again in its own files is that theme's value
- * (`neo.theme` outranks `neo.base`), so the reads inside it are not checked for that theme.
+ * (`neo.theme` outranks `neo.base`), so the reads inside it are not checked for that theme. The themes
+ * written before the roles existed (`PRE_ROLE_THEMES`) skip theme-base's role reads until they declare
+ * roles; a palette in one of them fails the run, which retires it from the set.
  * The runtime list and the stylesheet reading are shared with `theme-census` through `themeCss.mjs`.
  */
-import fs                                                           from 'node:fs';
-import path                                                         from 'node:path';
-import {fileURLToPath}                                              from 'node:url';
-import isEntryModule                                                from './isEntryModule.mjs';
+import fs              from 'node:fs';
+import path            from 'node:path';
+import {fileURLToPath} from 'node:url';
+import isEntryModule   from './isEntryModule.mjs';
+import {kindOf}        from './themeNameShapes.mjs';
 import {
     RUNTIME_PROPERTIES,
     cssFiles,
@@ -35,6 +38,13 @@ const
         ...(fs.existsSync(path.join(cssRoot, 'theme-base')) ? ['theme-base'] : []),
         ...resolveThemeFolders({root: cssRoot})
     ];
+
+/**
+ * Themes written before the roles existed. Theme-base's role reads cannot resolve in them, and a variable they do not
+ * declare resolved to nothing before theme-base either. Closed on purpose: a new theme without roles still fails.
+ * @type {Set<String>}
+ */
+export const PRE_ROLE_THEMES = new Set(['theme-cyberpunk', 'theme-dark', 'theme-light']);
 
 /**
  * The trees this guard reads, as repo-relative globs (the form a workflow `paths:` filter takes).
@@ -123,6 +133,7 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
             label   = folders.length === 1 ? folders[0] : classes.join(' / '),
             files   = folders.flatMap(folder => cssFiles(path.join(root, folder))),
             defined = definitionsIn(files),
+            preRole = folders.every(folder => PRE_ROLE_THEMES.has(folder)),
             missing = new Map();
 
         readsIn(files).forEach(name => read.add(name));
@@ -134,7 +145,7 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
             for (const match of css.matchAll(/var\(\s*(--[\w-]+)\s*\)/g)) {
                 const name = match[1];
 
-                if (isBase && defined.has(declarationAt(css, match.index))) continue;
+                if (isBase && (defined.has(declarationAt(css, match.index)) || preRole && kindOf(name) === 'role')) continue;
 
                 if (!defined.has(name) && !shared.has(name) && !(name in runtimeProperties)) {
                     const sites = missing.get(name) || [];
@@ -146,6 +157,13 @@ export function collectThemeVarReferenceFailures({root = cssRoot, runtimePropert
         }
 
         missing.forEach((sites, name) => failures.push(`[undefined] ${label} reads ${name}, which nothing defines: ${sites.join(', ')}`))
+    }
+
+    for (const folder of PRE_ROLE_THEMES) {
+        const dir = path.join(root, folder);
+
+        fs.existsSync(dir) && [...definitionsIn(cssFiles(dir))].some(name => kindOf(name) === 'palette') &&
+            failures.push(`[burn-down] ${folder} declares a palette, so remove it from PRE_ROLE_THEMES`)
     }
 
     for (const name of Object.keys(runtimeProperties)) {

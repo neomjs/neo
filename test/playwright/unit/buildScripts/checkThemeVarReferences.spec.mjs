@@ -159,6 +159,29 @@ test.describe('check-theme-var-references — every fallback-free var() in a the
         ]);
     });
 
+    test('PRE-ROLE THEMES: skip theme-base role reads, never a component read; a new theme without roles still fires', () => {
+        const mapPath = path.join(tmpRoot, 'pre-role-map.json'),
+              root    = makeTree({
+                  'theme-base/Tab.css'    : '[class*="neo-theme-"] {\n    --neo-tab-color: var(--neo-color-text-default);\n    --neo-tab-gap: var(--neo-tab-missing-gap);\n}',
+                  'theme-light/Global.css': ':where(.neo-theme-light) {}',
+                  'acme-skin/Global.css'  : ':where(.neo-theme-acme) {}'
+              });
+
+        fs.writeFileSync(mapPath, JSON.stringify({themes: {'neo-theme-acme': ['acme-skin'], 'neo-theme-light': ['theme-light']}}), 'utf8');
+
+        expect(collect({root, runtimeProperties: {}, themeMapPath: mapPath}).sort()).toEqual([
+            '[undefined] acme-skin reads --neo-color-text-default, which nothing defines: theme-base/Tab.css:2',
+            '[undefined] acme-skin reads --neo-tab-missing-gap, which nothing defines: theme-base/Tab.css:3',
+            '[undefined] theme-light reads --neo-tab-missing-gap, which nothing defines: theme-base/Tab.css:3'
+        ]);
+    });
+
+    test('FIRES: a pre-role theme that declares a palette has to leave PRE_ROLE_THEMES', () => {
+        const root = makeTree({'theme-dark/Global.css': ':where(.neo-theme-dark) {--neo-palette-neutral-50: #fff}'});
+
+        expect(collect({root, runtimeProperties: {}})).toContain('[burn-down] theme-dark declares a palette, so remove it from PRE_ROLE_THEMES');
+    });
+
     test('SPLIT THEME: resolves definitions across all folders mapped to one theme class', () => {
         const mapPath = path.join(tmpRoot, 'split-theme-map.json'),
               root    = makeTree({
