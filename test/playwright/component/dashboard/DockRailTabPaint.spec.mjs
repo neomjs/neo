@@ -8,14 +8,14 @@ import {test, expect} from '@playwright/test';
  * answers the one a compiled comparison cannot: what a browser actually computes once the theme
  * variables resolve.
  *
- * The regression it exists for is concrete. The neo themes floor every `.neo-button` at
- * `min-width: var(--height-48)` (48px). On a 14px vertical rail that floor pushes the
- * rotated label outside the clipped strip and the tab renders as an empty pill. Both consuming
- * apps had been carrying their own higher-specificity `min-width: 0` to escape it; the engine now
- * owns that release, so nothing app-side is left to prove it still works.
+ * The regression it exists for is concrete. `.neo-button` sets `min-width: var(--button-min-width)`,
+ * which the neo themes value at `--button-size-medium-height` (`32px`) by default. On a 14px vertical
+ * rail that floor pushes the rotated label outside the clipped strip and the tab renders as an empty
+ * pill. Both consuming apps had been carrying their own higher-specificity `min-width: 0` to escape
+ * it; the engine now owns that release, so nothing app-side is left to prove it still works.
  *
  * **The control is the point.** `min-width: 0px` on a rail tab only means the engine won if the
- * 48px floor was actually live in the same document — otherwise a theme stylesheet that simply
+ * `--button-min-width` floor was actually live in the same document — otherwise a theme stylesheet that simply
  * failed to load reads as a pass. Every arm therefore measures a plain sibling button first and
  * requires it to be AT the floor.
  *
@@ -116,7 +116,7 @@ test.describe('Neo.dashboard.dock.interaction.Rail — rendered rail-tab paint',
                 `${theme} must actually floor a plain button — otherwise this arm is vacuous`)
                 .not.toBe('0px');
             expect(parseFloat(measured.controlMinWidth),
-                'the floor is the 48px button height').toBeGreaterThan(24);
+                'the floor is the 32px medium button height').toBeGreaterThan(24);
 
             // The measurement.
             expect(measured.tabMinWidth,

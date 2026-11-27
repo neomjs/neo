@@ -326,5 +326,29 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(proc.signal).toBeNull();
         expect(proc.status).toBe(1);
         expect(proc.stderr).toMatch(/Executable doesn't exist|browserType\.launch/i)
+    });
+
+    test('preserves Neo Dark pressed ghost glyph semantic binding when text and icon contrast tokens diverge', async ({page}) => {
+        await page.goto('/test/playwright/component/apps/theme-switcher/index.html?theme=neo-theme-neo-dark');
+
+        const button = page.locator('#theme-switcher-test-viewport.neo-theme-neo-dark .neo-button-ghost').first();
+        await expect(button).toBeVisible();
+
+        await page.evaluate(() => {
+            const root = document.getElementById('theme-switcher-test-viewport');
+            root.style.setProperty('--sem-color-text-neutral-contrast', 'rgb(230, 15, 25)');
+            root.style.setProperty('--sem-color-icon-neutral-contrast', 'rgb(10, 190, 25)');
+        });
+
+        await button.hover();
+        const hoverGlyphColor = await button.locator('.neo-button-glyph').evaluate(el => getComputedStyle(el).color);
+
+        const pressedGlyphColor = await button.evaluate(el => {
+            el.classList.add('pressed');
+            return getComputedStyle(el.querySelector('.neo-button-glyph')).color
+        });
+
+        expect(hoverGlyphColor).toBe('rgb(10, 190, 25)');
+        expect(pressedGlyphColor).toBe('rgb(230, 15, 25)')
     })
 });

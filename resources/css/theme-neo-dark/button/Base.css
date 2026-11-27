@@ -148,7 +148,7 @@
     --button-ghost-glyph-color-hover            : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-active           : var(--sem-color-icon-neutral-contrast);
     --button-ghost-glyph-color-disabled         : var(--sem-color-text-disabled);
-    --button-ghost-glyph-color-pressed          : var(--sem-color-icon-neutral-contrast);
+    --button-ghost-glyph-color-pressed          : var(--sem-color-text-neutral-contrast);
 
     --button-ghost-background-image             : none;
     --button-ghost-badge-background-color       : transparent;

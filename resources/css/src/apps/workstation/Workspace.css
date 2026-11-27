@@ -90,16 +90,14 @@
         --dock-edge-rail-shadow    : 0 0 22px color-mix(in srgb, var(--workstation-signal) 12%, transparent);
         --dock-edge-rail-overflow  : hidden;
 
-        /* The stock theme floors every `.neo-button` at `min-width: var(--height-48)` (48px)
-           through `:root .neo-theme-* .neo-button` — a (0,3,0) selector that TIES the shared rail
-           override and wins on load order alone. On the 14px vertical rail that floor defeats the
-           cross-axis stretch and pushes the rotated label span outside the clipped strip: the rail
-           renders as an empty pill. This app used to release that floor itself with its own
-           (0,4,0) `min-width: 0`; the engine now outranks the theme directly, so the release is
-           engine capability and no consumer needs a local escape hatch to get a working rail.
+        /* `.neo-button` sets `min-width: var(--button-min-width)` (`0,1,0` in `src/button/Base.css`,
+           valued at `--button-size-medium-height` = `32px` by default in the Neo themes). On the 14px
+           vertical rail that floor defeats the cross-axis stretch and pushes the rotated label span
+           outside the clipped strip: the rail renders as an empty pill. This app used to release that
+           floor itself with its own (0,4,0) `min-width: 0`; the engine now owns that release in
+           `src/dashboard/Container.css`, so no consumer needs a local escape hatch to get a working rail.
            Values only: the structural paint and the glyph/text inherit fix live in
-           `src/dashboard/Container.css`. Re-declaring them here is what put an app-layer rule in
-           an equal-specificity tie with the engine's. */
+           `src/dashboard/Container.css`. */
         .neo-button.neo-dashboard-dock-rail-tab {
             --dock-rail-tab-background-hover: color-mix(in srgb, var(--workstation-signal) 14%, transparent);
             --dock-rail-tab-color           : var(--workstation-ink-dim);
