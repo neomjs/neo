@@ -310,27 +310,40 @@ The dark theme provides a value for the border variable.
 ```
 The light theme explicitly sets the border variable to `0`. This is called **nullification**. It's critical for nesting. If a light-themed list is placed inside a dark-themed component, this rule ensures the list does not incorrectly inherit the dark theme's 1px border. It actively resets the property defined in the `src` structure.
 
-### Engine Value Sheets Declare at `:where()` Weight
+### Cascade Layers Decide Who Wins
 
-An application projects its own palette into an engine token family at theme-root — `:root .neo-theme-neo-dark { --tooltip-bg: var(--my-panel) }` — and expects to win. Whether it does is a specificity contest, not a load-order one, only if the engine's own value sheet weighs less than the projection. A value sheet that declares at `:root .neo-theme-neo-dark` has the same weight as the projection, (0,2,0), and the tie goes to whichever sheet the browser saw last; the engine appends its per-class theme sheets as components mount, after the application's own, so the engine wins and the projection appears to do nothing.
+The theme build puts every sheet into a cascade layer chosen by its folder, and starts each built sheet with the same order statement, so the order holds whichever sheet the browser loads first. Weakest first:
 
-The engine's value sheets therefore declare at `:where(.neo-theme-neo-dark)` weight — zero specificity — so a projection at theme-root outranks them wherever both match. A component that carries its own theme class (the shared tooltip stamps the hovered target's theme onto itself) is matched by both the engine sheet and the projection, so the contest is decided on that element as well, not left to inheritance.
+| Layer | Sheets |
+|---|---|
+| `neo.vendor` | CSS the engine loads from outside the theme build: Font Awesome, Highlight.js, an editor's or a map's own |
+| `neo.roles` | `theme-<name>/Global.css` |
+| `neo.base` | `theme-base/**` |
+| `neo.theme` | `theme-<name>/<pkg>/**`, a theme's per-widget value sheets |
+| `neo.rules` | `src/**`, the structural rules |
+| `neo.apps` | every sheet under an `apps` or `examples` folder, in `src` or in a theme folder |
+
+A later layer wins over an earlier one whatever the selectors weigh. An application's projection therefore outranks the engine's value sheet at any weight, with no `:where()` arithmetic and no `!important`:
 
 ```css readonly
-/* engine: resources/css/theme-neo-dark/tooltip/Base.css */
+/* engine: resources/css/theme-neo-dark/tooltip/Base.css, layer neo.theme */
 :where(.neo-theme-neo-dark) {
     --tooltip-bg: var(--sem-color-surface-primary-default);
 }
 
-/* application: theme-neo-dark/apps/myapp/Viewport.css */
-:root .neo-theme-neo-dark {
+/* application: theme-neo-dark/apps/myapp/Viewport.css, layer neo.apps */
+.neo-theme-neo-dark {
     --tooltip-bg: var(--myapp-panel-2);
 }
 ```
 
-Every neo value sheet declares at this weight, with one deliberate exception: `dialog/Base.css` nests a structural rule that must keep outranking the equal-weight button rules in `src/`, and says so in the file. Project into the dialog family with more specificity than the engine sheet — an element-scoped rule such as `body:has(.myapp-viewport) .neo-dialog` — rather than relying on load order; everywhere else, theme-root weight is enough.
+Inside one layer, specificity and source order still decide: an application's rule and its own theme values order by specificity within `neo.apps`.
 
-Which families have moved is a property of the tree, not of this sentence: `grep -rl ':where(.neo-theme-neo-dark)' resources/css/theme-neo-dark` answers it, and stays right without an edit here.
+Three things sit outside the order:
+
+- **Unlayered CSS beats every layer.** Rules inserted at runtime (`util/Css.insertRules`) stay unlayered so they win, and so does a sheet an application links in its own `index.html`.
+- **`!important` inverts the order.** An important declaration in an earlier layer beats one in a later layer, and any layered important declaration beats an unlayered one. An engine `!important` is an invariant no application rule can override; only an inline style can.
+- **No sheet under `resources/css` writes `@layer`.** The build fails a sheet that does: the folder decides the layer, once, in the build.
 
 ### Bad Practice & The Right Way Forward
 
@@ -420,7 +433,7 @@ To turn the CSS sources into the stylesheets the browser loads, Neo.mjs provides
 
 The `npm run build-themes` command is the main script for a full theme build. It:
 1.  Copies every `.css` source in `resources/css`, plus the root each declared package names in `"neo": {"css": "<dir>"}`. There is no compile step: the sources are already plain CSS with native nesting.
-2.  Passes each sheet through `postcss` on the way: `autoprefixer` adds vendor prefixes, and `cssnano` minifies the CSS for the esm and production builds.
+2.  Passes each sheet through `postcss` on the way: `autoprefixer` adds vendor prefixes, the layer plugin wraps the sheet in its folder's cascade layer (§6), and `cssnano` minifies the CSS for the esm and production builds. `watch-themes` runs the same plugin, so a watched save is layered exactly as the full build layers it.
 3.  Places the output into the `dist/<environment>/css/` directory.
 4.  Generates a critical file: `resources/theme-map.json`.
 

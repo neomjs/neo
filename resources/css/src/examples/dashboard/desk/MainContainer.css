@@ -41,7 +41,11 @@
     background: var(--dashboard-example-panel);
     color     : var(--dashboard-example-ink);
     font-size : 13px;
-    overflow  : auto;
+
+    /* A grid pane keeps its container's clip: the grid scrolls its own rows */
+    &:not(.neo-grid-container) {
+        overflow: auto;
+    }
 
     time {
         color               : var(--dashboard-example-ink-dim);

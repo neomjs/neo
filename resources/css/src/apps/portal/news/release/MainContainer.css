@@ -7,7 +7,7 @@
     }
 
     @media (max-width: 640px) {
-        .sidenav-container {
+        .sidenav-container:not(.neo-expanded) {
             left: -250px;
         }
     }

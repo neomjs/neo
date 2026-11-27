@@ -248,7 +248,21 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
      */
     test('every generation pair is emitted identically — the backstop covers all four edges, not only the rail under test', async ({page}) => {
         const pairs = await page.evaluate(() => {
-            const bodies = {};
+            const bodies = {},
+                  read   = rules => {
+                      for (const rule of rules ?? []) {
+                          if (rule.type === CSSRule.KEYFRAMES_RULE) {
+                              if (rule.name.startsWith('neo-dock-reveal-')) {
+                                  // Last definition wins in CSS, so a later override must overwrite here too —
+                                  // otherwise a drifted twin appended after the loop would be invisible.
+                                  bodies[rule.name] = [...rule.cssRules].map(frame => `${frame.keyText}{${frame.style.cssText}}`).join('')
+                              }
+                          } else if (!rule.selectorText && rule.cssRules) {
+                              // Every built sheet is one cascade layer block, so its keyframes sit one level down
+                              read(rule.cssRules)
+                          }
+                      }
+                  };
 
             for (const sheet of document.styleSheets) {
                 let rules;
@@ -256,13 +270,7 @@ test.describe('Neo.dashboard.dock.interaction.RevealOverlay — a retarget slide
                 // A cross-origin sheet throws on access and is never ours.
                 try { rules = sheet.cssRules } catch { continue }
 
-                for (const rule of rules ?? []) {
-                    if (rule.type === CSSRule.KEYFRAMES_RULE && rule.name.startsWith('neo-dock-reveal-')) {
-                        // Last definition wins in CSS, so a later override must overwrite here too —
-                        // otherwise a drifted twin appended after the loop would be invisible.
-                        bodies[rule.name] = [...rule.cssRules].map(frame => `${frame.keyText}{${frame.style.cssText}}`).join('')
-                    }
-                }
+                read(rules)
             }
 
             return [

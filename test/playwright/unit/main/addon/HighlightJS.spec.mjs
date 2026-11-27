@@ -35,7 +35,7 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
         originalHljs       = globalThis.hljs;
         originalLoad       = HighlightJs.load;
         originalScript     = DomAccess.loadScript;
-        originalStylesheet = Neo.main.addon.Stylesheet;
+        originalStylesheet = DomAccess.loadStylesheet;
         originalUtilHljs   = HighlightJs.hljs;
         Neo.config.basePath = '../../';
     });
@@ -45,7 +45,7 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
         HighlightJs.load                = originalLoad;
         HighlightJs.hljs                = originalUtilHljs;
         DomAccess.loadScript            = originalScript;
-        Neo.main.addon.Stylesheet       = originalStylesheet;
+        DomAccess.loadStylesheet        = originalStylesheet;
         originalHljs === undefined ? delete globalThis.hljs : globalThis.hljs = originalHljs;
         originalDocument === undefined ? delete globalThis.document : globalThis.document = originalDocument
     });
@@ -68,7 +68,7 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
             expect(globalThis.hljs).toBe(library);
             events.push(path)
         };
-        Neo.main.addon.Stylesheet = {createStyleSheet: async ({href}) => events.push(href)};
+        DomAccess.loadStylesheet = async href => events.push(href);
 
         await HighlightJS.prototype.loadFiles.call(addon);
 
@@ -92,7 +92,7 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
             if (path === addon.highlightJsPath) globalThis.hljs = library;
             else expect(globalThis.hljs).toBe(library)
         };
-        Neo.main.addon.Stylesheet = {createStyleSheet: async ({href}) => expect(href).toBe('/custom/theme.css')};
+        DomAccess.loadStylesheet = async href => expect(href).toBe('/custom/theme.css');
 
         await HighlightJS.prototype.loadFiles.call(addon, {highlightJsPath: '/custom/highlight.js'});
         expect(scripts).toEqual(['/custom/highlight.js', '/custom/lines.js'])
@@ -100,7 +100,7 @@ test.describe('Neo.main.addon.HighlightJS resources and line lifetime', () => {
 
     test('named themes retain app-relative paths and custom paths survive', () => {
         const hrefs = [], addon = {};
-        Neo.main.addon.Stylesheet = {createStyleSheet: ({href}) => hrefs.push(href)};
+        DomAccess.loadStylesheet = href => hrefs.push(href);
 
         for (const theme of ['dark', 'light', '/custom/theme.css']) {
             HighlightJS.prototype.switchTheme.call(addon, {theme})
