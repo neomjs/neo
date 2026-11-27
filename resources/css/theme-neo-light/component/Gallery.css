@@ -1,0 +1,4 @@
+:where(.neo-theme-neo-light) { /* .neo-gallery */
+    --gallery-background-color: #000;
+    --gallery-border-color    : #3c3f41;
+}
