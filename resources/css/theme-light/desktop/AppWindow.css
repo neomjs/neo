@@ -2,6 +2,7 @@
     --desktop-app-window-background-color: #fff;
     --desktop-app-window-border-color    : var(--dialog-border-color, #ddd);
     --desktop-app-window-color           : #2b2b2b;
+    --desktop-app-window-glyph-color     : #fff;
     --desktop-app-window-icon-color      : var(--dialog-icon-color, #1c60a0);
     --desktop-app-window-shadow          : var(--dialog-box-shadow, 0 5px 10px rgba(0, 0, 0, .4));
 }

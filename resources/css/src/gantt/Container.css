@@ -218,12 +218,12 @@ body:has(.neo-gantt.neo-is-dragging) .neo-gantt.neo-is-dragging {
 
 /* The body-rooted proxy contains a clone of the rendered bar, including custom and task-kind classes. */
 .neo-gantt-task-proxy {
-    box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
+    box-shadow: var(--gantt-task-proxy-box-shadow);
 
     &:has(> .neo-gantt-bar-milestone) {
         background: transparent;
         box-shadow: none;
-        filter    : drop-shadow(0 4px 10px rgba(0, 0, 0, .32));
+        filter    : var(--gantt-task-proxy-milestone-filter);
     }
 }
 

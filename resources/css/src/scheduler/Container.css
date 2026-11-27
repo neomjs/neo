@@ -67,7 +67,7 @@
     background: var(--neo-timeline-bar-background);
     border: 2px solid var(--neo-timeline-focus-color);
     border-radius: 4px;
-    box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
+    box-shadow: var(--scheduler-drag-preview-box-shadow);
     box-sizing: border-box;
     color: var(--neo-timeline-bar-color);
     display: flex;

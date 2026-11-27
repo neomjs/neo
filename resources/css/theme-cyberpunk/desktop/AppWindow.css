@@ -2,6 +2,7 @@
     --desktop-app-window-background-color: var(--cyber-bg-alt);
     --desktop-app-window-border-color    : var(--dialog-border-color, var(--cyber-cyan));
     --desktop-app-window-color           : var(--cyber-text);
+    --desktop-app-window-glyph-color     : #fff;
     --desktop-app-window-icon-color      : var(--dialog-icon-color, var(--cyber-cyan));
     --desktop-app-window-shadow          : var(--dialog-box-shadow, var(--cyber-glow));
 }

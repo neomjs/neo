@@ -1,6 +1,7 @@
 :where(.neo-theme-cyberpunk) { /* .neo-desktop-task-list: the --cyber-* ink, cyan for the open task */
     --desktop-task-list-accent-color                : var(--cyber-cyan);
     --desktop-task-list-color                       : var(--cyber-text);
+    --desktop-task-list-icon-color                  : #fff;
     --desktop-task-list-item-background-color-active: color-mix(in srgb, var(--cyber-cyan) 16%, transparent);
     --desktop-task-list-item-background-color-hover : color-mix(in srgb, var(--cyber-cyan) 8%, transparent);
 }

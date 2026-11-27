@@ -1,7 +1,7 @@
 /* The proxy shows the item's label only and floats beside the pointer, clear of the item it passes and its slot */
 .neo-dragproxy.neo-tree-sort-proxy {
     border-radius: 4px;
-    box-shadow   : 0 2px 8px rgba(0, 0, 0, .25);
+    box-shadow   : var(--tree-sort-proxy-box-shadow);
     overflow     : hidden;
     width        : max-content !important;
 }
