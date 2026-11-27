@@ -1,5 +1,5 @@
-/* Stays at theme-root weight (0,2,0) deliberately: an application projection outranks the
-   engine's :where() value sheets by weight, never by load order (#18102). */
+/* An application projection: in `neo.apps` it outranks the engine's value sheets by layer. Inside
+   that layer, this (0,2,0) still orders it against the application's own rules. */
 :root .neo-theme-neo-dark {
     --webdesktop-accent      : #60a5fa;
     --webdesktop-glass       : rgba(15, 23, 42, .52);
