@@ -68,6 +68,24 @@
         }
     }
 
+    /* The sheet overlays the desktop geometry so switching presentation preserves its placement. */
+    &.neo-dialog-sheet {
+        bottom    : 0 !important;
+        box-sizing: border-box;
+        height    : auto !important;
+        left      : 0 !important;
+        max-height: 100dvh !important;
+        max-width : none !important;
+        top       : auto !important;
+        transform : none !important;
+        width     : 100% !important;
+
+        > .neo-container:not(.neo-toolbar) {
+            min-height: 0;
+            overflow-y: auto;
+        }
+    }
+
     &.neo-panel {
         .neo-footer-toolbar {
             border    : none;

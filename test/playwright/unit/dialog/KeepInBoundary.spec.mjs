@@ -59,11 +59,12 @@ test.describe('dialog.Base keepInBoundary', () => {
     });
 
     test.afterEach(() => {
-        Neo.applyDeltas = applyDeltas;
-
-        ownMethods.forEach(([name, own, method]) => {own ? domAccess[name] = method : delete domAccess[name]});
-
-        instances.forEach(instance => !instance.isDestroyed && instance.destroy())
+        try {
+            instances.forEach(instance => !instance.isDestroyed && instance.destroy())
+        } finally {
+            Neo.applyDeltas = applyDeltas;
+            ownMethods.forEach(([name, own, method]) => {own ? domAccess[name] = method : delete domAccess[name]})
+        }
     });
 
     /**
@@ -338,6 +339,66 @@ test.describe('dialog.Base keepInBoundary', () => {
 
             expect(geometry(dialog.style), label).toEqual({})
         }
+    });
+
+    test('a desktop boundary measurement cannot write after a sheet presentation round trip', async () => {
+        const dialog = await create(null, {x: 700, y: 100, width: 400, height: 300});
+
+        dialog.held = [];
+        notify(dialog, 1000, 800);
+
+        dialog.presentation = 'sheet';
+        expect(dialog.vdom.cls).toContain('neo-dialog-sheet');
+
+        dialog.presentation = 'dialog';
+        expect(dialog.vdom.cls).not.toContain('neo-dialog-sheet');
+
+        dialog.held.shift()();
+        await settle();
+
+        expect(geometry(dialog.style)).toEqual({})
+    });
+
+    test('the same resize plugin suspends for the sheet and respects the caller setting on return', async () => {
+        const dialog = await create({resizable: true, resizablePluginConfig: {directions: ['r']}});
+
+        await expect.poll(() => Boolean(dialog.getPlugin('resizable'))).toBe(true);
+
+        const plugin = dialog.getPlugin('resizable');
+
+        dialog.presentation = 'sheet';
+        expect(plugin.suspended).toBe(true);
+        expect(dialog.resizable).toBe(true);
+
+        dialog.presentation = 'dialog';
+        expect(dialog.getPlugin('resizable')).toBe(plugin);
+        expect(plugin.suspended).toBe(false);
+        expect(plugin.directions).toEqual(['r']);
+
+        dialog.presentation = 'sheet';
+        dialog.resizable = false;
+        dialog.presentation = 'dialog';
+
+        expect(dialog.getPlugin('resizable')).toBe(plugin);
+        expect(plugin.suspended).toBe(true)
+    });
+
+    test('modal sheet presentation traps focus even with the default desktop setting', async () => {
+        const traps = [];
+
+        Neo.main.DomAccess.trapFocus = ({trap}) => traps.push(trap);
+
+        const dialog = await create({modal: true});
+
+        expect(dialog.trapFocus).toBe(false);
+        expect(traps.at(-1)).toBe(false);
+
+        dialog.presentation = 'sheet';
+        expect(traps.at(-1)).toBe(true);
+        expect(dialog.trapFocus).toBe(false);
+
+        dialog.presentation = 'dialog';
+        expect(traps.at(-1)).toBe(false)
     });
 
     test('a hidden or missing container writes nothing, and a drop beside one lands where the proxy is', async () => {

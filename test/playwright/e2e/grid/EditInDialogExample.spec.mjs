@@ -1,4 +1,5 @@
 import {expect, test}                 from '../../fixtures.mjs';
+import {attachPageSharedAppWorker}    from '../../sharedWorkerAppWorker.mjs';
 import {runDedicatedWorkerNeuralLink} from '../../dedicatedWorkerNeuralLink.mjs';
 
 /**
@@ -8,6 +9,31 @@ import {runDedicatedWorkerNeuralLink} from '../../dedicatedWorkerNeuralLink.mjs'
  * themes, and restores initial data on Reset.
  */
 const URL = '/examples/grid/nestedRecordFields/index.html';
+
+/**
+ * @summary Records the Dialog's first laid-out frame, including an offscreen initial position.
+ * @param {import('@playwright/test').Page} page
+ */
+async function observeFirstDialogFrame(page) {
+    await page.evaluate(() => {
+        const observe = () => {
+            const root = document.querySelector('.neo-dialog');
+
+            if (root) {
+                const {bottom, left, width} = root.getBoundingClientRect();
+
+                if (width > 0) {
+                    window.firstContactDialogFrame = {bottom, left, width};
+                    return
+                }
+            }
+
+            requestAnimationFrame(observe)
+        };
+
+        requestAnimationFrame(observe)
+    })
+}
 
 test.describe('Grid edit-in-a-dialog example', () => {
     test('renders >= 20 rows and >= 2 nested columns, sizes all dialog fields >= 180px at 1440x900, saves nested edits, and resets', async ({page}) => {
@@ -79,10 +105,24 @@ test.describe('Grid edit-in-a-dialog example', () => {
 
         await expect(editBtn).toBeVisible({timeout: 30000});
 
+        await observeFirstDialogFrame(page);
+
         // Open by keyboard (focus Edit -> Enter) and wait for the dialog's focus on its first field
         await editBtn.focus();
         await page.keyboard.press('Enter');
         await expect(dialog.locator('input.neo-textfield-input').first()).toBeFocused({timeout: 10000});
+        await expect.poll(() => page.evaluate(() => window.firstContactDialogFrame))
+            .toEqual({bottom: 844, left: 0, width: 390});
+        await expect(dialog).toHaveClass(/\bneo-responsive\b/);
+        await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
+
+        const lastControl = dialog.getByRole('button', {name: 'Save', exact: true});
+
+        await lastControl.focus();
+        await page.keyboard.press('Tab');
+        await expect(lastControl).not.toBeFocused();
+        await expect.poll(() => dialog.evaluate(node => node.contains(document.activeElement))).toBe(true);
+        await dialog.locator('input.neo-textfield-input').first().focus();
 
         // Usable field widths at 390x844 (every field fits inside viewport and Country input wrapper >= 160px)
         await expect.poll(async () =>
@@ -109,6 +149,16 @@ test.describe('Grid edit-in-a-dialog example', () => {
 
         const firstnameInput = dialog.locator('.neo-textfield').filter({hasText: 'First Name'}).locator('input.neo-textfield-input');
         await expect(firstnameInput).toBeFocused({timeout: 5000});
+
+        // The first open was compact, so this is the Dialog's first use of desktop placement.
+        await page.setViewportSize({width: 1200, height: 850});
+        await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+        await expect.poll(() => dialog.evaluate(root => {
+            const {left, top, right, bottom} = root.getBoundingClientRect();
+
+            return left >= 0 && top >= 0 && right <= innerWidth && bottom <= innerHeight
+        })).toBe(true);
+        await expect(firstnameInput).toBeFocused();
         await firstnameInput.fill('chioma');
         await page.keyboard.press('Enter');
 
@@ -143,39 +193,226 @@ test.describe('Grid edit-in-a-dialog example', () => {
         expect(await page.evaluate(() => window.editFocusDialogInDom)).toEqual([false])
     });
 
-    test('an open dialog stays inside the viewport with its draft and focus when the window narrows (#22319)', async ({page}) => {
+    test('an open dialog keeps its provider, focus, and composition through a sheet round trip', async ({browser, context, page}) => {
         await page.setViewportSize({width: 1200, height: 850});
-        await page.goto(URL);
 
-        const firstRow  = page.locator('.neo-grid-row').first(),
-              editBtn   = firstRow.locator('.neo-button', {hasText: 'Edit'}),
-              dialog    = page.locator('.neo-dialog'),
-              firstname = dialog.locator('.neo-textfield').filter({hasText: 'First Name'}).locator('input.neo-textfield-input');
+        await runDedicatedWorkerNeuralLink({browser, context, page}, async adapter => {
+            await page.goto(URL);
 
-        await expect(editBtn).toBeVisible({timeout: 30000});
-        await editBtn.click();
-        await expect(firstname).toBeFocused({timeout: 10000});
-        await firstname.fill('Draft');
+            const firstRow = page.locator('.neo-grid-row').first(),
+                  edit     = firstRow.getByRole('button', {name: 'Edit', exact: true}),
+                  dialog   = page.locator('.neo-dialog'),
+                  input    = dialog.locator('input.neo-textfield-input').first();
 
-        // Narrow only once the open animation has written the dialog's centred position: the first field takes focus
-        // as the dialog mounts, and a resize before the end would let the animation centre it in the narrow window
-        await expect(dialog).not.toHaveClass(/neo-animating/);
-        await page.setViewportSize({width: 390, height: 844});
+            await edit.click();
+            await expect(input).toBeFocused();
+            await expect(dialog).not.toHaveClass(/neo-animating/);
 
-        // The whole dialog box lies inside the narrowed viewport
-        await expect.poll(() => dialog.evaluate(el => {
-            const {bottom, left, right, top} = el.getBoundingClientRect();
-            return left >= 0 && top >= 0 && right <= window.innerWidth && bottom <= window.innerHeight
-        }), {timeout: 10000}).toBe(true);
+            const app        = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
+                  readEditor = async () => {
+                      const [editor] = await app.queryComponent({className: 'Neo.examples.grid.nestedRecordFields.EditUserDialog'},
+                          ['mounted', 'record.id', 'stateProvider.id']);
 
-        await expect(firstname).toBeFocused();
-        await expect(firstname).toHaveValue('Draft');
+                      return {id: editor.id, ...editor.properties}
+                  },
+                  original      = await readEditor(),
+                  desktopBounds = await dialog.boundingBox();
 
-        // Escape still discards the draft and hands focus back to the row's Edit button
-        await page.keyboard.press('Escape');
-        await expect(dialog).toBeHidden();
-        await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
-        await expect(editBtn).toBeFocused()
+            expect(original.id).toBeTruthy();
+            expect(original['stateProvider.id']).toBeTruthy();
+            expect(original).toMatchObject({mounted: true, 'record.id': 'p01'});
+
+            await input.fill('Draft ');
+            await input.evaluate(element => {
+                window.contactComposition = {element, events: []};
+
+                for (const type of ['compositionstart', 'compositionupdate', 'compositionend', 'blur']) {
+                    element.addEventListener(type, event => window.contactComposition.events.push({
+                        type, data: event.data ?? null, trusted: event.isTrusted
+                    }))
+                }
+            });
+
+            const cdp             = await context.newCDPSession(page),
+                  readComposition = () => input.evaluate(element => ({
+                      events   : window.contactComposition.events,
+                      focused  : document.activeElement === element,
+                      sameInput: window.contactComposition.element === element,
+                      selection: [element.selectionStart, element.selectionEnd],
+                      value    : element.value
+                  }));
+
+            try {
+                await cdp.send('Input.imeSetComposition', {text: '漢字', selectionStart: 0, selectionEnd: 1});
+                const draft = await readComposition();
+
+                expect(draft).toEqual({
+                    events: [
+                        {type: 'compositionstart', data: '', trusted: true},
+                        {type: 'compositionupdate', data: '漢字', trusted: true}
+                    ],
+                    focused: true, sameInput: true, selection: [6, 7], value: 'Draft 漢字'
+                });
+
+                await page.setViewportSize({width: 390, height: 844});
+                await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
+                await expect.poll(() => dialog.evaluate(root => {
+                    const {bottom, left, width} = root.getBoundingClientRect();
+
+                    return {bottom, left, width}
+                })).toEqual({bottom: 844, left: 0, width: 390});
+                expect(await readEditor()).toEqual(original);
+                expect(await readComposition()).toEqual(draft);
+
+                await page.setViewportSize({width: 1200, height: 850});
+                await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+                await expect.poll(() => dialog.boundingBox()).toEqual(desktopBounds);
+                expect(await readEditor()).toEqual(original);
+                expect(await readComposition()).toEqual(draft);
+
+                await cdp.send('Input.insertText', {text: '漢字'});
+                expect((await readComposition()).events.at(-1)).toMatchObject({type: 'compositionend', data: '漢字'});
+                await page.keyboard.press('Escape');
+                await expect(dialog).toBeHidden();
+                await expect(firstRow.locator('.neo-grid-cell[data-field="user.firstname"]')).toHaveText('Amara');
+                await expect(edit).toBeFocused()
+            } finally {
+                await cdp.detach()
+            }
+        })
+    });
+
+    test('a desktop resize interrupted by the sheet releases its proxy and resumes with the caller settings', async ({browser, context, page}) => {
+        await page.setViewportSize({width: 1200, height: 850});
+
+        await runDedicatedWorkerNeuralLink({browser, context, page}, async adapter => {
+            await page.goto(URL);
+
+            const initial = page.locator('.neo-dialog'),
+                  view    = page.locator('.neo-grid-row').first(),
+                  proxy   = page.locator('.neo-dragproxy');
+
+            await view.getByRole('button', {name: 'Edit', exact: true}).click();
+            await expect(initial.locator('input.neo-textfield-input').first()).toBeFocused();
+            await expect(initial).not.toHaveClass(/neo-animating/);
+
+            const app    = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
+                  id     = await initial.getAttribute('id'),
+                  dialog = page.locator(`[id="${id}"]`),
+                  bounds = await dialog.boundingBox();
+
+            const beginResize = async () => {
+                const box    = await dialog.boundingBox(),
+                      x      = box.x + box.width - 3,
+                      y      = box.y + box.height / 2,
+                      handle = dialog.locator('.neo-resizable-right');
+
+                await expect(async () => {
+                    await page.mouse.move(x - 24, y);
+                    await page.mouse.move(x, y);
+                    await expect(handle).toBeVisible({timeout: 250})
+                }).toPass();
+
+                const area = await handle.boundingBox(),
+                      hx   = area.x + area.width / 2,
+                      hy   = area.y + area.height / 2;
+
+                await page.mouse.move(hx, hy);
+                await page.mouse.down();
+                await page.mouse.move(hx + 70, hy, {steps: 12});
+                await expect(proxy).toBeVisible()
+            };
+
+            await beginResize();
+            await page.setViewportSize({width: 390, height: 844});
+            await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
+            await expect(proxy).toHaveCount(0);
+            await expect(page.locator('body')).not.toHaveClass(/\bneo-cursor-[a-z]+-resize\b/);
+            await page.mouse.up();
+            await expect(dialog.locator('.neo-resizable')).toHaveCount(0);
+
+            await page.setViewportSize({width: 1200, height: 850});
+            await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+            await expect.poll(() => dialog.boundingBox()).toEqual(bounds);
+
+            await beginResize();
+            await page.mouse.up();
+            await expect(proxy).toHaveCount(0);
+            await expect.poll(async () => (await dialog.boundingBox()).width).toBeGreaterThan(bounds.width + 50);
+
+            const movedFrom = await dialog.boundingBox(),
+                  title     = await dialog.locator('.neo-panel-header-text').boundingBox(),
+                  titleX    = title.x + title.width / 2,
+                  titleY    = title.y + title.height / 2;
+
+            await page.mouse.move(titleX, titleY);
+            await page.mouse.down();
+            await page.mouse.move(titleX - 45, titleY, {steps: 10});
+            await expect(proxy).toBeVisible();
+            await page.mouse.up();
+            await expect(proxy).toHaveCount(0);
+            await expect.poll(async () => (await dialog.boundingBox()).x).toBeLessThan(movedFrom.x - 30);
+
+            await app.setProperties(id, {draggable: false, resizable: false});
+            await page.setViewportSize({width: 390, height: 844});
+            await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
+            await page.setViewportSize({width: 1200, height: 850});
+            await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+
+            const desktop = await dialog.boundingBox();
+
+            await page.mouse.move(desktop.x + desktop.width - 3, desktop.y + desktop.height / 2, {steps: 4});
+            await expect(dialog.locator('.neo-resizable')).toHaveCount(0);
+            await expect(dialog.locator('.neo-header-toolbar')).not.toHaveClass(/\bneo-draggable\b/);
+            expect(await app.getComponent(id, ['draggable', 'resizable'])).toMatchObject({draggable: false, resizable: false})
+        })
+    });
+
+    test('an invalid draft and the inner scroll position survive the presentation switch', async ({browser, context, page}) => {
+        await page.setViewportSize({width: 1200, height: 300});
+
+        await runDedicatedWorkerNeuralLink({browser, context, page}, async adapter => {
+            await page.goto(URL);
+
+            const edit      = page.locator('.neo-grid-row').first().getByRole('button', {name: 'Edit', exact: true}),
+                  dialog    = page.locator('.neo-dialog'),
+                  firstName = dialog.locator('input.neo-textfield-input').first(),
+                  form      = dialog.locator('[data-ref="bodyContainer"]'),
+                  lastField = dialog.locator('[data-ref="lastname-field"]'),
+                  lastName  = lastField.locator('input');
+
+            await edit.click();
+            await expect(firstName).toBeFocused();
+            await expect(dialog).not.toHaveClass(/neo-animating/);
+
+            const app     = await adapter.connectToApp('Neo.examples.grid.nestedRecordFields'),
+                  [field] = await app.queryComponent({reference: 'lastname-field'}, ['reference']);
+
+            await app.setProperties(field.id, {minLength: 6});
+            await lastName.fill('A');
+            await firstName.focus();
+            await expect(lastField).toHaveClass(/\bneo-invalid\b/);
+
+            const readScroll = () => form.evaluate(node => node.scrollTop);
+
+            await form.evaluate(node => {node.scrollTop = 20});
+            await expect.poll(readScroll).toBe(20);
+
+            for (const width of [390, 1200]) {
+                await page.setViewportSize({width, height: 300});
+
+                if (width === 390) {
+                    await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/)
+                } else {
+                    await expect(dialog).not.toHaveClass(/\bneo-dialog-sheet\b/)
+                }
+
+                await expect(lastName).toHaveValue('A');
+                await expect(lastField).toHaveClass(/\bneo-invalid\b/);
+                await expect(firstName).toBeFocused();
+                expect(await readScroll()).toBe(20)
+            }
+        })
     })
 });
 
@@ -216,6 +453,7 @@ test.describe('Compact floating contact action', () => {
 
             await name.tap();
             await action.tap();
+            await expect(dialog).toHaveClass(/\bneo-dialog-sheet\b/);
             await expect(input).toBeFocused();
             await expect(input).toHaveValue('Mei-Ling');
 
@@ -240,6 +478,16 @@ test.describe('Compact floating contact action', () => {
             await page.keyboard.press('Escape');
             await expect(dialog).toBeHidden();
             await expect(name).toHaveText('Mei-Ling');
+            await expect(action).toBeFocused();
+
+            await action.press('Enter');
+            await expect(input).toBeFocused();
+
+            const close = dialog.getByRole('button', {name: 'close', exact: true});
+
+            await expect(close).toBeVisible();
+            await close.tap();
+            await expect(dialog).toBeHidden();
             await expect(action).toBeFocused();
 
             await action.press('Space');
@@ -275,4 +523,78 @@ test.describe('Compact floating contact action', () => {
             await expect(page.getByText('Select a row to edit a contact.', {exact: true})).toBeVisible()
         })
     })
+});
+
+test('two contact editors on one App Worker follow their own windows', async ({browser, context, page}) => {
+    await context.route('**/examples/grid/nestedRecordFields/neo-config.json*', async route => {
+        const response = await route.fetch();
+
+        await route.fulfill({response, json: {...await response.json(), useSharedWorkers: true}})
+    });
+
+    const compact = await context.newPage();
+
+    let wideWorker, compactWorker;
+
+    try {
+        await page.setViewportSize({width: 1200, height: 850});
+        await page.goto(URL);
+        await expect(page.getByRole('grid')).toBeVisible();
+
+        await compact.setViewportSize({width: 390, height: 844});
+        await compact.goto(URL);
+        await expect(compact.getByRole('grid')).toBeVisible();
+
+        wideWorker    = await attachPageSharedAppWorker({browser, page});
+        compactWorker = await attachPageSharedAppWorker({browser, page: compact});
+
+        expect(wideWorker).toBeTruthy();
+        expect(compactWorker?.targetId).toBe(wideWorker.targetId);
+
+        const wideWindow    = await page.evaluate(() => Neo.worker.Manager.windowId),
+              compactWindow = await compact.evaluate(() => Neo.worker.Manager.windowId),
+              wideDialog    = page.locator('.neo-dialog'),
+              compactDialog = compact.locator('.neo-dialog');
+
+        expect(wideWindow).toBeTruthy();
+        expect(compactWindow).toBeTruthy();
+        expect(compactWindow).not.toBe(wideWindow);
+
+        await page.locator('.neo-grid-row').first().getByRole('button', {name: 'Edit', exact: true}).click();
+        await expect(wideDialog.locator('input.neo-textfield-input').first()).toBeFocused();
+        await expect(wideDialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+
+        await observeFirstDialogFrame(compact);
+        await compact.locator('.neo-grid-row').first().locator('.neo-grid-cell[data-field="user.firstname"]').click();
+        await compact.getByRole('button', {name: 'Edit contact', exact: true}).click();
+        await expect(compactDialog.locator('input.neo-textfield-input').first()).toBeFocused();
+        await expect(compactDialog).toHaveClass(/\bneo-dialog-sheet\b/);
+        await expect.poll(() => compact.evaluate(() => window.firstContactDialogFrame))
+            .toEqual({bottom: 844, left: 0, width: 390});
+
+        const wideId    = await wideDialog.getAttribute('id'),
+              compactId = await compactDialog.getAttribute('id'),
+              read      = (worker, id) => worker.evaluate(editorId => {
+                  const editor = Neo.getComponent(editorId);
+
+                  return {id: editor.id, presentation: editor.presentation, providerId: editor.stateProvider.id, windowId: editor.windowId}
+              }, id),
+              wideState    = await read(wideWorker, wideId),
+              compactState = await read(compactWorker, compactId);
+
+        expect(compactId).not.toBe(wideId);
+        expect(wideState).toMatchObject({presentation: 'dialog', windowId: wideWindow});
+        expect(compactState).toMatchObject({presentation: 'sheet', windowId: compactWindow});
+        expect(compactState.providerId).not.toBe(wideState.providerId);
+
+        await compact.setViewportSize({width: 1200, height: 844});
+        await expect(compactDialog).not.toHaveClass(/\bneo-dialog-sheet\b/);
+        await expect(compactDialog.locator('input.neo-textfield-input').first()).toBeFocused();
+        expect(await read(compactWorker, compactId)).toEqual({...compactState, presentation: 'dialog'});
+        expect(await read(wideWorker, wideId)).toEqual(wideState)
+    } finally {
+        await compactWorker?.close();
+        await wideWorker?.close();
+        await compact.close()
+    }
 });

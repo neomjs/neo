@@ -13,6 +13,15 @@ import TextField    from '../../../src/form/field/Text.mjs';
  * @extends Neo.dialog.Base
  */
 class EditUserDialog extends Dialog {
+    /**
+     * @summary Resolves the initial and live presentation from the owning viewport's width.
+     * @param {Number} width
+     * @returns {String}
+     */
+    static getPresentation(width) {
+        return width <= 600 ? 'sheet' : 'dialog'
+    }
+
     static config = {
         className     : 'Neo.examples.grid.nestedRecordFields.EditUserDialog',
         closeAction   : 'hide',
@@ -30,16 +39,34 @@ class EditUserDialog extends Dialog {
         },
         modal    : true,
         record_  : null,
+        /**
+         * @summary Applies the new presentation to the existing editor when the owning viewport crosses the breakpoint.
+         * @member {Object} responsive
+         */
+        responsive: {
+            compact: {presentation: 'sheet'},
+            wide   : {presentation: 'dialog'}
+        },
+        /**
+         * @summary Uses the same width decision for live resizes and initial opening.
+         * @member {Object} responsiveConfig
+         */
+        responsiveConfig: {
+            compact: ({width}) => EditUserDialog.getPresentation(width) === 'sheet',
+            wide   : ({width}) => EditUserDialog.getPresentation(width) === 'dialog'
+        },
         title    : 'Edit Partner Contact',
         trapFocus: true,
 
         style: {
-            width: 'min(420px, calc(100vw - 24px))'
+            maxHeight: 'calc(100dvh - 24px)',
+            width    : 'min(420px, calc(100vw - 24px))'
         },
 
         containerConfig: {
-            layout: {ntype: 'vbox', align: 'stretch'},
-            style : {padding: '16px'}
+            layout    : {ntype: 'vbox', align: 'stretch'},
+            scrollable: 'y',
+            style     : {padding: '16px'}
         },
 
         itemDefaults: {

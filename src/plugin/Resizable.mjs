@@ -169,6 +169,12 @@ class Resizable extends Plugin {
          */
         styleConfig: 'wrapperStyle',
         /**
+         * Pauses resize input and cancels a pending or active gesture. Configured directions stay available on resume.
+         * @member {Boolean} suspended_=false
+         * @reactive
+         */
+        suspended_: false,
+        /**
          * vdom node which matches the delegationCls to add resize handles
          * @member {Object} targetNode=null
          * @protected
@@ -183,6 +189,13 @@ class Resizable extends Plugin {
      * @protected
      */
     ownerOpacity = undefined
+
+    /**
+     * Distinguishes an actual resize from a pressed handle and fences asynchronous drag setup.
+     * @member {AbortController|null} resizeAbortController=null
+     * @protected
+     */
+    resizeAbortController = null
 
     /**
      * @param {Object} config
@@ -251,6 +264,23 @@ class Resizable extends Plugin {
     }
 
     /**
+     * @summary Retires a pending or active resize and removes its handles while suspended.
+     * @param {Boolean} value
+     * @param {Boolean|undefined} oldValue
+     * @protected
+     */
+    afterSetSuspended(value, oldValue) {
+        if (value && oldValue !== undefined) {
+            if (this.resizeAbortController) {
+                this.dragZone.onDragCancel({dragZoneId: this.dragZone.id})
+            } else {
+                this.isDragging = false;
+                this.removeAllNodes()
+            }
+        }
+    }
+
+    /**
      * @summary Injects theme files and keeps `dragZone.windowId` aligned with the plugin's `windowId`.
      * @param {Number|null} value
      * @param {Number|null} oldValue
@@ -294,6 +324,9 @@ class Resizable extends Plugin {
     closeGesture(style) {
         let me = this;
 
+        me.resizeAbortController?.abort();
+        me.resizeAbortController = null;
+
         Object.assign(me, {
             boundaryContainerRect: null,
             initialRect          : null,
@@ -315,8 +348,10 @@ class Resizable extends Plugin {
     onDragCancel() {
         let me = this;
 
-        me.closeGesture(me.owner[me.styleConfig]);
-        me.removeAllNodes()
+        if (me.resizeAbortController) {
+            me.closeGesture(me.owner[me.styleConfig]);
+            me.removeAllNodes()
+        }
     }
 
     /**
@@ -324,18 +359,26 @@ class Resizable extends Plugin {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me                   = this,
-            {owner, styleConfig} = me,
-            style                = owner[styleConfig]; // todo: delegation target
+        let me                             = this,
+            {dragZone, owner, styleConfig} = me;
+
+        if (!me.resizeAbortController) return;
+
+        if (!dragZone.dragProxy) {
+            dragZone.onDragCancel({dragZoneId: dragZone.id});
+            return
+        }
+
+        const style = owner[styleConfig];
 
         Object.assign(style, {
             transform: 'none',
-            ...me.dragZone.dragProxy[styleConfig]
+            ...dragZone.dragProxy[styleConfig]
         });
 
         me.closeGesture(style);
 
-        me.dragZone.dragEnd();
+        dragZone.dragEnd();
         me.removeAllNodes();
 
         owner.focus(owner.id, true)
@@ -351,6 +394,8 @@ class Resizable extends Plugin {
             {maxHeight, maxWidth, minHeight, minWidth} = me,
             rect   = me.initialRect,
             dist, size, style;
+
+        if (!me.resizeAbortController) return;
 
         if (!node) {
             me.onDragEnd({})
@@ -433,6 +478,10 @@ class Resizable extends Plugin {
             style                                   = owner[styleConfig], // todo: delegation target
             target, vdom, vdomStyle;
 
+        if (me.suspended || me.resizeAbortController) return;
+
+        const controller = me.resizeAbortController = new AbortController();
+
         me.isDragging   = true;
         me.ownerOpacity = style.opacity;
 
@@ -457,7 +506,9 @@ class Resizable extends Plugin {
         // A container that is no ancestor of the dragged element (a dialog lives on the body) is measured by its id
         if (!me.boundaryContainerRect) {
             owner.getDomRect(containerId).then(rect => {
-                me.boundaryContainerRect = rect
+                if (!controller.signal.aborted) {
+                    me.boundaryContainerRect = rect
+                }
             })
         }
 
@@ -493,7 +544,7 @@ class Resizable extends Plugin {
             me.dragZone.boundaryContainerId = owner.boundaryContainerId
         }
 
-        me.dragZone.dragStart(data)
+        me.dragZone.dragStart(data, controller.signal)
     }
 
     /**
@@ -501,7 +552,7 @@ class Resizable extends Plugin {
      * @param {Object} data
      */
     onMouseDown(data) {
-        this.isDragging = true
+        !this.suspended && (this.isDragging = true)
     }
 
     /**
@@ -516,7 +567,7 @@ class Resizable extends Plugin {
             len = data.path.length,
             bottom, left, right, target, top;
 
-        if (!me.isDragging && !owner.isDragging) {
+        if (!me.suspended && !me.isDragging && !owner.isDragging) {
             for (; i < len; i++) {
                 if (data.path[i].cls.includes(me.delegationCls)) {
                     target = data.path[i];

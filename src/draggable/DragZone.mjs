@@ -645,6 +645,7 @@ class DragZone extends Base {
             dragProxyCls       : me.dragProxyCls,
             dragZoneId         : me.id,
             dropZoneIdentifier : me.dropZoneIdentifier,
+            ...(data?.gestureId != null && {gestureId: data.gestureId}),
             moveHorizontal     : me.moveHorizontal,
             moveVertical       : me.moveVertical,
             resizeConfig       : me.resizeConfig,
@@ -690,11 +691,15 @@ class DragZone extends Base {
     }
 
     /**
-     *
+     * @summary Retires the ended gesture after its pending events without clearing a newer gesture.
      */
     resetData() {
+        const data = this.data;
+
         this.timeout(50).then(() => {
-            this.data = null
+            if (this.data === data) {
+                this.data = null
+            }
         })
     }
 

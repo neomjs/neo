@@ -79,6 +79,19 @@ async function recordProxyRemoval(scenario, {deltaResult}={}) {
 }
 
 test.describe('Neo.draggable.DragZone', () => {
+    test('a delayed reset from an ended gesture keeps a newer gesture', async () => {
+        let release;
+
+        const first = {}, second = {}, zone = {data: first, timeout: () => new Promise(resolve => {release = resolve})};
+
+        DragZone.prototype.resetData.call(zone);
+        zone.data = second;
+        release();
+        await Promise.resolve();
+
+        expect(zone.data).toBe(second)
+    });
+
     test('useProxy=false keeps the gesture but skips proxy construction', async () => {
         const
             addon              = Neo.main.addon.DragDrop,
@@ -95,19 +108,24 @@ test.describe('Neo.draggable.DragZone', () => {
                 windowId   : 'test-window-1'
             });
 
-        let proxyCreations = 0;
+        let gestureId, proxyCreations = 0;
 
-        addon.setConfigs = async () => ({boundaryContainerRect: null});
+        addon.setConfigs = async data => {
+            gestureId = data.gestureId;
+            return {boundaryContainerRect: null}
+        };
         zone.createDragProxy = async () => { proxyCreations++ };
 
         try {
             await zone.dragStart({
                 clientX   : 25,
                 clientY   : 30,
+                gestureId : 7,
                 path      : [{id: owner.id, rect: {height: 40, left: 10, top: 10, width: 80}}],
                 targetPath: []
             });
 
+            expect(gestureId, 'Main can fence the setup against the originating pointer gesture').toBe(7);
             expect(proxyCreations, 'the no-proxy mode must not instantiate visual drag state').toBe(0);
             expect(zone.dragProxy).toBe(null)
         } finally {
