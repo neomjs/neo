@@ -1,5 +1,5 @@
 :root .neo-theme-dark { /* .neo-app-content-page-container */
-    --app-content-toolbar-spacing-horizontal     : 12px;
+    --app-content-toolbar-text-inset             : 12px;
     --neo-app-content-page-scrollbar-color-scheme: dark;
     --neo-app-content-toolbar-btn-bg             : #aeb2b5;
     --neo-app-content-toolbar-text-color         : #2b2b2b;

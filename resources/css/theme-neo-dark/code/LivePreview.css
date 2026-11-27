@@ -1,7 +1,5 @@
 :where(.neo-theme-neo-dark) {
     --live-preview-border-color           : #000;
-    --live-preview-button-border-radius   : var(--cmp-button-borderradius);
     --live-preview-container-box-shadow   : rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
     --live-preview-header-background-color: var(--sem-color-surface-neutral-default);
-    --live-preview-tab-strip-height       : var(--cmp-tab-strip-height);
 }

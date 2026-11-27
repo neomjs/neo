@@ -49,9 +49,9 @@
             color      : var(--neo-app-content-toolbar-text-color); /* required for mobile */
             content    : 'Previous Page';
             font-family: var(--core-fontfamily-sans);
-            left       : var(--app-content-toolbar-spacing-horizontal);
+            left       : var(--app-content-toolbar-text-inset);
             position   : absolute;
-            top        : var(--app-content-toolbar-spacing-horizontal);
+            top        : var(--app-content-toolbar-text-inset);
         }
 
         .content-bottom-toolbar-next {
@@ -62,8 +62,8 @@
                 content    : 'Next Page';
                 font-family: var(--core-fontfamily-sans);
                 position   : absolute;
-                right      : var(--app-content-toolbar-spacing-horizontal);
-                top        : var(--app-content-toolbar-spacing-horizontal);
+                right      : var(--app-content-toolbar-text-inset);
+                top        : var(--app-content-toolbar-text-inset);
             }
         }
     }

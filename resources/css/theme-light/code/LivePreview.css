@@ -1,7 +1,5 @@
 :root .neo-theme-light { /* .neo-code-live-preview */
     --live-preview-border-color           : #ddd;
-    --live-preview-button-border-radius   : 3px;
     --live-preview-container-box-shadow   : rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
     --live-preview-header-background-color: #f2f2f2;
-    --live-preview-tab-strip-height       : 3px;
 }
