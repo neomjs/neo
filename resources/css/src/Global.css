@@ -227,7 +227,7 @@ html, .neo-body-viewport {
    This covers a window nothing else does. From `drag:start` on, the sensor holds pointer capture,
    which keeps the stream in the parent document whatever lies under the pointer; and once a
    DragZone session is live, `draggable/DragProxyComponent.css` shields the whole page with
-   `body:has(.neo-is-dragging) * {pointer-events: none !important}`. Between the press and the drag
+   `body:has(.neo-is-dragging) * {pointer-events: var(--drop-target-pointer-events, none) !important}`. Between the press and the drag
    threshold neither holds: the sensor leaves the pointer uncaptured so a press can still complete as
    a click. That interval is exactly where a crossing loses the stream, which is why the guard keys on
    the sensor's own class rather than the session's.

@@ -46,7 +46,7 @@ body:has(.tree-library.neo-is-dragging) {
     }
 
     .tree-playlist-drop {
-        pointer-events: auto !important;
+        --drop-target-pointer-events: auto;
     }
 }
 
