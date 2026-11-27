@@ -388,28 +388,45 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             .toEqual(cascade)
     });
 
-    test('CONTROL: a scale role re-valued by a scope or a condition in Global.css passes, and so do a repeated value and a query', () => {
-        const {failures, names} = inspect({
-            'theme-neo/Global.css'           : `${source}\n.neo-theme-neo-light { .neo-dense & { --neo-control-height-medium: 28px; } }`,
-            // The reduced-motion collapse and a density scope in `src/Global.css`.
-            'src/Global.css'                 : ':where([class^="neo-theme-"]) { --neo-duration-fast: 120ms; @media (prefers-reduced-motion: reduce) { --neo-duration-fast: 0ms; } }\n.neo-density-compact { --neo-control-height-medium: 28px; }',
-            'src/board/Container.css'        : '.neo-board { --neo-board-gap: 8px; @media print { --neo-board-gap: 0; } }',
-            'src/grid/Container.css'         : '@container style(--neo-color-scheme: dark) { .neo-grid { --grid-color: red; } }',
-            'theme-neo-light/Global.css'     : ':root .neo-theme-neo-light { --neo-color-scheme: light; }',
-            'theme-neo-light/button/Base.css': ':root .neo-theme-neo-light { --button-color: red; }'
-        });
+    test('CONTROL: a scale role re-valued by a scope or a condition in Global.css passes, and non-declaration tokens in component sheets are ignored', () => {
+        const
+            probeRole         = neoName('radius-probe'),
+            {failures, names} = inspect({
+                'theme-neo/Global.css'           : `${source}\n.neo-theme-neo-light { .neo-dense & { --neo-control-height-medium: 28px; } }`,
+                // Reduced-motion collapse, plain density class, root-descendant density class, quoted density attribute, and `.neo-theme-scope`.
+                'src/Global.css'                 : [
+                    ':where([class^="neo-theme-"], [class*=" neo-theme-"]) { @media (prefers-reduced-motion: reduce) { --neo-duration-fast: 0ms; } }',
+                    '.neo-density-compact { --neo-control-height-medium: 28px; }',
+                    ':root .density-compact { --neo-control-height-small: 22px; }',
+                    '[class^="density-"] { --neo-control-gap: 4px; }',
+                    '.neo-theme-scope { --neo-space-1: 6px; }'
+                ].join('\n'),
+                'src/board/Container.css'        : [
+                    '.neo-board { --neo-board-gap: 8px; @media print { --neo-board-gap: 0; } }',
+                    `.${probeRole}:hover { color: red; }`,
+                    `.neo-board { --widget-data: { ${probeRole}: 1px; }; }`
+                ].join('\n'),
+                'src/grid/Container.css'         : '@container style(--neo-color-scheme: dark) { .neo-grid { --grid-color: red; } }',
+                'theme-neo-light/Global.css'     : ':root .neo-theme-neo-light { --neo-color-scheme: light; }',
+                'theme-neo-light/button/Base.css': ':root .neo-theme-neo-light { --button-color: red; }'
+            });
 
         expect(failures).toEqual([]);
         expect(names).toBe(194)
     });
 
-    test('the four planted role/condition escapes fail with sheet and name, and src/Global.css refuses unscoped non-motion scale roles', () => {
-        const newScale = neoName('space-99');
+    test('the four planted role/condition escapes fail with sheet and name, and src/Global.css refuses every selector arm that reaches a bare theme', () => {
+        const
+            newScale  = neoName('space-99'),
+            probeRole = neoName('radius-probe');
 
-        // 1. A new scale role in a theme widget sheet, on a component selector.
+        // 1. A new scale role in a theme widget sheet, on a component selector (even alongside non-declaration controls).
         expect(inspect({
             'theme-neo/Global.css'          : source,
-            'theme-neo-dark/button/Base.css': `.neo-button { ${newScale}: 1px; }`
+            'theme-neo-dark/button/Base.css': [
+                `.${probeRole}:hover { color: red; }`,
+                `.neo-button { --widget-data: { ${probeRole}: 1px; }; ${newScale}: 1px; }`
+            ].join('\n')
         }).failures).toEqual([
             `[scope] resources/css/theme-neo-dark/button/Base.css declares or registers ${newScale} outside Global.css; palette and role names are declared in Global.css only`
         ]);
@@ -441,13 +458,24 @@ test.describe('check-theme-palette.mjs — grade lightness and contrast floors o
             '@media (min-width: 0px); this check reads no condition and cannot tell when that value paints'
         ]);
 
-        // `src/Global.css` refuses an unconditional unscoped non-motion scale role and any colour role.
-        expect(inspect({
-            'theme-neo/Global.css': source,
-            'src/Global.css'      : ':where([class^="neo-theme-"]) { --neo-space-1: 8px; }'
-        }).failures).toEqual([
-            '[scope] resources/css/src/Global.css declares or registers --neo-space-1 without a scope or condition; src/Global.css only re-values scale roles under a scope or condition'
-        ]);
+        // `src/Global.css` refuses unconditional motion roles now that #22413 moved normal values to theme Global.css,
+        // and refuses any selector list where at least one effective arm reaches the bare theme or root.
+        for (const [selector, role] of [
+            [':where([class^="neo-theme-"])',             '--neo-duration-fast'],
+            ['.neo-theme-neo-light',                      '--neo-duration-fast'],
+            [':is(.neo-theme-neo-light)',                 '--neo-space-1'],
+            ['.neo-theme-neo-light, .density-compact',    '--neo-space-1'],
+            [':where(.neo-theme-neo-light, .density-compact)', '--neo-space-1'],
+            [':is(.density-compact, [class*="neo-theme-"])',   '--neo-space-1'],
+            [':root .neo-theme-neo-light',                '--neo-space-1']
+        ]) {
+            expect(inspect({
+                'theme-neo/Global.css': source,
+                'src/Global.css'      : `${selector} { ${role}: 8px; }`
+            }).failures, selector).toEqual([
+                `[scope] resources/css/src/Global.css declares or registers ${role} without a scope or condition; src/Global.css only re-values scale roles under a scope or condition`
+            ])
+        }
 
         expect(inspect({
             'theme-neo/Global.css': source,

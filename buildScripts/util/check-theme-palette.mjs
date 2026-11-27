@@ -6,14 +6,16 @@
  * scheme the theme declares, and every palette declares the same palette and role names as every other.
  *
  * Every palette and role name (`kindOf` `'palette'` or `'role'`) is declared in a `Global.css` only: a theme's
- * `Global.css`, or `src/Global.css` for a scale role re-valued under a scope or a condition (plus its seven
- * motion roles until they move). Any declaration or `@property` registration in another sheet fails as `[scope]`.
+ * `Global.css`, or `src/Global.css` for a scale role re-valued under a narrower scope or a condition. Any
+ * declaration or `@property` registration in another sheet fails as `[scope]`.
  * A palette is a theme class for which a theme `Global.css` declares a `--neo-palette-*` name. A theme without
  * one is skipped for pair and grade checks and declares no colour role but the scheme; a palette or colour-role
  * name declared under a condition fails as `[conditional]` for every theme class, with or without a palette. Inside
- * a `Global.css`, a palette or colour-role name sits on the theme class itself under no condition, while a scope or
- * a condition may re-value a scale role. Pass `--contrast <foreground> <background> [--theme <class-or-stem>]` (or
- * `npm run theme-contrast -- <fg> <bg>`) to print a pair's contrast ratio in each scheme with the same compositing.
+ * a `Global.css`, a palette or colour-role name sits on the theme class itself under no condition, while a narrower
+ * scope or a condition may re-value a scale role (`src/Global.css` classifies every effective selector arm and
+ * refuses an unconditional role when any arm reaches the document or a bare theme). Pass `--contrast <foreground>
+ * <background> [--theme <class-or-stem>]` (or `npm run theme-contrast -- <fg> <bg>`) to print a pair's contrast
+ * ratio in each scheme with the same compositing.
  *
  * Three things are outside this check: a value set from JavaScript, a sheet reached through `@import`, and a
  * `color-scheme` that a rule sets against the one `src` wires from `--neo-color-scheme`. The lightness numbers
@@ -23,6 +25,8 @@
 import fs                                                        from 'node:fs';
 import path                                                      from 'node:path';
 import {fileURLToPath}                                           from 'node:url';
+import postcss                                                   from 'postcss';
+import selectorParser                                            from 'postcss-selector-parser';
 import isEntryModule                                             from './isEntryModule.mjs';
 import {cssFiles}                                                from './themeCss.mjs';
 import {PALETTE_EXTRAS, PALETTE_GRADES, SCHEME_PROPERTY, kindOf} from './themeNameShapes.mjs';
@@ -44,21 +48,12 @@ export const SCAN_SURFACE = Object.freeze(['resources/css/**/*.css']);
 export const GRADES = PALETTE_GRADES;
 
 const
-    BACKGROUND              = '--neo-color-background-',
-    BORDER                  = '--neo-color-border-',
-    CANVAS                  = BACKGROUND + 'canvas',
-    SCHEME                  = SCHEME_PROPERTY,
-    SRC_GLOBAL_MOTION_ROLES = new Set([
-        '--neo-duration-fast',
-        '--neo-duration-base',
-        '--neo-duration-panel',
-        '--neo-duration-stage',
-        '--neo-duration-stagger',
-        '--neo-ease-out',
-        '--neo-ease-in'
-    ]),
-    STATUSES                = Object.freeze(['danger', 'warning', 'success', 'info']),
-    TEXT                    = '--neo-color-text-';
+    BACKGROUND = '--neo-color-background-',
+    BORDER     = '--neo-color-border-',
+    CANVAS     = BACKGROUND + 'canvas',
+    SCHEME     = SCHEME_PROPERTY,
+    STATUSES   = Object.freeze(['danger', 'warning', 'success', 'info']),
+    TEXT       = '--neo-color-text-';
 
 /**
  * How far one slot's reading of a grade may sit from another's. An `oklch()` literal states its lightness;
@@ -356,40 +351,57 @@ function isSrcGlobal(cssRelPath) {
 }
 
 /**
- * Every place a sheet spells a custom property as a declaration (`--name:`) or a registration
- * (`@property --name {`). A `var()` read is followed by neither, and a query such as
- * `@container style(--name: value)` writes the name behind an opening parenthesis.
+ * Single-pass CSS lexical normalizer: strips comments, neutralizes unquoted `url(...)` tokens and unclosed
+ * `<bad-string-token>` lines (as a browser's CSS tokenizer ends them at `\n`) while preserving valid quoted
+ * strings intact (so quoted selector attributes such as `[class^="density-"]` keep their values), and writes
+ * out identifier escapes outside strings (`.neo-theme-neo-li\67ht` -> `.neo-theme-neo-light`).
  * @type {RegExp}
  */
-const SPELLED = /(?<![\w-]|\(\s*)(--[a-zA-Z0-9_-]+)\s*[:{]/g;
+const CSS_TOKENS = /\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"|'(?:\\[^]|[^'\\\n])*'|"(?:\\[^]|[^"\\\n])*(?=\n|$)|'(?:\\[^]|[^'\\\n])*(?=\n|$)|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)|\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/gi;
 
 /**
- * What a brace, a semicolon or a comment mark can hide in: an escape, a comment, a string, an unquoted `url()`.
- * A string without its closing quote ends where its line ends, as a browser's tokenizer ends it.
- * @type {RegExp}
+ * @summary Normalizes raw CSS text before bracket checking and PostCSS parsing.
+ * @param {String} raw
+ * @returns {String}
  */
-const OPAQUE = /\\[^]|\/\*[^]*?\*\/|"(?:\\[^]|[^"\\\n])*"?|'(?:\\[^]|[^'\\\n])*'?|url\(\s*(?:\\[^]|[^"'()\\\s])(?:\\[^]|[^()\\])*\)/gi;
+function prepareCss(raw) {
+    return raw.replace(CSS_TOKENS, (token, hex, char) => {
+        if (token.startsWith('/*')) {
+            return ' '
+        }
+
+        if (token[0] === '"') {
+            return token.length >= 2 && token.endsWith('"') && !/(?:^|[^\\])(?:\\\\)*\\$/.test(token.slice(1, -1)) ? token : '""'
+        }
+
+        if (token[0] === '\'') {
+            return token.length >= 2 && token.endsWith('\'') && !/(?:^|[^\\])(?:\\\\)*\\$/.test(token.slice(1, -1)) ? token : '\'\''
+        }
+
+        if (/^url\(/i.test(token)) {
+            return 'url()'
+        }
+
+        const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
+
+        return spelled && /[\w-]/.test(spelled) ? spelled : token
+    })
+}
 
 /**
- * @summary Reads a stylesheet as its syntax alone: no comment, every string and unquoted `url()` emptied, and
- * each escape that spells a name character written out. A brace, a semicolon or a comment mark inside a string
- * is then no syntax for this check either, and `.neo-theme-neo-li\67ht` is read as a browser reads it.
+ * @summary Reads a stylesheet with comments stripped, bad strings and unquoted `url()` tokens normalized,
+ * valid quoted strings preserved, and identifier escapes resolved.
  * @param {String} file
  * @returns {String}
  */
 function readSheet(file) {
-    return fs.readFileSync(file, 'utf8')
-        .replace(OPAQUE, token => ({'\\': token, '/': ' ', '"': '""', '\'': '\'\''})[token[0]] ?? 'url()')
-        .replace(/\\(?:([0-9a-fA-F]{1,6})\s?|([^0-9a-fA-F\s]))/g, (escape, hex, char) => {
-            const spelled = hex ? String.fromCodePoint(Math.min(parseInt(hex, 16), 0x10FFFF)) : char;
-
-            return /[\w-]/.test(spelled) ? spelled : escape
-        })
+    return prepareCss(fs.readFileSync(file, 'utf8'))
 }
 
 /**
- * @summary Whether every bracket of a sheet read by `readSheet` closes the one opened last. Where one does
- * not, a browser's blocks and this check's part ways: after `--probe: (} .a {);` it drops the rest of the sheet.
+ * @summary Whether every bracket outside quoted strings in `prepareCss` output closes the one opened last.
+ * Where one does not, a browser's blocks and this check's part ways: after `--probe: (} .a {);` it drops
+ * the rest of the sheet.
  * @param {String} css
  * @returns {Boolean}
  */
@@ -403,6 +415,12 @@ function isBalanced(css) {
 
         if (char === '\\') {
             index++
+        } else if (char === '"' || char === '\'') {
+            for (index++; index < css.length && css[index] !== char && css[index] !== '\n'; index++) {
+                if (css[index] === '\\') {
+                    index++
+                }
+            }
         } else if (closers[char]) {
             open.push(closers[char])
         } else if ((char === ')' || char === ']' || char === '}') && open.pop() !== char) {
@@ -437,37 +455,275 @@ function ownThemeClasses(header) {
 }
 
 /**
- * @summary Whether a selector header targets the document, every element, a theme class, or the universal
- * `neo-theme-` base attribute rather than a narrower sub-scope (such as a density or `.neo-theme-scope` rule).
- * @param {String} header
+ * Representative `class` attribute values present on bare themed documents without any density or component
+ * sub-scope. Used alongside prefix checks to test `[class...]` attribute selectors.
+ * @type {String[]}
+ */
+const BARE_CLASS_SAMPLES = Object.freeze([
+    'neo-body',
+    'neo-theme-neo-light',
+    'neo-theme-neo-dark',
+    'neo-theme-light',
+    'neo-theme-dark',
+    'neo-theme-cyberpunk',
+    'neo-theme-custom',
+    'neo-body neo-theme-neo-light',
+    'neo-body neo-theme-neo-dark',
+    'neo-body neo-theme-custom'
+]);
+
+/**
+ * @summary Evaluates a CSS attribute operator against one candidate attribute string.
+ * @param {String} sample
+ * @param {String} operator
+ * @param {String} value
  * @returns {Boolean}
  */
-function isUniversalOrThemeSelector(header) {
-    const parts = (header.match(/^:(?:where|is)\(([^]*)\)$/)?.[1] ?? header)
-        .split(',')
-        .map(part => part.trim())
-        .filter(Boolean);
+function matchesAttributeOperator(sample, operator, value) {
+    switch (operator) {
+        case '=' : return sample === value;
+        case '~=': return Boolean(value) && !/\s/.test(value) && sample.split(/\s+/).includes(value);
+        case '|=': return sample === value || sample.startsWith(`${value}-`);
+        case '^=': return Boolean(value) && sample.startsWith(value);
+        case '$=': return Boolean(value) && sample.endsWith(value);
+        case '*=': return Boolean(value) && sample.includes(value);
+        default  : return true
+    }
+}
 
-    if (!parts.length || ownThemeClasses(header).length > 0) {
+/**
+ * @summary Whether a `[class...]` attribute selector can match a bare theme element (`neo-body` or any
+ * `neo-theme-<name>` other than `neo-theme-scope`). Narrower class-prefix selectors such as
+ * `[class^="density-"]` return `false`.
+ * @param {Object} node `postcss-selector-parser` attribute node
+ * @returns {Boolean}
+ */
+function classAttributeReachesBareTheme(node) {
+    if (!node.operator) {
         return true
     }
 
-    return parts.some(part =>
-        part === '*' ||
-        part === 'html' ||
-        part === 'body' ||
-        part === '.neo-body' ||
-        part.startsWith(':root') ||
-        part.startsWith(':not(') ||
-        /^\[class(?:\s*[\^$*~|]?=|\s*\])/i.test(part)
+    const
+        rawVal  = node.value ?? '',
+        val     = node.insensitive ? rawVal.toLowerCase() : rawVal,
+        samples = node.insensitive ? BARE_CLASS_SAMPLES.map(sample => sample.toLowerCase()) : BARE_CLASS_SAMPLES;
+
+    if (samples.some(sample => matchesAttributeOperator(sample, node.operator, val))) {
+        return true
+    }
+
+    return val.startsWith('neo-theme-') && val !== 'neo-theme-scope' && !val.startsWith('neo-theme-scope-')
+}
+
+/**
+ * @summary Whether a selector subtree contains an explicit CSS nesting `&` selector.
+ * @param {Object} node
+ * @returns {Boolean}
+ */
+function containsNestingSelector(node) {
+    return node?.type === 'nesting' || Boolean(node?.nodes?.some(containsNestingSelector))
+}
+
+/**
+ * @summary Whether a single simple selector can match an element of a bare themed document (without any
+ * narrower density, feature, or `.neo-theme-scope` qualifier).
+ * @param {Object} node `postcss-selector-parser` node
+ * @param {Boolean} parentReachesBareTheme
+ * @returns {Boolean}
+ */
+function simpleReachesBareTheme(node, parentReachesBareTheme) {
+    switch (node.type) {
+        case 'universal':
+            return true;
+        case 'nesting':
+            return parentReachesBareTheme;
+        case 'tag':
+            return ['html', 'body', 'div', 'main', 'section'].includes(node.value.toLowerCase());
+        case 'id':
+            return false;
+        case 'class':
+            return node.value === 'neo-body' || (node.value.startsWith('neo-theme-') && node.value !== 'neo-theme-scope');
+        case 'attribute':
+            return node.attribute.trim().toLowerCase() === 'class' ? classAttributeReachesBareTheme(node) : false;
+        case 'pseudo': {
+            const name = node.value.toLowerCase();
+
+            if (name === ':root' || name === ':scope' || name === ':host' || name === ':host-context') {
+                return true
+            }
+
+            if (name === ':is' || name === ':where' || name === ':matches' || name === ':-webkit-any' || name === ':-moz-any') {
+                return Boolean(node.nodes?.some(arm => selectorArmReachesBareTheme(arm, parentReachesBareTheme, false)))
+            }
+
+            if (name === ':not' || name === ':has') {
+                return true
+            }
+
+            return false
+        }
+        default:
+            return true
+    }
+}
+
+/**
+ * @summary Whether one comma-separated selector arm can match a bare themed document without crossing at
+ * least one narrower scope compound.
+ * @param {Object} selectorNode `postcss-selector-parser` selector node
+ * @param {Boolean} parentReachesBareTheme
+ * @param {Boolean} injectImplicitNesting True for top-level arms of a nested CSS rule
+ * @returns {Boolean}
+ */
+function selectorArmReachesBareTheme(selectorNode, parentReachesBareTheme, injectImplicitNesting) {
+    const compounds = [[]];
+
+    for (const child of selectorNode.nodes ?? []) {
+        if (child.type === 'comment') {
+            continue
+        }
+
+        if (child.type === 'combinator') {
+            compounds.at(-1).length && compounds.push([])
+        } else {
+            compounds.at(-1).push(child)
+        }
+    }
+
+    compounds.at(-1).length || compounds.pop();
+
+    if (!compounds.length) {
+        return true
+    }
+
+    if (injectImplicitNesting && !containsNestingSelector(selectorNode) && !parentReachesBareTheme) {
+        return false
+    }
+
+    return compounds.every(compound =>
+        compound.every(simple => simpleReachesBareTheme(simple, parentReachesBareTheme))
     )
 }
 
 /**
- * @summary Reads a comment-free stylesheet into one declaration map per theme class. A declaration belongs
- * to the theme classes its rule declares on, and a later one wins. That is no cascade: `onDeclaration` hears
- * every custom property the sheet declares, so a caller can refuse a name that has two values or sits in any
- * other rule. A declaration under a condition enters no map, since nothing here reads when it applies.
+ * @summary Parses a CSS rule selector list and returns `true` when ANY effective selector arm reaches the
+ * document root, universal selector, or a bare theme (`:is(.neo-theme-*)`, mixed comma/`:where()` lists, etc.).
+ * Fails closed (`true`) on malformed selector syntax.
+ * @param {String} header
+ * @param {Boolean} [parentReachesBareTheme=true]
+ * @param {Boolean} [hasParentRule=false]
+ * @returns {Boolean}
+ */
+function selectorListReachesBareTheme(header, parentReachesBareTheme = true, hasParentRule = false) {
+    if (!header.trim()) {
+        return true
+    }
+
+    try {
+        const root = selectorParser().astSync(header);
+
+        if (!root.nodes?.length) {
+            return true
+        }
+
+        return root.nodes.some(arm => selectorArmReachesBareTheme(arm, parentReachesBareTheme, hasParentRule))
+    } catch {
+        return true
+    }
+}
+
+/**
+ * @summary Walks a stylesheet's PostCSS AST, invoking `onDeclaration` for every custom-property declaration
+ * (`--name: value`) and `onProperty` for every `@property --name` registration, while ignoring selector names
+ * (`.--neo-foo:hover`), container style queries, and braced token streams inside custom-property values.
+ * @param {String} css Raw or `readSheet`-normalized CSS
+ * @param {Object} [callbacks={}]
+ * @param {Function} [callbacks.onDeclaration]
+ * @param {Function} [callbacks.onProperty]
+ * @returns {{syntaxError: Boolean, themes: Map<String, Map<String,String>>}}
+ */
+function walkSheetCustomProperties(css, {onDeclaration, onProperty} = {}) {
+    const
+        normalized = prepareCss(css),
+        themes     = new Map();
+
+    let root;
+
+    try {
+        root = postcss.parse(normalized)
+    } catch {
+        return {syntaxError: true, themes}
+    }
+
+    const visit = (container, context) => {
+        for (const node of container.nodes ?? []) {
+            if (node.type === 'rule') {
+                const
+                    header      = node.selector.trim(),
+                    classes     = context.inRule ? [] : ownThemeClasses(header),
+                    reachesBare = selectorListReachesBareTheme(header, context.reachesBare, context.inRule);
+
+                visit(node, {
+                    classes,
+                    conditions: context.conditions,
+                    inRule    : true,
+                    reachesBare
+                });
+                continue
+            }
+
+            if (node.type === 'atrule') {
+                const atName = node.name.toLowerCase();
+
+                if (atName === 'property') {
+                    const name = node.params.trim().match(/^(--[a-zA-Z0-9_-]+)/)?.[1];
+
+                    name && onProperty?.(name, context.conditions, {inRule: context.inRule, scoped: context.inRule && !context.reachesBare});
+                    node.nodes && visit(node, {...context, classes: [], inRule: false, reachesBare: true});
+                    continue
+                }
+
+                const
+                    params     = node.params?.trim() ?? '',
+                    header     = params ? `@${node.name} ${params}` : `@${node.name}`,
+                    conditions = atName === 'layer' ? context.conditions : [...context.conditions, header];
+
+                node.nodes && visit(node, {...context, conditions});
+                continue
+            }
+
+            if (node.type === 'decl' && node.prop.startsWith('--')) {
+                const
+                    name  = node.prop.trim(),
+                    value = (node.value.trim() + (node.important ? ' !important' : '')).trim();
+
+                if (!/^--[a-zA-Z0-9_-]+$/.test(name)) {
+                    continue
+                }
+
+                for (const themeClass of context.classes) {
+                    themes.has(themeClass) || themes.set(themeClass, new Map());
+                    context.conditions.length || themes.get(themeClass).set(name, value)
+                }
+
+                onDeclaration?.(context.classes, name, value, context.conditions, {
+                    inRule: context.inRule,
+                    scoped: context.inRule && !context.reachesBare
+                })
+            }
+        }
+    };
+
+    visit(root, {classes: [], conditions: [], inRule: false, reachesBare: true});
+
+    return {syntaxError: false, themes}
+}
+
+/**
+ * @summary Reads a stylesheet into one declaration map per theme class. A declaration belongs to the theme
+ * classes its rule declares on, and a later one wins. That is no cascade: `onDeclaration` hears every custom
+ * property the sheet declares, so a caller can refuse a name that has two values or sits in any other rule.
+ * A declaration under a condition enters no map, since nothing here reads when it applies.
  * @param {String} css
  * @param {Function} [onDeclaration] Called with `(classes, name, value, conditions, meta)` once for each custom
  * property declared: `classes` holds the theme classes its rule declares on, and is empty for a rule of any
@@ -476,41 +732,7 @@ function isUniversalOrThemeSelector(header) {
  * @returns {Map<String, Map<String,String>>}
  */
 export function readThemeDeclarations(css, onDeclaration) {
-    const
-        blocks = [{classes: [], conditions: [], inRule: false, scoped: false}],
-        themes = new Map();
-
-    for (const [, text, mark] of css.matchAll(/([^{};]*)([{};])/g)) {
-        const {classes, conditions, inRule, scoped} = blocks.at(-1);
-
-        if (mark === '{') {
-            const
-                header = text.trim(),
-                atRule = header.startsWith('@');
-
-            blocks.push({
-                classes   : atRule ? classes : inRule ? [] : ownThemeClasses(header),
-                conditions: /^@(?!layer\b|property\b)/i.test(header) ? [...conditions, header] : conditions,
-                inRule    : inRule || !atRule,
-                scoped    : atRule ? scoped : !header.startsWith(':not(') && (scoped || (!isUniversalOrThemeSelector(header) && header !== '&'))
-            });
-
-            continue
-        }
-
-        const [, name, value] = text.match(/^\s*(--[a-zA-Z0-9_-]+)\s*:\s*([^]+?)\s*$/) ?? [];
-
-        for (const themeClass of name ? classes : []) {
-            themes.has(themeClass) || themes.set(themeClass, new Map());
-            conditions.length || themes.get(themeClass).set(name, value)
-        }
-
-        name && onDeclaration?.(classes, name, value, conditions, {inRule, scoped});
-
-        mark === '}' && blocks.length > 1 && blocks.pop()
-    }
-
-    return themes
+    return walkSheetCustomProperties(css, {onDeclaration}).themes
 }
 
 /**
@@ -795,43 +1017,41 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
         const
             css         = readSheet(file),
             cssRelPath  = path.relative(cssRoot, file).replaceAll('\\', '/'),
-            placed      = new Map(),
             relPath     = path.relative(root, file).replaceAll('\\', '/'),
             srcGlobal   = isSrcGlobal(cssRelPath),
-            themeGlobal = isThemeGlobal(cssRelPath);
+            themeGlobal = isThemeGlobal(cssRelPath),
+            addSyntax   = () => failures.add(
+                `[syntax] ${relPath} has a bracket that does not close the one opened last; a browser reads the rest ` +
+                `of such a sheet in another way, and this check cannot follow it`
+            );
 
-        isBalanced(css) || failures.add(
-            `[syntax] ${relPath} has a bracket that does not close the one opened last; a browser reads the rest ` +
-            `of such a sheet in another way, and this check cannot follow it`
-        );
+        if (!isBalanced(css)) {
+            addSyntax();
+            continue
+        }
 
         if (!themeGlobal && !srcGlobal) {
-            for (const [, name] of css.matchAll(SPELLED)) {
+            const checkOutsideGlobal = name => {
                 if (isPaletteOrRole(name)) {
                     failures.add(
                         `[scope] ${relPath} declares or registers ${name} outside Global.css; ` +
                         `palette and role names are declared in Global.css only`
                     )
                 }
-            }
+            };
 
+            const {syntaxError} = walkSheetCustomProperties(css, {
+                onDeclaration: (classes, name) => checkOutsideGlobal(name),
+                onProperty   : name => checkOutsideGlobal(name)
+            });
+
+            syntaxError && addSyntax();
             continue
         }
 
         if (srcGlobal) {
-            readThemeDeclarations(css, (classes, name, value, conditions, {inRule, scoped}) => {
-                if (!isMeasured(name) && isPaletteOrRole(name) && inRule &&
-                    (conditions.length > 0 || scoped || SRC_GLOBAL_MOTION_ROLES.has(name))) {
-                    placed.set(name, (placed.get(name) ?? 0) + 1)
-                }
-            });
-
-            for (const [, name] of css.matchAll(SPELLED)) {
-                const left = placed.get(name) ?? 0;
-
-                if (left) {
-                    placed.set(name, left - 1)
-                } else if (isMeasured(name)) {
+            const reportSrcGlobal = name => {
+                if (isMeasured(name)) {
                     failures.add(
                         `[scope] ${relPath} declares or registers ${name} outside a theme Global.css; ` +
                         `palette and colour-role names belong to a theme class in theme-<name>/Global.css`
@@ -842,47 +1062,64 @@ export function inspectThemePalettes({root = repoRoot} = {}) {
                         `src/Global.css only re-values scale roles under a scope or condition`
                     )
                 }
-            }
+            };
 
+            const {syntaxError} = walkSheetCustomProperties(css, {
+                onDeclaration: (classes, name, value, conditions, {inRule, scoped}) => {
+                    if (isMeasured(name) || (isPaletteOrRole(name) && !(inRule && (conditions.length > 0 || scoped)))) {
+                        reportSrcGlobal(name)
+                    }
+                },
+                onProperty: name => reportSrcGlobal(name)
+            });
+
+            syntaxError && addSyntax();
             continue
         }
 
-        const sheets = readThemeDeclarations(css, (classes, name, value, conditions, {inRule}) => {
-            if (isMeasured(name) ? classes.length > 0 : (isPaletteOrRole(name) && inRule)) {
-                placed.set(name, (placed.get(name) ?? 0) + 1)
-            }
-
-            for (const themeClass of classes) {
-                const {conditional, values} = theme(themeClass);
-
-                if (!conditions.length) {
-                    values.has(name) || values.set(name, new Map());
-                    values.get(name).has(value) || values.get(name).set(value, relPath)
-                } else if (isMeasured(name)) {
-                    conditional.push({conditions, name, relPath})
-                }
-            }
-        });
-
-        // What the sheet spells beyond the declarations the reader placed on a theme class (or on a rule for scale
-        // roles). Such a name fails whether or not a palette was found: a palette block under a selector of another
-        // shape is found nowhere.
-        for (const [, name] of css.matchAll(SPELLED)) {
-            const left = placed.get(name) ?? 0;
-
-            if (left) {
-                placed.set(name, left - 1)
-            } else if (isMeasured(name)) {
+        const reportThemeGlobalScope = (name, isRegistration = false) => {
+            if (isMeasured(name)) {
                 failures.add(
                     `[scope] ${relPath} declares or registers ${name} outside a rule that declares on a theme class itself; ` +
                     `a palette or colour-role name has one value per theme class, and nothing here can tell what another rule reaches`
                 )
-            } else if (isPaletteOrRole(name)) {
+            } else if (isPaletteOrRole(name) && isRegistration) {
                 failures.add(
                     `[scope] ${relPath} registers ${name} outside a selector rule; ` +
                     `a scale role is declared or re-valued inside a rule of Global.css`
                 )
             }
+        };
+
+        const {syntaxError, themes: sheets} = walkSheetCustomProperties(css, {
+            onDeclaration: (classes, name, value, conditions, {inRule}) => {
+                if (isMeasured(name) && !classes.length) {
+                    reportThemeGlobalScope(name);
+                    return
+                }
+
+                if (!isMeasured(name) && isPaletteOrRole(name) && !inRule) {
+                    reportThemeGlobalScope(name, true);
+                    return
+                }
+
+                for (const themeClass of classes) {
+                    const {conditional, values} = theme(themeClass);
+
+                    if (!conditions.length) {
+                        values.has(name) || values.set(name, new Map());
+                        values.get(name).has(value) || values.get(name).set(value, relPath)
+                    } else if (isMeasured(name)) {
+                        conditional.push({conditions, name, relPath})
+                    }
+                }
+            },
+            onProperty: name => reportThemeGlobalScope(name, true)
+        });
+
+        if (syntaxError) {
+            addSyntax();
+            continue
         }
 
         for (const [themeClass, declarations] of sheets) {
