@@ -313,7 +313,12 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
             const button   = document.querySelector('.neo-grid-header-button'),
                   viewport = document.querySelector('.workstation-viewport'),
                   palette  = getComputedStyle(viewport),
-                  style    = getComputedStyle(button);
+                  style    = getComputedStyle(button),
+                  // The browser's own serialization of `flex-end`: Chromium 159 reports `flow-end`
+                  probe    = document.body.appendChild(Object.assign(document.createElement('div'), {style: 'justify-content: flex-end'})),
+                  flexEnd  = getComputedStyle(probe).justifyContent;
+
+            probe.remove();
 
             return {
                 background: style.getPropertyValue('--grid-header-button-background-color').trim(),
@@ -322,7 +327,8 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
                 inkDim    : palette.getPropertyValue('--workstation-ink-dim').trim(),
                 // Sort glyphs sit after the label under row-reverse, so `flex-end` is the physical
                 // start alignment. The theme's `start` was one of the values the bridge used to lose.
-                justifyContent : style.justifyContent
+                justifyContent : style.justifyContent,
+                flexEnd
             }
         });
 
@@ -331,6 +337,6 @@ test.describe('Workstation — the palette bridge out-ranks the theme', () => {
         expect(reading.glyph.toLowerCase(), 'header button glyph stays instrument ink-dim')
             .toBe(reading.inkDim.toLowerCase());
         expect(reading.justifyContent, 'header button keeps its label/glyph group alignment')
-            .toBe('flex-end')
+            .toBe(reading.flexEnd)
     })
 });
