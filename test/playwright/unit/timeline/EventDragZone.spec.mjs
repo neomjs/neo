@@ -18,6 +18,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
+import Component      from '../../../../src/component/Base.mjs';
 import DragZone       from '../../../../src/draggable/DragZone.mjs';
 import EventDragZone  from '../../../../src/timeline/draggable/EventDragZone.mjs';
 import EventStore     from '../../../../src/timeline/store/Events.mjs';
@@ -94,7 +95,7 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
               baseStarted = 0;
         store.on('recordChange', () => { recordChg++ });
 
-        const owner = {cls: []};
+        const owner = {cls: [], removeCls: Component.prototype.removeCls};
         const zone  = Neo.create(EventDragZone, {
             appName,
             axis,
@@ -152,6 +153,7 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
         const record = store.get('event'), calls = [], commits = [];
         const zone   = Neo.create(EventDragZone, {appName, axis, store, eventRecord: record, owner: {
             cls: [],
+            removeCls: Component.prototype.removeCls,
             commitTimelineEdit(item, dates, meta) {
                 calls.push({item, dates, meta});
                 return false
@@ -200,7 +202,7 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
             appName,
             axis,
             eventRecord: record,
-            owner      : {cls: ['neo-is-dragging']},
+            owner      : {cls: ['neo-is-dragging'], removeCls: Component.prototype.removeCls},
             store
         });
 
@@ -249,7 +251,7 @@ test.describe('Neo.timeline.draggable.EventDragZone', () => {
             axis,
             eventRecord    : record,
             minimumDuration: 30,
-            owner          : {cls: ['neo-is-dragging']},
+            owner          : {cls: ['neo-is-dragging'], removeCls: Component.prototype.removeCls},
             resizeEdge     : 'end',
             store
         });

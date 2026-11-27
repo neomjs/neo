@@ -111,16 +111,12 @@ class SortZone extends BaseSortZone {
         const promise = super.processDragEnd(data);
 
         this.timeout(300).then(() => {
-            let me      = this,
-                {owner} = me,
-                cls;
+            let {owner} = this;
 
             // The drop's projection may have destroyed the toolbar meanwhile
             if (!owner || owner.isDestroyed) return;
 
-            cls = owner.cls || [];
-            NeoArray.remove(cls, 'neo-no-animation');
-            owner.cls = cls
+            owner.removeCls('neo-no-animation')
         });
 
         await promise

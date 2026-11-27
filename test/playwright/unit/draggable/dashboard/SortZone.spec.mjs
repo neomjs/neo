@@ -11,6 +11,7 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
+import Component       from '../../../../../src/component/Base.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
 
 /**
@@ -392,6 +393,7 @@ test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
         const mockOwner = {
             id              : 'mockOwner',
             cls             : [],
+            removeCls       : Component.prototype.removeCls,
             dragResortable  : true,
             items           : [existingItem, placeholder],
             style           : {},
@@ -459,6 +461,7 @@ test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
             mockOwner       = {
                 id                      : 'mockOwner',
                 cls                     : [],
+                removeCls               : Component.prototype.removeCls,
                 detachedItems,
                 dragResortable          : true,
                 items                   : [item, placeholder],
@@ -570,6 +573,7 @@ test.describe('Neo.draggable.dashboard.SortZone Directional Logic', () => {
             mockOwner       = {
                 id              : 'mockOwner',
                 cls             : [],
+                removeCls       : Component.prototype.removeCls,
                 dragResortable  : true,
                 items           : [item],
                 style           : {},

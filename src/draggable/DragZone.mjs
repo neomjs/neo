@@ -487,9 +487,7 @@ class DragZone extends Base {
         let me = this, {owner} = me;
 
         if (owner) {
-            let {cls} = owner;
-            NeoArray.remove(cls, 'neo-is-dragging');
-            owner.cls = cls
+            owner.removeCls('neo-is-dragging')
         }
 
         if (me.dragProxy) {

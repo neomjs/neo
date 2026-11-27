@@ -54,6 +54,8 @@ test.describe('Neo.form.field.Text#afterSetDisabled', () => {
         instances.push(field);
 
         await field.initVnode();
+        // Keep pending inline-label measurements consistent with the seeded 84px cut-out.
+        field.getDomRect = async () => ({width: 109});
         field.mounted = true;
 
         expect(field.cls).toContain('neo-disabled');

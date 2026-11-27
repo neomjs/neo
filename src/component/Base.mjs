@@ -426,8 +426,8 @@ class Component extends Abstract {
     }
 
     /**
-     * Add a new cls to the vdomRoot
-     * @param {String} value
+     * @summary Adds one or more classes to the VDOM root.
+     * @param {String|String[]} value
      */
     addCls(value) {
         let {cls} = this;
@@ -453,8 +453,8 @@ class Component extends Abstract {
     }
 
     /**
-     * Add a new wrapperCls to the top level node
-     * @param {String} value
+     * @summary Adds one or more wrapper classes to the top-level node.
+     * @param {String|String[]} value
      */
     addWrapperCls(value) {
         let {wrapperCls} = this;
@@ -1936,8 +1936,8 @@ class Component extends Abstract {
     }
 
     /**
-     * Remove a cls from the vdomRoot
-     * @param {String} value
+     * @summary Removes one or more classes from the VDOM root.
+     * @param {String|String[]} value
      */
     removeCls(value) {
         let cls = this.cls;
