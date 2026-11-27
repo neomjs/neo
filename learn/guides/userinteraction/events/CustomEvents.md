@@ -28,7 +28,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Event listeners
@@ -56,7 +56,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### As a view method
@@ -86,7 +86,7 @@ class MainView extends Container {
         Neo.Main.log({value:data.value})
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### As a controller method
@@ -127,7 +127,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Adding listeners procedurally
@@ -170,7 +170,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 The method specified in `on()` doesn't have to be an arrow function; you can use a controller function.
@@ -211,7 +211,7 @@ class MainView extends Container {
         }]
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## Events versus binding
@@ -280,7 +280,7 @@ class MainView extends Container {
         this.getReference('foo').html = `${this.getReference('textFieldOne').value} ${this.getReference('textFieldTwo').value}`
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ```javascript live-preview
@@ -316,7 +316,7 @@ class MainView extends Container {
         this.getReference('foo').html = data.value;
     }
 }
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ##How are events set up?

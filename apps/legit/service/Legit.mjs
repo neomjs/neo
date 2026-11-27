@@ -271,7 +271,7 @@ class Legit extends Base {
                 "    }",
                 "}",
                 "",
-                "MainView = Neo.setupClass(MainView);"
+                "export default Neo.setupClass(MainView);"
             ].join('\n'),
             path     : `${me.path}/Helix.mjs`,
             skipReady: true
@@ -283,12 +283,12 @@ class Legit extends Base {
                 "",
                 "class MainView extends Viewport {",
                 "    static config = {",
-                "        className: 'Portal.view.MultiWindowHelix',",
+                "        className: 'Portal.view.MultiWindowCoronaGallery',",
                 "        theme    : 'neo-theme-dark'",
                 "    }",
                 "}",
                 "",
-                "MainView = Neo.setupClass(MainView);"
+                "export default Neo.setupClass(MainView);"
             ].join('\n'),
             path     : `${me.path}/Gallery.mjs`,
             skipReady: true

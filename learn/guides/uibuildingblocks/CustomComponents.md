@@ -170,7 +170,7 @@ class MainView extends Container {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Breakdown of the Example:
@@ -270,7 +270,7 @@ class MainView extends Container {
     }
 }
 
-MainView= Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ### Key Differences in this Approach:

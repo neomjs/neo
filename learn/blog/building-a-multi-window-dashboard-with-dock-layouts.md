@@ -38,7 +38,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Drag a tab onto another pane, drag the divider, open the Audit pane from the rail on the right. You wrote none of that behaviour.
@@ -76,7 +76,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Click into the Logs header, then into the Alerts header. Logs offers an unpin, which folds an edge pane into its rail, and a close. Alerts offers neither. The rule doesn't live in that header. `closable` and `pinnable` are enforced by the reducer that commits every change, so a close or a fold into the rail sent programmatically, by a script or by an AI agent through the Neural Link, is refused the same way, with an error naming the item, and the document doesn't move ([Decision 3](https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/DockLayoutsAdoption.md#decision-3--policies-live-in-the-model-not-in-your-ui)). A third flag, `movable: false`, keeps a pane in its workspace: a transfer to another window is refused, while moves inside the workspace stay open. Your code never grows an `if (item.closable)` branch.
@@ -147,7 +147,7 @@ class MainView extends Workspace {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 Switch to Incident, move a tab, and the toolbar says "Modified". Switch back, and the declared arrangement returns. A perspective is a whole arrangement, not a diff, so anything changed in between, item flags included, is replaced ([features guide](https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/DockLayoutsFeatures.md#name-an-arrangement-and-mean-it)). The toolbar binds to `dock.perspective` on the workspace's state provider, the same provider its header actions bind to.

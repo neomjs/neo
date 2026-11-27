@@ -33,7 +33,7 @@ class MainView extends FormContainer {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 In this example:
@@ -191,7 +191,7 @@ class MainView extends FormContainer {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```
 
 ## 4. Multi-select with `Neo.form.field.Chip`
@@ -219,7 +219,7 @@ class TagForm extends FormContainer {
     }
 }
 
-TagForm = Neo.setupClass(TagForm);
+export default Neo.setupClass(TagForm);
 ```
 
 A `TagForm` instance returns `{tags: ['engine', 'forms']}` from `getSubmitValues()`. Typing filters the remaining picker options without clearing the selected chips.
@@ -267,5 +267,5 @@ class MainView extends FormContainer {
     }
 }
 
-MainView = Neo.setupClass(MainView);
+export default Neo.setupClass(MainView);
 ```

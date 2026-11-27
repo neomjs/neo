@@ -117,7 +117,7 @@ class MainComponent extends Component {
     }
 }
 
-MainComponent = Neo.setupClass(MainComponent);
+export default Neo.setupClass(MainComponent);
 ```
 
 ## 2. Functional Style
@@ -322,6 +322,6 @@ class MainContainer extends Container {
     }
 }
 
-MainContainer = Neo.setupClass(MainContainer);
+export default Neo.setupClass(MainContainer);
 ```
 
