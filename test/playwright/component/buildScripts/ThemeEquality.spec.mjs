@@ -144,8 +144,8 @@ test.describe('theme-equality headless Chromium integration', () => {
         expect(switchNext).not.toBe(switchOrig);
         fs.writeFileSync(switchFile, switchNext);
 
-        // 2. Dialog header button hover (`--neo-dialog-header-button-background-color-hover` reading `--neo-sem-color-surface-neutral-hover`)
-        const dialogFile = path.join(head.cssDir, 'theme-neo-light/dialog/Base.css'),
+        // 2. Dialog header button hover inherits the shared binding in Neo Light
+        const dialogFile = path.join(head.cssDir, 'theme-base/dialog/Base.css'),
               dialogOrig = fs.readFileSync(dialogFile, 'utf8'),
               dialogNext = dialogOrig.replace(
                   /--neo-dialog-header-button-background-color-hover\s*:\s*[^;]+;/,
@@ -232,6 +232,7 @@ test.describe('theme-equality headless Chromium integration', () => {
             property : 'background-color',
             head     : 'rgb(220, 40, 90)'
         }));
+        expect(result.diffs.filter(diff => diff.component === 'dialog' && diff.theme === 'neo-theme-dark')).toEqual([]);
 
         // Chip hovered close button caught
         expect(result.diffs).toContainEqual(expect.objectContaining({
