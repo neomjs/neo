@@ -153,7 +153,7 @@ class Circle extends Component {
 
     /**
      * Cancels proxy setup if the item gesture ends before the zone is ready.
-     * @member {AbortController|null}
+     * @member {AbortController|null} dragStartAbortController=null
      * @protected
      */
     dragStartAbortController = null;
@@ -691,16 +691,6 @@ class Circle extends Component {
     }
 
     /**
-     * @summary Stops any pending proxy setup and clears Circle's gesture state.
-     * @protected
-     */
-    resetDragStart() {
-        this.dragStartAbortController?.abort();
-        this.dragStartAbortController = null;
-        this.isDragging               = false
-    }
-
-    /**
      * @summary Finishes the item gesture and lets the zone remove its drag proxy.
      * @param {Object} data
      */
@@ -710,21 +700,21 @@ class Circle extends Component {
     }
 
     /**
-     * @summary Starts a zone for the item gesture and gives its async setup the gesture's abort signal.
+     * @summary Starts an item drag using the VDOM of the delegated item and the gesture's abort signal.
      * @param {Object} data
      */
     onDragStart(data) {
-        console.log('onDragStart', data)
+        let me          = this,
+            dragElement = me.getItemEl(data.currentTarget);
 
-        let me           = this,
-            wrapperStyle = me.wrapperStyle || {};
+        if (!dragElement) return;
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module         : DragZone,
                 appName        : me.appName,
                 bodyCursorStyle: 'move !important',
-                dragElement    : me.vdom,
+                dragElement,
                 owner          : me,
                 useProxyWrapper: false,
                 windowId       : me.windowId,
@@ -736,12 +726,8 @@ class Circle extends Component {
 
         me.dragStartAbortController?.abort();
         me.dragStartAbortController = new AbortController();
-        me.isDragging               = true;
-        me.dragZone.dragStart(data, me.dragStartAbortController.signal);
-
-        wrapperStyle.opacity = 0.7;
-
-        me.wrapperStyle = wrapperStyle
+        me.dragZone.dragElement     = dragElement;
+        me.dragZone.dragStart(data, me.dragStartAbortController.signal)
     }
 
     /**
@@ -770,6 +756,15 @@ class Circle extends Component {
 
             me.rotate()
         }
+    }
+
+    /**
+     * @summary Stops proxy setup when the item gesture is released or cancelled.
+     * @protected
+     */
+    resetDragStart() {
+        this.dragStartAbortController?.abort();
+        this.dragStartAbortController = null
     }
 
     /**

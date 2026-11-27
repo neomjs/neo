@@ -14,62 +14,82 @@ test('Circle owns one item drag proxy through release, cancellation, and a pendi
     await expect(circle).toBeVisible();
     await page.getByText('Expand', {exact: true}).click();
 
-    const circleId = await circle.getAttribute('id'),
-          worker   = page.workers().find(worker => worker.url().includes('/worker/App.mjs')),
-          state    = () => worker.evaluate(id => {
-              const instance = Neo.get(id);
+    const circleId    = await circle.getAttribute('id'),
+          worker      = page.workers().find(worker => worker.url().includes('/worker/App.mjs')),
+          readOpacity = () => circle.evaluate(node => ({inline: node.style.opacity, computed: getComputedStyle(node).opacity})),
+          opacity     = await readOpacity();
 
-              return {
-                  dragging      : Boolean(instance.isDragging),
-                  listenersReady: Boolean(instance.dragListenersAdded)
-              }
-          }, circleId);
-
-    await expect.poll(async () => (await state()).listenersReady).toBe(true);
+    await expect.poll(() => worker.evaluate(id => Boolean(Neo.get(id).dragListenersAdded), circleId)).toBe(true);
 
     // The expanded items move into position. Grab a ring item that the browser actually hit-tests.
-    const startDrag = async () => {
+    const startDrag = async (previousItem = null) => {
         let start;
 
         await expect.poll(async () => {
-            start = await circle.locator('.neo-circle-item.neo-draggable').evaluateAll(items => {
+            start = await circle.locator('.neo-circle-item.neo-draggable').evaluateAll((items, previous) => {
                 for (const item of items) {
-                    const rect = item.getBoundingClientRect(),
-                          x    = rect.x + rect.width / 2,
-                          y    = rect.y + rect.height / 2;
+                    const {x, y, width, height} = item.getBoundingClientRect(),
+                          centerX               = x + width / 2,
+                          centerY               = y + height / 2,
+                          image                 = item.querySelector('img'),
+                          src                   = image?.getAttribute('src');
 
-                    if (document.elementFromPoint(x, y)?.closest('.neo-circle-item') === item) {
-                        return {x, y}
+                    if (src && item.id !== previous?.id && src !== previous?.src &&
+                        document.elementFromPoint(centerX, centerY)?.closest('.neo-circle-item') === item) {
+                        return {id: item.id, x: centerX, y: centerY, width, height, src, imageRadius: getComputedStyle(image).borderRadius}
                     }
                 }
 
                 return null
-            });
+            }, previousItem);
 
             return Boolean(start)
         }).toBe(true);
 
         await page.mouse.move(start.x, start.y);
         await page.mouse.down();
-        await page.mouse.move(start.x + 70, start.y + 15, {steps: 10})
+        await page.mouse.move(start.x + 70, start.y + 15, {steps: 10});
+        return start
     };
+
+    let previousItem;
 
     for (const terminal of ['release', 'release', 'escape']) {
         try {
-            await startDrag();
+            const item = await startDrag(previousItem);
+            previousItem = item;
+
             await expect(proxy).toHaveCount(1);
-            await expect.poll(async () => (await state()).dragging).toBe(true);
+            await expect(proxy).not.toHaveClass(/neo-circle-component/);
+            await expect(proxy.locator('img')).toHaveCount(1);
+            await expect(proxy.locator('img')).toHaveAttribute('src', item.src);
+
+            const drag = await proxy.evaluate(node => {
+                const rect = node.getBoundingClientRect();
+                return {
+                    circleItems: Number(node.matches('.neo-circle-item')) + node.querySelectorAll('.neo-circle-item').length,
+                    width      : rect.width,
+                    height     : rect.height,
+                    imageRadius: getComputedStyle(node.querySelector('img')).borderRadius
+                }
+            });
+
+            expect(drag.circleItems).toBe(1);
+            expect(Math.abs(drag.width - item.width)).toBeLessThan(1);
+            expect(Math.abs(drag.height - item.height)).toBeLessThan(1);
+            expect(drag.imageRadius).toBe(item.imageRadius);
 
             if (terminal === 'escape') {
                 await page.keyboard.press('Escape');
-                await expect(proxy).toHaveCount(0)
+                await expect(proxy).toHaveCount(0);
+                await expect.poll(readOpacity).toEqual(opacity)
             }
         } finally {
             await page.mouse.up()
         }
 
         await expect(proxy).toHaveCount(0);
-        await expect.poll(async () => (await state()).dragging).toBe(false)
+        await expect.poll(readOpacity).toEqual(opacity)
     }
 
     // Main installs the gesture normally. Hold only the acknowledgement to the App worker so release
@@ -111,7 +131,7 @@ test('Circle owns one item drag proxy through release, cancellation, and a pendi
             await page.mouse.up()
         }
 
-        await expect.poll(async () => (await state()).dragging).toBe(false)
+        await expect.poll(() => worker.evaluate(id => !Neo.get(id).dragStartAbortController, circleId)).toBe(true)
     } finally {
         await worker.evaluate(async () => {
             const probe = globalThis.circleStartProbe;
@@ -122,5 +142,6 @@ test('Circle owns one item drag proxy through release, cancellation, and a pendi
     }
 
     await expect(proxy).toHaveCount(0);
+    await expect.poll(readOpacity).toEqual(opacity);
     expect(errors).toEqual([])
 });
