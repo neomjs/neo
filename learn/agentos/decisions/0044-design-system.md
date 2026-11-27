@@ -35,7 +35,7 @@ Themes moved from Sass to plain CSS in 14.0. What they are written against did n
    | `--neo-<category>-<role>[-<state>]` | meaning | component variables |
    | `--<component>[-<variant>][-<part>]-<css-property>[-<state>]` | usage | structural rules |
 
-   A rule reads component variables only. A component variable reads roles only. A colour role reads the palette or another role, and no colour literal lives outside the palette. A scale role holds its own value (a length, a duration, a font weight) or reads another role. The property prefix `--neo-` marks what a theme owns; a name without it is a component's.
+   A rule reads component variables only. A component variable reads roles only. A colour role reads the palette or another role, and no raw colour value lives outside the palette. A scale role holds its own value (a length, a duration, a font weight) or reads another role. The property prefix `--neo-` marks what a theme owns; a name without it is a component's.
 
 2. **The palette: slots by function, grades by lightness.** Seven slots: `neutral`, `accent`, `brand`, `danger`, `warning`, `success`, `info`. A slot is a function, never a hue, so every theme defines the same names with its own values. Eleven grades, and a grade has one OKLCH lightness in every slot:
 
@@ -84,7 +84,7 @@ Themes moved from Sass to plain CSS in 14.0. What they are written against did n
 9. **The model-facing deliverable** is a short reference that says which hook to set, where, and for which variant, with the first guesses of the naming trial as its search terms (`primary` finds `accent`, `focus-color` finds `--neo-color-focus-ring`). A read-only manifest generated from the CSS feeds Docs, the Knowledge Base and Neural Link. The reference ships with a trial: fresh readers of two model families start from the repository's public entry points, and the score is the first painted outcome on a widget they have not seen.
 
 10. **Invariants, each with its guard.** A guard that does not exist yet names the migration step (§4) that brings it.
-    - **I1. One direction.** Only a palette name or a scale role holds a literal. `check-theme-var-references` exists and fails a fallback-free read of an undeclared variable in a theme file. Step 2 widens it: `src` reads resolve against `theme-base`, role reads against each theme's `Global.css`, and the census reports a literal anywhere else.
+    - **I1. One direction.** `check-theme-var-references` exists and fails a fallback-free read of an undeclared variable in a theme file. Step 2 widens it: `src` reads resolve against `theme-base`, role reads against each theme's `Global.css`, and the census reports a raw colour value in a role or a component variable. Only a palette name holds one. Keywords such as `light`, `dark` and `transparent` are not raw colour values, so `--neo-color-scheme` and a component's own translucent mix pass.
     - **I2. A theme file declares variables only** (#18145). `check-theme-value-files`, which exists.
     - **I3. No sheet under `resources/css` writes `@layer`.** The build plugin is the only writer there, and a check fails a sheet that writes one (step 2). A vendor sheet loaded from outside that tree carries its own layer (decision 6).
     - **I4. Two reserved prefixes.** A class with `neo-theme-` is a theme class or `neo-theme-scope` (a guard in step 2). A property with `--neo-` is a palette name, a role or `--neo-color-scheme` (a guard in step 4, with the rename).
