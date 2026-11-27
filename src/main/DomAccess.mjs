@@ -855,26 +855,27 @@ class DomAccess extends Base {
 
     /**
      * @param {String|HTMLElement|Window|Document} nodeId
+     * @param {Document} [doc=document] The document an id resolves in: an iframe's own, for a node inside it
      * @returns {HTMLElement|Window|Document|null}
      * @protected
      */
-    getElement(nodeId) {
+    getElement(nodeId, doc=document) {
         if (nodeId === 'window') {
-            return globalThis
+            return doc.defaultView || globalThis
         }
 
         if (nodeId === 'document') {
-            return document
+            return doc
         }
 
         if (nodeId === 'document.body' || nodeId === 'body') {
-            return document.body
+            return doc.body
         }
 
         let node = nodeId?.nodeType ?
             nodeId : Neo.config.useDomIds ?
-                document.getElementById(nodeId) :
-                document.querySelector(`[data-neo-id='${nodeId}']`);
+                doc.getElementById(nodeId) :
+                doc.querySelector(`[data-neo-id='${nodeId}']`);
 
         return node || null
     }
