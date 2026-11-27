@@ -1,5 +1,6 @@
 :root .neo-theme-dark { /* .neo-sheet */
     --neo-sheet-background-color          : #3c3f41;
+    --neo-sheet-border-color              : #555;
     --neo-sheet-border-radius             : 16px;
     --neo-sheet-box-shadow                : 0 -2px 12px rgba(0, 0, 0, .5);
     --neo-sheet-color                     : #bbb;

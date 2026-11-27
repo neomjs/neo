@@ -9,9 +9,10 @@
     touch-action   : none;
     user-select    : none;
 
+    /* Drawn inside the bar, clear of its edges, which may be the window's */
     &:focus-visible {
         outline       : var(--neo-sheet-handle-focus-outline-width) solid var(--neo-sheet-handle-focus-outline-color);
-        outline-offset: calc(-1 * var(--neo-sheet-handle-focus-outline-width));
+        outline-offset: calc(-2 * var(--neo-sheet-handle-focus-outline-width));
     }
 
     .neo-sheet-handle-grip {

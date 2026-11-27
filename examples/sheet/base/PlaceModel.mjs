@@ -1,7 +1,7 @@
 import Model from '../../../src/data/Model.mjs';
 
 const icons = {
-    Bakery  : 'fa fa-bread-slice',
+    Bakery  : 'fa fa-cookie',
     Bookshop: 'fa fa-book',
     'Café'  : 'fa fa-mug-hot',
     Market  : 'fa fa-store',

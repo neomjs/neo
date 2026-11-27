@@ -9,7 +9,7 @@
     background-color: var(--neo-color-background-canvas, #e8eef0);
     background-image:
         radial-gradient(circle at 50% 30%, #fff 0 9px, transparent 10px),
-        radial-gradient(circle at 50% 30%, rgba(28, 96, 160, .2) 0 22px, transparent 23px),
+        radial-gradient(circle at 50% 30%, rgba(28, 96, 160, .14) 0 22px, transparent 23px),
         radial-gradient(circle at 22% 38%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
         radial-gradient(circle at 64% 22%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
         radial-gradient(circle at 78% 40%, var(--neo-color-background-accent, #1c60a0) 0 7px, transparent 8px),
@@ -37,8 +37,12 @@
     padding    : 0 16px 12px;
 }
 
-/* A row: the category icon, the name over the category, and the distance at the end */
+/* A row: the category icon, the name over the category, and the distance at the end. The rows sit on the sheet's
+   surface instead of painting the list's own. */
 .neo-sheet-example-places {
+    --neo-list-container-background-color: transparent;
+    --neo-list-item-background-color     : transparent;
+
     .neo-list-item {
         align-items          : center;
         border-bottom        : 1px solid var(--neo-color-border-default, rgba(127, 127, 127, .3));

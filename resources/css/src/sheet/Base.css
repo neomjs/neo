@@ -3,6 +3,7 @@
    shows it in place. A settle animates the height; a drag has the main thread write it on every frame. */
 .neo-sheet {
     background-color          : var(--neo-sheet-background-color);
+    border-block-start        : 1px solid var(--neo-sheet-border-color);
     border-start-end-radius   : var(--neo-sheet-border-radius);
     border-start-start-radius : var(--neo-sheet-border-radius);
     box-shadow                : var(--neo-sheet-box-shadow);

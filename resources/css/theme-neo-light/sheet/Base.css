@@ -1,5 +1,6 @@
 :where(.neo-theme-neo-light) {
     --neo-sheet-background-color          : var(--neo-color-background-surface-raised);
+    --neo-sheet-border-color              : var(--neo-color-border-default);
     --neo-sheet-border-radius             : var(--neo-radius-extra-large);
     --neo-sheet-box-shadow                : var(--neo-elevation-3);
     --neo-sheet-color                     : var(--neo-color-text-default);
