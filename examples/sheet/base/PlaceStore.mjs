@@ -1,12 +1,26 @@
 import PlaceModel from './PlaceModel.mjs';
 import Store      from '../../../src/data/Store.mjs';
 
-const
-    categories = ['Café', 'Bakery', 'Bookshop', 'Museum', 'Park', 'Market'],
-    names      = ['Harbour', 'Lantern', 'Old Mill', 'Quayside', 'Saltwater', 'Willow'];
+const places = [
+    ['Tidewater Coffee',        'Café',       90], ['Anchor & Crumb',          'Bakery',    140],
+    ['The Lantern Bookshop',    'Bookshop',  210], ["Harbour Master's House",  'Museum',    260],
+    ['Quayside Gardens',        'Park',      340], ['Fish Market Hall',        'Market',    410],
+    ['Saltwater Roasters',      'Café',      450], ['Mill Lane Bakehouse',     'Bakery',    520],
+    ['Chart & Compass Books',   'Bookshop',  600], ['Lighthouse Gallery',      'Museum',    640],
+    ['Willow Green',            'Park',      730], ['Pier Street Market',      'Market',    790],
+    ['The Rope Walk',           'Café',      860], ['Driftwood Bakery',        'Bakery',    950],
+    ['Second Tide Books',       'Bookshop', 1020], ['Shipwright Museum',       'Museum',   1100],
+    ['Old Dock Park',           'Park',     1180], ['Night Ferry Market',      'Market',   1250],
+    ["Gull's Rest",             'Café',     1340], ['Breakwater Bread',        'Bakery',   1420],
+    ['Ink & Oar',               'Bookshop', 1500], ['Customs House Museum',    'Museum',   1610],
+    ['Seawall Meadow',          'Park',     1700], ["Net Loft Makers' Market", 'Market',   1780],
+    ['Beacon Espresso',         'Café',     1870], ['Copper Kettle Bakery',    'Bakery',   1960],
+    ['Tideline Comics',         'Bookshop', 2050], ['Lifeboat Station Museum', 'Museum',   2140],
+    ['Cliff Path Viewpoint',    'Park',     2260], ['Harbour Night Market',    'Market',   2380]
+];
 
 /**
- * Thirty places by distance, enough to scroll the sheet at every snap point.
+ * Thirty places along a harbour walk, nearest first: enough to scroll the sheet at every snap point.
  * @class Neo.examples.sheet.base.PlaceStore
  * @extends Neo.data.Store
  */
@@ -18,15 +32,9 @@ class PlaceStore extends Store {
          */
         className: 'Neo.examples.sheet.base.PlaceStore',
         /**
-         * Each place pairs a name with a category, 60 m further away than the one before
          * @member {Object[]} data
          */
-        data: Array.from({length: 30}, (item, index) => ({
-            category: categories[index % categories.length],
-            distance: 80 + index * 60,
-            id      : index + 1,
-            name    : `${names[index % names.length]} ${categories[index % categories.length]}`
-        })),
+        data: places.map(([name, category, distance], index) => ({category, distance, id: index + 1, name})),
         /**
          * @member {String} keyProperty='id'
          */

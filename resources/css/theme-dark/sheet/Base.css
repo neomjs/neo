@@ -4,7 +4,8 @@
     --neo-sheet-box-shadow                : 0 -2px 12px rgba(0, 0, 0, .5);
     --neo-sheet-color                     : #bbb;
     --neo-sheet-max-inline-size           : 640px;
-    --neo-sheet-toggle-inset              : 8px;
+    --neo-sheet-toggle-inset              : 4px;
+    --neo-sheet-toggle-size               : 48px;
     --neo-sheet-transition-duration       : var(--neo-duration-panel);
     --neo-sheet-transition-timing-function: var(--neo-ease-out);
 }

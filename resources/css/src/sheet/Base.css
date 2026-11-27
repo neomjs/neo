@@ -36,10 +36,13 @@
         }
     }
 
-    /* The button sits over the end of the handle's bar, so the grip stays centred on the sheet */
+    /* The button sits over the end of the handle's bar, so the grip stays centred on the sheet. Its box is the
+       touch target, as tall as the bar. */
     .neo-sheet-toggle {
         inset-block-start: 50%;
         inset-inline-end : var(--neo-sheet-toggle-inset);
+        min-block-size   : var(--neo-sheet-toggle-size);
+        min-inline-size  : var(--neo-sheet-toggle-size);
         position         : absolute;
         translate        : 0 -50%;
     }

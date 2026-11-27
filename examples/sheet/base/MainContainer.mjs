@@ -1,5 +1,5 @@
 import Component     from '../../../src/component/Base.mjs';
-import List          from '../../../src/list/Base.mjs';
+import PlaceList     from './PlaceList.mjs';
 import PlaceStore    from './PlaceStore.mjs';
 import Sheet         from '../../../src/sheet/Base.mjs';
 import ThemeSwitcher from '../../../src/button/ThemeSwitcher.mjs';
@@ -48,10 +48,9 @@ class MainContainer extends Viewport {
                 cls  : ['neo-sheet-example-count'],
                 text : '30 places nearby'
             }, {
-                module      : List,
-                cls         : ['neo-sheet-example-places'],
-                displayField: 'label',
-                store       : PlaceStore
+                module: PlaceList,
+                cls   : ['neo-sheet-example-places'],
+                store : PlaceStore
             }]
         }],
         /**
