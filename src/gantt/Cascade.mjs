@@ -11,13 +11,20 @@ const MS_PER_MINUTE = 60_000, MS_PER_HOUR = 3_600_000, MS_PER_DAY = 86_400_000;
  * @extends Neo.core.Base
  */
 class Cascade extends Base {
-    static config = {className: 'Neo.gantt.Cascade'}
+    static config = {
+        /**
+         * @member {String} className='Neo.gantt.Cascade'
+         * @protected
+         */
+        className: 'Neo.gantt.Cascade'
+    }
+
     /**
      * @summary Adds a lag using calendar days or elapsed time.
-     * @param {Neo.gantt.Container} chart Chart supplying the time axis.
-     * @param {Number} anchorMs Anchor instant in milliseconds.
-     * @param {Number} [lag=0] Signed lag.
-     * @param {String} [lagUnit='minute'] Lag unit.
+     * @param {Neo.gantt.Container} chart              Chart supplying the time axis.
+     * @param {Number}              anchorMs           Anchor instant in milliseconds.
+     * @param {Number}              [lag=0]            Signed lag.
+     * @param {String}              [lagUnit='minute'] Lag unit.
      * @returns {Number} Resulting instant in milliseconds.
      */
     static addLag(chart, anchorMs, lag=0, lagUnit='minute') {
@@ -40,16 +47,16 @@ class Cascade extends Base {
 
     /**
      * @summary Computes the successor start required by one dependency.
-     * @param {Neo.gantt.Container} chart Chart supplying the calendar and lag arithmetic.
-     * @param {Object} options Constraint and successor duration.
-     * @param {Number} [options.durationMs=0] Successor duration in milliseconds.
-     * @param {Number} [options.lag=0] Signed lag in `lagUnit`.
-     * @param {Number} [options.lagMs] Precomputed lag in milliseconds for working time.
-     * @param {String} [options.lagUnit='minute'] Lag unit.
-     * @param {Number} options.predEndMs Predecessor end instant.
-     * @param {Number} options.predStartMs Predecessor start instant.
-     * @param {String} [options.type='FS'] Dependency type: FS, SS, FF, or SF.
-     * @param {Boolean} [options.useWorking=false] Use the axis working calendar.
+     * @param {Neo.gantt.Container} chart                      Chart supplying the calendar and lag arithmetic.
+     * @param {Object}              options                    Constraint and successor duration.
+     * @param {Number}              [options.durationMs=0]     Successor duration in milliseconds.
+     * @param {Number}              [options.lag=0]            Signed lag in `lagUnit`.
+     * @param {Number}              [options.lagMs]            Precomputed lag in milliseconds for working time.
+     * @param {String}              [options.lagUnit='minute'] Lag unit.
+     * @param {Number}              options.predEndMs          Predecessor end instant.
+     * @param {Number}              options.predStartMs        Predecessor start instant.
+     * @param {String}              [options.type='FS']        Dependency type: FS, SS, FF, or SF.
+     * @param {Boolean}             [options.useWorking=false] Use the axis working calendar.
      * @returns {Number} Required start in milliseconds.
      */
     static computeRequiredStartMs(chart, {durationMs=0, lag=0, lagMs, lagUnit='minute', predEndMs, predStartMs, type='FS', useWorking=false}) {
@@ -81,7 +88,7 @@ class Cascade extends Base {
 
     /**
      * @summary Converts a signed lag to elapsed milliseconds.
-     * @param {Number} [lag=0] Lag amount.
+     * @param {Number} [lag=0]            Lag amount.
      * @param {String} [lagUnit='minute'] Lag unit.
      * @returns {Number} Lag in milliseconds.
      */
@@ -105,10 +112,10 @@ class Cascade extends Base {
 
     /**
      * @summary Applies reachable dependency constraints and reports cycle edges.
-     * @param {Neo.gantt.Container} chart Chart owning the task and dependency stores.
-     * @param {Neo.data.Model} rootRecord Changed task.
-     * @param {String[]} [cyclesOut=[]] Receives detected dependency IDs.
-     * @param {Map|null} [pending=null] With store-owned phase dates, stage changes here for one store batch.
+     * @param {Neo.gantt.Container} chart          Chart owning the task and dependency stores.
+     * @param {Neo.data.Model}      rootRecord     Changed task.
+     * @param {String[]}            [cyclesOut=[]] Receives detected dependency IDs.
+     * @param {Map|null}            [pending=null] With store-owned phase dates, stage changes here for one store batch.
      * @returns {Object[]} Changed successors with dependency, dates, changes and previous values.
      */
     static runDependencyCascade(chart, rootRecord, cyclesOut=[], pending=null) {
@@ -385,10 +392,10 @@ class Cascade extends Base {
 
     /**
      * @summary Plans updated task spans across the dependency graph when {@link Neo.gantt.Container#useWorkingTime} flips.
-     * @param {Neo.gantt.Container} chart Chart owning the task store, dependency store, and time axis.
-     * @param {Boolean} useWorking Target working-calendar evaluation flag.
-     * @param {Boolean} wasWorking Prior working-calendar evaluation flag.
-     * @param {String[]} [cyclesOut=[]] Receives detected cycle dependency IDs.
+     * @param {Neo.gantt.Container} chart          Chart owning the task store, dependency store, and time axis.
+     * @param {Boolean}             useWorking     Target working-calendar evaluation flag.
+     * @param {Boolean}             wasWorking     Prior working-calendar evaluation flag.
+     * @param {String[]}            [cyclesOut=[]] Receives detected cycle dependency IDs.
      * @returns {Object[]} Changed task entries with `record`, `changes`, `previous`, `startMs`, `endMs`, and `dependencyId`.
      */
     static planWorkingTimeSchedule(chart, useWorking, wasWorking, cyclesOut=[]) {

@@ -24,6 +24,7 @@ class DependencyModel extends Model {
         ntype: 'gantt-dependency-model',
         /**
          * @member {Object[]} fields
+         * @reactive
          */
         fields: [{
             name: 'id'

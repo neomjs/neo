@@ -23,10 +23,10 @@ const STEP_MS = 16;
 class CascadeMotion extends Base {
     /**
      * @summary Returns CSS `cubic-bezier(x1, y1, x2, y2)` as a function from elapsed fraction to progress.
-     * @param {Number} x1
-     * @param {Number} y1
-     * @param {Number} x2
-     * @param {Number} y2
+     * @param {Number} x1 The first control point's x, in [0, 1]
+     * @param {Number} y1 The first control point's y
+     * @param {Number} x2 The second control point's x, in [0, 1]
+     * @param {Number} y2 The second control point's y
      * @returns {Function}
      */
     static cubicBezier(x1, y1, x2, y2) {
@@ -56,17 +56,41 @@ class CascadeMotion extends Base {
         chart: null
     }
 
-    /** The moving tasks by span key: their store key and the spans they move between, in ms. */
+    /**
+     * The moving tasks by span key: their store key and the spans they move between, in ms.
+     * @member {Map} #moves
+     * @private
+     */
     #moves = new Map()
-    /** Counts token reads, so only the latest one answers. */
+    /**
+     * Counts token reads, so only the latest one answers.
+     * @member {Number} #read=0
+     * @private
+     */
     #read = 0
-    /** Counts starts and ends, so a step of an earlier move leaves a later one alone. */
+    /**
+     * Counts starts and ends, so a step of an earlier move leaves a later one alone.
+     * @member {Number} #run=0
+     * @private
+     */
     #run = 0
+    /**
+     * The timeout that runs the next step, null while the clock stands.
+     * @member {Number|null} #timer=null
+     * @private
+     */
     #timer = null
-    /** The tokens the latest read found: `{duration, ease}`, null until one answers. */
+    /**
+     * The tokens the latest read found: `{duration, ease}`, null until one answers.
+     * @member {Object|null} #tokens=null
+     * @private
+     */
     #tokens = null
 
-    /** @summary Stops the clock without painting. @param {...*} args */
+    /**
+     * @summary Stops the clock without painting.
+     * @param {...*} args Passed on to the base class
+     */
     destroy(...args) {
         this.#run++;
         clearTimeout(this.#timer);
@@ -101,6 +125,7 @@ class CascadeMotion extends Base {
     /**
      * @summary Repaints the moving tasks' rows and re-projects the links: one body update carries both.
      * @description The layer's update merges into the body's, which renders every mounted row component.
+     * @private
      */
     #paint() {
         const {chart} = this, {body} = chart;
@@ -190,10 +215,11 @@ class CascadeMotion extends Base {
 
     /**
      * @summary Draws the moving tasks at the eased progress of the elapsed time, until the duration has passed.
-     * @param {Number} run
-     * @param {Number} startTime
-     * @param {Number} duration
-     * @param {Function} ease
+     * @param {Number}   run       The run this step belongs to; a later start or end retires it
+     * @param {Number}   startTime `performance.now()` when the move started
+     * @param {Number}   duration  The move's duration in ms
+     * @param {Function} ease      Maps the elapsed fraction to progress
+     * @private
      */
     #step(run, startTime, duration, ease) {
         const me = this, elapsed = (performance.now() - startTime) / duration;

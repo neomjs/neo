@@ -19,7 +19,11 @@ class Body extends GridBody {
         ntype: 'gantt-body'
     }
 
-    /** @summary Keeps the overlay on the center body's scroll page and retires a recycled link source. */
+    /**
+     * @summary Keeps the overlay on the center body's scroll page and retires a recycled link source.
+     * @param {Boolean} [silent=false] True to suppress the final VDOM update, passed on to the grid body
+     * @param {Boolean} [force=false]  True to update rows whose record did not change, passed on to the grid body
+     */
     createViewData(silent=false, force=false) {
         super.createViewData(silent, force);
         const chart = this.gridContainer;
@@ -29,7 +33,10 @@ class Body extends GridBody {
         }
     }
 
-    /** @summary Moving between the timeline's bars keeps their common body focused. Leaving it ends the gesture. */
+    /**
+     * @summary Moving between the timeline's bars keeps their common body focused. Leaving it ends the gesture.
+     * @param {Object} data The focus-leave event data, passed on to the grid body
+     */
     onFocusLeave(data) {
         super.onFocusLeave(data);
         if (this === this.gridContainer?.body) this.gridContainer.cancelKeyboardLink()

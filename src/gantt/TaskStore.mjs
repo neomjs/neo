@@ -38,16 +38,44 @@ class TaskStore extends TreeStore {
          */
         model: TaskModel,
         /**
-         * @member {Boolean} rollupParents_=false Derive phase spans and elapsed-duration-weighted leaf progress.
-         * Zero-duration work has no weight; an empty phase keeps its stored values. @reactive
+         * Derive phase spans and elapsed-duration-weighted leaf progress.
+         * Zero-duration work has no weight; an empty phase keeps its stored values.
+         * @member {Boolean} rollupParents_=false
+         * @reactive
          */
         rollupParents_: false
     }
 
+    /**
+     * True while this store writes the phases a rollup planned, so that write starts no further rollup.
+     * @member {Boolean} #rollingUp=false
+     * @private
+     */
     #rollingUp = false
+    /**
+     * The listeners that keep derived phases in step, null while `rollupParents` is off.
+     * @member {Object|null} #rollupListeners=null
+     * @private
+     */
     #rollupListeners = null
+    /**
+     * The flat view of structural leaves that {@link #getBookingStore} owns, null until it is first asked for.
+     * @member {Neo.timeline.store.Events|null} #bookingStore=null
+     * @private
+     */
     #bookingStore = null
+    /**
+     * The listeners that keep the booking view in step with this store, null until the view exists.
+     * @member {Object|null} #bookingListeners=null
+     * @private
+     */
     #bookingListeners = null
+    /**
+     * Counts the `mutate` events the booking view has settled. {@link #splice} compares it to find a write that
+     * fired none.
+     * @member {Number} #bookingMutationVersion=0
+     * @private
+     */
     #bookingMutationVersion = 0
 
     /**
@@ -79,7 +107,11 @@ class TaskStore extends TreeStore {
         return view
     }
 
-    /** @summary Reads canonical structural leaves, including those under collapsed or filtered phases. @returns {Object[]} */
+    /**
+     * @summary Reads canonical structural leaves, including those under collapsed or filtered phases.
+     * @returns {Object[]}
+     * @private
+     */
     #getBookingRecords() {
         const result = [], walk = children => {
             for (const record of children) {
@@ -92,7 +124,14 @@ class TaskStore extends TreeStore {
         return result
     }
 
-    /** @summary Reconciles the view after structural writes, including silent and hidden writes. */
+    /**
+     * @summary Reconciles the view after structural writes, including silent and hidden writes.
+     * @param {Number|null}     index                        Passed on to the tree store
+     * @param {Number|Object[]} [removeCountOrToRemoveArray] Passed on to the tree store
+     * @param {Object|Object[]} [toAddArray]                 Passed on to the tree store
+     * @param {Boolean}         [silent=false]               True writes without `mutate`; the view is then reconciled silently too
+     * @returns {Object} An object containing the addedItems & removedItems arrays
+     */
     splice(index, removeCountOrToRemoveArray, toAddArray, silent=false) {
         const version = this.#bookingMutationVersion,
             result    = super.splice(index, removeCountOrToRemoveArray, toAddArray, silent);
@@ -100,7 +139,12 @@ class TaskStore extends TreeStore {
         return result
     }
 
-    /** @summary Settles structural membership before source observers, ignoring visibility-only mutations. @param {Object} event */
+    /**
+     * @summary Settles structural membership before source observers, ignoring visibility-only mutations.
+     * @param {Object}   event                   The store's `mutate` event
+     * @param {Object[]} [event.addedItems=[]]   The items that entered the visible rows
+     * @param {Object[]} [event.removedItems=[]] The items that left them
+     */
     onBookingSourceMutate({addedItems=[], removedItems=[]}) {
         const view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
@@ -112,7 +156,10 @@ class TaskStore extends TreeStore {
         if (addedItems.some(differs) || removedItems.some(differs)) this.onBookingMutation()
     }
 
-    /** @summary Reconciles membership only when structural leaves have actually changed. @param {Boolean} [silent=false] */
+    /**
+     * @summary Reconciles membership only when structural leaves have actually changed.
+     * @param {Boolean} [silent=false] True reconciles the view without its `mutate` event
+     */
     onBookingMutation(silent=false) {
         const view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
@@ -125,7 +172,10 @@ class TaskStore extends TreeStore {
         if (removed.length || added.length) view.splice(null, removed, added, silent)
     }
 
-    /** @summary Forwards edits of borrowed records so view filters and consumers react. @param {Object} event */
+    /**
+     * @summary Forwards edits of borrowed records so view filters and consumers react.
+     * @param {Object} event The store's `recordChange` event
+     */
     onBookingRecordChange(event) {
         const view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
@@ -137,7 +187,10 @@ class TaskStore extends TreeStore {
         }
     }
 
-    /** @summary Relays a canonical batch receipt for rows held by the view. @param {Object} event */
+    /**
+     * @summary Relays a canonical batch receipt for rows held by the view.
+     * @param {Object} event The store's `rowsChange` event
+     */
     onBookingRowsChange(event) {
         const view = this.#bookingStore;
         if (!view || view.isDestroyed) return;
@@ -145,7 +198,13 @@ class TaskStore extends TreeStore {
         if (keys.length) view.fire('rowsChange', {...event, keys, scope: view})
     }
 
-    /** @summary Re-keys a borrowed record after the canonical store commits its key. @param {Object} event */
+    /**
+     * @summary Re-keys a borrowed record after the canonical store commits its key.
+     * @param {Object}        event        The store's `updateKey` event
+     * @param {Object}        event.item   The re-keyed record
+     * @param {String|Number} event.oldKey Its key before the commit
+     * @param {String|Number} event.newKey Its key after the commit
+     */
     onBookingUpdateKey({item, oldKey, newKey}) {
         const view = this.#bookingStore;
         if (!view || view.isDestroyed || (view.allItems || view).map.get(oldKey) !== item) return;
@@ -161,7 +220,9 @@ class TaskStore extends TreeStore {
         view.fire('updateKey', {item, oldKey, newKey, scope: view})
     }
 
-    /** @summary Retires the owned booking view and detaches its source listeners. */
+    /**
+     * @summary Retires the owned booking view and detaches its source listeners.
+     */
     destroy() {
         if (this.#bookingListeners) this.un(this.#bookingListeners);
         this.#bookingListeners = null;
@@ -170,7 +231,12 @@ class TaskStore extends TreeStore {
         super.destroy()
     }
 
-    /** @summary Recomputes the plan when the opt-in policy is enabled. */
+    /**
+     * @summary Recomputes the plan when the opt-in policy is enabled.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
     afterSetRollupParents(value, oldValue) {
         if (oldValue !== undefined && this.isConstructed) {
             this.syncRollupListeners();
@@ -178,19 +244,27 @@ class TaskStore extends TreeStore {
         }
     }
 
-    /** @summary A parent is derived only while the policy is enabled and it has structural children. */
+    /**
+     * @summary A parent is derived only while the policy is enabled and it has structural children.
+     * @param {Object} record Task record
+     * @returns {Boolean}
+     */
     isDerivedParent(record) {
         return !!(this.rollupParents && record && this.getChildren(this.getKey(record)).length)
     }
 
-    /** @summary Subscribes once to direct edits and structural changes, independent of chart count. */
+    /**
+     * @summary Subscribes once to direct edits and structural changes, independent of chart count.
+     */
     onConstructed() {
         super.onConstructed();
         this.syncRollupListeners();
         if (this.rollupParents) this.rollupParentTasks()
     }
 
-    /** @summary Attaches derivation only while the opt-in policy is enabled. */
+    /**
+     * @summary Attaches derivation only while the opt-in policy is enabled.
+     */
     syncRollupListeners() {
         if (this.#rollupListeners) this.un(this.#rollupListeners);
         this.#rollupListeners = this.rollupParents ? {recordChange: this.onRollupRecordChange,
@@ -198,7 +272,12 @@ class TaskStore extends TreeStore {
         if (this.#rollupListeners) this.on(this.#rollupListeners)
     }
 
-    /** @summary Recomputes for direct schedule-field edits; batch rows settle on rowsChange. */
+    /**
+     * @summary Recomputes for direct schedule-field edits; batch rows settle on rowsChange.
+     * @param {Object} event          The store's `recordChange` event
+     * @param {Array}  [event.fields] The changed fields, by name or as `{name}`; without them every field counts as changed
+     * @param {Object} event.record   The edited task
+     */
     onRollupRecordChange({fields, record}) {
         if (!this.isUpdatingRows && (!Array.isArray(fields) || fields.some(field =>
             derivedFields.includes(typeof field === 'string' ? field : field.name)))) {
@@ -206,15 +285,20 @@ class TaskStore extends TreeStore {
         }
     }
 
-    /** @summary Recomputes after a structural change or reload. */
+    /**
+     * @summary Recomputes after a structural change or reload.
+     */
     onRollupMutation() {
         if (!this.isUpdatingRows) this.rollupParentTasks()
     }
 
     /**
      * @summary Returns leaf work and the structural envelope for a subtree, regardless of visibility.
-     * @param {Object} record Task record.
+     * @param {Object} record  Task record.
+     * @param {Map}    cache   Subtree summaries computed so far, by record
+     * @param {Map}    pending Staged field values by record, which win over a record's own
      * @returns {Object} Envelope and weighted completion.
+     * @private
      */
     #summary(record, cache, pending) {
         if (cache.has(record)) return cache.get(record);
@@ -247,9 +331,9 @@ class TaskStore extends TreeStore {
 
     /**
      * @summary Plans one phase using pending leaf values without mutating records.
-     * @param {Object} record Parent task.
-     * @param {Map} [pending] Staged model fields keyed by task.
-     * @param {Map} [cache] Subtree summaries for this set of staged fields.
+     * @param {Object} record    Parent task.
+     * @param {Map}    [pending] Staged model fields keyed by task.
+     * @param {Map}    [cache]   Subtree summaries for this set of staged fields.
      * @returns {Object|null} Changed parent receipt.
      */
     planParentRollup(record, pending=new Map(), cache=new Map()) {
@@ -270,7 +354,7 @@ class TaskStore extends TreeStore {
 
     /**
      * @summary Plans phases bottom-up, optionally limited to the ancestors of changed records.
-     * @param {Map} [pending] Staged values keyed by record.
+     * @param {Map}      [pending] Staged values keyed by record.
      * @param {Object[]} [changed] Changed records, or omitted for the whole tree.
      * @returns {Object[]}
      */
@@ -296,7 +380,12 @@ class TaskStore extends TreeStore {
         return parents
     }
 
-    /** @summary Adds derived phase writes to the same prepared batch as edited tasks. */
+    /**
+     * @summary Adds derived phase writes to the same prepared batch as edited tasks.
+     * @param {Object[]} rows One per row: `{item, key, values}`
+     * @returns {Error[]} The errors subscribers threw while the records published
+     * @protected
+     */
     writeRows(rows) {
         const scheduled = this.rollupParents && !this.#rollingUp &&
             rows.filter(({values}) => derivedFields.some(field => Object.hasOwn(values, field)));
@@ -337,8 +426,8 @@ class TaskStore extends TreeStore {
 
     /**
      * @summary Returns visible tree rows in a range, or structural leaf bookings for an explicit resource.
-     * @param {Date|Number|String} start Range start (inclusive)
-     * @param {Date|Number|String} end Range end (exclusive for positive-duration intervals)
+     * @param {Date|Number|String} start             Range start (inclusive)
+     * @param {Date|Number|String} end               Range end (exclusive for positive-duration intervals)
      * @param {String|Number|null} [resourceId=null] When present, filters canonical leaf bookings by resource.
      * @returns {Neo.gantt.TaskModel[]}
      */

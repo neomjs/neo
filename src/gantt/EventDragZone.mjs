@@ -11,28 +11,91 @@ import VDom            from '../util/VDom.mjs';
  */
 class GanttEventDragZone extends EventDragZone {
     static config = {
-        className       : 'Neo.gantt.EventDragZone',
-        useProxy        : true,
+        /**
+         * @member {String} className='Neo.gantt.EventDragZone'
+         * @protected
+         */
+        className: 'Neo.gantt.EventDragZone',
+        /**
+         * True shows a floating preview of the dragged task's bar. A link gesture switches it off while it runs.
+         * @member {Boolean} useProxy=true
+         */
+        useProxy: true,
+        /**
+         * False lets the app worker position the preview, at its snapped timeline bounds.
+         * @member {Boolean} moveInMainThread=false
+         */
         moveInMainThread: false
     }
 
-    /** @type {Neo.data.Model|null} The currently eligible link destination. */
+    /**
+     * The currently eligible link destination.
+     * @member {Neo.data.Model|null} linkTarget=null
+     */
     linkTarget = null
-    /** @type {Neo.data.Model|null} The task whose committed bar is behind a floating preview. */
+    /**
+     * The task whose committed bar is behind a floating preview.
+     * @member {Neo.data.Model|null} taskPreviewRecord=null
+     */
     taskPreviewRecord = null
+    /**
+     * The task under the pointer during a link gesture, before its admission is checked.
+     * @member {Neo.data.Model|null} #candidateTarget=null
+     * @private
+     */
     #candidateTarget = null
+    /**
+     * The dependency store whose changes invalidate the cached admission.
+     * @member {Neo.data.Store|null} #admissionStore=null
+     * @private
+     */
     #admissionStore = null
+    /**
+     * The listeners registered on the admission store, null without one.
+     * @member {Object|null} #admissionListeners=null
+     * @private
+     */
     #admissionListeners = null
+    /**
+     * The target the cached refusal was computed for.
+     * @member {Neo.data.Model|null} #cachedTarget=null
+     * @private
+     */
     #cachedTarget = null
+    /**
+     * The refusal reason for the cached target, null when the link may be offered.
+     * @member {String|null} #cachedRefusal=null
+     * @private
+     */
     #cachedRefusal = null
+    /**
+     * False once the dependency graph changed after the refusal was cached.
+     * @member {Boolean} #admissionValid=false
+     * @private
+     */
     #admissionValid = false
+    /**
+     * The task store's mutation count the cached refusal was computed at when phases roll up, else null.
+     * @member {Number|null} #hierarchyRevision=null
+     * @private
+     */
     #hierarchyRevision = null
+    /**
+     * Ends the observation of the owner's `dependencyStore` config that a link gesture starts.
+     * @member {Function|null} #ownerAdmissionCleanup=null
+     * @private
+     */
     #ownerAdmissionCleanup = null
+    /**
+     * The pointer data of the latest link move, kept to refresh the feedback when admission changes.
+     * @member {Object|null} #lastLinkData=null
+     * @private
+     */
     #lastLinkData = null
 
     /**
      * @summary Finds a finish endpoint in the pointer path. A configured drag zone may provide its own terminal.
-     * @param {Object[]} path
+     * @param {Object[]} [path=[]] The pointer path, as vdom nodes
      * @returns {Object|undefined}
      * @protected
      */
@@ -42,7 +105,7 @@ class GanttEventDragZone extends EventDragZone {
 
     /**
      * @summary Starts a link gesture or a snapped task preview without changing the task record.
-     * @param {Object} [data={}] Pointer and path data.
+     * @param {Object} [data={}]  Pointer and path data.
      * @param {Object} [terminal] Finish terminal from the pointer path, if this is a link gesture.
      * @returns {Promise<void>}
      */
@@ -275,7 +338,9 @@ class GanttEventDragZone extends EventDragZone {
         }
     }
 
-    /** @summary Removes only this gesture's floating line on drop, cancel, failure, or teardown. */
+    /**
+     * @summary Removes only this gesture's floating line on drop, cancel, failure, or teardown.
+     */
     clearLinkPreview() {
         this.#ownerAdmissionCleanup?.();
         this.#ownerAdmissionCleanup = null;

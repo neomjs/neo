@@ -27,9 +27,15 @@ const GanttColumn = Column, GanttBody = Body,
  */
 class Container extends SchedulerContainer {
     static config = {
-        /** @member {String} className='Neo.gantt.Container' @protected */
+        /**
+         * @member {String} className='Neo.gantt.Container'
+         * @protected
+         */
         className: 'Neo.gantt.Container',
-        /** @member {String} ntype='gantt' @protected */
+        /**
+         * @member {String} ntype='gantt'
+         * @protected
+         */
         ntype: 'gantt',
         /**
          * Moves the bars and links a cascade changed from their previous to their final dates over the chart's
@@ -43,19 +49,42 @@ class Container extends SchedulerContainer {
          * @reactive
          */
         animateCascade_: false,
-        /** @member {String[]} baseCls=['neo-gantt','neo-grid-container'] @protected */
+        /**
+         * @member {String[]} baseCls=['neo-gantt','neo-grid-container']
+         * @protected
+         */
         baseCls: ['neo-gantt', 'neo-grid-container'],
-        /** @member {Number} barMarginPct=14 Padding around bars in each row. */
+        /**
+         * Padding around bars in each row.
+         * @member {Number} barMarginPct=14
+         * @reactive
+         */
         barMarginPct: 14,
-        /** @member {Boolean} cascadeDependencies_=true Recompute dependent tasks after an edit. @reactive */
+        /**
+         * Recompute dependent tasks after an edit.
+         * @member {Boolean} cascadeDependencies_=true
+         * @reactive
+         */
         cascadeDependencies_: true,
-        /** @member {Boolean|Function} dependencyCreation_=false Enables or filters link gestures. @reactive */
+        /**
+         * Enables or filters link gestures.
+         * @member {Boolean|Function} dependencyCreation_=false
+         * @reactive
+         */
         dependencyCreation_: false,
         /** @member {Object|null} dependencyLayerConfig=null Overrides for the dependency overlay. */
         dependencyLayerConfig: null,
-        /** @member {Neo.gantt.DependencyStore|Object|null} dependencyStore_=null Dependency records. @reactive */
+        /**
+         * Dependency records.
+         * @member {Neo.gantt.DependencyStore|Object|null} dependencyStore_=null
+         * @reactive
+         */
         dependencyStore_: null,
-        /** @member {Number} minBarWidthPx=6 Minimum visible width for a task bar. */
+        /**
+         * Minimum visible width for a task bar.
+         * @member {Number} minBarWidthPx=6
+         * @reactive
+         */
         minBarWidthPx: 6,
         /**
          * Optional service borrowed from the application. It writes accepted edits into the same task and
@@ -79,14 +108,30 @@ class Container extends SchedulerContainer {
          * @reactive
          */
         schedule_: null,
-        /** @member {Boolean} showNonWorkingTime=true Displays the axis working calendar. */
+        /**
+         * Displays the axis working calendar.
+         * @member {Boolean} showNonWorkingTime=true
+         * @reactive
+         */
         showNonWorkingTime: true,
-        /** @member {Object[]} taskColumns_ Locked task tree column descriptors. @reactive */
+        /**
+         * Locked task tree column descriptors.
+         * @member {Object[]} taskColumns_=[{type:'tree',dataField:'title',text:'Task',width:260,locked:'start'}]
+         * @reactive
+         */
         taskColumns_: [{type: 'tree', dataField: 'title', text: 'Task', width: 260, locked: 'start'}],
-        /** @member {Boolean} useWorkingTime_=false Evaluate task durations using the axis calendar. @reactive */
+        /**
+         * Evaluate task durations using the axis calendar.
+         * @member {Boolean} useWorkingTime_=false
+         * @reactive
+         */
         useWorkingTime_: false
     }
 
+    /**
+     * The dependency overlay, created by {@link #ensureDependencyLayer}.
+     * @member {Neo.gantt.DependencyLayer|null} dependencyLayer=null
+     */
     dependencyLayer = null
     /**
      * In-flight spans `[startMs, endMs]`, by task key as a String, of the tasks a cascade is moving. Bars and links
@@ -94,21 +139,90 @@ class Container extends SchedulerContainer {
      * @member {Map<String, Number[]>} drawnSpans
      */
     drawnSpans = new Map()
+    /**
+     * True while the chart itself writes task dates: its store listeners then leave the overlay and a running
+     * move to the writer.
+     * @member {Boolean} _movingTask=false
+     * @protected
+     */
     _movingTask = false
+    /**
+     * The motion that moves a cascade's bars and links, created on first use.
+     * @member {Neo.gantt.CascadeMotion|null} #cascadeMotion=null
+     * @private
+     */
     #cascadeMotion = null
+    /**
+     * Functions that end the axis, header and body subscriptions of {@link #bindTimelineSubscriptions}.
+     * @member {Function[]} #cleanups=[]
+     * @private
+     */
     #cleanups = []
+    /**
+     * Functions that remove this chart's listeners from the current task store.
+     * @member {Function[]} #storeCleanups=[]
+     * @private
+     */
     #storeCleanups = []
+    /**
+     * Functions that remove this chart's listeners from the current dependency store.
+     * @member {Function[]} #dependencyCleanups=[]
+     * @private
+     */
     #dependencyCleanups = []
+    /**
+     * The dependency stores this chart created from a config, which it destroys.
+     * @member {WeakSet} #ownedDependencies
+     * @private
+     */
     #ownedDependencies = new WeakSet()
+    /**
+     * The task stores this chart created from a config, which it destroys.
+     * @member {WeakSet} #ownedTasks
+     * @private
+     */
     #ownedTasks = new WeakSet()
+    /**
+     * The armed first endpoint of a keyboard link as `{record, barId, row}`, null while none is armed.
+     * @member {Object|null} #keyboardLinkSource=null
+     * @private
+     */
     #keyboardLinkSource = null
+    /**
+     * The live region that announces the steps of a keyboard link, created once link creation is on.
+     * @member {Neo.component.Base|null} #keyboardLinkStatus=null
+     * @private
+     */
     #keyboardLinkStatus = null
+    /**
+     * The registered schedule analysis, an object providing `invalidateSchedule` and `getHighlights`.
+     * @member {Object|null} #analysis=null
+     * @private
+     */
     #analysis = null
+    /**
+     * The highlights from before an analysis registered as `{tasks, edges}`, restored on its release.
+     * @member {Object|null} #analysisPrevious=null
+     * @private
+     */
     #analysisPrevious = null
+    /**
+     * Ends the subscription to the service's commits, null without a service that offers `onCommit`.
+     * @member {Function|null} #serviceCleanup=null
+     * @private
+     */
     #serviceCleanup = null
+    /**
+     * Ends the wait for a pending service decision, null while none is pending.
+     * @member {Function|null} #pendingCleanup=null
+     * @private
+     */
     #pendingCleanup = null
 
-    /** @summary Constructs the chart and binds its overlay to the timeline. */
+    /**
+     * @summary Constructs the chart and binds its overlay to the timeline.
+     * @param {Object} config The instance config
+     */
     construct(config) {
         super.construct(config);
         this.ensureDependencyLayer();
@@ -118,7 +232,12 @@ class Container extends SchedulerContainer {
         this.syncDependencyLayer()
     }
 
-    /** @summary Creates the grid body that mounts the dependency layer. */
+    /**
+     * @summary Creates the grid body that mounts the dependency layer.
+     * @param {Neo.gantt.Body|Object|null} value
+     * @returns {Neo.gantt.Body}
+     * @protected
+     */
     beforeSetBody(value) {
         return ClassSystemUtil.beforeSetInstance(value, GanttBody, {
             flex : 1, gridContainer: this, parentId: this.id, store: this.store,
@@ -126,7 +245,13 @@ class Container extends SchedulerContainer {
         })
     }
 
-    /** @summary Converts task store configurations to a task store. */
+    /**
+     * @summary Converts task store configurations to a task store.
+     * @param {Neo.gantt.TaskStore|Object|null} value
+     * @param {Neo.gantt.TaskStore|null}        oldValue
+     * @returns {Neo.gantt.TaskStore|null}
+     * @protected
+     */
     beforeSetStore(value, oldValue) {
         if (!value) return null;
         const store = ClassSystemUtil.beforeSetInstance(value, TaskStore);
@@ -134,7 +259,12 @@ class Container extends SchedulerContainer {
         return super.beforeSetStore(store, oldValue)
     }
 
-    /** @summary Creates and tracks a configured dependency store. */
+    /**
+     * @summary Creates and tracks a configured dependency store.
+     * @param {Neo.gantt.DependencyStore|Object|null} value
+     * @returns {Neo.gantt.DependencyStore|null}
+     * @protected
+     */
     beforeSetDependencyStore(value) {
         if (!value) return null;
         const store = ClassSystemUtil.beforeSetInstance(value, DependencyStore);
@@ -147,6 +277,9 @@ class Container extends SchedulerContainer {
      * @description A store batch (`updateRows()`) re-projects the overlay once, on its `rowsChange`. Its records'
      * `recordChange` events and the filter or sort it reapplies arrive first, while `store.isUpdatingRows` is true,
      * and leave the overlay to that final event.
+     * @param {Neo.gantt.TaskStore|null} value
+     * @param {Neo.gantt.TaskStore|null} oldValue
+     * @protected
      */
     afterSetStore(value, oldValue) {
         // Another store's records reuse the keys of a running move: drop it before the grid draws them
@@ -188,6 +321,9 @@ class Container extends SchedulerContainer {
     /**
      * @summary Rebinds dependency changes and releases a store owned by this chart.
      * @description Like the task store, a batch of link edits re-projects the overlay once, on its `rowsChange`.
+     * @param {Neo.gantt.DependencyStore|null} value
+     * @param {Neo.gantt.DependencyStore|null} oldValue
+     * @protected
      */
     afterSetDependencyStore(value, oldValue) {
         this.#analysis?.invalidateSchedule();
@@ -207,18 +343,32 @@ class Container extends SchedulerContainer {
         if (oldValue && oldValue !== value && this.#ownedDependencies.has(oldValue)) oldValue.destroy()
     }
 
-    /** @summary Reads the motion tier when the transition is switched on; lands a running move when it is switched off. */
+    /**
+     * @summary Reads the motion tier when the transition is switched on; lands a running move when it is switched off.
+     * @param {Boolean} value
+     * @protected
+     */
     afterSetAnimateCascade(value) {
         value ? this.#motion().readTokens() : this.#cascadeMotion?.end()
     }
 
-    /** @summary A chart that mounts with the transition on reads its motion tier from its node, which exists now. */
+    /**
+     * @summary A chart that mounts with the transition on reads its motion tier from its node, which exists now.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
         if (value && this.animateCascade) this.#motion().readTokens()
     }
 
-    /** @summary Enables link gestures when creation is available. */
+    /**
+     * @summary Enables link gestures when creation is available.
+     * @param {Boolean|Function} value
+     * @param {Boolean|Function} oldValue
+     * @protected
+     */
     afterSetDependencyCreation(value, oldValue) {
         if (oldValue !== undefined && this.isConstructed) {
             this.#setKeyboardLinkSource(null);
@@ -228,64 +378,114 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary Keeps the drag zone available for link gestures when bar dragging is disabled. */
+    /**
+     * @summary Keeps the drag zone available for link gestures when bar dragging is disabled.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
     afterSetBarDraggable(value, oldValue) {
         super.afterSetBarDraggable(value, oldValue);
         if (!value && this.isConstructed && this.dependencyCreation) this.ensureEventDragZone()
     }
 
-    /** @summary Keeps the overlay associated with the active application. */
+    /**
+     * @summary Keeps the overlay associated with the active application.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetAppName(value, oldValue) {
         super.afterSetAppName(value, oldValue);
         if (this.dependencyLayer) this.dependencyLayer.appName = value
     }
 
-    /** @summary Forwards axis buffer changes to the overlay. */
+    /**
+     * @summary Forwards axis buffer changes to the overlay.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
     afterSetBufferPx(value, oldValue) {
         super.afterSetBufferPx(value, oldValue);
         if (oldValue !== undefined && this.dependencyLayer) { this.dependencyLayer.bufferPx = value; this.syncDependencyLayer() }
     }
 
-    /** @summary Forwards row size changes to the overlay. */
+    /**
+     * @summary Forwards row size changes to the overlay.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
     afterSetRowHeight(value, oldValue) {
         super.afterSetRowHeight(value, oldValue);
         if (this.dependencyLayer) { this.dependencyLayer.rowHeight = value; this.syncDependencyLayer() }
     }
 
-    /** @summary Forwards start-field changes and invalidates dependent analysis. */
+    /**
+     * @summary Forwards start-field changes and invalidates dependent analysis.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
     afterSetStartDateField(value, oldValue) {
         super.afterSetStartDateField(value, oldValue);
         if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
         if (this.dependencyLayer) { this.dependencyLayer.startDateField = value; this.syncDependencyLayer() }
     }
 
-    /** @summary Forwards end-field changes and invalidates dependent analysis. */
+    /**
+     * @summary Forwards end-field changes and invalidates dependent analysis.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
     afterSetEndDateField(value, oldValue) {
         super.afterSetEndDateField(value, oldValue);
         if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
         if (this.dependencyLayer) { this.dependencyLayer.endDateField = value; this.syncDependencyLayer() }
     }
 
-    /** @summary Forwards viewport size changes to the overlay. */
+    /**
+     * @summary Forwards viewport size changes to the overlay.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
     afterSetViewportWidth(value, oldValue) {
         super.afterSetViewportWidth(value, oldValue);
         if (oldValue !== undefined && this.dependencyLayer) { this.dependencyLayer.viewportWidth = value; this.syncDependencyLayer() }
     }
 
-    /** @summary Keeps the overlay in the chart's window. */
+    /**
+     * @summary Keeps the overlay in the chart's window.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
     afterSetWindowId(value, oldValue) {
         super.afterSetWindowId(value, oldValue);
         if (this.dependencyLayer) this.dependencyLayer.windowId = value
     }
 
-    /** @summary Updates the overlay after an axis replacement. */
+    /**
+     * @summary Updates the overlay after an axis replacement.
+     * @param {Neo.timeline.TimeAxis|null} value
+     * @param {Neo.timeline.TimeAxis|null} oldValue
+     * @protected
+     */
     afterSetTimeAxis(value, oldValue) {
         super.afterSetTimeAxis(value, oldValue);
         if (oldValue !== undefined) this.#analysis?.invalidateSchedule();
         if (this.dependencyLayer) { this.dependencyLayer.timeAxis = value; this.bindTimelineSubscriptions(); this.syncDependencyLayer() }
     }
 
-    /** @summary Reschedules task spans and dependent tasks through the writer when the working-calendar mode flips. */
+    /**
+     * @summary Reschedules task spans and dependent tasks through the writer when the working-calendar mode flips.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
     afterSetUseWorkingTime(value, oldValue) {
         if (oldValue !== undefined && Boolean(value) !== Boolean(oldValue)) {
             if (this.isConstructed) {
@@ -296,7 +496,11 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary Subscribes to committed service changes and releases an earlier service. */
+    /**
+     * @summary Subscribes to committed service changes and releases an earlier service.
+     * @param {Neo.gantt.Container.GanttScheduleService|null} value
+     * @protected
+     */
     afterSetSchedule(value) {
         this.#pendingCleanup?.();
         this.#pendingCleanup = null;
@@ -309,7 +513,12 @@ class Container extends SchedulerContainer {
         }) || null
     }
 
-    /** @summary Checks that an external service still describes the chart's current stores. */
+    /**
+     * @summary Checks that an external service still describes the chart's current stores.
+     * @param {Neo.gantt.Container.GanttScheduleService|null} service The service to check
+     * @returns {Boolean}
+     * @private
+     */
     #usesService(service) {
         return Boolean(service && service === this.schedule && !service.isDestroyed &&
             (!('store' in service) || service.store === this.store) &&
@@ -319,6 +528,12 @@ class Container extends SchedulerContainer {
     /**
      * @summary Publishes a service's committed receipt without repeating its writes. A receipt committed within
      * the edit moves its tasks (`animate`); one settled later lands in one update.
+     * @param {Neo.data.Model}                           record          The edited task
+     * @param {Neo.gantt.Container.GanttScheduleReceipt} result          The service's committed receipt
+     * @param {Object}                                   meta            The edit's gesture source and resize edge
+     * @param {Boolean}                                  [animate=false] True moves the changed tasks when {@link #animateCascade} is on
+     * @returns {Object} The published `{updates, cascaded, cycles}`
+     * @private
      */
     #publishServiceResult(record, result, meta, animate=false) {
         const convert = (row, fields={}) => Object.fromEntries(Object.entries(fields).map(([key, value]) =>
@@ -334,12 +549,19 @@ class Container extends SchedulerContainer {
             record[this.startDateField], record[this.endDateField])
     }
 
-    /** @summary Rebuilds columns when task column configuration changes. */
+    /**
+     * @summary Rebuilds columns when task column configuration changes.
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
     afterSetTaskColumns(value, oldValue) {
         if (oldValue !== undefined && this.configsApplied && this._columns) this.createColumns(null, this._columns)
     }
 
-    /** @summary Subscribes to axis and viewport changes used by the overlay. A scroll lands a running cascade move. */
+    /**
+     * @summary Subscribes to axis and viewport changes used by the overlay. A scroll lands a running cascade move.
+     */
     bindTimelineSubscriptions() {
         const {body} = this;
         this.#cleanups.forEach(fn => fn());
@@ -366,7 +588,10 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary Updates the dependency layer from the current chart geometry. */
+    /**
+     * @summary Updates the dependency layer from the current chart geometry.
+     * @returns {Object[]} The projected arrow descriptors
+     */
     syncDependencyLayer() {
         const layer = this.ensureDependencyLayer();
         if (!layer) return [];
@@ -410,7 +635,13 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary Adds an admitted finish-to-start link. */
+    /**
+     * @summary Adds an admitted finish-to-start link.
+     * @param {Object}                       [input={}]     The proposed link; its other fields go into the edge
+     * @param {Neo.data.Model|String|Number} [input.fromId] The predecessor task or its key
+     * @param {Neo.data.Model|String|Number} [input.toId]   The successor task or its key
+     * @returns {Object} The committed edge, a refusal, or the service's result
+     */
     linkTasks(input={}) {
         const from = this.resolveTaskRecord(input?.fromId), to = this.resolveTaskRecord(input?.toId);
         if (!to || !this.dependencyStore || !this.canLinkTasks(from, to)) return {status: 'refused', reason: 'invalid-endpoints'};
@@ -424,9 +655,9 @@ class Container extends SchedulerContainer {
 
     /**
      * @summary Uses one writer for timeline edits and retains service receipts.
-     * @param {Neo.data.Model} record The task being edited.
-     * @param {Object} changes Changes keyed by their configured field names.
-     * @param {Object} [meta] Gesture source and resize information.
+     * @param {Neo.data.Model} record    The task being edited.
+     * @param {Object}         changes   Changes keyed by their configured field names.
+     * @param {Object}         [meta={}] Gesture source and resize information.
      * @returns {Object|Boolean} Applied changes or a service receipt; false when the gesture did not commit.
      */
     commitTimelineEdit(record, changes, meta={}) {
@@ -438,7 +669,13 @@ class Container extends SchedulerContainer {
         return result ?? false
     }
 
-    /** @summary Adapts inherited keyboard edits to the task writer. */
+    /**
+     * @summary Adapts inherited keyboard edits to the task writer.
+     * @param {Neo.data.Model|Object|String|Number} record       Task, key, or the single-object form of {@link #moveTask}
+     * @param {Object}                              [changes={}] The requested changes, passed on to {@link #moveTask}
+     * @param {Object}                              [meta={}]    The gesture metadata, passed on to {@link #moveTask}
+     * @returns {Object|null} The applied updates, or null when the edit did not commit
+     */
     moveEvent(record, changes={}, meta={}) {
         const result = this.moveTask(record, changes, meta);
         if (result?.status && result.status !== 'committed') {
@@ -448,7 +685,10 @@ class Container extends SchedulerContainer {
         return result?.updates || null
     }
 
-    /** @summary Releases owned dependencies and all chart subscriptions. */
+    /**
+     * @summary Releases owned dependencies and all chart subscriptions.
+     * @param {...*} args Passed on to the scheduler
+     */
     destroy(...args) {
         this.#pendingCleanup?.();
         this.#serviceCleanup?.();
@@ -467,21 +707,45 @@ class Container extends SchedulerContainer {
         if (tasks && this.#ownedTasks.has(tasks)) tasks.destroy()
     }
 
-    /** @summary Computes a lagged timestamp. */
+    /**
+     * @summary Computes a lagged timestamp.
+     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.addLag} after its chart
+     * @returns {Number} Resulting instant in milliseconds
+     */
     addLag(...args) { return Cascade.addLag(this, ...args) }
-    /** @summary Converts lag to milliseconds. */
+
+    /**
+     * @summary Converts lag to milliseconds.
+     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.convertLagToMs}
+     * @returns {Number} Lag in milliseconds
+     */
     convertLagToMs(...args) { return Cascade.convertLagToMs(...args) }
-    /** @summary Computes a successor start. */
+
+    /**
+     * @summary Computes a successor start.
+     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.computeRequiredStartMs} after its chart
+     * @returns {Number} Required start in milliseconds
+     */
     computeRequiredStartMs(...args) { return Cascade.computeRequiredStartMs(this, ...args) }
-    /** @summary Cascades dependency changes and reports cycles. */
+
+    /**
+     * @summary Cascades dependency changes and reports cycles.
+     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.runDependencyCascade} after its chart
+     * @returns {Object[]} Changed successors with dependency, dates, changes and previous values
+     */
     runDependencyCascade(...args) { return Cascade.runDependencyCascade(this, ...args) }
-    /** @summary Plans task span updates across a working-calendar switch. */
+
+    /**
+     * @summary Plans task span updates across a working-calendar switch.
+     * @param {...*} args The arguments of {@link Neo.gantt.Cascade.planWorkingTimeSchedule} after its chart
+     * @returns {Object[]} Changed task entries
+     */
     planWorkingTimeSchedule(...args) { return Cascade.planWorkingTimeSchedule(this, ...args) }
 
     /**
      * @summary Recomputes task spans and reachable dependencies when {@link #useWorkingTime} changes, publishing through the writer.
      * @param {Boolean} [useWorking=Boolean(this.useWorkingTime)] Target working-calendar mode.
-     * @param {Boolean} [wasWorking=!useWorking] Prior working-calendar mode.
+     * @param {Boolean} [wasWorking=!useWorking]                  Prior working-calendar mode.
      * @returns {Object|null} Published task-change summary, service receipt, or `null` when no dates changed.
      */
     rescheduleWorkingTime(useWorking=Boolean(this.useWorkingTime), wasWorking=!useWorking) {
@@ -622,7 +886,10 @@ class Container extends SchedulerContainer {
      */
     getEventDragZoneDefaults() { return {} }
 
-    /** @summary Creates the dependency overlay and mounts it in the center body. */
+    /**
+     * @summary Creates the dependency overlay and mounts it in the center body.
+     * @returns {Neo.gantt.DependencyLayer}
+     */
     ensureDependencyLayer() {
         const me = this;
 
@@ -655,7 +922,11 @@ class Container extends SchedulerContainer {
         return me.dependencyLayer
     }
 
-    /** @summary Configures the shared editor for task records. */
+    /**
+     * @summary Configures the shared editor for task records.
+     * @returns {Object}
+     * @protected
+     */
     getDefaultEditorConfig() {
         return {
             showResourceField: false,
@@ -663,7 +934,10 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary Collects task records across expanded and collapsed tree branches. */
+    /**
+     * @summary Collects task records across expanded and collapsed tree branches.
+     * @returns {Neo.data.Model[]}
+     */
     collectAllTasks() {
         const
             store   = this.store,
@@ -722,14 +996,22 @@ class Container extends SchedulerContainer {
         return records
     }
 
-    /** @summary Checks whether the configured link affordance accepts the endpoints. */
+    /**
+     * @summary Checks whether the configured link affordance accepts the endpoints.
+     * @param {Neo.data.Model}      from      The predecessor task
+     * @param {Neo.data.Model|null} [to=null] The successor task; null asks whether `from` can start a link
+     * @returns {Boolean}
+     */
     canLinkTasks(from, to=null) {
         const allowed = this.dependencyCreation;
         return Boolean(allowed && from && from !== to && !this.store?.isDerivedParent?.(to) &&
             (allowed === true || typeof allowed === 'function' && allowed(from, to)))
     }
 
-    /** @summary Creates the live region used for keyboard link announcements. */
+    /**
+     * @summary Creates the live region used for keyboard link announcements.
+     * @private
+     */
     #ensureKeyboardLinkStatus() {
         this.#keyboardLinkStatus ??= this.add({
             module: Component, cls: ['neo-gantt-link-status'], role: 'status', text: '',
@@ -737,7 +1019,12 @@ class Container extends SchedulerContainer {
         }, !this.vnodeInitialized)
     }
 
-    /** @summary Arms or clears the first keyboard link endpoint. */
+    /**
+     * @summary Arms or clears the first keyboard link endpoint.
+     * @param {Neo.data.Model|null} record       The task to arm, or null to clear
+     * @param {String|null}         [barId=null] The id of the task's rendered bar
+     * @private
+     */
     #setKeyboardLinkSource(record, barId=null) {
         const previous = this.#keyboardLinkSource;
         if (!previous && !record) return;
@@ -750,13 +1037,20 @@ class Container extends SchedulerContainer {
         row?.createVdom(false, false)
     }
 
-    /** @summary Checks whether a rendered bar owns the armed endpoint. */
+    /**
+     * @summary Checks whether a rendered bar owns the armed endpoint.
+     * @param {Neo.data.Model} record The task the bar draws
+     * @param {String}         barId  The bar's node id
+     * @returns {Boolean}
+     */
     isKeyboardLinkSource(record, barId) {
         const source = this.#keyboardLinkSource;
         return Boolean(source && source.record === record && source.barId === barId)
     }
 
-    /** @summary Discards a keyboard endpoint whose row was recycled. */
+    /**
+     * @summary Discards a keyboard endpoint whose row was recycled.
+     */
     checkKeyboardLinkSource() {
         const source = this.#keyboardLinkSource;
         if (source && (!this.resolveTaskRecord(source.record) || source.row?.record !== source.record ||
@@ -765,10 +1059,17 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary Cancels the active keyboard link gesture. */
+    /**
+     * @summary Cancels the active keyboard link gesture.
+     */
     cancelKeyboardLink() { this.#setKeyboardLinkSource(null) }
 
-    /** @summary Routes link keys and delegates ordinary task editing keys. */
+    /**
+     * @summary Routes link keys and delegates ordinary task editing keys.
+     * @param {Object} [data={}] The keydown event data
+     * @returns {Neo.timeline.EventEditor|Object|null|undefined} A link result, or what the scheduler's handler returns
+     * @protected
+     */
     onBarKeyDown(data={}) {
         if (data.key === 'Escape') this.#setKeyboardLinkSource(null);
         if (!this.dependencyCreation || data.altKey || data.ctrlKey || data.metaKey || data.key?.toLowerCase() !== 'l') {
@@ -783,12 +1084,24 @@ class Container extends SchedulerContainer {
         else if (this.canLinkTasks(target)) this.#setKeyboardLinkSource(target, barNode.id)
     }
 
-    /** @summary Opens the shared editor for a task record. */
+    /**
+     * @summary Opens the shared editor for a task record.
+     * @param {Neo.data.Model|String|Number} taskIdOrRecord The task or its key
+     * @param {String|null}                  [barId=null]   The id of the bar the editor opens from
+     * @returns {Neo.timeline.EventEditor|null}
+     */
     openTaskEditor(taskIdOrRecord, barId=null) {
         return this.openEventEditor(taskIdOrRecord, barId)
     }
 
-    /** @summary Admits task move and dependency-link gestures. */
+    /**
+     * @summary Admits task move and dependency-link gestures.
+     * @param {Neo.gantt.EventDragZone} zone   Gesture zone.
+     * @param {Object[]}                path   Pointer path.
+     * @param {Neo.data.Model}          record The task under the pointer
+     * @returns {Object|null} `{terminal}` for an admitted gesture, else null
+     * @protected
+     */
     getBarDragContext(zone, path, record) {
         const terminal = zone.getLinkTerminal(path);
         if (terminal ? !this.dependencyCreation : !this.barDraggable || this.store?.isDerivedParent?.(record)) return null;
@@ -796,12 +1109,20 @@ class Container extends SchedulerContainer {
         return {terminal: terminal || null}
     }
 
-    /** @summary Resolves a task key or verifies a record belongs to the task store. */
+    /**
+     * @summary Resolves a task key or verifies a record belongs to the task store.
+     * @param {Neo.data.Model|String|Number} taskIdOrRecord The task or its key
+     * @returns {Neo.data.Model|null}
+     */
     resolveTaskRecord(taskIdOrRecord) {
         return this.resolveEventRecord(taskIdOrRecord)
     }
 
-    /** @summary Lands a running cascade move, then updates the axis scale and dependency projection. */
+    /**
+     * @summary Lands a running cascade move, then updates the axis scale and dependency projection.
+     * @param {String|Object} presetOrConfig A named zoom preset or a `timeAxis` config
+     * @returns {Neo.timeline.TimeAxis|null}
+     */
     zoomTo(presetOrConfig) {
         this.#cascadeMotion?.end();
         const axis = super.zoomTo(presetOrConfig);
@@ -811,10 +1132,10 @@ class Container extends SchedulerContainer {
 
     /**
      * @summary Updates a task and cascades dependent task dates.
-     * @param {Neo.data.Model|String|Number|Object} taskIdOrRecord Task, key, or an object containing a task key and changes.
-     * @param {Object} [changes={}] Start, end, title, completion, or additional fields under `fields`.
-     * @param {Object} [meta={}] Source, resize edge, and optional clamp and cascade controls.
-     * @param {String} [meta.source='api'] Edit origin delivered as `taskChange.changeSource`; the event's `source` is the sender id.
+     * @param {Neo.data.Model|String|Number|Object} taskIdOrRecord      Task, key, or an object containing a task key and changes.
+     * @param {Object}                              [changes={}]        Start, end, title, completion, or additional fields under `fields`.
+     * @param {Object}                              [meta={}]           Source, resize edge, and optional clamp and cascade controls.
+     * @param {String}                              [meta.source='api'] Edit origin delivered as `taskChange.changeSource`; the event's `source` is the sender id.
      * @returns {Object|null} Updates and cascade details, an external service receipt, or null for a no-op.
      */
     moveTask(taskIdOrRecord, changes={}, meta={}) {
@@ -1109,10 +1430,11 @@ class Container extends SchedulerContainer {
     /**
      * @summary With {@link #animateCascade}, moves the changed tasks from their previous dates to their current ones.
      * A drag or resize already showed its task at the new dates in its preview, so that task stays there.
-     * @param {Neo.data.Model} record The edited task
-     * @param {Object} previous Its previous values
-     * @param {Object[]} cascaded `{record, previous}` per changed successor
-     * @param {Object} meta The edit's gesture source
+     * @param {Neo.data.Model} record   The edited task
+     * @param {Object}         previous Its previous values
+     * @param {Object[]}       cascaded `{record, previous}` per changed successor
+     * @param {Object}         meta     The edit's gesture source
+     * @private
      */
     #moveCascade(record, previous, cascaded, meta) {
         if (this.animateCascade) {
@@ -1121,12 +1443,28 @@ class Container extends SchedulerContainer {
         }
     }
 
-    /** @summary The chart's cascade motion, created on first use. @returns {Neo.gantt.CascadeMotion} */
+    /**
+     * @summary The chart's cascade motion, created on first use.
+     * @returns {Neo.gantt.CascadeMotion}
+     * @private
+     */
     #motion() {
         return this.#cascadeMotion ??= Neo.create(CascadeMotion, {chart: this})
     }
 
-    /** @summary Emits the settled task edit. */
+    /**
+     * @summary Emits the settled task edit.
+     * @param {Neo.data.Model} record   The edited task
+     * @param {Object}         updates  Its changed fields
+     * @param {Object}         previous The previous values of those fields
+     * @param {Object[]}       cascaded The changed successors with their `record`, `changes` and `previous`
+     * @param {String[]}       cycles   Dependency identifiers found in cycles during the edit
+     * @param {Object}         meta     The edit's action, source and resize edge
+     * @param {Number|Date}    startMs  The edited task's resulting start
+     * @param {Number|Date}    endMs    The edited task's resulting end
+     * @returns {Object} `{updates, cascaded, cycles}`
+     * @private
+     */
     #publishTaskChange(record, updates, previous, cascaded, cycles, meta, startMs, endMs) {
         const
             action       = meta.action || (meta.resizeEdge ? 'resize' : 'move'),
@@ -1198,21 +1536,21 @@ class Container extends SchedulerContainer {
  * @event taskChange
  * @memberof Neo.gantt.Container
  * @instance
- * @param {Object} data
- * @param {Neo.data.Model} data.record Edited task.
- * @param {Object} data.changes Changed primary fields. `updates` is an alias for this object.
- * @param {Object} data.updates Changed primary fields.
- * @param {Object} data.previous Previous values of those fields.
- * @param {Object[]} data.cascaded Successors with their `record`, `changes` and `previous` fields.
- * @param {Object} data.changesById All changed fields indexed by task store key.
- * @param {Object} data.previousById Previous values indexed by the same keys.
- * @param {String[]} data.cycles Dependency identifiers encountered in cycles during this edit.
- * @param {Date} data.startDate Resulting start of the edited task.
- * @param {Date} data.endDate Resulting end of the edited task.
- * @param {String} data.action Edit action, e.g. `move` or `resize`.
- * @param {String} data.changeSource Origin of the edit, e.g. `api`, `editor` or `keyboard`.
- * @param {String} data.source The sender's component id.
- * @param {'start'|'end'|null} data.resizeEdge The edge moved for a resize.
+ * @param {Object}             data
+ * @param {Neo.data.Model}     data.record       Edited task.
+ * @param {Object}             data.changes      Changed primary fields. `updates` is an alias for this object.
+ * @param {Object}             data.updates      Changed primary fields.
+ * @param {Object}             data.previous     Previous values of those fields.
+ * @param {Object[]}           data.cascaded     Successors with their `record`, `changes` and `previous` fields.
+ * @param {Object}             data.changesById  All changed fields indexed by task store key.
+ * @param {Object}             data.previousById Previous values indexed by the same keys.
+ * @param {String[]}           data.cycles       Dependency identifiers encountered in cycles during this edit.
+ * @param {Date}               data.startDate    Resulting start of the edited task.
+ * @param {Date}               data.endDate      Resulting end of the edited task.
+ * @param {String}             data.action       Edit action, e.g. `move` or `resize`.
+ * @param {String}             data.changeSource Origin of the edit, e.g. `api`, `editor` or `keyboard`.
+ * @param {String}             data.source       The sender's component id.
+ * @param {'start'|'end'|null} data.resizeEdge   The edge moved for a resize.
  */
 
 /**
@@ -1220,9 +1558,9 @@ class Container extends SchedulerContainer {
  * @event dependencyCycle
  * @memberof Neo.gantt.Container
  * @instance
- * @param {Object} data
+ * @param {Object}         data
  * @param {Neo.data.Model} data.record The task whose edit started the cascade.
- * @param {String[]} data.cycles Identifiers of the dependency edges reported by the cascade.
+ * @param {String[]}       data.cycles Identifiers of the dependency edges reported by the cascade.
  */
 
 /**
@@ -1231,8 +1569,8 @@ class Container extends SchedulerContainer {
  * @event scheduleResult
  * @memberof Neo.gantt.Container
  * @instance
- * @param {Object} data
- * @param {Neo.data.Model} data.record The task whose edit was attempted.
+ * @param {Object}                                   data
+ * @param {Neo.data.Model}                           data.record The task whose edit was attempted.
  * @param {Neo.gantt.Container.GanttScheduleReceipt} data.result The service outcome.
  */
 

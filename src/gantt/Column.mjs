@@ -7,12 +7,18 @@ import TimelineColumn  from '../timeline/Column.mjs';
  * @extends Neo.timeline.Column
  */
 class Column extends TimelineColumn {
-    static config = {className: 'Neo.gantt.Column'}
+    static config = {
+        /**
+         * @member {String} className='Neo.gantt.Column'
+         * @protected
+         */
+        className: 'Neo.gantt.Column'
+    }
 
     /**
      * @summary Adds task-kind styling, milestone diamond geometry, a link terminal and the current link-target highlight to a timeline bar.
      * @param {Object} descriptor Task bar geometry and record.
-     * @param {Object} context Renderer context containing the Gantt and row record.
+     * @param {Object} context    Renderer context containing the Gantt and row record.
      * @returns {Object} Bar VDOM with the Gantt affordances.
      */
     buildBarVdom(descriptor, context) {
@@ -79,9 +85,9 @@ class Column extends TimelineColumn {
 
     /**
      * @summary Draws a task a cascade is moving over its in-flight span ({@link Neo.gantt.Container#drawnSpans}).
-     * @param {Neo.data.Model} item Task record
-     * @param {Number} startMs
-     * @param {Number} endMs
+     * @param {Neo.data.Model} item    Task record
+     * @param {Number}         startMs The record's start
+     * @param {Number}         endMs   The record's end
      * @returns {Number[]}
      * @protected
      */

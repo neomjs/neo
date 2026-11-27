@@ -12,12 +12,42 @@ import Store           from '../data/Store.mjs';
  * @see Neo.gantt.DependencyLayer
  */
 class DependencyStore extends Store {
-    #indexedCount        = -1
-    #indexedItems        = null
-    #indexedMutations    = -1
+    /**
+     * The store's count when the endpoint index was built, -1 without an index.
+     * @member {Number} #indexedCount=-1
+     * @private
+     */
+    #indexedCount = -1
+    /**
+     * The items array the endpoint index was built from, null without an index.
+     * @member {Object[]|null} #indexedItems=null
+     * @private
+     */
+    #indexedItems = null
+    /**
+     * The store's mutation count when the endpoint index was built, -1 without an index.
+     * @member {Number} #indexedMutations=-1
+     * @private
+     */
+    #indexedMutations = -1
+    /**
+     * The write epoch of each record class in the endpoint index, null without an index.
+     * @member {Map|null} #indexedRecordEpochs=null
+     * @private
+     */
     #indexedRecordEpochs = null
-    #predecessors        = null
-    #successors          = null
+    /**
+     * The incoming edges of each task by its id, null without an index.
+     * @member {Map|null} #predecessors=null
+     * @private
+     */
+    #predecessors = null
+    /**
+     * The outgoing edges of each task by its id, null without an index.
+     * @member {Map|null} #successors=null
+     * @private
+     */
+    #successors = null
 
     static config = {
         /**
@@ -43,9 +73,14 @@ class DependencyStore extends Store {
 
     /**
      * @summary Checks a proposed finish-to-start link in a store of dependency records.
-     * @param {Neo.data.Store} store Dependency store bound to the chart.
-     * @param {Object} input Endpoints already resolved against the chart's task store.
-     * @param {Neo.gantt.TaskStore} [tasks] Structural parents also depend on their children in a rollup plan.
+     * @param {Neo.data.Store}      store             Dependency store bound to the chart.
+     * @param {Object}              input             Endpoints already resolved against the chart's task store.
+     * @param {String|Number}       input.fromId      Predecessor task key
+     * @param {String|Number}       input.toId        Successor task key
+     * @param {String|Number}       [input.id]        Key for the new edge; one that exists refuses the link
+     * @param {String}              [input.type='FS'] Dependency type; only `'FS'` is admitted
+     * @param {Number}              [input.lag=0]     Lag; only zero is admitted
+     * @param {Neo.gantt.TaskStore} [tasks]           Structural parents also depend on their children in a rollup plan.
      * @returns {String|null} Refusal reason, or null when the gesture may offer this link.
      */
     static getFinishToStartRefusal(store, {fromId, toId, id, type='FS', lag=0}, tasks) {
@@ -76,7 +111,8 @@ class DependencyStore extends Store {
 
     /**
      * @summary Previews the same link validation used by {@link #addFinishToStart}.
-     * @param {Object} input Proposed link.
+     * @param {Object}              input   Proposed link.
+     * @param {Neo.gantt.TaskStore} [tasks] The chart's task store, whose phases count in a rollup plan
      * @returns {String|null} Refusal reason, or null if eligible.
      */
     getFinishToStartRefusal(input, tasks) {
@@ -85,7 +121,8 @@ class DependencyStore extends Store {
 
     /**
      * @summary Creates a zero-lag finish-to-start edge if it adds a new, acyclic relation.
-     * @param {Object} input Endpoints already resolved against the chart's task store.
+     * @param {Object}              input   Endpoints already resolved against the chart's task store.
+     * @param {Neo.gantt.TaskStore} [tasks] The chart's task store, whose phases count in a rollup plan
      * @returns {Object} Committed edge or the reason for refusing the link.
      */
     addFinishToStart(input, tasks) {
@@ -206,8 +243,8 @@ class DependencyStore extends Store {
 
     /**
      * @summary Returns a fresh array of cached edges for one endpoint direction.
-     * @param {String|Number} taskId
-     * @param {Boolean} incoming
+     * @param {String|Number} taskId   The task whose edges are read
+     * @param {Boolean}       incoming True reads the edges that end at the task, false those that start at it
      * @returns {Neo.gantt.DependencyModel[]}
      * @private
      */
@@ -223,8 +260,8 @@ class DependencyStore extends Store {
 
     /**
      * @summary Invalidates endpoint bucket order after moving an item in place.
-     * @param {Number} fromIndex
-     * @param {Number} toIndex
+     * @param {Number} fromIndex The item's current index
+     * @param {Number} toIndex   The index it moves to
      */
     move(fromIndex, toIndex) {
         super.move(fromIndex, toIndex);
@@ -243,7 +280,7 @@ class DependencyStore extends Store {
 
     /**
      * @summary Invalidates endpoint bucket order after in-place sorting.
-     * @param {Object[]} arr
+     * @param {Object[]} arr The array being sorted in place
      * @protected
      */
     sortArray(arr) {
@@ -255,8 +292,8 @@ class DependencyStore extends Store {
 
     /**
      * @summary Invalidates cached endpoints when `updateRows` modifies `fromId` or `toId`.
-     * @param {Object[]} rows
-     * @returns {Error[]}
+     * @param {Object[]} rows One per row: `{item, key, values}`
+     * @returns {Error[]} The errors subscribers threw while the records published
      * @protected
      */
     writeRows(rows) {
@@ -281,7 +318,7 @@ class DependencyStore extends Store {
 
     /**
      * @summary Returns all dependency records whose `toId` matches `taskId`.
-     * @param {String|Number} taskId
+     * @param {String|Number} taskId The task's key
      * @returns {Neo.gantt.DependencyModel[]}
      */
     getPredecessors(taskId) {
@@ -290,7 +327,7 @@ class DependencyStore extends Store {
 
     /**
      * @summary Returns all dependency records whose `fromId` matches `taskId`.
-     * @param {String|Number} taskId
+     * @param {String|Number} taskId The task's key
      * @returns {Neo.gantt.DependencyModel[]}
      */
     getSuccessors(taskId) {

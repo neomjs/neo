@@ -24,24 +24,29 @@ const ARROW_STUB_PX = 12;
  * @see Neo.gantt.DependencyStore
  */
 class DependencyLayer extends Component {
-    /** Instances created from this layer's own configuration. */
+    /**
+     * Instances created from this layer's own configuration.
+     * @member {WeakSet} #ownedInputs
+     * @private
+     */
     #ownedInputs = new WeakSet()
 
     /**
      * @summary Computes the integer half-diagonal in pixels of a Gantt milestone diamond for a given row height.
-     * @param {Number} [rowHeight=48]
+     * @param {Number} [rowHeight=48] The row height in pixels
      * @returns {Number}
      */
     static milestoneHalfSize(rowHeight=48) {
         return Math.max(7, Math.round((rowHeight || 48) * 0.28))
     }
+
     /**
      * @summary Gets the same endpoint id as a native Record without materializing a plain-id task.
      * Other fields on a raw row may already have been derived by its Store.
-     * @param {Neo.gantt.TaskStore} store
-     * @param {Object} row
-     * @param {Number} index Visible row index
-     * @param {Map} plainIds Per-projection cache by row model
+     * @param {Neo.gantt.TaskStore} store    The task store that holds the row
+     * @param {Object}              row      A record, or a raw row of the store
+     * @param {Number}              index    Visible row index
+     * @param {Map}                 plainIds Per-projection cache by row model
      * @returns {*} Native projected task id
      */
     static projectedTaskId(store, row, index, plainIds) {
@@ -168,7 +173,7 @@ class DependencyLayer extends Component {
 
     /**
      * Normalized string set of `highlightedDependencyIds` for $O(1)$ lookup during SVG arrow projection.
-     * @member {Set<String>} #highlightedDependencySet=new Set()
+     * @member {Set<String>} #highlightedDependencySet
      * @private
      */
     #highlightedDependencySet = new Set()
@@ -180,11 +185,26 @@ class DependencyLayer extends Component {
      */
     #hasProjectedWindow = false
 
-    /** Fixed-row route inputs admitted by the last data or horizontal-window change. */
+    /**
+     * Fixed-row route inputs admitted by the last data or horizontal-window change.
+     * @member {Object[]} #routes=[]
+     * @private
+     */
     #routes = []
 
-    /** Physical page geometry supplied by the center body. Standalone layers use logical coordinates. */
+    /**
+     * The height in pixels of the grid's physical scroll page, supplied by the center body. Standalone layers
+     * use logical coordinates and keep Infinity.
+     * @member {Number} #pageHeight=Infinity
+     * @private
+     */
     #pageHeight = Infinity
+
+    /**
+     * The offset in pixels of the grid's current physical page, supplied by the center body.
+     * @member {Number} #pageOffset=0
+     * @private
+     */
     #pageOffset = 0
 
     /**
@@ -202,7 +222,8 @@ class DependencyLayer extends Component {
     #projectedMinPx = 0
 
     /**
-     * @param {Object} config
+     * @summary Constructs the layer and projects its first arrows.
+     * @param {Object} config The instance config
      */
     construct(config) {
         super.construct(config);
@@ -295,21 +316,43 @@ class DependencyLayer extends Component {
         return axis
     }
 
-    /** @summary Releases an owned input when its replacement is installed. */
+    /**
+     * @summary Releases an owned input when its replacement is installed.
+     * @param {Neo.gantt.DependencyStore|null} value
+     * @param {Neo.gantt.DependencyStore|null} oldValue
+     * @protected
+     */
     afterSetDependencyStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
 
-    /** @summary Releases an owned input when its replacement is installed. */
+    /**
+     * @summary Releases an owned input when its replacement is installed.
+     * @param {Neo.gantt.TaskStore|null} value
+     * @param {Neo.gantt.TaskStore|null} oldValue
+     * @protected
+     */
     afterSetTaskStore(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
 
-    /** @summary Releases an owned input when its replacement is installed. */
+    /**
+     * @summary Releases an owned input when its replacement is installed.
+     * @param {Neo.timeline.TimeAxis|null} value
+     * @param {Neo.timeline.TimeAxis|null} oldValue
+     * @protected
+     */
     afterSetTimeAxis(value, oldValue) { this.releaseOwnedInput(value, oldValue) }
 
-    /** @summary Retires a replaced input created by this layer. @param {*} value @param {*} oldValue */
+    /**
+     * @summary Retires a replaced input created by this layer.
+     * @param {*} value    The input being installed
+     * @param {*} oldValue The input it replaces
+     */
     releaseOwnedInput(value, oldValue) {
         if (oldValue && oldValue !== value && this.#ownedInputs.has(oldValue)) oldValue.destroy()
     }
 
-    /** @summary Releases only inputs constructed by this layer. @param {...*} args */
+    /**
+     * @summary Releases only inputs constructed by this layer.
+     * @param {...*} args Passed on to the component
+     */
     destroy(...args) {
         const inputs = [this.dependencyStore, this.taskStore, this.timeAxis];
         super.destroy(...args);
@@ -324,12 +367,12 @@ class DependencyLayer extends Component {
      * milestone whose label sits immediately to the right of its diamond — turns at the row boundary next to its source,
      * where no bar or milestone label stands, and drops in a stub left of its target: a run through the source row or
      * intermediate rows would cross milestone labels or bars starting on the same date.
-     * @param {Number} x1
-     * @param {Number} y1
-     * @param {Number} x2
-     * @param {Number} y2
-     * @param {String} [type='FS'] `'FS' | 'SS' | 'FF' | 'SF'`
-     * @param {Boolean} [fromMilestone=false]
+     * @param {Number}  x1                    The link's start x in pixels
+     * @param {Number}  y1                    The link's start y in pixels
+     * @param {Number}  x2                    The link's end x in pixels
+     * @param {Number}  y2                    The link's end y in pixels
+     * @param {String}  [type='FS']           `'FS' | 'SS' | 'FF' | 'SF'`
+     * @param {Boolean} [fromMilestone=false] True when the source is a milestone, whose label stands right of its diamond
      * @returns {String}
      */
     buildPathD(x1, y1, x2, y2, type='FS', fromMilestone=false) {
@@ -368,8 +411,8 @@ class DependencyLayer extends Component {
      * @summary Returns `true` when `[scrollLeft, scrollLeft + viewportWidth]` steps outside the last projected
      * `[#projectedMinPx, #projectedMaxPx]` buffer window.
      * @description Delegates to {@link Neo.timeline.TimeAxis.needsReprojection}.
-     * @param {Number} [scrollLeft=this.scrollLeft] Center-content pixels, from which {@link #axisLeft} is subtracted
-     * @param {Number} [viewportWidth=this.viewportWidth]
+     * @param {Number} [scrollLeft=this.scrollLeft]       Center-content pixels, from which {@link #axisLeft} is subtracted
+     * @param {Number} [viewportWidth=this.viewportWidth] The visible width in pixels
      * @returns {Boolean}
      */
     needsReprojection(scrollLeft=this.scrollLeft, viewportWidth=this.viewportWidth) {
